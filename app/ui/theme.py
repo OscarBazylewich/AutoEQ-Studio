@@ -10,6 +10,9 @@ own setting (and changing with it). Every screen uses the same parts, so the EQ 
 apply(app) sets the style, palette and stylesheet; tokens() gives the colours in use (light or dark). With one of
 Windows' contrast themes on (Settings > Accessibility > Contrast themes) the colours are Windows' own for it
 (system_tokens(): window, text, highlight, links, grey text), followed when it's switched while the app runs.
+
+The colours themselves are in theme_tokens.py (LIGHT, DARK), the stylesheet's rules in theme_sheet.py (in parts,
+by kind of control; _stylesheet() joins them).
 """
 import re
 
@@ -17,17 +20,8 @@ from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QColor, QGuiApplication, QPalette
 from PySide6.QtWidgets import QWidget
 
-LIGHT = {"bg": "#f4f4f1", "card": "#ffffff", "ink": "#0b0b0b", "ink2": "#52514e", "muted": "#6b6a65",
-         "line": "#e4e3de", "field": "#fbfbfa", "meas": "#eb6834", "tgt": "#52514e", "c1": "#1f68bf", "c2": "#1baf7a",
-         "c3": "#4a3aa7", "c4": "#e34948", "c5": "#eda100", "sel": "#e3eefb", "shade": "#efeee9", "warn": "#b35a00",
-         "err": "#c62828", "btn": "#226cc4", "good": "#107a55", "pill": "#eef5ea", "grid": "#e4e3de",
-         "on_btn": "#ffffff", "on_sel": "#ffffff", "sel_ink": "#0b0b0b", "sel_accent": "#1f68bf"}
-DARK = {"bg": "#111110", "card": "#1a1a19", "ink": "#ffffff", "ink2": "#c3c2b7", "muted": "#9d9c94", "line": "#34332f",
-        "field": "#141413", "meas": "#d95926", "tgt": "#c3c2b7", "c1": "#5a9cf0", "c2": "#199e70", "c3": "#9085e9",
-        "c4": "#e66767", "c5": "#c98500", "sel": "#1c3350", "shade": "#1f1f1d", "warn": "#f0a050", "err": "#ef7b7b",
-        "btn": "#2a70cc", "good": "#199e70", "pill": "#1f3325", "grid": "#2a2a27",
-        "on_btn": "#ffffff", "on_sel": "#ffffff", "sel_ink": "#ffffff", "sel_accent": "#5a9cf0"}
-# (sel_ink, sel_accent: text on sel, the selected or checked background; in a contrast theme Windows' HighlightText)
+from ui import theme_sheet
+from ui.theme_tokens import DARK, LIGHT  # (the colours: other code still takes LIGHT and DARK from here)
 
 _state = {"dark": False, "listeners": []}
 
@@ -85,98 +79,8 @@ def on_change(fn):
 
 
 def _stylesheet(t):
-    return f"""
-    QMainWindow, QDialog {{ background: {t['bg']}; }}
-    QWidget {{ color: {t['ink']}; font-size: 10pt; }}
-    QToolTip {{ background: {t['card']}; color: {t['ink']}; border: 1px solid {t['line']}; padding: 4px; }}
-    QGroupBox, QFrame[card="true"] {{
-        background: {t['card']}; border: 1px solid {t['line']}; border-radius: 10px; }}
-    QGroupBox {{ margin-top: 0px; padding: 34px 12px 12px 12px; font-weight: 600; }}
-    QGroupBox::title {{ subcontrol-origin: padding; subcontrol-position: top left; left: 12px; top: 10px;
-        color: {t['ink']}; font-size: 10.5pt; font-weight: 600; }}
-    QFrame[card="true"] {{ padding: 10px; }}
-    QFrame[card="warn"] {{ background: {t['card']}; border: 1px solid {t['warn']}; border-left: 4px solid {t['warn']};
-        border-radius: 10px; padding: 8px; }}
-    QGroupBox QLabel, QFrame[card] QLabel {{ background: transparent; font-weight: 400; }}
-    QLabel[role="title"] {{ font-size: 15pt; font-weight: 700; }}
-    QLabel[role="muted"] {{ color: {t['muted']}; }}
-    QLabel[role="warn"] {{ color: {t['warn']}; }}
-    QLabel[role="good"] {{ color: {t['good']}; }}
-    QLabel[role="chip"] {{ background: {t['shade']}; border: 1px solid {t['line']}; border-radius: 9px;
-        padding: 2px 8px; }}
-    QLabel[role="brand"] {{ font-size: 12pt; font-weight: 700; }}
-    QPushButton, QToolButton {{ background: {t['field']}; border: 1px solid {t['line']}; border-radius: 7px;
-        padding: 5px 12px; }}
-    QPushButton:hover, QToolButton:hover {{ border-color: {t['c1']}; }}
-    QPushButton:disabled {{ color: {t['muted']}; }}
-    QPushButton:checked {{ background: {t['sel']}; border-color: {t['c1']}; color: {t['sel_accent']}; font-weight: 600; }}
-    QPushButton[primary="true"] {{ background: {t['btn']}; color: {t['on_btn']}; border: 1px solid {t['btn']}; font-weight: 600; }}
-    QPushButton[primary="true"]:disabled {{ background: {t['line']}; border-color: {t['line']}; color: {t['muted']}; }}
-    QPushButton[nav="true"] {{ background: transparent; border: none; border-radius: 7px; padding: 6px 12px;
-        color: {t['ink2']}; font-weight: 600; }}
-    QPushButton[nav="true"]:checked {{ background: {t['sel']}; color: {t['sel_ink']}; }}
-    QPushButton[nav="true"]:hover {{ color: {t['ink']}; }}
-    QPushButton[online="true"] {{ border-radius: 12px; padding: 4px 12px; font-weight: 600; }}
-    QPushButton[online="true"]:checked {{ background: {t['pill']}; color: {t['good']}; border-color: {t['good']}; }}
-    QFrame[topbar="true"] {{ background: {t['card']}; border-bottom: 1px solid {t['line']}; }}
-    QComboBox, QLineEdit, QSpinBox, QDoubleSpinBox, QKeySequenceEdit {{ background: {t['field']};
-        border: 1px solid {t['line']}; border-radius: 7px; padding: 4px 8px; }}
-    QComboBox:hover, QLineEdit:focus {{ border-color: {t['c1']}; }}
-    QComboBox:disabled, QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled {{ background: {t['shade']};
-        color: {t['muted']}; border-color: {t['line']}; }}
-    QComboBox QAbstractItemView {{ background: {t['card']}; border: 1px solid {t['line']};
-        selection-background-color: {t['sel']}; selection-color: {t['sel_ink']}; }}
-    QListWidget, QTableWidget {{ background: {t['card']}; border: 1px solid {t['line']}; border-radius: 8px;
-        alternate-background-color: {t['field']}; gridline-color: {t['line']}; }}
-    QListWidget::item {{ padding: 6px 4px; border-radius: 6px; }}
-    QListWidget::item:selected, QTableWidget::item:selected {{ background: {t['sel']}; color: {t['sel_ink']}; }}
-    QHeaderView::section {{ background: {t['shade']}; color: {t['ink2']}; border: none;
-        border-bottom: 1px solid {t['line']}; padding: 5px 8px; font-weight: 600; }}
-    QProgressBar {{ background: {t['shade']}; border: none; border-radius: 4px; height: 8px; text-align: center; }}
-    QProgressBar::chunk {{ background: {t['c1']}; border-radius: 4px; }}
-    QSlider::groove:horizontal {{ height: 6px; background: {t['line']}; border-radius: 3px; }}
-    QSlider::sub-page:horizontal {{ background: {t['c1']}; border-radius: 3px; }}
-    QSlider::handle:horizontal {{ background: {t['card']}; border: 2px solid {t['c1']}; width: 14px; height: 14px;
-        margin: -6px 0; border-radius: 9px; }}
-    QSlider::groove:vertical {{ width: 6px; background: {t['line']}; border-radius: 3px; }}
-    QSlider::sub-page:vertical, QSlider::add-page:vertical {{ background: {t['line']}; border-radius: 3px; }}
-    QSlider::handle:vertical {{ background: {t['card']}; border: 2px solid {t['c1']}; width: 14px; height: 14px;
-        margin: 0 -6px; border-radius: 9px; }}
-    QSlider::handle:vertical:disabled {{ border-color: {t['muted']}; }}
-    QScrollArea {{ background: transparent; border: none; }}
-    QScrollArea > QWidget > QWidget {{ background: transparent; }}
-    QSplitter::handle {{ background: transparent; }}
-    QStatusBar {{ color: {t['ink2']}; }}
-    QMenu {{ background: {t['card']}; border: 1px solid {t['line']}; padding: 4px; }}
-    QMenu::item {{ padding: 5px 18px; border-radius: 5px; }}
-    QMenu::item:selected {{ background: {t['sel']}; color: {t['sel_ink']}; }}
-    QMenu::item:disabled {{ color: {t['muted']}; }}
-    QLineEdit[bad="true"], QPlainTextEdit[bad="true"] {{ border: 1px solid {t['err']}; background: {t['field']}; }}
-    QPlainTextEdit {{ background: {t['field']}; border: 1px solid {t['line']}; border-radius: 7px; padding: 4px; }}
-    QToolButton[tag="true"] {{ background: {t['shade']}; color: {t['muted']}; border: 1px solid {t['line']};
-        border-radius: 9px; padding: 1px 8px; font-size: 8.5pt; }}
-    QToolButton[tag="true"]:enabled {{ background: {t['sel']}; color: {t['sel_accent']}; border-color: {t['c1']}; }}
-    QLabel[role="section"] {{ color: {t['muted']}; font-size: 8.5pt; font-weight: 700; letter-spacing: 1px;
-        text-transform: uppercase; padding-top: 4px; }}
-    QToolButton[fold="true"] {{ background: transparent; border: none; font-size: 10.5pt; font-weight: 600;
-        padding: 6px 4px; }}
-    QCheckBox, QRadioButton {{ background: transparent; spacing: 8px; }}
-    QRadioButton::indicator, QCheckBox::indicator {{ width: 14px; height: 14px; background: {t['field']};
-        border: 2px solid {t['muted']}; }}
-    QRadioButton::indicator {{ border-radius: 9px; }}
-    QCheckBox::indicator {{ border-radius: 4px; }}
-    QRadioButton::indicator:hover, QCheckBox::indicator:hover {{ border-color: {t['c1']}; }}
-    QRadioButton::indicator:checked {{ border: 2px solid {t['c1']};
-        background: qradialgradient(cx:0.5, cy:0.5, radius:0.5, fx:0.5, fy:0.5, stop:0 {t['c1']}, stop:0.45 {t['c1']},
-        stop:0.55 {t['field']}, stop:1 {t['field']}); }}
-    QCheckBox::indicator:checked {{ background: {t['c1']}; border-color: {t['c1']}; image: url({_tick()}); }}
-    QTreeView::indicator, QListView::indicator {{ width: 12px; height: 12px; background: {t['field']};
-        border: 2px solid {t['muted']}; border-radius: 4px; }}
-    QTreeView::indicator:checked, QListView::indicator:checked {{ background: {t['c1']}; border-color: {t['c1']};
-        image: url({_tick()}); }}
-    QTreeView::indicator:indeterminate {{ background: {t['sel']}; border-color: {t['c1']}; }}
-    QRadioButton:disabled, QCheckBox:disabled {{ color: {t['muted']}; }}
-    """
+    """The whole app's stylesheet in the colours t: theme_sheet.py's parts, with the tick picture's path."""
+    return theme_sheet.sheet(t, _tick())
 
 
 def _tick():
