@@ -1,0 +1,496 @@
+{
+ "https://github.com/jaakkopasanen/AutoEq": {
+  "time": 4102444800.0,
+  "items": [
+   {
+    "kind": "measurement",
+    "name": "Truthear Gate",
+    "sub": "Fahryst · in-ear",
+    "tag": "Fahryst",
+    "ref": {
+     "url": "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/measurements/Fahryst/data/in-ear/Truthear%20Gate.csv"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "Truthear Gate",
+    "sub": "Filk · in-ear",
+    "tag": "Filk",
+    "ref": {
+     "url": "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/measurements/Filk/data/in-ear/Truthear%20Gate.csv"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "Apple EarPods",
+    "sub": "Headphone.com Legacy · earbud",
+    "tag": "Headphone.com Legacy",
+    "ref": {
+     "url": "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/measurements/Headphone.com%20Legacy/data/earbud/Apple%20EarPods.csv"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "Apple EarPods",
+    "sub": "Innerfidelity · earbud",
+    "tag": "Innerfidelity",
+    "ref": {
+     "url": "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/measurements/Innerfidelity/data/earbud/Apple%20EarPods.csv"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "Truthear Gate",
+    "sub": "Jaytiss · in-ear",
+    "tag": "Jaytiss",
+    "ref": {
+     "url": "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/measurements/Jaytiss/data/in-ear/Truthear%20Gate.csv"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "Apple EarPods",
+    "sub": "Super Review · earbud",
+    "tag": "Super Review",
+    "ref": {
+     "url": "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/measurements/Super%20Review/data/earbud/Apple%20EarPods.csv"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "7Hz Salnotes Zero",
+    "sub": "Auriculares Argentina · in-ear",
+    "tag": "Auriculares Argentina",
+    "ref": {
+     "url": "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/measurements/Auriculares%20Argentina/data/in-ear/7Hz%20Salnotes%20Zero.csv"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "DUNU Titan S",
+    "sub": "Auriculares Argentina · in-ear",
+    "tag": "Auriculares Argentina",
+    "ref": {
+     "url": "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/measurements/Auriculares%20Argentina/data/in-ear/DUNU%20Titan%20S.csv"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "EPZ Q5 Pro",
+    "sub": "Auriculares Argentina · in-ear",
+    "tag": "Auriculares Argentina",
+    "ref": {
+     "url": "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/measurements/Auriculares%20Argentina/data/in-ear/EPZ%20Q5%20Pro.csv"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "EPZ Q5",
+    "sub": "Auriculares Argentina · in-ear",
+    "tag": "Auriculares Argentina",
+    "ref": {
+     "url": "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/measurements/Auriculares%20Argentina/data/in-ear/EPZ%20Q5.csv"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "Etymotic ER2SE",
+    "sub": "Auriculares Argentina · in-ear",
+    "tag": "Auriculares Argentina",
+    "ref": {
+     "url": "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/measurements/Auriculares%20Argentina/data/in-ear/Etymotic%20ER2SE.csv"
+    }
+   }
+  ],
+  "conf": {},
+  "v": 2
+ },
+ "https://squig.link/": {
+  "time": 4102444800.0,
+  "items": [
+   {
+    "kind": "measurement",
+    "name": "Truthear Gate",
+    "sub": "Truthear",
+    "tag": "Super",
+    "ref": {
+     "file": "Truthear Gate"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "Truthear Gate",
+    "sub": "Truthear",
+    "tag": "Super",
+    "ref": {
+     "file": "Truthear Gate wide"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "_EQ Sandbox",
+    "sub": "_EQ",
+    "tag": "Super",
+    "ref": {
+     "file": "EQ sandbox nocal"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "634ears MIROAK-II",
+    "sub": "634ears",
+    "tag": "Super",
+    "ref": {
+     "file": "634ears MIROAK-II"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "64 Audio Aspire 1",
+    "sub": "64 Audio",
+    "tag": "Super",
+    "ref": {
+     "file": "64 Audio Aspire 1"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "64 Audio Aspire 1 (insert: shallow)",
+    "sub": "64 Audio",
+    "tag": "Super",
+    "ref": {
+     "file": "64 Audio Aspire 1 shallow"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "64 Audio Aspire 1 (insert: deep)",
+    "sub": "64 Audio",
+    "tag": "Super",
+    "ref": {
+     "file": "64 Audio Aspire 1 deep"
+    }
+   }
+  ],
+  "conf": {
+   "base": "https://squig.link/data/",
+   "phone_book": "https://squig.link/data/phone_book.json",
+   "samples": 0,
+   "channels": [
+    "L",
+    "R"
+   ],
+   "targets": [
+    {
+     "type": "Δ",
+     "files": [
+      "∆ 5128DF",
+      "∆ 5128DF - 10dB Tilt",
+      "∆ JM-1 - 10dB Tilt"
+     ]
+    },
+    {
+     "type": "Reference",
+     "files": [
+      "Super 22",
+      "Harman IE 2019"
+     ]
+    }
+   ]
+  },
+  "v": 2
+ },
+ "https://squig.link/hp.html": {
+  "time": 4102444800.0,
+  "items": [
+   {
+    "kind": "measurement",
+    "name": "(DAC) DAC - Apple dongle",
+    "sub": "(DAC)",
+    "tag": "Super HP",
+    "ref": {
+     "file": "DAC - Apple dongle"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "(DAC) Fiio Q3 (standard)",
+    "sub": "(DAC)",
+    "tag": "Super HP",
+    "ref": {
+     "file": "DAC - Fiio Q3"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "(DAC) Fiio Q3 (bass boost)",
+    "sub": "(DAC)",
+    "tag": "Super HP",
+    "ref": {
+     "file": "DAC - Fiio Q3 (bass boost)"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "(DAC) iFi Go Blu (standard)",
+    "sub": "(DAC)",
+    "tag": "Super HP",
+    "ref": {
+     "file": "DAC - Go Blu (S0)"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "(DAC) iFi Go Blu (XBass)",
+    "sub": "(DAC)",
+    "tag": "Super HP",
+    "ref": {
+     "file": "DAC - Go Blu (S1)"
+    }
+   }
+  ],
+  "conf": {
+   "base": "https://squig.link/data_mrs_hp/",
+   "phone_book": "https://squig.link/data_mrs_hp/phone_book.json",
+   "samples": 0,
+   "channels": [
+    "L",
+    "R"
+   ],
+   "targets": [
+    {
+     "type": "Reference",
+     "files": [
+      "Super 22",
+      "IEF Comp",
+      "Crinacle 2023 Adjusted",
+      "Harman Adjusted"
+     ]
+    },
+    {
+     "type": "Reviewer",
+     "files": [
+      "Antdroid",
+      "Bad Guy",
+      "Banbeucmas",
+      "Crinacle Neutral",
+      "Crinacle Neutral 2023",
+      "dentReviews",
+      "Precogvision",
+      "RikudouGoku",
+      "Super 21"
+     ]
+    },
+    {
+     "type": "Headphones.com",
+     "files": [
+      "HPDC 10dB Tilt 5128 DF",
+      "HPDC 14dB Tilt 5128 DF",
+      "HPDC 10dB Tilt 5128 DF 100Hz",
+      "HPDC 14dB Tilt 5128 DF 100Hz",
+      "HPDC 10dB Tilt KEMAR DF",
+      "HPDC 14dB Tilt KEMAR DF",
+      "HPDC 10dB Tilt KEMAR DF 100Hz",
+      "HPDC 14dB Tilt KEMAR DF 100Hz"
+     ]
+    }
+   ]
+  },
+  "v": 2
+ },
+ "https://listener800.github.io/5128iem.html": {
+  "time": 4102444800.0,
+  "items": [
+   {
+    "kind": "measurement",
+    "name": "Truthear GATe (Wide Bore Tips)",
+    "sub": "Truthear",
+    "tag": "L800 IEM",
+    "ref": {
+     "file": "GATe Wide"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "Truthear GATe (Narrow Bore Tips)",
+    "sub": "Truthear",
+    "tag": "L800 IEM",
+    "ref": {
+     "file": "GATe Narrow"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "64 Audio U6t (m20) (Listener)",
+    "sub": "64 Audio",
+    "tag": "L800 IEM",
+    "ref": {
+     "file": "U6t"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "Apple AirPods Pro 2 (ANC, 71dB)",
+    "sub": "Apple",
+    "tag": "L800 IEM",
+    "ref": {
+     "file": "APP2 71dB"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "Apple AirPods Pro 2 (ANC, 100dB)",
+    "sub": "Apple",
+    "tag": "L800 IEM",
+    "ref": {
+     "file": "APP2 100dB"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "Apple AirPods Pro 2 (ANC, 97dB)",
+    "sub": "Apple",
+    "tag": "L800 IEM",
+    "ref": {
+     "file": "APP2 97dB"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "Apple AirPods Pro 2 (ANC, 94dB)",
+    "sub": "Apple",
+    "tag": "L800 IEM",
+    "ref": {
+     "file": "APP2 94dB"
+    }
+   }
+  ],
+  "conf": {
+   "base": "https://listener800.github.io/data_5128iem/",
+   "phone_book": "https://listener800.github.io/phone_book_5128iem.json",
+   "samples": 5,
+   "channels": [
+    "L",
+    "R"
+   ],
+   "targets": [
+    {
+     "type": "IEM",
+     "files": [
+      "Headphones.com IEM DF",
+      "JM-1 DF",
+      "ISO 11904-1 DF",
+      "SoundGuys",
+      "Harman IE 2019 for 5128"
+     ]
+    },
+    {
+     "type": "Misc.",
+     "files": [
+      "ISO 11904-1 DF Inverted",
+      "Flat"
+     ]
+    }
+   ]
+  },
+  "v": 2
+ },
+ "https://precog.squig.link/": {
+  "time": 4102444800.0,
+  "items": [
+   {
+    "kind": "measurement",
+    "name": "Truthear Gate",
+    "sub": "Truthear",
+    "tag": "Precog",
+    "ref": {
+     "file": "TruthEars Gate"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "64 Audio Aspire 1",
+    "sub": "64 Audio",
+    "tag": "Precog",
+    "ref": {
+     "file": "64 Audio Aspire 1"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "64 Audio Aspire 2",
+    "sub": "64 Audio",
+    "tag": "Precog",
+    "ref": {
+     "file": "64 Audio Aspire 2"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "64 Audio Aspire 3",
+    "sub": "64 Audio",
+    "tag": "Precog",
+    "ref": {
+     "file": "64 Audio Aspire 3"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "64 Audio A2e",
+    "sub": "64 Audio",
+    "tag": "Precog",
+    "ref": {
+     "file": "64 Audio A2e"
+    }
+   },
+   {
+    "kind": "measurement",
+    "name": "64 Audio A3e",
+    "sub": "64 Audio",
+    "tag": "Precog",
+    "ref": {
+     "file": "64 Audio A3e"
+    }
+   }
+  ],
+  "conf": {
+   "base": "https://precog.squig.link/data/",
+   "phone_book": "https://precog.squig.link/data/phone_book.json",
+   "samples": 0,
+   "channels": [
+    "L",
+    "R"
+   ],
+   "targets": [
+    {
+     "type": "Δ",
+     "files": [
+      "Δ 10dB",
+      "IEF Comp"
+     ]
+    },
+    {
+     "type": "Preference",
+     "files": [
+      "Antdroid",
+      "Banbeu",
+      "HBB",
+      "MRS",
+      "Nymz",
+      "Precog",
+      "RikudouGoku",
+      "Tork V5"
+     ]
+    },
+    {
+     "type": "Reference",
+     "files": [
+      "Harman 2019 IEM",
+      "IEF Neutral"
+     ]
+    }
+   ]
+  },
+  "v": 2
+ }
+}

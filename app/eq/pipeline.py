@@ -83,12 +83,16 @@ MAX_WORKERS = 61          # Windows' limit for a process pool
 
 def workers(cfg):
     """Worker processes for a run: the setting, else one less than the CPU threads; never more than the free RAM
-    holds (a PC with little memory would otherwise start swapping) or Windows allows."""
+    holds (a PC with little memory would otherwise start swapping) or Windows allows. AUTOEQSTUDIO_MAX_WORKERS (the
+    tests) caps it."""
     n = cfg["performance"].get("cores") or 0
     n = n if n > 0 else cpu_threads() - 1
     ram = free_memory()
     if ram:
         n = min(n, max(1, int(ram * 0.8 // WORKER_RAM)))
+    cap = os.environ.get("AUTOEQSTUDIO_MAX_WORKERS", "")  # (the tests' cap: several test runs side by side)
+    if cap.isdigit() and int(cap) > 0:
+        n = min(n, int(cap))
     return max(1, min(n, MAX_WORKERS))
 
 

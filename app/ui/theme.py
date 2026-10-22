@@ -194,7 +194,15 @@ def _tick():
         p.setPen(QPen(QColor("white"), 4, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
         p.drawPolyline([QPointF(6, 14.5), QPointF(11.5, 20), QPointF(22, 8)])
         p.end()
-        pm.save(path)
+        part = f"{path}.{os.getpid()}.part"  # (whole or not at all: another copy may draw it at the same moment)
+        pm.save(part, "PNG")
+        try:
+            os.replace(part, path)
+        except OSError:  # (another copy put the same picture there first)
+            try:
+                os.remove(part)
+            except OSError:
+                pass
     return path.replace("\\", "/")
 
 

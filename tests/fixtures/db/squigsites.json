@@ -1,0 +1,29 @@
+{
+ "time": 4102444800.0,
+ "items": [
+  {
+   "name": "aden (Headphones)",
+   "type": "Headphones",
+   "group": "hp",
+   "url": "https://aden.squig.link/headphones/"
+  },
+  {
+   "name": "Earphones Archive (IEMs)",
+   "type": "5128",
+   "group": "5128",
+   "url": "https://earphonesarchive.squig.link/"
+  },
+  {
+   "name": "Precogvision",
+   "type": "IEMs",
+   "group": "iem",
+   "url": "https://precog.squig.link/"
+  },
+  {
+   "name": "Super* Review (IEMs)",
+   "type": "IEMs",
+   "group": "iem",
+   "url": "https://squig.link/"
+  }
+ ]
+}

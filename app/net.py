@@ -22,7 +22,12 @@ def set_offline(on):
     if on != _state["offline"]:
         _state["offline"] = on
         for fn in list(_listeners):
-            fn(on)
+            try:
+                fn(on)
+            except RuntimeError as e:  # (a window that's gone: Qt says "already deleted"; it's let go)
+                if "already deleted" not in str(e):
+                    raise
+                _listeners.remove(fn)
 
 
 def on_change(fn):

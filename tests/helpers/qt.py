@@ -1,0 +1,167 @@
+"""Qt off-screen for the tests (QT_QPA_PLATFORM=offscreen: nothing shows on the screen).
+
+app() is the process's one QApplication, made the first time it's asked for, with: the stray watch (below), the
+dialogs answered by themselves (helpers.dialogs), a recorder in place of opening links and folders with Windows
+(QDesktopServices.openUrl: OPENED_URLS), and a recorder of errors inside Qt call-backs.
+
+Errors inside Qt call-backs (a slot, a timer, an event handler): PySide6 hands them to sys.excepthook and carries on.
+Each one is kept in QT_ERRORS (the running test, the error's last line), logged ({"event": "qt_error"}) and passed on
+to the usual hook (its traceback is still printed). It doesn't fail the test: the old checks didn't fail on them
+either, and the two known ones are app bugs the reorganization doesn't fix (PLAN.md 3.7, open question 1). Once
+they are fixed, a failing test is one line here.
+
+The stray watch (the old EQ checks' rule): a control (a button, a label, a box, a bare widget or frame) shown as a
+window of its own flashes on the screen: made visible before it had a parent. Windows by design (dialogs, the main
+window, menus, pop-up lists, tooltips) aren't counted. The stray_check fixture fails a test in which one showed;
+at the end of the session, if the watch was installed and never found one, STRAY_CHECK is logged once as ok.
+
+PySide6 is imported inside the functions, so a test that never uses Qt never loads it.
+"""
+import os
+import sys
+import time
+import traceback
+
+from helpers import checks, dialogs, guard
+
+STRAY_CHECK = ("ui: no control is ever shown as a window of its own (each flashed on the screen: Find…'s rows showed "
+               "one Show button each while the lists loaded, 779 in a session, and each cost the window's time)")
+QT_ERRORS: list[tuple[str, str]] = []  # (the running test, the error's last line)
+OPENED_URLS: list[str] = []            # what the app asked Windows to open (a website, a folder): never opened
+_made = []
+_watch = []
+
+
+def time_limit(sec) -> float:
+    """sec, times AUTOEQSTUDIO_TIME_FACTOR (more time on a busy PC, or with several runs at once)."""
+    try:
+        factor = float(os.environ.get("AUTOEQSTUDIO_TIME_FACTOR", "1"))
+    except ValueError:
+        factor = 1.0
+    return sec * (factor if factor > 0 else 1.0)
+
+
+def _stray_watch_class():
+    from PySide6.QtCore import QEvent, QObject, Qt
+    from PySide6.QtWidgets import (QAbstractButton, QAbstractSlider, QAbstractSpinBox, QComboBox, QFrame, QLabel,
+                                   QLineEdit, QProgressBar, QWidget)
+
+    class StrayWatch(QObject):
+        """Every control shown as a window of its own (eq_checks.py's watch_strays, line 1309). found: since
+        clear(); seen_any: anything found, ever."""
+
+        def __init__(self):
+            super().__init__()
+            self.found: list[str] = []
+            self.seen_any = False
+
+        def clear(self):
+            self.found.clear()
+
+        def eventFilter(self, obj, e):
+            if e.type() == QEvent.Show and isinstance(obj, QWidget) and obj.isWindow() \
+                    and not obj.windowFlags() & (Qt.Popup | Qt.ToolTip) & ~Qt.Window \
+                    and (isinstance(obj, (QAbstractButton, QLabel, QLineEdit, QComboBox, QAbstractSlider,
+                                          QAbstractSpinBox, QProgressBar)) or type(obj) in (QWidget, QFrame)):
+                self.found.append(f"{type(obj).__name__} {getattr(obj, 'text', lambda: '')()!r}"[:60])
+                self.seen_any = True
+            return False
+    return StrayWatch
+
+
+def __getattr__(name):  # (helpers.qt.StrayWatch: the class, made when first asked for, with Qt loaded then)
+    if name == "StrayWatch":
+        if "StrayWatch" not in globals():
+            globals()["StrayWatch"] = _stray_watch_class()
+        return globals()["StrayWatch"]
+    raise AttributeError(name)
+
+
+def stray_watch():
+    """The process's stray watch, or None: never installed (no app() yet, or a QApplication made elsewhere)."""
+    return _watch[0] if _watch else None
+
+
+def _excepthook(real):
+    def hook(kind, value, tb):
+        last = "".join(traceback.format_exception_only(kind, value)).strip().splitlines()
+        text = last[-1] if last else kind.__name__
+        QT_ERRORS.append((guard.current, text))
+        checks.log({"event": "qt_error", "test": guard.current, "text": checks.short(text)})
+        real(kind, value, tb)
+    return hook
+
+
+def app():
+    """The process's one QApplication (made on the first call; application name "AutoEQ Studio"), with the stray
+    watch, the dialogs' answers, the link recorder and the call-back error recorder installed."""
+    from PySide6.QtGui import QDesktopServices
+    from PySide6.QtWidgets import QApplication
+    qapp = QApplication.instance()
+    if qapp is None:
+        qapp = QApplication(["AutoEQ Studio (tests)"])
+        qapp.setApplicationName("AutoEQ Studio")
+    elif not isinstance(qapp, QApplication):
+        raise RuntimeError("A QGuiApplication was made before the tests' QApplication (e.g. by brand_exe.icon_file): "
+                           "ask for the qapp fixture first, so windows can be made in this process.")
+    if not _made:
+        watch = __getattr__("StrayWatch")()
+        qapp.installEventFilter(watch)
+        _watch.append(watch)
+        dialogs.install()
+        QDesktopServices.openUrl = staticmethod(lambda url: (OPENED_URLS.append(url.toString() if hasattr(
+            url, "toString") else str(url)), True)[1])
+        sys.excepthook = _excepthook(sys.excepthook)
+        _made.append(qapp)
+    return qapp
+
+
+def wait_for(cond, sec=90, step=0.02) -> bool:
+    """Let Qt work until cond() is true or time_limit(sec) has passed (eq_checks.py's wait_for, line 1365)."""
+    from PySide6.QtWidgets import QApplication
+    qapp = QApplication.instance()
+    end = time.monotonic() + time_limit(sec)
+    while not cond():
+        if time.monotonic() >= end:
+            return bool(cond())
+        if qapp is not None:
+            qapp.processEvents()
+        time.sleep(step)
+    return True
+
+
+def pump(ms=50):
+    """Let Qt work for this long."""
+    from PySide6.QtWidgets import QApplication
+    qapp = QApplication.instance()
+    end = time.monotonic() + ms / 1000
+    while True:
+        if qapp is not None:
+            qapp.processEvents()
+        if time.monotonic() >= end:
+            return
+        time.sleep(0.005)
+
+
+def close(widget):
+    """Close a window or widget, delete it, and let Qt work until it's gone."""
+    import shiboken6
+    from PySide6.QtCore import QCoreApplication, QEvent
+    if widget is None or not shiboken6.isValid(widget):
+        return
+    widget.close()
+    widget.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+    wait_for(lambda: not shiboken6.isValid(widget), 5)
+
+
+def light(qapp):
+    """The app's light theme on the whole application."""
+    from ui import theme
+    theme.apply(qapp, dark=False)
+
+
+def dark(qapp):
+    """The app's dark theme on the whole application."""
+    from ui import theme
+    theme.apply(qapp, dark=True)

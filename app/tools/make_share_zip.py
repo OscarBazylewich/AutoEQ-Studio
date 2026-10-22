@@ -18,13 +18,15 @@ and READ ME FIRST.txt): the ready-to-run zip for people who just use it, not tes
 (from this folder) instead of TESTING.txt, a dated name and version, no "test build".
 
 --ready (Make ready-to-run zip.bat): the same with its own Python in runtime\\ (this PC's, copied: Python 3.14 and
-the packages from .venv, without pip and the parts of Qt the app never loads), so testers unzip and double-click
+the packages from .venv, without pip, the tools for working on the app (app\\requirements-dev.txt's: Ruff, pytest and
+what they need) and the parts of Qt the app never loads), so testers unzip and double-click
 AutoEQ Studio.bat: no Python to install, nothing downloaded. About 150 MB. Its launcher starts runtime\\AutoEQ
 Studio.exe (a copy of pythonw.exe: Task Manager names it); its TESTING.txt says so. --check-runtime FOLDER runs the
 self-test with an unpacked zip's Python (every part, the EQ part's too), to be sure nothing it needs was left out.
 """
 import datetime
 import os
+import re
 import subprocess
 import sys
 import zipfile
@@ -116,6 +118,58 @@ def _site_packages():
     return next(p for p in site.getsitepackages() if p.lower().endswith("site-packages"))
 
 
+def _norm(name):
+    """A package's name as pip compares them ("Pytest_Timeout" and "pytest-timeout" are one)."""
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def _listed(path):
+    """The package names a requirements file lists (its comments and version numbers left out)."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            lines = [line.strip() for line in fh]
+    except OSError:
+        return set()
+    return {_norm(re.match(r"[A-Za-z0-9._-]*", line).group()) for line in lines if line and not line.startswith("#")}
+
+
+def _with_needs(names, installed):
+    """These packages and every installed package they need, in turn (their optional extras left out)."""
+    todo, found = list(names), set()
+    while todo:
+        name = todo.pop()
+        if name in found or name not in installed:
+            continue
+        found.add(name)
+        for req in installed[name].requires or []:
+            need, _, condition = req.partition(";")
+            if "extra" not in condition:
+                todo.append(_norm(re.match(r"[A-Za-z0-9._-]*", need.strip()).group()))
+    return found
+
+
+def development_files(sp=None):
+    """Every file of the packages only working on the app needs, as full paths (os.path.normcase): those
+    app\\requirements-dev.txt names (Ruff, pytest, pytest-timeout) and what they need, minus anything
+    app\\requirements.txt's packages need (colorama stays: pyqtgraph needs it). runtime_entries() leaves them out, so
+    no zip or installer carries them. Read from each package's own list of its files (importlib.metadata)."""
+    from importlib import metadata
+    sp = sp or _site_packages()
+    installed = {}
+    for dist in metadata.distributions(path=[sp]):
+        installed.setdefault(_norm(dist.name or ""), dist)
+    dev = (_with_needs(_listed(os.path.join(APP, "requirements-dev.txt")), installed)
+           - _with_needs(_listed(os.path.join(APP, "requirements.txt")), installed))
+    files = set()
+    for name in sorted(dev):
+        listed = installed[name].files
+        if listed is None:  # (its RECORD is gone: its files can't be told apart, so nothing is made)
+            raise SystemExit(f"Can't tell which files are {name}'s (its list of files is missing): no runtime made. "
+                             f"Install it again: pip install --force-reinstall {name}")
+        files |= {os.path.normcase(os.path.abspath(installed[name].locate_file(f))) for f in listed}
+    return files
+
+
 def launcher():
     """runtime\\AutoEQ Studio.exe: pythonw.exe with AutoEQ Studio's name, version and icon (brand_exe.py: Windows
     names a program by its description, so Task Manager's Startup apps said "Python")."""
@@ -142,6 +196,7 @@ def runtime_entries():
                     p = os.path.join(d, n)
                     out.append((f"{TOP}/runtime/" + os.path.relpath(p, base).replace(os.sep, "/"), p))
     sp = _site_packages()
+    dev = development_files(sp)  # (pytest, Ruff and what they need: for working on the app, never shipped)
     for d, subs, names in os.walk(sp):
         rel = os.path.relpath(d, sp).replace(os.sep, "/")
         # (not the packages' own test suites, 23 MB and 1,180 files the app never loads, whose deepest compiled file
@@ -153,6 +208,8 @@ def runtime_entries():
             if n.endswith((".pyc", ".pyo")) or rel == "PySide6" and (n.endswith(".exe") or n.startswith(SKIP_QT_FILES)):
                 continue
             p = os.path.join(d, n)
+            if os.path.normcase(os.path.abspath(p)) in dev:
+                continue
             out.append((f"{TOP}/runtime/Lib/site-packages/" + os.path.relpath(p, sp).replace(os.sep, "/"), p))
     return out
 
