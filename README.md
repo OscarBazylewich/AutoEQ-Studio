@@ -11,6 +11,8 @@ A Windows app that makes EQs for headphones and IEMs, and gives each playback de
 
 It's a native desktop app (Python and Qt), not a web page, and works offline.
 
+![Making an EQ: a measurement against its target, Run, the result, then the view relative to the target](docs/demo.gif)
+
 ## Features
 
 - **Best fit:** adds filters one at a time and keeps the simplest EQ that sounds the same as the target (within
@@ -29,6 +31,13 @@ It's a native desktop app (Python and Qt), not a web page, and works offline.
   APO whether the EQ really plays.
 - **Help built in:** a guided tour with demos, Help for every term and setting (F1 on any control), light and dark
   themes, keyboard and screen-reader support.
+
+## Screenshots
+
+<p>
+  <img src="docs/result.png" width="49%" alt="A result: its error, pre-amp and filters, with Save filters and Use on device">
+  <img src="docs/devices-dark.png" width="49%" alt="Devices in dark mode: a USB dongle with two EQ profiles, one on">
+</p>
 
 ## Requirements
 
