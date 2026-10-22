@@ -1,0 +1,216 @@
+"""The app itself: the tray icon and its menu, the window, the hotkey, watching the devices, Online / Offline.
+
+It lives in the tray: the icon's menu switches the playing device's EQ (its profiles, Off) and opens the window or
+quits; a click on the icon opens the window. Every 1.5 s it reads the devices again (plugged in or out, another one
+playing): the window, the menu and the icon follow, and a notice says the EQ of a device that starts playing. The
+hotkey switches the playing device's EQ. start.py makes one (one copy runs at a time).
+"""
+import os
+import time
+import traceback
+
+from PySide6.QtCore import QTimer
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QMenu, QMessageBox, QSystemTrayIcon
+
+import net
+import paths
+from switcher import core
+from switcher.core import shown
+from ui import icons, theme, winsys
+
+POLL_MS = 1500
+
+
+class App:
+    def __init__(self, qapp, show):
+        self.qapp, self.hotkey_problem = qapp, ""
+        first = not os.path.exists(paths.SETTINGS)
+        self.sw = core.make(paths.SETTINGS)
+        self.brought = 0
+        if first and self.sw.apo.found:  # (the first start: EQ Switcher's profiles and choices, when it was used)
+            try:
+                self.brought = self.sw.bring_over(paths.EQ_SWITCHER_SETTINGS,
+                                                  os.path.join(self.sw.apo.config, paths.EQ_SWITCHER_FOLDER, "profiles"))
+            except OSError:
+                traceback.print_exc()
+            if self.brought:
+                print(f"Brought over {self.brought} profiles and the devices' choices from EQ Switcher")
+        net.set_offline(self.sw.s.get("offline", False))
+        theme.apply(qapp)
+        from ui.window import Window
+        self.win = Window(self.sw, self)
+        self.win.hotkey_changed.connect(self.set_hotkey)
+
+        self.tray = QSystemTrayIcon(icons.app_icon(), qapp)
+        self.menu = QMenu()
+        self.menu.aboutToShow.connect(self.build_menu)
+        self.tray.setContextMenu(self.menu)
+        self.tray.activated.connect(lambda why: why == QSystemTrayIcon.Trigger and self.win.show_front())
+        self.tray.show()
+
+        self.hotkey = winsys.Hotkey(self.on_hotkey)
+        self.set_hotkey(self.sw.s.get("hotkey") or "", save=False)
+        self.sw.listeners.append(self.changed)
+        if not self.sw.problem:  # (APO's file as the settings say, in case it was changed or removed; not when the
+            self.sw.apply()      # settings couldn't be read: every EQ would go off)
+        else:
+            QTimer.singleShot(0, lambda: QMessageBox.warning(None, "AutoEQ Studio", self.sw.problem))
+        self.show_state()
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.poll)
+        self.timer.start(POLL_MS)
+        if show:
+            self.win.show_front()
+
+    # ---------------------------------------------------------------- devices and changes
+    def poll(self):
+        try:
+            self.sw.refresh()
+        except Exception:
+            traceback.print_exc()
+        if self.sw.trial and time.time() >= self.sw.trial["until"]:  # (a trial's time up: its device's own EQ back)
+            self.end_trial(False)
+        # a hotkey Windows refused (EQ Switcher still running has it, say) is tried again until it's free
+        # (only the saved one, while it isn't registered: a new one refused keeps its note, the saved one still works)
+        saved = self.sw.s.get("hotkey")
+        if self.hotkey_problem and saved and self.hotkey.current != saved and self.hotkey.set(saved):
+            self.hotkey_problem = ""
+            self.win.render_settings()
+
+    def changed(self, what, info):
+        self.show_state()
+        if not self.sw.s["notify"]:
+            return
+        if what == "devices" and info.get("playing_changed"):
+            key, rec = self.sw.playing()
+            if key and (rec["profiles"] or rec["active"]):
+                self.tray_message(shown(rec), self.eq_text(rec))
+
+    def eq_text(self, rec):
+        t = self.sw.trial
+        if t and self.sw.record(t["key"]) is rec:
+            return f"Trying: {t['name']}"
+        name = self.sw.profile_name(rec["active"])
+        return f"EQ: {name}" if name else "EQ off"
+
+    def end_trial(self, keep=False):
+        """A trial over (its time up, or Keep it / Stop now): kept as a profile, or the device's own EQ back."""
+        t = self.sw.trial
+        if not t:
+            return
+        try:
+            self.sw.end_trial(keep)
+        except (OSError, ValueError) as e:
+            QMessageBox.warning(self.win, "Try on device", f"Couldn't keep it: {e}")
+            self.sw.end_trial(False)
+            return
+        rec = self.sw.record(t["key"])
+        if rec:
+            self.tray_message(shown(rec), f"Kept “{t['name']}” as its EQ." if keep else
+                              f"The trial of “{t['name']}” is over: {self.eq_text(rec)}.")
+
+    def show_state(self):
+        """The tray icon and its tooltip: the device playing and its EQ (blue: an EQ on; grey: off)."""
+        key, rec = self.sw.playing()
+        name = self.sw.profile_name(rec["active"]) if rec else None
+        trying = bool(rec and self.sw.trial and self.sw.trial["key"] == key)  # (a trial plays: blue too)
+        self.tray.setIcon(icons.app_icon(on=bool(name) or trying))
+        self.tray.setToolTip("AutoEQ Studio\n" + (f"{shown(rec)}: {self.eq_text(rec)}" if rec else "No device playing"))
+
+    def tray_message(self, title, text):
+        self.tray.showMessage(title, text, icons.app_icon(), 4000)
+
+    # ---------------------------------------------------------------- the tray menu
+    def build_menu(self):
+        m = self.menu
+        m.clear()
+        t = self.sw.trial
+        if t:
+            left = max(0, int(t["until"] - time.time()))
+            m.addAction(f"Trying “{t['name']}” on {shown(self.sw.record(t['key']))} ({left // 60}:{left % 60:02d} left)"
+                        ).setEnabled(False)
+            m.addAction("Keep it", lambda: self.end_trial(True))
+            m.addAction("Stop trying", lambda: self.end_trial(False))
+            m.addSeparator()
+        key, rec = self.sw.playing()
+        if rec:
+            head = m.addAction(shown(rec))
+            head.setEnabled(False)
+            choices = [(None, "Off")] + [(pid, self.sw.profile_name(pid)) for pid in rec["profiles"]]
+            for pid, name in choices:
+                a = QAction(name, m)
+                a.setCheckable(True)
+                a.setChecked(rec["active"] == pid)
+                a.triggered.connect(lambda _=False, pid=pid, key=key: self.switch(key, pid))
+                m.addAction(a)
+            if not rec["profiles"]:
+                a = m.addAction("Add a profile…")
+                a.triggered.connect(lambda: (self.win.show_page("devices"), self.win.show_front()))
+        else:
+            m.addAction("No device playing").setEnabled(False)
+        m.addSeparator()
+        m.addAction("Open AutoEQ Studio", self.win.show_front)
+        m.addAction("Quit", self.quit)
+
+    def switch(self, key, pid):
+        if self.sw.set_active(key, pid) and self.sw.s["notify"]:
+            rec = self.sw.record(key)
+            self.tray_message(shown(rec), self.eq_text(rec))
+
+    def on_hotkey(self):
+        key, rec = self.sw.playing()
+        if not rec:
+            return
+        if not rec["profiles"]:
+            self.tray_message(shown(rec), "No profiles for this device yet: add one in AutoEQ Studio.")
+            return
+        self.sw.cycle(key)
+        if self.sw.s["notify"]:
+            self.tray_message(shown(rec), self.eq_text(rec))
+
+    def set_hotkey(self, text, save=True):
+        ok = self.hotkey.set(text)
+        self.hotkey_problem = "" if ok else (
+            f"{text} can't be a hotkey on its own: add Ctrl, Alt or Win (it would stop that key working everywhere)."
+            if not winsys.to_windows(text) and winsys.to_windows("Ctrl+" + text) else
+            f"Windows didn't take {text} as a hotkey: another program may use it. Try another.")
+        if save:
+            self.sw.set("hotkey", text if ok else self.sw.s.get("hotkey", ""))
+            if not ok:
+                self.hotkey.set(self.sw.s.get("hotkey") or "")
+        self.win.render_settings()
+
+    # ---------------------------------------------------------------- starting with Windows, quitting
+    @staticmethod
+    def autostart_on():
+        return winsys.autostart_on()
+
+    def set_autostart(self, on):
+        try:
+            winsys.set_autostart(on)
+        except OSError as e:
+            QMessageBox.warning(self.win, "Start with Windows", f"Couldn't change it: {e}")
+        self.sw.set("autostart", winsys.autostart_on())
+
+    def set_offline(self, on):
+        """Online / Offline (the top bar, Settings): saved, and the whole app follows (net.py)."""
+        net.set_offline(on)
+        self.sw.set("offline", bool(on))
+        self.win.status("Offline: AutoEQ Studio won't connect to the internet." if on else
+                        "Online: AutoEQ Studio may use the internet (the online databases).", 5000)
+
+    def restart(self):
+        """Quit and start again (after a restore: everything loaded changed). The new copy waits for this one."""
+        import sys
+        from PySide6.QtCore import QProcess
+        start = os.path.join(paths.APP, "start.py")
+        QProcess.startDetached(sys.executable, [start, "--restarted"] + (["--tray"] if not self.win.isVisible() else []))
+        self.quit()
+
+    def quit(self):
+        if self.sw.trial:  # (a trial ends with the app: its device's own EQ back)
+            self.sw.end_trial(False)
+        self.hotkey.set("")
+        self.tray.hide()
+        self.qapp.quit()

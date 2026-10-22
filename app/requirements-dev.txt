@@ -1,0 +1,4 @@
+# For working on AutoEQ Studio, not for running it (setup.bat doesn't install these):
+#   ".venv\Scripts\python.exe" -m pip install -r "app\requirements-dev.txt"
+# The self-test runs Ruff (the linter, ruff.toml in the main folder) when it's installed.
+ruff==0.17.0

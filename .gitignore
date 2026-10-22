@@ -1,0 +1,21 @@
+# Git (and GitHub) keeps the program only: never your own files, anything the app makes, or Claude's notes.
+# (Each line is a pattern: a name ending in "/" is a folder.)
+
+# the Python environment setup.bat makes, and Python's and Ruff's caches
+.venv/
+__pycache__/
+*.pyc
+.ruff_cache/
+
+# your settings, the app's log and setup's log; your files and what the app writes
+data/
+inputs/
+output/
+presets/
+downloads/
+# installers and zips made by the "Make ..." launchers
+releases/
+
+# Claude Code's files (its notes, settings and skills) and the git guide: on this PC only
+.claude/
+GIT-GUIDE.md

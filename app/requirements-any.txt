@@ -1,0 +1,16 @@
+PySide6-Essentials
+comtypes
+numpy>=1.26
+scipy>=1.11
+mini-racer>=0.12
+tabulate>=0.9
+pyqtgraph>=0.13.7
+sounddevice
+soundfile
+winrt-runtime
+winrt-Windows.Foundation
+winrt-Windows.Foundation.Collections
+winrt-Windows.Globalization
+winrt-Windows.Graphics.Imaging
+winrt-Windows.Media.Ocr
+winrt-Windows.Storage.Streams

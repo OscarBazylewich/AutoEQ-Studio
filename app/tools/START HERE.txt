@@ -1,0 +1,33 @@
+AUTOEQ STUDIO
+=============
+
+AutoEQ Studio makes EQs for headphones and IEMs, and gives each playback device on your PC its own EQ.
+- Make an EQ: compares a measurement of your headphones or IEMs with a target curve (the sound you want) and finds
+  the filters that make one match the other, saved as the file your EQ app needs.
+- Devices: gives each playback device its own EQ, switched by itself (plug in your earphones' dongle and their EQ
+  is on). This part works through Equalizer APO (free: https://sourceforge.net/projects/equalizerapo/).
+
+STARTING IT
+  1. Unzip: right-click the zip > Extract All > Extract. (Not just double-clicking into the zip: it can't run from
+     inside it.) Put the "AutoEQ Studio" folder somewhere it can stay, e.g. Documents.
+  2. Double-click "AutoEQ Studio.bat". If Windows asks first ("Windows protected your PC": click "More info", then
+     "Run anyway"), that's normal for any program from the internet, and it only asks once. Nothing needs
+     installing: everything it uses is in its runtime folder.
+  3. It opens on Make an EQ with a sample IEM and target already in: press Run to see what it does. "Guide" (top
+     right) walks you through each part, and Help (or F1 on any setting) explains every term.
+  Closing the window leaves it running in the tray by the clock (click the ^ arrow if the icon is hidden): that's
+  what keeps your devices' EQs switching. Quit is in the tray icon's right-click menu.
+
+YOUR OWN EARPHONES
+  Find… next to Measurement searches thousands of measurements online (or Add… a file from your PC). Pick your EQ
+  app, Run, then Save filters, or "Use on device" to put the EQ straight onto a device through Equalizer APO.
+
+GOOD TO KNOW
+  - Everything stays on your PC. It only goes online to search for and download curves; Offline (top right) stops
+    even that.
+  - Your files are in Documents\AutoEQ Studio: Targets, Measurements, Saved EQs, Presets (Settings > Your files
+    opens it or chooses another folder). The app's settings are in its own data\ folder. Settings > Backup puts
+    them all in one .zip.
+  - To remove it: Settings > "Take AutoEQ Studio out of APO…" (if you set it up), untick Start with Windows, quit
+    it from the tray, delete the folder.
+  - README.txt explains every part in detail.

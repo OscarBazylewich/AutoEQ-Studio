@@ -1,0 +1,104 @@
+{
+ "Diffuse field 5128 -1dB per octave (AutoEq).csv": {
+  "site_url": "https://github.com/jaakkopasanen/AutoEq",
+  "site": "AutoEq (GitHub)",
+  "sub": "target",
+  "name": "Diffuse field 5128 -1dB per octave"
+ },
+ "Truthear Gate (oratory1990).csv": {
+  "site_url": "https://github.com/jaakkopasanen/AutoEq",
+  "site": "AutoEq (GitHub)",
+  "sub": "oratory1990 · in-ear",
+  "name": "Truthear Gate"
+ },
+ "Truthear GATe (Wide Bore Tips) (L800 IEM) L1.txt": {
+  "site_url": "https://listener800.github.io/5128iem.html",
+  "site": "listener800 5128 IEMs",
+  "sub": "Truthear",
+  "name": "Truthear GATe (Wide Bore Tips)"
+ },
+ "Truthear GATe (Wide Bore Tips) (L800 IEM) L2.txt": {
+  "site_url": "https://listener800.github.io/5128iem.html",
+  "site": "listener800 5128 IEMs",
+  "sub": "Truthear",
+  "name": "Truthear GATe (Wide Bore Tips)"
+ },
+ "Truthear GATe (Wide Bore Tips) (L800 IEM) L3.txt": {
+  "site_url": "https://listener800.github.io/5128iem.html",
+  "site": "listener800 5128 IEMs",
+  "sub": "Truthear",
+  "name": "Truthear GATe (Wide Bore Tips)"
+ },
+ "Truthear GATe (Wide Bore Tips) (L800 IEM) L4.txt": {
+  "site_url": "https://listener800.github.io/5128iem.html",
+  "site": "listener800 5128 IEMs",
+  "sub": "Truthear",
+  "name": "Truthear GATe (Wide Bore Tips)"
+ },
+ "Truthear GATe (Wide Bore Tips) (L800 IEM) L5.txt": {
+  "site_url": "https://listener800.github.io/5128iem.html",
+  "site": "listener800 5128 IEMs",
+  "sub": "Truthear",
+  "name": "Truthear GATe (Wide Bore Tips)"
+ },
+ "Truthear GATe (Wide Bore Tips) (L800 IEM) R1.txt": {
+  "site_url": "https://listener800.github.io/5128iem.html",
+  "site": "listener800 5128 IEMs",
+  "sub": "Truthear",
+  "name": "Truthear GATe (Wide Bore Tips)"
+ },
+ "Truthear GATe (Wide Bore Tips) (L800 IEM) R2.txt": {
+  "site_url": "https://listener800.github.io/5128iem.html",
+  "site": "listener800 5128 IEMs",
+  "sub": "Truthear",
+  "name": "Truthear GATe (Wide Bore Tips)"
+ },
+ "Truthear GATe (Wide Bore Tips) (L800 IEM) R3.txt": {
+  "site_url": "https://listener800.github.io/5128iem.html",
+  "site": "listener800 5128 IEMs",
+  "sub": "Truthear",
+  "name": "Truthear GATe (Wide Bore Tips)"
+ },
+ "Truthear GATe (Wide Bore Tips) (L800 IEM) R4.txt": {
+  "site_url": "https://listener800.github.io/5128iem.html",
+  "site": "listener800 5128 IEMs",
+  "sub": "Truthear",
+  "name": "Truthear GATe (Wide Bore Tips)"
+ },
+ "Truthear GATe (Wide Bore Tips) (L800 IEM) R5.txt": {
+  "site_url": "https://listener800.github.io/5128iem.html",
+  "site": "listener800 5128 IEMs",
+  "sub": "Truthear",
+  "name": "Truthear GATe (Wide Bore Tips)"
+ },
+ "HMS II.3 AutoEq in-ear (AutoEq).csv": {
+  "site_url": "https://github.com/jaakkopasanen/AutoEq",
+  "site": "AutoEq (GitHub)",
+  "sub": "target",
+  "name": "HMS II.3 AutoEq in-ear"
+ },
+ "Apple EarPods (EA IEM) L.txt": {
+  "site_url": "https://earphonesarchive.squig.link/",
+  "site": "Earphones Archive IEMs (5128)",
+  "sub": "Apple",
+  "name": "Apple EarPods"
+ },
+ "Apple EarPods (EA IEM) R.txt": {
+  "site_url": "https://earphonesarchive.squig.link/",
+  "site": "Earphones Archive IEMs (5128)",
+  "sub": "Apple",
+  "name": "Apple EarPods"
+ },
+ "Astro A20X (Gadgetry) L.txt": {
+  "site_url": "https://gadgetrytech.squig.link/headsets/",
+  "site": "Gadgetry Tech headphones",
+  "sub": "Astro",
+  "name": "Astro A20X"
+ },
+ "Astro A20X (Gadgetry) R.txt": {
+  "site_url": "https://gadgetrytech.squig.link/headsets/",
+  "site": "Gadgetry Tech headphones",
+  "sub": "Astro",
+  "name": "Astro A20X"
+ }
+}

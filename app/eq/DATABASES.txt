@@ -1,0 +1,100 @@
+ONLINE DATABASES: WHICH ONES, AND WHY
+=====================================
+Update (27 September 2026): all 155 databases in the lists are read now (about 54,500 curves). Fixed: 9 sites whose
+config has the template's commented-out `// PHONE_BOOK = "phone_book.json"` line (it was read as set: Aquaphobic,
+banzai1122, CSI-ZONE, HarutoHiroki, OB Odio, Soundignity, therollo9 IEMs and headphones, zerostresslevel); DHRME
+headphones (its page moved to dhrme.nl with a meta refresh); sites on modernGraphTool, a newer graph tool (Doltonius,
+SilicaGel IEMs, headphones and earbuds: measurements in data/phones/, targets in data/target(s)/, per-model sample
+counts and sets of seatings); Hana (its graph tool keeps measurements in data/measurements/). A download test of 894
+random entries from every database: all download except 10 whose files the sites never uploaded (their own graph
+pages can't show them either). Hangout.Audio's page now also loads an AES decryption library (its data is kept for its
+own page), on top of refusing its files to other programs: still list only; the app doesn't try to get round it.
+
+Update (25 September 2026): every database in squig.link's list is now included and on by default (about
+51,000 curves from 154 databases); the analysis below, of which ones are largest and add the most, is kept as a
+description of them. Any database can still be turned off in Settings > Sources.
+
+Checked 23 September 2026 (counts taken 21:34 UTC).
+
+WHERE THE LIST CAME FROM
+squig.link's "More squiglinks" dropdown (https://squig.link/, loaded from https://squig.link/squigsites.json):
+123 reviewers with 148 databases (115 IEM databases on 711-type couplers, 4 on the B&K 5128, 25 headphone
+databases, 3 earbud databases). It includes Crinacle's Hangout.Audio (https://graph.hangout.audio). One database
+(DHRME headphones) didn't respond (HTTP 404), so its count isn't known; the other 147 were counted.
+
+HOW THEY WERE COUNTED (the same way for every database)
+Each database's phone book (<site>/data/phone_book.json, the file squig.link itself reads) was downloaded and:
+  models   = unique models: brand + model name, lower case, spaces/punctuation and bracketed notes removed
+             (so "Truthear Gate (foam tips)" and "Truthear Gate" count as one model). THE NUMBER USED TO COMPARE.
+  entries  = rows in the phone book (one per listed model or variant).
+  files    = measurement variants named in the phone book (each one has left/right channel files).
+All counts are verified counts from the databases' own lists on the date above, not estimates. Two limits:
+  - Names are matched as written, so the same model spelled differently in two databases counts twice: the
+    overlap figures below are therefore a little low (the coverage a little high).
+  - The AutoEq repository isn't a squig.link site: its count comes from the app's own index of it
+    (GitHub's file list): 3,487 unique model names in 6,815 measurement files, across its sources (oratory1990,
+    Crinacle's older data, Innerfidelity, Rtings, Headphone.com and others).
+
+HOW THEY WERE CHOSEN
+Sizes, largest first, within each kind of rig (IEMs on 711-type couplers; IEMs and headphones on the B&K 5128;
+headphones), then how many models each one adds that the larger ones don't already have. A database was
+taken when it was above the clear break in sizes in its group:
+  - 711 IEMs: 115 databases. The seven with 576 models or more were taken; the next is 492 (a gap of 84 models,
+    the largest below 600). Together they cover 3,620 of the 8,350 models found in all 115 (43%); every one of
+    them still adds at least 194 models the bigger ones don't have.
+  - B&K 5128: only 4 databases; the three with 260 or more were taken (the fourth is tiny). They cover 1,132 of
+    1,164 models (97%).
+  - Headphones: 25 databases. The three with 259 or more were taken (then 175). They cover 769 of 1,548 (50%).
+That is 13 squig.link databases plus the AutoEq repository: more than the rough guide of ten, because the 5128
+and headphone groups have few large databases and the 711 group has several of nearly the same size.
+
+SELECTED (on by default)
+                                                      models  entries  files  new*   rig
+  AutoEq repository  github.com/jaakkopasanen/AutoEq  3,487    6,815    -      -     per source (stated)
+  Hangout.Audio IEMs (Crinacle, 711)                   1,198    1,211  1,703  1,198  711 coupler (stated)
+      https://graph.hangout.audio/iem/711/                                              LIST ONLY, see below
+  Aftersound IEMs      https://aftersound.squig.link/    927      937    937    811  711 (usual)
+  HBB                  https://hbb.squig.link/           825      833    833    599  711 (usual)
+  Paul Wasabi IEMs     https://pw.squig.link/            623      627    922    337  711 (usual)
+  Super* Review IEMs   https://squig.link/               598      600  1,395    234  711 (usual)
+  Jaytiss IEMs         https://jaytiss.squig.link/       577      577    683    247  711 (usual)
+  Audio Amigo IEMs     https://audioamigo.squig.link/    576      577  1,501    194  711 (usual)
+  Earphones Archive IEMs (5128)
+                       https://earphonesarchive.squig.link/            480  491  1,031  480  B&K 5128 (listed as 5128)
+  Hangout.Audio IEMs (Crinacle, 5128)
+                       https://graph.hangout.audio/iem/5128/           474  477    637  392  B&K 5128 (stated), LIST ONLY
+  Earphones Archive headphones (5128)
+                       https://earphonesarchive.squig.link/headphones/ 260  264  1,079  260  B&K 5128 (listed as 5128)
+  Unheard Lab headphones  https://sai.squig.link/        347      360  2,347    347  not stated
+  Hangout.Audio headphones (Crinacle)
+                       https://graph.hangout.audio/headphones/         291  292    371  230  GRAS 43AG (usual), LIST ONLY
+  Gadgetry Tech headphones https://gadgetrytech.squig.link/headsets/   259  261    441  192  not stated
+  * new = models not in the larger databases of the same group listed above it.
+
+KEPT, THOUGH SMALL
+  listener800 5128 IEMs and headphones (https://listener800.github.io/): 30 and 88 models. Not in squig.link's
+  dropdown and not chosen for size: kept because this app copies listener800's website (its profile, its
+  averaged 10-seating B&K 5128 measurements are what "Which measurement to use?" ranked best in testing).
+
+AVAILABLE BUT OFF (turn them on in Settings > Sources)
+  Precogvision (412 models; only 113 not in the larger 711 databases), Audio Discourse IEMs (385) and
+  headphones (81), Super* Review headphones (28). They were on before; they're smaller and add little.
+
+NOT TAKEN, FOR THE RECORD (the next largest)
+  Soundignity 492, Soundcheck39 479, aden 466, ToneDeafMonk 437, EPLV 412
+  (711 IEMs); Kuulokenurkka 175, Kyle @ Den-Fi 168 (headphones). Any squig.link site can still be added in
+  Settings > Sources > "Add a database".
+
+HOW EACH IS INTEGRATED (checked 23 September 2026)
+  - squig.link sites: the page's config.js gives the data folder, channels and number of seatings; the phone
+    book lists the models; files are "<name> L.txt" / "<name> R.txt" (some only one channel). Indexing and a
+    download test succeeded for Aftersound, HBB, Paul Wasabi, Super* Review, Jaytiss, Audio Amigo, Earphones
+    Archive (both), Unheard Lab and Gadgetry Tech (6 random models each; a few entries exist for one channel only,
+    which the app handles).
+  - AutoEq: GitHub's file list and raw.githubusercontent.com downloads, as before.
+  - Hangout.Audio (all three): its list (phone_book.json) is public and is indexed, but its server refuses the
+    measurement files to anything but its own graph page (HTTP 403 Forbidden). The app doesn't try to get round
+    that. Its entries appear in searches marked "open on site ↗" and open on Hangout.Audio (the share link
+    squig.link itself uses); "Which measurement to use?" lists them as "also measured by" with links. To use one,
+    trace its graph with Trace image.
+  Lists refresh every few days; new models in these databases appear by themselves.

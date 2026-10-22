@@ -1,0 +1,10 @@
+# Ruff (the Python linter: ".venv\Scripts\ruff.exe" check app), run by the self-test when it's there.
+# The checks that catch mistakes (unused names, undefined ones, bugbear's likely bugs, syntax); not the house style:
+# lines about 120 wide (a few longer), small named lambdas, `l` and `I` as names, two short statements on a line.
+target-version = "py310"
+line-length = 120
+extend-exclude = ["app/eq/vendor"]
+
+[lint]
+select = ["E", "F", "W", "B", "PLE"]
+ignore = ["E501", "E731", "E741", "E702", "B905"]

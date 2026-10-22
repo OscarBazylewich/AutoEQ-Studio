@@ -1,0 +1,3250 @@
+{
+"built": "2026-09-30",
+"band_hz": [
+1000,
+10000
+],
+"noise": {
+"iem": 1.047914877451353,
+"headphone": 4.705216409819617
+},
+"units": {
+"https://sai.squig.link": {
+"name": "Unheard Lab headphones",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "high",
+"models": 59,
+"wins": 0.81,
+"median": {
+"43AG": 1.95,
+"5128": 2.92,
+"HMS": 2.82
+},
+"mixed": false,
+"t": 14.8,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://squig.link": {
+"name": "Super* Review IEMs",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 60,
+"wins": 0.98,
+"median": {
+"5128": 2.97,
+"711": 1.51,
+"HMS": 3.4
+},
+"mixed": false,
+"t": 18.4,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://audioamigo.squig.link": {
+"name": "Audio Amigo IEMs",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 60,
+"wins": 0.9,
+"median": {
+"5128": 2.22,
+"711": 1.34,
+"HMS": 3.32
+},
+"mixed": false,
+"t": 9.8,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://aftersound.squig.link": {
+"name": "Aftersound IEMs",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 60,
+"wins": 0.98,
+"median": {
+"5128": 3.02,
+"711": 1.31,
+"HMS": 3.09
+},
+"mixed": false,
+"t": 25.6,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://soundignity.squig.link": {
+"name": "Soundignity",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 59,
+"wins": 0.95,
+"median": {
+"5128": 2.66,
+"711": 1.31,
+"HMS": 3.45
+},
+"mixed": false,
+"t": 12.3,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://pw.squig.link": {
+"name": "Paul Wasabi IEMs",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 56,
+"wins": 0.88,
+"median": {
+"5128": 2.47,
+"711": 1.26,
+"HMS": 3.22
+},
+"mixed": false,
+"t": 12.5,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://hbb.squig.link": {
+"name": "HBB",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 60,
+"wins": 0.95,
+"median": {
+"5128": 2.55,
+"711": 1.31,
+"HMS": 3.05
+},
+"mixed": false,
+"t": 16.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://tonedeafmonk.squig.link": {
+"name": "ToneDeafMonk",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 45,
+"wins": 0.82,
+"median": {
+"5128": 2.2,
+"711": 1.41,
+"HMS": 2.79
+},
+"mixed": false,
+"t": 5.7,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://jaytiss.squig.link": {
+"name": "Jaytiss IEMs",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 60,
+"wins": 0.95,
+"median": {
+"5128": 2.82,
+"711": 1.24,
+"HMS": 2.64
+},
+"mixed": false,
+"t": 7.1,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://aden.squig.link": {
+"name": "aden (IEMs)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 58,
+"wins": 0.9,
+"median": {
+"5128": 2.55,
+"711": 1.18,
+"HMS": 2.75
+},
+"mixed": false,
+"t": 11.3,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|Super Review|in-ear": {
+"name": "AutoEq: Super Review (in-ear)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 60,
+"wins": 0.98,
+"median": {
+"5128": 3.15,
+"711": 1.38,
+"HMS": 3.43
+},
+"mixed": false,
+"t": 20.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://soundcheck39.squig.link": {
+"name": "Soundcheck39",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 51,
+"wins": 0.96,
+"median": {
+"5128": 3.09,
+"711": 1.71,
+"HMS": 2.59
+},
+"mixed": false,
+"t": 3.8,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"https://precog.squig.link": {
+"name": "Precogvision",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 60,
+"wins": 0.9,
+"median": {
+"5128": 2.75,
+"711": 1.29,
+"HMS": 3.13
+},
+"mixed": false,
+"t": 14.1,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://dchpgall.squig.link": {
+"name": "Dcinside Headphone Gallery",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 12,
+"wins": 0.92,
+"median": {
+"5128": 2.48,
+"711": 1.45,
+"HMS": 2.55
+},
+"mixed": false,
+"t": 4.5,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://musicafe.squig.link": {
+"name": "MusiCafé",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 27,
+"wins": 0.96,
+"median": {
+"5128": 2.79,
+"711": 1.16,
+"HMS": 2.74
+},
+"mixed": false,
+"t": 4.7,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://therollo9.squig.link": {
+"name": "therollo9 (IEMs)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 23,
+"wins": 0.78,
+"median": {
+"5128": 2.52,
+"711": 1.29,
+"HMS": 3.3
+},
+"mixed": false,
+"t": 6.4,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://atechreviews.squig.link": {
+"name": "ATechReviews",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 60,
+"wins": 0.85,
+"median": {
+"5128": 2.06,
+"711": 1.19,
+"HMS": 2.75
+},
+"mixed": false,
+"t": 7.5,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://practiphile.squig.link": {
+"name": "Practiphile",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 41,
+"wins": 0.93,
+"median": {
+"5128": 2.61,
+"711": 1.25,
+"HMS": 2.07
+},
+"mixed": false,
+"t": 0.4,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://vortexreviews.squig.link": {
+"name": "Vortex Reviews",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 47,
+"wins": 0.91,
+"median": {
+"5128": 2.31,
+"711": 1.13,
+"HMS": 2.69
+},
+"mixed": false,
+"t": 12.6,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://eplv.squig.link": {
+"name": "EPLV",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 27,
+"wins": 0.93,
+"median": {
+"5128": 3.26,
+"711": 1.59,
+"HMS": 2.69
+},
+"mixed": false,
+"t": 3.3,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://hu-fi.squig.link": {
+"name": "Hu-Fi",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 41,
+"wins": 0.85,
+"median": {
+"5128": 2.65,
+"711": 1.54,
+"HMS": 2.69
+},
+"mixed": false,
+"t": 9.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://csi-zone.squig.link": {
+"name": "CSI-ZONE",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 29,
+"wins": 0.93,
+"median": {
+"5128": 2.73,
+"711": 1.21,
+"HMS": 3.24
+},
+"mixed": false,
+"t": 12.8,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://ianfann.squig.link": {
+"name": "ianfann",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 22,
+"wins": 0.86,
+"median": {
+"5128": 3.35,
+"711": 1.43,
+"HMS": 2.76
+},
+"mixed": false,
+"t": 4.3,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://cqtek.squig.link": {
+"name": "Hi End Portable",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 28,
+"wins": 0.93,
+"median": {
+"5128": 2.69,
+"711": 1.44,
+"HMS": 3.22
+},
+"mixed": false,
+"t": 9.7,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|ToneDeafMonk|in-ear": {
+"name": "AutoEq: ToneDeafMonk (in-ear)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 30,
+"wins": 0.9,
+"median": {
+"5128": 2.53,
+"711": 1.4,
+"HMS": 2.89
+},
+"mixed": false,
+"t": 7.4,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://iems.audiodiscourse.com": {
+"name": "Audio Discourse IEMs",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 44,
+"wins": 0.91,
+"median": {
+"5128": 3.06,
+"711": 1.57,
+"HMS": 2.51
+},
+"mixed": false,
+"t": 8.2,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|rtings|over-ear": {
+"name": "AutoEq: rtings (over-ear)",
+"device": "headphone",
+"rig": "5128",
+"confidence": "high",
+"models": 60,
+"wins": 0.9,
+"median": {
+"43AG": 3.48,
+"5128": 2.44,
+"HMS": 3.67
+},
+"mixed": false,
+"t": 15.1,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://iemocean.squig.link": {
+"name": "IEM Ocean",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 28,
+"wins": 1.0,
+"median": {
+"5128": 3.51,
+"711": 1.53,
+"HMS": 3.07
+},
+"mixed": false,
+"t": 5.4,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://gadgetrytech.squig.link/headsets": {
+"name": "Gadgetry Tech headphones",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "low",
+"models": 58,
+"wins": 0.36,
+"median": {
+"43AG": 2.72,
+"5128": 2.76,
+"HMS": 2.95
+},
+"mixed": false,
+"t": 0.6,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://silicagel.squig.link": {
+"name": "SilicaGel (IEMs)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 38,
+"wins": 0.95,
+"median": {
+"5128": 2.66,
+"711": 1.39,
+"HMS": 2.71
+},
+"mixed": false,
+"t": 11.1,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|Jaytiss|in-ear": {
+"name": "AutoEq: Jaytiss (in-ear)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 51,
+"wins": 0.92,
+"median": {
+"5128": 3.0,
+"711": 1.4,
+"HMS": 2.6
+},
+"mixed": false,
+"t": 4.8,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://obodio.squig.link": {
+"name": "OB Odio",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 19,
+"wins": 0.89,
+"median": {
+"5128": 2.74,
+"711": 1.32,
+"HMS": 3.4
+},
+"mixed": false,
+"t": 6.8,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://boizoff.squig.link": {
+"name": "boizoff (IEMs)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 49,
+"wins": 1.0,
+"median": {
+"5128": 2.31,
+"711": 1.16,
+"HMS": 2.43
+},
+"mixed": false,
+"t": 13.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://timmyv.squig.link": {
+"name": "TimTuned",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 57,
+"wins": 0.91,
+"median": {
+"5128": 2.63,
+"711": 1.13,
+"HMS": 2.95
+},
+"mixed": false,
+"t": 12.5,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://rg.squig.link": {
+"name": "RikudouGoku",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 28,
+"wins": 0.86,
+"median": {
+"5128": 3.18,
+"711": 1.86,
+"HMS": 3.23
+},
+"mixed": false,
+"t": 6.5,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"https://sl0the.squig.link": {
+"name": "sl0the",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 34,
+"wins": 0.97,
+"median": {
+"5128": 2.69,
+"711": 1.2,
+"HMS": 2.91
+},
+"mixed": false,
+"t": 11.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://kuulokenurkka.squig.link": {
+"name": "Kuulokenurkka",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "medium",
+"models": 60,
+"wins": 0.73,
+"median": {
+"43AG": 2.27,
+"5128": 3.0,
+"HMS": 2.81
+},
+"mixed": false,
+"t": 8.2,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://regancipher.squig.link": {
+"name": "Regan Cipher",
+"device": "iem",
+"rig": "unknown",
+"confidence": "low",
+"models": 8,
+"wins": 0.75,
+"median": {
+"5128": 3.68,
+"711": 2.24,
+"HMS": 2.54
+},
+"mixed": false,
+"t": 0.0,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"https://treblewellxtended.squig.link": {
+"name": "Treble Well Xtended",
+"device": "iem",
+"rig": "unknown",
+"confidence": "low",
+"models": 45,
+"wins": 0.89,
+"median": {
+"5128": 3.83,
+"711": 2.11,
+"HMS": 2.5
+},
+"mixed": false,
+"t": -0.4,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"https://squig.link/lab/koi": {
+"name": "KOI",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 30,
+"wins": 0.8,
+"median": {
+"5128": 2.37,
+"711": 1.65,
+"HMS": 2.95
+},
+"mixed": false,
+"t": 5.3,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://iemworld.squig.link": {
+"name": "IEM World (IEMs)",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 36,
+"wins": 0.78,
+"median": {
+"5128": 3.21,
+"711": 1.55,
+"HMS": 2.36
+},
+"mixed": false,
+"t": 1.2,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://ish.squig.link": {
+"name": "Kyle @ Den-Fi",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "medium",
+"models": 51,
+"wins": 0.67,
+"median": {
+"43AG": 2.8,
+"5128": 3.36,
+"HMS": 3.39
+},
+"mixed": false,
+"t": 5.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://arn.squig.link": {
+"name": "audioAI",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 28,
+"wins": 0.82,
+"median": {
+"5128": 2.6,
+"711": 1.24,
+"HMS": 2.66
+},
+"mixed": false,
+"t": 8.2,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|Hi End Portable|in-ear": {
+"name": "AutoEq: Hi End Portable (in-ear)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 26,
+"wins": 0.92,
+"median": {
+"5128": 2.85,
+"711": 1.53,
+"HMS": 2.9
+},
+"mixed": false,
+"t": 8.9,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://dl.squig.link": {
+"name": "Dung Le (IEMs)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 38,
+"wins": 0.97,
+"median": {
+"5128": 2.83,
+"711": 1.19,
+"HMS": 2.75
+},
+"mixed": false,
+"t": 6.7,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://vsg.squig.link": {
+"name": "VSG (IEMs)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 34,
+"wins": 0.94,
+"median": {
+"5128": 2.94,
+"711": 1.31,
+"HMS": 2.55
+},
+"mixed": false,
+"t": 5.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://recode.squig.link": {
+"name": "Recode",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 22,
+"wins": 1.0,
+"median": {
+"5128": 3.56,
+"711": 1.88,
+"HMS": 2.81
+},
+"mixed": false,
+"t": 6.5,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"https://hobbytalk.squig.link": {
+"name": "Hobby Talk",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 45,
+"wins": 0.76,
+"median": {
+"5128": 2.77,
+"711": 1.8,
+"HMS": 2.21
+},
+"mixed": false,
+"t": 2.3,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"https://ducbloke.squig.link": {
+"name": "DucBloke",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 26,
+"wins": 0.85,
+"median": {
+"5128": 2.05,
+"711": 1.29,
+"HMS": 2.64
+},
+"mixed": false,
+"t": 5.2,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://fahryst.squig.link": {
+"name": "Fahryst",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 30,
+"wins": 0.83,
+"median": {
+"5128": 2.48,
+"711": 1.38,
+"HMS": 2.85
+},
+"mixed": false,
+"t": 5.9,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|rtings|in-ear": {
+"name": "AutoEq: rtings (in-ear)",
+"device": "iem",
+"rig": "5128",
+"confidence": "low",
+"models": 48,
+"wins": 0.54,
+"median": {
+"5128": 2.0,
+"711": 2.55,
+"HMS": 3.47
+},
+"mixed": false,
+"t": 1.9,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"https://eliseaudio.squig.link": {
+"name": "Elise Audio",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 26,
+"wins": 0.96,
+"median": {
+"5128": 3.56,
+"711": 1.45,
+"HMS": 3.94
+},
+"mixed": false,
+"t": 23.5,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://ankramutt.squig.link": {
+"name": "Ankramutt",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 35,
+"wins": 0.83,
+"median": {
+"5128": 2.72,
+"711": 1.56,
+"HMS": 2.77
+},
+"mixed": false,
+"t": 8.4,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://theaudiostore.squig.link": {
+"name": "The Audio Store",
+"device": "iem",
+"rig": "unknown",
+"confidence": "low",
+"models": 53,
+"wins": 0.91,
+"median": {
+"5128": 3.9,
+"711": 2.27,
+"HMS": 2.55
+},
+"mixed": false,
+"t": -0.2,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|Kuulokenurkka|over-ear": {
+"name": "AutoEq: Kuulokenurkka (over-ear)",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "high",
+"models": 60,
+"wins": 0.8,
+"median": {
+"43AG": 1.95,
+"5128": 2.85,
+"HMS": 2.85
+},
+"mixed": false,
+"t": 9.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://squig.link/lab/zerostresslevel": {
+"name": "zerostresslevel",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 19,
+"wins": 0.84,
+"median": {
+"5128": 2.73,
+"711": 1.94,
+"HMS": 4.21
+},
+"mixed": false,
+"t": 4.0,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"https://dhrme.squig.link": {
+"name": "DHRME (IEMs)",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 3,
+"wins": 0.67,
+"median": {
+"5128": 2.19,
+"711": 1.22,
+"HMS": 2.94
+},
+"mixed": false,
+"t": 1.1,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://achoreviews.squig.link": {
+"name": "Acho Reviews",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 31,
+"wins": 0.9,
+"median": {
+"5128": 3.39,
+"711": 1.5,
+"HMS": 2.5
+},
+"mixed": false,
+"t": 3.6,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://dentreviews.squig.link": {
+"name": "dentReviews",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 17,
+"wins": 0.76,
+"median": {
+"5128": 3.04,
+"711": 1.92,
+"HMS": 2.53
+},
+"mixed": false,
+"t": 1.6,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"https://squig.link/headphones": {
+"name": "Super* Review (Headphones)",
+"device": "headphone",
+"rig": "5128",
+"confidence": "low",
+"models": 60,
+"wins": 0.45,
+"median": {
+"43AG": 2.81,
+"5128": 2.6,
+"HMS": 3.01
+},
+"mixed": false,
+"t": 0.6,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://harpo.squig.link": {
+"name": "Harpo",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 27,
+"wins": 0.93,
+"median": {
+"5128": 3.3,
+"711": 1.48,
+"HMS": 3.06
+},
+"mixed": false,
+"t": 7.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|Headphone.com Legacy|over-ear": {
+"name": "AutoEq: Headphone.com Legacy (over-ear)",
+"device": "headphone",
+"rig": "HMS",
+"confidence": "low",
+"models": 60,
+"wins": 0.68,
+"median": {
+"43AG": 2.91,
+"5128": 3.35,
+"HMS": 2.61
+},
+"mixed": false,
+"t": 5.4,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://filk.squig.link": {
+"name": "Filk (Headphones)",
+"device": "headphone",
+"rig": "HMS",
+"confidence": "low",
+"models": 13,
+"wins": 0.31,
+"median": {
+"43AG": 2.66,
+"5128": 2.73,
+"HMS": 2.53
+},
+"mixed": false,
+"t": -2.4,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://melatonin.squig.link": {
+"name": "Melatonin",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 12,
+"wins": 0.67,
+"median": {
+"5128": 3.15,
+"711": 1.51,
+"HMS": 3.59
+},
+"mixed": false,
+"t": 3.9,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://bassaudio.squig.link": {
+"name": "Bass Audio",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 36,
+"wins": 1.0,
+"median": {
+"5128": 3.26,
+"711": 1.35,
+"HMS": 2.47
+},
+"mixed": false,
+"t": 6.3,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://squig.link/lab/elrics/headphones": {
+"name": "Elrics (Headphones)",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "high",
+"models": 26,
+"wins": 0.65,
+"median": {
+"43AG": 2.45,
+"5128": 3.29,
+"HMS": 3.11
+},
+"mixed": false,
+"t": 4.7,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://squig.link/lab/hana": {
+"name": "Hana",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 39,
+"wins": 0.85,
+"median": {
+"5128": 2.28,
+"711": 1.31,
+"HMS": 2.92
+},
+"mixed": false,
+"t": 6.8,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://squig.link/lab/fernandagunsan": {
+"name": "Fernanda Gunsan",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 25,
+"wins": 1.0,
+"median": {
+"5128": 3.48,
+"711": 1.5,
+"HMS": 2.97
+},
+"mixed": false,
+"t": 0.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|RikudouGoku|in-ear": {
+"name": "AutoEq: RikudouGoku (in-ear)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 32,
+"wins": 0.84,
+"median": {
+"5128": 2.93,
+"711": 1.49,
+"HMS": 3.06
+},
+"mixed": false,
+"t": 6.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://squig.link/lab/tdl": {
+"name": "TDL",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 6,
+"wins": 0.83,
+"median": {
+"5128": 2.25,
+"711": 1.5,
+"HMS": 3.07
+},
+"mixed": false,
+"t": 3.5,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://lumerion.squig.link": {
+"name": "Lumerion",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 28,
+"wins": 1.0,
+"median": {
+"5128": 2.41,
+"711": 1.27,
+"HMS": 3.33
+},
+"mixed": false,
+"t": 11.4,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://nymz.squig.link": {
+"name": "nymz",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 30,
+"wins": 0.9,
+"median": {
+"5128": 2.99,
+"711": 1.39,
+"HMS": 2.94
+},
+"mixed": false,
+"t": 9.1,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://bedrock.squig.link": {
+"name": "Bedrock Reviews",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 22,
+"wins": 0.91,
+"median": {
+"5128": 2.58,
+"711": 1.35,
+"HMS": 2.97
+},
+"mixed": false,
+"t": 7.2,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://lown-fi.squig.link": {
+"name": "lown-fi",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 28,
+"wins": 0.82,
+"median": {
+"5128": 3.84,
+"711": 2.35,
+"HMS": 2.79
+},
+"mixed": false,
+"t": 0.6,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"https://flare.squig.link": {
+"name": "Flare",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 26,
+"wins": 0.88,
+"median": {
+"5128": 2.47,
+"711": 1.34,
+"HMS": 3.41
+},
+"mixed": false,
+"t": 5.9,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://kr0mka.squig.link": {
+"name": "kr0mka (IEMs)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 20,
+"wins": 0.95,
+"median": {
+"5128": 2.6,
+"711": 1.11,
+"HMS": 3.0
+},
+"mixed": false,
+"t": 9.6,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|HypetheSonics|in-ear": {
+"name": "AutoEq: HypetheSonics (in-ear)",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 44,
+"wins": 0.7,
+"median": {
+"5128": 2.51,
+"711": 2.03,
+"HMS": 3.29
+},
+"mixed": false,
+"t": 3.7,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|Harpo|in-ear": {
+"name": "AutoEq: Harpo (in-ear)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 28,
+"wins": 0.93,
+"median": {
+"5128": 3.01,
+"711": 1.4,
+"HMS": 3.06
+},
+"mixed": false,
+"t": 10.2,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://yoshiultra.squig.link": {
+"name": "yoshi ultra",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 16,
+"wins": 0.75,
+"median": {
+"5128": 2.96,
+"711": 2.38,
+"HMS": 3.36
+},
+"mixed": false,
+"t": 2.3,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"https://kazi.squig.link": {
+"name": "Kazi",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 33,
+"wins": 0.94,
+"median": {
+"5128": 2.73,
+"711": 1.63,
+"HMS": 3.71
+},
+"mixed": false,
+"t": 9.4,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://suporsalad.squig.link": {
+"name": "Side Salad Audio (IEMs)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 16,
+"wins": 1.0,
+"median": {
+"5128": 2.78,
+"711": 1.11,
+"HMS": 3.11
+},
+"mixed": false,
+"t": 11.5,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://gadgetrytech.squig.link": {
+"name": "Gadgetry Tech (IEMs)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 44,
+"wins": 0.93,
+"median": {
+"5128": 2.71,
+"711": 1.25,
+"HMS": 2.69
+},
+"mixed": false,
+"t": 6.2,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|Fahryst|in-ear": {
+"name": "AutoEq: Fahryst (in-ear)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 24,
+"wins": 1.0,
+"median": {
+"5128": 2.67,
+"711": 1.2,
+"HMS": 3.0
+},
+"mixed": false,
+"t": 10.9,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://bloomaudio.squig.link": {
+"name": "Bloom Audio",
+"device": "iem",
+"rig": "unknown",
+"confidence": "low",
+"models": 21,
+"wins": 0.05,
+"median": {
+"5128": 3.86,
+"711": 2.57,
+"HMS": 2.46
+},
+"mixed": true,
+"t": 0.0,
+"loose": true,
+"entries": {
+"64 Audio Aspire 1": "711",
+"Crinear Reference": "711",
+"DUNU Glacier": "711",
+"Kiwi Ears Astral": "711",
+"Kiwi Ears Forteza": "711",
+"Kiwi Ears KE4": "711",
+"Kiwi Ears Quintet": "711",
+"Noble Audio Kronos": "711",
+"Noble Audio Shogun": "711",
+"Sennheiser IE200": "711",
+"Sennheiser IE900": "711",
+"Symphonium Helios": "711",
+"Truthear Pure": "711",
+"XENNS Mangird Tea Pro": "711",
+"XENNS Mangird Top Pro": "711"
+},
+"how": "inferred"
+},
+"https://boizoff.squig.link/headphones": {
+"name": "boizoff (Headphones)",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "high",
+"models": 39,
+"wins": 0.72,
+"median": {
+"43AG": 2.38,
+"5128": 3.12,
+"HMS": 3.34
+},
+"mixed": false,
+"t": 6.9,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://listener.squig.link": {
+"name": "listener (Headphones)",
+"device": "headphone",
+"rig": "5128",
+"confidence": "high",
+"models": 60,
+"wins": 0.9,
+"median": {
+"43AG": 2.01,
+"5128": 1.01,
+"HMS": 2.67
+},
+"mixed": false,
+"t": 10.7,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|Regan Cipher|in-ear": {
+"name": "AutoEq: Regan Cipher (in-ear)",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 7,
+"wins": 0.71,
+"median": {
+"5128": 3.65,
+"711": 2.18,
+"HMS": 2.82
+},
+"mixed": false,
+"t": 0.5,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"https://squig.link/lab/elrics": {
+"name": "Elrics (IEMs)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 30,
+"wins": 0.83,
+"median": {
+"5128": 2.35,
+"711": 1.12,
+"HMS": 2.37
+},
+"mixed": false,
+"t": 7.7,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://animagus.squig.link": {
+"name": "Animagus",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 20,
+"wins": 1.0,
+"median": {
+"5128": 2.88,
+"711": 1.17,
+"HMS": 2.57
+},
+"mixed": false,
+"t": 3.3,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://tgx78.squig.link": {
+"name": "tgx78",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 13,
+"wins": 0.85,
+"median": {
+"5128": 2.96,
+"711": 1.59,
+"HMS": 3.19
+},
+"mixed": false,
+"t": 5.3,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|Kazi|in-ear": {
+"name": "AutoEq: Kazi (in-ear)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 32,
+"wins": 0.94,
+"median": {
+"5128": 2.77,
+"711": 1.58,
+"HMS": 3.69
+},
+"mixed": false,
+"t": 9.5,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|Super Review|over-ear": {
+"name": "AutoEq: Super Review (over-ear)",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "low",
+"models": 60,
+"wins": 0.45,
+"median": {
+"43AG": 2.56,
+"5128": 2.59,
+"HMS": 2.94
+},
+"mixed": false,
+"t": 1.4,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://cammyfi.squig.link/iems": {
+"name": "CammyFi (IEMs)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 25,
+"wins": 0.96,
+"median": {
+"5128": 2.82,
+"711": 1.27,
+"HMS": 3.15
+},
+"mixed": false,
+"t": 13.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://squig.link/lab/harutohiroki": {
+"name": "HarutoHiroki",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 26,
+"wins": 0.92,
+"median": {
+"5128": 2.67,
+"711": 1.41,
+"HMS": 3.13
+},
+"mixed": false,
+"t": 7.2,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://kr0mka.squig.link/headphones": {
+"name": "kr0mka (Headphones)",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "medium",
+"models": 25,
+"wins": 0.72,
+"median": {
+"43AG": 2.2,
+"5128": 2.94,
+"HMS": 2.63
+},
+"mixed": false,
+"t": 3.9,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://digaoreviews.squig.link": {
+"name": "Digão Reviews",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 9,
+"wins": 1.0,
+"median": {
+"5128": 2.65,
+"711": 1.28,
+"HMS": 3.66
+},
+"mixed": false,
+"t": 7.9,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://kuping-sensi.squig.link": {
+"name": "Kuping Sensi",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 27,
+"wins": 1.0,
+"median": {
+"5128": 3.6,
+"711": 2.12
+},
+"mixed": false,
+"t": 22.2,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|Filk|over-ear": {
+"name": "AutoEq: Filk (over-ear)",
+"device": "headphone",
+"rig": "5128",
+"confidence": "low",
+"models": 17,
+"wins": 0.53,
+"median": {
+"43AG": 2.51,
+"5128": 2.31,
+"HMS": 2.78
+},
+"mixed": false,
+"t": 0.7,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://bryaudioreviews.squig.link": {
+"name": "Bry Audio Reviews",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 12,
+"wins": 0.75,
+"median": {
+"5128": 2.14,
+"711": 1.29,
+"HMS": 3.16
+},
+"mixed": false,
+"t": 2.3,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://squig.link/lab/jaraba": {
+"name": "JaRaBa",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 10,
+"wins": 0.7,
+"median": {
+"5128": 2.74,
+"711": 1.61,
+"HMS": 2.73
+},
+"mixed": false,
+"t": 1.8,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://vsg.squig.link/headphones": {
+"name": "VSG (Headphones)",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "low",
+"models": 41,
+"wins": 0.59,
+"median": {
+"43AG": 2.37,
+"5128": 2.65,
+"HMS": 2.8
+},
+"mixed": false,
+"t": 3.4,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://auricularesargentina.squig.link": {
+"name": "Auriculares Argentina",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "medium",
+"models": 27,
+"wins": 0.74,
+"median": {
+"43AG": 2.05,
+"5128": 2.49,
+"HMS": 2.85
+},
+"mixed": false,
+"t": 4.5,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://bassyalexander.squig.link": {
+"name": "bassy Alexander",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 12,
+"wins": 0.92,
+"median": {
+"5128": 4.08,
+"711": 2.0,
+"HMS": 3.89
+},
+"mixed": false,
+"t": 4.5,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"https://freeryder05.squig.link": {
+"name": "freeryder05",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 4,
+"wins": 1.0,
+"median": {
+"5128": 2.67,
+"711": 1.43,
+"HMS": 3.63
+},
+"mixed": false,
+"t": 3.6,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://breampike.squig.link": {
+"name": "breampike",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 16,
+"wins": 0.81,
+"median": {
+"5128": 2.47,
+"711": 1.33,
+"HMS": 2.65
+},
+"mixed": false,
+"t": 5.1,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://aden.squig.link/headphones": {
+"name": "aden (Headphones)",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "low",
+"models": 21,
+"wins": 0.48,
+"median": {
+"43AG": 2.76,
+"5128": 3.47,
+"HMS": 3.11
+},
+"mixed": false,
+"t": 2.1,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://dhrme.squig.link/headphones": {
+"name": "DHRME (Headphones)",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "low",
+"models": 3,
+"wins": 1.0,
+"median": {
+"43AG": 3.33,
+"5128": 4.41,
+"HMS": 3.45
+},
+"mixed": false,
+"t": 2.8,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://capraaudio.squig.link/headphones": {
+"name": "Capra Audio",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "low",
+"models": 25,
+"wins": 0.6,
+"median": {
+"43AG": 2.62,
+"5128": 2.94,
+"HMS": 2.68
+},
+"mixed": false,
+"t": 4.9,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://squig.link/lab/joycesreview": {
+"name": "Joyce's Review",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 20,
+"wins": 1.0,
+"median": {
+"5128": 3.18,
+"711": 1.6,
+"HMS": 2.48
+},
+"mixed": false,
+"t": 0.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://listener.squig.link/iems": {
+"name": "listener (IEMs)",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 28,
+"wins": 0.86,
+"median": {
+"5128": 2.47,
+"711": 1.94,
+"HMS": 3.21
+},
+"mixed": false,
+"t": 5.2,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"https://squig.link/lab/aquaphobic": {
+"name": "Aquaphobic",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 3,
+"wins": 1.0,
+"median": {
+"5128": 3.5,
+"711": 1.21,
+"HMS": 3.21
+},
+"mixed": false,
+"t": 0.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://doltonius.squig.link": {
+"name": "Doltonius",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 11,
+"wins": 0.82,
+"median": {
+"5128": 3.46,
+"711": 1.68,
+"HMS": 2.66
+},
+"mixed": false,
+"t": 0.1,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"https://adri-n.squig.link": {
+"name": "Adri-N",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 19,
+"wins": 1.0,
+"median": {
+"5128": 3.07,
+"711": 1.12,
+"HMS": 2.82
+},
+"mixed": false,
+"t": 14.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://therollo9.squig.link/headphones": {
+"name": "therollo9 (Headphones)",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "low",
+"models": 18,
+"wins": 0.61,
+"median": {
+"43AG": 2.99,
+"5128": 3.41,
+"HMS": 3.34
+},
+"mixed": false,
+"t": 2.8,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|DHRME|in-ear": {
+"name": "AutoEq: DHRME (in-ear)",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 4,
+"wins": 1.0,
+"median": {
+"5128": 3.16,
+"711": 1.77,
+"HMS": 3.54
+},
+"mixed": false,
+"t": 4.4,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"https://awsmdanny.squig.link": {
+"name": "AWSMDanny",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 13,
+"wins": 1.0,
+"median": {
+"5128": 3.55,
+"711": 1.63,
+"HMS": 3.31
+},
+"mixed": false,
+"t": 0.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://iemworld.squig.link/headphones": {
+"name": "IEM World (Headphones)",
+"device": "headphone",
+"rig": "5128",
+"confidence": "low",
+"models": 3,
+"wins": 0.33,
+"median": {
+"43AG": 3.29,
+"5128": 3.21,
+"HMS": 4.29
+},
+"mixed": false,
+"t": -0.4,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://loomynarty.squig.link": {
+"name": "Loomynarty",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 7,
+"wins": 0.71,
+"median": {
+"5128": 2.53,
+"711": 1.06,
+"HMS": 2.54
+},
+"mixed": false,
+"t": 3.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://daemonxar.squig.link": {
+"name": "DaemonXar",
+"device": "headphone",
+"rig": "5128",
+"confidence": "low",
+"models": 31,
+"wins": 0.35,
+"median": {
+"43AG": 2.44,
+"5128": 2.39,
+"HMS": 2.7
+},
+"mixed": false,
+"t": -1.3,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|Headphone.com Legacy|in-ear": {
+"name": "AutoEq: Headphone.com Legacy (in-ear)",
+"device": "iem",
+"rig": "HMS",
+"confidence": "high",
+"models": 42,
+"wins": 0.81,
+"median": {
+"5128": 4.38,
+"711": 2.72,
+"HMS": 1.5
+},
+"mixed": false,
+"t": 7.2,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://suporsalad.squig.link/headphones": {
+"name": "Side Salad Audio (Headphones)",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "low",
+"models": 8,
+"wins": 0.75,
+"median": {
+"43AG": 2.86,
+"5128": 3.23,
+"HMS": 2.95
+},
+"mixed": false,
+"t": 2.8,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|kr0mka|in-ear": {
+"name": "AutoEq: kr0mka (in-ear)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 17,
+"wins": 0.88,
+"median": {
+"5128": 2.81,
+"711": 1.36,
+"HMS": 3.05
+},
+"mixed": false,
+"t": 7.2,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://audioamigo.squig.link/headphones": {
+"name": "Audio Amigo (Headphones)",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "low",
+"models": 37,
+"wins": 0.51,
+"median": {
+"43AG": 2.83,
+"5128": 3.41,
+"HMS": 2.89
+},
+"mixed": false,
+"t": 2.3,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://jacstone.squig.link": {
+"name": "Jacstone",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 11,
+"wins": 0.91,
+"median": {
+"5128": 3.12,
+"711": 1.52,
+"HMS": 2.92
+},
+"mixed": false,
+"t": 4.8,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://headphones.audiodiscourse.com": {
+"name": "Audio Discourse headphones",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "high",
+"models": 13,
+"wins": 0.92,
+"median": {
+"43AG": 1.84,
+"5128": 2.93,
+"HMS": 2.86
+},
+"mixed": false,
+"t": 7.6,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://bukanaudiophile.squig.link": {
+"name": "BukanAudiophile",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 18,
+"wins": 0.94,
+"median": {
+"5128": 2.61,
+"711": 1.48,
+"HMS": 3.49
+},
+"mixed": false,
+"t": 6.1,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://ideru.squig.link": {
+"name": "Ideru",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 5,
+"wins": 1.0,
+"median": {
+"5128": 3.05,
+"711": 1.43,
+"HMS": 2.98
+},
+"mixed": false,
+"t": 0.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://isaiahse.squig.link": {
+"name": "Isaiah SE",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 6,
+"wins": 0.67,
+"median": {
+"5128": 3.74,
+"711": 2.5,
+"HMS": 3.59
+},
+"mixed": false,
+"t": -0.1,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"https://scboy.squig.link": {
+"name": "SCBoy",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 3,
+"wins": 1.0,
+"median": {
+"5128": 3.19,
+"711": 1.31
+},
+"mixed": false,
+"t": 4.1,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://filk.squig.link/iems": {
+"name": "Filk (IEMs)",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 12,
+"wins": 0.92,
+"median": {
+"5128": 2.7,
+"711": 1.39,
+"HMS": 2.63
+},
+"mixed": false,
+"t": 3.6,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://gadgetgenerations.squig.link": {
+"name": "Gadget Generations",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 6,
+"wins": 1.0,
+"median": {
+"5128": 2.88,
+"711": 1.27
+},
+"mixed": false,
+"t": 6.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|Rtings|over-ear": {
+"name": "AutoEq: Rtings (over-ear)",
+"device": "headphone",
+"rig": "5128",
+"confidence": "medium",
+"models": 19,
+"wins": 0.58,
+"median": {
+"43AG": 3.02,
+"5128": 2.18,
+"HMS": 2.81
+},
+"mixed": false,
+"t": 2.1,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://ekaudio.squig.link": {
+"name": "EKaudio",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 16,
+"wins": 0.88,
+"median": {
+"5128": 3.33,
+"711": 1.74,
+"HMS": 2.8
+},
+"mixed": false,
+"t": 1.6,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|Auriculares Argentina|over-ear": {
+"name": "AutoEq: Auriculares Argentina (over-ear)",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "medium",
+"models": 45,
+"wins": 0.78,
+"median": {
+"43AG": 1.98,
+"5128": 2.45,
+"HMS": 2.86
+},
+"mixed": false,
+"t": 6.3,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://hadoe.squig.link/headphones": {
+"name": "Hadoe (Headphones)",
+"device": "headphone",
+"rig": "5128",
+"confidence": "low",
+"models": 9,
+"wins": 0.67,
+"median": {
+"43AG": 3.07,
+"5128": 2.42,
+"HMS": 3.7
+},
+"mixed": false,
+"t": 0.5,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://banzai1122.squig.link": {
+"name": "banzai1122",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 14,
+"wins": 0.86,
+"median": {
+"5128": 2.45,
+"711": 1.63,
+"HMS": 3.38
+},
+"mixed": false,
+"t": 4.1,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://smirk.squig.link": {
+"name": "Smirk",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 9,
+"wins": 0.89,
+"median": {
+"5128": 2.65,
+"711": 1.67,
+"HMS": 2.9
+},
+"mixed": false,
+"t": 4.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|kr0mka|over-ear": {
+"name": "AutoEq: kr0mka (over-ear)",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "high",
+"models": 23,
+"wins": 0.78,
+"median": {
+"43AG": 1.87,
+"5128": 2.75,
+"HMS": 2.63
+},
+"mixed": false,
+"t": 4.2,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://ragnarok.squig.link": {
+"name": "Ragnarok (IEMs)",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 5,
+"wins": 1.0,
+"median": {
+"5128": 3.28,
+"711": 1.15,
+"HMS": 3.07
+},
+"mixed": false,
+"t": 15.8,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://squig.link/lab/avishai": {
+"name": "avishai",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 11,
+"wins": 0.91,
+"median": {
+"5128": 2.44,
+"711": 1.48,
+"HMS": 3.77
+},
+"mixed": false,
+"t": 3.8,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://cammyfi.squig.link/headphones-clone": {
+"name": "CammyFi (Headphones)",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "medium",
+"models": 23,
+"wins": 0.83,
+"median": {
+"43AG": 2.28,
+"5128": 2.9,
+"HMS": 2.88
+},
+"mixed": false,
+"t": 8.3,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|freeryder05|in-ear": {
+"name": "AutoEq: freeryder05 (in-ear)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 15,
+"wins": 0.87,
+"median": {
+"5128": 3.12,
+"711": 1.6,
+"HMS": 3.6
+},
+"mixed": false,
+"t": 8.9,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|Filk|in-ear": {
+"name": "AutoEq: Filk (in-ear)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 14,
+"wins": 0.86,
+"median": {
+"5128": 2.96,
+"711": 1.54,
+"HMS": 2.53
+},
+"mixed": false,
+"t": 4.1,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://hadoe.squig.link": {
+"name": "Hadoe (IEMs)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 12,
+"wins": 0.92,
+"median": {
+"5128": 2.63,
+"711": 1.53,
+"HMS": 3.82
+},
+"mixed": false,
+"t": 4.6,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://squig.link/lab/hoods": {
+"name": "Hoods",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 1,
+"wins": 1.0,
+"median": {
+"5128": 2.37,
+"711": 0.8
+},
+"mixed": false,
+"t": 0.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://lestat.squig.link": {
+"name": "Lestat",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 11,
+"wins": 1.0,
+"median": {
+"5128": 2.48,
+"711": 0.81,
+"HMS": 2.87
+},
+"mixed": false,
+"t": 15.4,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://hore.squig.link": {
+"name": "Hore",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 2,
+"wins": 1.0,
+"median": {
+"5128": 2.64,
+"711": 1.15,
+"HMS": 2.85
+},
+"mixed": false,
+"t": 0.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://riz.squig.link": {
+"name": "Riz",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 4,
+"wins": 1.0,
+"median": {
+"5128": 2.31,
+"711": 1.28,
+"HMS": 2.75
+},
+"mixed": false,
+"t": 8.4,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://samreviews.squig.link": {
+"name": "Sam Reviews",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 7,
+"wins": 1.0,
+"median": {
+"5128": 4.65,
+"711": 2.28,
+"HMS": 3.7
+},
+"mixed": false,
+"t": 0.0,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"https://bakkwatan.squig.link": {
+"name": "Bakkwatan",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 10,
+"wins": 1.0,
+"median": {
+"5128": 3.2,
+"711": 1.06,
+"HMS": 2.93
+},
+"mixed": false,
+"t": 5.3,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://seanwee.squig.link": {
+"name": "Sean Wee",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 12,
+"wins": 0.92,
+"median": {
+"5128": 3.06,
+"711": 1.66,
+"HMS": 3.36
+},
+"mixed": false,
+"t": 8.3,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|Bakkwatan|in-ear": {
+"name": "AutoEq: Bakkwatan (in-ear)",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 11,
+"wins": 1.0,
+"median": {
+"5128": 3.43,
+"711": 1.07,
+"HMS": 2.9
+},
+"mixed": false,
+"t": 7.5,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://squig.link/hp.html": {
+"name": "Super* Review headphones",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "high",
+"models": 17,
+"wins": 0.82,
+"median": {
+"43AG": 4.62,
+"5128": 5.28,
+"HMS": 5.5
+},
+"mixed": false,
+"t": 4.2,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://faxepremium.squig.link": {
+"name": "faxepremium",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 3,
+"wins": 1.0,
+"median": {
+"5128": 3.21,
+"711": 1.65
+},
+"mixed": false,
+"t": 5.6,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://takeitslow7.squig.link": {
+"name": "takeitslow7",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 3,
+"wins": 1.0,
+"median": {
+"5128": 1.87,
+"711": 1.07
+},
+"mixed": false,
+"t": 24.2,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|Rtings|in-ear": {
+"name": "AutoEq: Rtings (in-ear)",
+"device": "iem",
+"rig": "5128",
+"confidence": "low",
+"models": 6,
+"wins": 0.5,
+"median": {
+"5128": 2.52,
+"711": 2.92,
+"HMS": 3.86
+},
+"mixed": false,
+"t": 0.3,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"https://joshtbvo.squig.link": {
+"name": "JoshTBVO",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 15,
+"wins": 0.93,
+"median": {
+"5128": 2.65,
+"711": 1.42,
+"HMS": 2.03
+},
+"mixed": false,
+"t": 0.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|HypetheSonics|over-ear": {
+"name": "AutoEq: HypetheSonics (over-ear)",
+"device": "headphone",
+"rig": "5128",
+"confidence": "high",
+"models": 21,
+"wins": 1.0,
+"median": {
+"43AG": 4.06,
+"5128": 2.68,
+"HMS": 4.1
+},
+"mixed": false,
+"t": 10.6,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://dvewlsh.squig.link": {
+"name": "dvewlsh",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 7,
+"wins": 0.86,
+"median": {
+"5128": 3.01,
+"711": 1.27,
+"HMS": 2.79
+},
+"mixed": false,
+"t": 0.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://dl.squig.link/headphones": {
+"name": "Dung Le (Headphones)",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "high",
+"models": 12,
+"wins": 0.83,
+"median": {
+"43AG": 2.72,
+"5128": 3.98,
+"HMS": 3.52
+},
+"mixed": false,
+"t": 4.1,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://ragnarok.squig.link/headphones": {
+"name": "Ragnarok (Headphones)",
+"device": "headphone",
+"rig": "HMS",
+"confidence": "low",
+"models": 5,
+"wins": 0.4,
+"median": {
+"43AG": 3.46,
+"5128": 4.19,
+"HMS": 3.25
+},
+"mixed": false,
+"t": 0.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://arc.squig.link": {
+"name": "Arc",
+"device": "iem",
+"rig": "711",
+"confidence": "high",
+"models": 12,
+"wins": 0.83,
+"median": {
+"5128": 2.45,
+"711": 1.21,
+"HMS": 2.9
+},
+"mixed": false,
+"t": 5.2,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://tedthepraimortis.squig.link": {
+"name": "Ted's Squig Hoard",
+"device": "iem",
+"rig": "711",
+"confidence": "medium",
+"models": 5,
+"wins": 0.8,
+"median": {
+"5128": 2.85,
+"711": 1.02,
+"HMS": 3.18
+},
+"mixed": false,
+"t": 3.7,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://silicagel.squig.link/headphones": {
+"name": "SilicaGel (Headphones)",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "low",
+"models": 3,
+"wins": 1.0,
+"median": {
+"43AG": 3.23,
+"5128": 5.1,
+"HMS": 4.19
+},
+"mixed": false,
+"t": 3.9,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|Auriculares Argentina|in-ear": {
+"name": "AutoEq: Auriculares Argentina (in-ear)",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 8,
+"wins": 0.62,
+"median": {
+"5128": 4.05,
+"711": 2.61,
+"HMS": 3.21
+},
+"mixed": false,
+"t": 0.4,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|Ted's Squig Hoard|in-ear": {
+"name": "AutoEq: Ted's Squig Hoard (in-ear)",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 4,
+"wins": 1.0,
+"median": {
+"5128": 2.92,
+"711": 1.0,
+"HMS": 3.18
+},
+"mixed": false,
+"t": 16.0,
+"loose": false,
+"entries": {},
+"how": "inferred"
+},
+"https://tanchjim.squig.link": {
+"name": "Tanchjim",
+"device": "iem",
+"rig": "711",
+"confidence": "low",
+"models": 1,
+"wins": 1.0,
+"median": {
+"5128": 3.11,
+"711": 2.05
+},
+"mixed": false,
+"t": 0.0,
+"loose": true,
+"entries": {},
+"how": "inferred"
+},
+"autoeq|Innerfidelity|in-ear": {
+"name": "AutoEq: Innerfidelity (in-ear)",
+"device": "iem",
+"rig": "HMS",
+"confidence": "stated",
+"how": "stated by the source"
+},
+"autoeq|Innerfidelity|over-ear": {
+"name": "AutoEq: Innerfidelity (over-ear)",
+"device": "headphone",
+"rig": "HMS",
+"confidence": "stated",
+"how": "stated by the source"
+},
+"autoeq|oratory1990|in-ear": {
+"name": "AutoEq: oratory1990 (in-ear)",
+"device": "iem",
+"rig": "711",
+"confidence": "stated",
+"how": "stated by the source"
+},
+"autoeq|oratory1990|over-ear": {
+"name": "AutoEq: oratory1990 (over-ear)",
+"device": "headphone",
+"rig": "43AG",
+"confidence": "stated",
+"how": "stated by the source"
+},
+"https://earphonesarchive.squig.link": {
+"name": "Earphones Archive IEMs (5128)",
+"device": "iem",
+"rig": "5128",
+"confidence": "stated",
+"how": "stated by the source"
+},
+"https://earphonesarchive.squig.link/headphones": {
+"name": "Earphones Archive headphones (5128)",
+"device": "headphone",
+"rig": "5128",
+"confidence": "stated",
+"how": "stated by the source"
+},
+"https://listener800.github.io/5128iem.html": {
+"name": "listener800 5128 IEMs",
+"device": "iem",
+"rig": "5128",
+"confidence": "stated",
+"how": "stated by the source"
+},
+"https://listener800.github.io": {
+"name": "listener800 5128 headphones",
+"device": "headphone",
+"rig": "5128",
+"confidence": "stated",
+"how": "stated by the source"
+},
+"https://foxtoldmeso.squig.link": {
+"name": "Fox Told Me So (IEMs)",
+"device": "iem",
+"rig": "5128",
+"confidence": "stated",
+"how": "stated by the source"
+},
+"https://foxtoldmeso.squig.link/headphones": {
+"name": "Fox Told Me So (headphones)",
+"device": "headphone",
+"rig": "5128",
+"confidence": "stated",
+"how": "stated by the source"
+},
+"https://listener.squig.link/5128": {
+"name": "listener (5128)",
+"device": "iem",
+"rig": "5128",
+"confidence": "stated",
+"how": "stated by the source"
+}
+},
+"validation": {
+"autoeq|Innerfidelity|in-ear": {
+"name": "AutoEq: Innerfidelity (in-ear)",
+"true": "HMS",
+"got": "HMS",
+"models": 19,
+"t": 4.1,
+"confidence": "medium",
+"median": {
+"5128": 3.88,
+"711": 3.01,
+"HMS": 1.87
+}
+},
+"autoeq|Innerfidelity|over-ear": {
+"name": "AutoEq: Innerfidelity (over-ear)",
+"true": "HMS",
+"got": "HMS",
+"models": 60,
+"t": 8.5,
+"confidence": "high",
+"median": {
+"43AG": 3.37,
+"5128": 3.34,
+"HMS": 2.64
+}
+},
+"autoeq|oratory1990|in-ear": {
+"name": "AutoEq: oratory1990 (in-ear)",
+"true": "711",
+"got": "711",
+"models": 34,
+"t": 4.1,
+"confidence": "high",
+"median": {
+"5128": 2.26,
+"711": 1.59,
+"HMS": 2.51
+}
+},
+"autoeq|oratory1990|over-ear": {
+"name": "AutoEq: oratory1990 (over-ear)",
+"true": "43AG",
+"got": "43AG",
+"models": 59,
+"t": 7.2,
+"confidence": "medium",
+"median": {
+"43AG": 2.64,
+"5128": 3.16,
+"HMS": 3.3
+}
+},
+"https://earphonesarchive.squig.link": {
+"name": "Earphones Archive IEMs (5128)",
+"true": "5128",
+"got": "5128",
+"models": 42,
+"t": 7.2,
+"confidence": "high",
+"median": {
+"5128": 1.45,
+"711": 2.86,
+"HMS": 3.74
+}
+},
+"https://earphonesarchive.squig.link/headphones": {
+"name": "Earphones Archive headphones (5128)",
+"true": "5128",
+"got": "5128",
+"models": 60,
+"t": 15.8,
+"confidence": "high",
+"median": {
+"43AG": 3.91,
+"5128": 2.88,
+"HMS": 4.4
+}
+},
+"https://listener800.github.io/5128iem.html": {
+"name": "listener800 5128 IEMs",
+"true": "5128",
+"got": "5128",
+"models": 42,
+"t": 34.3,
+"confidence": "high",
+"median": {
+"5128": 0.0,
+"711": 2.44,
+"HMS": 3.18
+}
+},
+"https://listener800.github.io": {
+"name": "listener800 5128 headphones",
+"true": "5128",
+"got": "43AG",
+"models": 34,
+"t": 2.4,
+"confidence": "low",
+"median": {
+"43AG": 2.89,
+"5128": 3.09,
+"HMS": 3.17
+}
+},
+"https://foxtoldmeso.squig.link": {
+"name": "Fox Told Me So (IEMs)",
+"true": "5128",
+"got": "5128",
+"models": 11,
+"t": 5.0,
+"confidence": "high",
+"median": {
+"5128": 1.22,
+"711": 2.5,
+"HMS": 3.47
+}
+},
+"https://foxtoldmeso.squig.link/headphones": {
+"name": "Fox Told Me So (headphones)",
+"true": "5128",
+"got": "5128",
+"models": 1,
+"t": 0.0,
+"confidence": "low",
+"median": {
+"43AG": 4.29,
+"5128": 2.74,
+"HMS": 4.5
+}
+},
+"https://listener.squig.link/5128": {
+"name": "listener (5128)",
+"true": "5128",
+"got": "5128",
+"models": 41,
+"t": 33.7,
+"confidence": "high",
+"median": {
+"5128": 0.0,
+"711": 2.44,
+"HMS": 3.18
+}
+}
+}
+}

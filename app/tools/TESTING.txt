@@ -1,0 +1,73 @@
+TESTING AUTOEQ STUDIO - thanks for trying it!
+=============================================
+
+AutoEQ Studio does two things in one window:
+- Make an EQ: compares a measurement of your IEMs or headphones with a target curve and finds the filters that make
+  one match the other, saved as the file your EQ app needs.
+- Devices: gives each playback device on this PC its own EQ, switched by itself (plug in your earphones' dongle and
+  their EQ is on). This part works through Equalizer APO (free: https://sourceforge.net/projects/equalizerapo/).
+This is a test copy: the point is to find out how it behaves on your PC. Anything odd is worth reporting, even small
+things.
+
+GETTING IT RUNNING (about 5 minutes)
+  1. Python: if you don't have it, install it from https://www.python.org/downloads/ (the big yellow button;
+     keep the default options). Already have it? Skip this; the app says so if yours is too old.
+  2. Unzip: right-click the zip > Extract All > Extract. (Not just double-clicking into the zip: the app can't
+     run from inside it.) Open the "AutoEQ Studio" folder that comes out.
+  3. Double-click "AutoEQ Studio.bat". If Windows asks first ("Windows protected your PC": click "More info",
+     then "Run anyway"; or a security warning: click "Run"), that's normal for any script from the internet,
+     and it only asks the first time. The first start downloads its packages (about 150 MB, a few minutes, in a
+     black window); then the app opens, with an icon by the clock (the tray: click the ^ arrow if it's hidden).
+     Later starts are quick.
+
+THINGS TO TRY (tick what you managed; note anything that didn't work or looked wrong)
+  Make an EQ
+  [ ] It opened on Make an EQ, and the graph shows an orange curve (Truthear GATe) and a dashed target.
+  [ ] Press "Guide" (top right) and step through it, watching each step's demo (the pointer). Anything that
+      points at the wrong place, overlaps, goes off screen, or is left changed after the tour?
+  [ ] Press Run. Note how long it took and the error it shows. Try "All results…" and the graph's View
+      (Relative to target) and Y range.
+  [ ] Change "Your EQ app" to the one you use, Run again, and Save filters. Is the file in the Saved EQs folder
+      ("Open the Saved EQs folder") one your app can load?
+  [ ] Find… next to Measurement: search for your own IEMs or headphones (the online databases have thousands),
+      Use one and run it.
+  [ ] Edit a filter in the result (the table or Sliders): the graph should follow.
+  [ ] Listen (under the result), with your earphones in and the volume low: play the music and switch between
+      "EQ off" and the EQ (keys 1 and 2). Do you hear the difference? Any clicks, crackles or silence?
+  [ ] "✎ Trace image" (by the graph's title): press its "? Guide", then try it on a screenshot of any frequency
+      response graph (e.g. from a review site).
+  [ ] Help (top right), and F1 while pointing at any setting.
+  [ ] Click "Online" (top right) to go offline, and try Find… again: it should say what it can't do offline.
+
+  Devices (only with Equalizer APO installed)
+  [ ] Devices: does it list your playback devices, the one playing first? The banner offers to set up Equalizer
+      APO for AutoEQ Studio; set it up.
+  [ ] Back on Make an EQ, "Use on device" with a result: the EQ should switch on for that device. Play some music:
+      do you hear it? Switch it Off in Devices (or from the tray icon's menu) and on again.
+  [ ] Devices > your device: does the line under its EQ ("Check again" asks APO anew) match what you hear?
+  [ ] Plug in or connect another output (headphones, a dongle, Bluetooth): does the tray say which EQ is on?
+  (To undo it all: Settings > “Take AutoEQ Studio out of APO…”.)
+
+  General
+  [ ] Resize the window small and large, and try it maximised. Light and dark (Windows' setting) both readable?
+  [ ] Close the window (it stays in the tray), then Quit from the tray icon's menu and start it again: your
+      choices should still be there.
+
+SENDING FEEDBACK
+  Send:
+    - what you tried and what happened (or didn't),
+    - screenshots of anything that looked wrong (Win+Shift+S takes one),
+    - the files app.log and setup.log from the "data" folder (they hold no personal files; your Windows user name
+      may appear in a folder path),
+    - your Windows version, and how long the runs took.
+
+GOOD TO KNOW
+  - Everything runs on your PC. It only goes online to download its packages once and to search/download curves;
+    Offline (top right) stops even that.
+  - Your files are in Documents\AutoEQ Studio (Targets, Measurements, Saved EQs, Presets; Settings > Your files
+    opens it or chooses another), the app's settings and logs in this folder's data\. The device EQs are kept in
+    Equalizer APO's config folder, in "AutoEQ Studio".
+  - To remove it: Settings > “Take AutoEQ Studio out of APO…”, untick Start with Windows (Settings), quit it from
+    the tray, delete the folder.
+    (If the black window said it put its packages in %LOCALAPPDATA%\AutoEQ Studio, delete that folder too.)
+  - README.txt explains every part of the app.
