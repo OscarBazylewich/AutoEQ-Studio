@@ -215,3 +215,22 @@ def set_autostart(on, cmd=None):
                 winreg.DeleteValue(k, RUN_NAME)
             except FileNotFoundError:
                 pass
+
+
+# ---------------------------------------------------------------- starting another program
+def start_program(exe, opener=None):
+    """Start another program (APO's Configurator) as from its Start menu shortcut: in its own folder, and without
+    this app's folders on PATH. A program started from here inherits both, and Qt programs load their parts from
+    them: APO's Configurator (Qt 6.7) then found this app's Qt 6.11 before its own and stopped with "no Qt platform
+    plugin could be initialized" (2026-10-21). opener: os.startfile, or a stand-in for the checks."""
+    opener = opener or os.startfile
+    mine = os.path.normcase(os.path.abspath(sys.prefix))
+    before = os.environ.get("PATH", "")
+    keep = [p for p in before.split(os.pathsep)
+            if p and not os.path.normcase(os.path.abspath(p)).startswith(mine)
+            and "pyside6" not in p.lower() and "shiboken6" not in p.lower()]
+    os.environ["PATH"] = os.pathsep.join(keep)
+    try:
+        opener(exe, cwd=os.path.dirname(exe))
+    finally:
+        os.environ["PATH"] = before

@@ -437,6 +437,27 @@ def qt_checks(top):
         shutil.rmtree(inst, ignore_errors=True)
     check("APO's Configurator is found by its current name (DeviceSelector.exe) and its old one",
           found == ["DeviceSelector.exe", "Configurator.exe", "DeviceSelector.exe", ""], found)
+    # (started as from its Start menu shortcut: in its own folder, without this app's Qt on PATH; it found our Qt
+    # first and stopped with "no Qt platform plugin could be initialized")
+    from ui import winsys
+    real_path = os.environ.get("PATH", "")
+    ours = os.path.join(sys.prefix, "Lib", "site-packages", "PySide6")
+    other = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "System32")
+    os.environ["PATH"] = os.pathsep.join([ours, other, real_path])
+    given = os.environ["PATH"]
+    exe = os.path.join(top, "EqualizerAPO", "DeviceSelector.exe")
+    calls = []
+    try:
+        winsys.start_program(exe, opener=lambda path, cwd: calls.append((path, cwd, os.environ["PATH"])))
+        after = os.environ["PATH"]
+    finally:
+        os.environ["PATH"] = real_path
+    passed = calls[0][2].split(os.pathsep) if calls else []
+    check("APO's Configurator starts in its own folder without this app's Qt on PATH (its own Qt is found); the app's "
+          "PATH is as before after",
+          calls and calls[0][:2] == (exe, os.path.dirname(exe)) and other in passed
+          and not any(os.path.normcase(p).startswith(os.path.normcase(sys.prefix)) for p in passed) and after == given,
+          calls)
     # the line asks by itself, once per change (the answer kept while nothing it depends on changes)
     asked = []
     apo_check.run = lambda apo, guid, timeout=60: (asked.append(guid), {"loaded": [], "matched": []})[1]

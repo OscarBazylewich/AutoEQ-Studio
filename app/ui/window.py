@@ -965,7 +965,12 @@ class Window(QMainWindow):
     def open_configurator(self):
         exe = self.sw.apo.configurator
         if exe:
-            os.startfile(exe)
+            from ui import winsys
+            try:
+                winsys.start_program(exe)
+            except OSError as e:  # (Windows' "allow changes?" answered No, among others)
+                if getattr(e, "winerror", None) != 1223:
+                    QMessageBox.warning(self, "APO's Configurator", f"Couldn't open it: {e}")
 
     def open_folder(self, folder):
         if folder and os.path.isdir(folder):
