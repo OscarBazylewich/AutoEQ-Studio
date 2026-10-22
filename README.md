@@ -45,7 +45,14 @@ It's a native desktop app (Python and Qt), not a web page, and works offline.
 - [Equalizer APO](https://sourceforge.net/projects/equalizerapo/) for the per-device EQ (Make an EQ works without it)
 - Running from source: 64-bit [Python](https://www.python.org/downloads/) 3.10 or newer
 
-## Running it
+## Installing it
+
+Download `AutoEQ Studio Setup <version>.exe` from the [latest release](https://github.com/OscarBazylewich/AutoEQ-Studio/releases/latest)
+and run it. It installs for your Windows account only (no administrator password) and has its own Python inside,
+so nothing else is needed. The installer isn't signed, so Windows may say "Windows protected your PC": click
+More info, then Run anyway. Running a newer Setup later updates it and keeps your files and settings.
+
+## Running it from source
 
 1. Download this repository (Code > Download ZIP, then extract it) or clone it.
 2. Double-click `AutoEQ Studio.bat`. The first start sets up its Python packages (Qt, numpy, scipy and the rest,
