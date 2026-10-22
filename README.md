@@ -36,7 +36,7 @@ It's a native desktop app (Python and Qt), not a web page, and works offline.
 
 <p>
   <img src="docs/result.png" width="49%" alt="A result: its error, pre-amp and filters, with Save filters and Use on device">
-  <img src="docs/devices-dark.png" width="49%" alt="Devices in dark mode: a USB dongle with two EQ profiles, one on">
+  <img src="docs/devices.png" width="49%" alt="Devices: a USB dongle with two EQ profiles made in the app, one on">
 </p>
 
 ## Requirements
