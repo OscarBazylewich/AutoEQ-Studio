@@ -16,6 +16,7 @@ the line at the bottom. Closing the window leaves the app in the tray; Quit is i
 Everything is drawn in the app's theme (ui\\theme.py: AutoEQ Local's colours, light or dark as Windows is).
 """
 import os
+import re
 import subprocess
 import time
 
@@ -48,6 +49,21 @@ def _profile_line(p):
         return ""
     what = "GraphicEQ" if p.get("graphic") and not p.get("filters") else f"{p.get('filters', 0)} filters"
     return f"{what}, pre-amp {p.get('preamp', 0):g} dB"
+
+
+def check_line(ok, text):
+    """The device's one-line answer from Equalizer APO's check (switcher\\check.explain's words; all of it in the
+    tooltip): the first sentence up to its ": " and without a closing "(…)" remark. A profile's name in “ ” is kept
+    whole, brackets and all ("Truthear GATe (Diffuse field)" was cut to “Truthear GATe, 2026-10-21)."""
+    if ok is None:  # (couldn't ask: "Couldn't ask Equalizer APO: why")
+        return text.split(": ")[0]
+    names = re.findall(r"“[^”]*”", text)
+    masked = re.sub(r"“[^”]*”", "\x00", text)
+    first = masked.split(". ")[0].split(": ")[0]
+    first = re.sub(r"\s*\([^()]*\)\.?$", "", first).rstrip(".") + "."
+    for n in names:
+        first = first.replace("\x00", n, 1)
+    return first
 
 
 class Window(QMainWindow):
@@ -579,8 +595,7 @@ class Window(QMainWindow):
                 lab.setToolTip("")
             elif got:
                 ok, text = got[1], got[2]
-                first = text.split(": ")[0] if ok is None else text.split(". ")[0].split(" (")[0].rstrip(".") + "."
-                lab.setText(("✓ " if ok else "✕ " if ok is False else "") + first)
+                lab.setText(("✓ " if ok else "✕ " if ok is False else "") + check_line(ok, text))
                 lab.setToolTip(text + "\nF1: more in Help.")
                 theme.mark(lab, role="good" if ok else "warn" if ok is False else "muted")
                 lab.style().unpolish(lab)
@@ -620,6 +635,12 @@ class Window(QMainWindow):
             else:
                 ok, text = explain(found)
                 self._checks[key] = (sig, ok, text)
+            # (the EQ changed while APO was asked: that answer is about the one before, so it's asked again and the
+            # old answer never shown; a change during an ask was dropped and the line named the previous EQ)
+            if key not in self._check_after and self.sw.record(key) and self._check_sig(key) != sig:
+                self._checks.pop(key, None)
+                self._auto_check(key, then=then)
+                return
             self._show_check(key)
             if then:
                 then(self._checks[key])

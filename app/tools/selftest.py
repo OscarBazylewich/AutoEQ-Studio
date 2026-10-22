@@ -446,6 +446,52 @@ def qt_checks(top):
           "(✕: APO doesn't read AutoEQ Studio's file)", again == [] and asked == ["{5}"]
           and "✕" in win.check_label.text() and "doesn't read" in win.check_label.text(), (again, asked,
                                                                                          win.check_label.text()))
+    # (the one-line answer kept a profile's name whole: "Truthear GATe (Diffuse field)" was cut at its bracket)
+    from ui.window import check_line
+    lines = [check_line(True, "“Truthear GATe (Diffuse field)” applies on this device: APO finds its section and "
+                              "loads its file. config.txt also loads, on top: x.txt."),
+             check_line(False, "AutoEQ Studio chose “A. B (C)”, but APO doesn't load its file for this device (the "
+                               "file is missing from APO's folder)."),
+             check_line(True, "AutoEQ Studio's EQ is off for this device (APO finds its section, with no EQ in it)."),
+             check_line(None, "Couldn't ask Equalizer APO: Benchmark isn't there.")]
+    check("window: the device's line keeps a profile's name whole (brackets, a full stop) and drops the rest",
+          lines == ["“Truthear GATe (Diffuse field)” applies on this device.",
+                    "AutoEQ Studio chose “A. B (C)”, but APO doesn't load its file for this device.",
+                    "AutoEQ Studio's EQ is off for this device.", "Couldn't ask Equalizer APO"], lines)
+    # (the EQ switched while APO is still being asked: the line is about the new one, not the one asked about)
+    key = "Headset|EarPods"
+    first = sw.record(key)["active"]
+    other = next(p for p in sw.profiles() if p != first)
+    sw.add_to_device(key, other, switch_on=False)
+    asked = []
+
+    def slow(apo, guid, timeout=60):
+        pid = sw.record(key)["active"]
+        asked.append(sw.profile_name(pid))
+        time.sleep(0.4)
+        return {"loaded": [apo.config_txt, os.path.join(apo.config, "AutoEQ Studio", "switcher.txt"),
+                           os.path.join(apo.profiles, sw.profiles()[pid]["file"])], "matched": [guid]}
+    apo_check.run = slow
+    try:
+        win._checks.clear()
+        win.render_device_panel()
+        t0 = time.time()
+        while not asked and time.time() - t0 < 5:
+            qapp.processEvents()
+            time.sleep(0.02)
+        sw.set_active(key, other)
+        t0 = time.time()
+        while (win._checking or key not in win._checks) and time.time() - t0 < 10:
+            qapp.processEvents()
+            time.sleep(0.02)
+    finally:
+        apo_check.run = real_run
+    line = win.check_label.text() if win.check_label is not None else ""
+    check("window: the EQ switched while APO is asked: it's asked again, and the line names the EQ on now",
+          asked == [sw.profile_name(first), sw.profile_name(other)] and sw.profile_name(other) in line, (asked, line))
+    sw.set_active(key, first)
+    sw.remove_from_device(key, other)
+    qapp.processEvents()
     # your name for a device: shown in the list, the panel and the tray; Windows' name kept; empty gives it back
     sw.set_nickname("Headset|EarPods", "  Dongle – KZ  ")
     win.render_all()
