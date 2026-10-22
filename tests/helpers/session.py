@@ -211,6 +211,38 @@ def inside(path, folder=None):
     return p == f or p.startswith(f.rstrip(os.sep) + os.sep)
 
 
+# What a copy of the app a test starts must have inside the session folder (the foundation's review, 2026-10-22): its
+# data folder (then it has a one-copy channel of its own and no mutex: start.py), the stand-in Equalizer APO folder
+# (without one it uses the real one, and "start.py --uninstall" would take AutoEQ Studio's line out of your
+# config.txt) and EQ Switcher's settings (a stand-in). Any of the other folders it's given must be there too.
+COPY_REQUIRED = ("AUTOEQSTUDIO_DATA", "AUTOEQSTUDIO_APO_CONFIG", "AUTOEQSTUDIO_OLD_SETTINGS")
+COPY_INSIDE_IF_SET = ("AUTOEQSTUDIO_ROOT", "AUTOEQSTUDIO_DOCUMENTS", "AUTOEQSTUDIO_APO_INSTALL", "USERPROFILE", "HOME",
+                      "APPDATA", "LOCALAPPDATA", "TEMP", "TMP")
+
+
+def copy_env_problem(app_dir, env):
+    """Why a copy of the app (its app folder, the whole environment it gets) must not start, in plain words, or
+    None. Used by helpers.subproc.RunningCopy and by the guard (any start.py a test starts). A test build (its app
+    folder holds test-build.txt) may go without an APO folder: it then has none (paths.apo_folders)."""
+    if SESSION is None:
+        return "a copy of the app was started before the test session was ready"
+    env = env or {}
+    test_build = bool(app_dir) and os.path.isfile(os.path.join(app_dir, "test-build.txt"))
+    for name in COPY_REQUIRED:
+        value = env.get(name)
+        if not value:
+            if name == "AUTOEQSTUDIO_APO_CONFIG" and test_build:
+                continue
+            return f"a copy of the app needs {name} inside the test folders, and it isn't set"
+        if not inside(value):
+            return f"a copy of the app needs {name} inside the test folders, not {value}"
+    for name in COPY_INSIDE_IF_SET:
+        value = env.get(name)
+        if value and not inside(value):
+            return f"a copy of the app was given {name} outside the test folders ({value})"
+    return None
+
+
 def child_env(*, without_folders=False, keep_log=False, **overrides):
     """os.environ for a subprocess (the session's variables are in it already). without_folders: the
     AUTOEQSTUDIO_* folder variables left out; the check log's two variables are left out unless keep_log (a child,

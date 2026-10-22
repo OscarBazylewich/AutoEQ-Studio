@@ -21,7 +21,7 @@ from typing import NoReturn
 _lock = threading.Lock()
 # (the log's file, taken once as the session starts: a test that changes the variable, e.g. to try child_env, can't
 # move this run's log)
-LOG = os.environ.get("AUTOEQSTUDIO_CHECK_LOG") or None
+LOG = os.path.abspath(os.environ["AUTOEQSTUDIO_CHECK_LOG"]) if os.environ.get("AUTOEQSTUDIO_CHECK_LOG") else None
 
 
 def short(text, n=300):

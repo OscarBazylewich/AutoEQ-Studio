@@ -9,8 +9,10 @@ blocks, before it happens, and records, with the running test, anything a test m
 - write to the registry (a key made, deleted or opened for writing, a value set or deleted): Start with Windows'
   entry can't be touched even if a test forgets its stand-in;
 - open a file or a link with Windows (os.startfile), a web page in the browser, or run a command through os.system;
-- start the project's own app (app\\start.py, "AutoEQ Studio.bat"): copies in the session folder are fine, but never
-  a start.py without a test data folder (AUTOEQSTUDIO_DATA), which would talk to your running app.
+- start the project's own app (app\\start.py, "AutoEQ Studio.bat"): copies in the session folder are fine, but only
+  with their own data folder, the stand-in Equalizer APO folder and EQ Switcher's stand-in settings inside the test
+  folders, and no other folder outside them (helpers.session.copy_env_problem): without its own data folder a copy
+  would talk to your running app, and without the stand-in APO folder it would use the real one.
 A blocked action raises PermissionError("test guard: ...") instead of happening, and the guard_check fixture then
 fails the test, listing what was blocked.
 
@@ -123,8 +125,11 @@ def _popen(executable, cmd, cwd, env):
         full = _norm(p if os.path.isabs(p) else os.path.join(cwd or os.getcwd(), p))
         if full in (_project["start"], _project["bat"]):
             return f"the project's own app started ({p}): only copies in the test folders may be started"
-        if os.path.basename(full) == "start.py" and not (os.environ if env is None else env).get("AUTOEQSTUDIO_DATA"):
-            return f"a copy of the app started without a test data folder (AUTOEQSTUDIO_DATA) ({p})"
+        if os.path.basename(full) == "start.py":
+            from helpers import session  # (loaded long before: the conftest's first import)
+            problem = session.copy_env_problem(os.path.dirname(full), os.environ if env is None else env)
+            if problem:
+                return f"{problem} ({p})"
     return None
 
 
@@ -182,11 +187,16 @@ def install(session):
         return
     from helpers import paths as project
     allow(session.root)
+    # (the check log's folder and the runner's: never a folder that holds much else. A log put straight in TEMP, the
+    # home or the project allows only its own file; such an output folder allows nothing)
+    broad = {_norm(p) for p in (session.real_temp, session.real_home, project.PROJECT) if p}
     log = os.environ.get("AUTOEQSTUDIO_CHECK_LOG")
     if log:
-        allow(os.path.dirname(os.path.abspath(log)))
-    if os.environ.get("AUTOEQSTUDIO_TEST_OUT"):
-        allow(os.environ["AUTOEQSTUDIO_TEST_OUT"])
+        log = os.path.abspath(log)
+        allow(log if _norm(os.path.dirname(log)) in broad else os.path.dirname(log))
+    out = os.environ.get("AUTOEQSTUDIO_TEST_OUT")
+    if out and _norm(out) not in broad:
+        allow(out)
     for place, _reason in ALLOWLIST:
         allow(place)
     _project.update(start=_norm(os.path.join(project.PROJECT_APP, "start.py")),

@@ -44,6 +44,31 @@ def test_running_copy_needs_its_own_data_folder(tmp_path, check):
     ok = subproc.RunningCopy(str(tmp_path), dict(os.environ, AUTOEQSTUDIO_DATA=os.path.join(tmp_path, "data")))
     check("subproc: a running copy is refused without a test data folder of its own (none, or one outside the session)",
           refused == [True, True] and ok.start_py == os.path.join(str(tmp_path), "start.py"), refused)
+    # (the foundation's review: without the stand-in APO folder a copy would use the real one, where --uninstall
+    # takes AutoEQ Studio's line out of config.txt; nor may it be given any of your real folders)
+    S = session.SESSION
+    real_apo = os.path.join(S.real_env.get("ProgramFiles") or "C:\\Program Files", "EqualizerAPO", "config")
+    data = {"AUTOEQSTUDIO_DATA": os.path.join(tmp_path, "data")}
+    without = {"no APO folder": session.child_env(AUTOEQSTUDIO_APO_CONFIG=None, **data),
+               "the real APO folder": session.child_env(AUTOEQSTUDIO_APO_CONFIG=real_apo, **data),
+               "no EQ Switcher stand-in": session.child_env(AUTOEQSTUDIO_OLD_SETTINGS=None, **data),
+               "your real home": session.child_env(USERPROFILE=S.real_home, **data),
+               "the real TEMP": session.child_env(TEMP=S.real_temp, **data),
+               "the folders left out": session.child_env(without_folders=True, **data)}
+    said = {}
+    for what, env in without.items():
+        try:
+            subproc.RunningCopy(str(tmp_path), env)
+            said[what] = "started"
+        except ValueError:
+            said[what] = "refused"
+    build = os.path.join(tmp_path, "build")
+    os.makedirs(build)
+    open(os.path.join(build, "test-build.txt"), "w").close()
+    build_ok = subproc.RunningCopy(build, session.child_env(AUTOEQSTUDIO_APO_CONFIG=None, **data))
+    check("subproc: a running copy is refused without the stand-in APO folder or EQ Switcher's stand-in settings "
+          "inside the test folders, or when given any real folder (home, TEMP); a test build may go without APO",
+          all(v == "refused" for v in said.values()) and build_ok.app_dir == build, said)
 
 
 def test_kill_tree(check):

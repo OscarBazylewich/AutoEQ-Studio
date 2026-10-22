@@ -147,15 +147,16 @@ def app_copy(dest, *, installed=False, test_build=False) -> str:
 
 class RunningCopy:
     """A copy of the app started as Windows would start it (sys.executable start.py ...), with `env` as its whole
-    environment (e.g. helpers.session.child_env(AUTOEQSTUDIO_DATA=..., ...)). Refused unless env's
-    AUTOEQSTUDIO_DATA is inside the session folder: then the copy has a one-copy channel of its own and no mutex
-    (start.py), so it can never reach the app you're running."""
+    environment (e.g. helpers.session.child_env(AUTOEQSTUDIO_DATA=..., ...): it keeps the session's folders). Refused
+    unless env gives it, inside the session folder, its own data folder (then it has a one-copy channel of its own
+    and no mutex: it can never reach the app you're running), the stand-in Equalizer APO folder (else it would use
+    the real one) and EQ Switcher's stand-in settings, and every other folder it's given is there too
+    (helpers.session.copy_env_problem)."""
 
     def __init__(self, app_dir, env):
-        data = (env or {}).get("AUTOEQSTUDIO_DATA")
-        if not data or session.SESSION is None or not session.inside(data):
-            raise ValueError("A copy of the app is started only with its own test data folder (AUTOEQSTUDIO_DATA "
-                             "inside the session folder): without one it would talk to the app you're running.")
+        problem = session.copy_env_problem(app_dir, env)
+        if problem:
+            raise ValueError(f"A copy of the app isn't started: {problem}.")
         self.app_dir, self.env = app_dir, dict(env)
         self.start_py = os.path.join(app_dir, "start.py")
         self.procs = []

@@ -118,18 +118,25 @@ def test_project_app_start_blocked(tmp_path, check):
     nowhere = os.path.join(tmp_path, "no python here.exe")  # (a program that isn't there, should the guard fail)
     copy_start = os.path.join(tmp_path, "copy", "start.py")
     no_data = {k: v for k, v in os.environ.items() if k != "AUTOEQSTUDIO_DATA"}
+    no_apo = {k: v for k, v in os.environ.items() if k != "AUTOEQSTUDIO_APO_CONFIG"}
+    real_home = dict(os.environ, USERPROFILE=S.real_home)
     with guard.expect_blocked() as blocked:
         said = {"the project's start.py": _attempt(lambda: subprocess.Popen(
                     [nowhere, os.path.join(paths.PROJECT_APP, "start.py"), "--quit"])),
                 "the project's AutoEQ Studio.bat": _attempt(lambda: subprocess.Popen(
                     [nowhere, "/c", os.path.join(paths.PROJECT, "AutoEQ Studio.bat")])),
                 "a start.py without a test data folder": _attempt(lambda: subprocess.Popen(
-                    [nowhere, copy_start, "--quit"], env=no_data))}
+                    [nowhere, copy_start, "--quit"], env=no_data)),
+                # (the foundation's review: it would use the real APO folder, or your real files)
+                "a start.py without the stand-in APO folder": _attempt(lambda: subprocess.Popen(
+                    [nowhere, copy_start, "--uninstall"], env=no_apo)),
+                "a start.py given your real home": _attempt(lambda: subprocess.Popen(
+                    [nowhere, copy_start, "--quit"], env=real_home))}
     with guard.expect_blocked() as copy_blocked:
         copy = _attempt(lambda: subprocess.Popen([nowhere, copy_start, "--quit"]))
     check("guard: starting the project's own app (start.py, AutoEQ Studio.bat), or any start.py without a test data "
           "folder, is blocked before it happens and reported; a copy with its own test data folder may start",
-          all(v == "blocked" for v in said.values()) and len(blocked) == 3 and copy == "FileNotFoundError"
+          all(v == "blocked" for v in said.values()) and len(blocked) == 5 and copy == "FileNotFoundError"
           and not copy_blocked, (said, copy))
 
 
