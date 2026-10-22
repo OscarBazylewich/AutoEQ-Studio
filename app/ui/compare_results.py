@@ -47,7 +47,7 @@ def options(page):
                         "filters": _filters(x["filters"]), "run": rn, "rid": x["id"]})
     from ui.history_window import day_of, time_of
     for e in sorted((e for e in page.history if e.get("device") == name), key=lambda e: e["when"], reverse=True):
-        out.append({"label": f"History · {day_of(e['when'])} {time_of(e['when'])} · {e.get('n_filters', '?')} filters",
+        out.append({"label": f"History · {day_of(e['when'])} {time_of(e['when'])} · {e.get('n_filters', '?')} filter{'' if e.get('n_filters') == 1 else 's'}",
                     "filters": _filters(e.get("filters") or []), "run": None, "rid": None})
     return out
 

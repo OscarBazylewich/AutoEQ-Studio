@@ -425,7 +425,18 @@ def qt_checks(top):
           "isn't on the device); the device's line says it too",
           len(chk) == 1 and "{5}" in told and any(isinstance(x, tuple) and x[0] == "not" and "applies on this device"
                                                    in x[1] and "isn't installed on this device" in x[1] for x in told)
-          and line.startswith("✕"), (told, line))
+          and line.startswith("✕ Equalizer APO isn't installed on this device"), (told, line))
+    # (APO's Configurator: DeviceSelector.exe in APO 1.3 and later, Configurator.exe before; only the old name was
+    # looked for, so "Open APO's Configurator" never showed with a current APO)
+    found = []
+    for names in (["DeviceSelector.exe"], ["Configurator.exe"], ["DeviceSelector.exe", "Configurator.exe"], []):
+        inst = tempfile.mkdtemp(prefix="autoeqstudio-apo-install-")
+        for n in names:
+            open(os.path.join(inst, n), "w").close()
+        found.append(os.path.basename(Apo(conf, inst).configurator or ""))
+        shutil.rmtree(inst, ignore_errors=True)
+    check("APO's Configurator is found by its current name (DeviceSelector.exe) and its old one",
+          found == ["DeviceSelector.exe", "Configurator.exe", "DeviceSelector.exe", ""], found)
     # the line asks by itself, once per change (the answer kept while nothing it depends on changes)
     asked = []
     apo_check.run = lambda apo, guid, timeout=60: (asked.append(guid), {"loaded": [], "matched": []})[1]
@@ -486,9 +497,11 @@ def qt_checks(top):
             time.sleep(0.02)
     finally:
         apo_check.run = real_run
-    line = win.check_label.text() if win.check_label is not None else ""
-    check("window: the EQ switched while APO is asked: it's asked again, and the line names the EQ on now",
-          asked == [sw.profile_name(first), sw.profile_name(other)] and sw.profile_name(other) in line, (asked, line))
+    told = win.check_label.toolTip() if win.check_label is not None else ""  # (all of the answer; this test device
+    # has no APO, so its short line says that)
+    check("window: the EQ switched while APO is asked: it's asked again, and the answer is about the EQ on now",
+          asked == [sw.profile_name(first), sw.profile_name(other)] and sw.profile_name(other) in told
+          and sw.profile_name(first) not in told, (asked, told))
     sw.set_active(key, first)
     sw.remove_from_device(key, other)
     qapp.processEvents()

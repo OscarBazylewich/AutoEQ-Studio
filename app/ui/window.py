@@ -47,7 +47,8 @@ def _muted(text=""):
 def _profile_line(p):
     if not p:
         return ""
-    what = "GraphicEQ" if p.get("graphic") and not p.get("filters") else f"{p.get('filters', 0)} filters"
+    n = p.get("filters", 0)
+    what = "GraphicEQ" if p.get("graphic") and not n else f"{n} filter{'' if n == 1 else 's'}"
     return f"{what}, pre-amp {p.get('preamp', 0):g} dB"
 
 

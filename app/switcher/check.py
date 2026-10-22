@@ -45,8 +45,14 @@ def explain(apo, found, profile_name=None, profile_file=None, apo_on_device=True
     if others:
         lines.append("config.txt also loads, on top: " + ", ".join(os.path.basename(f) for f in others) + ".")
     if not apo_on_device:
-        lines.append("But Equalizer APO isn't installed on this device, so nothing plays through it whatever the "
-                     "configuration says (APO's Configurator).")
+        # (first when the configuration is right: the device's short line is the first sentence, which said
+        # "“X” applies on this device" with a ✕; after a problem with the configuration itself, which comes first)
+        missing = ("Equalizer APO isn't installed on this device, so nothing plays through it, whatever its "
+                   "configuration says (tick the device in APO's Configurator, then restart Windows).")
+        if ok:
+            lines.insert(0, missing)
+        else:
+            lines.append(missing.replace("isn't installed on this device", "isn't installed on this device either"))
         ok = False
     return ok, " ".join(lines)
 

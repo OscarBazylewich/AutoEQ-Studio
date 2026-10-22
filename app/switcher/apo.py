@@ -57,8 +57,14 @@ class Apo:
 
     @property
     def configurator(self):
-        exe = os.path.join(self.install or "", "Configurator.exe")
-        return exe if self.install and os.path.isfile(exe) else None
+        """APO's Configurator (where you tick the devices APO is installed on), or None. Its file is DeviceSelector.exe
+        in APO 1.3 and later (the Start menu still calls it Configurator), Configurator.exe before: only the old name
+        was looked for, so its buttons never showed with a current APO (2026-10-21)."""
+        for name in ("DeviceSelector.exe", "Configurator.exe"):
+            exe = os.path.join(self.install or "", name)
+            if self.install and os.path.isfile(exe):
+                return exe
+        return None
 
     def writable(self):
         """Can this Windows user write in APO's config folder? (APO's installer lets every user, usually.)"""

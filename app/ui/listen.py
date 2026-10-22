@@ -655,7 +655,7 @@ class Listen(QGroupBox):
             name = QLineEdit(p["name"])
             name.editingFinished.connect(lambda p=p, name=name: self._rename(p, name.text()))
             h.addWidget(name, 1)
-            note = QLabel(f"{len(p['filters'])} filters" + (f" · {p['note']}" if p.get("note") else ""))
+            note = QLabel(f"{len(p['filters'])} filter{'' if len(p['filters']) == 1 else 's'}" +(f" · {p['note']}" if p.get("note") else ""))
             theme.mark(note, role="muted")
             h.addWidget(note)
             graph = QCheckBox("Graph")
