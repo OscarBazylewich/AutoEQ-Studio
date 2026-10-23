@@ -44,8 +44,8 @@ class App:
 
         self.tray = QSystemTrayIcon(icons.app_icon(), qapp)
         self.menu = QMenu()
-        # (its headings, the device playing and the EQ being tried, drawn readable: theme_sheet's window_screens,
-        # not in the grey of an item that can't be chosen)
+        # (its headings, the device playing and the EQ being tried, are drawn readable, not in the grey of an item
+        # that can't be chosen: theme_sheet's menus rule, for every menu's notes; the name only tells it apart)
         self.menu.setObjectName("tray")
         self.menu.aboutToShow.connect(self.build_menu)
         self.tray.setContextMenu(self.menu)

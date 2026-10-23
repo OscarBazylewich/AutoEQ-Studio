@@ -201,9 +201,10 @@ export, or one saved from APO's Editor. (Use on device does it in one step, from
 original file later doesn't change the profile: import it again.
 
 Devices tab: your playback devices, as Windows names them ("Headset (EarPods)"), the one playing now first (green
-dot; blue: connected; grey: not connected). Choose one to give it profiles ("Add a profile") and choose the one on, or
-Off. Rename… gives it your own name ("Dongle – KZ"), shown everywhere. The line under its EQ says whether
-the EQ really plays: AutoEQ Studio asks Equalizer APO itself (✓ or ✕; Check again says all it found).
+dot; connected: your Windows accent colour, blue by default; grey: not connected). Choose one to give it profiles
+("Add a profile") and choose the one on, or Off. Rename… gives it your own name ("Dongle – KZ"), shown everywhere.
+The line under its EQ says whether the EQ really plays: AutoEQ Studio asks Equalizer APO itself (✓ or ✕; Check
+again says all it found).
 A device can have several profiles (e.g. a USB-C dongle used with different IEMs): switch between them from the
 tray icon's menu or with the hotkey.
 
