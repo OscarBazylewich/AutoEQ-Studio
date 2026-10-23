@@ -58,30 +58,34 @@ def test_dead_windows_listener_let_go(qapp, monkeypatch, check):
 
 
 def test_tick_written_whole(check):
+    # (since 2026-10-23 the stylesheet's pictures are five, each named by its colour: the tick, two chevrons, the
+    # accent's two bars)
     code = ("import glob, json, os, sys, tempfile; sys.path.insert(0, sys.argv[1])\n"
             "from PySide6.QtWidgets import QApplication\n"
             "from PySide6.QtGui import QImage\n"
             "app = QApplication([])\n"
             "from ui import theme\n"
-            "tick = os.path.join(tempfile.gettempdir(), 'autoeq-studio-tick.png')\n"
-            "if os.path.exists(tick): os.remove(tick)\n"
+            "pics = lambda: sorted(glob.glob(os.path.join(tempfile.gettempdir(), 'autoeq-studio-*.png')))\n"
+            "for p in pics(): os.remove(p)\n"
             "theme.apply(app, dark=False)\n"
-            "img = QImage(tick)\n"
-            "drawn = [os.path.isfile(tick), img.width(), img.height(), 'autoeq-studio-tick.png' in app.styleSheet()]\n"
-            "os.remove(tick)\n"
+            "drawn = [(os.path.basename(p).split('-')[2], QImage(p).width(), os.path.basename(p) in app.styleSheet())"
+            " for p in pics()]\n"
+            "for p in pics(): os.remove(p)\n"
             "real = os.replace\n"
             "def taken(a, b): raise PermissionError(13, 'another copy put it there first')\n"
             "os.replace = taken\n"
             "theme.apply(app, dark=True)\n"
             "os.replace = real\n"
             "parts = glob.glob(os.path.join(tempfile.gettempdir(), '*.part'))\n"
-            "print(json.dumps({'drawn': drawn, 'parts': parts, 'in_place': os.path.exists(tick),"
-            " 'temp': tempfile.gettempdir()}))\n")
+            "print(json.dumps({'drawn': drawn, 'parts': parts, 'in_place': pics(), 'temp': tempfile.gettempdir()}))\n")
     out = subproc.run_python(code, session.SESSION.app)
     d = out.data or {}
-    check("app hooks: the checkbox tick is drawn into this session's TEMP, whole (a .part file put in place), and "
-          "nothing is left behind when another copy put it there first",
-          d.get("drawn") == [True, 28, 28, True] and d.get("parts") == [] and d.get("in_place") is False
+    drawn = sorted((name, width, used) for name, width, used in d.get("drawn") or [])
+    check("app hooks: the stylesheet's pictures (the tick, the chevrons, the accent's bars) are drawn into this "
+          "session's TEMP, whole (a .part file put in place), and nothing is left behind when another copy put them "
+          "there first",
+          [n for n, _, _ in drawn] == ["chevron", "chevron_up", "pill_h", "pill_v", "tick"]
+          and all(w > 0 and used for _, w, used in drawn) and d.get("parts") == [] and d.get("in_place") == []
           and session.inside(d.get("temp", "?")), (d, out.stderr[-400:]))
 
 

@@ -608,10 +608,10 @@ def eq_steps(page):
                  "files are, backups, Online / Offline and Start with Windows.",
          "demo": lambda: [{"at": lambda: st.adv.btn, "x": 0.1, "say": "Advanced: what's set for you"}]
          + ([{"at": lambda: win.nav["settings"], "say": "The app's own settings"}] if hasattr(win, "nav") else [])},
-        {"chapter": "More", "title": "Help, and that's it", "target": lambda: button(win, "? Help"), "top bar": True,
+        {"chapter": "More", "title": "Help, and that's it", "target": lambda: win.help_btn, "top bar": True,
          "text": "Help explains every term (Q, shelf, rig, pre-amp…) and answers common questions; point at a setting "
                  "for what it does, and F1 opens its entry. Open the Guide any time to see a step again.",
-         "demo": [{"at": lambda: button(win, "? Help"), "say": "Help: every term, and the questions that come up most"},
+         "demo": [{"at": lambda: win.help_btn, "say": "Help: every term, and the questions that come up most"},
                   {"at": lambda: page.sa, "say": "Point at a setting for what it does; F1 opens its entry in Help"}],
          "buttons": [("Open Help", lambda: win.open_help())] if hasattr(win, "open_help") else []},
     ]
