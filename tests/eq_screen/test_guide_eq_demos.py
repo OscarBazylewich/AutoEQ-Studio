@@ -79,15 +79,16 @@ def test_which_measurement_demo_asks_for_room(eq_screen, check, monkeypatch):
     asked = {}
     real_window, real_say = tour.Api.window, tour.Api.say
 
-    def window(api, w, near=None, size=None):  # (what the demo asks for)
+    def window(api, w, near=None, size=None):  # (what the demo asks for, and the window's own smallest height, read
+        # before the tour shows it: tour.Api.window takes a demo window's smallest size away, so its frame decides)
         if isinstance(w, CompareWindow):
-            asked.update(size=(size.width(), size.height()) if size is not None else None, window=w)
+            asked.update({"size": (size.width(), size.height()) if size is not None else None, "window": w,
+                          "its smallest": w.minimumHeight()})
         return real_window(api, w, near, size)
 
-    def say(api, text):  # (by the demo's first words the window has its note: what it needs measured then, once)
+    def say(api, text):  # (by the demo's first words the window has its note: what its words need measured then, once)
         w = asked.pop("window", None)
         if w is not None and asked.get("size"):
-            asked["its smallest"] = w.minimumHeight()
             asked["its words need"] = w.layout().totalMinimumHeightForWidth(asked["size"][0])
         return real_say(api, text)
     monkeypatch.setattr(tour.Api, "window", window)
