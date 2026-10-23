@@ -7,6 +7,7 @@ write_eq_settings(values)           the EQ part's settings file: This PC's searc
 reset(settings=None)                the studio back to new (what each test file of tests\\eq and tests\\eq_screen
                                     starts from)
 """
+import glob
 import os
 import shutil
 import sys
@@ -67,7 +68,8 @@ def _empty(folder):
 
 def reset(settings=None):
     """The studio as new: Targets and Measurements back to the sample target and device only; Saved EQs and Presets
-    emptied; the EQ part's History, EQs to compare, file sources, This PC's list and learned run times removed; its
+    emptied; the EQ part's History, EQs to compare, file sources, This PC's list and learned run times removed, with
+    the damaged copies and half-written files tests leave beside them; the curves downloaded taken away; its
     settings file written again (settings, or none of your own), the database lists put back; then, when the EQ
     part is loaded, its caches emptied (helpers.eq.reset_caches)."""
     studio, samples = _studio(), os.path.join(_studio(), "samples")
@@ -84,6 +86,15 @@ def reset(settings=None):
     # differ from file to file)
     for rel in ("history.json", "listen.json", "sources.json", r"cache\library.json", r"cache\timing.json"):
         _remove(os.path.join(eq_data, rel))
+    # (what damaged-file tests and failed writes leave: History's and EQs to compare's damaged copies kept aside
+    # (history.json.bad, history.json.2.bad ...) and half-written files (<file>.<process>-<thread>.tmp). A test of a
+    # damaged file needs none there before it, and the old checks' fresh copy had none)
+    for pattern in ("history.json*.bad", "listen.json*.bad", "*.tmp"):
+        for path in glob.glob(os.path.join(glob.escape(eq_data), pattern)):
+            _remove(path)
+    # (the curves the EQ part downloaded in the session, <studio>\downloads (paths.DOWNLOADS): a new session has none,
+    # and a test that downloads (stood in) would otherwise leave them for the next files)
+    _remove(os.path.join(studio, "downloads"))
     write_eq_settings(settings or {})
     install_lists()
     if "eq" in sys.modules:

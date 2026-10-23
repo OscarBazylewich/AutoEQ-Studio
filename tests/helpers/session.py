@@ -4,8 +4,11 @@ folder, and "the studio": a copy of the app with its samples, your-files folders
 app reads for its folders points in there, so no test reaches your files, the real Equalizer APO folder or AppData.
 
 prepare() makes it all (tests\\conftest.py calls it first, before any app module is imported); cleanup() deletes the
-folder at the end (kept, and said where, with AUTOEQSTUDIO_KEEP_TEST_FOLDER=1). A run stopped half way (a time
-limit, a crash) leaves its folder behind: the next prepare() deletes it once the process that made it is gone.
+folder at the end (kept, and said where, with AUTOEQSTUDIO_KEEP_TEST_FOLDER=1: its owner.txt then says "kept", and no
+other run deletes it: delete it yourself when done). A run stopped half way (a time limit, a crash) leaves its folder
+behind: the next prepare() deletes it once the process that made it is gone, and what's left of one a run couldn't
+delete completely (no owner.txt any more) once nobody has touched it for a day. Read-only files (git makes its object
+files read-only) are deleted too.
 
 Every folder here is spelled the long way (os.path.realpath): Windows' TEMP is often the short form
 (C:\\Users\\OSCART~1\\...), pytest spells its tmp_path the long way, and the guard compares them.
@@ -15,6 +18,7 @@ import dataclasses
 import json
 import os
 import shutil
+import stat
 import sys
 import tempfile
 import time
@@ -28,6 +32,8 @@ FOLDER_VARS = ("AUTOEQSTUDIO_ROOT", "AUTOEQSTUDIO_DATA", "AUTOEQSTUDIO_DOCUMENTS
 LOG_VARS = ("AUTOEQSTUDIO_CHECK_LOG", "AUTOEQSTUDIO_TEST_OUT")  # (the runner's: a child never writes into its log)
 REAL_VARS = ("USERPROFILE", "HOME", "APPDATA", "LOCALAPPDATA", "TEMP", "TMP", "ProgramFiles", "ProgramFiles(x86)")
 PREFIX = "aeqs-tests-"
+KEPT = "kept"                     # (the word owner.txt holds for a folder kept with AUTOEQSTUDIO_KEEP_TEST_FOLDER=1)
+NO_OWNER_AFTER = 24 * 3600        # (seconds: a session folder without owner.txt, untouched this long, is left over)
 
 
 @dataclasses.dataclass
@@ -80,15 +86,59 @@ def process_alive(pid, started=None):
         _k32.CloseHandle(handle)
 
 
-def owner_line():
-    """What owner.txt holds: this process's id and its start time."""
-    return f"{os.getpid()} {_started_at(_k32.GetCurrentProcess()) or 0}\n"
+def owner_line(kept=False):
+    """What owner.txt holds: this process's id and its start time, and "kept" for a folder kept on purpose
+    (AUTOEQSTUDIO_KEEP_TEST_FOLDER=1), which no other run's sweep_stale deletes."""
+    return f"{os.getpid()} {_started_at(_k32.GetCurrentProcess()) or 0}{' ' + KEPT if kept else ''}\n"
+
+
+def _keep_asked():
+    return os.environ.get("AUTOEQSTUDIO_KEEP_TEST_FOLDER") == "1"
+
+
+def _writable_again(func, path, exc):
+    """shutil.rmtree's helper for what it couldn't delete: a read-only file or folder (git makes its object files
+    read-only, and Windows won't delete those) made writable, then deleted again. Anything else is left as it is,
+    for the next try."""
+    if func in (os.unlink, os.remove, os.rmdir):
+        try:
+            os.chmod(path, stat.S_IWRITE)
+            func(path)
+        except OSError:
+            pass
+
+
+def remove_tree(path, tries=1, wait=0.3) -> bool:
+    """A folder deleted with everything in it, read-only files included, tried `tries` times, `wait` seconds apart
+    (while another process, e.g. a fitting worker, lets go of its files). Whether it's gone."""
+    for attempt in range(tries):
+        if sys.version_info >= (3, 12):
+            shutil.rmtree(path, onexc=_writable_again)
+        else:  # (Python 3.10 and 3.11 hand the same helper the same things through onerror)
+            shutil.rmtree(path, onerror=_writable_again)
+        if not os.path.exists(path):
+            return True
+        if attempt + 1 < tries:
+            time.sleep(wait)
+    return not os.path.exists(path)
+
+
+def _untouched_for(path):
+    """Seconds since the folder itself last changed (an entry made or deleted in it)."""
+    try:
+        return time.time() - os.stat(path).st_mtime
+    except OSError:
+        return 0.0
 
 
 def sweep_stale(folder):
-    """Delete the session folders in `folder` whose process is gone (a run stopped by a time limit or a crash leaves
-    one). Only folders named aeqs-tests-* holding an owner.txt that can be read: so only ones the tests made, and
-    never one still being made. Returns the folders deleted."""
+    """Delete the session folders in `folder` that nobody needs any more. Only folders named aeqs-tests-* (so only
+    ones the tests made), and of those:
+    - one whose owner.txt names a process that's gone (a run stopped by a time limit or a crash leaves one);
+    - one with no owner.txt that nobody has touched for a day: what's left of a folder a run couldn't delete
+      completely (its owner.txt went first). A newer one is left alone: it may be a run's folder still being made.
+    Never one kept on purpose (AUTOEQSTUDIO_KEEP_TEST_FOLDER=1: its owner.txt says "kept"), nor one whose owner.txt
+    can't be read right now. Read-only files inside are deleted too. Returns the folders deleted."""
     gone = []
     try:
         names = os.listdir(folder)
@@ -100,11 +150,24 @@ def sweep_stale(folder):
             continue
         try:
             with open(os.path.join(path, "owner.txt"), encoding="utf-8") as fh:
-                pid, started = (int(x) for x in fh.read().split()[:2])
-        except (OSError, ValueError):
+                words = fh.read().split()
+        except FileNotFoundError:
+            words = None
+        except OSError:
             continue
-        if not process_alive(pid, started or None):
-            shutil.rmtree(path, ignore_errors=True)
+        if words is None:
+            if _untouched_for(path) < NO_OWNER_AFTER:
+                continue
+        else:
+            if KEPT in words[2:]:
+                continue
+            try:
+                pid, started = int(words[0]), int(words[1])
+            except (IndexError, ValueError):
+                continue
+            if process_alive(pid, started or None):
+                continue
+        if remove_tree(path):
             gone.append(path)
     return gone
 
@@ -160,7 +223,7 @@ def prepare():
     sweep_stale(real_temp)
     root = os.path.realpath(tempfile.mkdtemp(prefix=PREFIX, dir=real_temp))
     with open(os.path.join(root, "owner.txt"), "w", encoding="utf-8") as fh:
-        fh.write(owner_line())
+        fh.write(owner_line(kept=_keep_asked()))  # (kept: marked from the start, so a run that stops half way is too)
     tmp, home, studio = os.path.join(root, "tmp"), os.path.join(root, "home"), os.path.join(root, "AutoEQ Studio")
     os.makedirs(tmp)
     for sub in ("Downloads", "Documents", "Desktop", "Music", r"AppData\Roaming", r"AppData\Local"):
@@ -258,19 +321,31 @@ def child_env(*, without_folders=False, keep_log=False, **overrides):
     return env
 
 
+def mark_kept(root):
+    """A session folder's owner.txt made to say "kept" (other runs' sweep_stale then leave the folder alone)."""
+    owner = os.path.join(root, "owner.txt")
+    try:
+        with open(owner, encoding="utf-8") as fh:
+            words = fh.read().split()
+    except OSError:
+        words = []
+    if KEPT not in words[2:]:
+        with open(owner, "w", encoding="utf-8") as fh:
+            fh.write(" ".join((words[:2] or owner_line().split()) + [KEPT]) + "\n")
+
+
 def cleanup():
-    """The session folder deleted (20 tries, 0.3 s apart, while worker processes let go of its files); kept and said
-    where with AUTOEQSTUDIO_KEEP_TEST_FOLDER=1."""
+    """The session folder deleted (20 tries, 0.3 s apart, while worker processes let go of its files; read-only files
+    too); kept, marked so in owner.txt and said where with AUTOEQSTUDIO_KEEP_TEST_FOLDER=1."""
     if SESSION is None or not os.path.isdir(SESSION.root):
         return
-    if os.environ.get("AUTOEQSTUDIO_KEEP_TEST_FOLDER") == "1":
-        print(f"\nThe test folder is kept (AUTOEQSTUDIO_KEEP_TEST_FOLDER=1): {SESSION.root}")
+    if _keep_asked():
+        mark_kept(SESSION.root)
+        print(f"\nThe test folder is kept (AUTOEQSTUDIO_KEEP_TEST_FOLDER=1; delete it yourself when done): "
+              f"{SESSION.root}")
         return
     if inside(os.getcwd()):
         os.chdir(SESSION.real_temp)  # (Windows can't delete the folder a process is working in)
-    for _ in range(20):
-        shutil.rmtree(SESSION.root, ignore_errors=True)
-        if not os.path.exists(SESSION.root):
-            return
-        time.sleep(0.3)
-    print(f"\nCouldn't delete the test folder (a process still holds it?): {SESSION.root}. The next run deletes it.")
+    if not remove_tree(SESSION.root, tries=20, wait=0.3):
+        print(f"\nCouldn't delete the test folder (a process still holds it?): {SESSION.root}. A later run deletes "
+              "it.")

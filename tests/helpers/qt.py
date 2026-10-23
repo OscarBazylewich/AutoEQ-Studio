@@ -130,6 +130,24 @@ def wait_for(cond, sec=90, step=0.02) -> bool:
     return True
 
 
+def settle(quiet=0.5, sec=30) -> bool:
+    """Let Qt work until its background tasks (ui.tasks.background: Qt's thread pool) have had nothing running for
+    `quiet` seconds in a row, or time_limit(sec) has passed. Whether it got quiet. "Nothing running right now" isn't
+    enough: each task that ends may start the next as its answer arrives (Make an EQ: the curves, then their
+    analysis, then the automatic settings)."""
+    from PySide6.QtCore import QThreadPool
+    pool = QThreadPool.globalInstance()
+    since = [None]
+
+    def quiet_long_enough():
+        if pool.activeThreadCount():
+            since[0] = None
+            return False
+        since[0] = since[0] or time.monotonic()
+        return time.monotonic() - since[0] >= quiet
+    return wait_for(quiet_long_enough, sec)
+
+
 def pump(ms=50):
     """Let Qt work for this long."""
     from PySide6.QtWidgets import QApplication

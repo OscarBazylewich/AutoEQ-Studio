@@ -13,21 +13,13 @@ import pytest
 
 from eq import inputs, pipeline, settings
 from helpers import studio
+from helpers.checks import raises  # (eq_checks.py's raises, line 50: the message of a ValueError, or None)
 
 # your own filters for Best fit to start from and the small run around them (eq_checks.py lines 455-458)
 MINE = "Filter 1: ON PK Fc 1000 Hz Gain -2 dB Q 1.5\n120 3 0.8"
 SMALL = {"filter_counts": [2, 4], "gain_max": [6], "q_max": [3], "random_starts": 2, "seed_with_site": False,
          "fight_penalty": [0.01],
          "low_shelf": False, "high_shelf": False, "start_filters": MINE}
-
-
-def raises(fn, *a, **k):
-    """The error message fn raises (ValueError), or None (eq_checks.py's raises, line 50)."""
-    try:
-        fn(*a, **k)
-    except ValueError as e:
-        return str(e)
-    return None
 
 
 def test_curves_loaded_averaged_finite(sample_curves, check):

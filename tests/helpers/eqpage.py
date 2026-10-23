@@ -89,8 +89,9 @@ def open_screen(tmp, settings=None, size=(1000, 900)) -> EqScreen:
 def close_screen(s):
     """Sound stopped, a run that's going cancelled (and waited for), the page's own listeners taken out of
     eq.service.SET_ASIDE (those added since open_screen: once its notices are deleted, calling one raises "Signal
-    source has been deleted"), Qt's background tasks waited for, the page closed and deleted (the windows it owns go
-    with it), and every other window it opened and left open closed (and deleted when nothing owns it)."""
+    source has been deleted"), the page's background loads let finish until all is quiet for half a second, the page
+    closed and deleted (the windows it owns go with it), and every other window it opened and left open closed (and
+    deleted when nothing owns it)."""
     import sys
 
     import shiboken6
@@ -104,6 +105,11 @@ def close_screen(s):
             service.call("/api/cancel")
             qt.wait_for(lambda: service.JOB.get("status") != "running", 60)
         service.SET_ASIDE[:] = [fn for fn in service.SET_ASIDE if any(fn is b for b in s.set_aside_before)]
+    # (quiet first, not only "nothing running now": each load that ends starts the next as its answer arrives (the
+    # curves, their analysis, the automatic settings), and one still on its way once the page is deleted answers a
+    # page that's gone: an error inside a Qt call-back, "Internal C++ object already deleted". The page's loads
+    # name no owner (ui.tasks.background), so nothing else stops them)
+    qt.settle(0.5, 30)
     QThreadPool.globalInstance().waitForDone(30000)
     qt.pump(50)
     # (the page first: the windows it made with itself as their owner go with it, the pop-up lists and menus of its

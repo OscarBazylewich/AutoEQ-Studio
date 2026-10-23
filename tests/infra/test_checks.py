@@ -1,8 +1,9 @@
 """The check fixture and the check log (helpers.checks, tests\\conftest.py; PLAN.md 3.6): names logged, a failed
 check fails its test listing every failed name, check.skipped logs its names as skipped, an xfail test's report
 says xfailed, an error inside a Qt call-back is logged and doesn't fail its test, and the log's lines. All on an
-inner pytest run (its own process and check log: its deliberate failures never reach this run's log)."""
-from helpers import inner
+inner pytest run (its own process and check log: its deliberate failures never reach this run's log). And raises(),
+the EQ part's tests' shared helper (a ValueError's message, or None)."""
+from helpers import checks, inner
 
 pytest_plugins = ["pytester"]
 
@@ -75,6 +76,19 @@ def test_check_fixture_and_log(pytester, monkeypatch, check):
           and all((t, w) in reports for t in starts for w in ("setup", "call", "teardown") if t != "test_skips")
           and result.parseoutcomes() == {"failed": 1, "passed": 2, "skipped": 1, "xfailed": 1} and result.ret == 1,
           (result.parseoutcomes(), starts))
+
+
+def test_raises(check):
+    def refuse(x):
+        raise ValueError(f"no {x}")
+    try:
+        checks.raises(lambda: 1 / 0)
+        through = False
+    except ZeroDivisionError:
+        through = True
+    check("checks: raises() gives the message of the ValueError a call raises (the app's way of refusing), None when "
+          "it raises nothing, and lets any other error through (the test then fails on it)",
+          checks.raises(refuse, 3) == "no 3" and checks.raises(len, [1]) is None and through)
 
 
 def test_strict_xpass_fails(pytester, monkeypatch, check):

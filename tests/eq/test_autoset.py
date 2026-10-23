@@ -12,6 +12,7 @@ import pytest
 
 from eq import autoset, pipeline, settings
 from helpers import qt
+from helpers.checks import raises  # (eq_checks.py's raises, line 50: the message of a ValueError, or None)
 
 # a made-up analysis of a device's curves (eq_checks.py lines 296-298)
 AN = {"features": 12, "no_eq_rms": 3, "band_top": 10000, "band_why": "default", "n_files": 1, "unstable_from": None,
@@ -22,15 +23,6 @@ GROW_AN = {"features": 10, "no_eq_rms": 3, "band_top": 10000, "band_why": "defau
            "unstable_from": None, "need_boost": 6, "boost_at": 3000, "need_cut": -6, "cut_at": 100,
            "q_need": 3, "q_at": 2000, "bass_step": 0, "treble_step": 0, "data_top": 20000,
            "agree_to": None}
-
-
-def raises(fn, *a, **k):
-    """The error message fn raises (ValueError), or None (eq_checks.py's raises, line 50)."""
-    try:
-        fn(*a, **k)
-    except ValueError as e:
-        return str(e)
-    return None
 
 
 @pytest.fixture(scope="module")

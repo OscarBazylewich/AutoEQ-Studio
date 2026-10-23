@@ -14,18 +14,10 @@ import types
 import pytest
 
 from eq import inputs
+from helpers.checks import raises  # (eq_checks.py's raises, line 50: the message of a ValueError, or None)
 
 # a made-up curve, 80 points from 20 Hz (eq_checks.py line 151)
 CURVE = "".join(f"{20 * 1.1 ** i:.2f}\t{80 + i % 5}\n" for i in range(80))
-
-
-def raises(fn, *a, **k):
-    """The error message fn raises (ValueError), or None (eq_checks.py's raises, line 50)."""
-    try:
-        fn(*a, **k)
-    except ValueError as e:
-        return str(e)
-    return None
 
 
 def test_device_name_from_seating_files(check):

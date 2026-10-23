@@ -30,8 +30,12 @@ def test_launcher_named_unsigned_and_runs_python(qapp, tmp_path, check):
         if n.lower().endswith(".dll"):
             shutil.copy2(os.path.join(sys.base_prefix, n), folder)
     said = os.path.join(folder, "ran.txt")
+    # (without PYTHONFAULTHANDLER, which run_tests.py and GitHub's run set to report a crash: the launcher is a
+    # pythonw, a program without a console, so it has nowhere to write one, and Python then refuses to start at all,
+    # silently, with exit code 1. The app's own start never has it set, nor had the old self-test's run of it)
     run = subprocess.run([exe, "-c", f"open(r'{said}', 'w').write('ran')"],
-                         env=session.child_env(PYTHONHOME=sys.base_prefix), timeout=qt.time_limit(60))
+                         env=session.child_env(PYTHONHOME=sys.base_prefix, PYTHONFAULTHANDLER=None),
+                         timeout=qt.time_limit(60))
     info = brand_exe.describe(exe)
     signed = subprocess.run(["powershell", "-NoProfile", "-Command", f"(Get-AuthenticodeSignature '{exe}').Status"],
                             capture_output=True, text=True, env=session.child_env(),

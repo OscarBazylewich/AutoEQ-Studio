@@ -97,7 +97,14 @@ def test_close_screen(screen, check):
     import shiboken6
     from PySide6.QtCore import QThreadPool
     page = screen.page
+    errors_before = len(qt.QT_ERRORS)
+    page.load_curves()  # (a load started just before the close: its answer starts the analysis, that one's the rest)
     eqpage.close_screen(screen)
+    qt.pump(300)
+    late = qt.QT_ERRORS[errors_before:]
+    check("eq helpers: close_screen lets the page's background loads finish first (one started just before it, and "
+          "those its answer starts in turn), so none answers a deleted page (no error inside a Qt call-back)",
+          not late, late)
     qt.wait_for(lambda: _threads() <= screen.before["threads"] and not multiprocessing.active_children(), 20)
     service = sys.modules["eq.service"]
     before = screen.before["set_aside"] or []
@@ -159,6 +166,17 @@ def test_file_reset(check):
     os.makedirs(os.path.join(S.studio, "Saved EQs"), exist_ok=True)
     with open(os.path.join(S.studio, "Saved EQs", "an EQ.txt"), "w") as fh:
         fh.write("Preamp: -1 dB\n")
+    eq_data = os.path.join(S.data, "eq")
+    left_over = [os.path.join(eq_data, n) for n in ("history.json.bad", "history.json.2.bad", "listen.json.bad",
+                                                    "history.json.1234-5678.tmp")]
+    left_over.append(os.path.join(S.studio, "downloads", "Some site", "Some IEM L.txt"))
+    for path in left_over:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as fh:
+            fh.write("x")
+    keep = os.path.join(eq_data, "notes.txt.bad")  # (not one of the EQ part's own files: left alone)
+    with open(keep, "w") as fh:
+        fh.write("x")
     t = time.monotonic()
     eq.file_reset()
     took = time.monotonic() - t
@@ -173,3 +191,9 @@ def test_file_reset(check):
           and saved == {"library": {"folders": [os.path.join(S.studio, "samples")]}}
           and not os.path.exists(os.path.join(S.data, "eq", "history.json")) and "eq.service" in sys.modules,
           (started, service.JOB.get("status"), took, saved))
+    still = [p for p in left_over if os.path.exists(p)]
+    check("eq helpers: file_reset() also removes what damaged-file tests and failed writes leave in data\\eq "
+          "(history.json and listen.json kept aside as .bad, half-written .tmp files) and the curves downloaded in "
+          "the session's studio",
+          not still and not os.path.exists(os.path.join(S.studio, "downloads")) and os.path.isfile(keep), still)
+    os.remove(keep)

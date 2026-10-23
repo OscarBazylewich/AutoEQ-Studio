@@ -6,9 +6,11 @@ loads keep away from the EQ part (so app\\tools\\relevant_tests.py can choose te
 import ast
 import ctypes
 import os
+import stat
 import subprocess
 import sys
 import tempfile
+import time
 
 from helpers import capabilities, guard, paths, session
 
@@ -108,6 +110,53 @@ def test_stale_folders_cleaned(tmp_path, check):
           "one without owner.txt and anything not named aeqs-tests-* are kept",
           sorted(os.path.basename(p) for p in gone) == ["aeqs-tests-gone", "aeqs-tests-reused"]
           and left == ["aeqs-tests-alive", "aeqs-tests-nobody", "other-gone"], (gone, left))
+
+
+def _read_only_inside(folder):
+    """A read-only file in a read-only folder inside, as git leaves its object files (Windows won't delete them as
+    they are)."""
+    sub = os.path.join(folder, "objects", "ab")
+    os.makedirs(sub)
+    with open(os.path.join(sub, "cdef"), "w") as fh:
+        fh.write("x")
+    os.chmod(os.path.join(sub, "cdef"), stat.S_IREAD)
+    os.chmod(sub, stat.S_IREAD)
+
+
+def test_left_over_and_kept_folders(tmp_path, check):
+    ended = subprocess.Popen([sys.executable, "-c", "pass"])
+    ended.wait()
+    two_days_ago = time.time() - 2 * 24 * 3600
+    folders = {}
+    for name, owner, old in (("aeqs-tests-gone-read-only", f"{ended.pid} 1", False),
+                             ("aeqs-tests-nobody-old", None, True), ("aeqs-tests-nobody-new", None, False),
+                             ("aeqs-tests-kept", f"{ended.pid} 1 {session.KEPT}", True),
+                             ("aeqs-tests-marked", f"{ended.pid} 1", True), ("other-old", None, True)):
+        folders[name] = path = os.path.join(tmp_path, name)
+        os.makedirs(path)
+        if owner:
+            with open(os.path.join(path, "owner.txt"), "w") as fh:
+                fh.write(owner)
+        if name == "aeqs-tests-gone-read-only":
+            _read_only_inside(path)
+        if old:
+            os.utime(path, (two_days_ago, two_days_ago))
+    session.mark_kept(folders["aeqs-tests-marked"])  # (as cleanup() marks a folder kept at the end of its run)
+    gone = session.sweep_stale(str(tmp_path))
+    left = sorted(n for n in folders if os.path.isdir(folders[n]))
+    check("isolation: a stale session folder holding read-only files (git's object files) is deleted all the same, and "
+          "one without owner.txt untouched for over a day (what a run that couldn't delete its folder left); one kept "
+          "with AUTOEQSTUDIO_KEEP_TEST_FOLDER=1 (\"kept\" in its owner.txt, from the start or marked at the end), a "
+          "newer one without owner.txt and anything not named aeqs-tests-* are left alone",
+          sorted(os.path.basename(p) for p in gone) == ["aeqs-tests-gone-read-only", "aeqs-tests-nobody-old"]
+          and left == ["aeqs-tests-kept", "aeqs-tests-marked", "aeqs-tests-nobody-new", "other-old"]
+          and session.owner_line(kept=True).split()[2:] == [session.KEPT]
+          and session.owner_line().split()[2:] == [], (gone, left))
+    top = os.path.join(tmp_path, "a session folder")
+    os.makedirs(top)
+    _read_only_inside(top)
+    check("isolation: the session folder is deleted at the end with its read-only files and folders too "
+          "(session.remove_tree, which cleanup() uses)", session.remove_tree(top) and not os.path.exists(top), top)
 
 
 def test_session_root_spelled_the_long_way(check):

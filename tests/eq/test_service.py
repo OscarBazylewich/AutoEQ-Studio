@@ -21,6 +21,7 @@ import pytest
 
 from eq import autoset, compare, databases, history, inputs, pipeline, rigs, service
 from helpers import qt, session
+from helpers.checks import raises  # (eq_checks.py's raises, line 50: the message of a ValueError, or None)
 
 COVERS_FILES = ("samples/**",)  # (every request here works on the sample target and measurements)
 
@@ -31,15 +32,6 @@ MINE = [{"type": "PK", "freq": 150, "gain": 3, "q": 1}, {"type": "PK", "freq": 3
         {"type": "PK", "freq": 8000, "gain": 1, "q": 1, "enabled": False}]
 F = [{"type": "PK", "freq": 1000, "gain": -2, "q": 1}, {"type": "PK", "freq": 3000, "gain": 3, "q": 2}]  # (line 1153)
 FORMATS = ("apo", "graphic", "poweramp", "uapp", "soundsource", "voicemeeter", "rockbox", "convolution")  # (exports.FORMATS)
-
-
-def raises(fn, *a, **k):
-    """The error message fn raises (ValueError), or None (eq_checks.py's raises, line 50)."""
-    try:
-        fn(*a, **k)
-    except ValueError as e:
-        return str(e)
-    return None
 
 
 def _ask(api, path, body=None):

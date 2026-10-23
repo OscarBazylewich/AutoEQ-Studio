@@ -16,6 +16,7 @@ import pytest
 
 from eq import engines, layouts, pipeline, settings
 from helpers import qt
+from helpers.checks import raises  # (eq_checks.py's raises, line 50: the message of a ValueError, or None)
 
 # your own filters for Best fit to start from, the small run around them, and how they are kept (eq_checks.py lines
 # 455-458 and 462)
@@ -25,15 +26,6 @@ SMALL = {"filter_counts": [2, 4], "gain_max": [6], "q_max": [3], "random_starts"
          "low_shelf": False, "high_shelf": False, "start_filters": MINE}
 KEPT = [{"type": "PK", "enabled": True, "freq": 1000.0, "gain": -2.0, "q": 1.5},
         {"type": "PK", "enabled": True, "freq": 120.0, "gain": 3.0, "q": 0.8}]
-
-
-def raises(fn, *a, **k):
-    """The error message fn raises (ValueError), or None (eq_checks.py's raises, line 50)."""
-    try:
-        fn(*a, **k)
-    except ValueError as e:
-        return str(e)
-    return None
 
 
 def fit_settings():

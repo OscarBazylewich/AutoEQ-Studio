@@ -13,16 +13,25 @@ offline      the app offline for the whole session (autouse): nothing it does ca
 online       the app online for one test (the guard still blocks real connections: stand in for what would download)
 fake_apo     a stand-in Equalizer APO config folder in tmp_path (helpers.apo.fake_apo)
 child_env    helpers.session.child_env: the environment for a subprocess
+module_monkeypatch  monkeypatch for a whole test file (pytest's own lasts one test): what a file-wide fixture (a
+             chain's shared window, Switcher or requests) stands in for, put back after the file's last test
+
+helpers.qt, helpers.session and helpers.guard are imported inside the fixtures that use them, not at the top
+(app\\tools\\relevant_tests.py: a fixture brings its own file's top-level imports to every test that asks for it, so
+a test asking only for check would otherwise reach ui.theme through helpers.qt, and the samples through
+helpers.session and helpers.guard (helpers.paths declares samples/**): a change to the theme or the samples then chose
+nearly every test).
 """
 import collections
 
 import pytest
 
-from helpers import apo, checks, dialogs as dialogs_mod, guard, qt, session
+from helpers import apo, checks, dialogs as dialogs_mod
 
 
 @pytest.fixture(scope="session")
 def qapp():
+    from helpers import qt
     return qt.app()
 
 
@@ -42,6 +51,7 @@ def dialogs():
 def guard_check():
     # (checked after the test, then cleared, as stray_check below: what was blocked while its module's fixtures
     # were made counts for it too)
+    from helpers import guard
     yield
     blocked = guard.violations()
     guard.clear()
@@ -53,6 +63,7 @@ def guard_check():
 def stray_check(request):
     # (checked after the test, then cleared: what showed while its module's fixtures were made, before it, counts
     # for it too; those are made before this fixture, so clearing first would lose them)
+    from helpers import qt
     yield
     watch = qt.stray_watch()
     if watch is None or not watch.found:
@@ -93,4 +104,13 @@ def fake_apo(tmp_path):
 
 @pytest.fixture
 def child_env():
+    from helpers import session
     return session.child_env
+
+
+@pytest.fixture(scope="module")
+def module_monkeypatch():
+    """monkeypatch for a whole test file: for a file-wide fixture (scope="module") that stands something in, which
+    pytest's own monkeypatch (one test) can't serve. Everything is put back after the file's last test."""
+    with pytest.MonkeyPatch.context() as mp:
+        yield mp

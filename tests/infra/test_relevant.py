@@ -463,9 +463,20 @@ def test_this_project(check):
           "tests, and none that would reach the EQ part only through an always-loaded helper",
           {"tests/eq_screen/test_opening.py", "tests/infra/test_eq_helpers.py"} <= set(engines.tests)
           and not set(never) & set(engines.tests) and not engines.everything, engines.tests)
+    only_check = {"tests/switcher/test_eqfile.py", "tests/app/test_textfile.py"}  # (they ask for check, tmp_path)
+    sample = f"samples/targets/{paths.SAMPLE_TARGET}"
+    theme, samples = chosen(project, "app/ui/theme.py"), chosen(project, sample)
+    check("relevant tests: on this project, a test asking only for the check fixture isn't chosen for a change to "
+          "ui\\theme.py or to the samples (fixtures_core imports helpers.qt, session and guard inside its fixtures)",
+          isinstance(theme, list) and isinstance(samples, list) and not only_check & (set(theme) | set(samples))
+          and "tests/ui/test_theme.py" in theme and "tests/eq/test_pipeline.py" in samples,
+          (len(theme), len(samples), sorted(only_check & set(theme if isinstance(theme, list) else []))))
+    # (the unknown file sits in a folder of its own: a file straight in the project's folder is covered, since
+    # tests\tools\test_files.py declares "*" for its text-file rules)
     check("relevant tests: on this project, a change to a helper or a file no rule covers chooses everything, and one "
           "to GitHub's files none",
-          chosen(project, "tests/helpers/qt.py") == "everything" and chosen(project, "notes.xyz") == "everything"
+          chosen(project, "tests/helpers/qt.py") == "everything"
+          and chosen(project, "elsewhere/notes.xyz") == "everything"
           and chosen(project, ".github/workflows/tests.yml") == "none", project.warnings)
     check("relevant tests: reading the whole project and choosing takes under 2 seconds (nothing imported or run)",
           took < qt.time_limit(2), f"{took:.2f} s")

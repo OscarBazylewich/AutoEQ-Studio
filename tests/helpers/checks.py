@@ -45,6 +45,17 @@ def log(record):
             os.close(fd)
 
 
+def raises(fn, *a, **k):
+    """The error message fn(*a, **k) raises (a ValueError: how the app refuses something), or None when it raises
+    nothing (eq_checks.py's raises, line 50, which the EQ part's tests use). Any other error isn't caught: the test
+    then fails on it."""
+    try:
+        fn(*a, **k)
+    except ValueError as e:
+        return str(e)
+    return None
+
+
 def _say(line):
     try:
         print(line)
