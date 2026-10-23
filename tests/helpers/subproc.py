@@ -11,6 +11,7 @@ after it starts: in a test process it's in already, but a bit of Python that imp
 in the job itself. So a test process stopped half way (its time limit, a crash, a kill) leaves no copy of the app,
 and no fitting worker, running: `taskkill /T` alone can't reach a child whose parent is gone.
 """
+import atexit
 import ctypes
 import dataclasses
 import json
@@ -93,7 +94,44 @@ def contain_this_process() -> bool:
         this_process["why_not"] = f"Windows error {ctypes.get_last_error()} putting this process in its job object"
         return False
     this_process.update(in_job=True, why_not="")
+    atexit.register(_say_left_running)  # (registered first, so it runs last: after the other exit functions)
     return True
+
+
+class _ProcessIdList(ctypes.Structure):
+    _fields_ = [("NumberOfAssignedProcesses", wintypes.DWORD), ("NumberOfProcessIdsInList", wintypes.DWORD),
+                ("ProcessIdList", ctypes.c_size_t * 1024)]
+
+
+_k32.QueryInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD,
+                                           ctypes.c_void_p]
+_PROCESS_ID_LIST = 3
+
+
+def job_others() -> list[int]:
+    """The processes in this process's job besides itself (their ids); [] when it has no job."""
+    if not _job:
+        return []
+    info = _ProcessIdList()
+    if not _k32.QueryInformationJobObject(_job[0], _PROCESS_ID_LIST, ctypes.byref(info), ctypes.sizeof(info), None):
+        return []
+    me = os.getpid()
+    return [int(p) for p in info.ProcessIdList[:info.NumberOfProcessIdsInList] if int(p) != me]
+
+
+def _say_left_running():
+    """At the very end of a test process (its pools of workers already shut down: Python does that before the exit
+    functions): what its tests started and left running goes into the check log, so run_tests.py names it; the job
+    then ends it with this process. (Since the test process has a job of its own, the part's job in run_tests.py no
+    longer sees such a process still running: the fix-ups' recheck, 2026-10-22.)"""
+    left = job_others()
+    end = time.monotonic() + 2  # (a process that's just ending still counts for a moment)
+    while left and time.monotonic() < end:
+        time.sleep(0.1)
+        left = job_others()
+    if left:
+        from helpers import checks
+        checks.log({"event": "left_running", "pids": left})
 
 
 def _into_job(proc):

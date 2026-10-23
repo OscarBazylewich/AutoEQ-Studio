@@ -126,6 +126,22 @@ def test_starts_a_child_and_waits(check):
 '''
 
 
+# (a test that starts a process and never stops it: a leak the run must name)
+LEAVES = '''
+import json
+import os
+import subprocess
+import sys
+
+
+def test_starts_a_child_and_leaves_it(check):
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(600)"])
+    with open(os.path.join(os.environ["AUTOEQSTUDIO_TEST_OUT"], "pids.json"), "w") as fh:
+        json.dump({"child": child.pid}, fh)
+    check("made-up: a child started and left running", True)
+'''
+
+
 def logs_place(text):
     """The output folder the run named in its first line."""
     m = re.search(r"^Running the tests: .*each part's log: (.+)\)\s*$", text, re.M)
@@ -474,6 +490,34 @@ def test_timeout_ends_everything(tmp_path, capsys, check):
           code == 1 and len(pids) == 2 and not alive
           and "FAIL waits: still running after" in text
           and "last test started: tests/waits/test_waits.py::test_starts_a_child_and_waits" in text, (pids, alive, text))
+
+
+@pytest.mark.timeout(600)
+def test_a_process_left_running_is_named(tmp_path, capsys, check):
+    # (the fix-ups' recheck, 2026-10-22: since each test process has a job of its own, the part's job saw nothing left
+    # running, so a test that leaks a process, e.g. a copy of the app not stopped, was named nowhere. The test process
+    # now says so itself at its very end, in the check log, and its job ends the process)
+    proj = make_project(tmp_path / "proj", {"leaves/test_leaves.py": LEAVES})
+    out = os.path.join(str(tmp_path), "out")
+    code = run_tests.run(["tests/leaves"], out=out, root=proj)
+    text = capsys.readouterr().out
+    try:
+        with open(os.path.join(out, "pids.json"), encoding="utf-8") as fh:
+            pids = json.load(fh)
+    except (OSError, ValueError):
+        pids = {}
+    end = time.monotonic() + qt.time_limit(10)
+    while any(session.process_alive(p) for p in pids.values()) and time.monotonic() < end:
+        time.sleep(0.2)
+    alive = [p for p in pids.values() if session.process_alive(p)]
+    for pid in alive:  # (only if the check below fails: nothing is left running either way)
+        subproc.kill_tree(pid)
+    # (one child can count as two processes: the environment's python.exe is a small launcher that starts the real
+    # Python as its own child)
+    note = re.search(r"^note leaves: \d+ process(es)? its tests started (was|were) still running when they ended "
+                     r"\(ended with the test process\)$", text, re.M)
+    check("test runner: a process a test leaves running is named in a note, and ended with the test process (the "
+          "test itself passed)", code == 0 and len(pids) == 1 and not alive and note, (pids, alive, text))
 
 
 def test_job_object_ends_its_processes(check):

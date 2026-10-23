@@ -1,5 +1,6 @@
 """The EQ part's methods and the maths of its fits (eq\\engines.py, run as a run runs them, through eq\\pipeline.py):
-a filter's own response against known values (a peak, a low and a high shelf), the website's AutoEQ (in V8), Best
+a filter's own response against known values (a peak, a low and a high shelf) and against the textbook curve at
+several widths, the website's AutoEQ (in V8), Best
 fit on fixed bands, on a device's layout and with your own filters, the number of fits its progress says, the fits
 counted and grown, split filters merged, the starting points, a failed fit stopping the others, a scored range
 without curve points, the queue's errors, one V8 kept per thread, absurd curves, a shelf's Q and your own filters'
@@ -70,6 +71,35 @@ def test_high_shelf_known_values(eq_cfg, check):
     got = one_filter(eq_cfg, "HSQ", [10, 1000, 20000])
     check("filters: a +6 dB high shelf at 1 kHz (Q 0.7) gives about 0 dB far below it (10 Hz), +3 dB at 1 kHz and "
           "about +6 dB far above it (20 kHz)", near(got, [0.0, 3.0, 6.0]), got)
+
+
+def cookbook_db(ftype, freqs, f0, gain, q):
+    """The textbook curve of a filter (the analog prototypes of Robert Bristow-Johnson's "Audio EQ Cookbook", which
+    equalizer.js and engines.biquad follow), worked out here on its own, in dB."""
+    a = 10 ** (gain / 40)
+    s = 1j * np.asarray(freqs, dtype=float) / f0
+    if ftype == "PK":
+        h = (s * s + s * (a / q) + 1) / (s * s + s / (a * q) + 1)
+    elif ftype == "LSQ":
+        h = a * (s * s + (np.sqrt(a) / q) * s + a) / (a * s * s + (np.sqrt(a) / q) * s + 1)
+    else:  # "HSQ"
+        h = a * (a * s * s + (np.sqrt(a) / q) * s + 1) / (s * s + (np.sqrt(a) / q) * s + a)
+    return 20 * np.log10(np.abs(h))
+
+
+def test_filter_widths_match_the_textbook(eq_cfg, check):
+    # (added 2026-10-22 after the fix-ups' recheck: the known values above can't see a filter's width, its Q: at a
+    # peak's own frequency and at a shelf's middle and far ends every Q gives the same answer, so a filter made twice as
+    # wide passed the whole suite. Off the centre the width shows: a filter of the wrong width is off by 1.5 dB or more
+    # there, while the app's digital filter stays within 0.02 dB of the textbook's analog curve up to 2 kHz at 48 kHz.)
+    at = np.array([250.0, 500.0, 707.0, 1414.0, 2000.0])
+    worst = {}
+    for ftype, q in (("PK", 0.5), ("PK", 1.0), ("PK", 4.0), ("LSQ", 0.7), ("LSQ", 2.0), ("HSQ", 0.7), ("HSQ", 2.0)):
+        got = engines.eq_gain(at, [{"type": ftype, "freq": 1000.0, "gain": 6.0, "q": q}], eq_cfg["site"]["sample_rate"])
+        worst[f"{ftype} Q {q:g}"] = round(float(np.max(np.abs(got - cookbook_db(ftype, at, 1000.0, 6.0, q)))), 4)
+    check("filters: peaking filters and shelves of several widths (Q 0.5 to 4) at 1 kHz follow the textbook curve "
+          "within 0.05 dB from 250 Hz to 2 kHz, at the app's sample rate (a filter of the wrong width is off by 1.5 dB "
+          "or more there)", all(d <= 0.05 for d in worst.values()), worst)
 
 
 # ---------------------------------------------------------------- the methods on the sample curves

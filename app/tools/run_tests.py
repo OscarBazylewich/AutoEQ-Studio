@@ -276,7 +276,13 @@ def read_log(path) -> list:
 
 
 def _plural(n, word):
-    return f"{n} {word}" if n == 1 else f"{n} {word}s"
+    return f"{n} {word}" if n == 1 else f"{n} {word}es" if word.endswith("s") else f"{n} {word}s"
+
+
+def _left_running_note(part, n, how):
+    """The note for processes a part's tests left running (ended now `how`)."""
+    were = "was" if n == 1 else "were"
+    return f"note {part}: {_plural(n, 'process')} its tests started {were} still running when they ended ({how})"
 
 
 def duration(seconds) -> str:
@@ -435,6 +441,8 @@ def summarize(part, records, returncode, *, seconds=0.0, txt="", output="", time
             res.fails.append(f"FAIL {part}: the test guard blocked, after the last test: {blocked[0]}{more}  [{test}]")
         elif event == "left_out":
             res.left_out += [str(t) for t in rec.get("tests") or [] if str(t) not in res.left_out]
+        elif event == "left_running":  # (the test process's own job, at its very end: helpers.subproc)
+            res.notes.append(_left_running_note(part, len(rec.get("pids") or []), "ended with the test process"))
     for (test, text), count in qt_errors.items():
         times = f" ({count} times)" if count > 1 else ""
         res.notes.append(f"note {test}: an error inside a Qt call-back (not a failure): {text}{times}")
@@ -654,8 +662,7 @@ def _report(r, code, quick, show_all, timeout):
         res.notes.append(f"note {r.part}: its process couldn't be put in a job object of its own ({r.job.error}): "
                          "anything it started could have been left running")
     if r.left_running:
-        res.notes.append(f"note {r.part}: {_plural(r.left_running, 'process')} its tests started were still running "
-                         "when they ended (ended now, with the part's job object)")
+        res.notes.append(_left_running_note(r.part, r.left_running, "ended now, with the part's job object"))
     for line in res.lines(show_all):
         _say(line)
     return res
