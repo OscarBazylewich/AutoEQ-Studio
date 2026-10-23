@@ -391,10 +391,12 @@ def tracer(t, img):
     """The tracer's window (ui\\trace_window.py, by its objectNames and its own tr* properties): its title and the
     empty picture's heading (Fluent's subtitle sizes), the Automatic settings switch (the card's heading) and its
     Why these settings fold (flat inside that card), the tools as one group (trTool: only the group's two ends rounded),
-    quiet buttons (trQuiet: the zoom bar's, a curve's dot and ✕; trIcon: a symbol without words, centred), the chosen
-    curve's row (trRow="chosen": as a chosen list row, the accent's bar beside it, its words in a chosen row's text
-    colour, which a contrast theme needs), the traced colour's frame, the zoom bar floating on the picture (as Windows
-    11's flyouts). The picture's card itself is drawn by the window in the same colours (trace_window.Stage)."""
+    the zoom bar's buttons and a curve's dot and ✕ a little smaller than other buttons (trCompact: they're the shared
+    quiet buttons, quiet=true; trIcon: a symbol without words, centred), the chosen curve's row (trRow="chosen": as a
+    chosen list row, the accent's bar beside it, its words in a chosen row's text colour, which a contrast theme
+    needs), the traced colour's frame, the zoom bar floating on the picture (as Windows 11's flyouts; its words in the
+    text colour, as its symbols: a quiet button's are greyer). The picture's card itself is drawn by the window in the
+    same colours (trace_window.Stage)."""
     return f"""
     QLabel#trTitle {{ font-family: "Segoe UI Variable Display"; font-size: 15pt; font-weight: 600; }}
     QLabel#trDropHead {{ font-family: "Segoe UI Variable Display"; font-size: 13.5pt; font-weight: 600; }}
@@ -405,11 +407,9 @@ def tracer(t, img):
     QPushButton[trTool="mid"] {{ border-radius: 0px; border-left-width: 0px; }}
     QPushButton[trTool="last"] {{ border-top-left-radius: 0px; border-bottom-left-radius: 0px;
         border-left-width: 0px; }}
-    QPushButton[trQuiet="true"] {{ background: transparent; border-color: transparent; padding: 4px 8px; }}
-    QPushButton[trQuiet="true"]:hover {{ background: {t['subtle_hover']}; }}
-    QPushButton[trQuiet="true"]:pressed {{ background: {t['subtle_press']}; }}
-    QPushButton[trQuiet="true"]:disabled {{ background: transparent; border-color: transparent; }}
+    QPushButton[trCompact="true"] {{ padding: 4px 8px; }}
     QPushButton[trIcon="true"] {{ padding-left: 10px; padding-right: 4px; }}
+    QFrame#trZoom QPushButton:enabled {{ color: {t['ink']}; }}
     QFrame[trRow="chosen"] {{ background-color: {t['subtle_sel']}; border-radius: 4px;
         background-image: url({img['pill_v']}); background-position: center left; background-repeat: no-repeat; }}
     QFrame[trRow="chosen"] QLabel, QFrame[trRow="chosen"] QPushButton {{ color: {t['sel_ink']}; }}

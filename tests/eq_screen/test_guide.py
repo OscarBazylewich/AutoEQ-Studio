@@ -3,7 +3,10 @@ every step to Done; every step's demo played to its end with nothing of yours ch
 effects off, numbered markers instead); the card's Pause / Resume, the wheel and the step list; the tracer's Guide on
 the sample graph; a resized window keeping the Guide's graph picture inside it; Tab staying in the Guide; the ring cut
 to what its scroll area shows; and (2026-10-23) its Windows 11 look: its marks in the accent, light and dark, the
-card's symbols drawn again when the theme changes, a demo's messages and keys fitting and gone when it stops.
+card's symbols drawn again when the theme changes, a demo's messages and keys fitting and gone when it stops; then the
+checkers' findings on it: the windows the demos show fitting their frames beside the card (at the app's own size and
+the window's smallest), every step in sight at the smallest size, one ring round two lit cards that touch, the step
+list's headings as Windows 11's, Play demo only on a step with a demo.
 
 Moved from eq_checks.py's guide_checks (lines 2625-2760), review_checks (1764-1780) and review_low_checks (1946-1948),
 on a page opened as the old checks opened it (the eq_screen fixture) with the result they had on the card by then (a
@@ -243,9 +246,10 @@ def test_tracers_guide(s, check):
     t.go(7)  # (Auto trace: the sample's curves traced for it)
     traced = sum(map(tw.t.has_data, tw.t.curves))
     t.all_chk.setChecked(False)
-    demos = 0
+    demos, play = 0, []
     for i, st in enumerate(t.steps):
         t.go(i)
+        play.append((st["title"], bool(tour._demo(st)), t.replay_btn.isVisible(), t.all_chk.isVisible()))
         if tour._demo(st):
             t.speed = 40.0
             t.replay()
@@ -255,6 +259,12 @@ def test_tracers_guide(s, check):
     check("guide: the tracer's Guide opens the sample graph, every step's control is there, its demo traces the "
           "sample, and the tracer is empty again after", opened and not probs and traced >= 2 and not tw.t.has_image
           and not tw.sample_open and demos >= 7, (opened, probs, traced, demos))
+    # (2026-10-23: Play demo showed on the tracer's steps that have no demo, doing nothing: its row was put in the
+    # card before the demo's box that hides on such a step)
+    wrong = [(title, has, shown) for title, has, shown, opts in play if shown != has or opts != has]
+    check("guide: the card's Play demo (and Play all steps, the speed) shows on a step with a demo and not on one "
+          "without (the tracer's “How tracing a graph goes”, “Automatic settings” …)",
+          not wrong and sum(not has for _t, has, _s, _o in play) >= 5, (wrong, play))
     tw.close()
 
 
@@ -402,3 +412,190 @@ def test_messages_and_keys_fit(s, check):
     check("guide: a message a demo shows is as tall as its words, a key it shows sits beside the pointer's “demo” tag, "
           "and both go when the demo stops",
           tall[0] >= tall[1] and beside and not left, (tall, beside, left))
+
+
+# The demos that show one of the app's windows inside the Guide (Find…, Which measurement, History), and the sizes
+# they're looked at in: the app's own (its window as it first opens) and its window's smallest
+WINDOW_DEMOS = ("Choose a target", "Choose your IEM or headphone", "Many results?",
+                "Several measurements of the same model?", "History")
+SIZES = {"the app's own size": (1040, 760), "the window's smallest": (965, 433)}
+
+
+def _ancestors(w, until):
+    p = w.parentWidget()
+    while p is not None and p is not until:
+        yield p
+        p = p.parentWidget()
+
+
+@pytest.mark.timeout(900)  # (five demos at two sizes, each waited for up to 30 s times the time factor)
+def test_demo_windows_fit_their_frames(s, check, monkeypatch):
+    # (2026-10-23, after the restyle: Which measurement's own smallest size, 700 x 660, was bigger than the frame the
+    # Guide gives it at the app's own size, so it was cut 100 px at the right and 123 at the bottom, its Compare and
+    # Close hidden; at the window's smallest size Find…, Which measurement and History were cut at the bottom and the
+    # card covered them. Each window is looked at as it opens, its demo paused there as P pauses it)
+    from PySide6.QtCore import QPoint, QRect
+    from PySide6.QtWidgets import QAbstractButton, QAbstractScrollArea, QComboBox, QLineEdit, QScrollArea, QWidget
+    from helpers import qt
+    from ui import guide, tour
+    page, wait_for = s.page, s.wait_for
+    shown = []
+    real = tour.Api.window
+
+    def window(api, w, *a, **k):
+        out = real(api, w, *a, **k)
+        shown.append(w)
+        api.t.toggle_pause()
+        return out
+    monkeypatch.setattr(tour.Api, "window", window)
+    was = page.size()
+    seen, bad, missing = {}, [], []
+    try:
+        for size_name, size in SIZES.items():
+            page.resize(*size)
+            qt.pump(200)
+            t = guide.start_eq(page)
+            t.all_chk.setChecked(False)
+            try:
+                for title in WINDOW_DEMOS:
+                    t.go(next(n for n, st in enumerate(t.steps) if st["title"] == title))
+                    n = len(shown)
+                    t.speed = 4.0
+                    t.replay()
+                    wait_for(lambda n=n, t=t: len(shown) > n or not t.demo_running, 30)
+                    if len(shown) == n:
+                        missing.append((size_name, title))
+                        continue
+                    qt.pump(150)
+                    wait_for(lambda t=t: not t.card_timer.isActive(), 5)  # (the card placed again, off the window)
+                    qt.pump(100)
+                    w = shown[-1]
+                    frame = w.frame
+                    inner = frame.rect().adjusted(1, 1, -1, -1)  # (inside its border)
+                    # (a window taller than the tour's room scrolls inside its frame: what's in sight is its view)
+                    area = next((a for a in frame.findChildren(QScrollArea) if a.objectName() == "tourWinScroll"), None)
+                    view = inner if area is None else QRect(area.viewport().mapTo(frame, QPoint(0, 0)),
+                                                            area.viewport().size()).intersected(inner)
+                    body = QRect(w.mapTo(frame, QPoint(0, 0)), w.size())
+                    tall = w.height() >= w.minimumSizeHint().height()  # (not squeezed: the room its parts need)
+                    fits = tall and (inner.contains(body) if area is None else
+                                     view.left() <= body.left() and body.right() <= view.right())
+                    hidden = []
+                    for c in w.findChildren(QWidget):
+                        if not isinstance(c, (QAbstractButton, QLineEdit, QComboBox)) or not c.isVisible() \
+                                or any(isinstance(p, QAbstractScrollArea) for p in _ancestors(c, w)):
+                            continue  # (a row of one of its lists: they scroll)
+                        if area is not None:
+                            area.ensureWidgetVisible(c, 0, 0)  # (what scrolling the frame would bring into sight)
+                        if not view.intersected(QRect(w.mapTo(frame, QPoint(0, 0)), w.size())).contains(
+                                QRect(c.mapTo(frame, QPoint(0, 0)), c.size())):
+                            words = c.currentText() if isinstance(c, QComboBox) else c.text()
+                            hidden.append(words or c.accessibleName() or type(c).__name__)
+                    if area is not None:
+                        area.verticalScrollBar().setValue(0)
+                    over = t.bubble.geometry().intersects(frame.geometry())
+                    seen[(size_name, title)] = (frame.size().toTuple(), body.size().toTuple(), area is not None)
+                    if not fits or hidden or over:
+                        bad.append((size_name, title, w.windowTitle(), {"frame": frame.geometry().getRect(),
+                                    "window": body.getRect(), "scrolls": area is not None, "hidden": hidden,
+                                    "card over it": over}))
+                    t.skip_demo()
+            finally:
+                t.end()
+    finally:
+        shown.clear()  # (the windows are gone with their demos: nothing kept of them)
+        page.resize(was)
+        qt.pump(200)
+    check("guide: every window a demo shows (Find…, Which measurement, History) fits its frame (as wide as it; one "
+          "taller than the tour has room for scrolls inside it), its buttons and boxes all in sight (or scrolled to), "
+          "and the card beside it, not over it, at the app's own size (1040 x 760) and at the window's smallest "
+          "(965 x 433)", not bad and not missing and len(seen) == len(WINDOW_DEMOS) * len(SIZES),
+          (bad, missing, seen))
+
+
+@pytest.mark.timeout(900)  # (every step's before and after, as test_every_step_points_at_a_control)
+def test_every_step_in_sight_at_the_smallest_size(s, check):
+    # (2026-10-23: at the window's smallest size tour.problems() said Choose your IEM or headphone was outside the
+    # window: it measured straight after the step before had closed Adjust, before the page had settled; and the Guide
+    # itself, going on from that step, scrolled the page past the Measurement card the same way)
+    from helpers import qt
+    from ui import guide, tour
+    page = s.page
+    was = page.size()
+    lost = []
+    try:
+        page.resize(965, 360)  # (Make an EQ's room at the window's smallest, 965 x 433: its top bar and status line out)
+        qt.pump(200)
+        at = page.size().toTuple()
+        probs = tour.problems(page, guide.eq_steps(page))
+        t = guide.start_eq(page)  # (then the Guide itself, step by step with →, each step's demo not started)
+        try:
+            t.all_chk.setChecked(False)
+            t.speed = 0.01
+            for i in range(len(t.steps)):
+                t.go(i)
+                t.stop_demo()
+                r = tour._rect(t.win, t.target or [])
+                if not t.win.rect().intersects(r) or r.width() < 4 or r.height() < 4 or not t.holes:
+                    lost.append((t.i + 1, t.steps[t.i]["title"], r.getRect()))
+        finally:
+            t.end()
+    finally:
+        page.resize(was)
+        qt.pump(200)
+    check("guide: at the window's smallest size too every step of Make an EQ's Guide points at a control that's there "
+          "and in sight", not probs and at == (965, 360), (at, probs))
+    check("guide: at the window's smallest size the Guide shows each step's control in sight as it goes from step to "
+          "step (the page scrolled once it's laid out again: a fold the step before opened is closed by then)",
+          not lost and at == (965, 360), (at, lost))
+
+
+def test_ring_joins_cards_that_touch(s, check):
+    # (2026-10-23: two lit cards that touch, step 1's Target and Measurement, were drawn as two rings whose round
+    # corners met in a small notch at both sides, pointing in)
+    from ui import guide, theme, tour
+    page, qapp = s.page, s.qapp
+    t = guide.start_eq(page)
+    try:
+        t.all_chk.setChecked(False)
+        s.wait_for(lambda: t.demo_running, 10)  # (step 1's demo starts by itself: stopped, as Skip demo does)
+        t.stop_demo()
+        qapp.processEvents()
+        tb, mb = tour._rect(t.win, [page.target_box]), tour._rect(t.win, [page.measurement_box])
+        touch = mb.top() - tb.bottom() - 1 - 2 * tour.PAD  # (the room between their lit rectangles: none)
+        y = (tb.bottom() + mb.top()) // 2  # (where they meet)
+        left, right = min(tb.left(), mb.left()) - tour.PAD, max(tb.right(), mb.right()) + tour.PAD
+        img = t.win.grab().toImage()
+        acc = theme.tokens()["accent"]
+        ring = (any(_pixel(img, x, y) == acc for x in range(left - 1, left + 2)),
+                any(_pixel(img, x, y) == acc for x in range(right - 1, right + 3)))
+        holes = [h.getRect() for h in t.holes]
+    finally:
+        t.end()
+    check("guide: two lit cards that touch (step 1's Target and Measurement) are lit as one, the ring's sides running "
+          "straight past where they meet (no notch)", touch <= 0 and ring == (True, True) and len(holes) == 1,
+          (touch, ring, holes))
+
+
+def test_step_list_headings(s, check):
+    # (2026-10-23: the step list's chapter headings were small capitals, smaller and greyed: Windows 11's group
+    # headings, and Find…'s, are the list's own text in semibold, their words as written)
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QFont
+    from ui import theme
+    page = s.page
+    t = _on_step(page, "Run")
+    try:
+        t.count_btn.click()
+        lst = t.step_list.list
+        heads = [(lst.item(k).text(), lst.item(k).font().weight(), lst.item(k).font().pointSizeF(),
+                  lst.item(k).foreground().color().name()) for k in range(lst.count())
+                 if lst.item(k).data(Qt.UserRole) is None]
+        size, ink = lst.font().pointSizeF(), theme.tokens()["ink"]
+        chapters = list(dict.fromkeys(st.get("chapter") for st in t.steps))
+    finally:
+        t.end()
+    check("guide: the step list's chapter headings are as Windows 11's (and Find…'s) group headings: their words as "
+          "written (“1 · Choose”, not capitals), semibold, the list's own size and text colour",
+          [h[0] for h in heads] == chapters and all(w == QFont.Weight.DemiBold and abs(p - size) < 0.01 and c == ink
+                                                   for _t, w, p, c in heads), (heads, chapters, size, ink))
