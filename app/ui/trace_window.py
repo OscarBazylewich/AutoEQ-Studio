@@ -6,24 +6,29 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   pointer
 - the side: Automatic settings (switch, Why these settings), 1 Axes (the four values, Snap to
   gridlines, Follow every gridline, Find axes again, Read labels), 2 Trace (Click curve, Draw, Erase, Move; the curves
-  with their names; + Another curve; Auto trace; colour tolerance; dashed lines; Smooth, Undo, Redo, Clear), 3 Save
+  with their names; Another curve; Auto trace; colour tolerance; dashed lines; Smooth, Undo, Redo, Clear), 3 Save
   (name, points per octave, what the graph shows, the range; Add as measurement, Add as target, Save .txt…)
 - keys: T D E H tools, A Auto trace, S Smooth, F fit, + - zoom, Delete clears, Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y,
   arrows move a selected line (Shift: 10 px), Ctrl+V pastes a picture
 sample_image() draws AutoEQ Local's sample graph (an IEM's two channels and a dashed target) for checks and the tour.
+
+The look is Windows 11's, as the rest of the app (2026-10-23): the picture on a card, the tools as one group, Windows
+11's symbols beside the main actions' words; the window's own rules are theme_sheet.py's tracer part (by the
+objectNames and the tr* properties set here). The tracer's marks on the picture keep their colours (the red and blue
+lines, the green boxes: the Guide and Help name them): they're drawn on the graph's own picture, not on the app.
 """
 import math
 import os
 
 import numpy as np
-from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
-from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPainterPath, QPen
+from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer
+from PySide6.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox, QFileDialog, QFrame, QGridLayout,
                                QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea,
                                QSlider, QToolButton, QVBoxLayout, QWidget)
 
 import textfile
-from ui import help_window, tasks, theme
+from ui import help_window, icons, tasks, theme
 from ui.forms import Fold, Limits, help_of
 from ui import trace_core as tc
 from ui.search_combo import SearchCombo
@@ -33,6 +38,9 @@ STROKES = ["#ff00d4", "#00a8e8", "#ff8a00", "#8e44ff", "#00b35f", "#e6b800"]
 TOOLS = [("trace", "Click curve", "Click a curve to follow it (T)"), ("draw", "Draw", "Drag along the curve to draw it (D)"),
          ("erase", "Erase", "Drag a box over the trace to remove it (E)"),
          ("pan", "Move", "Drag to move the picture; or hold Space, or drag with the right mouse button (H)")]
+TOOL_SYMBOLS = {"trace": "trace", "draw": "pen", "erase": "erase", "pan": "move"}  # (icons.GLYPHS' names)
+SIDE = 500  # (the settings' width: room for 10.5 pt text, "the actual response (not compensated)" whole, symbols)
+RADIUS = 8  # (the picture's card: a card's corners, as theme_sheet's)
 HINTS = {"trace": "Click a curve to follow it.", "draw": "Drag along the curve to draw it by hand.",
          "erase": "Drag a box around the part of the trace to remove.", "pan": "Drag to move the picture."}
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".jfif", ".webp", ".bmp", ".gif", ".tif", ".tiff")
@@ -53,6 +61,42 @@ def _label(text="", role=None, wrap=True):
     if role:
         theme.mark(lab, role=role)
     return lab
+
+
+class _Note(QLabel):
+    """A muted note under a card's controls that takes no room while it says nothing (no empty row at the card's
+    foot)."""
+
+    def __init__(self):
+        super().__init__("")
+        self.setWordWrap(True)
+        theme.mark(self, role="muted")
+        self.hide()
+
+    def setText(self, text):
+        super().setText(text)
+        self.setVisible(bool(text))
+
+
+def _dot(colour, size=16):
+    """A curve's coloured dot (its trace's colour on the picture), for the button that selects it."""
+    pm = QPixmap(size * 2, size * 2)  # (drawn at twice the size: sharp at 125 % and 150 %)
+    pm.setDevicePixelRatio(2)
+    pm.fill(Qt.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.setPen(Qt.NoPen)
+    p.setBrush(QColor(colour))
+    p.drawEllipse(QRectF(size * 0.2, size * 0.2, size * 0.6, size * 0.6))
+    p.end()
+    return QIcon(pm)
+
+
+def _symbol_only(button, name):
+    """Windows 11's symbol `name` alone on a button (no words: its tooltip names it for a screen reader)."""
+    button.setText("")
+    theme.mark(button, trIcon=True)  # (theme_sheet's tracer part centres the symbol)
+    icons.put(button, name)
 
 
 def rgb_of(img):
@@ -172,18 +216,21 @@ class Stage(QWidget):
         self.grabGesture(Qt.PinchGesture)  # (a touch screen: two fingers pinch to zoom and drag the picture)
         self.setFocusPolicy(Qt.ClickFocus)
         self.setMinimumSize(420, 320)
-        # the empty stage: what to do
+        # the empty stage: what to do (inside the dashed drop zone paintEvent draws)
         self.empty = QWidget(self)
         ev = QVBoxLayout(self.empty)
         ev.setAlignment(Qt.AlignCenter)
+        ev.setSpacing(10)
         head = QLabel("Drop a frequency response graph here")
-        head.setStyleSheet("font-weight: 600; font-size: 15px;")
+        head.setObjectName("trDropHead")
         head.setAlignment(Qt.AlignCenter)
         ev.addWidget(head)
         row = QHBoxLayout()
         row.addStretch(1)
         row.addWidget(QLabel("or paste it with Ctrl+V, or"))
-        choose = QPushButton("Choose an image file…")
+        self.choose_btn = choose = QPushButton("Choose an image file…")
+        theme.mark(choose, primary=True)  # (the one thing to do here)
+        icons.put(choose, "open")
         choose.clicked.connect(win.choose_image)
         row.addWidget(choose)
         row.addStretch(1)
@@ -191,18 +238,31 @@ class Stage(QWidget):
         sub = _label("Screenshots of maker or review graphs work (PNG, JPG, WebP).", "muted")
         sub.setAlignment(Qt.AlignCenter)
         ev.addWidget(sub)
-        # zoom
-        self.zoom_box = QWidget(self)
+        self._zoom_bar()
+        self.update_empty()  # (no picture yet: the drop zone, without the zoom bar)
+
+    def _zoom_bar(self):
+        """Zoom out, Fit, zoom in: a small bar floating at the picture's corner (as Windows 11's flyouts)."""
+        self.zoom_box = QFrame(self)
+        self.zoom_box.setObjectName("trZoom")
         zl = QHBoxLayout(self.zoom_box)
-        zl.setContentsMargins(0, 0, 0, 0)
-        zl.setSpacing(4)
-        for text, tip, fn in (("−", "Zoom out (-)", lambda: self.zoom(0.8)), ("Fit", "Fit the picture (F)", self.fit_now),
-                              ("+", "Zoom in (+)", lambda: self.zoom(1.25))):
+        zl.setContentsMargins(3, 3, 3, 3)
+        zl.setSpacing(2)
+        self.zoom_btns = {}
+        for key, text, tip, fn in (("out", "", "Zoom out (-)", lambda: self.zoom(0.8)),
+                                   ("fit", "Fit", "Fit the picture (F)", self.fit_now),
+                                   ("in", "", "Zoom in (+)", lambda: self.zoom(1.25))):
             b = QPushButton(text)
             b.setToolTip(tip)
             b.setFocusPolicy(Qt.NoFocus)
             b.clicked.connect(fn)
+            theme.mark(b, trQuiet=True)
+            if text:
+                icons.put(b, "fit")
+            else:
+                _symbol_only(b, "zoom_" + key)
             zl.addWidget(b)
+            self.zoom_btns[key] = b
 
     def set_image(self, rgb):
         h, w = rgb.shape[:2]
@@ -226,7 +286,7 @@ class Stage(QWidget):
     def resizeEvent(self, e):
         self.empty.setGeometry(self.rect())
         self.zoom_box.adjustSize()
-        self.zoom_box.move(self.width() - self.zoom_box.width() - 10, self.height() - self.zoom_box.height() - 10)
+        self.zoom_box.move(self.width() - self.zoom_box.width() - 12, self.height() - self.zoom_box.height() - 12)
         if self.view["auto"]:
             self.fit()
         super().resizeEvent(e)
@@ -275,18 +335,36 @@ class Stage(QWidget):
 
     # drawing
     def paintEvent(self, _e):
+        """A card (as the app's: its colours, border and corners, in the theme in use), the picture on it (outlined,
+        so a white picture's edge shows), the lines, labels and traces; without a picture, a dashed drop zone."""
         p = QPainter(self)
         tk = theme.tokens()
-        p.fillRect(self.rect(), QColor(tk["shade"]))
+        p.setRenderHint(QPainter.Antialiasing)
+        card = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        p.setPen(QPen(QColor(tk["line"]), 1))
+        p.setBrush(QColor(tk["card"]))
+        p.drawRoundedRect(card, RADIUS, RADIUS)
         t = self.t
         if self.qimg is None or not t.has_image:
+            zone = QColor(tk["strong"])
+            zone.setAlphaF(0.6)
+            pen = QPen(zone, 1.5)
+            pen.setDashPattern([4, 3])
+            p.setPen(pen)
+            p.setBrush(Qt.NoBrush)
+            p.drawRoundedRect(card.adjusted(12, 12, -12, -12), 4, 4)
             return
+        inside = QPainterPath()
+        inside.addRoundedRect(card.adjusted(0.5, 0.5, -0.5, -0.5), RADIUS - 0.5, RADIUS - 0.5)
+        p.setClipPath(inside)  # (a zoomed picture stays inside the card's corners)
         s = self.view["s"]
         p.setRenderHint(QPainter.SmoothPixmapTransform, s < 2)
         ix0, iy0 = self.to_scr(0, 0)
         ix1, iy1 = self.to_scr(t.W, t.H)
         p.drawImage(QRectF(ix0, iy0, ix1 - ix0, iy1 - iy0), self.qimg)
-        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(QPen(QColor(tk["stroke_bottom"]), 1))
+        p.setBrush(Qt.NoBrush)
+        p.drawRect(QRectF(ix0 - 0.5, iy0 - 0.5, ix1 - ix0 + 1, iy1 - iy0 + 1))
         k = t.calib()
         font = QFont(self.font())
         font.setPixelSize(12)
@@ -297,7 +375,9 @@ class Stage(QWidget):
             w = p.fontMetrics().horizontalAdvance(text) + 8
             if x + w > min(ix1, self.width()) - 2:  # (at the right edge: on the line's left)
                 x -= w + 6
-            p.fillRect(QRectF(x, y - 9, w, 18), QColor(col))
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(col))
+            p.drawRoundedRect(QRectF(x, y - 9, w, 18), 3, 3)
             p.setPen(QColor("white"))
             p.drawText(QRectF(x, y - 9, w, 18), Qt.AlignCenter, text)
         # the calibration lines
@@ -385,12 +465,13 @@ class Stage(QWidget):
             hz = f"{f / 1000:.{1 if f >= 10000 else 2}f} kHz" if f >= 1000 else f"{f:.{1 if f < 100 else 0}f} Hz"
             text = f"{hz} · {'+' if v >= 0 else ''}{v:.1f} dB"
             p.setFont(font)
-            w = p.fontMetrics().horizontalAdvance(text) + 14
-            p.setPen(Qt.NoPen)
-            p.setBrush(QColor(tk["card"]))
-            p.drawRoundedRect(QRectF(10, 10, w, 24), 6, 6)
+            w = p.fontMetrics().horizontalAdvance(text) + 16
+            box = QRectF(12.5, 12.5, w, 26)  # (as Windows 11's tooltips: the menu's colour, a thin border, 4 px corners)
+            p.setPen(QPen(QColor(tk["stroke"]), 1))
+            p.setBrush(QColor(tk["menu"]))
+            p.drawRoundedRect(box, 4, 4)
             p.setPen(QColor(tk["ink"]))
-            p.drawText(QRectF(10, 10, w, 24), Qt.AlignCenter, text)
+            p.drawText(box, Qt.AlignCenter, text)
 
     # the mouse
     def mousePressEvent(self, e):
@@ -512,36 +593,45 @@ class TraceWindow(QWidget):
         self.tool = "trace"
         self.limits = Limits((page.meta or {}).get("limits", {}), [])
         v = QVBoxLayout(self)
+        v.setContentsMargins(14, 10, 14, 14)
+        v.setSpacing(10)
         head = QHBoxLayout()
+        head.setSpacing(8)
         title = QLabel("Trace a graph image")
-        title.setStyleSheet("font-size: 16px; font-weight: 600;")
+        title.setObjectName("trTitle")
         head.addWidget(title)
         self.file_lab = _label("", "muted", wrap=False)
         head.addWidget(self.file_lab, 1)
         self.remove_btn = QPushButton("Remove image")
         self.remove_btn.setToolTip("Remove this picture (e.g. the wrong one) and the curves traced on it")
         self.remove_btn.clicked.connect(self.remove_image)
+        icons.put(self.remove_btn, "remove")
         head.addWidget(self.remove_btn)
-        self.guide_btn = QPushButton("? Guide")
+        self.guide_btn = QPushButton("Guide")  # (Windows 11's symbol where "? " was, as the top bar's Guide)
         self.guide_btn.setToolTip("A tour of the tracer (on a sample graph when no picture is open)")
         self.guide_btn.clicked.connect(self.start_guide)
+        icons.put(self.guide_btn, "guide")
         head.addWidget(self.guide_btn)
-        opn = QPushButton("Open image…")
+        self.open_btn = opn = QPushButton("Open image…")
         opn.setToolTip("Open another picture (or drop / paste one)")
         opn.clicked.connect(self.choose_image)
+        icons.put(opn, "open")
         head.addWidget(opn)
         v.addLayout(head)
         body = QHBoxLayout()
+        body.setSpacing(12)
         self.stage = Stage(self)
         body.addWidget(self.stage, 1)
         side_scroll = QScrollArea()
         side_scroll.setWidgetResizable(True)
         side_scroll.setFrameShape(QFrame.NoFrame)
         side_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        side_scroll.setFixedWidth(440)
+        side_scroll.setFixedWidth(SIDE)
+        self.side_scroll = side_scroll
         side = QWidget()
         sv = QVBoxLayout(side)
         sv.setContentsMargins(0, 0, 6, 0)
+        sv.setSpacing(8)
         sv.addWidget(self._auto_box())
         sv.addWidget(self._axes_box())
         sv.addWidget(self._trace_box())
@@ -576,7 +666,7 @@ class TraceWindow(QWidget):
         v = QVBoxLayout(box)
         top = QHBoxLayout()
         self.auto_on = QCheckBox("Automatic settings")
-        self.auto_on.setStyleSheet("font-weight: 600;")
+        self.auto_on.setObjectName("trAutoOn")  # (the card's heading: semibold, theme_sheet's tracer part)
         self.auto_on.setToolTip(help_of("#tr-auto-on"))
         self.auto_on.toggled.connect(self.auto_switched)
         top.addWidget(self.auto_on)
@@ -584,6 +674,9 @@ class TraceWindow(QWidget):
         top.addWidget(self.auto_state, 1)
         v.addLayout(top)
         why = Fold("Why these settings")
+        why.setObjectName("trWhy")  # (flat inside this card: no card in a card)
+        why.layout().setContentsMargins(0, 0, 0, 0)
+        self.why = why
         self.auto_notes = _label("")
         self.auto_notes.setTextFormat(Qt.RichText)
         why.body_lay.addWidget(self.auto_notes)
@@ -631,7 +724,7 @@ class TraceWindow(QWidget):
         checks.addStretch(1)
         v.addLayout(checks)
         btns = QHBoxLayout()
-        detect = QPushButton("Find axes again")
+        self.detect_btn = detect = QPushButton("Find axes again")
         detect.setToolTip("Find the gridlines and place the lines again")
         detect.clicked.connect(self.detect_again)
         self.ocr_btn = QPushButton("Read labels")
@@ -641,7 +734,7 @@ class TraceWindow(QWidget):
         btns.addWidget(self.ocr_btn)
         btns.addStretch(1)
         v.addLayout(btns)
-        self.axis_note = _label("", "muted")
+        self.axis_note = _Note()
         v.addWidget(self.axis_note)
         return box
 
@@ -649,14 +742,16 @@ class TraceWindow(QWidget):
         box = QGroupBox("2  Trace")
         v = QVBoxLayout(box)
         tools = QHBoxLayout()
-        tools.setSpacing(0)
+        tools.setSpacing(0)  # (one group: theme_sheet's tracer part rounds only its two ends)
         self.tool_btns = {}
         group = QButtonGroup(self)
-        for key, text, tip in TOOLS:
+        for n, (key, text, tip) in enumerate(TOOLS):
             b = QPushButton(text)
             b.setCheckable(True)
             b.setToolTip(tip)
             b.clicked.connect(lambda _=False, k=key: self.set_tool(k))
+            theme.mark(b, trTool="first" if n == 0 else "last" if n == len(TOOLS) - 1 else "mid")
+            icons.put(b, TOOL_SYMBOLS[key])
             group.addButton(b)
             tools.addWidget(b)
             self.tool_btns[key] = b
@@ -665,22 +760,34 @@ class TraceWindow(QWidget):
         self.curves_box = QWidget()
         self.curves_lay = QVBoxLayout(self.curves_box)
         self.curves_lay.setContentsMargins(0, 0, 0, 0)
-        self.curves_lay.setSpacing(4)
+        self.curves_lay.setSpacing(2)
         v.addWidget(self.curves_box)
         row = QHBoxLayout()
-        self.add_btn = QPushButton("+ Another curve")
+        self.add_btn = QPushButton("Another curve")  # (Windows 11's + beside the words, where "+ " was)
         self.add_btn.setToolTip("Trace another curve on the same graph, e.g. the other channel")
         self.add_btn.clicked.connect(self.add_curve)
+        icons.put(self.add_btn, "add")
         row.addWidget(self.add_btn)
         self.curves_note = _label("", "muted")
         row.addWidget(self.curves_note, 1)
         v.addLayout(row)
+        # Auto trace with the colour it traced beside it; the tolerance on a row of its own (the slider's room at
+        # 10.5 pt text)
         row = QHBoxLayout()
         self.auto_btn = QPushButton("Auto trace")
         theme.mark(self.auto_btn, primary=True)
         self.auto_btn.setToolTip("Find and follow a curve by itself; press again for the next curve (A)")
         self.auto_btn.clicked.connect(self.auto_trace)
+        icons.put(self.auto_btn, "run")
         row.addWidget(self.auto_btn)
+        self.swatch = QLabel()
+        self.swatch.setObjectName("trSwatch")  # (its frame: theme_sheet's tracer part; its colour: the traced one)
+        self.swatch.setFixedSize(18, 18)
+        self.swatch.setToolTip("Colour being traced")
+        row.addWidget(self.swatch)
+        row.addStretch(1)
+        v.addLayout(row)
+        row = QHBoxLayout()
         row.addWidget(_label("Colour tolerance", wrap=False))
         self.tol = QSlider(Qt.Horizontal)
         self.tol.setAccessibleName("Colour tolerance")
@@ -689,10 +796,6 @@ class TraceWindow(QWidget):
         self.tol.valueChanged.connect(self.tol_moved)
         row.addWidget(self.tol, 1)
         row.addWidget(self._tag("tol"))
-        self.swatch = QLabel()
-        self.swatch.setFixedSize(18, 18)
-        self.swatch.setToolTip("Colour being traced")
-        row.addWidget(self.swatch)
         v.addLayout(row)
         row = QHBoxLayout()
         self.dashed = QCheckBox("Dashed or dotted line")
@@ -710,6 +813,8 @@ class TraceWindow(QWidget):
             b = QPushButton(text)
             b.setToolTip(tip)
             b.clicked.connect(fn)
+            if key in ("undo", "redo"):
+                icons.put(b, key)
             row.addWidget(b)
             self.edit_btns[key] = b
         row.addStretch(1)
@@ -761,15 +866,17 @@ class TraceWindow(QWidget):
         self.save_meas = QPushButton("Add as measurement")
         theme.mark(self.save_meas, primary=True)
         self.save_meas.clicked.connect(lambda: self.save("measurement"))
+        icons.put(self.save_meas, "add")
         self.save_tgt = QPushButton("Add as target")
         self.save_tgt.clicked.connect(lambda: self.save("target"))
         self.download_btn = QPushButton("Save .txt…")
         self.download_btn.clicked.connect(self.download)
+        icons.put(self.download_btn, "save")
         for b in (self.save_meas, self.save_tgt, self.download_btn):
             btns.addWidget(b)
         btns.addStretch(1)
         g.addLayout(btns, 4, 0, 1, 4)
-        self.save_note = _label("", "muted")
+        self.save_note = _Note()
         g.addWidget(self.save_note, 5, 0, 1, 4)
         g.setColumnStretch(3, 1)
         return box
@@ -839,14 +946,15 @@ class TraceWindow(QWidget):
         for b in (self.add_btn, self.auto_btn, self.save_meas, self.save_tgt, self.download_btn, self.ocr_btn):
             b.setEnabled(img and (b is not self.ocr_btn or not getattr(self, "reading", False)))
         self.remove_btn.setVisible(img)
-        need = "" if not img else "Type the dB values of the red lines (and check the blue Hz values) to save."             if not t.calib() else "Trace a curve to save it." if not anything else None
+        need = "" if not img else "Type the dB values of the red lines (and check the blue Hz values) to save." \
+            if not t.calib() else "Trace a curve to save it." if not anything else None
         if need or not getattr(self, "saved_note", False):  # ("Saved as …" stays until something is needed)
             self.saved_note = False
             self.save_note.setText(need or "")
         colour = cur and cur["colour"]
         self.swatch.setVisible(bool(colour))
-        if colour:
-            self.swatch.setStyleSheet(f"background: rgb{tuple(colour)}; border: 1px solid {theme.tokens()['line']}; border-radius: 4px;")
+        if colour:  # (the colour traced: the picture's own, set here; its frame follows the theme, from the sheet)
+            self.swatch.setStyleSheet(f"background: rgb{tuple(int(c) for c in colour)};")
         for k in ("d1", "d2"):
             self.boxes[k].setPlaceholderText("type it" if img else "")
         self.stage.update()
@@ -863,13 +971,14 @@ class TraceWindow(QWidget):
         for i, c in enumerate(t.curves):
             row = QFrame()
             self.curve_rows.append(row)
-            theme.mark(row, card=True) if i == t.cur else None
+            theme.mark(row, trRow="chosen" if i == t.cur else "")  # (chosen: as a chosen list row, the accent's bar)
             h = QHBoxLayout(row)
-            h.setContentsMargins(6, 2, 6, 2)
-            pick = QPushButton("●")
-            pick.setFlat(True)
-            pick.setFixedWidth(26)
-            pick.setStyleSheet(f"color: {STROKES[i % len(STROKES)]}; font-size: 16px; border: none;")
+            h.setContentsMargins(8, 3, 4, 3)
+            h.setSpacing(6)
+            pick = QPushButton()  # (its trace's colour on the picture, as a dot)
+            pick.setIcon(_dot(STROKES[i % len(STROKES)]))
+            pick.setIconSize(QSize(16, 16))
+            theme.mark(pick, trQuiet=True)
             pick.setToolTip("Trace into this curve")
             pick.clicked.connect(lambda _=False, i=i: self.select_curve(i))
             h.addWidget(pick)
@@ -885,6 +994,7 @@ class TraceWindow(QWidget):
             h.addWidget(_label(f"{n} px" if n else "empty", "muted", wrap=False))
             x = QPushButton("✕")
             x.setToolTip("Delete this curve")
+            theme.mark(x, trQuiet=True)
             x.clicked.connect(lambda _=False, i=i: self.delete_curve(i))
             h.addWidget(x)
             lay.addWidget(row)
@@ -898,7 +1008,7 @@ class TraceWindow(QWidget):
             # (the curve whose name is being typed becomes the selected one; its row isn't rebuilt under the click)
             self.t.cur = int(obj.property("curve"))
             for i, row in enumerate(getattr(self, "curve_rows", [])):
-                theme.mark(row, card=i == self.t.cur)
+                theme.mark(row, trRow="chosen" if i == self.t.cur else "")
             self.update_ui()
         return super().eventFilter(obj, e)
 

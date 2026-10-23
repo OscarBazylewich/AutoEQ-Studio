@@ -1,0 +1,176 @@
+"""The tracer's window in Windows 11's look (ui\\trace_window.py and theme_sheet.py's tracer part: the restyle's
+stage 2, 2026-10-23): the picture's card drawn in the theme's colours and following a change, no control with a style
+of its own (the traced colour's swatch: only that colour), the chosen curve's row marked as a chosen list row (and the
+mark moved without rebuilding the rows), nothing cut or squeezed at the new sizes, Windows 11's symbols beside the main
+actions' words, and the notes and the zoom bar taking no room while they've nothing to show.
+
+On Make an EQ (the eq_screen fixture), each test with a tracer's window of its own (deleted at its end) and the app's
+sample graph, its dB values typed whatever Windows' text reader read (as test_trace_window.py does)."""
+from PySide6.QtCore import QEvent, Qt
+from PySide6.QtGui import QFocusEvent, QPalette
+from PySide6.QtWidgets import (QApplication, QCheckBox, QLabel, QLineEdit, QPushButton, QStyle, QStyleOptionComboBox,
+                               QToolButton, QWidget)
+
+from helpers import qt
+from ui.trace_window import TOOLS, TraceWindow, sample_image
+
+COVERS = ("ui.eq_page",)  # (the window is opened for Make an EQ's page)
+
+
+def _new(eq_screen):
+    """A tracer's window of this test's own, at its usual size, as Make an EQ opens it (qt.close deletes it)."""
+    tw = TraceWindow(eq_screen.page)
+    tw.fill_comp()
+    tw.resize(1320, 860)
+    tw.show()
+    qt.pump(100)
+    return tw
+
+
+def _sample(eq_screen, tw, curves):
+    """The sample graph in the window, its dB values typed, Auto trace `curves` times."""
+    img, _s = sample_image()
+    tw.load_image(img, "Sample IEM")
+    eq_screen.wait_for(lambda: not tw.reading, 60)
+    tw.t.v.update(d1="90", d2="40")
+    for _ in range(curves):
+        tw.auto_trace()
+    qt.pump(100)
+
+
+def _near(colour, want, by=6):
+    """A QColor within `by` of the colour `want` (#rrggbb) in each of red, green and blue."""
+    w = [int(want[i:i + 2], 16) for i in (1, 3, 5)]
+    return all(abs(a - b) <= by for a, b in zip((colour.red(), colour.green(), colour.blue()), w))
+
+
+def test_picture_card_follows_the_theme(eq_screen, check):
+    from ui import theme
+    qapp = eq_screen.qapp
+    tw = _new(eq_screen)
+    seen = {}
+    try:
+        for dark in (True, False):
+            theme.apply(qapp, dark=dark)
+            qt.pump(100)
+            t = theme.tokens()
+            img = tw.stage.grab().toImage()
+            h = img.height()
+            seen["dark" if dark else "light"] = (img.pixelColor(6, h // 2).name(), t["card"].lower(),
+                                                 _near(img.pixelColor(0, h // 2), t["line"]))
+    finally:
+        qt.light(qapp)  # (the light theme back, whatever happened: every later test runs light)
+        qt.pump(50)
+    own = sorted(w.objectName() or type(w).__name__ for w in tw.findChildren(QWidget)
+                 if w.styleSheet() and w.objectName() != "searchPopup")  # (a drop-down's search list: the hub's own)
+    qt.close(tw)
+    check("tracer: the picture's card is drawn in the theme's card colour and border, dark and light (it follows a "
+          "change), and no control of the window has a style of its own",
+          all(px == card and line for px, card, line in seen.values()) and seen["dark"][0] != seen["light"][0]
+          and not own, (seen, own))
+
+
+def test_chosen_curve_row(eq_screen, check):
+    from ui import theme
+    tw = _new(eq_screen)
+    _sample(eq_screen, tw, 2)
+    tw.select_curve(0)
+    qt.pump(50)
+    first = [r.property("trRow") for r in tw.curve_rows]
+    rows = list(tw.curve_rows)
+    QApplication.sendEvent(rows[1].findChild(QLineEdit), QFocusEvent(QEvent.FocusIn, Qt.MouseFocusReason))
+    qt.pump(50)
+    moved = ([r.property("trRow") for r in tw.curve_rows], tw.curve_rows == rows)
+    img = rows[1].grab().toImage()
+    fill, want = img.pixelColor(img.width() // 2, 1).name(), theme.tokens()["subtle_sel"].lower()
+    swatch = tw.swatch.styleSheet()
+    # a contrast theme (a stand-in, as tests\\ui\\test_theme.py's): the chosen row in Windows' highlight colour, its
+    # words in the highlight's text colour (not the theme's white text on it)
+    qapp = eq_screen.qapp
+    try:
+        theme.apply(qapp, dark=False, contrast=dict(theme.LIGHT, bg="#000000", card="#000000", ink="#ffffff",
+                                                    muted="#ffffff", field="#000000", subtle_sel="#1aebff",
+                                                    sel_ink="#000000"))
+        qt.pump(50)
+        words = rows[1].findChild(QLabel)
+        img = rows[1].grab().toImage()
+        contrast = (img.pixelColor(img.width() // 2, 1).name(), words.palette().color(QPalette.WindowText).name())
+    finally:
+        qt.light(qapp)  # (the light theme back, whatever happened: every later test runs light)
+        qt.pump(50)
+    qt.close(tw)
+    check("tracer: the chosen curve's row is marked as a chosen list row (a quiet fill, the accent's bar; in a contrast "
+          "theme Windows' highlight, its words in the highlight's text colour), and typing in another curve's name "
+          "moves the mark there without rebuilding the rows; the traced colour's swatch sets only that colour (its "
+          "frame follows the theme)",
+          first == ["chosen", ""] and moved == (["", "chosen"], True) and fill == want
+          and contrast == ("#1aebff", "#000000") and swatch.startswith("background: rgb(") and "border" not in swatch,
+          (first, moved, fill, want, contrast, swatch))
+
+
+def test_nothing_cut_at_the_new_sizes(eq_screen, check):
+    tw = _new(eq_screen)
+    _sample(eq_screen, tw, 3)
+
+    def cut():
+        """Buttons, tick boxes and one-line labels narrower than their words; the settings' side wider than its
+        room (it would be cut at the right: it can't scroll sideways)."""
+        out = [(type(w).__name__, w.text() or w.toolTip()[:24], w.width(), w.sizeHint().width())
+               for w in tw.findChildren(QWidget) if w.isVisible()
+               and (isinstance(w, (QPushButton, QToolButton, QCheckBox)) or isinstance(w, QLabel) and not w.wordWrap()
+                    and w.text()) and w.width() < w.sizeHint().width()]
+        side, room = tw.side_scroll.widget(), tw.side_scroll.viewport().width()
+        if max(side.width(), side.minimumSizeHint().width()) > room:
+            out.append(("the side", side.width(), side.minimumSizeHint().width(), room))
+        return out
+    at_default = cut()
+    combo = tw.comp
+    combo.setCurrentIndex(0)
+    opt = QStyleOptionComboBox()
+    combo.initStyleOption(opt)
+    field = combo.style().subControlRect(QStyle.CC_ComboBox, opt, QStyle.SC_ComboBoxEditField, combo).width()
+    words = (combo.itemText(0), combo.fontMetrics().horizontalAdvance(combo.itemText(0)))
+    slider = tw.tol.width()
+    tw.resize(tw.minimumSizeHint())
+    qt.pump(100)
+    at_least = cut()
+    qt.close(tw)
+    check("tracer: nothing is cut or squeezed at Windows 11's sizes (10.5 pt text, symbols beside the words): every "
+          "button, tick box and label as wide as its words, the settings' side within its room, “the actual response "
+          "(not compensated)” whole in its drop-down, the colour tolerance slider at least 150 px; at the usual size "
+          "and the window's smallest",
+          not at_default and not at_least and words[0].startswith("the actual response") and field >= words[1]
+          and slider >= 150, (at_default, at_least, field, words, slider))
+
+
+def test_symbols_beside_the_words(eq_screen, check):
+    tw = _new(eq_screen)
+    _sample(eq_screen, tw, 0)  # (a picture: the zoom bar shows)
+    words = {"Open image…": tw.open_btn, "Remove image": tw.remove_btn, "Guide": tw.guide_btn,
+             "Choose an image file…": tw.stage.choose_btn, "Another curve": tw.add_btn, "Auto trace": tw.auto_btn,
+             "Undo": tw.edit_btns["undo"], "Redo": tw.edit_btns["redo"], "Add as measurement": tw.save_meas,
+             "Save .txt…": tw.download_btn, "Fit": tw.stage.zoom_btns["fit"],
+             **{text: tw.tool_btns[key] for key, text, _tip in TOOLS}}
+    wrong = [w for w, b in words.items() if b.text() != w or b.icon().isNull()]
+    alone = {k: (b.text(), b.icon().isNull(), b.accessibleName()) for k, b in tw.stage.zoom_btns.items() if k != "fit"}
+    qt.close(tw)
+    check("tracer: Windows 11's symbols beside the main actions' and the tools' words (the words kept; Guide and "
+          "Another curve without their old “? ” and “+ ”), zoom in and out as symbols alone, named for a screen reader",
+          not wrong and alone == {"out": ("", False, "Zoom out (-)"), "in": ("", False, "Zoom in (+)")},
+          (wrong, alone))
+
+
+def test_notes_and_zoom_bar_take_no_room_when_empty(eq_screen, check):
+    tw = _new(eq_screen)
+    fresh = (tw.axis_note.isVisible(), tw.save_note.isVisible(), tw.stage.zoom_box.isVisible())
+    _sample(eq_screen, tw, 0)
+    loaded = (tw.axis_note.isVisible() and bool(tw.axis_note.text()), tw.stage.zoom_box.isVisible(),
+              tw.save_note.isVisible() == bool(tw.save_note.text()))
+    tw.remove_image()  # (nothing traced: removed without asking)
+    qt.pump(50)
+    removed = (tw.axis_note.isVisible(), tw.save_note.isVisible(), tw.stage.zoom_box.isVisible())
+    qt.close(tw)
+    check("tracer: a note with nothing to say takes no room (no empty row at a card's foot), and the zoom bar shows "
+          "only with a picture (on a new window too)",
+          fresh == (False, False, False) and loaded == (True, True, True) and removed == (False, False, False),
+          (fresh, loaded, removed))
