@@ -12,7 +12,9 @@ COVERS = ("ui.theme", "start")  # (reached here through other processes: their c
 def test_worker_cap(monkeypatch, check):
     from eq import pipeline, settings
     monkeypatch.setattr(pipeline, "free_memory", lambda: None)  # (plenty: the count follows only the settings)
-    cfg = settings.with_auto({"performance": {"cores": 8}})
+    # (the setting goes no higher than the PC's CPU threads: GitHub's machine has 4, where 8 is read as 4)
+    cores = min(8, os.cpu_count() or 1)
+    cfg = settings.with_auto({"performance": {"cores": cores}})
     got = {}
     for cap in ("3", "1", "0", "x", None):
         if cap is None:
@@ -20,8 +22,9 @@ def test_worker_cap(monkeypatch, check):
         else:
             monkeypatch.setenv("AUTOEQSTUDIO_MAX_WORKERS", cap)
         got[cap] = pipeline.workers(cfg)
+    want = {"3": min(cores, 3), "1": 1, "0": cores, "x": cores, None: cores}
     check("app hooks: AUTOEQSTUDIO_MAX_WORKERS caps the worker processes (a number above 0 only; without it the "
-          "setting decides)", got == {"3": 3, "1": 1, "0": 8, "x": 8, None: 8}, got)
+          "setting decides)", got == want, (got, want))
 
 
 def test_dead_windows_listener_let_go(qapp, monkeypatch, check):

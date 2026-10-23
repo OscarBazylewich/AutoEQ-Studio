@@ -4,6 +4,7 @@ Python's signature taken off rather than left broken, and it still runs Python (
 found through PYTHONHOME). Made in the test folder. Moved from selftest.py's launcher_checks."""
 import os
 import shutil
+import struct
 import subprocess
 import sys
 
@@ -14,6 +15,21 @@ from helpers import qt, session
 # (for app\tools\relevant_tests.py: the tools this test imports through helpers.paths.import_tool, and the icon they
 # draw. It reads no other file of the project's: only this Python's own)
 COVERS = ("brand_exe", "make_share_zip", "paths", "ui.icons")
+
+
+def certificate_table(path):
+    """Where a program's signature is kept (its certificate table: the header's fifth data directory) and its size,
+    read here independently of brand_exe.py; (0, 0) when it has none, which Windows' signature check reads as "Not
+    signed". Read from the file rather than asked of PowerShell: on GitHub's machine, Windows PowerShell started
+    under PowerShell 7 said nothing at all."""
+    with open(path, "rb") as fh:
+        data = fh.read()
+    pe = struct.unpack_from("<I", data, 0x3C)[0]  # (where the PE header starts)
+    if data[pe:pe + 4] != b"PE\0\0":
+        return None
+    opt = pe + 24  # (the optional header: after the signature, 4 bytes, and the file header, 20)
+    wide = struct.unpack_from("<H", data, opt)[0] == 0x20B  # (PE32+, a 64-bit program: its directories start later)
+    return struct.unpack_from("<II", data, opt + (112 if wide else 96) + 4 * 8)
 
 
 def test_launcher_named_unsigned_and_runs_python(qapp, tmp_path, check):
@@ -37,11 +53,10 @@ def test_launcher_named_unsigned_and_runs_python(qapp, tmp_path, check):
                          env=session.child_env(PYTHONHOME=sys.base_prefix, PYTHONFAULTHANDLER=None),
                          timeout=qt.time_limit(60))
     info = brand_exe.describe(exe)
-    signed = subprocess.run(["powershell", "-NoProfile", "-Command", f"(Get-AuthenticodeSignature '{exe}').Status"],
-                            capture_output=True, text=True, env=session.child_env(),
-                            timeout=qt.time_limit(60)).stdout.strip()
+    # (Python's own pythonw.exe is signed: its table, for the detail, shows there was one to take off)
+    table, before = certificate_table(exe), certificate_table(os.path.join(sys.base_prefix, "pythonw.exe"))
     # was selftest.py:1076
     check("launcher: named AutoEQ Studio with the app's version, no broken signature, and it runs Python",
           info.get("FileDescription") == "AutoEQ Studio" and info.get("ProductName") == "AutoEQ Studio"
-          and info.get("FileVersion") == paths.VERSION and signed == "NotSigned" and run.returncode == 0
-          and os.path.isfile(said), (info, signed, run.returncode))
+          and info.get("FileVersion") == paths.VERSION and table == (0, 0) and run.returncode == 0
+          and os.path.isfile(said), (info, {"signature": table, "pythonw.exe's": before}, run.returncode))
