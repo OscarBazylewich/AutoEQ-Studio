@@ -121,7 +121,8 @@ def inputs(t, img):
 
 def lists_and_tables(t, img):
     """Lists and tables, their rows (pointed at, chosen: a quiet fill, and in lists the accent's bar beside the chosen
-    row, as Windows 11's), and a table's column headings."""
+    row, as Windows 11's), and a table's column headings. A list whose rows hold controls of their own (setItemWidget:
+    Find…'s) sets its rows' padding itself: Qt puts those controls inside this 7 px padding, which cuts them."""
     return f"""
     QListWidget, QTableWidget {{ background: {t['card']}; border: 1px solid {t['line']}; border-radius: 8px;
         alternate-background-color: {t['alt_row']}; gridline-color: {t['line']}; outline: none; }}
