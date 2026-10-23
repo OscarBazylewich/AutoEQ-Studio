@@ -24,7 +24,8 @@ GLYPHS = {"eq": "E9E9", "devices": "E7F6", "profiles": "E8FD", "settings": "E713
           "hide": "ED1A", "image": "EB9F", "colour": "E790", "ruler": "ECC6", "move": "E7C2", "crop": "E7A8",
           "chart": "E9D9", "report": "E9F9", "select": "E8B3", "clock": "E823", "calendar": "E787", "tag": "E8EC",
           "tools": "E90F"}
-_shown = []  # ((button, name)): the symbols shown, drawn again when the theme changes
+_shown = []  # ((button, name)): the symbols shown, one per button, drawn again when the theme changes
+_told = []  # (not empty once the theme tells put()'s symbols of a change: asked once)
 
 
 def glyph(name, colour, size=16, on_colour=None, off_colour=None):
@@ -55,13 +56,23 @@ def glyph(name, colour, size=16, on_colour=None, off_colour=None):
 
 def put(button, name):
     """Windows 11's symbol `name` beside the button's words (they stay as they are), in the theme's colours: the
-    text's, or the accent's text colour on a main action or a checked button; kept so when the theme changes."""
+    text's, or the accent's text colour on a main action or a checked button; kept so when the theme changes. A
+    button given another symbol keeps only the new one (Listen's Play and Stop), and buttons that are gone are let
+    go of here as well (the device panel makes its buttons again on each change), not only when the theme changes."""
     import weakref
     from ui import theme
-    if not _shown:
+    if not _told:
+        _told.append(True)
         theme.on_change(_redraw)
+    _shown[:] = [(ref, n) for ref, n in _shown if _alive(ref) and ref() is not button]
     _shown.append((weakref.ref(button), name))  # (held weakly: a symbol never keeps its button)
     _draw(button, name)
+
+
+def _alive(ref):
+    import shiboken6
+    b = ref()
+    return b is not None and shiboken6.isValid(b)
 
 
 def _draw(button, name):
@@ -75,11 +86,9 @@ def _draw(button, name):
 
 
 def _redraw():
-    import shiboken6
     for ref, name in list(_shown):
-        b = ref()
-        if b is not None and shiboken6.isValid(b):
-            _draw(b, name)
+        if _alive(ref):
+            _draw(ref(), name)
         else:
             _shown.remove((ref, name))
 

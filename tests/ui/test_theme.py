@@ -201,3 +201,53 @@ def test_icons_beside_the_words(check):
           "drawn again when the theme changes; it never keeps its button",
           d.get("light") == d.get("ink", [0])[0] and d.get("dark") == d.get("ink", [0, 0])[1]
           and d.get("text") == "Find…" and d.get("gone") is True, d or out.stderr[-300:])
+
+
+ICONS_ONE_EACH = r'''
+import json, sys
+sys.path.insert(0, sys.argv[1])
+import shiboken6
+from PySide6.QtCore import QSize
+from PySide6.QtWidgets import QApplication, QPushButton, QWidget
+qapp = QApplication([])
+from ui import icons, theme
+theme.apply(qapp, dark=False, contrast=False)
+holder = QWidget()
+play = QPushButton("Play", holder)
+for name in ("play", "stop", "play", "stop"):  # (Listen's Play / Stop: each press gives the button the other one)
+    icons.put(play, name)
+entries = [n for ref, n in icons._shown if ref() is play]
+for _ in range(3):  # (the device panel, made again on each change: its buttons deleted, new ones given symbols)
+    rows = [QPushButton("Rename…", holder) for _ in range(4)]
+    for b in rows:
+        icons.put(b, "rename")
+    for b in rows:
+        shiboken6.delete(b)
+icons.put(QPushButton("Check again", holder), "refresh")
+listed = len(icons._shown)
+for ref, _ in list(icons._shown):  # (every button gone: the next theme change lets go of them all)
+    if ref() is not None and shiboken6.isValid(ref()):
+        shiboken6.delete(ref())
+theme.apply(qapp, dark=True, contrast=False)
+emptied = len(icons._shown)
+again = QPushButton("Play", holder)
+icons.put(again, "stop")
+theme.apply(qapp, dark=False, contrast=False)
+asked = sum(1 for fn in theme._state["listeners"] if fn is icons._redraw)
+size = QSize(22, 16)
+shown = again.icon().pixmap(size).toImage() == icons.glyph("stop", theme.tokens()["ink"]).pixmap(size).toImage()
+print(json.dumps({"entries": entries, "listed": listed, "emptied": emptied, "asked": asked, "shown": shown}))
+'''
+
+
+def test_icons_one_entry_per_button(check):
+    # (2026-10-23, the restyle's stage 2: each put() added an entry, so Listen's Play / Stop added one per press and
+    # the device panel 4 or 5 on each change until the theme changed; once the list had emptied, the theme was asked
+    # again and drew every symbol twice on each change)
+    out = subproc.run_python(ICONS_ONE_EACH, session.SESSION.app)
+    d = out.data or {}
+    check("icons: a button given another symbol keeps only the new one (Listen's Play and Stop), buttons that are gone "
+          "are let go of when the next symbol is put (the device panel makes its buttons again on each change), and "
+          "the theme is asked once to tell of a change",
+          d.get("entries") == ["stop"] and d.get("listed") == 2 and d.get("emptied") == 0 and d.get("asked") == 1
+          and d.get("shown") is True, d or out.stderr[-300:])
