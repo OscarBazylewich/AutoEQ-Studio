@@ -74,7 +74,7 @@ AutoEQ Local's was. Each step lights up a part of the screen, says what it does 
 pointer opens Find… and types a search, picks a row and shows it on the graph, opens a list and chooses, types the
 target adjustments while the target changes on the graph (kept in sight at the top while the page scrolls), shows a
 run's progress and the EQ'd curve; before a run the result steps show an example result worked out from your files.
-The card: "3 of 28 ▾" lists every step to go straight to one, Replay (R), Pause (P), Skip demo, the demo's speed,
+The card: "3 of 28" lists every step to go straight to one, Replay (R), Pause (P), Skip demo, the demo's speed,
 "Play all steps" (the whole tour by itself), Back / Next (the arrow keys), End tour (Esc), Start again. Scrolling
 while a demo plays pauses it; Resume scrolls back. What a demo shows is put back after it, and nothing is chosen, run,
 saved or downloaded. With Windows' animation effects off a demo is numbered markers instead. The tracer has its own
