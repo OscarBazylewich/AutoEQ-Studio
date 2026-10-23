@@ -1,9 +1,9 @@
 """The zips for testers and friends (app\\tools\\make_share_zip.py), made in the test folder: the share zip holds none
 of the user's files and every module of the app, and the program loads from the unpacked copy (its data beside it,
 your files in Documents\\AutoEQ Studio, a stand-in here); the ready-to-run zip's own Python holds what the app needs
-(Python, its launcher named AutoEQ Studio, Qt's widgets, numpy, SciPy, the sound card's library) and not pip or Qt's
-QML, and its launcher (.bat) has CRLF line endings and guards against too long a folder. Moved from selftest.py's
-zip_checks."""
+(Python, its launcher named AutoEQ Studio, Qt's widgets, numpy, SciPy, the sound card's library) and not pip, Qt's
+QML or the tools for working on the app (pytest, Ruff), and its launcher (.bat) has CRLF line endings and guards
+against too long a folder. Moved from selftest.py's zip_checks."""
 import datetime
 import os
 import zipfile
@@ -17,9 +17,20 @@ COVERS = ("make_share_zip", "brand_exe", "ui.app", "eq.service", "eq.paths")
 COVERS_FILES = ("app/**", "samples/**", "AutoEQ Studio.bat", "README.txt", "app/tools/TESTING.txt",
                 "app/tools/START HERE.txt", "app/tools/sample_sources.json")
 
+# (the tools for working on the app, never shipped: app\requirements-dev.txt's packages and what they need, and pip,
+# by their names at the top of site-packages: a package's folder, a one-file module or its .dist-info folder)
+DEVELOPMENT = ("pytest", "_pytest", "pluggy", "iniconfig", "packaging", "pygments", "pytest_timeout", "py", "ruff",
+               "pip")
+
 
 def _norm(p):
     return os.path.normcase(os.path.realpath(p))
+
+
+def _development(top):
+    """Whether a file or folder at the top of site-packages is one of DEVELOPMENT's."""
+    name = top[:-3] if top.endswith(".py") else top.split("-")[0] if top.endswith(".dist-info") else top
+    return name.lower() in DEVELOPMENT
 
 
 def test_share_zip(tmp_path, check):
@@ -72,3 +83,9 @@ def test_ready_to_run_zip(qapp, check):
           and bat.count(b"\n") == bat.count(b"\r\n") and b"goto :toolong" in bat
           and "Nothing needs installing" in mz.ready_testing(testing),
           len(rt))
+    # (the consolidation, 2026-10-22: pytest is installed in .venv for the tests now; the runtime leaves it out,
+    # with everything else only working on the app needs: make_share_zip.development_files)
+    dev = sorted({top for top in (a.split("/site-packages/", 1)[1].split("/", 1)[0] for a in rt
+                                  if "/site-packages/" in a) if _development(top)})
+    check("ready-to-run zip: none of the tools for working on the app in its Python (pytest and what it needs, "
+          "pytest-timeout, Ruff, pip)", not dev, dev[:10])

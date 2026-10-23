@@ -15,6 +15,8 @@ presets/
 downloads/
 # installers and zips made by the "Make ..." launchers
 releases/
+# the tests' logs, when kept in the main folder (selftest.py --out test-output, as GitHub's test run does)
+test-output/
 
 # Claude Code's files (its notes, settings and skills) and the git guide: on this PC only
 .claude/

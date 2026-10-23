@@ -40,7 +40,7 @@ from ui.eq_page_parts import FORMAT_NAMES, MODE_HINT, Notices, label
 from ui.eq_page_result import EqResult
 
 # (not used here: other files still import them from here, as before the split: listen.py MODE_SHORT, queue_window.py
-# and eq_checks.py file_base_name; TICKS too)
+# and the tests (tests\eq_screen\test_run_and_result.py) file_base_name; TICKS too)
 from ui.eq_page_parts import MODE_SHORT, TICKS, file_base_name  # noqa: F401
 
 

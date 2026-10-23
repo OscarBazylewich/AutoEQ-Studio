@@ -1,10 +1,10 @@
 """Edge-case probe (AutoEQ Local's tools\\edge_probe.py, for AutoEQ Studio): odd files, names, settings, filters,
-presets and malformed requests, tried on a copy of the app like eq_checks.py makes (your own files, settings and
-Equalizer APO are never used; it runs offline, so nothing is downloaded). Wider and slower than the self-test (a few
-minutes): run it after bigger changes. One line per case:
+presets and malformed requests, tried on a copy of the app (app_copy.py: your own files, settings and Equalizer APO
+are never used; it runs offline, so nothing is downloaded). Wider and slower than the self-test (a few minutes): run
+it after bigger changes. One line per case:
   ok     it worked (with a short note of what came out)
   msg    it refused with a clear message
-  CRASH  a Python error, or a message that reads like one: fix it, then add a check to selftest.py / eq_checks.py
+  CRASH  a Python error, or a message that reads like one: fix it, then add a test for it (tests\\<area>\\)
 
     .venv\\Scripts\\python.exe app\\tools\\edge_probe.py [--keep]
 (Set PYTHONIOENCODING=utf-8 when writing the output to a file: some cases have non-English names.)
@@ -17,7 +17,7 @@ import subprocess
 import sys
 import time
 
-import eq_checks  # (make_copy, use_copy, remove_copy)
+import app_copy  # (make_copy, use_copy, remove_copy)
 
 TECHNICAL = ("Traceback", "NoneType", "object has no attribute", "could not convert", "index out of range",
              "unsupported operand", "not subscriptable", "Errno", "KeyError", "invalid literal", "list index",
@@ -242,7 +242,7 @@ def studio():
 
 
 def inner(top):
-    eq_checks.use_copy(top)
+    app_copy.use_copy(top)
     import net
     net.set_offline(True)  # (nothing fetched: a probe never downloads)
     modules(top)
@@ -255,10 +255,10 @@ def main():
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     if len(sys.argv) > 2 and sys.argv[1] == "--inner":  # (in its own process: its crashes as the exit code)
         return inner(sys.argv[2])
-    base, top = eq_checks.make_copy()
+    base, top = app_copy.make_copy()
     print("copy:", top, flush=True)
     crashes = subprocess.call([sys.executable, os.path.abspath(__file__), "--inner", top])
-    if "--keep" not in sys.argv and not eq_checks.remove_copy(base):
+    if "--keep" not in sys.argv and not app_copy.remove_copy(base):
         print(f"Couldn't delete the copy (a process still holds it?): {base}")
     print(f"\n{crashes or 'No'} crash(es)." + (" See the CRASH lines above." if crashes else ""))
     return 1 if crashes else 0

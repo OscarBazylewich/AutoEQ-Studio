@@ -75,10 +75,17 @@ yours is stored in this repository.
 
 ## Development
 
-- `app\tools\selftest.py` tests every part on a fake Equalizer APO folder and a temporary copy of the app (your own
-  files and settings are never touched):
-  `.venv\Scripts\python.exe app\tools\selftest.py` (add `--quick` to skip the slower EQ checks).
-- `app\requirements-dev.txt` adds [Ruff](https://docs.astral.sh/ruff/), the linter the self-test runs.
+- The tests are in `tests\` ([pytest](https://pytest.org)), a folder per part of the app. Each runs on temporary
+  folders, a fake Equalizer APO folder and a temporary copy of the app: your own files and settings, Equalizer APO,
+  the registry and the internet are never touched. First install the development tools (pytest and
+  [Ruff](https://docs.astral.sh/ruff/), the linter the tests run):
+  `.venv\Scripts\python.exe -m pip install -r app\requirements-dev.txt`
+- Every test, each part in its own process, with a short summary: `.venv\Scripts\python.exe app\tools\selftest.py`
+  (about two minutes; `--quick` leaves out Make an EQ's screen and long fitting runs).
+- Only the tests your changes need: `.venv\Scripts\python.exe app\tools\relevant_tests.py --run --quick`; one file:
+  `.venv\Scripts\python.exe -m pytest tests\ui\test_theme.py`.
+- GitHub runs the same tests on Windows for every push to main and every pull request
+  (`.github\workflows\tests.yml`).
 - Each module starts with a description of what it does.
 
 ## Credits

@@ -1,7 +1,9 @@
 # For working on AutoEQ Studio, not for running it (setup.bat doesn't install these; the zips and the installer
 # leave them out):  ".venv\Scripts\python.exe" -m pip install -r "app\requirements-dev.txt"
 # Ruff: the linter (ruff.toml in the main folder). pytest and pytest-timeout: the tests (tests\, pytest.ini). The
-# other four are what pytest itself needs, pinned so every PC and GitHub get the same ones.
+# other four are what pytest itself needs, pinned so every PC and GitHub get the same ones (GitHub's test run,
+# .github\workflows\tests.yml, installs them too). Then every test:  ".venv\Scripts\python.exe" app\tools\selftest.py
+# (--quick: without Make an EQ's screen); only those a change needs: app\tools\relevant_tests.py --run --quick
 ruff==0.17.0
 pytest==9.1.1
 pytest-timeout==2.4.0
