@@ -111,40 +111,6 @@ def test_compare_names_whole_at_its_smallest(eq_screen, history_eq, check):
           names and got[1] >= got[2] + 10, got)
 
 
-def _picture(widget):
-    """What the widget draws, as a picture at one pixel per point."""
-    pm = widget.grab()
-    img = pm.toImage()
-    r = pm.devicePixelRatio()
-    return img.scaled(round(img.width() / r), round(img.height() / r)) if r != 1 else img
-
-
-def _words_start(img, rect):
-    """How far in from rect's left a picture's words start: the first column with a pixel far from the colour behind
-    them (taken at rect's left edge, half-way down); None without words."""
-    back = img.pixelColor(rect.left() + 1, rect.center().y())
-    for x in range(rect.left(), rect.right() + 1):
-        for y in range(rect.top() + 2, rect.bottom() - 1):
-            c = img.pixelColor(x, y)
-            if max(abs(c.red() - back.red()), abs(c.green() - back.green()), abs(c.blue() - back.blue())) > 80:
-                return x - rect.left()
-    return None
-
-
-def _headings_over_words(t, cols):
-    """For each column: (where its heading's words start, where its first row's words start), each from the column's
-    left, as drawn now."""
-    from PySide6.QtCore import QRect
-    h = t.horizontalHeader()
-    head, cells = _picture(h), _picture(t.viewport())
-    out = []
-    for c in cols:
-        x = h.sectionViewportPosition(c)
-        out.append((_words_start(head, QRect(x, 0, h.sectionSize(c), h.height())),
-                    _words_start(cells, t.visualItemRect(t.item(0, c)))))
-    return out
-
-
 def test_compare_tables_in_windows_11s_table_look(eq_screen, history_eq, check):
     # (2026-10-23, the restyle's checkers: Compare's numbers and both filter tables kept full grid lines and centred
     # headings, while Profiles, Run several and the filter editor have Windows 11's table look)
@@ -154,7 +120,7 @@ def test_compare_tables_in_windows_11s_table_look(eq_screen, history_eq, check):
         dlg.show()
         qt.pump(200)
         found = {name: {"grid lines": t.showGrid(), "rows shaded": t.alternatingRowColors(),
-                        "headings over their words": _headings_over_words(t, cols)}
+                        "headings over their words": qt.headings_over_words(t, cols)}
                  for name, t, cols in (("numbers", dlg.numbers, (1, 2)), ("A's filters", dlg.tables[0], range(4)),
                                        ("B's filters", dlg.tables[1], range(4)))}
     finally:

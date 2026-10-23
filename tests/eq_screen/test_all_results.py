@@ -59,14 +59,6 @@ def test_all_results(eq_screen, history_eq, check):
 
 
 # ---------------------------------------------------------------- the look (the restyle's stage 2, 2026-10-23)
-def _picture(widget):
-    """What the widget draws, as a picture at one pixel per point."""
-    pm = widget.grab()
-    img = pm.toImage()
-    r = pm.devicePixelRatio()
-    return img.scaled(round(img.width() / r), round(img.height() / r)) if r != 1 else img
-
-
 def _near(a, b, by=8):
     """Two colours the same but for a little rounding (each of red, green and blue within `by`)."""
     a, b = QColor(a), QColor(b)
@@ -103,7 +95,7 @@ def test_all_results_shading_follows_the_theme(four, eq_screen, check):
     def drawn():
         """Each cell's colour away from its words, and the grid's corner, as drawn now; the theme's colours."""
         g = ar.grid
-        img = _picture(g.viewport())
+        img = qt.picture(g.viewport())
         cells = {}
         for i in range(g.rowCount()):
             for j in range(g.columnCount()):
@@ -111,7 +103,7 @@ def test_all_results_shading_follows_the_theme(four, eq_screen, check):
                 cells[g.item(i, j).data(Qt.UserRole)] = img.pixelColor(r.left() + 3, r.center().y()).name()
         corner = g.findChild(QAbstractButton)  # (the corner between the grid's headings)
         t = theme.tokens()
-        return {"cells": cells, "corner": _picture(g).pixelColor(corner.geometry().center()).name(),
+        return {"cells": cells, "corner": qt.picture(g).pixelColor(corner.geometry().center()).name(),
                 "pill": t["pill"], "card": t["card"], "sel": t["sel"]}
     try:
         light = drawn()
@@ -186,32 +178,6 @@ def test_all_results_wide_grid_in_a_narrow_window(eq_screen, history_eq, check):
           and state["scrolls down"] == 0, state)
 
 
-def _words_start(img, rect):
-    """How far in from rect's left a picture's words start: the first column with a pixel far from the colour behind
-    them (taken at rect's left edge, half-way down); None without words."""
-    back = img.pixelColor(rect.left() + 1, rect.center().y())
-    for x in range(rect.left(), rect.right() + 1):
-        for y in range(rect.top() + 2, rect.bottom() - 1):
-            c = img.pixelColor(x, y)
-            if max(abs(c.red() - back.red()), abs(c.green() - back.green()), abs(c.blue() - back.blue())) > 80:
-                return x - rect.left()
-    return None
-
-
-def _headings_over_words(t, cols):
-    """For each column: (where its heading's words start, where its first row's words start), each from the column's
-    left, as drawn now."""
-    from PySide6.QtCore import QRect
-    h = t.horizontalHeader()
-    head, cells = _picture(h), _picture(t.viewport())
-    out = []
-    for c in cols:
-        x = h.sectionViewportPosition(c)
-        out.append((_words_start(head, QRect(x, 0, h.sectionSize(c), h.height())),
-                    _words_start(cells, t.visualItemRect(t.item(0, c)))))
-    return out
-
-
 def test_all_results_in_windows_11s_table_look(four, eq_screen, check):
     # (2026-10-23, the restyle's checkers: All results kept full grid lines and centred headings, while Profiles, Run
     # several and the filter editor have Windows 11's table look)
@@ -222,10 +188,10 @@ def test_all_results_in_windows_11s_table_look(four, eq_screen, check):
     def lines():
         """The colour of the line under the grid's first cell, half-way across, and the theme's colour for lines."""
         r = g.visualItemRect(g.item(0, 0))
-        return _picture(g.viewport()).pixelColor(r.center().x(), r.bottom()).name(), theme.tokens()["line"]
+        return qt.picture(g.viewport()).pixelColor(r.center().x(), r.bottom()).name(), theme.tokens()["line"]
     found = {"grid lines": (g.showGrid(), t.showGrid()), "table rows shaded": t.alternatingRowColors(),
-             "grid: headings over their words": _headings_over_words(g, range(g.columnCount())),
-             "table: headings over their words": _headings_over_words(t, range(t.columnCount()))}
+             "grid: headings over their words": qt.headings_over_words(g, range(g.columnCount())),
+             "table: headings over their words": qt.headings_over_words(t, range(t.columnCount()))}
     try:
         found["line under a grid row, light"] = lines()
         theme.apply(qapp, dark=True)

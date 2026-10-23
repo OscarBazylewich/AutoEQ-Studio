@@ -22,6 +22,9 @@ next runs, and if that's while Qt hands it or one of its parts an event, the pro
 in some later test: GitHub's run of 2026-10-22). free_leftovers() runs the collector after each test, when Qt is
 handling no event, deletes the Qt objects it finds and names them; the test that left them fails (LEFTOVER_CHECK).
 
+What's drawn: picture() (a widget's picture at one pixel per point), words_start() and headings_over_words() (where a
+table's headings' and cells' words start, read from the pixels: Windows 11's table look).
+
 PySide6 is imported inside the functions, so a test that never uses Qt never loads it.
 """
 import os
@@ -233,3 +236,37 @@ def dark(qapp):
     """The app's dark theme on the whole application."""
     from ui import theme
     theme.apply(qapp, dark=True)
+
+
+def picture(widget):
+    """What the widget draws, as a picture at one pixel per point."""
+    pm = widget.grab()
+    img = pm.toImage()
+    r = pm.devicePixelRatio()
+    return img.scaled(round(img.width() / r), round(img.height() / r)) if r != 1 else img
+
+
+def words_start(img, rect):
+    """How far in from rect's left a picture's words start: the first column with a pixel far from the colour behind
+    them (taken at rect's left edge, half-way down); None without words."""
+    back = img.pixelColor(rect.left() + 1, rect.center().y())
+    for x in range(rect.left(), rect.right() + 1):
+        for y in range(rect.top() + 2, rect.bottom() - 1):
+            c = img.pixelColor(x, y)
+            if max(abs(c.red() - back.red()), abs(c.green() - back.green()), abs(c.blue() - back.blue())) > 80:
+                return x - rect.left()
+    return None
+
+
+def headings_over_words(table, cols):
+    """For each of a table's columns cols: (where its heading's words start, where its first row's words start), each
+    from the column's left, as drawn now (Windows 11's table look has each heading over its words, at the left)."""
+    from PySide6.QtCore import QRect
+    h = table.horizontalHeader()
+    head, cells = picture(h), picture(table.viewport())
+    out = []
+    for c in cols:
+        x = h.sectionViewportPosition(c)
+        out.append((words_start(head, QRect(x, 0, h.sectionSize(c), h.height())),
+                    words_start(cells, table.visualItemRect(table.item(0, c)))))
+    return out

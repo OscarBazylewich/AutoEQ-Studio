@@ -79,14 +79,6 @@ FILTERS = [{"enabled": True, "type": "LSQ", "freq": 105, "gain": 3.5, "q": 0.7},
            {"enabled": True, "type": "HSQ", "freq": 8000, "gain": -1.5, "q": 0.7}]
 
 
-def _picture(widget):
-    """What the widget draws, as a picture at one pixel per point."""
-    pm = widget.grab()
-    img = pm.toImage()
-    r = pm.devicePixelRatio()
-    return img.scaled(round(img.width() / r), round(img.height() / r)) if r != 1 else img
-
-
 def _near(a, b, by=8):
     """Two colours the same but for a little rounding (each of red, green and blue within `by`)."""
     a, b = QColor(a), QColor(b)
@@ -136,16 +128,16 @@ def test_editor_colours_are_the_themes(own_editor, eq_screen, check):
         ed.set_view("table")
         qt.pump(100)
         x = ed.table.cellWidget(0, 6)
-        img = _picture(ed.table.viewport())
+        img = qt.picture(ed.table.viewport())
         p = x.mapTo(ed.table.viewport(), QPoint(3, x.height() // 2))
         under_x = img.pixelColor(p).name()
         ed.set_view("sliders")
         qt.pump(100)
         holder = ed.sliders_scroll.widget()
         bar = next(f for f in holder.findChildren(QFrame) if type(f) is QFrame)  # (the pre-amp's: no words in it)
-        bar_colour = _picture(bar).pixelColor(bar.width() // 2, bar.height() // 2).name()
+        bar_colour = qt.picture(bar).pixelColor(bar.width() // 2, bar.height() // 2).name()
         off = holder.findChildren(QSlider)[1]
-        pic = _picture(off)
+        pic = qt.picture(off)
         run = best = 0
         for y in range(pic.height()):
             run = run + 1 if _near(pic.pixelColor(pic.width() // 2, y), t["disabled"]) else 0
