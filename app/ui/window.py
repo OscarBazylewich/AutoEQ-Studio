@@ -13,7 +13,9 @@ Help (top right; F1 anywhere: at the entry of the setting under the pointer or b
 Guide (top right): a tour of Make an EQ (ui\\guide.py, shown by ui\\tour.py); the tracer has its own.
 A banner over the device screens says when APO isn't installed or isn't using AutoEQ Studio yet. Messages show in
 the line at the bottom. Closing the window leaves the app in the tray; Quit is in the tray icon's menu.
-Everything is drawn in the app's theme (ui\\theme.py: AutoEQ Local's colours, light or dark as Windows is).
+Everything is drawn in the app's theme (ui\\theme.py: Windows 11's look, light or dark as Windows is, in Windows'
+accent colour); what only this window and its screens have is styled in ui\\theme_sheet.py's window_screens(), by the
+objectNames and properties set here (the banner's warning sign, the trial's clock, the status line…).
 Where the code is: this file has the shell (the top bar, switching screens, Guide, Help, closing to the tray, the
 trial bar) and the banner; each screen is a part of the window's class, in a file of its own: Devices
 (ui\\devices_screen.py), Profiles (ui\\profiles_screen.py), Settings (ui\\settings_screen.py; Set up…:
@@ -24,7 +26,7 @@ import time
 from PySide6.QtCore import Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QCursor, QDesktopServices, QKeySequence, QShortcut
 from PySide6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel, QMainWindow, QMenu, QPushButton,
-                               QStackedWidget, QVBoxLayout, QWidget)
+                               QScrollArea, QSizePolicy, QStackedWidget, QVBoxLayout, QWidget)
 
 import net
 import paths
@@ -34,6 +36,7 @@ from ui.devices_screen import DevicesScreen, check_line  # noqa: F401 - (check_l
 from ui.profiles_screen import ProfilesScreen
 from ui.settings_screen import SettingsScreen
 from ui.setup_dialog import SetUpDialog  # noqa: F401 - (still taken from here, as before the screens had files)
+from ui.window_parts import glyph, warning_card
 
 PAGES = [("eq", "Make an EQ"), ("devices", "Devices"), ("profiles", "Profiles"), ("settings", "Settings")]
 
@@ -58,16 +61,11 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(0)
         lay.addWidget(self._top_bar())
-        self.banner = QFrame()
-        theme.mark(self.banner, card="warn")
-        bl = QHBoxLayout(self.banner)
-        self.banner_text = QLabel()
-        self.banner_text.setWordWrap(True)
+        # the banner: Windows 11's warning bar (its sign, the words, the action)
         self.banner_btn = QPushButton()
         theme.mark(self.banner_btn, primary=True)
         self.banner_btn.clicked.connect(self._banner_action)
-        bl.addWidget(self.banner_text, 1)
-        bl.addWidget(self.banner_btn)
+        self.banner, self.banner_text = warning_card("", self.banner_btn)
         holder = QWidget()
         hl = QVBoxLayout(holder)
         hl.setContentsMargins(14, 10, 14, 0)
@@ -78,15 +76,22 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.trial_bar = QFrame()
         theme.mark(self.trial_bar, card=True)
         tl = QHBoxLayout(self.trial_bar)
+        tl.setContentsMargins(4, 0, 4, 0)
+        tl.setSpacing(12)
+        clock = glyph("clock", said="Trying an EQ")  # (Windows 11's clock, in the accent's text colour)
+        clock.setObjectName("trialGlyph")
         self.trial_text = QLabel()
         self.trial_text.setWordWrap(True)
         keep = QPushButton("Keep it")
         theme.mark(keep, primary=True)
+        icons.put(keep, "check")
         keep.setToolTip("Make it a profile of the device, switched on")
         keep.clicked.connect(lambda: self.app.end_trial(True))
         stop = QPushButton("Stop now")
+        icons.put(stop, "cancel")  # (✕: Windows 11's square "stop" read as an empty check box beside the words)
         stop.setToolTip("The device's own EQ back now")
         stop.clicked.connect(lambda: self.app.end_trial(False))
+        tl.addWidget(clock)
         tl.addWidget(self.trial_text, 1)
         tl.addWidget(keep)
         tl.addWidget(stop)
@@ -103,11 +108,23 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
 
         self.stack = QStackedWidget()
         self.pages = {"eq": QWidget(), "devices": self._padded(self._devices_tab()),
-                      "profiles": self._padded(self._profiles_tab()), "settings": self._padded(self._settings_tab())}
+                      "profiles": self._padded(self._profiles_tab()), "settings": self._scrolled(self._settings_tab())}
         for key, _ in PAGES:
             self.stack.addWidget(self.pages[key])
+        # (the screens scroll when there's no room, so the window may be small, as on a laptop's screen: Settings made
+        # it at least 812 px tall; but never so small that a screen shows only a sliver)
+        self.stack.setMinimumHeight(360)
         lay.addWidget(self.stack, 1)
         self.setCentralWidget(central)
+        # the line at the bottom for messages: its words lined up with the screens', no size grip (Windows 11's)
+        bar = self.statusBar()
+        bar.setObjectName("windowStatus")
+        bar.setSizeGripEnabled(False)
+        self.status_text = QLabel()
+        # (a long message never widens the window: it's cut at its edge instead, its tooltip whole)
+        self.status_text.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        bar.addWidget(self.status_text, 1)
+        self._status_timer = QTimer(self, singleShot=True, timeout=lambda: self.status("", 0))
 
         sw.listeners.append(self._changed)
         # F1 in any of the app's windows: Help, at the setting under the pointer (or the one being typed in)
@@ -173,6 +190,15 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         lay.setContentsMargins(14, 12, 14, 14)
         lay.addWidget(widget)
         return w
+
+    def _scrolled(self, widget):
+        """A screen that scrolls when the window is too small for it, as Windows 11's Settings do (its cards and
+        buttons keep their size: without it they were squeezed, the hotkey box to half its height)."""
+        area = QScrollArea()
+        area.setWidgetResizable(True)
+        area.setFrameShape(QFrame.NoFrame)
+        area.setWidget(self._padded(widget))
+        return area
 
     def show_page(self, key, remember=True):
         """Show one screen (the EQ screen is made the first time it's seen: that's when the EQ part loads; not while
@@ -256,7 +282,13 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         return next(k for k, w in self.pages.items() if w is self.stack.currentWidget())
 
     def status(self, text, ms=6000):
-        self.statusBar().showMessage(text, ms)
+        """A message in the line at the bottom, for ms milliseconds (0: until the next one)."""
+        self.status_text.setText(text)
+        self.status_text.setToolTip(text)  # (all of it, when the window is too narrow for it)
+        if ms:
+            self._status_timer.start(ms)
+        else:
+            self._status_timer.stop()
 
     def showEvent(self, e):
         self.render_all()  # (devices plugged in, EQs switched from the tray while it was hidden)

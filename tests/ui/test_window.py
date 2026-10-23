@@ -1,6 +1,7 @@
 """The window (ui\\window.py): its screens, the EQ screen made only when it's opened (and not at all while the app
 starts hidden in the tray: the tray stays light), Online / Offline at the top, and closing it leaving the app in the
-tray. Moved from selftest.py's qt_checks.
+tray. Moved from selftest.py's qt_checks. Then its look in Windows 11's (the restyle, 2026-10-23): the app's message
+boxes, the line at the bottom, the banner and the trial bar (drawn themed in a Python of their own, but the last).
 
 Two of these look at what a Python has loaded (the EQ part, numpy, pyqtgraph), and this test process may have loaded
 them already (Make an EQ's tests, a helper): those make their window in a Python of their own (CHILD below), on a
@@ -71,6 +72,85 @@ def test_screens_and_the_eq_part_not_loaded(check, fake_apo, tmp_path):
           d.get("nav") == ["Make an EQ", "Devices", "Profiles", "Settings"] and d.get("page") == "devices"
           and d.get("eq_page_none") is True and d.get("eq") is False and d.get("pyqtgraph") is False,
           d or out.stderr[-300:])
+
+
+# Message boxes in the app's theme (dark, Windows' default blue), in a Python of their own: a question (Yes, No) and
+# Your files' question (three buttons of its own): the fill of the answer Enter gives, and each button's width
+BOXES = r'''
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from PySide6.QtWidgets import QApplication, QMessageBox
+qapp = QApplication([])
+from ui import theme, theme_tokens
+theme.accent_palette = lambda: theme_tokens.DEFAULT_ACCENT
+theme.apply(qapp, dark=True, contrast=False)
+out = {"accent": theme.tokens()["accent"]}
+q = QMessageBox(QMessageBox.Question, "Remove profile", "Remove “X”?", QMessageBox.Yes | QMessageBox.No)
+q.setDefaultButton(QMessageBox.Yes)
+f = QMessageBox(QMessageBox.Question, "Your AutoEQ Studio files", "Move them there now? A file is never replaced.")
+move = f.addButton("Move them", QMessageBox.AcceptRole)
+f.addButton("Choose another folder…", QMessageBox.ActionRole)
+f.addButton("Not now", QMessageBox.RejectRole)
+f.setDefaultButton(move)
+for name, box in (("question", q), ("files", f)):
+    box.show()
+    for _ in range(5):
+        qapp.processEvents()
+    img = box.grab().toImage()
+    b = box.defaultButton()
+    at = b.mapTo(box, b.rect().topLeft())
+    out[name] = {"fill": img.pixelColor(at.x() + 4, at.y() + b.height() // 2).name(),
+                 "narrow": [x.text() for x in box.buttons() if x.width() < x.sizeHint().width()],
+                 "widths": sorted(x.width() for x in box.buttons())}
+    box.close()
+print(json.dumps(out))
+'''
+
+# (after tests\ui\conftest.py's THEMED_WINDOW: a message in the line at the bottom, read back from its picture)
+STATUS = r'''
+win.status("Saved.", 0)
+for _ in range(5):
+    qapp.processEvents()
+bar = win.statusBar()
+img = bar.grab().toImage()
+first = next((x for x in range(img.width()) if any(max(img.pixelColor(x, y).getRgb()[:3]) > 0x70
+                                                    for y in range(img.height()))), None)
+print(json.dumps({"first": first, "grip": bar.isSizeGripEnabled(),
+                  "screens": win.pages["devices"].layout().contentsMargins().left()}))
+'''
+
+
+def test_message_boxes_as_windows_11(check):
+    out = subproc.run_python(BOXES, session.SESSION.app)
+    d = out.data or {}
+    boxes = [d.get(k) or {} for k in ("question", "files")]
+    check("message boxes: the answer Enter gives in the accent (as Windows 11's dialogs), every button wide enough for "
+          "its words and none narrower than 64 px",
+          all(b.get("fill") == d.get("accent") and b.get("narrow") == [] and min(b.get("widths") or [0]) >= 64
+              for b in boxes), d or out.stderr[-300:])
+
+
+def test_the_status_line_lined_up(themed_window, check, fake_apo, tmp_path):
+    out = subproc.run_python(themed_window + STATUS, session.SESSION.app, str(tmp_path))
+    d = out.data or {}
+    check("window: the line at the bottom starts where the screens do (its words lined up with theirs), with no size "
+          "grip (Windows 11's)", d.get("first") is not None and abs(d["first"] - d.get("screens", 0)) <= 3
+          and d.get("grip") is False, d or out.stderr[-300:])
+
+
+def test_the_banner_and_the_trial_bar_as_windows_11(devices_window, check):
+    from PySide6.QtWidgets import QLabel, QPushButton
+    win = devices_window.win
+
+    def signs(bar):
+        return [(lab.accessibleName(), lab.property("role"), lab.objectName()) for lab in bar.findChildren(QLabel)
+                if lab.property("glyph") == "true"]
+    plain = [b.text() for b in win.trial_bar.findChildren(QPushButton) if b.icon().isNull()]
+    check("window: the banner is Windows 11's warning bar (the warning sign in the warning colour, the words, the "
+          "action), and the trial bar has a clock and symbols beside Keep it and Stop now",
+          signs(win.banner) == [("Warning", "warn", "")] and win.banner_btn.parentWidget() is win.banner
+          and signs(win.trial_bar) == [("Trying an EQ", None, "trialGlyph")] and plain == [],
+          (signs(win.banner), signs(win.trial_bar), plain))
 
 
 def test_online_offline(devices_window, online, check):

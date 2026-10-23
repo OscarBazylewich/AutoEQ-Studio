@@ -9,14 +9,62 @@ import os
 import re
 import subprocess
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QButtonGroup, QFrame, QGroupBox, QHBoxLayout, QInputDialog, QLabel, QListWidget,
-                               QListWidgetItem, QMenu, QMessageBox, QPushButton, QRadioButton, QSplitter, QToolButton,
-                               QVBoxLayout, QWidget)
+from PySide6.QtCore import QRect, Qt
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QIcon
+from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QGroupBox, QHBoxLayout, QInputDialog, QLabel,
+                               QListWidget, QListWidgetItem, QMenu, QMessageBox, QPushButton, QRadioButton, QScrollArea,
+                               QSplitter, QStyle, QStyledItemDelegate, QStyleOptionViewItem, QToolButton, QVBoxLayout,
+                               QWidget)
 
 from switcher.core import shown
 from ui import icons, theme
-from ui.window_parts import muted, profile_line
+from ui.window_parts import muted, profile_line, warning_card
+
+
+class DeviceRows(QStyledItemDelegate):
+    """The device list's rows as Windows 11 lists devices: the device's name, and under it where it is and its EQ, a
+    little smaller in the secondary colour (each line cut with "…" when the list is narrow; the row's tooltip has both
+    whole). The row's own background (pointed at, chosen, the accent's bar beside it) and its dot are the list's, as
+    the theme draws any list; the colours are the theme's when the row is drawn, so they follow light and dark."""
+
+    def paint(self, painter, option, index):
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        widget = opt.widget
+        style = widget.style() if widget is not None else QApplication.style()
+        margin = style.pixelMetric(QStyle.PM_FocusFrameHMargin, None, widget) + 1  # (as Qt's own rows have it)
+        text_rect = style.subElementRect(QStyle.SE_ItemViewItemText, opt, widget).adjusted(margin, 0, -margin, 0)
+        icon_rect = style.subElementRect(QStyle.SE_ItemViewItemDecoration, opt, widget)
+        name, _, rest = opt.text.replace("\u2028", "\n").partition("\n")  # (Qt hands the line break as U+2028)
+        icon = QIcon(opt.icon)  # (a copy: the option's own is emptied next)
+        opt.text, opt.icon = "", QIcon()
+        style.drawControl(QStyle.CE_ItemViewItem, opt, painter, widget)  # (the background only)
+        t = theme.tokens()
+        first = t["sel_ink"] if opt.state & QStyle.State_Selected else t["ink"]
+        second = t["ink2"] if t["ink2"] != t["ink"] else first  # (a contrast theme: one colour for text)
+        big = QFont(opt.font)
+        small = QFont(opt.font)
+        if big.pointSizeF() > 0:  # (Fluent's caption under its body text: 12 px under 14)
+            small.setPointSizeF(big.pointSizeF() * 12 / 14)
+        else:
+            small.setPixelSize(max(1, round(big.pixelSize() * 12 / 14)))
+        m1, m2 = QFontMetrics(big), QFontMetrics(small)
+        gap = 2 if rest else 0
+        height = m1.height() + (gap + m2.height() if rest else 0)
+        top = text_rect.top() + (text_rect.height() - height) // 2
+        painter.save()
+        if not icon.isNull():
+            icon.paint(painter, icon_rect, Qt.AlignCenter)
+        painter.setFont(big)
+        painter.setPen(QColor(first))
+        painter.drawText(QRect(text_rect.left(), top, text_rect.width(), m1.height()), Qt.AlignLeft | Qt.AlignVCenter,
+                         m1.elidedText(name, Qt.ElideRight, text_rect.width()))
+        if rest:
+            painter.setFont(small)
+            painter.setPen(QColor(second))
+            painter.drawText(QRect(text_rect.left(), top + m1.height() + gap, text_rect.width(), m2.height()),
+                             Qt.AlignLeft | Qt.AlignVCenter, m2.elidedText(rest, Qt.ElideRight, text_rect.width()))
+        painter.restore()
 
 
 def check_line(ok, text):
@@ -44,16 +92,21 @@ class DevicesScreen:
         split = QSplitter()
         self.dev_list = QListWidget()
         self.dev_list.setAccessibleName("Devices")
-        self.dev_list.setMinimumWidth(240)
+        self.dev_list.setMinimumWidth(260)
         self.dev_list.setTextElideMode(Qt.ElideRight)  # (a long name ends in "…": its tooltip has it whole)
         self.dev_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.dev_list.setItemDelegate(DeviceRows(self.dev_list))
         self.dev_list.currentItemChanged.connect(self._pick_device)
         split.addWidget(self.dev_list)
         self.dev_panel = QWidget()
         self.dev_lay = QVBoxLayout(self.dev_panel)
-        split.addWidget(self.dev_panel)
+        scroll = QScrollArea()  # (many profiles on a device, or a small window: the panel scrolls, never squeezed)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setWidget(self.dev_panel)
+        split.addWidget(scroll)
         split.setStretchFactor(1, 1)
-        split.setSizes([280, 540])
+        split.setSizes([316, 540])
         return split
 
     def _status(self, key):
@@ -114,6 +167,7 @@ class DevicesScreen:
         title.setWordWrap(True)
         hl.addWidget(title, 1)
         ren = QPushButton("Rename…")
+        icons.put(ren, "rename")
         ren.setToolTip("Your own name for this device (e.g. the IEM you use on it)")
         ren.clicked.connect(lambda: self.rename_device(key))
         from ui import help_window
@@ -125,15 +179,13 @@ class DevicesScreen:
                             + (f" · Windows calls it {rec['label']}" if rec.get("nickname") else "")))
 
         if d and not d.apo:
-            warn = QFrame()
-            theme.mark(warn, card="warn")
-            wl = QVBoxLayout(warn)
-            wl.addWidget(QLabel("Equalizer APO isn't installed on this device, so no EQ plays on it. In APO's "
-                                "Configurator, tick this device, then restart Windows."))
+            b = None
             if self.sw.apo.configurator:
                 b = QPushButton("Open APO's Configurator")
+                icons.put(b, "open_new")
                 b.clicked.connect(self.open_configurator)
-                wl.addWidget(b, 0, Qt.AlignLeft)
+            warn, _ = warning_card("Equalizer APO isn't installed on this device, so no EQ plays on it. In APO's "
+                                   "Configurator, tick this device, then restart Windows.", b)
             lay.addWidget(warn)
 
         box = QGroupBox("EQ for this device")
@@ -156,6 +208,7 @@ class DevicesScreen:
                                              self.sw.profile_missing(pid) else ""))
             row.addWidget(note, 1)
             x = QToolButton()
+            x.setObjectName("takeOff")  # (a quiet button, as Windows 11's in a list's row: the theme's window_screens)
             x.setText("✕")
             x.setToolTip("Take it off this device (it stays in Profiles)")
             x.setAccessibleName(f"Take {p['name']} off this device")
@@ -166,6 +219,8 @@ class DevicesScreen:
             row.setContentsMargins(0, 0, 0, 0)
             bl.addWidget(holder)
         add = QPushButton("Add a profile")
+        add.setObjectName("addProfile")  # (its menu's chevron: the theme's window_screens)
+        icons.put(add, "add")
         menu = QMenu(add)
         others = [(pid, p) for pid, p in self.sw.profiles().items() if pid not in rec["profiles"]]
         for pid, p in sorted(others, key=lambda x: x[1]["name"].lower()):
@@ -184,6 +239,7 @@ class DevicesScreen:
             help_window.tag(self.check_label, "#dev-check")
             row.addWidget(self.check_label, 1)
             chk = QPushButton("Check again")
+            icons.put(chk, "refresh")
             chk.setToolTip("Ask Equalizer APO again (its Benchmark tool, read only), and see all it found")
             chk.clicked.connect(lambda: self.check_device(key))
             help_window.tag(chk, "#dev-check")

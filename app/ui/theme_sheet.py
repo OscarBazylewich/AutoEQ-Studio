@@ -222,8 +222,41 @@ def check_boxes(t, img):
 # be a style set in the screen's code. Each belongs to that screen's area (the restyle's stage 2, 2026-10-23).
 def window_screens(t, img):
     """The window around the screens and the device screens: the banner, the trial bar, Devices, Profiles,
-    Settings, Set up, the tray menu."""
-    return ""
+    Settings, Set up, the tray menu, and the app's message boxes and input boxes (Windows 11's dialogs: the answer
+    Enter gives in the accent).
+    - a symbol in front of words (glyph=true: the warning sign on the banner, the trial's clock), in its role's colour
+    - the status line, its words lined up with the screens'
+    - Devices: a profile's ✕ (#takeOff: a quiet button, filled when pointed at), Add a profile's chevron (#addProfile)
+    - Profiles: the table's words under their headings (#profileTable)
+    - Set up (#setUp): the words on the card colour, the buttons on a band in the window's colour (#dialogFooter)
+    - the tray menu (#tray): its headings (the device playing, the EQ being tried) readable, not greyed
+    - message boxes' buttons made wider by their padding (a min-width is a fixed minimum in Qt: a message box then
+      squeezed its long buttons below their words)"""
+    default = (f"background: {t['accent']}; color: {t['on_accent']}; border: 1px solid {t['accent']}; "
+               f"border-bottom-color: {t['accent_bottom']};")
+    return f"""
+    QLabel[glyph="true"] {{ font-size: 12pt; }}
+    QLabel#trialGlyph {{ color: {t['accent_text']}; }}
+    QStatusBar#windowStatus::item {{ border: none; }}
+    QStatusBar#windowStatus QLabel {{ color: {t['ink2']}; padding-left: 8px; }}
+    QToolButton#takeOff {{ background: transparent; border: 1px solid transparent; color: {t['ink2']};
+        padding: 4px 9px; }}
+    QToolButton#takeOff:hover {{ background: {t['subtle_hover']}; color: {t['ink']}; }}
+    QToolButton#takeOff:pressed {{ background: {t['subtle_press']}; }}
+    QTableWidget#profileTable::item {{ padding: 0px 5px; }}
+    QPushButton#addProfile {{ padding-right: 30px; }}
+    QPushButton#addProfile::menu-indicator {{ image: url({img['chevron']}); subcontrol-origin: padding;
+        subcontrol-position: center right; right: 10px; width: 12px; height: 12px; }}
+    QDialog#setUp {{ background: {t['card']}; }}
+    QDialog#setUp QListWidget::item {{ padding: 3px 8px; }}
+    QFrame#dialogFooter {{ background: {t['bg']}; border: none; border-top: 1px solid {t['line']}; }}
+    QMessageBox QPushButton, QInputDialog QPushButton {{ padding-left: 24px; padding-right: 24px; }}
+    QMessageBox QPushButton:default, QInputDialog QPushButton:default {{ {default} }}
+    QMessageBox QPushButton:default:hover, QInputDialog QPushButton:default:hover {{ background: {t['accent_hover']}; }}
+    QMessageBox QPushButton:default:pressed, QInputDialog QPushButton:default:pressed {{
+        background: {t['accent_press']}; }}
+    QMenu#tray::item:disabled {{ color: {t['muted']}; }}
+"""
 
 
 def eq_screen(t, img):
