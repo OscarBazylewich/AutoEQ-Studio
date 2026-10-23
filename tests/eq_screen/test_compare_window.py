@@ -5,7 +5,8 @@ and in the app is ranked, as the old checks did offline. The two are one chain, 
 its top Use. Its Windows 11 look (the restyle, 2026-10-23): the chart in the graph's own colours, drawn again when
 the theme changes; at the window's smallest every part has its room; the accent on its one main action; its warning
 symbol read as "Warning"; and on a short screen (a laptop at 150 % or 175 %, stood in) it fits above the taskbar with
-Close in sight."""
+Close in sight. The recheck's (the same day): each measurement's and average's box starts its words where a card's
+do."""
 import pytest
 
 from helpers import qt
@@ -241,3 +242,56 @@ def test_fits_a_small_screen(eq_screen, monkeypatch, check):
               and s["list"][0] >= s["list"][1] for s in small)
           and big["opens"] == (940, 860) and big["smallest"] == (700, 660) and big["chart"][1:] == (150, True)
           and big["list"][1] == 120 and big["Close in sight"] and not big["over"], seen)
+
+
+def test_boxes_words_start_as_a_cards(eq_screen, monkeypatch, check):
+    # (the recheck, 2026-10-23: each measurement's and each average's box is a card frame, whose padding leaves 4 px for
+    # its layout's own margin; they kept Qt's 9, so their words started 22 px inside, 5 px further in than in Make an
+    # EQ's cards)
+    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QFrame, QGroupBox, QWidget
+    page = eq_screen.page
+    card = next(b for b in page.findChildren(QGroupBox) if b.isVisible() and b.layout() is not None)
+
+    def inset(box):
+        """How far inside the box (from its left and its top) its first words or controls start."""
+        kids = [w for w in box.findChildren(QWidget) if w.isVisible() and w.parentWidget() is box]
+        at = [w.mapTo(box, QPoint(0, 0)) for w in kids]
+        return min(p.x() for p in at), min(p.y() for p in at)
+    cw = _shown_with(page, monkeypatch)  # (two on the target's rig: an average's box and two measurements')
+    try:
+        boxes = {f"{w.objectName()} {n}": inset(w) for n, w in enumerate(
+            b for b in cw.scroll.widget().findChildren(QFrame) if b.objectName() in ("whichRow", "whichAverage"))}
+        cards = inset(card)[0]
+    finally:
+        qt.close(cw)
+    check("restyle: Which measurement's boxes (each measurement, each average) start their words where a card's do: as "
+          "far inside as Make an EQ's cards, at the left and the top",
+          len(boxes) == 3 and all(v == (cards, cards) for v in boxes.values()), (cards, boxes))
+
+
+def test_no_average_of_copies(eq_screen, monkeypatch, check):
+    # (the recheck, 2026-10-23: once your own files' rigs were known, the sample's measurement found twice on this PC,
+    # the same files in two folders, offered "Average the 2 measurements on the B&K 5128" with only "Tick at least 2":
+    # the second left out as the same data. Copies of one measurement: nothing to average, so no box)
+    from PySide6.QtWidgets import QFrame, QPushButton
+    seen = {}
+    for name, step in (("copies", 0.0), ("two different ones", 1.5)):
+        cw = _shown_with(eq_screen.page, monkeypatch)
+        try:
+            for k, c in enumerate(cw.data["items"]):  # (the second the first's curve again, or 1.5 dB from it)
+                c["vals"] = [v + step * k for v in cw.data["items"][0]["vals"]]
+            cw.picked.clear()
+            cw.render()
+            qt.pump(100)
+            seen[name] = {"averages": len([b for b in cw.scroll.widget().findChildren(QFrame)
+                                           if b.objectName() == "whichAverage"]),
+                          "accent on": [b.text() for b in cw.findChildren(QPushButton)
+                                        if b.property("primary") in (True, "true")]}
+        finally:
+            qt.close(cw)
+    check("restyle: Which measurement offers no average of copies of one measurement (the same files found twice on "
+          "this PC: nothing to average), the first measurement's Use its main action then; two different ones on the "
+          "rig are still offered their average",
+          seen == {"copies": {"averages": 0, "accent on": ["Use"]},
+                   "two different ones": {"averages": 1, "accent on": ["Average 2 and use"]}}, seen)

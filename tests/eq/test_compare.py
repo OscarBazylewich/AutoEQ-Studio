@@ -1,7 +1,8 @@
 """Which measurement to use (eq\\compare.py): measurements ranked by their rig (the same rig as the target's first,
 then one the target is converted for, then one it can't be converted for), your own files kept in the list however
 many database entries match, short names matched as whole words, and an averaged file named as Windows allows.
-Moved from eq_checks.py's module_checks."""
+Moved from eq_checks.py's module_checks. And (the recheck, 2026-10-23) your own files' rig as Make an EQ and Find…
+give it."""
 import os
 
 from eq import compare, databases, engines, library, rigconv
@@ -76,6 +77,38 @@ def test_nothing_could_be_loaded(monkeypatch, check):
           err is None and res.get("target_rig") and res.get("items") == [] and len(res.get("errors") or []) == 2
           and "could be loaded" in (res.get("note") or ""), (err, res.get("target_rig"), res.get("note"),
                                                               res.get("errors")))
+
+
+def test_your_files_rig_as_the_app_gives_it(monkeypatch, check):
+    # (the recheck, 2026-10-23: for the app's sample measurement, from listener800's 5128 IEMs (its files named
+    # "… (L800 IEM) L1.txt"), Which measurement said "in the app · rig not known" and warned "None of these was measured
+    # on the B&K 5128", while Make an EQ's Measurement card said "measured on 5128": compare.py read a file's rig only
+    # from the record of where the app downloaded it, which the sample hasn't, and never for a file on this PC)
+    from eq import rigs, settings
+    from helpers import studio
+    in_app = studio.measurement_paths()  # (the sample device's ten seatings, in the app)
+    on_pc = sorted(os.path.join(session.SESSION.studio, "samples", "measurements", "Apple EarPods - B&K 5128", n)
+                   for n in ("Apple EarPods (EA IEM) L.txt", "Apple EarPods (EA IEM) R.txt"))
+    groups = [{"kind": "measurement", "name": "Truthear GATe (Wide Bore Tips) (L800 IEM)", "id": "app",
+               "folder": os.path.dirname(in_app[0]), "files": in_app, "in_app": True},
+              {"kind": "measurement", "name": "Apple EarPods (EA IEM)", "id": "pc", "folder": os.path.dirname(on_pc[0]),
+               "files": on_pc, "in_app": False}]
+    monkeypatch.setattr(databases, "items", lambda: [])  # (nothing online: only your own files)
+    monkeypatch.setattr(library, "status", lambda with_items=False: {"items": [dict(g) for g in groups]})
+    monkeypatch.setattr(rigs, "sources", lambda: {})  # (no record of where they came from, as the sample's)
+    found = {c["id"]: rigs.rig_tag((c["rig"], c["sure"])) for q in ("Truthear GATe", "Apple EarPods")
+             for c in compare.candidates(q)}
+    card = rigs.inputs_rigs({"measurements": [{"name": os.path.basename(p)} for p in in_app], "targets": []})
+    tags = {g["id"]: g["rig"] for g in rigs.library_rigs([dict(g) for g in groups])}  # (Find…'s rig tags)
+    res = compare.compare(settings.with_auto({}), "Truthear GATe (Wide Bore Tips)", studio.target_path())
+    first = (res.get("items") or [{}])[0]
+    check("compare: your own measurements (in the app or on this PC) have the rig Make an EQ's Measurement card and "
+          "Find… give them (their database's tag in their names, with no record of the download), so Which "
+          "measurement warns that none was measured on the target's rig only when that's so",
+          found == {"app": "5128", "pc": "5128"} and set(card.values()) == {"5128"} and tags == found
+          and res.get("target_rig") == "5128" and first.get("rig") == "5128" and first.get("source") == "in the app"
+          and not res.get("note"), (found, set(card.values()), tags, res.get("target_rig"), first.get("rig"),
+                                    first.get("source"), res.get("note")))
 
 
 def test_averaged_name_is_windows_safe(sample_curves, monkeypatch, check):

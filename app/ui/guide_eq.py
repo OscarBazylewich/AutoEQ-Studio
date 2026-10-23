@@ -600,9 +600,9 @@ def eq_steps(page):
          "text": "Keep the EQs you want to hear side by side: from the result card (Keep to compare), History, an "
                  "EQ file or pasted filters. Each IEM or headphone has its own list, kept between sessions; ticked "
                  "Graph: on the graph too.",
-         "demo": [{"at": lambda: button(page.listen, "+ The selected EQ"), "say": "The EQ on the result card"},
-                  {"at": lambda: button(page.listen, "+ An EQ file…"), "say": "An EQ file (Equalizer APO, squiglink…)"},
-                  {"at": lambda: button(page.listen, "+ Paste filters…"), "say": "Or filters pasted from anywhere"}]},
+         "demo": [{"at": lambda: button(page.listen, "The selected EQ"), "say": "The EQ on the result card"},
+                  {"at": lambda: button(page.listen, "An EQ file…"), "say": "An EQ file (Equalizer APO, squiglink…)"},
+                  {"at": lambda: button(page.listen, "Paste filters…"), "say": "Or filters pasted from anywhere"}]},
         {"chapter": "3 · Run & review", "title": "Compare by ear", "target": lambda: page.listen,
          "ready": lambda: page.listen.isVisible(),
          "text": "Level-matched so you compare the sound, not the volume. A blind test hides which is which; or put a "
