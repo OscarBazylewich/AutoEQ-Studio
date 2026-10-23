@@ -3,9 +3,9 @@ room enough (2026-10-23, found by the restyle's checkers). The “Many results?�
 its row is scrolled into sight in Find… (further down the list, the pointer and the tag's words went past the list's
 end); the “Several measurements of the same model?” demo asks for Which measurement at least as tall as that window's
 smallest size and what its wrapped words need. Then (the recheck): the History demo at the window's smallest, its rows
-readable; the menus the Presets and Use on device demos draw, a submenu's arrow the real menus' chevron. On Make an EQ
-opened as the other screen tests open it (the eq_screen fixture); the demos are only looked at, as the Guide plays
-them."""
+readable; the menus the Presets and Use on device demos draw, the Guide's menus (a submenu's arrow the real menus'
+chevron), not its drop-down lists. On Make an EQ opened as the other screen tests open it (the eq_screen fixture); the
+demos are only looked at, as the Guide plays them."""
 import time
 
 import pytest
@@ -172,7 +172,7 @@ def test_menus_drawn_with_the_real_submenu_arrow(eq_screen, check, monkeypatch):
     # a typed “▸”, where the real menus show Windows 11's chevron)
     import re
     from PySide6.QtWidgets import QLabel, QPushButton
-    from ui import guide_eq, tasks
+    from ui import guide_eq, tasks, theme
     page = eq_screen.page
     # (the Presets step lights the top bar's Presets, so it's in the Guide only when Make an EQ is in the app's window:
     # here the page is on its own, so a Presets button is stood in on it, and the page serves as that window)
@@ -182,14 +182,14 @@ def test_menus_drawn_with_the_real_submenu_arrow(eq_screen, check, monkeypatch):
     for name, value in (("presets_btn", bar), ("help_btn", bar),
                         ("nav", {k: bar for k in ("eq", "devices", "profiles", "settings")})):
         monkeypatch.setattr(page, name, value, raising=False)
-    # (a preset with a long name: the menu is then drawn again, wider, so none of its rows is cut, as the real one)
+    # (a preset with a long name: the menu is as wide as its longest row, so none of its rows is cut, as the real one)
     monkeypatch.setattr(page, "preset_names", lambda: ["For the website, as listener800 and squig.link draw it"])
-    seen = []
+    seen, looks = [], []
     real_pick = guide_eq.pick
 
     def pick(api, m, i, *a, **k):  # (each menu as the demo picks from it: shown for a while, laid out)
         if tasks.alive(m):
-            arrow = m.findChild(QLabel, "eqMockArrow")
+            arrow = m.findChild(QLabel, "tourMockArrow")  # (the Guide's menu draws a submenu's: tour.Mock)
             img = qt.picture(arrow) if arrow is not None else None
             labels = [r for r in m.rows if isinstance(r, QLabel)]
             seen.append({"rows": [r.text() for r in labels],
@@ -197,14 +197,19 @@ def test_menus_drawn_with_the_real_submenu_arrow(eq_screen, check, monkeypatch):
                          "arrow in": arrow is not None and arrow.parentWidget().text(),
                          "arrow": img is not None and _chevron_right(img)})
         yield from real_pick(api, m, i, *a, **k)
+        if tasks.alive(m):  # (the row picked is pointed at now: how the menu is drawn, its corner and that row)
+            img, r = qt.picture(m), m.row(i).geometry()
+            looks.append({"kind": m.property("kind"), "corner": img.pixelColor(0, 0).name(),
+                          "edge": img.pixelColor(r.left() + 1, r.center().y()).name(),
+                          "fill": img.pixelColor(r.right() - 6, r.center().y()).name()})
     monkeypatch.setattr(guide_eq, "pick", pick)
     try:
         played = {title: _play(eq_screen, title) for title in ("Presets", "Save it, or use it on a device")}
     finally:
         qt.close(bar)
     sheet = eq_screen.qapp.styleSheet()
-    url = lambda rule: (re.search(rule + r"\s*\{[^}]*image:\s*url\(([^)]*)\)", sheet) or [None, None])[1]
-    pictures = (url(r"QLabel#eqMockArrow"), url(r"QMenu::right-arrow"))
+    url = lambda rule: (re.search(rule + r"\s*\{[^}]*(?:image|pixmap):\s*url\(([^)]*)\)", sheet) or [None, None])[1]
+    pictures = (url(r"QLabel#tourMockArrow"), url(r"QMenu::right-arrow"))
     check("guide: the menus the Presets and Use on device demos draw show a submenu's arrow as the app's menus do "
           "(Windows 11's chevron, the same picture), not a typed “▸”; none of their rows is cut (Use on device's cut "
           "“not connected”)",
@@ -213,6 +218,14 @@ def test_menus_drawn_with_the_real_submenu_arrow(eq_screen, check, monkeypatch):
           and any("listener800" in row for s in seen for row in s["rows"])
           and all(s["arrow in"] in ("Delete a preset", "Try for 5 minutes on") and s["arrow"] for s in seen)
           and pictures[0] is not None and pictures[0] == pictures[1], (played, seen, pictures))
+    # (2026-10-23, the restyle's last merge: these two demos drew their menus with the Guide's list, so they had a
+    # drop-down's round corners and the accent's bar beside the row pointed at, where the real menus have neither;
+    # test_guide.py checks that the Guide's menu looks as a real one)
+    stroke = theme.tokens()["stroke"]
+    check("guide: the menus the Presets and Use on device demos draw are the Guide's menus, as the real ones (square "
+          "corners, the row pointed at filled without the accent's bar beside it), not a drop-down's list",
+          len(looks) >= 3 and all(x["kind"] == "menu" and x["corner"] == stroke and x["edge"] == x["fill"]
+                                  for x in looks), (looks, stroke))
 
 
 def _chevron_right(img):

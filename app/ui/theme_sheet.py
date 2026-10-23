@@ -304,16 +304,13 @@ def eq_screen(t, img):
     the result's name: a little bigger than a card's heading, in Windows 11's display type), eqsub (a fold inside a
     card, the Target card's Adjust: body text, quieter than the card's title, as Windows 11's expanders), eqsubtle (a
     button with no fill until it's pointed at: the notice's ✕, as the close button of Windows 11's information bar).
-    And in its Guide (ui\\guide_eq.py), a submenu's arrow in a menu the demos draw (#eqMockArrow): the picture the
-    app's menus draw for one (Windows 11's chevron, scroll_areas_and_menus()), not a typed ▸."""
+    (The menus its Guide draws, a submenu's chevron too, are the Guide's own: guide_and_help's #tourMock.)"""
     return f"""
     QLabel[eqtitle="true"] {{ font-family: "Segoe UI Variable Display"; font-size: {FONT + 1.5}pt; font-weight: 600; }}
     QToolButton[eqsub="true"] {{ font-size: {FONT}pt; font-weight: 400; }}
     QPushButton[eqsubtle="true"] {{ background: transparent; border-color: transparent; }}
     QPushButton[eqsubtle="true"]:hover {{ background: {t['subtle_hover']}; }}
     QPushButton[eqsubtle="true"]:pressed {{ background: {t['subtle_press']}; color: {t['ink2']}; }}
-    QFrame#tourMock QLabel#eqMockArrow {{ image: url({img['chevron_right']}); padding: 0px; border: none;
-        background: transparent; }}
 """
 
 
