@@ -3,8 +3,11 @@ a database switched off and on, one added by its address (a wrong or repeated ad
 PC's folders one per line; offline, squig.link's list isn't fetched. Moved from eq_checks.py's rest_checks (lines
 2022-2076), on a page opened as the old checks opened it (the eq_screen fixture), offline. The two checks share one
 Sources window and one list of what it said, as there, so they're one test: the second's two messages come from the
-adds made before the first check."""
+adds made before the first check. Its Windows 11 look (the restyle, 2026-10-23): at its smallest, every part has its
+room; and closed straight after a tick, it never reaches for its deleted tree."""
 import json
+
+from helpers import qt
 
 
 def test_sources(eq_screen, monkeypatch, check):
@@ -63,3 +66,59 @@ def test_sources(eq_screen, monkeypatch, check):
           "removed again, the folders one per line; offline, squig.link's list isn't fetched",
           off and on and added and removed and folders == ["C:\\Music", "D:\\Curves"] and offline_note
           and len(said) == 2 and "https://" in said[0] and "already" in said[1], (off, on, added, removed, folders, said))
+
+
+def test_smallest_size_fits(eq_screen, check):
+    # (Qt's own smallest size counts each wrapped line of text once: at it, the databases' tree was pushed over the
+    # heading under it)
+    import net
+    from PySide6.QtWidgets import QWidget
+    from ui.sources_window import Sources
+    was_off = net.offline()
+    net.set_offline(True)  # (its longest note, squig.link's list needing the internet, on two lines)
+    src = Sources(eq_screen.page)
+    try:
+        src._refresh_soon.stop()
+        src.show()
+        src.resize(1, 1)  # (to its smallest)
+        qt.pump(300)
+        size = (src.width(), src.height())
+        parts = [w for w in src.findChildren(QWidget) if w.parentWidget() is src and w.isVisible()]
+        name = lambda w: f"{type(w).__name__} “{(w.text() if hasattr(w, 'text') else w.accessibleName())[:20]}”"
+        over = [(name(a), name(b)) for i, a in enumerate(parts) for b in parts[i + 1:]
+                if a.geometry().intersects(b.geometry())]
+        tree = (src.tree.height(), src.tree.minimumHeight())
+    finally:
+        src._refresh_soon.stop()
+        qt.close(src)
+        net.set_offline(was_off)
+    check("restyle: Sources at its smallest gives every part its room (the databases' tree never over the heading "
+          "under it)", parts and not over and tree[0] >= tree[1], (size, tree, over[:3]))
+
+
+def test_closed_straight_after_a_tick(eq_screen, check):
+    # (after a tick its tree is drawn again a moment later, not inside the item's own signal; a window closed and
+    # deleted in that moment had it reach for its deleted tree: found 2026-10-23, as Find…'s scroll place was)
+    from PySide6.QtCore import Qt
+    from ui.sources_window import Sources
+    page = eq_screen.page
+    S = page.S
+    kept = json.loads(json.dumps(S["databases"]))
+    src = Sources(page)
+    try:
+        src._refresh_soon.stop()
+        site = next(src.tree.topLevelItem(i).child(0) for i in range(src.tree.topLevelItemCount())
+                    if src.tree.topLevelItem(i).childCount())
+        name = site.text(0)
+        site.setCheckState(0, Qt.Unchecked if site.checkState(0) == Qt.Checked else Qt.Checked)  # (as a click)
+        src._refresh_soon.stop()
+        before = len(qt.QT_ERRORS)
+        qt.close(src)
+        qt.pump(100)  # (the moment after, while this test is still the one running)
+        new = [text for _test, text in qt.QT_ERRORS[before:]]
+    finally:
+        S["databases"].clear()
+        S["databases"].update(kept)
+        page.svc.call("/api/settings", {"settings": S})
+    check("sources: closed straight after a database was switched off or on, it never reaches for its deleted tree",
+          not new, (name, new))

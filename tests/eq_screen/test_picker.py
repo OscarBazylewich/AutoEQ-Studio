@@ -1,7 +1,8 @@
 """Find… (ui\\picker.py): one search over the app's files, this PC and the online lists (offline: the saved ones),
 its long list drawn in batches and keeping its place, asking only for the lists' counts while they haven't changed,
 the rig filter, Show (a curve on the graph without using it), an online entry offline, Use (a file from this PC into
-the app, with Undo); Enter in Find…'s and History's search boxes pressing no button; and every list A to Z.
+the app, with Undo); Enter in Find…'s and History's search boxes pressing no button; and every list A to Z. Its
+Windows 11 look (the restyle, 2026-10-23): rows whole at the new text size, the accent on one Use only.
 
 Moved from eq_checks.py's ui_checks (lines 1380-1472), review_checks (1743-1763), review_low_checks (1862-1881) and
 order_checks (2324-2380), on one page (the eq_screen fixture), offline throughout.
@@ -338,3 +339,75 @@ def test_use_offers_undo(eq_screen, dialogs, check):
           and not any(n in names_now for n in res.get("created") or []),
           (offered, res.get("created"), sorted(set(page.S["files"]["excluded"]) ^ set(before)),
            [n for n in res.get("created") or [] if n in names_now], dialogs.asked[-2:]))
+
+
+# ---------------------------------------------------------------- the Windows 11 look (the restyle, 2026-10-23)
+def _shown_picker(page, query):
+    """Find… for a measurement, shown, its lists and This PC's search waited for, `query` searched, every row made
+    and laid out."""
+    from ui.picker import Picker
+    pk = Picker(page, "measurement")
+    pk.show()
+    qt.wait_for(lambda: not pk.db.get("loading") and not pk.lib.get("scanning"), 120)
+    pk.q.setText(query)
+    pk._later.stop()
+    pk.render()
+    pk.finish_list()
+    qt.pump(300)  # (laid out: each row's widgets in their place)
+    return pk
+
+
+def _close(pk):
+    """Find… closed and deleted, then Qt let work a moment: anything the window left to do (a timer of its own) runs
+    while this test is still the one running, so an error in it fails this test (it was found in the next file's)."""
+    qt.close(pk)
+    qt.pump(100)
+
+
+def test_rows_keep_their_height(eq_screen, check):
+    # (at 10.5 pt a row's height was taken before the theme's text size reached it, and Qt put the row's widgets
+    # inside the lists' 7 px padding: names lost their lower parts, buttons were cut)
+    from PySide6.QtWidgets import QLabel, QPushButton
+    pk = _shown_picker(eq_screen.page, "gate")
+    try:
+        rows, cut = 0, []
+        for i in range(pk.list.count()):
+            w = pk.list.itemWidget(pk.list.item(i))
+            if w is None:
+                continue
+            rows += 1
+            short = [f"{type(x).__name__} “{x.text()[:24] if hasattr(x, 'text') else 'the row'}” {x.height()} < "
+                     f"{x.sizeHint().height()}" for x in [w] + w.findChildren(QLabel) + w.findChildren(QPushButton)
+                     if x.isVisible() and x.height() < x.sizeHint().height()]
+            if short:
+                cut.append((i, short[:2]))
+    finally:
+        _close(pk)
+    check("restyle: Find…'s rows keep their whole height at Windows 11's text size (no name or button cut)",
+          rows >= 3 and not cut, (rows, cut[:4]))
+
+
+def test_one_use_has_the_accent(eq_screen, check):
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QPushButton
+    pk = _shown_picker(eq_screen.page, "")
+    try:
+        rows = [i for i in range(pk.list.count()) if pk.list.item(i).data(Qt.UserRole)]
+
+        def accented():
+            """The rows whose Use (found by its words, as the Guide finds it) has the accent."""
+            return [i for i in rows for b in pk.list.itemWidget(pk.list.item(i)).findChildren(QPushButton)
+                    if b.text() == "Use" and b.property("primary") in (True, "true")]
+        first = accented()
+        pk.list.setCurrentRow(rows[2])
+        chosen = accented()
+        pk.render()  # (drawn again with the same search: the place and the chosen row kept, its Use too)
+        pk.finish_list()
+        rows = [i for i in range(pk.list.count()) if pk.list.item(i).data(Qt.UserRole)]
+        again = accented()
+    finally:
+        _close(pk)  # (at once after drawing it again: what that left to do must not reach for the deleted list)
+    check("restyle: in Find… only the Use that Enter presses has the accent (the first row's, the chosen row's once "
+          "one is chosen, still after the list is drawn again); the others are plain buttons",
+          len(rows) >= 3 and first == [rows[0]] and chosen == [rows[2]] and again == [rows[2]],
+          (len(rows), rows[:3], first, chosen, again))

@@ -12,16 +12,20 @@ Each row: Show (its curve on the graph, without using it; again to take it off) 
 
 Offline (net.py): the lists the app has are searched as usual; a curve downloaded before is used from this PC, any
 other online one says it needs the internet. A list-only database's entry opens on its site (online only).
+
+The look (Windows 11's, ui\\theme_sheet.py's find_windows part matches the names given here): a row's name in
+semibold (findRowName), the download mark as Windows 11's symbol (findMark); only one Use has the accent, the one
+Enter presses (the chosen row's, or the first row's when none is chosen); the chosen and pointed-at rows as every list.
 """
 import os
 
-from PySide6.QtCore import Qt, QTimer, QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtCore import QSize, Qt, QTimer, QUrl
+from PySide6.QtGui import QDesktopServices, QFont
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QHBoxLayout, QLabel, QLineEdit,
                                QListWidget, QListWidgetItem, QMessageBox, QPushButton, QSizePolicy, QVBoxLayout, QWidget)
 
 import net
-from ui import help_window, tasks, theme
+from ui import help_window, icons, tasks, theme
 from ui.search_combo import SearchCombo, natural_key
 
 LIMIT_ALL, LIMIT_ONE = {"pc": 40, "db": 120}, 400
@@ -49,6 +53,7 @@ class Picker(QDialog):
         self.svc, self.meta = page.svc, page.meta
         self.setWindowTitle("Find a target" if kind == "target" else "Find a measurement")
         self.resize(900, 720)
+        self.setMinimumHeight(420)  # (four rows or so of the list in sight, however small the window)
         saved = page.sw.s.get("picker") or {}
         self.filters = {k: dict(ANY, **(saved.get(k) or {})) for k in ("target", "measurement")}
         self.src, self.expanded, self.busy, self._fetching = "", set(), None, False
@@ -83,7 +88,7 @@ class Picker(QDialog):
         self.f_rig, self.f_form, self.f_site = SearchCombo(), SearchCombo(), SearchCombo()
         for box, key in ((self.f_rig, "rig"), (self.f_form, "form"), (self.f_site, "site")):
             box.setAccessibleName({"rig": "Rig", "form": "Type", "site": "Source"}[key])
-            box.setMinimumContentsLength(14)
+            box.setMinimumContentsLength(10)  # (at 10.5 pt, 14 kept the window wider than the Guide's room for it)
             box.activated.connect(lambda _i, box=box, key=key: self.set_filter(key, box.currentData()))
             fl.addWidget(box, 1)
         self.f_sure = QCheckBox("Stated rig")
@@ -101,19 +106,23 @@ class Picker(QDialog):
             fl.addWidget(w)
         v.addLayout(fl)
         self.list = QListWidget()
+        self.list.setObjectName("findList")  # (its rows' widgets get the whole row: theme_sheet's find_windows)
         self.list.setAccessibleName("Found")
         self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.list.itemDoubleClicked.connect(lambda it: it.data(Qt.UserRole) and self.choose(it.data(Qt.UserRole)))
+        self.list.currentItemChanged.connect(lambda *_: self._mark_use())
         v.addWidget(self.list, 1)
         bottom = QHBoxLayout()
         self.status = QLabel()
+        self.status.setWordWrap(True)  # (on one line its words kept the window over 1,000 px wide at 10.5 pt)
         theme.mark(self.status, role="muted")
         bottom.addWidget(self.status, 1)
         sources = QPushButton("Sources…")
         sources.setToolTip("Which folders on this PC and which online databases Find… searches; add a database")
         sources.clicked.connect(self.open_sources)
         bottom.addWidget(sources)
-        trace = QPushButton("✎ Trace a graph image…")
+        trace = QPushButton("Trace a graph image…")
+        icons.put(trace, "trace")
         trace.setToolTip("Only a picture of the graph? Trace it into a curve (as picker.js's link)")
         trace.clicked.connect(lambda: (self.reject(), self.page.open_trace()))
         bottom.addWidget(trace)
@@ -409,7 +418,7 @@ class Picker(QDialog):
             if not rows and not self.src:
                 continue
             if not self.src:
-                heading = f"{title.upper()}  ·  {len(rows):,}"
+                heading = f"{title}  ·  {len(rows):,}"
                 later.append(lambda t=heading: self._note(t, heading=True))
             for r in rows[:lim]:
                 later.append(lambda r=r: self._row(r))
@@ -434,7 +443,10 @@ class Picker(QDialog):
             if 0 <= place[2] < lst.count():
                 lst.setCurrentRow(place[2])
             lst.verticalScrollBar().setValue(place[1])
-            QTimer.singleShot(0, lambda v=place[1]: lst.verticalScrollBar().setValue(v))  # (once laid out)
+            # (once laid out; the list its owner, so a window closed and deleted meanwhile drops it: without one it
+            # reached for the deleted list, 2026-10-23)
+            QTimer.singleShot(0, lst, lambda v=place[1]: lst.verticalScrollBar().setValue(v))
+        self._mark_use()
         lst.setUpdatesEnabled(True)
         self._fails = {}  # (by id: only while these rows are alive)
         n_app = len(self.page.inputs["targets"]) if self.kind == "target" else len(self.devices())
@@ -464,12 +476,31 @@ class Picker(QDialog):
     def _note(self, text, heading=False):
         it = QListWidgetItem(text)
         it.setFlags(Qt.NoItemFlags)
-        if heading:
-            f = it.font()
-            f.setBold(True)
-            f.setPointSizeF(f.pointSizeF() * 0.9)
+        if heading:  # (as Windows 11's group headings: the list's own text, semibold; only the weight is set here)
+            f = QFont()
+            f.setWeight(QFont.Weight.DemiBold)
             it.setFont(f)
+        it.setSizeHint(QSize(0, 36 if heading else 32))  # (the list's rows have no padding of their own: findList)
         self.list.addItem(it)
+
+    def _mark_use(self):
+        """The accent on one Use only, the one Enter presses: the chosen row's, or the first row's when none is chosen
+        (as Windows 11 keeps the accent for the one main action; the other rows' Use are plain buttons)."""
+        if not tasks.alive(self.list):  # (the window going away)
+            return
+        lst, it = self.list, self.list.currentItem()
+        if it is None or not it.data(Qt.UserRole):
+            it = next((lst.item(i) for i in range(lst.count()) if lst.item(i).data(Qt.UserRole)), None)
+        w = lst.itemWidget(it) if it is not None else None
+        use = w.findChild(QPushButton, "findUse") if w is not None else None
+        was = getattr(self, "_use_on", None)
+        if was is use:
+            return
+        if was is not None and tasks.alive(was):  # (a row drawn again since is gone with its button)
+            theme.mark(was, primary=False)
+        if use is not None:
+            theme.mark(use, primary=True)
+        self._use_on = use
 
     def _rig_tag(self, r):
         rigs = self.meta.get("rigs") or {}
@@ -499,11 +530,14 @@ class Picker(QDialog):
         it.setData(Qt.UserRole, r)
         w = QWidget()
         h = QHBoxLayout(w)
-        h.setContentsMargins(6, 3, 6, 3)
+        h.setContentsMargins(8, 3, 8, 3)  # (8: clear of the accent's bar beside a chosen row, level with the headings)
         prev = self.page.preview_on(r["key"])
         eye = QPushButton("Hide" if prev else "Show")
         eye.setToolTip("Take it off the graph" if prev else "Show it on the graph (without using it)")
         eye.clicked.connect(lambda _=False, r=r: self.preview(r))
+        keep = eye.sizePolicy()  # (hidden, its room kept: every row's name starts at the same place)
+        keep.setRetainSizeWhenHidden(True)
+        eye.setSizePolicy(keep)
         h.addWidget(eye)
         # (only once it's in the row: shown before, a button with no parent is a window of its own, and every row
         # flashed one on the screen while the lists loaded: the user saw them, and each cost the window's time)
@@ -511,7 +545,7 @@ class Picker(QDialog):
         text = QVBoxLayout()
         text.setSpacing(0)
         name = QLabel(("✓ " if r.get("current") else "") + r["name"])
-        name.setStyleSheet("font-weight: 600;")
+        name.setObjectName("findRowName")  # (semibold: theme_sheet's find_windows)
         name.setToolTip(r["name"])
         name.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)  # (a long name is cut, never the buttons)
         text.addWidget(name)
@@ -525,7 +559,7 @@ class Picker(QDialog):
         tag = QLabel(label)
         theme.mark(tag, role="chip")
         tag.setToolTip(tip)
-        h.addWidget(tag)
+        h.addWidget(tag, 0, Qt.AlignVCenter)  # (a tag's own height, not the buttons')
         if r.get("other"):
             other = QLabel("measurement?" if self.kind == "target" else "target?")
             theme.mark(other, role="muted")
@@ -556,24 +590,33 @@ class Picker(QDialog):
             ext.setToolTip("This site doesn't let other programs download its files: Use opens it on the site")
             h.addWidget(ext)
         elif r["src"] == "db":
-            dl = QLabel("⬇")
+            dl = QLabel(chr(int(icons.GLYPHS["download"], 16)))  # (Windows 11's symbol, from its icon font: findMark)
+            dl.setObjectName("findMark")
             dl.setToolTip("Downloads when used")
             h.addWidget(dl)
         use = QPushButton("Use")
-        theme.mark(use, primary=True)
+        use.setObjectName("findUse")  # (the accent only on the one Enter presses: _mark_use)
         use.setEnabled(self.busy is None)
         use.clicked.connect(lambda _=False, r=r: self.choose(r))
         h.addWidget(use)
-        it.setSizeHint(w.sizeHint())
+        self._place(it, w)
+
+    def _place(self, it, w):
+        """A row's widgets into the list, its height from them in the theme's text (worked out before the theme's
+        10.5 pt reached them, it was too low). Qt puts them inside a row's padding, so Find…'s list has none
+        (findList in theme_sheet's find_windows): the lists' 7 px took 14 px off each row, cutting its names'
+        lower parts and its buttons."""
         self.list.addItem(it)
         self.list.setItemWidget(it, w)
+        w.ensurePolished()
+        it.setSizeHint(w.sizeHint())
 
     def _file_row(self, r, fl):
         it = QListWidgetItem()
         it.setFlags(Qt.NoItemFlags)
         w = QWidget()
         h = QHBoxLayout(w)
-        h.setContentsMargins(46, 0, 6, 0)
+        h.setContentsMargins(46, 2, 6, 2)
         cb = QCheckBox(fl["name"])
         cb.setChecked(fl["included"])
         cb.setToolTip("Include in the average")
@@ -587,9 +630,7 @@ class Picker(QDialog):
         x.setToolTip("Delete from the app")
         x.clicked.connect(lambda _=False, n=fl["name"]: self.remove("measurement", [n], n))
         h.addWidget(x)
-        it.setSizeHint(w.sizeHint())
-        self.list.addItem(it)
-        self.list.setItemWidget(it, w)
+        self._place(it, w)
 
     # ---------------------------------------------------------------- actions
     def body(self, r):

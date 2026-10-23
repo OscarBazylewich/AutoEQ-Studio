@@ -6,6 +6,7 @@
 - Add a database: from squig.link's list (searched), or any squig.link-style page by its address
 - Refresh the lists now (online only); Open the downloads folder
 Changes are saved at once and the lists load again a moment later (offline: the saved ones).
+The look: Windows 11's; the databases' tree is styled as the lists by theme_sheet's find_windows (sourcesTree).
 """
 from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices
@@ -14,7 +15,7 @@ from PySide6.QtWidgets import (QDialog, QHBoxLayout, QHeaderView, QLabel, QLineE
                                QTreeWidgetItem, QVBoxLayout)
 
 import net
-from ui import help_window, tasks, theme
+from ui import help_window, icons, tasks, theme
 from ui.search_combo import SearchCombo
 
 url_key = lambda u: u.strip().rstrip("/").lower()
@@ -39,6 +40,9 @@ class Sources(QDialog):
         self.page, self.svc = page, page.svc
         self.setWindowTitle("Sources: where Find… looks")
         self.resize(760, 820)
+        # (Qt's own minimum counts each wrapped line of text once, and then pushed the databases' tree over the
+        # heading under it: room here for the notes on two lines)
+        self.setMinimumSize(560, 680)
         S = page.S
         S["databases"].setdefault("enabled", [])
         S["databases"].setdefault("extra", [])
@@ -55,6 +59,7 @@ class Sources(QDialog):
         v.addWidget(self.folders)
         row = QHBoxLayout()
         rescan = QPushButton("Search again now")
+        icons.put(rescan, "find")
         rescan.clicked.connect(self.rescan)
         row.addWidget(rescan)
         self.lib_status = _muted()
@@ -78,6 +83,8 @@ class Sources(QDialog):
         bar.addWidget(self.db_status)
         v.addLayout(bar)
         self.tree = QTreeWidget()
+        self.tree.setObjectName("sourcesTree")  # (as the lists: theme_sheet's find_windows)
+        self.tree.setMinimumHeight(110)  # (the window's main list: a few rows, however small the window)
         self.tree.setHeaderLabels(["Database", "Curves", ""])
         self.tree.setAccessibleName("Online databases")
         hd = self.tree.header()  # (the name takes the room; the counts and links their own width)
@@ -98,7 +105,8 @@ class Sources(QDialog):
         v.addWidget(self.dir_q)
         self.dir_list = QListWidget()
         self.dir_list.setAccessibleName("squig.link's databases")
-        self.dir_list.setFixedHeight(130)
+        self.dir_list.setMinimumHeight(72)  # (130 high, less in a small window: the databases' tree comes first)
+        self.dir_list.setMaximumHeight(130)
         self.dir_list.itemDoubleClicked.connect(lambda it: it.data(Qt.UserRole) and self.add(it.data(Qt.UserRole)))
         v.addWidget(self.dir_list)
         row = QHBoxLayout()
@@ -106,15 +114,18 @@ class Sources(QDialog):
         self.url.setPlaceholderText("https://example.squig.link/")
         row.addWidget(self.url, 1)
         add = QPushButton("Add")
+        icons.put(add, "add")
         add.clicked.connect(lambda: self.add(self.url.text()) and self.url.clear())  # (refused: kept to correct)
         row.addWidget(add)
         v.addLayout(row)
         row = QHBoxLayout()
         refresh = QPushButton("Refresh the lists now")
+        icons.put(refresh, "refresh")
         refresh.setToolTip("Download every list again (online only)")
         refresh.clicked.connect(lambda: self.refresh(force=True))
         row.addWidget(refresh)
         folder = QPushButton("Open the downloads folder")
+        icons.put(folder, "folder")
         folder.clicked.connect(lambda: self.svc.call("/api/open", {"what": "downloads"}))
         row.addWidget(folder)
         row.addStretch(1)
@@ -245,14 +256,16 @@ class Sources(QDialog):
             rows = [it.child(i).data(0, Qt.UserRole)[1] for i in range(it.childCount())]
             if not on and any(r["extra"] for r in rows) and QMessageBox.question(
                     self, "Databases", "Switching these off removes the ones you added from the list. Continue?") != QMessageBox.Yes:
-                QTimer.singleShot(0, self.render)  # (not inside the item's own signal: render deletes it)
+                # (not inside the item's own signal: render deletes it; the window its owner, so a window closed
+                # and deleted meanwhile drops it instead of reaching for its deleted tree)
+                QTimer.singleShot(0, self, self.render)
                 return
             for r in rows:
                 self.set_on(r, on)
         else:
             self.set_on(d, it.checkState(0) == Qt.Checked)
         self.changed()
-        QTimer.singleShot(0, self.render)
+        QTimer.singleShot(0, self, self.render)
 
     def item_clicked(self, it, col):
         kind, d = it.data(0, Qt.UserRole)
@@ -261,7 +274,7 @@ class Sources(QDialog):
         if d["extra"]:
             self.set_on(d, False)
             self.changed()
-            QTimer.singleShot(0, self.render)
+            QTimer.singleShot(0, self, self.render)
         elif net.offline():
             self.page.status("Offline: switch to Online (top right) to open websites.", 6000)
         else:

@@ -9,17 +9,23 @@ agree, the seal, averaging and the data), with the reasons for each.
   except one far from the others (a fit problem?) and the same data published twice
 Offline (net.py): what's on this PC and in the app is compared; online measurements downloaded before too; the others
 are listed under "Couldn't load".
+
+The look (Windows 11's; theme_sheet's find_windows part matches the names given here): the chart on a card in the
+graph's own colours (blue the recommended one, green the average: never the accent, which is Windows' and may be any
+colour), drawn again when the theme changes; a note to heed as a warning box; each measurement a card, filled while
+the mouse is over it.
 """
 import re
+import weakref
 
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import (QCheckBox, QDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
+from PySide6.QtWidgets import (QCheckBox, QDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
                                QProgressBar, QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
 import net
-from ui import help_window, tasks, theme
+from ui import help_window, icons, tasks, theme
 from ui.forms import Fold
 from ui.search_combo import SearchCombo
 
@@ -49,6 +55,9 @@ class CompareWindow(QDialog):
         self.data, self.hot, self.avg_hot, self.picked, self.busy, self.again = None, -1, None, {}, False, None
         self.setWindowTitle("Which measurement to use?")
         self.resize(940, 860)
+        # (Qt's own minimum counts each wrapped line of text once, and then squeezed the chart's card, cutting off its
+        # scale: room here for the note and the legend on two lines each)
+        self.setMinimumSize(700, 660)
         v = QVBoxLayout(self)
         top = QHBoxLayout()
         top.addWidget(QLabel("Model"))
@@ -56,35 +65,56 @@ class CompareWindow(QDialog):
         self.q.setPlaceholderText("e.g. Truthear Gate")
         self.q.returnPressed.connect(lambda: self.run())
         top.addWidget(self.q, 1)
+        self.go = QPushButton("Compare")
+        theme.mark(self.go, primary=True)
+        icons.put(self.go, "find")
+        self.go.clicked.connect(lambda: self.run())
+        top.addWidget(self.go)
+        v.addLayout(top)
+        # (the target's rig on a line of its own, its words at the left and its choice at the right as Windows 11's
+        # settings: beside the model, a long target name left the model's box a few letters wide at 10.5 pt)
+        rig_row = QHBoxLayout()
         self.target_lab = QLabel()
+        self.target_lab.setWordWrap(True)
         theme.mark(self.target_lab, role="muted")
-        top.addWidget(self.target_lab)
+        rig_row.addWidget(self.target_lab, 1)
         self.rig = SearchCombo()
         help_window.tag(self.q, "#cmp-q")
         help_window.tag(self.rig, "#cmp-rig")
         self.rig.activated.connect(lambda _i: (self.data or self.busy) and self.run())
-        top.addWidget(self.rig)
-        self.go = QPushButton("Compare")
-        theme.mark(self.go, primary=True)
-        self.go.clicked.connect(lambda: self.run())
-        top.addWidget(self.go)
-        v.addLayout(top)
+        rig_row.addWidget(self.rig)
+        v.addLayout(rig_row)
         self.status = QLabel()
         self.status.setWordWrap(True)
         theme.mark(self.status, role="muted")
         v.addWidget(self.status)
+        self.note_box = QFrame()  # (a note to heed: a warning box, as Windows 11's)
+        theme.mark(self.note_box, card="warn")
+        nb = QHBoxLayout(self.note_box)
+        nb.setContentsMargins(4, 0, 4, 0)
+        mark = QLabel(chr(int(icons.GLYPHS["warning"], 16)))  # (Windows 11's symbol: whichNoteMark)
+        mark.setObjectName("whichNoteMark")
+        nb.addWidget(mark, 0, Qt.AlignTop)
         self.note = QLabel()
         self.note.setWordWrap(True)
-        self.note.hide()
-        v.addWidget(self.note)
+        nb.addWidget(self.note, 1)
+        self.note_box.hide()
+        v.addWidget(self.note_box)
         self.chart = pg.PlotWidget()
-        self.chart.setFixedHeight(230)
+        self.chart.setMinimumHeight(150)  # (230 high, less in a small window: the measurements below stay in sight)
+        self.chart.setMaximumHeight(230)
         self.chart.setLogMode(x=True, y=False)
         self.chart.setMenuEnabled(False)
         self.chart.setMouseEnabled(x=False, y=False)
         self.chart.hideButtons()
         self.chart.getAxis("bottom").setTicks([[(np.log10(t), f"{t / 1000:g}k" if t >= 1000 else str(t)) for t in TICKS]])
-        v.addWidget(self.chart)
+        chart_card = QFrame()  # (on a card, as Make an EQ's graph; its room inside from the layout, not the sheet)
+        chart_card.setObjectName("whichChart")
+        theme.mark(chart_card, card=True)
+        cc = QVBoxLayout(chart_card)
+        cc.setContentsMargins(6, 6, 6, 4)
+        cc.addWidget(self.chart)
+        v.addWidget(chart_card, 1)
         legend = QLabel("Blue: recommended or under the mouse. Grey: your target's rig. Dotted: other rigs. "
                         "Green dashes: an average, while the mouse is over its box.")
         legend.setWordWrap(True)
@@ -93,7 +123,8 @@ class CompareWindow(QDialog):
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        v.addWidget(self.scroll, 1)
+        self.scroll.setMinimumHeight(120)  # (a measurement's card in sight however small the window)
+        v.addWidget(self.scroll, 4)
         how = Fold("How the ranking works")
         text = QLabel("<b>Rig (40 points).</b> How well its rig matches your target's.<br>"
                       "<b>Agreement (25).</b> How close it is to the others on the same rig.<br>"
@@ -109,6 +140,7 @@ class CompareWindow(QDialog):
         row.addStretch(1)
         row.addWidget(close)
         v.addLayout(row)
+        _redraw_on_theme(self)
         self.open_query()
 
     # ---------------------------------------------------------------- asking compare.py
@@ -199,7 +231,7 @@ class CompareWindow(QDialog):
                "Your target's rig isn't known, so the rig isn't scored (choose it above if you know it).")
         self.status.setText(st)
         self.note.setText(d.get("note") or "")
-        self.note.setVisible(bool(d.get("note")))
+        self.note_box.setVisible(bool(d.get("note")))
         body = QWidget()
         lay = QVBoxLayout(body)
         lay.setSpacing(8)
@@ -227,19 +259,26 @@ class CompareWindow(QDialog):
         self.draw()
 
     def _row(self, i, c):
-        t = theme.tokens()
         row = _Row(lambda: self._hover(i), lambda: self._hover(-1))
+        row.setObjectName("whichRow")  # (filled while the mouse is over it: theme_sheet's find_windows)
         theme.mark(row, card=True)
         h = QHBoxLayout(row)
         rank = QLabel(str(i + 1))
-        rank.setStyleSheet("font-size: 15pt; font-weight: 700;")
+        rank.setObjectName("whichRank")
         rank.setFixedWidth(30)
         h.addWidget(rank, 0, Qt.AlignTop)
         main = QVBoxLayout()
-        name = QLabel(f"<b>{_esc(c['name'])}</b>" + ("  <span style='color:%s'>· best for your target</span>" % t["good"]
-                                                       if i == 0 else ""))
-        name.setTextFormat(Qt.RichText)
-        main.addWidget(name)
+        head = QHBoxLayout()  # (the name, and for the first "· best for your target" in the good colour after it)
+        name = QLabel(c["name"])
+        name.setObjectName("whichName")  # (semibold)
+        name.setTextFormat(Qt.PlainText)
+        head.addWidget(name)
+        if i == 0:
+            best = QLabel("· best for your target")
+            theme.mark(best, role="good")
+            head.addWidget(best)
+        head.addStretch(1)
+        main.addLayout(head)
         bits = [c["source"], (c["rig_name"] + ("" if c.get("sure") else " (usual for this source)")) if c.get("rig")
                 else "rig not known", f"{c['n_files']} file{'s' if c['n_files'] > 1 else ''}"
                 + (f" ({'+'.join(c['channels'])})" if c.get("channels") else "")]
@@ -251,13 +290,22 @@ class CompareWindow(QDialog):
         src.setWordWrap(True)
         theme.mark(src, role="good" if self.data.get("target_rig") and c.get("rig") == self.data["target_rig"] else "muted")
         main.addWidget(src)
-        reasons = "".join(f"<li style='color:{t['good'] if s == '+' else t['err'] if s == '−' else t['ink']}'>{_esc(x)}</li>"
-                          for s, x in c.get("reasons") or [])
-        if reasons:
-            rl = QLabel(f"<ul style='margin-left:-22px'>{reasons}</ul>")
-            rl.setTextFormat(Qt.RichText)
-            rl.setWordWrap(True)
-            main.addWidget(rl)
+        if c.get("reasons"):  # (each a line with its bullet, + good and − not in their colours: find_windows)
+            reasons = QGridLayout()
+            reasons.setContentsMargins(4, 4, 0, 0)
+            reasons.setHorizontalSpacing(8)
+            reasons.setVerticalSpacing(2)
+            reasons.setColumnStretch(1, 1)
+            for k, (s, x) in enumerate(c["reasons"]):
+                kind = {"+": "plus", "−": "minus"}.get(s, "")
+                for col, text in ((0, "•"), (1, x)):
+                    lab = QLabel(text)
+                    lab.setTextFormat(Qt.PlainText)
+                    lab.setWordWrap(col == 1)
+                    if kind:
+                        lab.setProperty("reason", kind)
+                    reasons.addWidget(lab, k, col, Qt.AlignTop)
+            main.addLayout(reasons)
         h.addLayout(main, 1)
         side = QVBoxLayout()
         bar = QProgressBar()
@@ -300,11 +348,13 @@ class CompareWindow(QDialog):
                 self.picked[rig] = {c["hash"] for c in lst if (c.get("dev") is None or c["dev"] < 2) and c["hash"] not in copy_of}
             sel = self.picked[rig]
             box = _Row(lambda r=rig: self._avg_hover(r), lambda: self._avg_hover(None))
+            box.setObjectName("whichAverage")  # (filled while the mouse is over it: theme_sheet's find_windows)
             theme.mark(box, card=True)
             bv = QVBoxLayout(box)
             head = QHBoxLayout()
-            title = QLabel(f"<b>Average the {len(lst)} measurements on the {_esc(lst[0]['rig_name'])}</b>")
-            title.setTextFormat(Qt.RichText)
+            title = QLabel(f"Average the {len(lst)} measurements on the {lst[0]['rig_name']}")
+            title.setObjectName("whichName")  # (semibold)
+            title.setTextFormat(Qt.PlainText)
             title.setWordWrap(True)
             words = QVBoxLayout()
             words.addWidget(title)
@@ -353,6 +403,9 @@ class CompareWindow(QDialog):
         self.draw()
 
     def draw(self):
+        """The chart in the graph's own colours (theme.graph_colours(): never the accent, Windows' own colour): the
+        recommended one, or the one under the mouse, blue on top; the others grey (your target's rig) or dotted (other
+        rigs); an average's box under the mouse: that average in green dashes. Drawn again when the theme changes."""
         ch = self.chart
         ch.clear()
         col, t = theme.graph_colours(), theme.tokens()
@@ -370,8 +423,8 @@ class CompareWindow(QDialog):
         for i in order:
             c = d["items"][i]
             same = not d.get("target_rig") or c.get("rig") == d["target_rig"]
-            colour = _colour(t["c1"] if i == top else t["ink2"] if same else t["muted"],
-                                 255 if i == top else 130 if same else 90)
+            colour = _colour(col["with_eq"] if i == top else col["target"] if same else col["axis"],
+                             255 if i == top else 130 if same else 90)
             ch.plot(f, np.asarray(c["vals"], dtype=float),
                     pen=pg.mkPen(colour, width=2.5 if i == top else 1.2,
                                  style=Qt.SolidLine if same or i == top else Qt.DotLine))
@@ -379,7 +432,7 @@ class CompareWindow(QDialog):
             lst = [c for c in d["items"] if c.get("rig") == self.avg_hot and c["hash"] in self.picked.get(self.avg_hot, set())]
             if len(lst) >= 2:
                 avg = np.mean([np.asarray(c["vals"], dtype=float) for c in lst], axis=0)
-                ch.plot(f, avg, pen=pg.mkPen(t["c2"], width=3, style=Qt.DashLine))
+                ch.plot(f, avg, pen=pg.mkPen(t["c4"], width=3, style=Qt.DashLine))  # (the graph's green)
         inside = (f >= 30) & (f <= 12000)
         vals = np.sort(np.concatenate([np.asarray(c["vals"], dtype=float)[inside] for c in d["items"]]))
         lo = np.floor((vals[int(len(vals) * 0.01)] - 3) / 5) * 5
@@ -426,6 +479,20 @@ class CompareWindow(QDialog):
             if here:
                 self.accept()
         tasks.background(lambda: self.svc.call("/api/compare/average", body), done)
+
+
+def _redraw_on_theme(window):
+    """The window's chart drawn again when Windows' theme or accent changes (its colours are drawn, not styled), for
+    as long as the window is there: held weakly, so a window closed and deleted never stays for it (theme.apply lets
+    go of a listener that raises RuntimeError)."""
+    ref = weakref.ref(window)
+
+    def again():
+        w = ref()
+        if w is None or not tasks.alive(w):
+            raise RuntimeError("Which measurement is closed")
+        w.draw()
+    theme.on_change(again)
 
 
 def _colour(hex_, alpha):
