@@ -2,7 +2,8 @@
 every step to Done; every step's demo played to its end with nothing of yours changed (and with Windows' animation
 effects off, numbered markers instead); the card's Pause / Resume, the wheel and the step list; the tracer's Guide on
 the sample graph; a resized window keeping the Guide's graph picture inside it; Tab staying in the Guide; the ring cut
-to what its scroll area shows.
+to what its scroll area shows; and (2026-10-23) its Windows 11 look: its marks in the accent, light and dark, the
+card's symbols drawn again when the theme changes, a demo's messages and keys fitting and gone when it stops.
 
 Moved from eq_checks.py's guide_checks (lines 2625-2760), review_checks (1764-1780) and review_low_checks (1946-1948),
 on a page opened as the old checks opened it (the eq_screen fixture) with the result they had on the card by then (a
@@ -174,9 +175,10 @@ def test_demos(s, check):
     check("guide: with Windows' animation effects off, a step's demo is numbered markers on its controls and a list "
           "in the card (nothing moves)", marked == (5, True, False), marked)
     # was eq_checks.py:2731
+    # (2026-10-23, the Windows 11 look: "Resume" with Windows 11's play symbol beside it, where it was "▶ Resume")
     check("guide: the card's Pause / Resume; the wheel scrolls the page and pauses the demo, Resume scrolls back; the "
           "step list (3 of 28 ▾) goes straight to a step",
-          paused == (True, "▶ Resume") and scrolled == (True, True, True) and resumed == (True, False) and listed
+          paused == (True, "Resume") and scrolled == (True, True, True) and resumed == (True, False) and listed
           and jumped == (1, False), (paused, scrolled, resumed, listed, jumped))
 
 
@@ -286,3 +288,117 @@ def test_ring_cut_to_the_scroll_area(s, check):
     r = tour._rect(page.window(), [page.listen])
     # was eq_checks.py:1948
     check("review: the Guide's ring is cut to what its scroll area shows", r.height() <= page.window().height(), r.getRect())
+
+
+def _on_step(page, title):
+    """Make an EQ's Guide on a step, its demo not started (it would start by itself after a moment)."""
+    from ui import guide
+    t = guide.start_eq(page)
+    t.all_chk.setChecked(False)
+    t.speed = 0.01  # (its demo waits 45 s before it starts by itself: the check has the step to itself)
+    t.go(next(n for n, st in enumerate(t.steps) if st["title"] == title))
+    return t
+
+
+def _pixel(img, x, y):
+    """A picture's colour at a point of the window (its pixels are the window's times its pixel ratio)."""
+    k = img.devicePixelRatio()
+    return img.pixelColor(int(x * k), int(y * k)).name()
+
+
+def _icon_colour(button):
+    """The colour of a button's symbol (its first solid pixel), or None without one."""
+    img = button.icon().pixmap(button.iconSize()).toImage()
+    solid = [img.pixelColor(x, y) for x in range(img.width()) for y in range(img.height())
+             if img.pixelColor(x, y).alpha() > 200]
+    return solid[0].name() if solid else None
+
+
+def test_the_guides_look_follows_the_theme(s, check):
+    # (2026-10-23, the Windows 11 look: the Guide's own colours moved into the stylesheet, its marks drawn in the
+    # accent; before, the ring round what a demo points at and a drag's trail were in c2, which became the graph's
+    # pink EQ, and the card's tag and links in c1, the accent's fill colour rather than its text colour)
+    from PySide6.QtCore import QPointF
+    from PySide6.QtGui import QPalette
+    from helpers import qt
+    from ui import theme
+    page, qapp = s.page, s.qapp
+    found, symbols = {}, {}
+    try:
+        for dark in (False, True):
+            theme.apply(qapp, dark=dark)
+            qapp.processEvents()
+            t = _on_step(page, "Run")
+            try:
+                qapp.processEvents()
+                tok = theme.tokens()
+                y = t.height() - 30
+                t.trail = (QPointF(40, y), QPointF(240, y))
+                t.hot_w = page.run_btn
+                t.update()
+                qapp.processEvents()
+                img = t.win.grab().toImage()
+                px = lambda x, yy, img=img: _pixel(img, x, yy)
+                r = t._w_rect(page.run_btn).adjusted(-3, -3, 3, 3)
+                ring = {px(x, yy) for x in range(int(r.left()) + 8, int(r.right()) - 8) for yy in (r.top() - 1, r.top())}
+                h = t.holes[0]
+                lit = {px(x, yy) for x in range(h.left() + 10, h.right() - 10) for yy in (h.top() - 1, h.top(), h.top() + 1)}
+                found["dark" if dark else "light"] = {
+                    "trail": px(140, y) == tok["accent"], "ring": tok["accent"] in ring, "lit": tok["accent"] in lit,
+                    "tag": t.badge.palette().color(t.badge.foregroundRole()).name() == tok["accent_text"],
+                    "links": t.skip_btn.palette().color(QPalette.ButtonText).name() == tok["accent_text"]
+                    == t.end_btn.palette().color(QPalette.ButtonText).name()}
+            finally:
+                t.hot_w = t.trail = None
+                t.end()
+        t = _on_step(page, "Run")  # (the theme changed while a tour is open: its symbols drawn again)
+        try:
+            symbols["dark"] = (_icon_colour(t.replay_btn), theme.tokens()["ink"], t.replay_btn.text())
+            theme.apply(qapp, dark=False)
+            qapp.processEvents()
+            symbols["light"] = (_icon_colour(t.replay_btn), theme.tokens()["ink"], t.replay_btn.text())
+        finally:
+            t.end()
+    finally:
+        qt.light(qapp)  # (the light theme back, whatever happened: every later test runs light)
+        qapp.processEvents()
+    check("guide: what's lit, what a demo points at and a drag's trail are drawn in the accent (Windows' own colour, no "
+          "longer the graph's pink), the card's “Demo” tag and links in the accent's text colour, light and dark",
+          len(found) == 2 and all(all(v.values()) for v in found.values()), found)
+    check("guide: the card's buttons have Windows 11's symbols beside their words (Play demo …), drawn again in the "
+          "theme's text colour when the theme changes while the Guide is open",
+          len(symbols) == 2 and all(c == ink and words == "Play demo" for c, ink, words in symbols.values())
+          and symbols["dark"][0] != symbols["light"][0], symbols)
+
+
+def test_messages_and_keys_fit(s, check):
+    # (2026-10-23: a message a demo shows measured itself before its look applied, so at Windows 11's text size it came
+    # out 16 px tall, its words hidden; a key cap sat under the pointer's "demo" tag, which hid its name, and stayed on
+    # the window when its demo stopped meanwhile, for the rest of the tour)
+    from PySide6.QtCore import QPointF, QRect, QRectF, Qt
+    from PySide6.QtGui import QFontMetrics
+    from PySide6.QtWidgets import QLabel
+    from ui import tour
+    page, qapp = s.page, s.qapp
+    t = _on_step(page, "Run")
+    try:
+        qapp.processEvents()
+        n = t.note("Saved “My EQ”. (Demo: nothing was saved.) A message long enough to take two lines in the card.",
+                   page.run_btn)
+        m = n.contentsMargins()
+        words = QFontMetrics(n.font()).boundingRect(QRect(0, 0, n.width() - m.left() - m.right(), 10000),
+                                                    Qt.TextWordWrap, n.text()).height()
+        tall = (n.height(), words + m.top() + m.bottom())
+        t.cur = QPointF(300, 300)
+        key = tour.Api(t).key("Enter")
+        next(key)  # (the key shown, as the demo holds it)
+        cap = [w for w in t.findChildren(QLabel) if w.objectName() == "tourKey" and w.isVisible()]
+        beside = bool(cap) and not QRectF(cap[0].geometry()).intersects(t.tag_rect())
+        t.stop_demo()  # (stopped while both are shown: Skip demo, Next, a step chosen from the list)
+        left = [w.objectName() for w in t.findChildren(QLabel) if w.objectName() in ("tourNote", "tourKey")
+                and w.isVisible()]
+    finally:
+        t.end()
+    check("guide: a message a demo shows is as tall as its words, a key it shows sits beside the pointer's “demo” tag, "
+          "and both go when the demo stops",
+          tall[0] >= tall[1] and beside and not left, (tall, beside, left))

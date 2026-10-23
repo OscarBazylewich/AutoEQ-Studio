@@ -1,10 +1,12 @@
 """Help (ui\\help_window.py, ui\\help_texts.py): its words told in AutoEQ Studio's own controls, every "See also" and
-F1 key found, the search, and F1 on a control. Moved from selftest.py's help_checks."""
+F1 key found, the search, and F1 on a control (moved from selftest.py's help_checks); its look in Windows 11's, light
+and dark (2026-10-23), in a Python of its own: applying the theme restyles the whole application, as test_theme.py
+says."""
 import json
 import os
 import re
 
-from helpers import paths
+from helpers import paths, session, subproc
 
 COVERS_FILES = ("app/ui/*.py",)  # (st-083 reads every ui file's help_window.tag(...) calls)
 
@@ -61,3 +63,91 @@ def test_f1_on_a_control(qapp, check):
     # was selftest.py:903
     check("help: F1 on a control opens its setting's entry (a “to” box: its “from” box's)",
           hw.entry_of_widget(box) == "set-best-fit-filter-counts" and "F1" in box.toolTip(), box.toolTip())
+
+
+LOOK = r'''
+import json, re, sys, time
+sys.path.insert(0, sys.argv[1])
+from PySide6.QtCore import QRect, Qt
+from PySide6.QtGui import QFontMetrics
+from PySide6.QtWidgets import QApplication
+qapp = QApplication([])
+from ui import theme, help_window as hw
+out = {}
+def settle():
+    for _ in range(20):
+        qapp.processEvents()
+        time.sleep(0.01)
+for dark in (False, True):
+    theme.apply(qapp, dark=dark, contrast=False)
+    w = hw.open_at()
+    w.resize(1000, 760)
+    w.view.verticalScrollBar().setValue(0)
+    settle()
+    img = w.view.grab().toImage()  # (the page's top: the room above its first words)
+    k = img.devicePixelRatio()
+    w.go("rig-tags")
+    settle()
+    t = theme.tokens()
+    page = w.view.document().toHtml()
+    links = {c for s in re.findall(r'<a href="#[^"]*"><span style="([^"]*)"', page) for c in re.findall(r"color:(#\w{6})", s)}
+    toc, vw = w.toc, w.toc.viewport().width()
+    wide, short = [], []
+    for n in range(toc.count()):
+        it = toc.item(n)
+        r = toc.visualItemRect(it)
+        fm = QFontMetrics(it.font() if it.data(Qt.FontRole) is not None else toc.font())
+        need = fm.boundingRect(QRect(0, 0, r.width() - 22, 100000), Qt.TextWordWrap, it.text()).height() + 12
+        if r.right() >= vw:
+            wide.append(it.text()[:40])
+        elif need > r.height():
+            short.append(it.text()[:40])
+    chosen = [it.data(Qt.UserRole) for it in toc.selectedItems()]
+    out["dark" if dark else "light"] = {
+        "links": sorted(links), "accent_text": t["accent_text"],
+        "lit": f'bgcolor="{t["accent"]}"' in page and chosen == ["rig-tags"],
+        "page": img.pixelColor(int(w.view.width() * k / 2), int(5 * k)).name(), "card": t["card"],
+        "wide": wide, "short": short, "rows": toc.count()}
+    w.go("set-best-fit-filter-counts")  # (an entry asked for, then a search typed that finds it half-way down)
+    settle()
+    for text in ("f", "fi", "filter"):
+        w.q.setText(text)
+    settle()
+    out["dark" if dark else "light"]["typed"] = (toc.verticalScrollBar().value(),
+                                                 [it.data(Qt.UserRole) for it in toc.selectedItems()])
+    w.q.setText("")
+    settle()
+    bar = toc.verticalScrollBar()  # (the contents scrolled half-way, then an entry there clicked)
+    bar.setValue(bar.maximum() // 2)
+    settle()
+    k = toc.row(toc.itemAt(toc.viewport().rect().center()))
+    while k < toc.count() and toc.item(k).data(Qt.UserRole) not in hw._by_id():
+        k += 1
+    anchor, before = toc.item(k).data(Qt.UserRole), bar.value()
+    w.go(anchor)  # (what a click on it does)
+    settle()
+    out["dark" if dark else "light"]["clicked"] = (before > 0 and bar.value() == before,
+                                                   [it.data(Qt.UserRole) for it in toc.selectedItems()] == [anchor])
+print(json.dumps(out))
+'''
+
+
+def test_the_look_follows_the_theme(check):
+    # (2026-10-23, the Windows 11 look: the page was the colour of a text box and its links the accent's fill colour;
+    # the entry asked for was lit paragraph by paragraph; long questions in the contents came out wider than the list,
+    # their ends cut off, and its headings a size smaller than the rest)
+    out = subproc.run_python(LOOK, session.SESSION.app)
+    d = out.data or {}
+    check("help: its page and contents are cards as the rest of the app, its links in the accent's text colour, the "
+          "entry asked for on one quiet block with the accent's bar beside it (and chosen in the contents), light and "
+          "dark",
+          len(d) == 2 and all(v["links"] == [v["accent_text"]] and v["lit"] and v["page"] == v["card"]
+                              for v in d.values()), d or out.stderr[-300:])
+    check("help: every entry of the contents is as tall as its words and no wider than the list (none cut off)",
+          len(d) == 2 and all(not v["wide"] and not v["short"] and v["rows"] > 50 for v in d.values()),
+          {m: (v["wide"][:3], v["short"][:3], v["rows"]) for m, v in d.items()} if d else out.stderr[-300:])
+    check("help: while a search is typed the contents stay at their top, the entry asked for still chosen in them; "
+          "an entry opened from the contents leaves them where they were, chosen there",
+          len(d) == 2 and all(v["typed"] == [0, ["set-best-fit-filter-counts"]] and v["clicked"] == [True, True]
+                              for v in d.values()),
+          {m: (v["typed"], v["clicked"]) for m, v in d.items()} if d else out.stderr[-300:])
