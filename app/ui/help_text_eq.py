@@ -636,7 +636,7 @@ SETTINGS_EQ = [{'title': 'Choosing and running',
                                     'the same way. Undo, in the notice, puts everything back.']}]},
                {'title': 'Presets',
                 'items': [{'key': '#presets',
-                           'title': 'Presets ▾ (top bar, on Make an EQ)',
+                           'title': 'Presets (top bar, on Make an EQ)',
                            'body': ['A preset keeps every setting of Make an EQ under a name: your EQ app, the method, '
                                     'the automatic settings and your own values, the target adjustments, '
                                     'scoring, Advanced. Not your files: the target and measurement stay as they are. '

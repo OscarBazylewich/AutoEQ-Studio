@@ -1,7 +1,8 @@
 """The window (ui\\window.py): its screens, the EQ screen made only when it's opened (and not at all while the app
 starts hidden in the tray: the tray stays light), Online / Offline at the top, and closing it leaving the app in the
-tray. Moved from selftest.py's qt_checks. Then its look in Windows 11's (the restyle, 2026-10-23): the app's message
-boxes, the line at the bottom, the banner and the trial bar (drawn themed in a Python of their own, but the last).
+tray. Moved from selftest.py's qt_checks. Then its look in Windows 11's (the restyle, 2026-10-23): the top bar's
+Presets and its chevron, the app's message boxes, the line at the bottom, the banner and the trial bar (drawn themed
+in a Python of their own, but the last).
 
 Two of these look at what a Python has loaded (the EQ part, numpy, pyqtgraph), and this test process may have loaded
 them already (Make an EQ's tests, a helper): those make their window in a Python of their own (CHILD below), on a
@@ -118,6 +119,50 @@ first = next((x for x in range(img.width()) if any(max(img.pixelColor(x, y).getR
 print(json.dumps({"first": first, "grip": bar.isSizeGripEnabled(),
                   "screens": win.pages["devices"].layout().contentsMargins().left()}))
 '''
+
+
+# (after tests\ui\conftest.py's THEMED_WINDOW and SHAPES: the top bar's Presets as drawn, dark then light: the stretches
+# of inked columns left to right (its symbol, its words, then what ends it: a chevron, open at its top as a "v", or a
+# typed "▾", filled), its menu, and what the menu holds as it opens before Make an EQ has opened)
+PRESETS = r'''
+out = {}
+b = win.presets_btn
+b.setVisible(True)  # (shown on Make an EQ only: the window is on Devices here)
+for dark in (True, False):
+    theme.apply(qapp, dark=dark, contrast=False)
+    for _ in range(5):
+        qapp.processEvents()
+    img = b.grab().toImage()
+    bg = img.pixelColor(1, img.height() // 2)
+    found = runs(img, 2, img.width() - 2, 4, img.height() - 4, bg)
+    box = ink_box(img, found[-1][0], 3, found[-1][1] + 1, img.height() - 3, bg) if len(found) >= 2 else None
+    out["dark" if dark else "light"] = {"runs": found, "chevron": open_side(img, box, bg, "down"),
+                                        "gap": found[-1][0] - found[-2][1] - 1 if len(found) >= 2 else None,
+                                        "after": img.width() - 1 - found[-1][1] if found else None}
+if b.menu() is not None:
+    b.menu().aboutToShow.emit()  # (as it opens)
+out.update(text=b.text(), menu=b.menu() is win.presets_menu,
+           notes=[[a.text(), a.isEnabled()] for a in win.presets_menu.actions()])
+print(json.dumps(out))
+'''
+
+
+def test_presets_chevron_and_its_menu(themed_window, shapes, check, fake_apo, tmp_path):
+    # (2026-10-23, the restyle's recheck: “Presets ▾” had its arrow typed in its words, a small filled triangle beside
+    # Use on device's Windows 11 chevron)
+    from ui import help_text_eq
+    out = subproc.run_python(themed_window + shapes + PRESETS, session.SESSION.app, str(tmp_path))
+    d = out.data or {}
+    seen = [d.get(m) or {} for m in ("dark", "light")]
+    title = next(it["title"] for s in help_text_eq.SETTINGS_EQ for it in s["items"] if it["key"] == "#presets")
+    check("window: the top bar's Presets shows Windows 11's chevron as every button with a menu does (its own menu: "
+          "the theme's picture, clear of its words), not a “▾” typed in its words, light and dark; its menu is filled "
+          "as it opens (before Make an EQ has opened, a note saying when presets are ready); Help names it as it reads",
+          d.get("text") == "Presets" and d.get("menu") is True
+          and all(m.get("chevron") is True and (m.get("gap") or 0) >= 4 and (m.get("after") or 0) >= 6 for m in seen)
+          and d.get("notes") == [["Presets are ready as soon as Make an EQ has opened", False]]
+          and title.startswith(f"{d.get('text')} ") and "▾" not in title,
+          dict(d, help=title) if d else out.stderr[-300:])
 
 
 def test_message_boxes_as_windows_11(check):

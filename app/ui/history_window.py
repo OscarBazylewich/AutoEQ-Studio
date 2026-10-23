@@ -9,17 +9,20 @@ listed) is in the accent, as Windows 11 keeps the accent for one main action (ev
 ✕ is a subtle button (ui\\theme_sheet.py's eq_windows).
 A row's target is in the theme's quieter colour, redone when Windows switches light/dark (follow_theme, which
 Compare's graph uses too).
+Each row is a card, its words starting where a card's do; in a narrow window (History at its smallest, or in the
+Guide's frame) its buttons go on a line under its words, so the words keep room to be read (_fit_row).
 """
 import datetime
 
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import (QCheckBox, QDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton,
-                               QScrollArea, QVBoxLayout, QWidget)
+from PySide6.QtCore import QEvent, Qt, QTimer
+from PySide6.QtWidgets import (QBoxLayout, QCheckBox, QDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
+                               QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
 from ui import help_window, icons, theme
 from ui.theme_sheet import CARD
 
 FIRST_ROWS, ROWS_AT_ONCE = 40, 15  # (rows made at once, then a batch at a time: as Find…)
+WORDS_ROOM = 240  # (the least a row's words get beside its buttons: with less, the buttons go on a line under them)
 MODE_SHORT = {"site_single": "Website AutoEQ", "site_sweep": "Website sweep", "best_fit": "Best fit", "autoeq": "AutoEq"}
 NBSP, NBH = chr(0xA0), chr(0x2011)  # (a space and a hyphen that never end a line: the words they join stay together)
 
@@ -160,7 +163,11 @@ class HistoryWindow(QDialog):
     def _row(self, e):
         row = QFrame()
         theme.mark(row, card=True)
-        h = QHBoxLayout(row)
+        # (its words, then its buttons beside them, or under them in a narrow window: _fit_row. The card's padding
+        # leaves 4 px for this layout's margin, so its words start where a card's do: Qt's own 9 px put them 5 px
+        # further in, 2026-10-23)
+        h = QBoxLayout(QBoxLayout.LeftToRight, row)
+        h.setContentsMargins(4, 4, 4, 4)
         text = QVBoxLayout()
         head = QLabel(self._head_text(e))
         head.setTextFormat(Qt.RichText)
@@ -198,9 +205,34 @@ class HistoryWindow(QDialog):
         x.setObjectName("eqwDelete")  # (a subtle button: ui\theme_sheet.py's eq_windows)
         x.setToolTip("Remove from the history")
         x.clicked.connect(lambda: self.remove([e["key"]]))
+        btns = QHBoxLayout()
         for b in (show, copy, listen, x):
-            h.addWidget(b)
+            btns.addWidget(b)
+        h.addLayout(btns)
+        h.setAlignment(btns, Qt.AlignLeft)  # (under the words: at their left, as wide as the buttons)
+        row.installEventFilter(self)  # (its width: _fit_row)
         return row
+
+    def eventFilter(self, obj, e):
+        if e.type() == QEvent.Resize and obj.property("card") == "true":  # (a row: only rows are watched)
+            self._fit_row(obj, e.size().width())
+        return super().eventFilter(obj, e)
+
+    @staticmethod
+    def _fit_row(row, width):
+        """A row's buttons beside its words, or on a line under them when the words would get less than WORDS_ROOM
+        beside them (History at its smallest, 520 px, and in the Guide's frame squeezed the words into a column about
+        100 px wide, up to 9 lines tall, 2026-10-23). Back beside them only with 16 px to spare: a scroll bar coming or
+        going (rows with their buttons under the words can be shorter) never flips them to and fro."""
+        h = row.layout()
+        btns = h.itemAt(1).layout()
+        under = h.direction() == QBoxLayout.TopToBottom
+        m, lm = row.contentsMargins(), h.contentsMargins()  # (the card's border and padding; this layout's margin)
+        room = (width - m.left() - m.right() - lm.left() - lm.right() - btns.sizeHint().width()
+                - max(0, h.spacing()))
+        go_under = room < WORDS_ROOM + (16 if under else 0)
+        if go_under != under:
+            h.setDirection(QBoxLayout.TopToBottom if go_under else QBoxLayout.LeftToRight)
 
     @staticmethod
     def _head_text(e):

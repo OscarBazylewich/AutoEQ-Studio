@@ -7,7 +7,8 @@ And its Windows 11 look (the restyle's stage 2, 2026-10-23): the page as wide as
 window's own size and its narrowest: a long title, long names, two runs this session, the values under the pointer),
 Windows 11's symbols beside the main actions' words, the notice as Windows 11's information bar (its "i" in the
 accent's colour, followed when the theme changes), "yours" and the graph's legend in colours that read 4.5:1, a long
-name ending in "…" and an empty note taking no room, and a theme change while the page is still opening."""
+name ending in "…" and an empty note taking no room, the graph card's title in line with the cards' titles under it,
+and a theme change while the page is still opening."""
 import json
 import os
 
@@ -221,6 +222,26 @@ def test_long_names_and_empty_notes(eq_screen, check):
           "shows when it has words and takes no room when it has none",
           shown.endswith("…") and long.startswith(shown[:-1].rstrip()) and len(shown) < len(long)
           and all(on == has for on, has in notes.values()) and notes["measurement"] == (True, True), (shown, notes))
+
+
+def test_graph_card_title_lined_up_with_the_cards(eq_screen, check):
+    # (2026-10-23, the restyle's recheck: the graph card, a card frame, kept Qt's own 9 px layout margin on top of its
+    # padding, so its title started 5 px further in than the cards' titles under it: x 36 on the page against 32)
+    from PySide6.QtCore import QPoint, QRect
+    from ui import theme_sheet
+    page = eq_screen.page
+    card, title, box = page.graph_title.parentWidget(), page.graph_title, page.target_box
+    at = QRect(title.mapTo(card, QPoint(0, 0)), title.size())
+    head = QRect(3, 3, box.width() // 2, 34)  # (the Target card's title, inside its round corners)
+    graph, target = qt.words_start(qt.picture(card), at), qt.words_start(qt.picture(box), head)
+    found = {"graph card's title": graph is not None and graph + at.left(),
+             "Target card's title": target is not None and target + head.left(), "inset": theme_sheet.CARD + 1,
+             "cards' left edges": (card.mapTo(page, QPoint(0, 0)).x(), box.mapTo(page, QPoint(0, 0)).x())}
+    check("look: the graph card's title starts where the cards' titles under it start (a card's inset inside its "
+          "border), not 5 px further in",
+          graph is not None and target is not None and abs(found["graph card's title"] - found["Target card's title"]) <= 1
+          and abs(found["graph card's title"] - found["inset"]) <= 2 and found["cards' left edges"][0] == found[
+              "cards' left edges"][1], found)
 
 
 def test_theme_changed_while_opening(eq_screen, check):

@@ -156,7 +156,7 @@ class EqHistory:
         self.status(f"From the history: {e.get('device')} → {e.get('target')}, {day_of(e['when']).lower()} "
                     f"{time_of(e['when'])}.", 8000)
 
-    # ---------------------------------------------------------------- presets (AutoEQ Local's Presets ▾)
+    # ---------------------------------------------------------------- presets (AutoEQ Local's Presets menu)
     def preset_names(self):
         from eq import settings as eq_settings
         try:
@@ -221,7 +221,8 @@ class EqHistory:
         if res.get("error"):
             QMessageBox.warning(self, "Presets", res["error"])
             return
-        self.notify(f"Saved the preset “{name}”: every setting, not your files. Presets ▾ loads it again.")
+        self.notify(f"Saved the preset “{name}”: every setting, not your files. Presets, in the top bar, loads it "
+                    "again.")
 
     def delete_preset(self, name):
         if QMessageBox.question(self, "Presets", f"Delete the preset “{name}”?") != QMessageBox.Yes:

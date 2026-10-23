@@ -4,12 +4,33 @@ the controls it lights and its demo, and start_eq(page), the tour that shows the
 guide_demos.py. Keep the steps in their order: the checks find steps by their titles.
 """
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QPushButton
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton
 
 from ui import tasks, theme, tour
 from ui.guide_demos import (adjust_demo, bg, button, card, choose_row, demo_filters, eq_now, fold, mock_combo,
-                            mock_menu, open_picker, pick, picker_rows, plot_value, show_on_graph, stage_result,
-                            type_search)
+                            open_picker, pick, picker_rows, plot_value, show_on_graph, stage_result, type_search)
+
+
+def menu_with_submenu(api, near, items, sub):
+    """A menu drawn inside the tour as guide_demos.mock_menu draws it, its row `sub` (words in items) a submenu's:
+    Windows 11's chevron at its right, the picture the app's menus draw for a submenu (#eqMockArrow: theme_sheet.py's
+    eq_screen gives it QMenu's own), where they draw it (it was a typed "▸", 2026-10-23). As wide as its longest row
+    needs, as the real menu is (Use on device's cut off “not connected” at 280 px)."""
+    m = api.mock(near, items, width=max(near.width(), 280))
+    m.ensurePolished()
+    need = max(r.sizeHint().width() for r in m.rows if isinstance(r, QLabel)) + 30  # (its border and room, the arrow)
+    if need > m.width():  # (made again at that width: placed as a whole, never past the window's edge)
+        api.close(m)
+        m = api.mock(near, items, width=need)
+    arrow = QLabel()
+    arrow.setObjectName("eqMockArrow")
+    arrow.setFixedSize(12, 12)
+    lay = QHBoxLayout(m.row(items.index(sub)))  # (the row's words stay; the arrow at its right, inside its padding)
+    lay.setContentsMargins(0, 0, 0, 0)
+    lay.addStretch(1)
+    lay.addWidget(arrow, 0, Qt.AlignVCenter)
+    yield 300
+    return m
 
 
 # ---------------------------------------------------------------- Make an EQ's Guide
@@ -337,7 +358,8 @@ def eq_steps(page):
         sw = page.sw
         names = [f"{shown(sw.record(d.key))}  ·  " + ("playing now" if d.key == sw.playing_key else "connected"
                                                        if d.connected else "not connected") for d in sw.devices][:5]
-        m = yield from mock_menu(api, page.use_btn, (names or ["Headphones  ·  playing now"]) + [None, "Try for 5 minutes on ▸"])
+        m = yield from menu_with_submenu(api, page.use_btn, (names or ["Headphones  ·  playing now"])
+                                         + [None, "Try for 5 minutes on"], "Try for 5 minutes on")
         yield from pick(api, m, 0)
         api.close(m)
         yield from api.note("Its EQ now, switched on. (Demo: nothing was changed.)", page.use_btn, 1500)
@@ -387,11 +409,11 @@ def eq_steps(page):
     def preset_demo(api):
         b = win.presets_btn
         names = page.preset_names()
-        items = (names[:5] or [("No presets yet", False)]) + [None, "Save current settings as…", "Delete a preset ▸",
+        items = (names[:5] or [("No presets yet", False)]) + [None, "Save current settings as…", "Delete a preset",
                                                               None, "Reset all settings…"]
         api.say("Click Presets")
         yield from api.click(b)
-        m = yield from mock_menu(api, b, items)
+        m = yield from menu_with_submenu(api, b, items, "Delete a preset")
         api.spot_on(m)
         api.say("“Save current settings as…”")
         yield from pick(api, m, items.index("Save current settings as…"))
@@ -407,7 +429,8 @@ def eq_steps(page):
         yield from api.note("Saved: every setting, not your files. (Demo: nothing was saved.)", b, 1500)
         api.say("Later, click it in Presets to load all those settings at once")
         yield from api.click(b)
-        m = yield from mock_menu(api, b, ["Equalizer APO"] + [x for x in items if x != ("No presets yet", False)])
+        m = yield from menu_with_submenu(api, b, ["Equalizer APO"] + [x for x in items if x != ("No presets yet", False)],
+                                         "Delete a preset")
         yield from pick(api, m, 0)
         api.close(m)
         yield from api.note("Loaded: all its settings are back.", b, 1300)

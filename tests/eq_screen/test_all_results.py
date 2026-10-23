@@ -5,7 +5,8 @@ saved as "UI check" and brought back with History's Show); the run of 18 results
 Then its look (Windows 11's, 2026-10-23) on a made-up run of four: the shading in the theme's colour for "good",
 light and dark (read from what's drawn), the grid's corner and words, and the window at its smallest; Windows 11's
 table look for the grid and the table (no grid lines, each heading over its words at the left, the grid's rows
-told apart by a line in the theme's colour); and the grid's rows saying their results' own filter count."""
+told apart by a line in the theme's colour); the grid's rows saying how many filters the run tried there, different
+for every row, a cell with fewer saying its own count; and the table's Rows column for the website's methods only."""
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
@@ -75,7 +76,7 @@ def four(eq_screen, history_eq):
     page.show_result(real["pick"])
     base = next(r for r in real["results"] if r["id"] == real["pick"])
     rs = [dict(base, id=f"s{n}-{q}", n_filters=n, rows=n, q_max=q, rms=base["rms"] + 0.1 * (3 - n) + 0.01 * q,
-               ear=0.1 if n == 2 else 1.0) for n in (1, 2) for q in (2, 4)]
+               ear=0.1 if n == 2 else 1.0, low_shelf=False, high_shelf=False, yours=0) for n in (1, 2) for q in (2, 4)]
     page.run_result = dict(real, mode="best_fit", results=rs, best="s2-2", pick="s2-2", ear_db=0.25)
     page.show_result("s2-2")
     ar = AllResults(page)
@@ -189,9 +190,10 @@ def test_all_results_in_windows_11s_table_look(four, eq_screen, check):
         """The colour of the line under the grid's first cell, half-way across, and the theme's colour for lines."""
         r = g.visualItemRect(g.item(0, 0))
         return qt.picture(g.viewport()).pixelColor(r.center().x(), r.bottom()).name(), theme.tokens()["line"]
+    shown = [c for c in range(t.columnCount()) if not t.isColumnHidden(c)]  # (Rows: the website's methods only)
     found = {"grid lines": (g.showGrid(), t.showGrid()), "table rows shaded": t.alternatingRowColors(),
              "grid: headings over their words": qt.headings_over_words(g, range(g.columnCount())),
-             "table: headings over their words": qt.headings_over_words(t, range(t.columnCount()))}
+             "table: headings over their words": qt.headings_over_words(t, shown)}
     try:
         found["line under a grid row, light"] = lines()
         theme.apply(qapp, dark=True)
@@ -217,13 +219,16 @@ def test_all_results_rows_say_their_results_count(eq_screen, history_eq, check):
     page = eq_screen.page
     real = page.run_result
     page.show_result(real["pick"])
-    base = next(r for r in real["results"] if r["id"] == real["pick"])
-    runs = {"a shelf with each": [dict(base, id=f"h{n}-{q}", rows=n, n_filters=n + 1, q_max=q,
+    base = dict(next(r for r in real["results"] if r["id"] == real["pick"]), low_shelf=False, high_shelf=False,
+                yours=0, keep=True)
+    # (as Best fit records them: a low shelf added with each count; a Retry fine-tuning your 10 filters, none added;
+    # a run where one result left a filter too small to matter out)
+    runs = {"a shelf with each": [dict(base, id=f"h{n}-{q}", rows=n, n_filters=n + 1, q_max=q, low_shelf=True,
                                        rms=base["rms"] + 0.1 * (3 - n) + 0.01 * q) for n in (1, 2) for q in (2, 4)],
-            "a Retry": [dict(base, id=f"r{q}", rows=0, n_filters=10, q_max=q, rms=base["rms"] + 0.01 * q)
-                        for q in (2, 4)],
+            "a Retry": [dict(base, id=f"r{q}", rows=0, n_filters=10, q_max=q, yours=10, keep=False,
+                             rms=base["rms"] + 0.01 * q) for q in (2, 4)],
             "a filter left out of one": [dict(base, id=f"m{q}", rows=9, n_filters=10 if q == 2 else 9, q_max=q,
-                                              rms=base["rms"] + 0.01 * q) for q in (2, 4)]}
+                                              low_shelf=True, rms=base["rms"] + 0.01 * q) for q in (2, 4)]}
     words = {}
     try:
         for name, rs in runs.items():
@@ -237,11 +242,77 @@ def test_all_results_rows_say_their_results_count(eq_screen, history_eq, check):
     finally:
         page.run_result = real
         page.show_result(real["pick"])
+    # (since the recheck, 2026-10-23: a row where a result kept fewer says what the run tried, “up to 10 filters”, and
+    # that cell its own count; test_all_results_rows_told_apart)
     check("all results: the grid's rows say how many filters their results have, as the result card does (grouped "
           "by the filters the run added, shelves and yours aside, they said “9 filters” for results of 10 and a "
           "Retry's row “0 filters”); which results share a row is as before",
           words == {"a shelf with each": ["2 filters", "3 filters"], "a Retry": ["10 filters"],
-                    "a filter left out of one": ["9–10 filters"]}, words)
+                    "a filter left out of one": ["up to 10 filters"]}, words)
+
+
+def test_all_results_rows_told_apart(eq_screen, history_eq, check):
+    # (2026-10-23, the restyle's recheck: a run's rows all starting at 6, as results kept 6 filters where a seventh and
+    # more were too small to matter, read “6–7 filters”, “6–8 filters”, “6–9 filters”, “6–10 filters”: alike)
+    page = eq_screen.page
+    real = page.run_result
+    page.show_result(real["pick"])
+    base = dict(next(r for r in real["results"] if r["id"] == real["pick"]), low_shelf=True, high_shelf=False,
+                yours=0, keep=True)
+    # (5 to 9 peaking filters added, each with a low shelf; at Q 1 the fits from 6 kept only 6 of them)
+    rs = [dict(base, id=f"t{n}-{q}", rows=n, n_filters=6 if q == 1 and n >= 6 else n + 1, q_max=q, max_boost=5.0,
+               rms=base["rms"] + 0.1 * (10 - n) + 0.01 * q) for n in range(5, 10) for q in (1, 2)]
+    page.run_result = dict(real, mode="best_fit", results=rs, best="t9-2", pick="t9-2")
+    page.show_result("t9-2")
+    ar = AllResults(page)
+    try:
+        g = ar.grid
+        found = {"rows": [g.verticalHeaderItem(i).text() for i in range(g.rowCount())],
+                 "cells": [[g.item(i, j).text() for j in range(g.columnCount())] for i in range(g.rowCount())],
+                 "note": ar.grid_note.text().replace(chr(0xA0), " ")}  # (its spaces that never end a line, as spaces)
+    finally:
+        qt.close(ar)
+        page.run_result = real
+        page.show_result(real["pick"])
+    own = [[cell.endswith("· 6f)") for cell in row] for row in found["cells"]]
+    check("all results: Best fit's rows say how many filters the run tried, different for every row (“6 filters”, then "
+          "“up to 7 filters” … “up to 10 filters” where a result kept fewer; they read “6–7 filters” … “6–10 filters”, "
+          "alike), never fewer than a result there has; a cell whose result kept fewer says its own count (“· 6f”), "
+          "as the website sweep's cells do, and the note under the grid says why",
+          found["rows"] == ["6 filters", "up to 7 filters", "up to 8 filters", "up to 9 filters", "up to 10 filters"]
+          and len(set(found["rows"])) == len(found["rows"])
+          and own == [[False, False]] + [[True, False]] * 4 and "up to" in found["note"] and "6f" in found["note"],
+          found)
+
+
+def test_all_results_rows_column_for_the_website_only(eq_screen, history_eq, check):
+    # (2026-10-23, the restyle's recheck: the table's Rows column showed Best fit's own count of the filters it added,
+    # “1” for a result of 2 filters, and nothing for a Retry's; for the website's methods it's the filter rows typed in)
+    page = eq_screen.page
+    real = page.run_result
+    page.show_result(real["pick"])
+    base = next(r for r in real["results"] if r["id"] == real["pick"])
+    found = {}
+    try:
+        for mode in ("best_fit", "site_sweep"):
+            rs = [dict(base, id=f"c{n}", rows=n, n_filters=n + 1, q_max=2, freq_high=10000,
+                       rms=base["rms"] + 0.1 * (3 - n)) for n in (1, 2)]
+            page.run_result = dict(real, mode=mode, results=rs, best="c2", pick="c2")
+            page.show_result("c2")
+            ar = AllResults(page)
+            try:
+                t = ar.table
+                found[mode] = {"Rows shown": not t.isColumnHidden(2),
+                               "Rows": sorted(t.item(i, 2).text() for i in range(t.rowCount()))}
+            finally:
+                qt.close(ar)
+    finally:
+        page.run_result = real
+        page.show_result(real["pick"])
+    check("all results: the table's Rows column shows only for the website's methods, its filter rows (for Best fit it "
+          "showed the run's own count of the filters it added: “1” for a result of 2 filters, nothing for a Retry)",
+          found.get("best_fit", {}).get("Rows shown") is False
+          and found.get("site_sweep") == {"Rows shown": True, "Rows": ["1", "2"]}, found)
 
 
 def test_all_results_opens_wide_enough(eq_screen, history_eq, check, monkeypatch):
@@ -253,6 +324,7 @@ def test_all_results_opens_wide_enough(eq_screen, history_eq, check, monkeypatch
     page.show_result(real["pick"])
     base = next(r for r in real["results"] if r["id"] == real["pick"])
     rs = [dict(base, id=f"g{n}-{q}", rows=n, n_filters=n + 1 if q > 1 or n < 6 else 6, q_max=q, max_boost=10.0,
+               low_shelf=True, high_shelf=False, yours=0,  # (a low shelf with each count, as Best fit records it)
                rms=base["rms"] + 0.1 * (10 - n) + 0.01 * q) for n in range(1, 10) for q in (1, 1.5, 2, 3, 4, 5)]
     monkeypatch.setattr(all_results, "screen_room", lambda widget: 1920)  # (a screen with room: the PC's size)
     page.run_result = dict(real, mode="best_fit", results=rs, best="g9-5", pick="g9-5")
@@ -268,6 +340,8 @@ def test_all_results_opens_wide_enough(eq_screen, history_eq, check, monkeypatch
         qt.close(ar)
         page.run_result = real
         page.show_result(real["pick"])
+    # (the last row's words since the recheck, 2026-10-23: what the run tried, “up to 10 filters”; its Q 1 cell says
+    # “· 6f”, so the grid is wider)
     check("all results: opened, its whole grid is in sight when the screen has room (nine filter counts by six Q "
-          "limits scrolled sideways)", found["scrolls sideways"] == 0 and found["rows"] == ["2 filters", "6–10 filters"],
-          found)
+          "limits scrolled sideways)",
+          found["scrolls sideways"] == 0 and found["rows"] == ["2 filters", "up to 10 filters"], found)

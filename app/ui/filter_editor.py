@@ -7,7 +7,8 @@ and ✕ to delete it. Sliders: one per filter (Poweramp's look): its gain by dra
 changed() is called after every edit (the caller works out the error, pre-amp and graph again); rebuilt() after a
 filter is added or deleted. The editor is as tall as the view shown (a short table leaves no empty band under it).
 Its look is the theme's (ui\\theme_sheet.py's eq_windows, by the object names eqw…): the table's boxes a little apart
-without grid lines, ✕ as Windows 11's subtle buttons, the pre-amp's bar as a slider's empty track.
+without grid lines, Type's heading at the left over its drop-downs' words (the numbers' headings centred over them),
+✕ as Windows 11's subtle buttons, the pre-amp's bar as a slider's empty track.
 """
 from PySide6.QtCore import QTimer, Qt, Signal
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QFrame, QGridLayout, QHBoxLayout, QHeaderView,
@@ -43,6 +44,9 @@ class FilterEditor(QWidget):
         self.table.setShowGrid(False)  # (each row's boxes stand a little apart instead, as Windows 11's rows)
         self.table.setAccessibleName("Filters")
         self.table.setHorizontalHeaderLabels(["On", "#", "Type", "Frequency (Hz)", "Gain (dB)", "Q", ""])
+        # (Type's heading at the left, over its drop-downs' words, as Windows 11's tables have them: centred, it sat in
+        # the middle of its column, 2026-10-23; the number columns' headings stay centred, as their values are)
+        self.table.horizontalHeaderItem(2).setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.table.verticalHeader().hide()
         self.table.setSelectionMode(QAbstractItemView.NoSelection)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -96,7 +100,7 @@ class FilterEditor(QWidget):
             on.toggled.connect(lambda v, f=f, i=i: (f.__setitem__("enabled", v), self._dim(i), self._edited()))
             cell = QWidget()
             cl = QHBoxLayout(cell)
-            cl.setContentsMargins(8, 0, 0, 0)
+            cl.setContentsMargins(11, 0, 0, 0)  # (under its heading, “On”: the headings' room at the sides, 11 px)
             cl.addWidget(on)
             t.setCellWidget(i, 0, cell)
             num = QLabel(str(i + 1))

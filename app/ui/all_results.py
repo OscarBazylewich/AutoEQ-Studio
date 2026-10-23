@@ -1,9 +1,10 @@
 """Every result of a run (AutoEQ Local's "All N results" window, results.js renderRuns/renderGrid, natively):
 - the grid: the lowest error for each filter count (or the website's filter rows) and max Q, shaded when it sounds
   the same as the target (the audible pick's rule); a click shows that result (Best fit and the website sweep, with
-  several results)
-- the table: every result (error, filters, rows, range, gain, Q max, max boost, pre-amp), sorted by a click on a
-  heading; a click on a row shows it
+  several results). Best fit's rows say how many filters the run tried ("6 filters", or "up to 7 filters" when a
+  result there kept fewer: that cell says its own count, "· 6f", as the website sweep's cells do)
+- the table: every result (error, filters, range, gain, Q max, max boost, pre-amp, and for the website's methods its
+  filter rows), sorted by a click on a heading; a click on a row shows it
 The shading is the theme's colour for "good" (its "pill"), taken as each cell is drawn: it follows light and dark
 (in Windows' contrast themes: Windows' highlight).
 Both in Windows 11's table look, as Profiles and Run several (2026-10-23): no grid lines, each heading over its
@@ -140,18 +141,34 @@ class AllResults(QDialog):
         self.render()
 
     @staticmethod
-    def _row_words(rv, cells, site):
-        """A grid row's words. The website sweep's: its filter rows (what's typed into the site). Best fit's: the
-        filter count of the results in that row, as their result card says it. Best fit's rows are the filters the
-        run added, shelves and your own filters aside, so the row said "9 filters" for results of 10 (with their
-        shelf), and a Retry's only row "0 filters" though each of its results had 10 (2026-10-23). Which results share
-        a row stays the same; the rare row whose results differ (a filter too small to keep left out) says both."""
+    def tried(r):
+        """How many filters Best fit tried for a result: those it added (its row in the grid, `rows`), with the
+        shelves it added and your own filters (kept, or fine-tuned by a Retry); your own alone (row 0): yours. A
+        result may keep fewer: filters too small to matter are left out."""
+        added = r.get("rows") or 0
+        shelves = bool(r.get("low_shelf")) + bool(r.get("high_shelf")) if added else 0
+        return added + shelves + (r.get("yours") or 0)
+
+    @classmethod
+    def row_most(cls, rv, cells):
+        """(how many filters Best fit tried in a grid row, whether every one of its cells' results kept them all).
+        Never fewer than a result there has: the row's words never contradict a result card."""
+        row = [c for (k, _q), c in cells.items() if k == rv]
+        most = max([cls.tried(c) for c in row] + [c["n_filters"] for c in row])
+        return most, all(c["n_filters"] == most for c in row)
+
+    @classmethod
+    def _row_words(cls, rv, cells, site):
+        """A grid row's words. The website sweep's: its filter rows (what's typed into the site). Best fit's: how many
+        filters the run tried there, "6 filters", or "up to 7 filters" when a result kept fewer (each such cell says
+        its own count). Best fit's rows are the filters the run added, shelves and your own filters aside: they said
+        "9 filters" for results of 10 with their shelf, and a Retry's only row "0 filters"; then each row said the
+        counts its results had, and rows that all started at 6 looked alike: "6–7 filters" … "6–10 filters"
+        (2026-10-23). Which results share a row is unchanged."""
         if site:
             return f"{rv} row{'' if rv == 1 else 's'}"
-        ns = sorted({c["n_filters"] for (k, _q), c in cells.items() if k == rv})
-        if len(ns) != 1:
-            return f"{ns[0]}–{ns[-1]} filters"
-        return f"{ns[0]} filter{'' if ns[0] == 1 else 's'}"
+        most, every = cls.row_most(rv, cells)
+        return f"{most} filter{'' if most == 1 else 's'}" if every else f"up to {most} filters"
 
     def _fit_grid(self, *_):
         """The grid as tall as its rows, and its scroll bar more while it scrolls sideways (a narrow window): the bar
@@ -189,14 +206,19 @@ class AllResults(QDialog):
             g.setVerticalHeaderLabels(labels)
             g.setEditTriggers(QAbstractItemView.NoEditTriggers)
             g.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+            most = {} if site else {rv: self.row_most(rv, cells)[0] for rv in rows}
+            fewer = None  # (a cell whose result kept fewer filters than its row tried: its count, for the note)
             for i, rv in enumerate(rows):
                 for j, q in enumerate(qs):
                     c = cells.get((rv, q))
                     if not c:
                         it = QTableWidgetItem("–")
                     else:
+                        own = "" if site or c["n_filters"] == most[rv] else f" · {c['n_filters']}f"
+                        if own and fewer is None:
+                            fewer = c["n_filters"]
                         sub = (f"{round((c.get('freq_high') or 0) / 1000)}k · {c['n_filters']}f" if site
-                               else f"max +{c['max_boost']:.1f}")
+                               else f"max +{c['max_boost']:.1f}{own}")
                         it = QTableWidgetItem(f"{c['rms']:.2f}  ({sub})")
                         it.setData(Qt.UserRole, c["id"])
                         if c.get("ear") is not None and c["ear"] <= ear_db:
@@ -219,13 +241,16 @@ class AllResults(QDialog):
             self._grid_height = min(320, g.horizontalHeader().height() + sum(g.rowHeight(i) for i in range(len(rows))) + 4)
             self._fit_grid()
             self.grid_title.setText(f"Error by {'filter rows' if site else 'filter count'} and max Q (run {run.get('n', 1)})")
-            both = next((lab for lab in labels if "–" in lab), None)  # (a row whose results don't all have as many)
+            up = next((lab for lab in labels if lab.startswith("up to ")), None)  # (a row where a result kept fewer)
             self.grid_note.setText(f"Lowest error (dB) per cell (the best: {best:.2f} dB); shaded = sounds the same "
                                    f"as the target (within {ear_db:g} dB, as the ear hears it). Click a cell to view it."
-                                   + (f" “{both.replace(' ', NBSP)}”: not all of that row's results have as many "
-                                      "filters (filters too small to matter are left out)." if both else ""))
-        # the table
+                                   + (f" “{up.replace(' ', NBSP)}”: the run tried that many; a cell whose result kept "
+                                      f"fewer says how many (“{fewer}f”: filters too small to matter are left out)."
+                                      if up and fewer else ""))
+        # the table (its Rows column for the website's methods only: there it's the filter rows typed into the site;
+        # Best fit's own count of the filters it added said "1" for a 2-filter result and nothing for a Retry's)
         t = self.table
+        t.setColumnHidden(2, not str(run.get("mode", "")).startswith("site"))
         t.setSortingEnabled(False)
         t.setRowCount(0)
         for r in sorted(rs, key=lambda x: x["rms"])[:500]:
