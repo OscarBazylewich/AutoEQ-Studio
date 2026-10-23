@@ -19,9 +19,11 @@ LAYOUT = 9    # (the margin Qt's own layouts keep inside a widget when the code 
 
 
 def base_and_tooltips(t, img):
-    """The windows' background, the text, tooltips."""
+    """The windows' background (the main window's left clear while it shows Windows 11's Mica: mica=true, set by
+    ui\\window.py), the text, tooltips."""
     return f"""
     QMainWindow, QDialog {{ background: {t['bg']}; }}
+    QMainWindow[mica="true"] {{ background: transparent; }}
     QWidget {{ color: {t['ink']}; font-size: {FONT}pt; }}
     QToolTip {{ background: {t['menu']}; color: {t['ink']}; border: 1px solid {t['stroke']}; border-radius: 4px;
         padding: 5px 8px; }}
@@ -99,7 +101,7 @@ def buttons(t, img):
 
 def top_bar(t, img):
     """The top bar: its screens' buttons (nav=true: the one shown has the accent's bar under it), Online / Offline
-    (online=true), the bar itself (on the window's background, as Windows 11's own)."""
+    (online=true), the bar itself (clear, on the window's background or its Mica, as Windows 11's own)."""
     return f"""
     QPushButton[nav="true"] {{ background-color: transparent; border: none; border-radius: 4px;
         padding: 6px 12px 8px 12px; color: {t['ink2']}; }}
@@ -110,7 +112,7 @@ def top_bar(t, img):
     QPushButton[nav="true"]:checked:hover {{ background-color: {t['subtle_hover']}; }}
     QPushButton[online="true"] {{ border-radius: 14px; padding: 4px 12px; }}
     QPushButton[online="true"]:checked {{ background: {t['pill']}; color: {t['good']}; border-color: {t['good']}; }}
-    QFrame[topbar="true"] {{ background: {t['bg']}; border: none; }}
+    QFrame[topbar="true"] {{ background: transparent; border: none; }}
 """
 
 

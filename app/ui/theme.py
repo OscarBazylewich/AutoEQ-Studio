@@ -191,9 +191,15 @@ def _windows_dark():
 class _Names(QObject):
     """For a screen reader, the first time a control is drawn: a button showing only a symbol (✕, ↺ …) is named by
     its tooltip ("Delete from the app"), a text box without a name by its grey placeholder ("Search the help…").
-    A name given in the code stays. Also: Windows' contrast theme or accent colour changed while the app runs."""
+    A name given in the code stays. Also: Windows' contrast theme or accent colour changed while the app runs, and a
+    pop-up (a menu, a drop-down's list, a tooltip) shown with Windows 11's rounded corners (winsys.round_corners, on
+    Windows 11's own screen only)."""
 
     def eventFilter(self, obj, e):
+        if e.type() == QEvent.Show and _state.get("corners") and isinstance(obj, QWidget) and obj.isWindow() and \
+                obj.windowType() in (Qt.Popup, Qt.ToolTip) and not obj.property("roundedByWindows"):
+            from ui import winsys
+            obj.setProperty("roundedByWindows", winsys.round_corners(int(obj.winId())))
         if e.type() == QEvent.ThemeChange and isinstance(obj, QWidget) and obj.isWindow() and \
                 _state.get("following") and not _state.get("again") and \
                 (bool(_state.get("contrast")) != high_contrast() or accent_palette() != _state.get("accent")):
@@ -233,7 +239,9 @@ def apply(app, dark=None, contrast=None):
     t = tokens()
     app.setPalette(_palette(t))
     app.setStyleSheet(_stylesheet(t))
-    if "names" not in _state:  # (once: names for a screen reader, _Names)
+    if "names" not in _state:  # (once: names for a screen reader, pop-ups' corners: _Names)
+        from ui import winsys
+        _state["corners"] = winsys.materials(QGuiApplication.platformName())[1]
         _state["names"] = _Names(app)
         app.installEventFilter(_state["names"])
     for fn in list(_state["listeners"]):  # (what draws its own colours: the graph, Help's page, the icons)

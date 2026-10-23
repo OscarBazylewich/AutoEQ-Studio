@@ -15,7 +15,10 @@ A banner over the device screens says when APO isn't installed or isn't using Au
 the line at the bottom. Closing the window leaves the app in the tray; Quit is in the tray icon's menu.
 Everything is drawn in the app's theme (ui\\theme.py: Windows 11's look, light or dark as Windows is, in Windows'
 accent colour); what only this window and its screens have is styled in ui\\theme_sheet.py's window_screens(), by the
-objectNames and properties set here (the banner's warning sign, the trial's clock, the status line…).
+objectNames and properties set here (the banner's warning sign, the trial's clock, the status line…). On Windows 11
+(22H2 or later) the window's own background is Windows' Mica (ui\\winsys.mica: tinted by your desktop picture, as
+Windows' own apps; the user's choice from real pictures, 2026-10-23): the window is see-through where nothing is
+drawn, and property mica=true tells the stylesheet to leave its background clear; never in a contrast theme.
 Where the code is: this file has the shell (the top bar, switching screens, Guide, Help, closing to the tray, the
 trial bar) and the banner; each screen is a part of the window's class, in a file of its own: Devices
 (ui\\devices_screen.py), Profiles (ui\\profiles_screen.py), Settings (ui\\settings_screen.py; Set up…:
@@ -24,14 +27,14 @@ ui\\setup_dialog.py). ui\\window_parts.py has the small helpers they share.
 import time
 
 from PySide6.QtCore import Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QCursor, QDesktopServices, QKeySequence, QShortcut
+from PySide6.QtGui import QCursor, QDesktopServices, QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel, QMainWindow, QMenu, QPushButton,
                                QScrollArea, QSizePolicy, QStackedWidget, QVBoxLayout, QWidget)
 
 import net
 import paths
 from switcher.core import shown
-from ui import icons, theme
+from ui import icons, theme, winsys
 from ui.devices_screen import DevicesScreen, check_line  # noqa: F401 - (check_line: still taken from here)
 from ui.profiles_screen import ProfilesScreen
 from ui.settings_screen import SettingsScreen
@@ -55,6 +58,12 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.resize(1040, 760)
         self.selected = sw.playing_key or (sw.devices[0].key if sw.devices else None)
         self.eq_page = None
+        # Windows 11's Mica: the window made see-through before Windows first draws it (it can't be later); turned on
+        # when it first shows (_mica_on), followed when the theme changes
+        self._mica = winsys.materials(QGuiApplication.platformName())[0]
+        self._mica_hwnd = None
+        if self._mica:
+            self.setAttribute(Qt.WA_TranslucentBackground)
 
         central = QWidget()
         lay = QVBoxLayout(central)
@@ -297,11 +306,22 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
     def showEvent(self, e):
         self.render_all()  # (devices plugged in, EQs switched from the tray while it was hidden)
         super().showEvent(e)
+        if self._mica and self._mica_hwnd is None:
+            self._mica_hwnd = int(self.winId())
+            theme.on_change(self._mica_on)
+            self._mica_on()
         if getattr(self, "_eq_pending", False) and self.eq_page is None:
             self._eq_pending = False
             self.show_page("eq", remember=False)
         if self.page() == "eq" and self.eq_page:
             self.eq_page.start()
+
+    def _mica_on(self):
+        """Mica behind the window, its title bar dark or light with the theme; in a contrast theme the window paints
+        its background itself (Windows' own solid colours)."""
+        on = winsys.mica(self._mica_hwnd, theme.dark()) and not theme.high_contrast()
+        if (self.property("mica") in (True, "true")) != on:
+            theme.mark(self, mica=on)
 
     def render_online(self):
         off = net.offline()

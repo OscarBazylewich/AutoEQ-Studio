@@ -1,5 +1,6 @@
-"""The bits of Windows the app uses directly: a hotkey that works in any program (RegisterHotKey), and starting with
-Windows (the "Run" list in your user's registry, as Task Manager's Startup apps shows it).
+"""The bits of Windows the app uses directly: a hotkey that works in any program (RegisterHotKey), starting with
+Windows (the "Run" list in your user's registry, as Task Manager's Startup apps shows it), and Windows 11's window
+materials (Mica behind the main window, rounded corners on pop-ups, the title bar dark or light: Windows' DWM).
 
 Task Manager names a startup entry by its program's file, not the entry's name: run by pythonw.exe it would say
 "pythonw" (as EQ Switcher's does). So Start with Windows runs "AutoEQ Studio.exe", a copy of the environment's
@@ -234,3 +235,57 @@ def start_program(exe, opener=None):
         opener(exe, cwd=os.path.dirname(exe))
     finally:
         os.environ["PATH"] = before
+
+
+# ---------------------------------------------------------------- Windows 11's window materials
+DWMWA_USE_IMMERSIVE_DARK_MODE, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWA_SYSTEMBACKDROP_TYPE = 20, 33, 38
+DWMSBT_MAINWINDOW, DWMWCP_ROUND = 2, 2  # (the backdrop: Mica; the corners: rounded as Windows 11's)
+MICA_BUILD, CORNERS_BUILD = 22621, 22000  # (Windows 11 22H2: the first with the backdrop setting; 21H2: corners)
+
+
+class _Margins(ctypes.Structure):
+    _fields_ = [("left", ctypes.c_int), ("right", ctypes.c_int), ("top", ctypes.c_int), ("bottom", ctypes.c_int)]
+
+
+def _dwm_set(hwnd, attribute, value):
+    """Windows' DwmSetWindowAttribute with a number: whether Windows took it (a Windows without it refuses)."""
+    v = ctypes.c_int(value)
+    try:
+        return ctypes.windll.dwmapi.DwmSetWindowAttribute(wintypes.HWND(hwnd), attribute, ctypes.byref(v),
+                                                          ctypes.sizeof(v)) == 0
+    except (AttributeError, OSError):
+        return False
+
+
+def materials(platform, build=None):
+    """What this PC can draw: (Mica, rounded pop-ups). Only when Qt draws on Windows' own screen ("windows", not the
+    tests' off-screen drawing), on Windows 11 (Mica from 22H2)."""
+    build = sys.getwindowsversion().build if build is None else build
+    on_screen = platform == "windows"
+    return on_screen and build >= MICA_BUILD, on_screen and build >= CORNERS_BUILD
+
+
+def mica(hwnd, dark):
+    """Windows 11's Mica behind a window: its frame drawn over the whole window, so what the window leaves clear
+    shows it (tinted by the desktop picture, as Windows' own apps), and the title bar dark or light with the theme.
+    Whether Windows took it. Windows itself shows a plain colour while the window isn't the active one, or with
+    Transparency effects off (Settings > Personalization > Colors)."""
+    try:
+        if ctypes.windll.dwmapi.DwmExtendFrameIntoClientArea(wintypes.HWND(hwnd),
+                                                             ctypes.byref(_Margins(-1, -1, -1, -1))) != 0:
+            return False
+    except (AttributeError, OSError):
+        return False
+    dark_title(hwnd, dark)
+    return _dwm_set(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, DWMSBT_MAINWINDOW)
+
+
+def dark_title(hwnd, dark):
+    """A window's title bar (and its Mica's tint) dark or light."""
+    return _dwm_set(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, 1 if dark else 0)
+
+
+def round_corners(hwnd):
+    """Windows 11's rounded corners on a pop-up (a menu, a drop-down's list, a tooltip): Windows rounds a window with a
+    frame by itself, a pop-up only when asked."""
+    return _dwm_set(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND)

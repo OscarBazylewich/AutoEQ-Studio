@@ -1,6 +1,8 @@
 """The bits of Windows the app uses directly (ui\\winsys.py): the hotkey written as Windows takes it (and Windows
-taking one), Start with Windows (the command, the launcher named AutoEQ Studio, which entries count as on), and APO's
-Configurator started without this app's Qt on PATH. Moved from selftest.py's qt_checks."""
+taking one), Start with Windows (the command, the launcher named AutoEQ Studio, which entries count as on), APO's
+Configurator started without this app's Qt on PATH (moved from selftest.py's qt_checks), and Windows 11's window
+materials asked of Windows' DWM as it takes them (Mica, rounded pop-ups, the title bar's dark or light: 2026-10-23,
+with Windows stood in, since the tests draw off-screen)."""
 import ctypes
 import filecmp
 import os
@@ -113,3 +115,37 @@ def test_configurator_starts_without_our_qt(check, monkeypatch, tmp_path):
           calls and calls[0][:2] == (exe, os.path.dirname(exe)) and other in passed
           and not any(os.path.normcase(p).startswith(os.path.normcase(sys.prefix)) for p in passed) and after == given,
           calls)
+
+
+class _Dwm:
+    """Windows' DWM stood in: what it was asked, answering as Windows does (0: done) or refusing (another number)."""
+
+    def __init__(self, answer=0):
+        self.answer, self.asked = answer, []
+
+    def DwmSetWindowAttribute(self, hwnd, attribute, value, size):  # noqa: N802 - (Windows' own name)
+        self.asked.append((attribute, value._obj.value))
+        return self.answer
+
+    def DwmExtendFrameIntoClientArea(self, hwnd, margins):  # noqa: N802 - (Windows' own name)
+        m = margins._obj
+        self.asked.append(("frame", m.left, m.right, m.top, m.bottom))
+        return self.answer
+
+
+def test_windows_11_materials(monkeypatch, check):
+    dwm = _Dwm()
+    monkeypatch.setattr(ctypes.windll, "dwmapi", dwm)
+    took = (winsys.mica(1, True), winsys.round_corners(2), winsys.dark_title(3, False))
+    refused = _Dwm(0x80070057)  # (E_INVALIDARG: a Windows without these)
+    monkeypatch.setattr(ctypes.windll, "dwmapi", refused)
+    not_taken = (winsys.mica(1, False), winsys.round_corners(2))
+    builds = {b: winsys.materials("windows", b) for b in (19045, 22000, 22621, 26300)}
+    off = winsys.materials("offscreen", 26300)
+    check("winsys: Windows 11's materials asked of Windows as it takes them (Mica: the frame over the whole window, "
+          "the title bar dark or light, the Mica backdrop; rounded pop-ups), refused by an older Windows, and only on "
+          "Windows' own screen: Mica from Windows 11 22H2, rounded corners from 21H2",
+          took == (True, True, True) and dwm.asked == [("frame", -1, -1, -1, -1), (20, 1), (38, 2), (33, 2), (20, 0)]
+          and not_taken == (False, False) and refused.asked == [("frame", -1, -1, -1, -1), (33, 2)]
+          and builds == {19045: (False, False), 22000: (False, True), 22621: (True, True), 26300: (True, True)}
+          and off == (False, False), (took, dwm.asked, not_taken, refused.asked, builds, off))

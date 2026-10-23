@@ -224,3 +224,106 @@ def test_starting_hidden_on_make_an_eq(check, fake_apo, tmp_path):
     check("window: starting hidden on Make an EQ makes the screen only when the window is shown (the tray stays light)",
           d.get("eq_page_none") is True and d.get("eq_pending") is True and d.get("eq") is False
           and d.get("numpy") is False, d or out.stderr[-300:])
+
+
+# The window on Windows 11 (stood in: the tests draw off-screen, where Windows' Mica and rounded corners don't exist):
+# winsys.materials says yes, and winsys.mica / round_corners record what they're asked. argv as CHILD's.
+MICA = r'''
+import json, os, sys
+sys.path.insert(0, sys.argv[1])
+top = sys.argv[2]
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtWidgets import QApplication, QMenu, QToolTip, QWidget
+qapp = QApplication.instance() or QApplication([])
+from ui import theme, theme_tokens, winsys
+asked = []
+winsys.materials = lambda platform, build=None: (True, True)
+winsys.mica = lambda hwnd, dark: asked.append(("mica", dark)) or True
+winsys.round_corners = lambda hwnd: asked.append(("corners", hwnd)) or True
+theme.accent_palette = lambda: theme_tokens.DEFAULT_ACCENT
+theme.apply(qapp, dark=True, contrast=False)
+from switcher import core
+from switcher import devices as D
+from switcher.apo import Apo
+
+
+class Stub:
+    hotkey_problem = ""
+
+    def tray_message(self, title, text):
+        pass
+
+    @staticmethod
+    def autostart_on():
+        return False
+
+    def set_autostart(self, on):
+        pass
+
+    @staticmethod
+    def set_offline(on):
+        import net
+        net.set_offline(on)
+
+
+eps = [D.Endpoint("{5}", "Headset", "EarPods", D.ACTIVE, False)]
+sw = core.Switcher(os.path.join(top, "s.json"), Apo(os.path.join(top, "apo", "config")), endpoints=lambda: eps,
+                   playing=lambda: "{5}")
+sw.s["page"] = "devices"
+from ui.window import Window
+
+
+def pump():
+    for _ in range(8):
+        qapp.processEvents()
+
+
+win = Window(sw, Stub())
+win.show()
+pump()
+out = {"translucent": win.testAttribute(Qt.WA_TranslucentBackground), "dark": win.property("mica"),
+       "clear": 'QMainWindow[mica="true"] { background: transparent; }' in qapp.styleSheet()}
+theme.apply(qapp, dark=False, contrast=False)
+pump()
+out["light"] = win.property("mica")
+theme.high_contrast = lambda: True
+theme.apply(qapp, dark=False, contrast=dict(theme.LIGHT, bg="#000000"))
+pump()
+out["contrast"] = win.property("mica")
+theme.high_contrast = lambda: False
+theme.apply(qapp, dark=False, contrast=False)
+pump()
+out["back"] = win.property("mica")
+before = len([a for a in asked if a[0] == "corners"])
+menu = QMenu(win)
+menu.addAction("A choice")
+menu.popup(win.mapToGlobal(QPoint(40, 40)))
+pump()
+menu_rounded = len([a for a in asked if a[0] == "corners"]) - before
+plain = QWidget(win, Qt.Window)
+plain.show()
+pump()
+plain_rounded = len([a for a in asked if a[0] == "corners"]) - before - menu_rounded
+QToolTip.showText(win.mapToGlobal(QPoint(60, 60)), "A tip", win)
+pump()
+tip_rounded = len([a for a in asked if a[0] == "corners"]) - before - menu_rounded - plain_rounded
+menu.hide()
+plain.close()
+QToolTip.hideText()
+out.update(asked=[a[0] if a[0] == "corners" else list(a) for a in asked], menu=menu_rounded, plain=plain_rounded,
+           tip=tip_rounded)
+print(json.dumps(out))
+'''
+
+
+def test_mica_and_rounded_popups(check, fake_apo, tmp_path):
+    out = subproc.run_python(MICA, session.SESSION.app, str(tmp_path))
+    d = out.data or {}
+    micas = [a for a in d.get("asked", []) if a != "corners"]
+    check("window: on Windows 11 its background is Windows' Mica (see-through, the stylesheet leaving it clear), "
+          "its title bar following dark and light, never in a contrast theme; menus and tooltips have Windows' "
+          "rounded corners, windows of their own not",
+          d.get("translucent") is True and d.get("dark") == "true" and d.get("clear") is True
+          and d.get("light") == "true" and d.get("contrast") is False and d.get("back") == "true"
+          and micas[:2] == [["mica", True], ["mica", False]] and d.get("menu") == 1 and d.get("plain") == 0
+          and d.get("tip") == 1, d or out.stderr[-400:])
