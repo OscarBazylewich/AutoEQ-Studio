@@ -97,7 +97,7 @@ MAKE AN EQ
 ----------
 One column, top to bottom:
 - The graph: your measurement (orange), the target (dashed) and, after a run, the measurement with the EQ (blue);
-  under it the EQ itself (green: above 0 boosts, below 0 cuts). "Error without EQ": how far the measurement is from
+  under it the EQ itself (pink: above 0 boosts, below 0 cuts). "Error without EQ": how far the measurement is from
   the target before any EQ. Over it: View (Absolute, or Relative to target: what's left to correct, 0 dB = on
   target), Y range (Auto or 30-60 dB), Channels (each file's curve too); point at the graph and its values show
   there. The shaded ends aren't scored; a target converted to another rig has a band showing how far off it may be.
@@ -145,7 +145,7 @@ One column, top to bottom:
   playing has its own EQ on (Devices), it plays on top of what you hear here: Listen says so, with "Switch it off".
 
 
-TRACING A GRAPH (✎ Trace image, by the graph's title)
+TRACING A GRAPH (Trace image, by the graph's title)
 ---------------------------------------------------
 For an IEM or headphone whose measurement exists only as a picture (a maker's sheet, a review's screenshot): open,
 drop or paste (Ctrl+V) the picture, and it becomes a measurement or a target. Pasting or dropping a picture on Make an

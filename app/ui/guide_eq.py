@@ -129,7 +129,7 @@ def eq_steps(page):
         finally:
             cw.CompareWindow.run = real
         from PySide6.QtCore import QSize
-        api.window(w, near=None, size=QSize(int(min(860, api.t.width() * 0.7)), int(min(640, api.t.height() * 0.7))))
+        api.window(w, near=None, size=QSize(int(min(860, api.t.width() * 0.7)), int(min(680, api.t.height() * 0.7))))
         w.q.setCursorPosition(0)
         g = theme.graph_colours()
         w.chart.setBackground(g["bg"])
@@ -346,7 +346,7 @@ def eq_steps(page):
         yield from mock_combo(api, L.src, k)
         api.say("Play (the demo stays quiet)")
         yield from api.click(L.play_btn)
-        api.stage_text(L.play_btn, "■ Stop")
+        api.stage_text(L.play_btn, "Stop")
         yield 500
         api.say("The volume: start low")
         yield from api.at(L.vol, 0.3, 0.5, 900)
@@ -515,8 +515,8 @@ def eq_steps(page):
          "demo": [{"click": lambda: page.run_btn, "say": "Click Run", "then": run_demo},
                   {"at": lambda: page.queue_btn, "say": "Run several…: several IEMs or targets in one go"}]},
         {"chapter": "3 · Run & review", "title": "Check it on the graph", "target": lambda: page.plot, "ready": has_curves,
-         "text": "Orange: your IEM. Dashed: the target. Blue: with the EQ, and under it the EQ itself (above 0 boosts, "
-                 "below cuts). Point at the graph for each curve's value; the shaded ends aren't scored.",
+         "text": "Orange: your IEM. Dashed: the target. Blue: with the EQ. Under it, pink: the EQ itself (above 0 "
+                 "boosts, below cuts). Point at the graph for each curve's value; the shaded ends aren't scored.",
          "demo": lambda: [{"run": graph_demo, "say": "With the EQ, your IEM becomes the blue curve, close to the target"},
                           {"at": lambda: page.plot, "x": 0.3, "y": 0.35, "then": plot_value(page, 0.3, 0.35),
                            "say": "Point at the graph: its values show above it"},

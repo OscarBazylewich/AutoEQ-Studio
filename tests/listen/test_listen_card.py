@@ -240,7 +240,7 @@ def test_play_and_stop_symbols(card, check):
     lis = card.lis
     b = lis.play_btn
     shown = []
-    for text in ("Stop", "Play", "■ Stop", "▶ Play"):  # (the Guide's demo shows "■ Stop" on it)
+    for text in ("Stop", "Play", "■ Stop", "▶ Play"):  # (a ▶ or ■ written before the word, as before the symbols)
         b.setText(text)
         shown.append((b.text(), b.symbol, not b.icon().isNull()))
     b.setText("Preparing…")

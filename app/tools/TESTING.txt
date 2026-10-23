@@ -34,7 +34,7 @@ THINGS TO TRY (tick what you managed; note anything that didn't work or looked w
   [ ] Edit a filter in the result (the table or Sliders): the graph should follow.
   [ ] Listen (under the result), with your earphones in and the volume low: play the music and switch between
       "EQ off" and the EQ (keys 1 and 2). Do you hear the difference? Any clicks, crackles or silence?
-  [ ] "✎ Trace image" (by the graph's title): press its "? Guide", then try it on a screenshot of any frequency
+  [ ] "Trace image" (by the graph's title): press its "Guide", then try it on a screenshot of any frequency
       response graph (e.g. from a review site).
   [ ] Help (top right), and F1 while pointing at any setting.
   [ ] Click "Online" (top right) to go offline, and try Find… again: it should say what it can't do offline.

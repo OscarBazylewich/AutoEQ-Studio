@@ -1,7 +1,7 @@
 """Your EQs to compare, one list per IEM or headphone (the measurement's name), kept between sessions in
 data\\listen.json: each one's name, filters, a note on where it came from, and whether it's drawn on the graph.
 
-The page adds to a list from the result card (📌 Keep to compare), from History (Listen) or from an EQ file or pasted
+The page adds to a list from the result card (Keep to compare), from History (Listen) or from an EQ file or pasted
 filters (in Listen), and plays them all in Listen. At most MAX_EQS per list (each plays through its own filters all
 the time, so switching is instant) and MAX_LISTS lists (past that, the one used longest ago goes)."""
 import os

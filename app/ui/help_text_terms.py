@@ -255,7 +255,7 @@ TERMS = [{'title': 'Curves and sound',
                     {'id': 'tracer',
                      'title': 'Trace image',
                      'body': ['Turns a picture of a frequency response graph into curve files: it reads the axes, '
-                              'follows a curve by its colour, and saves it as a measurement or target. ✎ Trace '
+                              'follows a curve by its colour, and saves it as a measurement or target. Trace '
                               "image (by the graph's title) opens it: drop, paste or open a picture there. It has "
                               'its own Guide.'],
                      'see': ['compensated', 'measurement']}]},
@@ -425,7 +425,7 @@ TERMS = [{'title': 'Curves and sound',
                     {'id': 'eqs-to-compare',
                      'title': 'EQs to compare',
                      'body': ['A list per IEM or headphone (up to 12) of EQs you want to hear side by side: from '
-                              'a result (📌 Keep to compare), History, an EQ file or pasted filters. Each is a '
+                              'a result (Keep to compare), History, an EQ file or pasted filters. Each is a '
                               'version in Listen (keys 1-9) and, while Graph is ticked, a curve on the graph. '
                               'Kept between sessions.'],
                      'see': ['match-loudness', 'history']},
@@ -541,7 +541,7 @@ QUESTIONS = [{'id': 'q-which-method',
               'see': ['eq-app', 'file-formats']},
              {'id': 'q-graph',
               'q': 'I only have a picture of a graph. Can I use it?',
-              'body': ["Yes: ✎ Trace image (by the graph's title), then drop, paste or open the picture there. It "
+              'body': ["Yes: Trace image (by the graph's title), then drop, paste or open the picture there. It "
                        'reads the axes, follows the curve and saves it as a measurement or target.'],
               'see': ['tracer']},
              {'id': 'q-listen',
