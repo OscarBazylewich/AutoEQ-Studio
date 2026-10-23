@@ -2,15 +2,20 @@
 MODE_HINT, TICKS and file_base_name still import from ui/eq_page.py too.
 - FORMAT_NAMES: the files Save filters can write, by key; MODE_SHORT: each method's short name; MODE_HINT: the line
   beside Method; TICKS: the graph's frequencies
-- label(text, role, wrap): a label, in one of the theme's text roles; hz(v): a frequency in Hz or kHz
+- label(text, role, wrap): a label, in one of the theme's text roles; note(lab, text): a note's words, the note
+  hidden while it has none (so an empty one takes no room); hz(v): a frequency in Hz or kHz
+- Elided: a one-line label that never makes its row wider than the window (the values under the pointer); NameCombo:
+  a drop-down whose name, when longer than its room, ends in "…" as Windows 11's own do (Target, Measurement, Runs
+  this session); PairTitle: "A  →  B" on one line, or B under A when the window is narrow (the graph's title)
 - file_base_name(...): a saved EQ's name, "<IEM> to <target> - <layout or method> <n>f"
 - Notices: a message from a worker thread, said on the window's thread; modal(dlg): a window over the page until it's
   closed
 """
-from PySide6.QtCore import QObject, Signal
-from PySide6.QtWidgets import QLabel
+from PySide6.QtCore import QObject, QSize, Qt, Signal
+from PySide6.QtWidgets import QLabel, QStyle, QStyleOptionComboBox, QStylePainter
 
 from ui import theme
+from ui.search_combo import SearchCombo
 
 
 FORMAT_NAMES = {"apo": "Equalizer APO / squiglink (.txt)", "graphic": "GraphicEQ for Wavelet (.txt)",
@@ -31,8 +36,85 @@ def label(text="", role=None, wrap=True):
     return lab
 
 
+def note(lab, text):
+    """A note's words; the note hidden while it has none, so an empty one leaves no gap."""
+    lab.setText(text)
+    lab.setVisible(bool(text))
+
+
 def hz(v):
     return f"{v / 1000:g} kHz" if v >= 1000 else f"{v:g} Hz"
+
+
+class Elided(QLabel):
+    """A label on one line that never makes its row wider (a long line made the page wider than the window): when its
+    words are longer than its room they end in "…". text() is still all of them."""
+
+    def minimumSizeHint(self):
+        return QSize(0, super().minimumSizeHint().height())
+
+    def shown_text(self):
+        """The words as drawn: all of them, or as many as fit, then "…"."""
+        return self.fontMetrics().elidedText(self.text(), Qt.ElideRight, max(0, self.contentsRect().width()))
+
+    def paintEvent(self, e):
+        p = QStylePainter(self)
+        p.drawItemText(self.contentsRect(), int(self.alignment().value), self.palette(), self.isEnabled(),
+                       self.shown_text(), self.foregroundRole())
+
+
+class PairTitle(QLabel):
+    """A title of two names, "A  →  B" (the graph's: your measurement → the target): on one line when it fits, else B
+    on a line of its own under A, "→  B" (each wrapping further only if it must), so a narrow window never cuts it or
+    makes the page wider than the window. text() is the title as shown; setText() takes a title as it is."""
+
+    def __init__(self):
+        super().__init__()
+        self.setWordWrap(True)
+        self._pair = None
+
+    def set_pair(self, a, b):
+        self._pair = (a, b)
+        self._fit()
+
+    def setText(self, text):
+        self._pair = None
+        super().setText(text)
+
+    def _fit(self):
+        if self._pair is None:
+            return
+        a, b = self._pair
+        one = f"{a}  →  {b}"
+        room = self.contentsRect().width()
+        text = one if room <= 0 or self.fontMetrics().horizontalAdvance(one) <= room else f"{a}\n→  {b}"
+        if text != self.text():
+            super().setText(text)
+
+    def resizeEvent(self, e):  # (its width is the row's room left by the buttons: never its words', so this settles)
+        super().resizeEvent(e)
+        self._fit()
+
+
+class NameCombo(SearchCombo):
+    """A drop-down of names (a target, a measurement, a run): one too long for it ends in "…", as Windows 11's own
+    drop-downs do, rather than being cut off; its list shows every name whole."""
+
+    def shown_text(self):
+        """The chosen name as drawn: whole, or as much as fits, then "…"."""
+        opt = QStyleOptionComboBox()
+        self.initStyleOption(opt)
+        room = self.style().subControlRect(QStyle.CC_ComboBox, opt, QStyle.SC_ComboBoxEditField, self).width()
+        return self.fontMetrics().elidedText(opt.currentText, Qt.ElideRight, max(0, room - 4))
+
+    def paintEvent(self, e):
+        p = QStylePainter(self)
+        p.setPen(self.palette().color(self.foregroundRole()))
+        opt = QStyleOptionComboBox()
+        self.initStyleOption(opt)
+        p.drawComplexControl(QStyle.CC_ComboBox, opt)
+        opt.currentText = self.shown_text()
+        p.drawControl(QStyle.CE_ComboBoxLabel, opt)
 
 
 def file_base_name(device, target, layout_name, mode, n):

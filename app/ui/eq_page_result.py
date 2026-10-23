@@ -1,6 +1,6 @@
 """Make an EQ's run and result (a part of EqPage, ui/eq_page.py): Run (Retry, Cancel) and its progress, the result
 shown (its numbers, Fewer or more filters, All results…, Compare…, Run several…), this session's runs, the filters
-being edited (Table, Sliders, + Add filter, Sort, Revert), Save filters, Report, and Use on device (or Try for 5
+being edited (Table, Sliders, Add filter, Sort, Revert), Save filters, Report, and Use on device (or Try for 5
 minutes on).
 EqResult is a plain class (no __init__, no signals); EqPage (ui/eq_page.py) joins it with the other parts.
 """

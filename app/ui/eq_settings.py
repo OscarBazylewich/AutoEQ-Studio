@@ -20,7 +20,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QCheckBox, QFileDialog, QGridLayout, QHBoxLayout, QLabel, QMessageBox, QPushButton, QToolButton, QVBoxLayout,
                                QWidget)
 
-from ui import help_window, theme
+from ui import help_window, icons, theme
 from ui.forms import Field, Fold, Form, Limits, fmt_list
 
 ADJUST_GAINS = ("tilt", "bass_gain", "halftilt_gain", "ear_gain", "treble_gain", "air_gain")  # (eq.service's)
@@ -188,7 +188,7 @@ class EqSettings:
         self.adjust_btn.setText("Adjust")
         self.adjust_btn.setCheckable(True)
         self.adjust_btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-        theme.mark(self.adjust_btn, fold=True)
+        theme.mark(self.adjust_btn, fold=True, eqsub=True)  # (a part of the Target card: quieter than its title)
         self.adjust_btn.setToolTip("Tilt, bass, half-tilt, ear gain, treble and air: the target made darker, brighter, bassier…")
         help_window.tag(self.adjust_btn, "#target-adjust")
         self.adjust_btn.toggled.connect(self._adjust_open)
@@ -430,6 +430,7 @@ class EqSettings:
         dlg.setWindowTitle("Your own filters")
         dlg.resize(820, 560)
         v = QVBoxLayout(dlg)
+        v.setContentsMargins(16, 16, 16, 16)  # (a card's room around it, as Windows 11's own windows have)
         others = len([ln for ln in text.splitlines() if ln.strip()]) > len(filters)
         note = QLabel("Best fit starts from these (switched-off ones are left out): it adds filters to them, or adjusts "
                       "them too unless “Keep them exactly as they are” is ticked."
@@ -442,11 +443,22 @@ class EqSettings:
         ed.set_filters(filters)
         ed.set_view("table")
         row = QHBoxLayout()
+        views = {}
+
+        def show(view):  # (as the result card's Table and Sliders: tabs, the one shown marked)
+            for k, b in views.items():
+                b.setChecked(k == view)
+            ed.set_view(view)
         for name, view in (("Table", "table"), ("Sliders", "sliders")):
-            b = QPushButton(name)
-            b.clicked.connect(lambda _=False, view=view: ed.set_view(view))
+            b = views[view] = QPushButton(name)
+            b.setCheckable(True)
+            b.setChecked(view == "table")
+            theme.mark(b, nav=True)
+            b.clicked.connect(lambda _=False, view=view: show(view))
             row.addWidget(b)
-        add = QPushButton("+ Add filter")
+        row.addSpacing(12)
+        add = QPushButton("Add filter")
+        icons.put(add, "add")
         add.clicked.connect(lambda: (filters.append({"enabled": True, "type": "PK", "freq": 1000, "gain": 0, "q": 1}),
                                      ed.rebuild()))
         row.addWidget(add)
@@ -454,6 +466,7 @@ class EqSettings:
         v.addLayout(row)
         v.addWidget(ed, 1)
         btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        theme.mark(btns.button(QDialogButtonBox.Ok), primary=True)  # (the window's main action: the accent)
         btns.accepted.connect(dlg.accept)
         btns.rejected.connect(dlg.reject)
         v.addWidget(btns)
@@ -474,8 +487,9 @@ class EqSettings:
         items = []
         for n in notes:
             text = n["text"].replace("&", "&amp;").replace("<", "&lt;")
-            if n.get("path") in mine:
-                items.append(f"<li><span style='color:{t['c1']}'>yours</span> · Automatic: {text} Your value is used.</li>")
+            if n.get("path") in mine:  # ("yours" in the accent as text: 4.5:1 on the card, light or dark)
+                items.append(f"<li><span style='color:{t['accent_text']}'>yours</span> · Automatic: {text} Your value "
+                             "is used.</li>")
             else:
                 items.append(f"<li>{text}</li>")
         self.why.setText("<ul style='margin-left:-20px'>" + "".join(items) + "</ul>" if items else

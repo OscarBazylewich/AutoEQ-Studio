@@ -1,19 +1,23 @@
 """Make an EQ's cards (a part of EqPage, ui/eq_page.py): the page laid out once the EQ part has opened, top to
-bottom: the graph (its title, Trace image, History, View, Y range, Channels), Target | Measurement (Find…, Add…),
-the notice with Undo, Make the EQ (your EQ app, the method, the search, Run), the settings' folds
+bottom: the graph (its title, Trace image, History, View, Y range, Channels), Target, then Measurement (Find…,
+Add…), the notice with Undo, Make the EQ (your EQ app, the method, the search, Run), the settings' folds
 (ui/eq_settings.py), Your result (its numbers, the filters, File name, Save filters, Use on device) and Listen
 (ui/listen.py). This is the file to restyle Make an EQ in.
+The look is Windows 11's (the restyle, 2026-10-23): Windows 11's symbols beside the main actions' words
+(ui/icons.py), the notice as Windows 11's information bar, and every card as wide as the window and no wider (a long
+title wraps, a long name ends in "…"; Target and Measurement one above the other, so their names fit). Its own
+style rules are theme_sheet.py's eq_screen part (the properties eqtitle, eqsubtle, and eqsub in ui/eq_settings.py).
 EqCards is a plain class (no __init__, no signals); EqPage (ui/eq_page.py) joins it with the other parts. What it
 makes is the page's (self.run_btn, self.plot …), and the other parts use it.
 """
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLineEdit, QMenu,
-                               QProgressBar, QPushButton, QScrollArea, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
+                               QMenu, QProgressBar, QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
-from ui import help_window, theme
-from ui.eq_page_parts import TICKS, hz, label
+from ui import help_window, icons, theme
+from ui.eq_page_parts import TICKS, Elided, NameCombo, PairTitle, hz, label
 from ui.search_combo import SearchCombo
 
 
@@ -30,11 +34,10 @@ class EqCards:
         col.setSpacing(12)
         col.setContentsMargins(14, 14, 14, 14)
         col.addWidget(self._graph_card())
-        row = QHBoxLayout()
-        row.setSpacing(12)
-        row.addWidget(self._file_card("target"))
-        row.addWidget(self._file_card("measurement"))
-        col.addLayout(row)
+        # (one above the other, each the page's width: side by side, with Windows 11's sizes, a measurement's name was
+        # cut off in its drop-down at the window's own size, 2026-10-23)
+        col.addWidget(self._file_card("target"))
+        col.addWidget(self._file_card("measurement"))
         col.addWidget(self._notice_row())
         col.addWidget(self._eq_card())
         from ui.eq_settings import EqSettings
@@ -44,6 +47,9 @@ class EqCards:
         col.addWidget(self.settings.fold)
         col.addWidget(self.settings.adv)
         col.addWidget(self._result_card())
+        # (the settings shown again now the result card is there: its line under File name, "Save filters writes: …",
+        # was made after Make the EQ first showed them, and stayed empty until a setting changed, 2026-10-23)
+        self.show_settings()
         from ui.listen import Listen
         self.listen = Listen(self)
         self.listen.hide()  # (once there are curves)
@@ -57,21 +63,24 @@ class EqCards:
         theme.mark(card, card=True)
         v = QVBoxLayout(card)
         head = QHBoxLayout()
-        self.graph_title = label("", wrap=False)
-        theme.mark(self.graph_title, role="brand")
+        self.graph_title = PairTitle()  # (the target under the measurement on a narrow window: on one line it made
+        theme.mark(self.graph_title, eqtitle=True)  # the page wider than the window)
         head.addWidget(self.graph_title, 1)
         self.chip_noeq = label("", "chip", wrap=False)
-        head.addWidget(self.chip_noeq)
-        trace = QPushButton("✎ Trace image")
+        head.addWidget(self.chip_noeq, 0, Qt.AlignVCenter)  # (its own height: a value, not a button)
+        trace = QPushButton("Trace image")
+        icons.put(trace, "trace")
         trace.setToolTip("Make a frequency response from a picture of a graph")
         trace.clicked.connect(self.open_trace)
         head.addWidget(trace)
         self.clear_prev_btn = QPushButton("Hide shown curves")
+        icons.put(self.clear_prev_btn, "hide")  # (between Trace image and History, as they have theirs)
         self.clear_prev_btn.setToolTip("Take the curves shown from Find… (dotted) off the graph")
         self.clear_prev_btn.clicked.connect(self.clear_previews)
         self.clear_prev_btn.hide()
         head.addWidget(self.clear_prev_btn)
         hist = QPushButton("History")
+        icons.put(hist, "history")
         hist.setToolTip("Your past EQs, kept between sessions")
         hist.clicked.connect(lambda: self.open_history(False))
         head.addWidget(hist)
@@ -102,7 +111,8 @@ class EqCards:
         help_window.tag(self.channels_chk, "#opt-ch")
         opts.addWidget(self.channels_chk)
         opts.addStretch(1)
-        self.hover_lab = label("", "muted", wrap=False)
+        self.hover_lab = Elided("")  # (never wider than its room: "…" at its end on a narrow window)
+        theme.mark(self.hover_lab, role="muted")
         opts.addWidget(self.hover_lab)
         v.addLayout(opts)
         self.plot = pg.PlotWidget()
@@ -124,28 +134,42 @@ class EqCards:
         v.addWidget(self.plot)
         v.addWidget(self.eqplot)
         self.graph_note = label("", "muted")
+        self.graph_note.hide()  # (shown when it has words: a rig's note, or why there are no curves)
         v.addWidget(self.graph_note)
         self._recolour(draw=False)
         return card
 
     def _notice_row(self):
-        """What was just done to the files (Use, an average, a move), with Undo (AutoEQ Local's toasts)."""
+        """What was just done to the files (Use, an average, a move), with Undo (AutoEQ Local's toasts): as Windows
+        11's information bar, an "i" in the accent's colour first (drawn again when the theme changes: _recolour),
+        then the words, Undo, and a quiet ✕."""
         self.notice = QFrame()
         theme.mark(self.notice, card=True)
         h = QHBoxLayout(self.notice)
-        h.setContentsMargins(12, 6, 8, 6)
+        h.setContentsMargins(14, 6, 6, 6)
+        h.setSpacing(10)
+        self.notice_icon = QLabel()
+        h.addWidget(self.notice_icon, 0, Qt.AlignVCenter)
         self.notice_text = label("")
         h.addWidget(self.notice_text, 1)
         self.notice_undo = QPushButton("Undo")
+        icons.put(self.notice_undo, "undo")
         h.addWidget(self.notice_undo)
         x = QPushButton("✕")
         x.setAccessibleName("Close the notice")
         x.setToolTip("Close")
+        theme.mark(x, eqsubtle=True)  # (no fill until pointed at, as the information bar's own)
         x.clicked.connect(self.notice.hide)
         h.addWidget(x)
         self.notice.hide()
         self._notice_timer = QTimer(self, singleShot=True, interval=20000, timeout=self.notice.hide)
+        self._notice_symbol()
         return self.notice
+
+    def _notice_symbol(self):
+        """The notice's "i", in the accent's colour now (Windows' own, light or dark)."""
+        from PySide6.QtCore import QSize
+        self.notice_icon.setPixmap(icons.glyph("info", theme.tokens()["accent"]).pixmap(QSize(22, 16)))
 
     def notify(self, text, undo=None):
         self.notice_text.setText(text)
@@ -161,7 +185,7 @@ class EqCards:
     def _file_card(self, kind):
         box = QGroupBox("Target" if kind == "target" else "Measurement")
         v = QVBoxLayout(box)
-        combo = SearchCombo()
+        combo = NameCombo()  # (a name longer than its room ends in "…": never cut off)
         combo.setMinimumContentsLength(20)
         combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
         combo.activated.connect(lambda _i, k=kind: self._file_chosen(k))
@@ -169,16 +193,19 @@ class EqCards:
         row = QHBoxLayout()
         row.addWidget(combo, 1)
         find = QPushButton("Find…")
+        icons.put(find, "find")
         find.setToolTip("Search your files, this PC and the online databases")
         find.clicked.connect(lambda _=False, k=kind: self.find(k))
         row.addWidget(find)
         add = QPushButton("Add…")
+        icons.put(add, "add")
         add.setToolTip("Add target files from this PC" if kind == "target" else
                        "Add measurement files from this PC (a set: L/R, seatings)")
         add.clicked.connect(lambda _=False, k=kind: self.add_files(k))
         row.addWidget(add)
         v.addLayout(row)
         note = label("", "muted")
+        note.hide()  # (shown when it has words: eq_page_files.show_inputs)
         v.addWidget(note)
         if kind == "measurement":
             other = QPushButton("Other measurements of this model…")
@@ -229,7 +256,7 @@ class EqCards:
         g.addWidget(self.mode_combo, 2, 1)
         self.mode_hint = label("", "muted")
         g.addWidget(self.mode_hint, 2, 2, 1, 2)
-        g.addWidget(label("Search", wrap=False), 3, 0)
+        g.addWidget(label("Search", wrap=False), 3, 0, Qt.AlignTop)  # (level with the first of its lines)
         # what a run tries and how long it takes (one search since 1.0.8, the user's ask 2026-10-13: with the EQ grown
         # one filter at a time Quick, Standard and Thorough all took seconds, and one search trying every limit they
         # tried found the fewest filters for every IEM tested: the benchmarks in BENCHMARKS.md)
@@ -248,9 +275,11 @@ class EqCards:
         run_row.setSpacing(10)
         self.run_btn = QPushButton("Run")
         theme.mark(self.run_btn, primary=True)
+        icons.put(self.run_btn, "run")
         self.run_btn.setMinimumWidth(120)
         self.run_btn.clicked.connect(lambda: self.run())  # (not self.run: Qt hands it the click's checked=False as retry)
         self.cancel_btn = QPushButton("Cancel")
+        icons.put(self.cancel_btn, "cancel")
         self.cancel_btn.clicked.connect(lambda: self.svc.call("/api/cancel"))
         self.cancel_btn.hide()
         self.queue_btn = QPushButton("Run several…")
@@ -262,9 +291,8 @@ class EqCards:
         run_row.addWidget(self.queue_btn)
         run_row.addStretch(1)
         g.addLayout(run_row, 6, 1, 1, 3)
-        self.progress = QProgressBar()
+        self.progress = QProgressBar()  # (Windows 11's thin line: its height is the theme's)
         self.progress.setTextVisible(False)
-        self.progress.setFixedHeight(8)
         self.progress.hide()
         g.addWidget(self.progress, 7, 1, 1, 3)
         self.progress_text = label("", "muted")
@@ -277,7 +305,7 @@ class EqCards:
         self.result_box = box = QGroupBox("Your result")
         v = QVBoxLayout(box)
         self.res_title = label("")
-        theme.mark(self.res_title, role="brand")
+        theme.mark(self.res_title, eqtitle=True)
         v.addWidget(self.res_title)
         self.res_sub = label("", "muted")
         v.addWidget(self.res_sub)
@@ -309,12 +337,15 @@ class EqCards:
         rr = QHBoxLayout(self.runs_row)
         rr.setContentsMargins(0, 0, 0, 0)
         rr.addWidget(label("Runs this session", wrap=False))
-        self.runs_combo = SearchCombo()
+        self.runs_combo = NameCombo()  # (as wide as its room, a long run's line ending in "…": it made the page wider)
+        self.runs_combo.setMinimumContentsLength(20)
+        self.runs_combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
         self.runs_combo.setAccessibleName("Runs this session")
         self.runs_combo.setToolTip("Every run of this session (and EQs shown from History): choose one to see it again")
         self.runs_combo.activated.connect(lambda _i: self.choose_run(self.runs_combo.currentData()))
         rr.addWidget(self.runs_combo, 1)
         drop = QPushButton("Remove")
+        icons.put(drop, "remove")
         drop.setToolTip("Take the run shown off this list (History keeps what you saved)")
         drop.clicked.connect(self.remove_run)
         rr.addWidget(drop)
@@ -346,10 +377,11 @@ class EqCards:
             tools.addWidget(b)
             self.view_btns[key] = b
         tools.addSpacing(12)
-        for text, fn, tip in (("+ Add filter", self.add_filter, "A new filter at 1 kHz, 0 dB"),
-                              ("Sort", self.sort_filters, "Put the filters in order of frequency"),
-                              ("Revert", self.revert, "Back to the filters as the run made them")):
+        for text, symbol, fn, tip in (("Add filter", "add", self.add_filter, "A new filter at 1 kHz, 0 dB"),
+                                      ("Sort", "sort", self.sort_filters, "Put the filters in order of frequency"),
+                                      ("Revert", "undo", self.revert, "Back to the filters as the run made them")):
             b = QPushButton(text)
+            icons.put(b, symbol)
             b.setToolTip(tip)
             b.clicked.connect(fn)
             tools.addWidget(b)
@@ -383,8 +415,10 @@ class EqCards:
         btns = QHBoxLayout()
         save = QPushButton("Save filters")
         theme.mark(save, primary=True)
+        icons.put(save, "save")
         save.clicked.connect(self.save)
         self.use_btn = QPushButton("Use on device")
+        icons.put(self.use_btn, "devices")  # (the Devices screen's own symbol)
         self.use_menu = QMenu(self.use_btn)
         self.use_menu.aboutToShow.connect(self._fill_use_menu)
         self.use_btn.setMenu(self.use_menu)
@@ -394,10 +428,12 @@ class EqCards:
         report.clicked.connect(lambda: self.report(open_it=True))
         folder = QPushButton("Open the Saved EQs folder")
         folder.clicked.connect(lambda: self.svc.call("/api/open", {"what": "output"}))
-        keep = QPushButton("📌 Keep to compare")
+        keep = QPushButton("Keep to compare")
+        icons.put(keep, "pin")  # (Windows 11's pin, where the words had 📌)
         keep.setToolTip("Add this EQ to your EQs to compare for this IEM: on the graph, and in Listen to hear it")
         keep.clicked.connect(lambda: self.listen.add_selected())
         copy = QPushButton("Copy")
+        icons.put(copy, "copy")
         copy.setToolTip("Copy the filters as Equalizer APO / squiglink text")
         copy.clicked.connect(lambda: self.copy_filters(self.active(), self.stats()["preamp_raw"]))
         for b in (save, copy, self.use_btn, keep, report, folder):
