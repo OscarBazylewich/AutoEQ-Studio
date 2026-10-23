@@ -4,7 +4,8 @@ used; Revert gives the run's filters back and Sort alone isn't an edit; the Slid
 Moved from eq_checks.py's ui_checks: one page for the file (the eq_screen fixture), a quick run of its own (the
 result the old checks edited), then the edits one after another in the old order. Then the editor's look
 (Windows 11's, 2026-10-23) on an editor of its own in a window, as Your own filters has it: as tall as the view
-shown, and its colours the theme's, light and dark (read from what's drawn)."""
+shown, and its colours the theme's, light and dark (read from what's drawn); and Your own filters itself (Settings ›
+Edit as a table…), its Sliders view whole as the window opens and at its smallest."""
 import pytest
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QSlider
@@ -163,3 +164,50 @@ def test_editor_colours_are_the_themes(own_editor, eq_screen, check):
     check("filters: the pre-amp's bar (a slider's empty track), ✕ (a subtle button: the card shows through it) and a "
           "switched-off filter's thumb (its ring with a grey dot, not a flat square) in the theme's colours, light and "
           "dark, none set in the code", ok and light["bar"][1] != dark["bar"][1], {"light": light, "dark": dark})
+
+
+def test_own_filters_sliders_whole(eq_screen, check, monkeypatch):
+    # (found by the restyle's checkers, 2026-10-23: Your own filters with ten filters opened at its smallest height,
+    # 820 x 573, and its Sliders view, 440 px tall, got 421: Qt works out a window's smallest height with the note's
+    # wrapped second line counted as none, so the editor lost that line. Its bottom, the sideways scroll bar, was
+    # under OK and Cancel, and the filters past the fifth couldn't be reached)
+    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QDialog, QDialogButtonBox, QPushButton
+    from ui.filter_editor import FilterEditor
+    page = eq_screen.page
+    ten = "\n".join(f"Filter {i}: ON PK Fc {100 * i} Hz Gain 1 dB Q 1" for i in range(1, 11))
+    seen = {}
+
+    def where(dlg):
+        """The sliders' scroll bar (its top, its bottom, shown, how far it scrolls), the editor's bottom and the
+        buttons' top, in the window, as it is now."""
+        ed = dlg.findChild(FilterEditor)
+        bar = ed.sliders_scroll.horizontalScrollBar()
+        top = bar.mapTo(dlg, QPoint(0, 0)).y()
+        return {"window": (dlg.width(), dlg.height()), "bar": (top, top + bar.height(), bar.isVisible(), bar.maximum()),
+                "editor ends": ed.mapTo(dlg, QPoint(0, ed.height())).y(),
+                "buttons start": dlg.findChild(QDialogButtonBox).geometry().y()}
+
+    def shown(dlg):  # (the window's exec: shown as it opens, its Sliders view chosen, then made as small as it goes)
+        dlg.show()
+        qt.pump(200)
+        next(b for b in dlg.findChildren(QPushButton) if b.text() == "Sliders").click()
+        qt.pump(200)
+        seen["as it opens"] = where(dlg)
+        dlg.resize(dlg.minimumSize())
+        qt.pump(200)
+        seen["at its smallest"] = where(dlg)
+        dlg.hide()
+        return QDialog.Rejected  # (Cancel: your own filters stay as they were)
+    kept = page.S["best_fit"]["start_filters"]
+    monkeypatch.setattr(QDialog, "exec", shown)
+    try:
+        page.S["best_fit"]["start_filters"] = ten
+        page.settings.edit_own_filters()
+    finally:
+        page.S["best_fit"]["start_filters"] = kept
+    whole = lambda s: s["bar"][2] and s["bar"][3] > 0 and s["bar"][1] <= s["editor ends"] <= s["buttons start"]
+    check("filters: Your own filters' Sliders view is whole, its sideways scroll bar in sight above OK and Cancel, as "
+          "the window opens and at its smallest (the window's smallest height counted the note's second line as none: "
+          "the bar was under the buttons, the filters past the fifth out of reach)",
+          len(seen) == 2 and all(whole(s) for s in seen.values()), seen)

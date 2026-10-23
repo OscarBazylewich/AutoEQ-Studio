@@ -3,7 +3,9 @@ max Q (the best per cell), a click shows one (and marks it), the table sorts by 
 rest_checks: one page for the file (the eq_screen fixture) with the EQ the old check had on the card (a quick run
 saved as "UI check" and brought back with History's Show); the run of 18 results is made up from it, as there.
 Then its look (Windows 11's, 2026-10-23) on a made-up run of four: the shading in the theme's colour for "good",
-light and dark (read from what's drawn), the grid's corner and words, and the window at its smallest."""
+light and dark (read from what's drawn), the grid's corner and words, and the window at its smallest; Windows 11's
+table look for the grid and the table (no grid lines, each heading over its words at the left, the grid's rows
+told apart by a line in the theme's colour); and the grid's rows saying their results' own filter count."""
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
@@ -182,3 +184,124 @@ def test_all_results_wide_grid_in_a_narrow_window(eq_screen, history_eq, check):
     check("all results: in a narrow window a wide grid scrolls sideways, its last row whole above the scroll bar (the "
           "bar covered it)", state["scrolls sideways"] and state["last row ends"] < state["rows' room"]
           and state["scrolls down"] == 0, state)
+
+
+def _words_start(img, rect):
+    """How far in from rect's left a picture's words start: the first column with a pixel far from the colour behind
+    them (taken at rect's left edge, half-way down); None without words."""
+    back = img.pixelColor(rect.left() + 1, rect.center().y())
+    for x in range(rect.left(), rect.right() + 1):
+        for y in range(rect.top() + 2, rect.bottom() - 1):
+            c = img.pixelColor(x, y)
+            if max(abs(c.red() - back.red()), abs(c.green() - back.green()), abs(c.blue() - back.blue())) > 80:
+                return x - rect.left()
+    return None
+
+
+def _headings_over_words(t, cols):
+    """For each column: (where its heading's words start, where its first row's words start), each from the column's
+    left, as drawn now."""
+    from PySide6.QtCore import QRect
+    h = t.horizontalHeader()
+    head, cells = _picture(h), _picture(t.viewport())
+    out = []
+    for c in cols:
+        x = h.sectionViewportPosition(c)
+        out.append((_words_start(head, QRect(x, 0, h.sectionSize(c), h.height())),
+                    _words_start(cells, t.visualItemRect(t.item(0, c)))))
+    return out
+
+
+def test_all_results_in_windows_11s_table_look(four, eq_screen, check):
+    # (2026-10-23, the restyle's checkers: All results kept full grid lines and centred headings, while Profiles, Run
+    # several and the filter editor have Windows 11's table look)
+    from ui import theme
+    ar, qapp = four, eq_screen.qapp
+    g, t = ar.grid, ar.table
+
+    def lines():
+        """The colour of the line under the grid's first cell, half-way across, and the theme's colour for lines."""
+        r = g.visualItemRect(g.item(0, 0))
+        return _picture(g.viewport()).pixelColor(r.center().x(), r.bottom()).name(), theme.tokens()["line"]
+    found = {"grid lines": (g.showGrid(), t.showGrid()), "table rows shaded": t.alternatingRowColors(),
+             "grid: headings over their words": _headings_over_words(g, range(g.columnCount())),
+             "table: headings over their words": _headings_over_words(t, range(t.columnCount()))}
+    try:
+        found["line under a grid row, light"] = lines()
+        theme.apply(qapp, dark=True)
+        qt.pump(200)
+        found["line under a grid row, dark"] = lines()
+    finally:
+        qt.light(qapp)  # (the light theme back, whatever happened: every later test runs light)
+        qt.pump(100)
+    over = lambda pairs: all(h is not None and c is not None and abs(h - c) <= 3 for h, c in pairs)
+    check("all results: the grid and the table in Windows 11's table look, as Profiles and Run several: no grid lines, "
+          "each heading at the left over its words, the grid's rows told apart by a line under each in the theme's "
+          "colour for lines (light and dark), the table's by their shade",
+          found["grid lines"] == (False, False) and found["table rows shaded"]
+          and over(found["grid: headings over their words"]) and over(found["table: headings over their words"])
+          and all(_near(*found[f"line under a grid row, {m}"]) for m in ("light", "dark"))
+          and found["line under a grid row, light"][1] != found["line under a grid row, dark"][1], found)
+
+
+def test_all_results_rows_say_their_results_count(eq_screen, history_eq, check):
+    # (2026-10-23, the restyle's checkers: Best fit's results are grouped by the filters the run added, shelves and
+    # your own aside, and the grid said that number: "9 filters" for results of 10 with their shelf, and a Retry's only
+    # row "0 filters" though each of its results had 10, as their result card said)
+    page = eq_screen.page
+    real = page.run_result
+    page.show_result(real["pick"])
+    base = next(r for r in real["results"] if r["id"] == real["pick"])
+    runs = {"a shelf with each": [dict(base, id=f"h{n}-{q}", rows=n, n_filters=n + 1, q_max=q,
+                                       rms=base["rms"] + 0.1 * (3 - n) + 0.01 * q) for n in (1, 2) for q in (2, 4)],
+            "a Retry": [dict(base, id=f"r{q}", rows=0, n_filters=10, q_max=q, rms=base["rms"] + 0.01 * q)
+                        for q in (2, 4)],
+            "a filter left out of one": [dict(base, id=f"m{q}", rows=9, n_filters=10 if q == 2 else 9, q_max=q,
+                                              rms=base["rms"] + 0.01 * q) for q in (2, 4)]}
+    words = {}
+    try:
+        for name, rs in runs.items():
+            page.run_result = dict(real, mode="best_fit", results=rs, best=rs[0]["id"], pick=rs[0]["id"])
+            page.show_result(rs[0]["id"])
+            ar = AllResults(page)
+            try:
+                words[name] = [ar.grid.verticalHeaderItem(i).text() for i in range(ar.grid.rowCount())]
+            finally:
+                qt.close(ar)
+    finally:
+        page.run_result = real
+        page.show_result(real["pick"])
+    check("all results: the grid's rows say how many filters their results have, as the result card does (grouped "
+          "by the filters the run added, shelves and yours aside, they said “9 filters” for results of 10 and a "
+          "Retry's row “0 filters”); which results share a row is as before",
+          words == {"a shelf with each": ["2 filters", "3 filters"], "a Retry": ["10 filters"],
+                    "a filter left out of one": ["9–10 filters"]}, words)
+
+
+def test_all_results_opens_wide_enough(eq_screen, history_eq, check, monkeypatch):
+    # (2026-10-23: with Windows 11's room at the left of the cells and rows named by their results' count, e.g.
+    # “6–10 filters”, a run's grid of nine filter counts by six Q limits was wider than the window as it opened)
+    from ui import all_results
+    page = eq_screen.page
+    real = page.run_result
+    page.show_result(real["pick"])
+    base = next(r for r in real["results"] if r["id"] == real["pick"])
+    rs = [dict(base, id=f"g{n}-{q}", rows=n, n_filters=n + 1 if q > 1 or n < 6 else 6, q_max=q, max_boost=10.0,
+               rms=base["rms"] + 0.1 * (10 - n) + 0.01 * q) for n in range(1, 10) for q in (1, 1.5, 2, 3, 4, 5)]
+    monkeypatch.setattr(all_results, "screen_room", lambda widget: 1920)  # (a screen with room: the PC's size)
+    page.run_result = dict(real, mode="best_fit", results=rs, best="g9-5", pick="g9-5")
+    page.show_result("g9-5")
+    ar = AllResults(page)
+    try:
+        ar.show()
+        qt.pump(300)
+        g = ar.grid
+        found = {"window": (ar.width(), ar.height()), "rows": [g.verticalHeaderItem(i).text() for i in (0, 8)],
+                 "scrolls sideways": g.horizontalScrollBar().maximum()}
+    finally:
+        qt.close(ar)
+        page.run_result = real
+        page.show_result(real["pick"])
+    check("all results: opened, its whole grid is in sight when the screen has room (nine filter counts by six Q "
+          "limits scrolled sideways)", found["scrolls sideways"] == 0 and found["rows"] == ["2 filters", "6–10 filters"],
+          found)

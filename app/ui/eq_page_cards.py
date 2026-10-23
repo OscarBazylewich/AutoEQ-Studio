@@ -427,6 +427,7 @@ class EqCards:
         report.setToolTip("An HTML page with the graph and the filters, opened in your browser (saved in your Saved EQs folder)")
         report.clicked.connect(lambda: self.report(open_it=True))
         folder = QPushButton("Open the Saved EQs folder")
+        icons.put(folder, "folder")  # (Windows' folder symbol, as every button that opens a folder has)
         folder.clicked.connect(lambda: self.svc.call("/api/open", {"what": "output"}))
         keep = QPushButton("Keep to compare")
         icons.put(keep, "pin")  # (Windows 11's pin, where the words had 📌)

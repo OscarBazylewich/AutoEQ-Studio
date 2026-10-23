@@ -137,7 +137,9 @@ def test_symbols_beside_the_main_actions(eq_screen, check):
             "Save filters": named(page.result_box, "Save filters"),
             "Use on device": page.use_btn, "Copy": named(page.result_box, "Copy"),
             "Keep to compare": named(page.result_box, "Keep to compare"), "Add filter": named(page.result_box, "Add filter"),
-            "Undo": page.notice_undo}
+            "Undo": page.notice_undo,
+            # (2026-10-23, the restyle's checkers: the only button opening a folder without Windows' folder symbol)
+            "Open the Saved EQs folder": named(page.result_box, "Open the Saved EQs folder")}
     missing = sorted(k for k, b in want.items() if b is None or b.icon().isNull())
     old = sorted(b.text() for b in page.findChildren(QPushButton) if b.text().startswith(("✎", "📌", "+ Add filter")))
     check("look: Windows 11's symbols beside the main actions' words (Run, Find…, Add…, Trace image, History, Save "

@@ -6,6 +6,11 @@
   heading; a click on a row shows it
 The shading is the theme's colour for "good" (its "pill"), taken as each cell is drawn: it follows light and dark
 (in Windows' contrast themes: Windows' highlight).
+Both in Windows 11's table look, as Profiles and Run several (2026-10-23): no grid lines, each heading over its
+words at the left (the cells' room at the left: ui\\theme_sheet.py's eq_windows, #eqwGrid and #eqwResults); the
+grid's rows told apart by a thin line under each (drawn in the theme's colour for lines, as each cell is: shading
+there means "sounds the same"), the table's by their shade. The window opens wide enough for its whole grid when
+the screen has room.
 """
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QFontMetrics, QPalette
@@ -18,11 +23,14 @@ from ui.theme_sheet import CARD
 HEAD = [("Error (dB)", "rms"), ("Filters", "n_filters"), ("Rows", "rows"), ("Range", None), ("Gain", None),
         ("Q max", "q_max"), ("Max boost", "max_boost"), ("Pre-amp", "preamp")]
 SAME = Qt.UserRole + 1  # (a grid cell's mark: sounds the same as the target)
+LEFT = Qt.AlignLeft | Qt.AlignVCenter  # (Windows 11's tables: words at the left, under their heading)
+NBSP = chr(0xA0)  # (a space that never ends a line: the words it joins stay together)
 
 
 class _Shade(QStyledItemDelegate):
     """The grid's cells: one that sounds the same as the target shaded in the theme's "good" colour as it's drawn;
-    in Windows' contrast themes, which have no such colour (it's the window's), in Windows' highlight and its text."""
+    in Windows' contrast themes, which have no such colour (it's the window's), in Windows' highlight and its text.
+    Under each, a thin line in the theme's colour for lines (the grid has no grid lines: its rows told apart so)."""
 
     def initStyleOption(self, option, index):
         super().initStyleOption(option, index)
@@ -34,6 +42,28 @@ class _Shade(QStyledItemDelegate):
                 option.backgroundBrush = QBrush(QColor(t["sel"]))
                 option.palette.setColor(QPalette.Text, QColor(t["on_sel"]))
 
+    def paint(self, painter, option, index):
+        super().paint(painter, option, index)
+        r = option.rect
+        painter.save()
+        painter.setPen(QColor(theme.tokens()["line"]))
+        painter.drawLine(r.left(), r.bottom(), r.right(), r.bottom())
+        painter.restore()
+
+
+def screen_room(widget):
+    """The width of the screen the widget is on, without the taskbar (None when it isn't known)."""
+    s = widget.screen()
+    return s.availableGeometry().width() if s is not None else None
+
+
+def _table_look(t):
+    """Windows 11's table look: no grid lines, each heading at the left over its words."""
+    t.setShowGrid(False)
+    t.horizontalHeader().setDefaultAlignment(LEFT)
+    t.horizontalHeader().setHighlightSections(False)
+    t.verticalHeader().setDefaultAlignment(LEFT)
+
 
 class _Num(QTableWidgetItem):
     """A cell that sorts by its number, not its text."""
@@ -41,7 +71,7 @@ class _Num(QTableWidgetItem):
     def __init__(self, text, value):
         super().__init__(text)
         self.value = value if value is not None else float("inf")
-        self.setTextAlignment(Qt.AlignCenter)
+        self.setTextAlignment(LEFT)
 
     def __lt__(self, other):
         return self.value < getattr(other, "value", float("inf"))
@@ -63,8 +93,9 @@ class AllResults(QDialog):
         v.addWidget(lead)
         self.grid_title, self.grid, self.grid_note = QLabel(), QTableWidget(), QLabel()
         theme.mark(self.grid_title, role="section")
-        self.grid.setObjectName("eqwGrid")  # (its corner: ui\theme_sheet.py's eq_windows)
+        self.grid.setObjectName("eqwGrid")  # (its corner and its cells' room: ui\theme_sheet.py's eq_windows)
         self.grid.setItemDelegate(_Shade(self.grid))
+        _table_look(self.grid)
         self._grid_height = None  # (its rows' height: render())
         self.grid.horizontalScrollBar().rangeChanged.connect(self._fit_grid)
         self.grid_note.setWordWrap(True)
@@ -75,6 +106,9 @@ class AllResults(QDialog):
                                       and self.grid.item(i, j).data(Qt.UserRole) is not None
                                       and self.pick(self.grid.item(i, j).data(Qt.UserRole)))
         self.table = QTableWidget(0, len(HEAD))
+        self.table.setObjectName("eqwResults")  # (its cells' room at the left: ui\theme_sheet.py's eq_windows)
+        _table_look(self.table)
+        self.table.setAlternatingRowColors(True)  # (rows told apart by their shade, as Run several's)
         self.table.setAccessibleName("Every result")
         self.grid.setAccessibleName("Error by filter count and max Q")
         self.table.setHorizontalHeaderLabels([h for h, _k in HEAD])
@@ -85,11 +119,39 @@ class AllResults(QDialog):
         self.table.cellClicked.connect(lambda row, _c: self.pick(self.table.item(row, 0).data(Qt.UserRole)))
         v.addWidget(self.table, 1)
         self.render()
+        self._wide_enough()
+
+    def _wide_enough(self):
+        """Opened wide enough for its whole grid when the screen has room (its rows' names and every column at its
+        narrowest), at most 90 % of the screen's width: narrower, the grid scrolls sideways."""
+        g = self.grid
+        if g.isHidden():
+            return
+        self.ensurePolished()
+        need = (g.verticalHeader().sizeHint().width() + g.columnCount() * g.horizontalHeader().minimumSectionSize()
+                + 2 * g.frameWidth() + 2 * CARD + 4)
+        room = screen_room(self) or need
+        if need > self.width():  # (never narrower than it opens)
+            self.resize(max(self.width(), min(need, int(room * 0.9))), self.height())
 
     def pick(self, rid):
         """A result shown on the result card (the window stays, its marks follow)."""
         self.page.show_result(rid)
         self.render()
+
+    @staticmethod
+    def _row_words(rv, cells, site):
+        """A grid row's words. The website sweep's: its filter rows (what's typed into the site). Best fit's: the
+        filter count of the results in that row, as their result card says it. Best fit's rows are the filters the
+        run added, shelves and your own filters aside, so the row said "9 filters" for results of 10 (with their
+        shelf), and a Retry's only row "0 filters" though each of its results had 10 (2026-10-23). Which results share
+        a row stays the same; the rare row whose results differ (a filter too small to keep left out) says both."""
+        if site:
+            return f"{rv} row{'' if rv == 1 else 's'}"
+        ns = sorted({c["n_filters"] for (k, _q), c in cells.items() if k == rv})
+        if len(ns) != 1:
+            return f"{ns[0]}–{ns[-1]} filters"
+        return f"{ns[0]} filter{'' if ns[0] == 1 else 's'}"
 
     def _fit_grid(self, *_):
         """The grid as tall as its rows, and its scroll bar more while it scrolls sideways (a narrow window): the bar
@@ -123,7 +185,8 @@ class AllResults(QDialog):
             g.setRowCount(len(rows))
             g.setColumnCount(len(qs))
             g.setHorizontalHeaderLabels([f"Q max {q}" for q in qs])
-            g.setVerticalHeaderLabels([f"{rv} {'row' if site else 'filter'}{'' if rv == 1 else 's'}" for rv in rows])
+            labels = [self._row_words(rv, cells, site) for rv in rows]
+            g.setVerticalHeaderLabels(labels)
             g.setEditTriggers(QAbstractItemView.NoEditTriggers)
             g.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
             for i, rv in enumerate(rows):
@@ -142,7 +205,7 @@ class AllResults(QDialog):
                             f = QFont(it.font())
                             f.setBold(True)
                             it.setFont(f)
-                    it.setTextAlignment(Qt.AlignCenter)
+                    it.setTextAlignment(LEFT)
                     g.setItem(i, j, it)
             # (never narrower than its widest number, in bold as the one shown: in a narrow window the grid scrolls
             # sideways instead)
@@ -150,13 +213,17 @@ class AllResults(QDialog):
             bold = QFont(g.font())
             bold.setBold(True)
             fm = QFontMetrics(bold)
-            g.horizontalHeader().setMinimumSectionSize(16 + max(fm.horizontalAdvance(g.item(i, j).text())
+            # (the cells' room at the left and right and Qt's margins round the words, 16 px, and 2 to spare)
+            g.horizontalHeader().setMinimumSectionSize(18 + max(fm.horizontalAdvance(g.item(i, j).text())
                                                                for i in range(len(rows)) for j in range(len(qs))))
             self._grid_height = min(320, g.horizontalHeader().height() + sum(g.rowHeight(i) for i in range(len(rows))) + 4)
             self._fit_grid()
             self.grid_title.setText(f"Error by {'filter rows' if site else 'filter count'} and max Q (run {run.get('n', 1)})")
+            both = next((lab for lab in labels if "–" in lab), None)  # (a row whose results don't all have as many)
             self.grid_note.setText(f"Lowest error (dB) per cell (the best: {best:.2f} dB); shaded = sounds the same "
-                                   f"as the target (within {ear_db:g} dB, as the ear hears it). Click a cell to view it.")
+                                   f"as the target (within {ear_db:g} dB, as the ear hears it). Click a cell to view it."
+                                   + (f" “{both.replace(' ', NBSP)}”: not all of that row's results have as many "
+                                      "filters (filters too small to matter are left out)." if both else ""))
         # the table
         t = self.table
         t.setSortingEnabled(False)
