@@ -55,7 +55,8 @@ print(json.dumps(out))
 
 
 # (after THEMED_WINDOW: a third device, connected; then each row's dot read back from the list's picture, dark, then
-# light, then light with Windows' green accent, beside the colours the theme has for each)
+# light, then light with Windows' green accent, then a contrast theme (with each row's fill: the device playing is the
+# chosen row), beside the colours the theme has for each)
 DOTS = r'''
 eps.append(D.Endpoint("{3}", "Speakers", "Realtek(R) Audio", D.ACTIVE, True))
 sw.refresh()
@@ -66,7 +67,8 @@ for _ in range(5):
 KINDS = {"Playing now": "playing", "Connected": "connected", "Not connected": "away"}
 
 
-def dots():  # (each row's dot, by its row's words: the colour in its middle)
+def dots(fills=False):  # (each row's dot, by its row's words: the colour in its middle; with fills, [that colour,
+    # the row's own fill, whether it's the chosen row])
     lst = win.dev_list
     img = lst.viewport().grab().toImage()
     got = {}
@@ -78,6 +80,8 @@ def dots():  # (each row's dot, by its row's words: the colour in its middle)
         found = runs(img, r.left() + 4, r.left() + 40, y - 1, y + 2, bg)
         kind = KINDS.get(it.text().split("\n")[1].split(" · ")[0])
         got[kind] = img.pixelColor((found[0][0] + found[0][1]) // 2, y).name() if found else None
+        if fills:
+            got[kind] = [got[kind], bg.name(), it.isSelected()]
     return got
 
 
@@ -97,6 +101,23 @@ theme.apply(qapp, dark=False, contrast=False)  # (Windows' accent changed to its
 for _ in range(5):
     qapp.processEvents()
 out["green accent"] = [dots(), wanted(blue=True)]
+# a contrast theme, Windows 11's Aquatic (its colours as Windows gives them, stood in): the device playing is the chosen
+# row, filled with Windows' highlight colour, which is the playing dot's colour there too
+import ctypes
+AQUATIC = {5: "#202020", 8: "#ffffff", 13: "#8ee3f0", 14: "#263b50", 17: "#a6a6a6", 26: "#75e9fc", 15: "#202020",
+           18: "#ffffff"}  # (window, text, highlight, its text, grey text, links, button face, button text)
+user32 = ctypes.windll.user32
+real = user32.GetSysColor
+user32.GetSysColor = lambda i: int(AQUATIC[i][5:7], 16) << 16 | int(AQUATIC[i][3:5], 16) << 8 | int(AQUATIC[i][1:3], 16)
+try:
+    hc = theme.system_tokens()
+finally:
+    user32.GetSysColor = real
+theme.apply(qapp, dark=False, contrast=hc)
+for _ in range(5):
+    qapp.processEvents()
+out["contrast, chosen row"] = [dots(fills=True), {"playing": hc["sel_ink"], "connected": hc["accent_text"],
+                                                  "away": hc["muted"], "sel": hc["sel"]}]
 print(json.dumps(out))
 '''
 
@@ -357,10 +378,21 @@ def test_device_dots_in_the_themes_colours(themed_window, check, fake_apo, tmp_p
         got, want = (d.get(case) or [{}, {}])
         return all(_near(got.get(k), want.get(k)) and theme_tokens.contrast(got[k], want["card"]) >= 3
                    for k in ("playing", "connected", "away")) and len(set(got.values())) == 3
+
+    def on_chosen_row():
+        # (2026-10-23: in a contrast theme the playing dot is Windows' highlight colour, the chosen row's fill too, and
+        # the device playing is the one chosen when Devices opens: its dot was gone there. On the chosen row it's in
+        # the row's text colour now)
+        got, want = (d.get("contrast, chosen row") or [{}, {}])
+        rows = [got.get(k) or [None, None, None] for k in ("playing", "connected", "away")]
+        return got.get("playing", [0, 0, False])[2] is True and rows[0][1] == want.get("sel") \
+            and all(_near(dot, want.get(k)) and theme_tokens.contrast(dot, fill) >= 3
+                    for k, (dot, fill, _chosen) in zip(("playing", "connected", "away"), rows)) \
+            and len({dot for dot, _f, _c in rows}) == 3
     check("devices: the list's dots in the theme's colours (playing: its green; connected: Windows' accent, its default "
           "blue a green accent's stand-in; not connected: its grey), drawn again when Windows switches light or dark or "
           "its accent, each 3:1 on the list and the three told apart",
-          all(right(c) for c in ("dark", "light", "green accent")), d or out.stderr[-300:])
+          all(right(c) for c in ("dark", "light", "green accent")) and on_chosen_row(), d or out.stderr[-300:])
 
 
 def test_symbols_beside_the_device_screens_words(set_up_window, check, qapp):

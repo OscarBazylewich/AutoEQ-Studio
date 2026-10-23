@@ -6,7 +6,8 @@ to what its scroll area shows; and (2026-10-23) its Windows 11 look: its marks i
 card's symbols drawn again when the theme changes, a demo's messages and keys fitting and gone when it stops; then the
 checkers' findings on it: the windows the demos show fitting their frames beside the card (at the app's own size and
 the window's smallest), every step in sight at the smallest size, one ring round two lit cards that touch, the step
-list's headings as Windows 11's, Play demo only on a step with a demo.
+list's headings as Windows 11's, Play demo only on a step with a demo; and after their recheck, the step list's button
+with Windows 11's chevron, and the lists and menus a demo shows looking as the real ones.
 
 Moved from eq_checks.py's guide_checks (lines 2625-2760), review_checks (1764-1780) and review_low_checks (1946-1948),
 on a page opened as the old checks opened it (the eq_screen fixture) with the result they had on the card by then (a
@@ -599,3 +600,197 @@ def test_step_list_headings(s, check):
           "written (“1 · Choose”, not capitals), semibold, the list's own size and text colour",
           [h[0] for h in heads] == chapters and all(w == QFont.Weight.DemiBold and abs(p - size) < 0.01 and c == ink
                                                    for _t, w, p, c in heads), (heads, chapters, size, ink))
+
+
+def _differs(c, bg, by=60):
+    """A pixel clearly not the background (the shape's own, not its edge's faint blend)."""
+    return sum(abs(a - b) for a, b in zip(c.getRgb()[:3], bg.getRgb()[:3])) > by
+
+
+def _runs(img, x0, x1, y0, y1, bg):
+    """The stretches [(first, last)] of columns with ink in them, left to right (a button's words, then its chevron)."""
+    found, start = [], None
+    for x in range(x0, x1 + 1):
+        on = x < x1 and any(_differs(img.pixelColor(x, y), bg) for y in range(y0, y1))
+        if on and start is None:
+            start = x
+        elif not on and start is not None:
+            found.append((start, x - 1))
+            start = None
+    return found
+
+
+def _ink_box(img, x0, x1, y0, y1, bg):
+    """[left, top, right, bottom] of the ink in a part of a picture, or None."""
+    pts = [(x, y) for x in range(x0, x1) for y in range(y0, y1) if _differs(img.pixelColor(x, y), bg)]
+    return [min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts)] if pts \
+        else None
+
+
+def _chevron(img, x0, x1, y0, y1, bg):
+    """The last shape in a part of a picture: its size, whether it's open at its top's middle (as a chevron is; a typed
+    ▾ is filled there), the room before it (after the shape before it) and after it; None without a shape."""
+    found = _runs(img, x0, x1, y0, y1, bg)
+    if not found:
+        return None
+    box = _ink_box(img, found[-1][0], found[-1][1] + 1, y0, y1, bg)
+    return {"size": (box[2] - box[0] + 1, box[3] - box[1] + 1),
+            "open": not _differs(img.pixelColor((box[0] + box[2]) // 2, box[1] + 1), bg),
+            "before": found[-1][0] - found[-2][1] - 1 if len(found) > 1 else None, "after": x1 - 1 - box[2]}
+
+
+def test_step_list_button_chevron(s, check):
+    # (2026-10-23: the step list's button ended in a typed ▾, where the app's drop-downs and menu buttons have Windows
+    # 11's chevron)
+    from PySide6.QtCore import QPoint, QRect
+    from helpers import qt
+    from ui import theme
+    page, qapp = s.page, s.qapp
+    seen = {}
+    try:
+        for dark in (True, False):
+            theme.apply(qapp, dark=dark)
+            qapp.processEvents()
+            t = _on_step(page, "Run")
+            try:
+                qapp.processEvents()
+                b = t.count_btn  # (on its card: the button has no fill of its own)
+                img = t.bubble.grab(QRect(b.mapTo(t.bubble, QPoint(0, 0)), b.size())).toImage()
+                mine = _chevron(img, 2, img.width(), 3, img.height() - 3, img.pixelColor(1, img.height() // 2))
+                combo = page.mode_combo  # (a drop-down's chevron, in the room at its right)
+                img = combo.grab().toImage()
+                theirs = _chevron(img, combo.width() - 26, combo.width() - 1, 4, combo.height() - 4,
+                                  img.pixelColor(combo.width() - 3, 4))
+                seen["dark" if dark else "light"] = (b.text(), mine, theirs and theirs["size"])
+            finally:
+                t.end()
+    finally:
+        qt.light(qapp)  # (the light theme back, whatever happened: every later test runs light)
+        qapp.processEvents()
+    check("guide: the step list's button shows Windows 11's chevron after its words, the drop-downs' own, clear of its "
+          "words and its edge (not a typed ▾); light and dark",
+          len(seen) == 2 and all("▾" not in words and mine and mine["open"] and (mine["before"] or 0) >= 5
+                                 and mine["after"] >= 6 and theirs
+                                 and all(abs(a - b) <= 1 for a, b in zip(mine["size"], theirs))
+                                 for words, mine, theirs in seen.values()), seen)
+
+
+def test_lists_a_demo_shows(s, check):
+    # (2026-10-23: a drop-down's list a demo shows marked the row in use only in semibold, where the real list fills it
+    # and puts the accent's bar beside it, the mark following the mouse, and had no search box where the real long list
+    # has one; a menu a demo shows had a list's rows and round corners, a submenu a typed ▸ after its words)
+    from PySide6.QtCore import QPoint, QRect
+    from PySide6.QtWidgets import QLabel, QLineEdit, QMenu, QWidget
+    from helpers import qt
+    from ui import guide_demos, theme, tour
+    page = s.page
+    win, tk, combo = page.window(), theme.tokens(), page.mode_combo
+
+    def row(img, r):
+        """A row's look: its fill, the colour at its left edge (the accent's bar on a marked list row), its height,
+        where its words start."""
+        fill = img.pixelColor(r.right() - 6, r.center().y())
+        words = next((x for x in range(r.left() + 4, r.right()) if any(
+            _differs(img.pixelColor(x, y), fill, 100) for y in range(r.top() + 4, r.bottom() - 3))), None)
+        return {"fill": fill.name(), "edge": img.pixelColor(r.left() + 1, r.center().y()).name(), "height": r.height(),
+                "words": words if words is None else words - r.left()}
+
+    def alike(a, b):
+        return a["fill"] == b["fill"] and a["edge"] == b["edge"] and a["height"] == b["height"] \
+            and a["words"] is not None and b["words"] is not None and abs(a["words"] - b["words"]) <= 1
+
+    def after_arrow(img, r):
+        """The room after a submenu's chevron, to its row's right edge (its last shape: the chevron)."""
+        found = _runs(img, r.left() + 4, r.right() + 1, r.top() + 2, r.bottom() - 1, img.pixelColor(r.right() - 2,
+                                                                                                    r.top() + 2))
+        return r.right() - found[-1][1] if found else None
+
+    def text_box(w):
+        """A text box's look: its height, its fill, the line under it, where its (grey) words start, their colour
+        (their darkest pixel)."""
+        img = w.grab().toImage()
+        bg = img.pixelColor(4, img.height() // 2)
+        ink = [(x, y) for x in range(2, min(img.width() - 2, 160)) for y in range(4, img.height() - 4)
+               if _differs(img.pixelColor(x, y), bg)]
+        darkest = min((img.pixelColor(x, y) for x, y in ink), key=lambda c: c.lightness(), default=None)
+        return {"height": img.height(), "fill": bg.name(), "line": img.pixelColor(img.width() // 2, img.height() - 1).name(),
+                "words": min((x for x, _y in ink), default=None), "colour": darkest and darkest.name()}
+    combo.showPopup()  # (the real list, as it opens)
+    qt.pump(100)
+    view = combo.view()
+    pop = view.window()
+    vr = view.visualRect(view.currentIndex())
+    real = row(pop.grab().toImage(), QRect(view.viewport().mapTo(pop, vr.topLeft()), vr.size()))
+    combo.hidePopup()
+    qt.pump(50)
+    page.app_combo.showPopup()  # (the real long list as it opens: its search box ready for typing)
+    qt.pump(100)
+    q = next(w for w in page.app_combo.findChildren(QWidget) if w.objectName() == "searchPopup").findChild(QLineEdit)
+    q.setReadOnly(True)  # (its blinking caret not drawn, for the moment of the picture: its look is the same)
+    qt.pump(50)
+    real_box = dict(text_box(q), typing=q.hasFocus())
+    q.setReadOnly(False)
+    page.app_combo.hidePopup()
+    qt.pump(50)
+    t = _on_step(page, "Pick an EQ method")
+    try:
+        api = tour.Api(t)
+        g = guide_demos.mock_combo(api, combo, combo.count() - 1)
+        next(g)  # (the list shown, as the demo opens it)
+        qt.pump(50)
+        m = next(w for w in t.inside if isinstance(w, tour.Mock))
+        cur = combo.currentIndex()
+        mock = row(m.grab().toImage(), m.rows[cur].geometry())
+        other = (cur + 1) % len(m.rows)
+        m.hover(other)  # (the pointer on another row)
+        qt.pump(50)
+        img = m.grab().toImage()
+        moved = (row(img, m.rows[other].geometry())["edge"], row(img, m.rows[cur].geometry())["fill"])
+        under = m.geometry().top() - combo.mapTo(win, QPoint(0, combo.height())).y()  # (the room between them)
+        t.stop_demo()
+        g = guide_demos.mock_combo(api, page.app_combo, 5)  # (a long list: the real one has its search box)
+        next(g)
+        qt.pump(50)
+        m = next(w for w in t.inside if isinstance(w, tour.Mock))
+        box = m.findChild(QLabel, "tourMockSearch")
+        mock_box = dict(text_box(box), typing=True) if box is not None else None
+        search = box is not None and box.isVisible() and box.text() == q.placeholderText() \
+            and box.geometry().bottom() < m.rows[0].geometry().top() and mock_box == real_box \
+            and real_box["line"] == tk["accent"]
+        t.stop_demo()
+        items = [("No presets yet", False), "Save current settings as…", None, "Try for 5 minutes on ▸"]
+        g = guide_demos.mock_menu(api, page.use_btn, items)  # (a menu, as the demos show Presets' and Use on device's)
+        next(g)
+        qt.pump(50)
+        m = next(w for w in t.inside if isinstance(w, tour.Mock))
+        m.hover(1)
+        qt.pump(50)
+        img = m.grab().toImage()
+        menu = dict(row(img, m.rows[1].geometry()), corner=img.pixelColor(0, 0).name(),
+                    arrow=after_arrow(img, m.rows[3].geometry()))
+        t.stop_demo()
+    finally:
+        t.end()
+    real_m = QMenu(page)  # (a real menu in the app's look, the same rows, its item pointed at)
+    real_m.addAction("No presets yet").setEnabled(False)
+    act = real_m.addAction("Save current settings as…")
+    real_m.addSeparator()
+    sub = real_m.addMenu("Try for 5 minutes on")
+    sub.addAction("Headphones")
+    real_m.resize(real_m.sizeHint())
+    real_m.setActiveAction(act)
+    img = real_m.grab().toImage()
+    real_menu = dict(row(img, real_m.actionGeometry(act)), corner=img.pixelColor(0, 0).name(),
+                     arrow=after_arrow(img, real_m.actionGeometry(sub.menuAction())))
+    qt.close(real_m)
+    check("guide: a drop-down's list a demo shows looks as the real one: the row in use filled with the accent's bar "
+          "beside it, the mark following the pointer, the rows as tall and their words where the real list has them, "
+          "just under its box; a long list with its search box above its rows, as the real one's",
+          alike(mock, real) and real["fill"] == tk["sel"] and real["edge"] == tk["accent"]
+          and moved == (tk["accent"], tk["menu"]) and 0 <= under <= 3 and search,
+          (mock, real, moved, under, mock_box, real_box))
+    check("guide: a menu a demo shows looks as a real one: the row pointed at filled without a bar, the rows as tall "
+          "and their words where the real menu has them, its corners square, a submenu's chevron where the real one's "
+          "is", alike(menu, real_menu) and menu["corner"] == real_menu["corner"] == tk["stroke"]
+          and menu["edge"] == menu["fill"] and menu["arrow"] is not None and real_menu["arrow"] is not None
+          and abs(menu["arrow"] - real_menu["arrow"]) <= 1, (menu, real_menu))

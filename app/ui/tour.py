@@ -5,11 +5,12 @@ in a card, and can carry a demo: actions played by a drawn pointer on a layer ab
 the window while a tour runs, and what a demo shows (a list opened, a value typed, a curve on the graph) is put back
 when it ends: nothing of yours changes.
 
-The card: the step list ("1 · Choose · 3 of 27 ▾": go straight to any step), a progress bar, "Demo · your work isn't
-changed", the title and words, the demo's actions (while it plays, only the one playing now), Play demo / Replay,
-Pause (P), Skip demo, Play all steps (one after another), the demo's speed (¼× to 4×), a step's own buttons (e.g.
-Open Help), End tour (Esc), Start again (the last step), Back / Next (← →). The card goes where it covers least of
-what's lit, what the demo uses and the pointer, and stays put while that's as good as anywhere else.
+The card: the step list ("1 · Choose · 3 of 27", Windows 11's chevron after it: go straight to any step), a progress
+bar, "Demo · your work isn't changed", the title and words, the demo's actions (while it plays, only the one playing
+now), Play demo / Replay, Pause (P), Skip demo, Play all steps (one after another), the demo's speed (¼× to 4×), a
+step's own buttons (e.g. Open Help), End tour (Esc), Start again (the last step), Back / Next (← →). The card goes
+where it covers least of what's lit, what the demo uses and the pointer, and stays put while that's as good as
+anywhere else.
 The look is Windows 11's, as the rest of the app: the card and what a demo shows inside the tour are styled by name in
 ui\\theme_sheet.py's guide_and_help part (#tourCard, #tourMock, #tourNote …); what's drawn here by hand takes
 theme.tokens() as it's drawn: the accent (Windows' own colour) marks what's lit, what the pointer is on, a click and a
@@ -293,18 +294,66 @@ class _Bar(QWidget):
         p.drawRoundedRect(QRectF(0, 0, self.width() * self.frac, self.height()), 2, 2)
 
 
-class Mock(QFrame):
-    """A list as the app would open it (a drop-down's list, a menu), drawn inside the tour: rows, one hovered (its look:
-    #tourMock in theme_sheet.py)."""
+class _Count(QToolButton):
+    """The card's step list button (#tourCount): the chapter and the step ("1 · Choose  ·  3 of 28"), then Windows
+    11's chevron at its right, as a drop-down has it (it was a typed ▾ until 2026-10-23). The chevron is the theme's
+    own picture, which theme_sheet's guide_and_help gives the button as its icon, with 26 px of padding at its right
+    for it: the chevron (12 px) 8 px from the edge, 6 px after the words. The style draws the words (it would put an
+    icon before them), this the chevron after them."""
 
-    def __init__(self, tour, items, current=-1, width=None):
+    def __init__(self):
+        super().__init__()
+        self.setToolButtonStyle(Qt.ToolButtonTextOnly)
+
+    def paintEvent(self, e):
+        super().paintEvent(e)
+        icon = self.icon()
+        if icon.isNull():
+            return
+        p = QPainter(self)
+        icon.paint(p, QRect(self.width() - 8 - 12, (self.height() - 12) // 2, 12, 12))
+        p.end()
+
+
+class _SubRow(QLabel):
+    """A menu's row that opens a submenu, in a Mock: its words, and Windows 11's chevron pointing right 8 px from its
+    right edge, in the room a menu's row keeps there, as a real menu's (the theme's own picture: #tourMockArrow)."""
+
+    def __init__(self, text):
+        super().__init__(text)
+        self.arrow = QLabel(self)
+        self.arrow.setObjectName("tourMockArrow")
+        self.arrow.setFixedSize(12, 12)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self.arrow.move(self.width() - 8 - 12, (self.height() - 12) // 2)
+
+
+class Mock(QFrame):
+    """A list as the app would open it, drawn inside the tour, looking as the real one does (#tourMock in
+    theme_sheet.py): a drop-down's list (kind "list") opens with its chosen row marked as the real list marks it, the
+    quiet fill and the accent's bar beside it, and the mark follows the pointer down the rows as the real one's does
+    (hover); a long list (search: its box's grey words) has its search box above its rows, as the real one; a menu
+    (kind "menu") marks only the row pointed at, filled, and a row whose words end in " ▸" opens a submenu: Windows
+    11's chevron at its right, as a real menu's. (Before 2026-10-23 the chosen row was only semibold: the real list
+    had the fill and the bar by then.)"""
+
+    def __init__(self, tour, items, current=-1, width=None, kind="list", search=None):
         super().__init__(tour)
         self.setObjectName("tourMock")
+        self.setProperty("kind", kind)
         v = QVBoxLayout(self)
-        v.setContentsMargins(4, 4, 4, 4)
-        v.setSpacing(1)
+        m = 6 if search else 4  # (as the real lists: the long one's, the short one's and a menu's)
+        v.setContentsMargins(m, m, m, m)
+        v.setSpacing(0)
+        if search:
+            box = QLabel(search)
+            box.setObjectName("tourMockSearch")
+            v.addWidget(box)
+            v.addSpacing(4)
         self.rows = []
-        for i, it in enumerate(items):
+        for it in items:
             if it is None:  # (a separator)
                 sep = QFrame()
                 sep.setObjectName("tourSep")
@@ -312,14 +361,15 @@ class Mock(QFrame):
                 self.rows.append(sep)
                 continue
             text, on = (it, True) if isinstance(it, str) else it
-            lab = QLabel(text)
-            lab.setProperty("cur", i == current)
+            lab = _SubRow(text[:-2]) if kind == "menu" and text.endswith(" ▸") else QLabel(text)
             lab.setProperty("off", not on)
             v.addWidget(lab)
             self.rows.append(lab)
-        if width:
-            self.setFixedWidth(width)
+        if width:  # (at least as wide as its box; wider when a row's words need it, as the real list)
+            self.setMinimumWidth(width)
+        self.ensurePolished()  # (its rows measured in their own look, their padding: they're polished with it)
         self.adjustSize()
+        self.hover(current if kind == "list" else -1)
 
     def row(self, i):
         return self.rows[i] if 0 <= i < len(self.rows) else None
@@ -508,10 +558,14 @@ class Api:
         self.stage_blocked(w.value, w.setValue, v, w)
 
     # what the demo opens inside the tour
-    def mock(self, near, items, current=-1, width=None, below=True):
-        """A list as it would open under (or over) a control; closed when the demo ends."""
-        m = Mock(self.t, items, current, width or (near.width() if near is not None else None))
-        self.t.show_inside(m, near, below)
+    def mock(self, near, items, current=-1, width=None, below=True, kind="list", search=None):
+        """A list as it would open just under (or over) a control (kind "list": a drop-down's, at least as wide as its
+        box, as the real one; "menu": a menu's, as wide as its rows), its look the real one's (Mock); closed when the
+        demo ends."""
+        if width is None and kind == "list" and near is not None:
+            width = near.width()
+        m = Mock(self.t, items, current, width, kind, search)
+        self.t.show_inside(m, near, below, gap=2)
         return m
 
     def _frame(self, title):
@@ -682,7 +736,7 @@ class Api:
 
 # ---------------------------------------------------------------- the step list
 class _Steps(QFrame):
-    """Every step, by chapter (the card's "3 of 27 ▾"): click one to go straight to it. It opens as a menu does
+    """Every step, by chapter (the card's "3 of 27" button): click one to go straight to it. It opens as a menu does
     (#tourSteps), as wide as its longest step (up to the window's width) and as tall as its rows (up to the window's
     bottom)."""
 
@@ -833,7 +887,7 @@ class Tour(QWidget):
         b.setContentsMargins(16, 12, 16, 14)
         b.setSpacing(4)
         top = QHBoxLayout()
-        self.count_btn = QToolButton()
+        self.count_btn = _Count()
         self.count_btn.setObjectName("tourCount")
         self.count_btn.setToolTip("Go to any step")
         self.count_btn.setAccessibleName("Steps")
@@ -1010,8 +1064,8 @@ class Tour(QWidget):
         self.spots = list(self.target)
         self.avoid = []
         text = _val(st["alt_text"] if self.alt and st.get("alt_text") else st["text"])
-        self.count_btn.setText(((f"{st['chapter']}  ·  " if st.get("chapter") else "") + f"{i + 1} of {len(self.steps)} ▾")
-                               .replace("&", "&&"))  # (a button's & marks its shortcut: shown as one)
+        self.count_btn.setText(((f"{st['chapter']}  ·  " if st.get("chapter") else "") + f"{i + 1} of {len(self.steps)}")
+                               .replace("&", "&&"))  # (a button's & marks its shortcut: shown as one; its chevron: _Count)
         self.badge.setText("Demo · your work isn't changed")  # (shortened below when the card has no room for it)
         self.badge.setToolTip("A demo: nothing of yours is changed")
         self.bar.frac = (i + 1) / len(self.steps)
@@ -1227,9 +1281,9 @@ class Tour(QWidget):
             self.layer.update()
 
     # ---------------------------------------------------------------- inside the tour: lists, windows, notes
-    def show_inside(self, w, near=None, below=True, side=False):
-        """A widget the demo shows (a list, a window), placed under (or over) a control, the card kept off it; side:
-        a window at the left, the card's room at the right."""
+    def show_inside(self, w, near=None, below=True, side=False, gap=3):
+        """A widget the demo shows (a list, a window), placed under (or over) a control with gap px between them, the
+        card kept off it; side: a window at the left, the card's room at the right."""
         if w.parentWidget() is not self:
             w.setParent(self)
         w.adjustSize() if not w.width() or w.width() < 20 else None
@@ -1247,7 +1301,8 @@ class Tour(QWidget):
             r = _rect(self.win, [near])
             x = max(8, min(r.left(), W - ww - 8))
             room_below = H - r.bottom() - 10
-            y = r.bottom() + 4 if (below and room_below >= wh) or r.top() - 4 - wh < 8 else r.top() - 4 - wh
+            under, over = r.bottom() + 1 + gap, r.top() - gap - wh
+            y = under if (below and room_below >= wh) or over < 8 else over
             if y + wh > H - 8:
                 y = max(8, H - 8 - wh)
         else:

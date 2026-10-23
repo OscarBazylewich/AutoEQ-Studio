@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QGroupBox, QH
                                QWidget)
 
 from switcher.core import shown
-from ui import icons, theme
+from ui import icons, theme, theme_tokens
 from ui.window_parts import muted, profile_line, warning_card
 
 
@@ -29,7 +29,8 @@ class DeviceRows(QStyledItemDelegate):
     little smaller in the secondary colour (each line cut with "…" when the list is narrow; the row's tooltip has both
     whole). The row's own background (pointed at, chosen, the accent's bar beside it) is the list's, as the theme draws
     any list; the colours, the dot's too (green playing, the accent connected, grey not), are the theme's when the row
-    is drawn, so they follow light and dark, Windows' accent and its contrast themes."""
+    is drawn, so they follow light and dark, Windows' accent and its contrast themes. On the chosen row a dot keeps
+    3:1 on the row's fill, as on the list: one that wouldn't (a contrast theme's) is in the chosen row's text colour."""
 
     def paint(self, painter, option, index):
         opt = QStyleOptionViewItem(option)
@@ -59,9 +60,15 @@ class DeviceRows(QStyledItemDelegate):
         painter.save()
         kind = index.data(DOT)
         if kind in icons.DOTS:  # (an 8 px dot in the middle of the icon's place, in the theme's colour for it)
+            colour = icons.dot_colour(kind, t)
+            if opt.state & QStyle.State_Selected and theme_tokens.contrast(colour, t["sel"]) < 3:
+                # (on the chosen row, a dot that would melt into its fill is in the row's text colour: in a contrast
+                # theme the playing dot is Windows' highlight colour, the chosen row's fill too, and the device
+                # playing is the one chosen when Devices opens, so its dot went; its words still say it)
+                colour = t["sel_ink"]
             painter.setRenderHint(QPainter.Antialiasing)
             painter.setPen(Qt.NoPen)
-            painter.setBrush(QColor(icons.dot_colour(kind, t)))
+            painter.setBrush(QColor(colour))
             c = QRectF(icon_rect).center()
             painter.drawEllipse(QRectF(c.x() - 4, c.y() - 4, 8, 8))
         elif not icon.isNull():
