@@ -6,10 +6,14 @@ the window while a tour runs, and what a demo shows (a list opened, a value type
 when it ends: nothing of yours changes.
 
 The card: the step list ("1 · Choose · 3 of 27 ▾": go straight to any step), a progress bar, "Demo · your work isn't
-changed", the title and words, the demo's actions (while it plays, only the one playing now), ▶ Play demo / ↻ Replay,
-⏸ Pause (P), Skip demo, Play all steps (one after another), the demo's speed (¼× to 4×), a step's own buttons (e.g.
+changed", the title and words, the demo's actions (while it plays, only the one playing now), Play demo / Replay,
+Pause (P), Skip demo, Play all steps (one after another), the demo's speed (¼× to 4×), a step's own buttons (e.g.
 Open Help), End tour (Esc), Start again (the last step), Back / Next (← →). The card goes where it covers least of
 what's lit, what the demo uses and the pointer, and stays put while that's as good as anywhere else.
+The look is Windows 11's, as the rest of the app: the card and what a demo shows inside the tour are styled by name in
+ui\\theme_sheet.py's guide_and_help part (#tourCard, #tourMock, #tourNote …); what's drawn here by hand takes
+theme.tokens() as it's drawn: the accent (Windows' own colour) marks what's lit, what the pointer is on, a click and a
+drag; the card's symbols and its list of actions are drawn again when the theme changes.
 The page can be scrolled at any time (the wheel, Page Up/Down): the spotlight follows; scrolling while a demo plays
 pauses it, and Resume scrolls back to where the demo was and carries on.
 With Windows' animation effects off nothing moves: each action is a numbered marker on its control, with the list of
@@ -37,18 +41,44 @@ A demo's actions (each with "say": a few words, shown in the card and beside the
 problems() lists the steps whose control or demo's control isn't there or can't be seen (for checks).
 """
 import inspect
+import weakref
 
-from PySide6.QtCore import QEvent, QMargins, QObject, QPoint, QPointF, QRect, QRectF, Qt, QTimer
+from PySide6.QtCore import QEvent, QMargins, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPainterPath, QPen, QPolygonF
 from PySide6.QtWidgets import (QAbstractScrollArea, QCheckBox, QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget,
                                QListWidgetItem, QPushButton, QScrollArea, QSlider, QToolButton, QVBoxLayout, QWidget)
 
-from ui import theme
+from ui import icons, theme
 
 PAD = 6
 CARD_W = 390
 SPEEDS = [0.25, 0.5, 1.0, 2.0, 4.0]
 _kept = {"speed": 1.0, "all": False}  # (the speed and Play all steps, for this session)
+_themed = {"hooked": False, "tours": []}  # (the tours made, held weakly: drawn again when the theme changes)
+
+
+def _retheme():
+    """The theme changed (light/dark, Windows' accent): every tour still open draws its own colours again."""
+    import shiboken6
+    for ref in list(_themed["tours"]):
+        t = ref()
+        if t is None or not shiboken6.isValid(t):
+            _themed["tours"].remove(ref)
+        else:
+            t.retheme()
+
+
+def _symbol(button, name):
+    """Windows 11's symbol `name` (ui\\icons.py's GLYPHS) beside a card button's words, in the theme's text colour;
+    None: no symbol. Kept on the button (its "symbol"), so it's drawn again in a new theme (Tour.retheme)."""
+    button.setProperty("symbol", name or "")
+    t = theme.tokens()
+    if name:
+        button.setIcon(icons.glyph(name, t["ink"], off_colour=t["disabled"]))
+        button.setIconSize(QSize(22, 16))
+    else:
+        from PySide6.QtGui import QIcon
+        button.setIcon(QIcon())
 
 
 def scroll_into_view(w, ymargin=60):
@@ -209,11 +239,11 @@ class _Follow(QObject):
 
 
 class _Bar(QWidget):
-    """The tour's progress: a thin bar."""
+    """The tour's progress: a thin bar, as the app's progress bars (the accent on a quiet track)."""
 
     def __init__(self):
         super().__init__()
-        self.setFixedHeight(3)
+        self.setFixedHeight(4)
         self.frac = 0.0
 
     def paintEvent(self, _e):
@@ -221,25 +251,19 @@ class _Bar(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         p.setPen(Qt.NoPen)
-        p.setBrush(QColor(t["shade"]))
-        p.drawRoundedRect(QRectF(self.rect()), 1.5, 1.5)
-        p.setBrush(QColor(t["c1"]))
-        p.drawRoundedRect(QRectF(0, 0, self.width() * self.frac, self.height()), 1.5, 1.5)
+        p.setBrush(QColor(t["track"]))
+        p.drawRoundedRect(QRectF(self.rect()), 2, 2)
+        p.setBrush(QColor(t["accent"]))
+        p.drawRoundedRect(QRectF(0, 0, self.width() * self.frac, self.height()), 2, 2)
 
 
 class Mock(QFrame):
-    """A list as the app would open it (a drop-down's list, a menu), drawn inside the tour: rows, one hovered."""
+    """A list as the app would open it (a drop-down's list, a menu), drawn inside the tour: rows, one hovered (its look:
+    #tourMock in theme_sheet.py)."""
 
     def __init__(self, tour, items, current=-1, width=None):
         super().__init__(tour)
-        t = theme.tokens()
         self.setObjectName("tourMock")
-        self.setStyleSheet(f"#tourMock {{ background: {t['card']}; border: 1px solid {t['line']}; border-radius: 8px; }}"
-                           f"QLabel {{ padding: 5px 10px; border-radius: 5px; background: transparent; color: {t['ink']}; }}"
-                           f"QLabel[cur=\"true\"] {{ font-weight: 600; }}"
-                           f"QLabel[hover=\"true\"] {{ background: {t['sel']}; color: {t['sel_ink']}; }}"
-                           f"QLabel[off=\"true\"] {{ color: {t['muted']}; }}"
-                           f"QFrame#tourSep {{ background: {t['line']}; max-height: 1px; min-height: 1px; }}")
         v = QVBoxLayout(self)
         v.setContentsMargins(4, 4, 4, 4)
         v.setSpacing(1)
@@ -273,25 +297,23 @@ class Mock(QFrame):
 
 
 class _Note(QLabel):
-    """A message as the app would show it, or a key cap, drawn inside the tour."""
+    """A message as the app would show it (#tourNote), or a key cap (#tourKey), drawn inside the tour."""
 
     def __init__(self, tour, text, key=False):
         super().__init__(text, tour)
-        t = theme.tokens()
+        self.setObjectName("tourKey" if key else "tourNote")
         self.setWordWrap(not key)
         self.setMaximumWidth(320)
-        if key:
-            self.setStyleSheet(f"background: {t['field']}; color: {t['ink']}; border: 1px solid {t['muted']}; "
-                               f"border-bottom-width: 3px; border-radius: 6px; padding: 3px 10px; font-weight: 600;")
-        else:
-            self.setStyleSheet(f"background: {t['card']}; color: {t['ink']}; border: 1px solid {t['c1']}; "
-                               f"border-radius: 8px; padding: 7px 10px;")
         self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        # (measured in its own look: before it's styled, its font is smaller and its padding none, and a message came
+        # out 16 px tall, its words hidden, 2026-10-23)
+        self.ensurePolished()
         if key:
             self.adjustSize()
         else:  # (as wide as its words, up to 320 px, then wrapped: a wrapped label alone sizes itself too narrow)
+            m = self.contentsMargins()
             longest = max(self.fontMetrics().horizontalAdvance(line) for line in (text or ' ').splitlines())
-            w = min(320, longest + 26)
+            w = min(320, longest + m.left() + m.right() + 4)
             self.setFixedWidth(w)
             self.setFixedHeight(self.heightForWidth(w))
 
@@ -399,10 +421,16 @@ class Api:
         self.t.drop(n)
 
     def key(self, text, hold=900):
+        """A key cap beside the pointer's "demo" tag (under it, the tag hid the key's name), taken away with the demo
+        if it stops meanwhile (it stayed on the window for the rest of the tour, 2026-10-23)."""
         n = _Note(self.t, text, key=True)
-        p = self.t.cur or QPointF(self.t.width() / 2, self.t.height() / 2)
-        n.move(int(p.x() + 18), int(p.y() + 20))
+        tag = self.t.tag_rect() if self.t.cur is not None else None
+        if tag is not None:
+            n.move(int(tag.right() + 6), int(tag.center().y() - n.height() / 2))
+        else:
+            n.move(int(self.t.width() / 2), int(self.t.height() / 2))
         n.show()
+        self.t.inside.append(n)
         self.t.raise_layer()
         yield hold
         self.t.drop(n)
@@ -450,17 +478,37 @@ class Api:
         self.t.show_inside(m, near, below)
         return m
 
+    def _frame(self, title):
+        """A window's frame as the app's windows look inside the tour (#tourWin): its title bar (the title, the close
+        symbol) over the window's background. (frame, the layout under the title bar)"""
+        frame = QFrame(self.t)
+        frame.setObjectName("tourWin")
+        v = QVBoxLayout(frame)
+        v.setContentsMargins(1, 1, 1, 6)  # (6 below: the window's square corners kept inside the frame's round ones)
+        v.setSpacing(0)
+        bar = QFrame()
+        bar.setObjectName("tourWinBar")
+        bl = QHBoxLayout(bar)
+        bl.setContentsMargins(12, 7, 10, 7)
+        name = QLabel(title)
+        name.setObjectName("tourWinTitle")
+        bl.addWidget(name, 1)
+        x = QLabel()
+        x.setObjectName("tourWinClose")
+        bl.addWidget(x)
+        Tour.draw_close(x)
+        v.addWidget(bar)
+        return frame, v
+
     def prompt(self, title, label, near=None, value=""):
-        """A question as the app would ask it (a name to type), inside the tour: .edit, .ok; closed after."""
-        t = theme.tokens()
-        f = QFrame(self.t)
-        f.setObjectName("tourPrompt")
-        f.setStyleSheet(f"#tourPrompt {{ background: {t['card']}; border: 1px solid {t['line']}; border-radius: 10px; }}")
-        v = QVBoxLayout(f)
-        v.setContentsMargins(14, 12, 14, 12)
-        head = QLabel(title)
-        head.setStyleSheet("font-weight: 600;")
-        v.addWidget(head)
+        """A question as the app would ask it (a name to type: a small window with its title), inside the tour: .edit,
+        .ok; closed after."""
+        f, outer = self._frame(title)
+        f.setProperty("prompt", True)
+        v = QVBoxLayout()
+        v.setContentsMargins(14, 4, 14, 8)
+        v.setSpacing(8)
+        outer.addLayout(v)
         v.addWidget(QLabel(label))
         f.edit = QLineEdit(value)
         v.addWidget(f.edit)
@@ -473,7 +521,7 @@ class Api:
         v.addLayout(row)
         for c in [f] + f.findChildren(QWidget):
             c.setFocusPolicy(Qt.NoFocus)
-        f.setFixedWidth(340)
+        f.setFixedWidth(360)
         f.adjustSize()
         self.t.show_inside(f, near, True)
         return f
@@ -485,26 +533,7 @@ class Api:
         """A window of the app (a QDialog made for the demo) shown inside the tour as a window: a frame with its title,
         only looked at (clicks stop at the glass over it, the keys stay with the tour), beside the card where there's
         room. Closed when the demo ends; returns the dialog."""
-        t = theme.tokens()
-        frame = QFrame(self.t)
-        frame.setObjectName("tourWin")
-        frame.setStyleSheet(f"#tourWin {{ background: {t['card']}; border: 1px solid {t['muted']}; border-radius: 10px; }}"
-                            f"#tourWinBar {{ background: {t['shade']}; border-top-left-radius: 10px; "
-                            f"border-top-right-radius: 10px; border-bottom: 1px solid {t['line']}; }}")
-        v = QVBoxLayout(frame)
-        v.setContentsMargins(1, 1, 1, 1)
-        v.setSpacing(0)
-        bar = QFrame()
-        bar.setObjectName("tourWinBar")
-        bl = QHBoxLayout(bar)
-        bl.setContentsMargins(12, 6, 12, 6)
-        title = QLabel(w.windowTitle())
-        title.setStyleSheet("font-weight: 600; background: transparent;")
-        bl.addWidget(title, 1)
-        x = QLabel("✕")
-        x.setStyleSheet(f"color: {t['muted']}; background: transparent;")
-        bl.addWidget(x)
-        v.addWidget(bar)
+        frame, v = self._frame(w.windowTitle())
         w.setParent(frame, Qt.Widget)
         w.setAutoFillBackground(True)
         v.addWidget(w, 1)
@@ -514,7 +543,10 @@ class Api:
         hint = w.size() if size is None else size
         room = W - CARD_W - 48  # (the card beside it)
         width = min(hint.width(), room if room >= 560 else W - 40)
-        QWidget.resize(frame, width, min(hint.height() + 34, H - 40))
+        frame.ensurePolished()
+        bar = frame.findChild(QFrame, "tourWinBar")
+        extra = bar.sizeHint().height() + 8  # (the title bar, the frame's border and its room below)
+        QWidget.resize(frame, width, min(hint.height() + extra, H - 40))
         self.t.show_inside(frame, near, True, side=room >= 560)
         self.t.setFocus()
         w.frame = frame
@@ -591,19 +623,19 @@ class Api:
 
 # ---------------------------------------------------------------- the step list
 class _Steps(QFrame):
-    """Every step, by chapter (the card's "3 of 27 ▾"): click one to go straight to it."""
+    """Every step, by chapter (the card's "3 of 27 ▾"): click one to go straight to it. It opens as a menu does
+    (#tourSteps), as wide as its longest step (up to the window's width) and as tall as its rows (up to the window's
+    bottom)."""
 
     def __init__(self, tour):
         super().__init__(tour)
         self.tour = tour
-        t = theme.tokens()
         self.setObjectName("tourSteps")
-        self.setStyleSheet(f"#tourSteps {{ background: {t['card']}; border: 1px solid {t['line']}; border-radius: 8px; }}")
         v = QVBoxLayout(self)
         v.setContentsMargins(4, 4, 4, 4)
         self.list = QListWidget()
         self.list.setAccessibleName("Steps")
-        self.list.setStyleSheet("QListWidget { border: none; background: transparent; }")
+        self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.list.itemActivated.connect(self._chosen)
         self.list.itemClicked.connect(self._chosen)
         v.addWidget(self.list)
@@ -612,6 +644,8 @@ class _Steps(QFrame):
     def open(self):
         tr, t = self.tour, theme.tokens()
         self.list.clear()
+        self.list.ensurePolished()
+        base = QFont(self.list.font())  # (the list's own font: an item's font() is the app's smaller default)
         ch = None
         now = None
         for i, s in enumerate(tr.steps):
@@ -619,8 +653,8 @@ class _Steps(QFrame):
                 ch = s.get("chapter")
                 h = QListWidgetItem(ch.upper() if ch else "")
                 h.setFlags(Qt.NoItemFlags)
-                f = h.font()
-                f.setPointSizeF(f.pointSizeF() * 0.82)
+                f = QFont(base)
+                f.setPointSizeF(base.pointSizeF() * 0.82)
                 f.setBold(True)
                 h.setFont(f)
                 h.setForeground(QColor(t["muted"]))
@@ -632,21 +666,28 @@ class _Steps(QFrame):
                 it.setForeground(QColor(t["muted"]))
                 it.setToolTip("Its control isn't on screen yet (e.g. no result yet): the next step that is opens instead")
             if i == tr.i:
-                f = it.font()
+                f = QFont(base)
                 f.setBold(True)
                 it.setFont(f)
                 now = it
             self.list.addItem(it)
         b = tr.bubble.geometry()
         top = b.top() + tr.count_btn.geometry().bottom() + 16
-        h = max(160, min(tr.height() - top - 10, 22 * self.list.count() + 12))
-        self.setGeometry(b.left() + 8, top, b.width() - 16, h)
+        rows = sum(max(self.list.sizeHintForRow(k), 1) for k in range(self.list.count()))
+        h = max(160, min(tr.height() - top - 10, rows + 12))
+        # (its longest step in sight: the list's room is its width less the frame, the row's padding and the scroll bar)
+        widest = max([QFontMetrics(self.list.item(k).font() if self.list.item(k).data(Qt.FontRole) is not None
+                                   else base).horizontalAdvance(self.list.item(k).text())
+                      for k in range(self.list.count())] or [0])
+        w = min(max(b.width() - 16, widest + 60), tr.width() - 16)
+        x = max(8, min(b.left() + 8, tr.width() - w - 8))
+        self.setGeometry(x, top, w, h)
         self.show()
         self.raise_()
         tr.layer.raise_()
         if now is not None:
             self.list.setCurrentItem(now)
-            self.list.scrollToItem(now)
+            self.list.scrollToItem(now, QListWidget.PositionAtCenter)  # (the steps before and after it in sight)
         self.list.setFocus()
 
     def close_list(self):
@@ -704,6 +745,10 @@ class Tour(QWidget):
         self.pin_timer = QTimer(self, interval=120, timeout=self._pin_refresh)
         self.setFocusPolicy(Qt.StrongFocus)
         self._build_card()
+        if not _themed["hooked"]:  # (once: every tour open drawn again when the theme changes)
+            _themed["hooked"] = True
+            theme.on_change(_retheme)
+        _themed["tours"].append(weakref.ref(self))
         self.glass = _Glass(self)
         self.glass.hide()
         self.step_list = _Steps(self)
@@ -720,33 +765,33 @@ class Tour(QWidget):
         self.go(start)
 
     def _build_card(self):
-        t = theme.tokens()
         self.bubble = QFrame(self)
+        self.bubble.setObjectName("tourCard")  # (its look: theme_sheet.py's guide_and_help, by these names)
         theme.mark(self.bubble, card=True)
         self.bubble.setFixedWidth(CARD_W)
         b = QVBoxLayout(self.bubble)
-        b.setContentsMargins(16, 10, 16, 12)
+        b.setContentsMargins(16, 12, 16, 14)
         b.setSpacing(4)
         top = QHBoxLayout()
         self.count_btn = QToolButton()
+        self.count_btn.setObjectName("tourCount")
         self.count_btn.setToolTip("Go to any step")
         self.count_btn.setAccessibleName("Steps")
-        self.count_btn.setStyleSheet(f"QToolButton {{ border: none; background: transparent; padding: 1px 4px; "
-                                     f"color: {t['ink2']}; }} QToolButton:hover {{ background: {t['shade']}; }}")
         self.count_btn.clicked.connect(self._toggle_list)
         top.addWidget(self.count_btn)
         top.addStretch(1)
         self.badge = QLabel("Demo · your work isn't changed")
-        self.badge.setStyleSheet(f"color: {t['c1']}; border: 1px dashed {t['c1']}; border-radius: 9px; "
-                                 f"padding: 0px 7px; font-size: 8.5pt;")
+        self.badge.setObjectName("tourBadge")
         top.addWidget(self.badge)
         b.addLayout(top)
+        b.addSpacing(2)
         self.bar = _Bar()
         b.addWidget(self.bar)
+        b.addSpacing(4)
         self.chapter = self.count_btn  # (older name: the chapter is in the step list button)
         self.title = QLabel()
+        self.title.setObjectName("tourTitle")
         self.title.setWordWrap(True)
-        self.title.setStyleSheet("font-weight: 600; font-size: 12pt;")
         b.addWidget(self.title)
         self.text = QLabel()
         self.text.setWordWrap(True)
@@ -757,17 +802,18 @@ class Tour(QWidget):
         b.addWidget(self.acts_lab)
         self.steps_list = self.acts_lab  # (older name)
         demo_row = QHBoxLayout()
-        self.replay_btn = QPushButton("▶ Play demo")
+        self.replay_btn = QPushButton("Play demo")
+        _symbol(self.replay_btn, "play")
         self.replay_btn.setToolTip("Play this step's demo (again): R")
         self.replay_btn.clicked.connect(self.replay)
         demo_row.addWidget(self.replay_btn)
         self.pause_btn = QPushButton("Pause")
+        _symbol(self.pause_btn, "pause")
         self.pause_btn.setToolTip("Pause or resume the demo (P)")
         self.pause_btn.clicked.connect(self.toggle_pause)
         demo_row.addWidget(self.pause_btn)
         self.skip_btn = QPushButton("Skip demo")
-        self.skip_btn.setStyleSheet(f"QPushButton {{ border: none; background: transparent; color: {t['c1']}; "
-                                    f"padding: 5px 4px; }} QPushButton:hover {{ text-decoration: underline; }}")
+        theme.mark(self.skip_btn, link=True)
         self.skip_btn.clicked.connect(self.skip_demo)
         demo_row.addWidget(self.skip_btn)
         demo_row.addStretch(1)
@@ -805,7 +851,7 @@ class Tour(QWidget):
         b.addLayout(self.extra)
         row = QHBoxLayout()
         self.end_btn = QPushButton("End tour")
-        self.end_btn.setStyleSheet(self.skip_btn.styleSheet())
+        theme.mark(self.end_btn, link=True)
         self.end_btn.clicked.connect(self.end)
         row.addWidget(self.end_btn)
         row.addStretch(1)
@@ -823,6 +869,23 @@ class Tour(QWidget):
         row.addWidget(self.back_btn)
         row.addWidget(self.next_btn)
         b.addLayout(row)
+
+    @staticmethod
+    def draw_close(label):
+        """The close symbol of a window's title bar shown inside the tour, in the theme's quieter text colour."""
+        label.setPixmap(icons.glyph("close", theme.tokens()["ink2"], size=10).pixmap(QSize(16, 10)))
+
+    def retheme(self):
+        """The theme changed while the tour is open: what it draws in its own colours drawn again (the card's
+        symbols, the demo's actions, a window's close symbol; the rest follows the stylesheet or is drawn afresh)."""
+        for btn in self.bubble.findChildren(QPushButton):
+            if btn.property("symbol"):
+                _symbol(btn, btn.property("symbol"))
+        for x in self.findChildren(QLabel, "tourWinClose"):
+            Tour.draw_close(x)
+        self.step_list.close_list()
+        self._show_acts()
+        self.update()
 
     # ---------------------------------------------------------------- the steps
     def available(self, k):
@@ -923,15 +986,24 @@ class Tour(QWidget):
 
     def _labels(self, playing):
         """The card's demo row and actions list as the demo is (playing: only the action playing now)."""
-        self.replay_btn.setText("Show the steps" if not self.glide else "↻ Replay" if playing else "▶ Play demo")
+        self.replay_btn.setText("Show the steps" if not self.glide else "Replay" if playing else "Play demo")
+        _symbol(self.replay_btn, "list" if not self.glide else "refresh" if playing else "play")
         self.pause_btn.setVisible(playing and self.glide)
         self.skip_btn.setVisible(playing)
         if not playing:
             self.paused = self.paused_by_you = False
-            self.pause_btn.setText("Pause")
+            self._pause_label("Pause")
         self._show_acts()
 
+    def _pause_label(self, text, tip="Pause or resume the demo (P)"):
+        """Pause, or Resume (paused): its words, symbol and tooltip."""
+        self.pause_btn.setText(text)
+        self.pause_btn.setToolTip(tip)
+        _symbol(self.pause_btn, "pause" if text == "Pause" else "play")
+
     def _show_acts(self):
+        """The demo's actions, numbered, in the card (while it plays, only the one playing now: on a quiet fill with
+        the accent's bar beside it, as Windows 11 marks a chosen row)."""
         t = theme.tokens()
         playing = self.demo_running and self.glide
         rows = []
@@ -940,8 +1012,10 @@ class Tour(QWidget):
                 continue
             esc = text.replace("&", "&amp;").replace("<", "&lt;")
             if n == self.act_now:
-                rows.append(f"<div style='background:{t['sel']}; color:{t['sel_ink']}; font-weight:600; "
-                            f"{'border: 1px dashed ' + t['c1'] + ';' if self.paused else ''}'>&nbsp;{n + 1}.&nbsp;{esc}</div>")
+                rows.append(f"<table width='100%' cellspacing='0' cellpadding='0'><tr>"
+                            f"<td width='3' style='background:{t['accent']}'></td>"
+                            f"<td style='background:{t['sel']}; color:{t['sel_ink']}; font-weight:600; padding: 3px 6px'>"
+                            f"{n + 1}.&nbsp;{esc}</td></tr></table>")
             else:
                 rows.append(f"<div style='color:{t['ink2']}'>&nbsp;{n + 1}.&nbsp;{esc}</div>")
         self.acts_lab.setText("".join(rows))
@@ -1162,10 +1236,8 @@ class Tour(QWidget):
     def pin_graph(self, plot):
         """The graph kept in sight: a live picture of it at the top of its scrolling page."""
         if self.pin is None:
-            t = theme.tokens()
             self.pin = QLabel(self)
-            self.pin.setObjectName("tourPin")
-            self.pin.setStyleSheet(f"#tourPin {{ background: {t['card']}; border: 1px solid {t['line']}; border-radius: 8px; }}")
+            self.pin.setObjectName("tourPin")  # (its look: theme_sheet.py, #tourPin)
             self.pin.setAlignment(Qt.AlignCenter)
             self.pin.setGeometry(self._pin_rect(plot))
             self.pin_src = plot
@@ -1282,8 +1354,7 @@ class Tour(QWidget):
         else:
             self.paused = True
             self.timer.stop()
-            self.pause_btn.setText("▶ Resume")
-            self.pause_btn.setToolTip("Pause or resume the demo (P)")
+            self._pause_label("Resume")
             self._show_acts()
 
     def resume(self):
@@ -1295,7 +1366,7 @@ class Tour(QWidget):
                 pass
         self.scrolled = {}
         self.paused = self.paused_by_you = False
-        self.pause_btn.setText("Pause")
+        self._pause_label("Pause")
         self._show_acts()
         self.follow(force=True)
         self._tick()
@@ -1308,8 +1379,9 @@ class Tour(QWidget):
         self.scrolled = {b: b.value() for b in self.win.findChildren(QScrollBar)}
         self.paused = self.paused_by_you = True
         self.timer.stop()
-        self.pause_btn.setText("▶ Resume (back to the demo)")
-        self.pause_btn.setToolTip("Paused while you scroll. Resume (P) scrolls back to where the demo was and carries on.")
+        # (its tooltip says it scrolls back: "Resume (back to the demo)" was cut short at Windows 11's text size)
+        self._pause_label("Resume", "Paused while you scroll. Resume (P) scrolls back to where the demo was and carries "
+                                    "on.")
         self._show_acts()
         self._fit_card()
 
@@ -1550,22 +1622,23 @@ class Tour(QWidget):
             hole.addRoundedRect(self._w_rect(self.hot_w).adjusted(-3, -3, 3, 3), 6, 6)
             shade = shade.subtracted(hole)
         p.fillPath(shade, QColor(0, 0, 0, 140))
-        p.setPen(QPen(QColor(t["c1"]), 2.5))
+        p.setPen(QPen(QColor(t["accent"]), 2))  # (what's lit, outlined in the accent: Windows' own colour)
         p.setBrush(Qt.NoBrush)
         p.drawPath(lit.simplified())
 
     def paint_demo(self, p):
-        """The demo (on the layer above the card): the control pointed at, what's typed, a drag's trail, a click's
-        ripple, the numbered markers, the pointer and its words."""
+        """The demo (on the layer above the card): the control pointed at (ringed), what's typed (as a text box being
+        typed in), a drag's trail, a click's ripple, the numbered markers, the pointer and its words; the accent
+        marks them all (the graph's own colours stay the graph's)."""
         t = theme.tokens()
         for pt, n in self.markers:
             p.setPen(QPen(QColor(t["card"]), 2))
-            p.setBrush(QColor(t["btn"]))  # (white on c1 was 2.8:1 in dark: the buttons' blue, 4.9:1)
+            p.setBrush(QColor(t["accent"]))
             p.drawEllipse(pt, 11, 11)
-            p.setPen(QColor(t.get("on_btn", "#ffffff")))
+            p.setPen(QColor(t["on_accent"]))
             p.drawText(QRectF(pt.x() - 11, pt.y() - 11, 22, 22), Qt.AlignCenter, str(n))
         if self.hot_w is not None and _alive(self.hot_w) and self.hot_w.isVisible():
-            p.setPen(QPen(QColor(t["c2"]), 2, Qt.DashLine))
+            p.setPen(QPen(QColor(t["accent"]), 2, Qt.DashLine))
             p.setBrush(Qt.NoBrush)
             p.drawRoundedRect(self._w_rect(self.hot_w).adjusted(-3, -3, 3, 3), 6, 6)
         for w, text in self.typed:
@@ -1574,8 +1647,10 @@ class Tour(QWidget):
             r = self._w_rect(w)
             box = r.adjusted(2, 2, -2, -2)
             p.setPen(Qt.NoPen)
-            p.setBrush(QColor(t["field"]))
-            p.drawRoundedRect(box, 5, 5)
+            p.setBrush(QColor(t["field_focus"]))
+            p.drawRoundedRect(box, 3, 3)
+            p.setBrush(QColor(t["accent"]))  # (the accent's line under a text box being typed in, as the app's)
+            p.drawRect(QRectF(box.left(), box.bottom() - 2, box.width(), 2))
             font = w.font()
             p.setFont(font)
             p.setPen(QColor(t["ink"]))
@@ -1583,7 +1658,7 @@ class Tour(QWidget):
             x, y = box.left() + 7, box.center().y() + fm.ascent() / 2 - 2
             p.drawText(QPointF(x, y), text)
             cx = x + fm.horizontalAdvance(text) + 1
-            p.setPen(QPen(QColor(t["c1"]), 1.5))
+            p.setPen(QPen(QColor(t["ink"]), 1))
             p.drawLine(QPointF(cx, box.center().y() - fm.ascent() / 2), QPointF(cx, box.center().y() + fm.ascent() / 2))
         if self.file_chip is not None:
             at, name = self.file_chip
@@ -1591,24 +1666,38 @@ class Tour(QWidget):
             p.setFont(f)
             text = "🗎 " + name
             r = QRectF(at.x() - 10, at.y() + 8, QFontMetrics(f).horizontalAdvance(text) + 18, QFontMetrics(f).height() + 10)
-            p.setPen(QPen(QColor(t["line"]), 1))
-            p.setBrush(QColor(t["card"]))
-            p.drawRoundedRect(r, 6, 6)
+            p.setPen(QPen(QColor(t["stroke"]), 1))
+            p.setBrush(QColor(t["menu"]))
+            p.drawRoundedRect(r, 8, 8)
             p.setPen(QColor(t["ink"]))
             p.drawText(r, Qt.AlignCenter, text)
         if self.trail is not None:
-            p.setPen(QPen(QColor(t["c2"]), 3, Qt.SolidLine, Qt.RoundCap))
+            p.setPen(QPen(QColor(t["accent"]), 3, Qt.SolidLine, Qt.RoundCap))
             p.drawLine(*self.trail)
         if self.ripple is not None:
             x, y, k = self.ripple
-            c = QColor(t["c1"])
+            c, halo = QColor(t["accent"]), QColor(t["card"])  # (the halo: seen on a button filled with the accent)
             c.setAlphaF(max(0.0, 0.8 * (1 - k)))
-            p.setPen(QPen(c, 3))
+            halo.setAlphaF(max(0.0, 0.8 * (1 - k)))
             p.setBrush(Qt.NoBrush)
             rad = 6 + 18 * k
+            p.setPen(QPen(halo, 1.5))
+            p.drawEllipse(QPointF(x, y), rad + 2.25, rad + 2.25)
+            p.setPen(QPen(c, 3))
             p.drawEllipse(QPointF(x, y), rad, rad)
         if self.cur is not None and (self.demo_running or self.say):
             self._draw_pointer(p, t)
+
+    def _tag_font(self):
+        f = QFont(self.font())
+        f.setPointSizeF(max(6.5, f.pointSizeF() * 0.75))
+        f.setBold(True)
+        return f
+
+    def tag_rect(self):
+        """Where the pointer's "demo" tag is drawn (under its tip, to the right)."""
+        fm = QFontMetrics(self._tag_font())
+        return QRectF(self.cur.x() + 14, self.cur.y() + 20, fm.horizontalAdvance("demo") + 10, fm.height() + 2)
 
     def _draw_pointer(self, p, t):
         x, y = self.cur.x(), self.cur.y()
@@ -1617,22 +1706,19 @@ class Tour(QWidget):
         p.setPen(QPen(QColor("#000000"), 1.3))
         p.setBrush(QColor("#ffffff"))
         p.drawPolygon(arrow)
-        f = QFont(self.font())
-        f.setPointSizeF(max(6.5, f.pointSizeF() * 0.75))
-        f.setBold(True)
-        p.setFont(f)
-        tag = QRectF(x + 14, y + 20, QFontMetrics(f).horizontalAdvance("demo") + 10, QFontMetrics(f).height() + 2)
+        p.setFont(self._tag_font())
+        tag = self.tag_rect()
         p.setPen(Qt.NoPen)
-        p.setBrush(QColor(t["btn"]))
-        p.drawRoundedRect(tag, 6, 6)
-        p.setPen(QColor(t.get("on_btn", "#ffffff")))
+        p.setBrush(QColor(t["accent"]))
+        p.drawRoundedRect(tag, tag.height() / 2, tag.height() / 2)
+        p.setPen(QColor(t["on_accent"]))
         p.drawText(tag, Qt.AlignCenter, "demo")
         if self.say:
             f = QFont(self.font())
             p.setFont(f)
             fm = QFontMetrics(f)
             r = fm.boundingRect(QRect(0, 0, 260, 400), Qt.TextWordWrap, self.say)
-            w, h = r.width() + 16, r.height() + 10
+            w, h = r.width() + 20, r.height() + 12
             places = [QRectF(x + 22, y + 40, w, h), QRectF(x + 22, y - 10 - h, w, h), QRectF(x - 10 - w, y + 24, w, h),
                       QRectF(x - 10 - w, y - 10 - h, w, h)]  # (beside the pointer, off the card, in the window)
             inside = [b for b in places if QRectF(self.rect()).adjusted(8, 8, -8, -8).contains(b)] or places[:1]
@@ -1640,11 +1726,11 @@ class Tour(QWidget):
                                                        if _alive(w) and w.isVisible() and isinstance(w, (_Note, Mock))]
             box = next((b for b in inside if not any(b.intersects(k) for k in keep)),
                        next((b for b in inside if not b.intersects(keep[0])), inside[0]))
-            p.setPen(QPen(QColor(t["c1"]), 1.2))
+            p.setPen(QPen(QColor(t["accent"]), 1))
             p.setBrush(QColor(t["card"]))
-            p.drawRoundedRect(box, 6, 6)
+            p.drawRoundedRect(box.adjusted(0.5, 0.5, -0.5, -0.5), 8, 8)
             p.setPen(QColor(t["ink"]))
-            p.drawText(box.adjusted(8, 5, -8, -5), Qt.TextWordWrap, self.say)
+            p.drawText(box.adjusted(10, 6, -10, -6), Qt.TextWordWrap, self.say)
 
     # ---------------------------------------------------------------- your scrolling, the keys, the end
     def _scroll_area_at(self, pos):

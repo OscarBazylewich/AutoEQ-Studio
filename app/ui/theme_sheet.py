@@ -371,8 +371,45 @@ def tracer(t, img):
 
 
 def guide_and_help(t, img):
-    """The Guide's layer and card, and the Help window."""
-    return ""
+    """The Guide's layer and card, and the Help window. The Guide (ui\\tour.py): its card (#tourCard: the step list's
+    button, the “Demo” tag as the settings' tags, the step's title, link-like buttons with link=true), and what a demo
+    shows inside it: a drop-down's list or a menu (#tourMock, as the app's lists), a message (#tourNote), a key
+    (#tourKey), a window or a question with its title bar (#tourWin), the step list (#tourSteps, as a menu), the graph
+    kept in sight (#tourPin). Help (ui\\help_window.py): its contents (#helpContents) and its page (#helpPage) as cards."""
+    return f"""
+    QFrame#tourCard {{ padding: 0px; }}
+    QFrame#tourCard QToolButton#tourCount {{ background: transparent; border: none; border-radius: 4px; padding: 3px 6px;
+        color: {t['ink2']}; }}
+    QFrame#tourCard QToolButton#tourCount:hover {{ background: {t['subtle_hover']}; color: {t['ink']}; }}
+    QFrame#tourCard QToolButton#tourCount:pressed {{ background: {t['subtle_press']}; }}
+    QFrame#tourCard QLabel#tourBadge {{ background: {t['accent_soft']}; color: {t['accent_text']};
+        border: 1px solid {t['accent_soft_line']}; border-radius: 10px; padding: 1px 8px; font-size: {FONT - 1.5}pt; }}
+    QFrame#tourCard QLabel#tourTitle {{ font-size: {FONT + 1.5}pt; font-weight: 600; }}
+    QFrame#tourCard QPushButton[link="true"] {{ background: transparent; border: none; border-radius: 4px;
+        color: {t['accent_text']}; padding: {PAD[0]}px 8px; }}
+    QFrame#tourCard QPushButton[link="true"]:hover {{ background: {t['subtle_hover']}; }}
+    QFrame#tourCard QPushButton[link="true"]:pressed {{ background: {t['subtle_press']}; }}
+    QFrame#tourMock {{ background: {t['menu']}; border: 1px solid {t['stroke']}; border-radius: 8px; }}
+    QFrame#tourMock QLabel {{ padding: 6px 10px; border-radius: 4px; background: transparent; color: {t['ink']}; }}
+    QFrame#tourMock QLabel[cur="true"] {{ font-weight: 600; }}
+    QFrame#tourMock QLabel[hover="true"] {{ background: {t['sel']}; color: {t['sel_ink']}; }}
+    QFrame#tourMock QLabel[off="true"] {{ color: {t['muted']}; }}
+    QFrame#tourMock QFrame#tourSep {{ background: {t['stroke']}; border: none; max-height: 1px; min-height: 1px; }}
+    QLabel#tourNote {{ background: {t['card']}; color: {t['ink']}; border: 1px solid {t['accent']}; border-radius: 8px;
+        padding: 7px 10px; }}
+    QLabel#tourKey {{ background: {t['field']}; color: {t['ink']}; border: 1px solid {t['strong']};
+        border-bottom-width: 3px; border-radius: 4px; padding: 3px 10px; font-weight: 600; }}
+    QFrame#tourWin {{ background: {t['bg']}; border: 1px solid {t['stroke']}; border-radius: 8px; }}
+    QFrame#tourWin QFrame#tourWinBar {{ background: transparent; border: none; }}
+    QFrame#tourWin QLabel#tourWinTitle {{ background: transparent; font-size: {FONT - 1.5}pt; }}
+    QFrame#tourWin QLabel#tourWinClose {{ background: transparent; }}
+    QFrame#tourSteps {{ background: {t['menu']}; border: 1px solid {t['stroke']}; border-radius: 8px; }}
+    QFrame#tourSteps QListWidget {{ background: transparent; border: none; }}
+    QFrame#tourSteps QListWidget::item {{ padding: 5px 8px; }}
+    QLabel#tourPin {{ background: {t['card']}; border: 1px solid {t['line']}; border-radius: 8px; }}
+    QListWidget#helpContents::item {{ padding: 6px 8px; }}
+    QTextBrowser#helpPage {{ background: {t['card']}; border: 1px solid {t['line']}; border-radius: 8px; }}
+"""
 
 
 PARTS = [base_and_tooltips, cards_and_group_boxes, text_roles, buttons, top_bar, inputs, lists_and_tables,
