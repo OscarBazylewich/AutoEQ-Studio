@@ -242,8 +242,12 @@ def find_windows(t, img):
 
 
 def listen(t, img):
-    """Listen's card."""
-    return ""
+    """Listen's card (ui\\listen.py): each version's button marked on its left in its curve's colour on the graph
+    (EQ off: the measurement's; the selected EQ: "with the EQ"'s; your EQs to compare: their own), and the same
+    colour on the ■ beside each EQ to compare. listen_mark=<the colour's name> on the button or the ■."""
+    return "".join(f"""
+    QPushButton[listen_mark="{k}"] {{ border-left: 4px solid {t[k]}; }}
+    QLabel[listen_mark="{k}"] {{ color: {t[k]}; }}""" for k in ("meas", "with_eq", "c3", "c5", "c4", "c2")) + "\n"
 
 
 def tracer(t, img):

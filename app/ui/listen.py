@@ -8,23 +8,112 @@
   EQ, + An EQ file…, + Paste filters…; each renamed in place, on the graph or not, ✕ removed
 - the device's own EQ (Devices) plays on top of what you hear here: said, with a button to switch it off
 
+The look is Windows 11's (2026-10-23): Windows' symbols beside Play / Stop, Undo and Choose a file…; each version
+marked on its left in its curve's colour on the graph, and the same colour beside each EQ to compare (the property
+listen_mark, matched in ui\\theme_sheet.py's listen part, so light, dark and Windows' accent change them live); the
+versions in as many rows as the card needs; your EQs to compare in columns.
+
 The sound itself is ui/audio.py (sounddevice); nothing plays until Play.
 """
 import math
 import os
 
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QDialogButtonBox, QFileDialog, QFrame,
-                               QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPlainTextEdit, QPushButton,
-                               QSlider, QVBoxLayout, QWidget)
+from PySide6.QtCore import QPoint, QRect, QSize, Qt, QTimer
+from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QDialogButtonBox, QFileDialog, QFrame, QGridLayout,
+                               QGroupBox, QHBoxLayout, QLabel, QLayout, QLineEdit, QMessageBox, QPlainTextEdit,
+                               QPushButton, QSlider, QVBoxLayout, QWidget)
 
 import textfile
-from ui import help_window, tasks, theme
+from ui import help_window, icons, tasks, theme
 from ui.search_combo import SearchCombo
 
 SOUNDS = [("music", "Music (a short loop)"), ("pink", "Pink noise"), ("white", "White noise"), ("sweep", "Sweep 20 Hz-20 kHz"),
           ("tone", "Tone (choose a frequency)"), ("file", "Your own file…")]
 COLOURS = ["c3", "c5", "c4", "c2"]  # (the EQs to compare on the graph, in turn)
+
+
+class _PlayButton(QPushButton):
+    """Play / Stop, the card's main action (the accent), with Windows 11's symbol beside its word: ▶ beside Play, ■
+    beside Stop, whoever sets the word (the Guide's demo shows Stop on it too). A ▶ or ■ written before the word, as
+    the words were before the symbols, is left out: the symbol shows it."""
+    SYMBOLS = {"Play": "play", "Stop": "stop"}
+
+    def __init__(self):
+        super().__init__()
+        self.symbol = None  # (the symbol's name shown, ui\\icons.py's GLYPHS)
+        theme.mark(self, primary=True)
+        self.setText("Play")
+        self.ensurePolished()  # (the stylesheet's type size, for the width below)
+        words = max(self.fontMetrics().horizontalAdvance(w) for w in ("Play", "Stop", "Preparing…"))
+        self.setMinimumWidth(words + 22 + 2 * 11 + 12)  # (the same width whatever it says: the symbol, the padding)
+
+    def setText(self, text):
+        word = text.lstrip("▶■ ")
+        super().setText(word)
+        symbol = self.SYMBOLS.get(word, self.symbol or "play")  # ("Preparing…" keeps Play's)
+        if symbol != self.symbol:
+            self.symbol = symbol
+            icons.put(self, symbol)
+
+
+class _Rows(QLayout):
+    """Buttons side by side at their own widths, onto a new row when the next one doesn't fit: Listen's versions (up
+    to 14, their names as long as you made them; in one row they made the card, and so all of Make an EQ, wider than
+    the window)."""
+
+    def __init__(self, parent, gap=6):
+        super().__init__(parent)
+        self.setContentsMargins(0, 0, 0, 0)
+        self._items, self._gap = [], gap
+
+    def addItem(self, item):
+        self._items.append(item)
+
+    def count(self):
+        return len(self._items)
+
+    def itemAt(self, i):
+        return self._items[i] if 0 <= i < len(self._items) else None
+
+    def takeAt(self, i):
+        return self._items.pop(i) if 0 <= i < len(self._items) else None
+
+    def expandingDirections(self):
+        return Qt.Orientation(0)
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, width):
+        return self._place(QRect(0, 0, width, 0), False)
+
+    def setGeometry(self, rect):
+        super().setGeometry(rect)
+        self._place(rect, True)
+
+    def sizeHint(self):
+        return self.minimumSize()
+
+    def minimumSize(self):
+        size = QSize()
+        for item in self._items:
+            size = size.expandedTo(item.minimumSize())
+        return size
+
+    def _place(self, rect, move):
+        """Each one in its place (move), in rows from the left: the height they take."""
+        x, y, row = rect.x(), rect.y(), 0
+        for item in self._items:
+            if item.isEmpty():  # (one hidden)
+                continue
+            hint = item.sizeHint()
+            if x > rect.x() and x + hint.width() > rect.x() + rect.width():
+                x, y, row = rect.x(), y + row + self._gap, 0
+            if move:
+                item.setGeometry(QRect(QPoint(x, y), hint))
+            x += hint.width() + self._gap
+            row = max(row, hint.height())
+        return y + row - rect.y()
 
 
 class Listen(QGroupBox):
@@ -41,9 +130,7 @@ class Listen(QGroupBox):
         theme.mark(sub, role="muted")
         v.addWidget(sub)
         row = QHBoxLayout()
-        self.play_btn = QPushButton("▶ Play")
-        theme.mark(self.play_btn, primary=True)
-        self.play_btn.setMinimumWidth(100)
+        self.play_btn = _PlayButton()
         self.play_btn.clicked.connect(self.toggle)
         row.addWidget(self.play_btn)
         self.src = SearchCombo()
@@ -106,6 +193,7 @@ class Listen(QGroupBox):
         fr = QHBoxLayout(self.file_row)
         fr.setContentsMargins(0, 0, 0, 0)
         pick = QPushButton("Choose a file…")
+        icons.put(pick, "open")
         pick.clicked.connect(self.choose_file)
         fr.addWidget(pick)
         self.file_lab = QLabel("mp3, flac, wav, ogg …")
@@ -131,8 +219,8 @@ class Listen(QGroupBox):
         ears.addStretch(1)
         v.addLayout(ears)
         self.ab_box = QWidget()
-        self.ab = QHBoxLayout(self.ab_box)
-        self.ab.setContentsMargins(0, 0, 0, 0)
+        self.ab = _Rows(self.ab_box)  # (in as many rows as the card needs)
+        self.version_group = QButtonGroup(self)  # (one of them chosen; the same group however often they're redrawn)
         v.addWidget(self.ab_box)
         self.split_row = QWidget()
         sr = QHBoxLayout(self.split_row)
@@ -171,9 +259,8 @@ class Listen(QGroupBox):
         theme.mark(head, role="section")
         v.addWidget(head)
         self.pins_box = QWidget()
-        self.pins_lay = QVBoxLayout(self.pins_box)
+        self.pins_lay = QVBoxLayout(self.pins_box)  # (holds their table, drawn again with each change: render_pins)
         self.pins_lay.setContentsMargins(0, 0, 0, 0)
-        self.pins_lay.setSpacing(4)
         v.addWidget(self.pins_box)
         self.undo_row = QWidget()
         ur = QHBoxLayout(self.undo_row)
@@ -182,6 +269,7 @@ class Listen(QGroupBox):
         theme.mark(self.undo_text, role="muted")
         ur.addWidget(self.undo_text, 1)
         self.undo_btn = QPushButton("Undo")
+        icons.put(self.undo_btn, "undo")
         ur.addWidget(self.undo_btn)
         self.undo_row.hide()
         v.addWidget(self.undo_row)
@@ -219,16 +307,17 @@ class Listen(QGroupBox):
 
     # ---------------------------------------------------------------- the versions
     def versions(self):
-        """[(key, label, filters, colour)]: EQ off, the selected EQ, this IEM's EQs to compare."""
-        t = theme.tokens()
-        out = [("off", "EQ off", [], t["meas"])]
+        """[(key, label, filters, colour)]: EQ off, the selected EQ, this IEM's EQs to compare. colour: the name of
+        its curve's colour on the graph (theme.tokens()): EQ off the measurement's, the selected EQ "with the EQ"'s
+        (never the accent: that's Windows' colour, not a curve's), each EQ to compare its own (COLOURS)."""
+        out = [("off", "EQ off", [], "meas")]
         run, r = self.page.current()
         if r:
             out.append(("sel", f"Selected EQ (run {run.get('n', 1)}{', edited' if self.page.edited() else ''})",
-                        self.page.active(), t["c1"]))
+                        self.page.active(), "with_eq"))
         for i, p in enumerate(self.pins):
             out.append((p["key"], p["name"], [f for f in p["filters"] if f.get("enabled", True) is not False],
-                        t[COLOURS[p.get("color", i) % len(COLOURS)]]))
+                        COLOURS[p.get("color", i) % len(COLOURS)]))
         return out
 
     def refresh(self):
@@ -281,6 +370,8 @@ class Listen(QGroupBox):
         while self.ab.count():
             w = self.ab.takeAt(0).widget()
             if w:
+                if isinstance(w, QPushButton):
+                    self.version_group.removeButton(w)
                 w.hide()
                 w.setParent(None)
                 w.deleteLater()
@@ -290,22 +381,20 @@ class Listen(QGroupBox):
         self.blind.setEnabled(not split)
         self.reveal_btn.setVisible(self.blind.isChecked() and not self.revealed and not split)
         blind = self.blind.isChecked()
-        group = QButtonGroup(self.ab_box)
         for i, (key, label, _f, colour) in enumerate(self._order()):
             name = chr(65 + i) + (f" = {label}" if self.revealed else "") if blind else label
             b = QPushButton(f"{i + 1}  {name}")
             b.setCheckable(True)
             b.setChecked(key == self.active)
-            if not blind or self.revealed:
-                b.setStyleSheet(f"border-left: 4px solid {colour};")
+            if not blind or self.revealed:  # (its curve's colour on its left: theme_sheet.py's listen part)
+                theme.mark(b, listen_mark=colour)
             if self.engine and (not blind or self.revealed):
                 s = next((s for s in self.engine.slots if s["key"] == key and not s.get("fading")), None)
                 if s:
                     b.setToolTip(f"Level {s['gain_db']:.1f} dB")
             b.clicked.connect(lambda _=False, k=key: self.choose(k))
-            group.addButton(b)
+            self.version_group.addButton(b)
             self.ab.addWidget(b)
-        self.ab.addStretch(1)
         for box, key in ((self.left, self.left_key), (self.right, self.right_key)):
             box.blockSignals(True)
             box.clear()
@@ -396,11 +485,11 @@ class Listen(QGroupBox):
         try:
             self.engine.start()
         except Exception as e:  # noqa: BLE001 - no sound card, a driver refusing: said
-            self.play_btn.setText("▶ Play")
+            self.play_btn.setText("Play")
             QMessageBox.warning(self, "Listen", f"The sound card couldn't be opened: {e}")
             return
         self.playing = True
-        self.play_btn.setText("■ Stop")
+        self.play_btn.setText("Stop")
         if kind in ("tone", "sweep"):
             self.marker_timer.start()
 
@@ -408,7 +497,7 @@ class Listen(QGroupBox):
         if self.engine:
             self.engine.stop()
         self.playing = False
-        self.play_btn.setText("▶ Play")
+        self.play_btn.setText("Play")
         self.marker_timer.stop()
         self.page.draw_marker()
 
@@ -611,18 +700,22 @@ class Listen(QGroupBox):
         dlg = QDialog(self)
         dlg.setWindowTitle("Paste filters")
         v = QVBoxLayout(dlg)
-        v.addWidget(QLabel("Equalizer APO lines, or one filter per line as “frequency gain Q”:"))
         name = QLineEdit()
         name.setPlaceholderText("Name (e.g. Crinacle's EQ)")
         v.addWidget(name)
+        v.addWidget(QLabel("Equalizer APO lines, or one filter per line as “frequency gain Q”:"))  # (over its box)
         text = QPlainTextEdit()
         v.addWidget(text)
         btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        theme.mark(btns.button(QDialogButtonBox.Ok), primary=True)  # (its main action: the accent, as Windows 11's)
         btns.accepted.connect(dlg.accept)
         btns.rejected.connect(dlg.reject)
         v.addWidget(btns)
-        if dlg.exec():
-            self._add_text(text.toPlainText(), name.text().strip() or "Pasted EQ", "pasted")
+        ok = dlg.exec()
+        pasted, named = text.toPlainText(), name.text().strip()
+        dlg.deleteLater()  # (asked once: not kept, hidden, for as long as the card is there)
+        if ok:
+            self._add_text(pasted, named or "Pasted EQ", "pasted")
 
     def _add_text(self, text, name, note):
         r = self.page.svc.call("/api/filters/parse", {"text": text})
@@ -632,43 +725,45 @@ class Listen(QGroupBox):
         self.add(name, [dict(f, enabled=True) for f in r["filters"]], note)
 
     def render_pins(self):
-        lay = self.pins_lay
-        while lay.count():
-            w = lay.takeAt(0).widget()
+        """Your EQs to compare as a table, a row each, in columns: its colour (its curve's on the graph), its name
+        (edit it to rename it), its filters and where it's from, Graph, ✕."""
+        # (the table before: hidden now, deleted a moment later, as the control that changed the list is in it)
+        while self.pins_lay.count():
+            w = self.pins_lay.takeAt(0).widget()
             if w:
                 w.hide()
-                w.setParent(None)
                 w.deleteLater()
-        t = theme.tokens()
+        table = QWidget()
+        grid = QGridLayout(table)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setVerticalSpacing(4)
+        grid.setColumnStretch(1, 1)
+        self.pins_lay.addWidget(table)
         if not self.pins:
             empty = QLabel("None yet: keep the result (📌 Keep to compare) or add one below." if self.pins_for else
                            "Choose a measurement: each IEM has its own list.")
             theme.mark(empty, role="muted")
-            lay.addWidget(empty)
+            grid.addWidget(empty, 0, 0, 1, 5)
         for i, p in enumerate(self.pins):
-            row = QWidget()
-            h = QHBoxLayout(row)
-            h.setContentsMargins(0, 0, 0, 0)
             sw = QLabel("■")
-            sw.setStyleSheet(f"color: {t[COLOURS[p.get('color', i) % len(COLOURS)]]};")
-            h.addWidget(sw)
+            theme.mark(sw, listen_mark=COLOURS[p.get("color", i) % len(COLOURS)])  # (theme_sheet.py's listen part)
+            grid.addWidget(sw, i, 0)
             name = QLineEdit(p["name"])
             name.editingFinished.connect(lambda p=p, name=name: self._rename(p, name.text()))
-            h.addWidget(name, 1)
+            grid.addWidget(name, i, 1)
             note = QLabel(f"{len(p['filters'])} filter{'' if len(p['filters']) == 1 else 's'}" +(f" · {p['note']}" if p.get("note") else ""))
             theme.mark(note, role="muted")
-            h.addWidget(note)
+            grid.addWidget(note, i, 2)
             graph = QCheckBox("Graph")
             graph.setChecked(p.get("shown", True))
             graph.toggled.connect(lambda on, p=p: (p.__setitem__("shown", on), self.save_pins()))
-            h.addWidget(graph)
+            grid.addWidget(graph, i, 3)
             x = QPushButton("✕")
             x.setAccessibleName(f"Remove {p.get('name') or 'this EQ'} from the EQs to compare")
             graph.setAccessibleName(f"Show {p.get('name') or 'this EQ'} on the graph")
             x.setToolTip("Remove from the list")
             x.clicked.connect(lambda _=False, p=p: self._remove(p))
-            h.addWidget(x)
-            lay.addWidget(row)
+            grid.addWidget(x, i, 4)
 
     def _rename(self, p, text):
         text = text.strip()[:80]
