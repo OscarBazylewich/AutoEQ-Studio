@@ -6,16 +6,22 @@
 - Add a database: from squig.link's list (searched), or any squig.link-style page by its address
 - Refresh the lists now (online only); Open the downloads folder
 Changes are saved at once and the lists load again a moment later (offline: the saved ones).
-The look: Windows 11's; the databases' tree is styled as the lists by theme_sheet's find_windows (sourcesTree).
+The look: Windows 11's; the databases' tree is styled as the lists by theme_sheet's find_windows (sourcesTree); the
+folders' box as tall as four lines of its text (the four usual folders whole). Its size kept within the screen's free
+room (picker.fit_to_screen): on a short screen (a laptop at 150 %) its parts scroll as a page, as Windows 11's
+Settings do, and the bottom row (Refresh, Open the downloads folder, Close) stays in sight.
 """
+import math
+
 from PySide6.QtCore import Qt, QTimer, QUrl
-from PySide6.QtGui import QDesktopServices
-from PySide6.QtWidgets import (QDialog, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget,
-                               QListWidgetItem, QMessageBox, QPlainTextEdit, QPushButton, QTreeWidget,
-                               QTreeWidgetItem, QVBoxLayout)
+from PySide6.QtGui import QDesktopServices, QFontMetricsF
+from PySide6.QtWidgets import (QDialog, QFrame, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget,
+                               QListWidgetItem, QMessageBox, QPlainTextEdit, QPushButton, QScrollArea, QTreeWidget,
+                               QTreeWidgetItem, QVBoxLayout, QWidget)
 
 import net
 from ui import help_window, icons, tasks, theme
+from ui.picker import fit_to_screen
 from ui.search_combo import SearchCombo
 
 url_key = lambda u: u.strip().rstrip("/").lower()
@@ -34,26 +40,52 @@ def _head(text):
     return lab
 
 
+def lines_high(box, n):
+    """The height of a many-line text box that shows n whole lines of its text: the lines in its text size, the
+    document's margin above and below them, and the box's frame and padding (the stylesheet's). A fixed 80 px held
+    three and a half lines at 10.5 pt: the fourth of the usual folders was cut in half."""
+    box.ensurePolished()  # (the stylesheet's text size and padding)
+    frame = box.height() - box.contentsRect().height()
+    return frame + math.ceil(2 * box.document().documentMargin() + n * QFontMetricsF(box.font()).lineSpacing()) + 1
+
+
+class _Page(QWidget):
+    """Sources' parts on a page that scrolls (in a QScrollArea): never lower than they need at its width (each wrapped
+    note counted line by line), and no taller either, so the lists take the room there is. (Qt's scroll area asks a
+    page for its height at a width, which is otherwise its parts' preferred heights: it would scroll on any screen.)"""
+
+    def heightForWidth(self, width):
+        return self.layout().totalMinimumHeightForWidth(width)
+
+
 class Sources(QDialog):
     def __init__(self, page):
         super().__init__(page)
         self.page, self.svc = page, page.svc
         self.setWindowTitle("Sources: where Find… looks")
-        self.resize(760, 820)
         # (Qt's own minimum counts each wrapped line of text once, and then pushed the databases' tree over the
-        # heading under it: room here for the notes on two lines)
-        self.setMinimumSize(560, 680)
+        # heading under it: room here for the notes on two lines. Both within the screen's free room: shorter, its
+        # parts scroll)
+        fit_to_screen(self, (760, 820), (560, 700))
         S = page.S
         S["databases"].setdefault("enabled", [])
         S["databases"].setdefault("extra", [])
         S["databases"].setdefault("disabled", [])
         self.st, self.dir = {"sites": []}, None
-        v = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        self.scroll = QScrollArea()  # (the parts as a page that scrolls when the window is shorter than they need)
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.NoFrame)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll.setFocusPolicy(Qt.NoFocus)  # (Tab goes to its parts, each scrolled into sight: no stop of its own)
+        body = _Page()
+        v = QVBoxLayout(body)
+        v.setContentsMargins(0, 0, 0, 0)
         v.addWidget(_head("This PC"))
         v.addWidget(QLabel("Folders to search (one per line, with their subfolders):"))
         self.folders = QPlainTextEdit("\n".join(S["library"].get("folders") or []))
         self.folders.setPlaceholderText("\n".join(page.meta.get("library_defaults") or []) or "Downloads, Documents, …")
-        self.folders.setFixedHeight(80)
+        self.folders.setFixedHeight(lines_high(self.folders, 4))  # (the four usual folders, whole)
         help_window.tag(self.folders, "library.folders")
         self.folders.textChanged.connect(self.folders_changed)
         v.addWidget(self.folders)
@@ -118,7 +150,9 @@ class Sources(QDialog):
         add.clicked.connect(lambda: self.add(self.url.text()) and self.url.clear())  # (refused: kept to correct)
         row.addWidget(add)
         v.addLayout(row)
-        row = QHBoxLayout()
+        self.scroll.setWidget(body)
+        outer.addWidget(self.scroll, 1)
+        row = QHBoxLayout()  # (the bottom row, under the page: always in sight)
         refresh = QPushButton("Refresh the lists now")
         icons.put(refresh, "refresh")
         refresh.setToolTip("Download every list again (online only)")
@@ -132,7 +166,7 @@ class Sources(QDialog):
         close = QPushButton("Close")
         close.clicked.connect(self.accept)
         row.addWidget(close)
-        v.addLayout(row)
+        outer.addLayout(row)
         self._refresh_soon = QTimer(self, singleShot=True, interval=500, timeout=self.refresh)
         self._poll = QTimer(self, interval=700, timeout=self.poll)
         self._lib_poll = QTimer(self, interval=600, timeout=self.poll_lib)

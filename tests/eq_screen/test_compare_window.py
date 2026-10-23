@@ -3,13 +3,25 @@ score and reasons, and Use putting the top one in use. Moved from eq_checks.py's
 page opened as the old checks opened it (the eq_screen fixture), offline: what's on this PC (the studio's samples)
 and in the app is ranked, as the old checks did offline. The two are one chain, as there: one window, ranked, then
 its top Use. Its Windows 11 look (the restyle, 2026-10-23): the chart in the graph's own colours, drawn again when
-the theme changes, and at the window's smallest every part has its room."""
+the theme changes; at the window's smallest every part has its room; the accent on its one main action; its warning
+symbol read as "Warning"; and on a short screen (a laptop at 150 % or 175 %, stood in) it fits above the taskbar with
+Close in sight."""
 import pytest
 
 from helpers import qt
 
 NOTE = ("None of these was measured on the B&K 5128, the rig your target is made for, so every one will be off above "
         "about 2 kHz. A target made for the 711-type coupler would suit them better.")
+# (a 1920 x 1080 laptop's room above the taskbar at 150 % and 175 %, as Qt gives it; and Windows 11's title bar there)
+SMALL_SCREENS = ((1280, 672), (1097, 569))
+TITLE_BAR = 32
+
+
+def _read_as(widget):
+    """What a screen reader reads for a widget (its accessible name)."""
+    from PySide6.QtGui import QAccessible
+    iface = QAccessible.queryAccessibleInterface(widget)
+    return (iface.text(QAccessible.Name) if iface is not None else "") or ""
 
 
 def _shown_with(page, monkeypatch, items=2):
@@ -152,3 +164,80 @@ def test_smallest_size_fits(eq_screen, monkeypatch, check):
     check("restyle: Which measurement at its smallest gives every part its room (the chart whole with its scale, the "
           "model's box its own width, nothing over another)",
           parts and not over and chart[0] >= chart[1] and chart[2] and box[0] >= box[1], (size, chart, box, over[:3]))
+
+
+def test_one_main_action(eq_screen, monkeypatch, check):
+    # (Compare, the first Use and every "Average N and use" had the accent: two to four at once. Windows 11 keeps it
+    # for the one main action)
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QPushButton
+    from ui import compare_window
+    seen, ran = {}, []
+    for n in (2, 1):  # (two on the target's rig: an average offered; one: none)
+        cw = _shown_with(eq_screen.page, monkeypatch, items=n)
+        try:
+            seen[n] = [b.text() for b in cw.findChildren(QPushButton) if b.property("primary") in (True, "true")]
+            if n == 1:  # (Enter in the model's box compares, the button plain)
+                monkeypatch.setattr(compare_window.CompareWindow, "run", lambda self, auto=False: ran.append(auto))
+                cw.q.setFocus()
+                QTest.keyClick(cw.q, Qt.Key_Return)
+                seen["Compare"] = cw.go.property("primary") in (True, "true")
+        finally:
+            qt.close(cw)
+    check("restyle: Which measurement has the accent on one button only, its main action: the average's when one is "
+          "offered, else the first measurement's Use (Compare plain: Enter in the model's box runs it)",
+          seen == {2: ["Average 2 and use"], 1: ["Use"], "Compare": False} and ran == [False], (seen, ran))
+
+
+def test_warning_symbol_named(eq_screen, monkeypatch, check):
+    # (a label holding Windows' warning symbol, a character of its icon font: a screen reader read that character,
+    # which is nothing)
+    from PySide6.QtWidgets import QLabel
+    cw = _shown_with(eq_screen.page, monkeypatch)
+    try:
+        symbols = [w for w in cw.findChildren(QLabel) if w.isVisible() and len(w.text()) == 1
+                   and 0xE000 <= ord(w.text()) <= 0xF8FF]  # (the icon font's characters)
+        read = [_read_as(w) for w in symbols]
+    finally:
+        qt.close(cw)
+    check("access: Which measurement's warning symbol (beside a note to heed) is read as “Warning” by a screen reader",
+          read == ["Warning"], read)
+
+
+def test_fits_a_small_screen(eq_screen, monkeypatch, check):
+    # (at 700 x 660 at its smallest, and opening 860 high, its Close was under the taskbar of a 1920 x 1080 laptop at
+    # 150 %, out of reach. The screen is stood in: the room Qt says it has above the taskbar)
+    from PySide6.QtCore import QRect
+    from PySide6.QtGui import QScreen
+    from PySide6.QtWidgets import QPushButton, QWidget
+    seen = {}
+    for width, height in SMALL_SCREENS + ((1920, 1032),):  # (and a big screen: nothing changes there)
+        monkeypatch.setattr(QScreen, "availableGeometry", lambda self, w=width, h=height: QRect(0, 0, w, h))
+        cw = _shown_with(eq_screen.page, monkeypatch)  # (with a note to heed and an average: its fullest)
+        try:
+            opens = (cw.width(), cw.height())
+            cw.resize(1, 1)  # (to its smallest)
+            qt.pump(300)
+            parts = [w for w in cw.findChildren(QWidget) if w.parentWidget() is cw and w.isVisible()]
+            over = [(type(a).__name__, type(b).__name__) for i, a in enumerate(parts) for b in parts[i + 1:]
+                    if a.geometry().intersects(b.geometry())]
+            close = next(b for b in cw.findChildren(QPushButton) if b.text() == "Close")
+            card = cw.chart.parentWidget()
+            seen[height] = {
+                "opens": opens, "smallest": (cw.width(), cw.height()),
+                "fits": opens[1] + TITLE_BAR <= height and cw.height() + TITLE_BAR <= height
+                and max(opens[0], cw.width()) <= width,
+                "Close in sight": close.isVisible() and cw.rect().contains(close.geometry()), "over": over,
+                "chart": (cw.chart.height(), cw.chart.minimumHeight(), card.rect().contains(cw.chart.geometry())),
+                "list": (cw.scroll.height(), cw.scroll.minimumHeight())}
+        finally:
+            qt.close(cw)
+    small, big = [seen[h] for _w, h in SMALL_SCREENS], seen[1032]
+    check("restyle: Which measurement fits a laptop's screen at 150 % and 175 % (its size and its smallest above the "
+          "taskbar): the chart and the measurements' list give up height, nothing over another, Close in sight; on a "
+          "big screen it opens and shrinks as before",
+          all(s["fits"] and s["Close in sight"] and not s["over"] and s["chart"][0] >= s["chart"][1] and s["chart"][2]
+              and s["list"][0] >= s["list"][1] for s in small)
+          and big["opens"] == (940, 860) and big["smallest"] == (700, 660) and big["chart"][1:] == (150, True)
+          and big["list"][1] == 120 and big["Close in sight"] and not big["over"], seen)

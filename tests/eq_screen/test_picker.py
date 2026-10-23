@@ -2,7 +2,8 @@
 its long list drawn in batches and keeping its place, asking only for the lists' counts while they haven't changed,
 the rig filter, Show (a curve on the graph without using it), an online entry offline, Use (a file from this PC into
 the app, with Undo); Enter in Find…'s and History's search boxes pressing no button; and every list A to Z. Its
-Windows 11 look (the restyle, 2026-10-23): rows whole at the new text size, the accent on one Use only.
+Windows 11 look (the restyle, 2026-10-23): rows whole at the new text size, the accent on one Use only, each row's ✕
+quiet, the download mark read as words, and its size within a laptop's screen at 150 % and 175 % (stood in).
 
 Moved from eq_checks.py's ui_checks (lines 1380-1472), review_checks (1743-1763), review_low_checks (1862-1881) and
 order_checks (2324-2380), on one page (the eq_screen fixture), offline throughout.
@@ -22,6 +23,9 @@ from helpers import eqpage, qt, session
 # (as the old checks: the names of the two checks that say "skip" when this PC lacks what they need)
 OFFLINE_ENTRY = "ui: offline, an online entry never downloaded says it needs the internet (nothing fetched)"
 USE_UNDO = "review: Use offers Undo, which takes the file it made away and puts the measurement back"
+# (a 1920 x 1080 laptop's room above the taskbar at 150 % and 175 %, as Qt gives it; and Windows 11's title bar there)
+SMALL_SCREENS = ((1280, 672), (1097, 569))
+TITLE_BAR = 32
 
 
 def _rows(pk):
@@ -411,3 +415,149 @@ def test_one_use_has_the_accent(eq_screen, check):
           "one is chosen, still after the list is drawn again); the others are plain buttons",
           len(rows) >= 3 and first == [rows[0]] and chosen == [rows[2]] and again == [rows[2]],
           (len(rows), rows[:3], first, chosen, again))
+
+
+def _plain_at_rest(button):
+    """Drawn without a fill or a border of its own while nothing points at it: its edge the colour of its inside."""
+    img = button.grab().toImage()
+    mid = img.height() // 2
+    return img.pixelColor(0, mid) == img.pixelColor(3, mid)
+
+
+def test_x_buttons_quiet(eq_screen, check):
+    # (a row's ✕ was a plain button with a border, where every other ✕ of the app is quiet: no fill until pointed at)
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QPushButton
+    from ui.picker import Picker
+    page = eq_screen.page
+    seen = {}
+    pk = _shown_picker(page, "")  # (a measurement in the app: its row's ✕, and each of its files' when shown)
+    try:
+        app_row = next(pk.list.item(i).data(Qt.UserRole) for i in range(pk.list.count())
+                       if (pk.list.item(i).data(Qt.UserRole) or {}).get("device"))
+        pk.toggle_expand(app_row["device"]["name"])
+        pk.finish_list()
+        qt.pump(200)
+        xs = [b for b in pk.list.findChildren(QPushButton) if b.isVisible() and b.text() == "✕"]
+        seen["measurement"] = (len(xs), sum(b.property("quiet") == "true" and _plain_at_rest(b) for b in xs))
+    finally:
+        _close(pk)
+    pk = Picker(page, "target")  # (a target in the app: its row's ✕)
+    pk.show()
+    try:
+        pk.finish_list()
+        qt.pump(200)
+        xs = [b for b in pk.list.findChildren(QPushButton) if b.isVisible() and b.text() == "✕"]
+        seen["target"] = (len(xs), sum(b.property("quiet") == "true" and _plain_at_rest(b) for b in xs))
+    finally:
+        _close(pk)
+    check("restyle: Find…'s ✕ (a measurement, each of its files, a target) is quiet as every ✕: no fill or border "
+          "until pointed at", seen["measurement"][0] >= 2 and seen["target"][0] >= 1
+          and all(n == quiet for n, quiet in seen.values()), seen)
+
+
+def test_x_pointed_at_shows_its_fill(eq_screen, check):
+    # (a row of the list is filled too while the mouse is on it, in the colour a quiet button takes when pointed at:
+    # on a row, its ✕ pointed at showed nothing. Windows 11 lays a quiet button's fill, the text's colour at 6 %, over
+    # the row's. In light and in a contrast theme, where most fills are the window's own colour)
+    from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
+    from PySide6.QtGui import QHoverEvent, QMouseEvent
+    from PySide6.QtWidgets import QApplication, QPushButton
+    from ui import theme
+    qapp, seen = eq_screen.qapp, {}
+
+    def laid_over(under, ink, alpha=15):
+        return [round(u * (1 - alpha / 255) + i * alpha / 255) for u, i in zip(under, ink)]
+    try:
+        for look in ("light", "contrast"):
+            if look == "contrast":
+                theme.apply(qapp, dark=False, contrast=theme.system_tokens())  # (Windows' own colours, as there)
+                qt.pump(100)
+            pk = _shown_picker(eq_screen.page, "")
+            try:
+                x = next(b for b in pk.list.findChildren(QPushButton) if b.isVisible() and b.text() == "✕")
+                view = pk.list.viewport()
+                # (the mouse put on it as Qt tells the list and the button on the screen: off-screen a moved mouse goes
+                # to the first window under it, here Make an EQ's own, never to Find… over it)
+                on = QPointF(x.mapTo(view, x.rect().center()))
+                QApplication.sendEvent(view, QHoverEvent(QEvent.HoverEnter, on, on, QPointF(-1, -1)))
+                x.setAttribute(Qt.WA_UnderMouse, True)
+                mid = QPointF(x.rect().center())
+                QApplication.sendEvent(x, QMouseEvent(QEvent.MouseMove, mid, QPointF(x.mapToGlobal(mid)), Qt.NoButton,
+                                                      Qt.NoButton, Qt.NoModifier))
+                qt.pump(100)
+                img = view.grab().toImage()
+                at = x.mapTo(view, QPoint(3, x.height() // 2))  # (inside it, beside its ✕)
+                row, fill = img.pixelColor(QPoint(3, at.y())), img.pixelColor(at)  # (the row's margin, left of Show)
+                ink = theme.tokens()["ink"]
+                want = laid_over((row.red(), row.green(), row.blue()), [int(ink[k:k + 2], 16) for k in (1, 3, 5)])
+                drawn = (fill.red(), fill.green(), fill.blue())
+                seen[look] = {"its row": row.name(), "the ✕": fill.name(),
+                              "row pointed at": theme.tokens()["subtle_hover"],
+                              "as laid over": all(abs(a - b) <= 1 for a, b in zip(drawn, want))}
+                x.setAttribute(Qt.WA_UnderMouse, False)
+            finally:
+                _close(pk)
+    finally:
+        qt.light(qapp)  # (the light look back, whatever happened: every later test runs light)
+        qt.pump(50)
+    check("restyle: Find…'s ✕, pointed at, shows a fill of its own over its row's (the text's colour at 6 %, as "
+          "Windows 11 fills a quiet button; the row is filled too while the mouse is on it), in light and in a "
+          "contrast theme",
+          all(s["its row"] == s["row pointed at"] and s["the ✕"] != s["its row"] and s["as laid over"]
+              for s in seen.values()) and len(seen) == 2, seen)
+
+
+def test_download_mark_named(eq_screen, monkeypatch, check):
+    # (the mark beside an online entry is Windows' download symbol, a character of its icon font: a screen reader read
+    # that character, which is nothing. A few online entries stood in, so there are some whatever lists this PC has)
+    from PySide6.QtGui import QAccessible
+    from PySide6.QtWidgets import QLabel
+    from ui.picker import Picker
+    pk = Picker(eq_screen.page, "measurement")
+    pk.show()
+    try:
+        qt.wait_for(lambda: not pk.db.get("loading") and not pk.lib.get("scanning"), 120)
+        monkeypatch.setattr(pk, "db", {"items": [[f"fake{i}", "m", f"Fakeone {i}", "Sub", "Site", None, "", ""]
+                                                 for i in range(3)], "loading": False})
+        pk.q.setText("fakeone")
+        pk._later.stop()
+        pk.render()
+        pk.finish_list()
+        marks = [w for w in pk.list.findChildren(QLabel, "findMark") if w.isVisible()]
+        read = sorted({QAccessible.queryAccessibleInterface(w).text(QAccessible.Name) for w in marks})
+    finally:
+        _close(pk)
+    check("access: Find…'s download mark (beside an online entry) is read as “Downloads when used” by a screen reader",
+          len(marks) == 3 and read == ["Downloads when used"], (len(marks), read))
+
+
+def test_fits_a_small_screen(eq_screen, monkeypatch, check):
+    # (opening 720 high, its bottom row (Sources…, Trace a graph image…, Close) was under the taskbar of a 1920 x 1080
+    # laptop at 150 %. The screen is stood in: the room Qt says it has above the taskbar)
+    from PySide6.QtCore import QRect
+    from PySide6.QtGui import QScreen
+    from PySide6.QtWidgets import QPushButton
+    from ui.picker import Picker
+    bottom_row = ("Sources…", "Trace a graph image…", "Close")
+    seen = {}
+    for width, height in SMALL_SCREENS + ((1920, 1032),):  # (and a big screen: nothing changes there)
+        monkeypatch.setattr(QScreen, "availableGeometry", lambda self, w=width, h=height: QRect(0, 0, w, h))
+        pk = Picker(eq_screen.page, "measurement")
+        try:
+            opens = (pk.width(), pk.height())
+            pk.show()
+            qt.pump(200)
+            row = [b for b in pk.findChildren(QPushButton) if b.text() in bottom_row]
+            seen[height] = {"opens": opens, "smallest": pk.minimumHeight(),
+                            "fits": opens[1] + TITLE_BAR <= height and pk.minimumHeight() + TITLE_BAR <= height
+                            and opens[0] <= width,
+                            "bottom row in sight": len(row) == 3
+                            and all(b.isVisible() and pk.rect().contains(b.geometry()) for b in row)}
+        finally:
+            _close(pk)
+    big = seen[1032]
+    check("restyle: Find… opens within a laptop's screen at 150 % and 175 % (above the taskbar, its bottom row in "
+          "sight); on a big screen it opens as before",
+          all(seen[h]["fits"] and seen[h]["bottom row in sight"] for _w, h in SMALL_SCREENS)
+          and big["opens"] == (900, 720) and big["smallest"] == 420 and big["bottom row in sight"], seen)

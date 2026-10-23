@@ -344,15 +344,21 @@ def find_windows(t, img):
     """Find…, Sources and Which measurement (ui\\picker.py, sources_window.py, compare_window.py). Find…: its list's
     rows without padding (Qt puts a row's widgets inside it: the lists' 7 px cut its buttons and names; headings and
     notes keep a little at the sides), a result's name (semibold) and its download mark (Windows 11's symbol, from its
-    icon font; Segoe MDL2 Assets on Windows 10).
+    icon font; Segoe MDL2 Assets on Windows 10); a row's quiet ✕, pointed at or pressed, as Windows 11 fills a quiet
+    button: the text's colour at 6 % (4 % pressed) laid over the row's own fill under the mouse (the quiet buttons'
+    usual fill is the same colour as a pointed-at row's, so on a row it showed nothing; a contrast theme keeps it in
+    sight too).
     Sources: its tree of databases as the lists (a card with rounded corners, whole rows filled when pointed at or
     chosen; their ticks say which are on). Which measurement: the rank, a measurement's name, its reasons (+ good,
     − not), the warning symbol of a note to heed, its chart's card, and a box filled while the mouse is over it (its
     curve is the one on top)."""
+    veil = lambda alpha: f"#{alpha}{t['ink'][1:]}"  # (the text's colour, see-through: #AARRGGBB)
     return f"""
     QListWidget#findList::item {{ padding: 0px; }}
     QListWidget#findList::item:disabled {{ padding: 0px 8px; }}
     QListWidget#findList::item:disabled:hover {{ background: transparent; }}
+    QListWidget#findList QPushButton[quiet="true"]:hover {{ background: {veil("0f")}; }}
+    QListWidget#findList QPushButton[quiet="true"]:pressed {{ background: {veil("0a")}; }}
     QLabel#findRowName {{ font-weight: 600; }}
     QLabel#findMark, QLabel#whichNoteMark {{ font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets"; font-size: 12pt;
         color: {t['muted']}; padding: 0px 2px; }}
