@@ -86,7 +86,7 @@ def stray_check(request):
 @pytest.fixture(autouse=True)
 def qt_error_check():
     # (an error inside a Qt call-back fails the test it happened in, or the one its module's fixtures were made for:
-    # checked after the test, as stray_check. Since 2026-10-23, once the Guide's two known ones were fixed)
+    # checked after the test, as stray_check. Since 2026-10-22, once the Guide's two known ones were fixed)
     from helpers import qt
     yield
     new = qt.QT_ERRORS[qt.reported:]

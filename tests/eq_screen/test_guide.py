@@ -16,7 +16,7 @@ check of the markers turns them off itself, as the old one did (t.glide = False)
 
 Two demos used to reach for a row of Find…'s list that Find… had drawn again meanwhile (it does every half second
 while its lists load): "many results" ("QListWidgetItem already deleted") and "choose the measurement" ("QWidget
-already deleted"). Fixed 2026-10-23 (ui\\guide_demos.py row_now): test_find_demos_while_find_redraws plays both while
+already deleted"). Fixed 2026-10-22 (ui\\guide_demos.py row_now): test_find_demos_while_find_redraws plays both while
 Find… redraws its rows every 100 ms."""
 import json
 
@@ -163,7 +163,7 @@ def test_demos(s, check):
     now = (page.view_combo.currentIndex(), page.yrange_combo.currentIndex(), page.channels_chk.isChecked(),
            page.sa_what.text(), page.name_edit.text(), page.settings.fold.btn.isChecked())
     # was eq_checks.py:2725
-    # (made firm 2026-10-23: a demo that fails ends as if it had finished, its error only in the log, so "played to
+    # (made firm 2026-10-22: a demo that fails ends as if it had finished, its error only in the log, so "played to
     # its end" counted it too; the tour's demo_errors names each one)
     check("guide: every step's demo plays to its end, a view it shows is put back when the tour ends mid-demo, and "
           "nothing of yours changed (settings, the graph's view, the search chosen, the file name)",
@@ -182,7 +182,7 @@ def test_demos(s, check):
 
 @pytest.mark.timeout(900)
 def test_find_demos_while_find_redraws(s, check):
-    # (a bug the tests' reorganization found, fixed 2026-10-23: the demos kept a row of Find…'s list across their
+    # (a bug the tests' reorganization found, fixed 2026-10-22: the demos kept a row of Find…'s list across their
     # pauses, while Find… draws its rows again every half second until its lists and This PC's search finish; the demo
     # then reached for a deleted row and stopped short, with an error inside a Qt call-back. Here Find… redraws every
     # 100 ms while both demos play at their own speed, so their pauses always see their rows drawn again)

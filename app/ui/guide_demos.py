@@ -279,7 +279,7 @@ def picker_rows(pk):
 def row_now(pk, r):
     """The list's item and row for result r as Find…'s list is now, or (None, None). Find… draws its rows again while
     its lists and This PC's search are still loading (it asks every half second), so a row kept across a demo's pause
-    may be deleted: a demo finds it again after each pause (it reached for a deleted row, 2026-10-23)."""
+    may be deleted: a demo finds it again after each pause (it reached for a deleted row, 2026-10-22)."""
     key = (r.get("src"), r.get("id"), r.get("name"))
     for k in range(pk.list.count()):
         it = pk.list.item(k)

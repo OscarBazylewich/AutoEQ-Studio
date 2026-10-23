@@ -55,7 +55,7 @@ def test_device_type_from_folders_database_and_names(check):
 
 
 def test_device_type_without_squiglinks_list(db_guard, monkeypatch, tmp_path, check):
-    # (a bug the map stage found, fixed 2026-10-23: without squig.link's saved list, a first start offline, the index
+    # (a bug the map stage found, fixed 2026-10-22: without squig.link's saved list, a first start offline, the index
     # of the databases was never built, not even of the built-in ones, so AutoEq's and Earphones Archive's entries had
     # no device type or rig)
     monkeypatch.setattr(databases, "DIRECTORY_PATH", os.path.join(tmp_path, "never saved", "squigsites.json"))

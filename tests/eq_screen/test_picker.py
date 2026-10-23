@@ -16,7 +16,7 @@ import os
 
 import pytest
 
-from helpers import eqpage, session
+from helpers import eqpage, qt, session
 
 # (as the old checks: the names of the two checks that say "skip" when this PC lacks what they need)
 OFFLINE_ENTRY = "ui: offline, an online entry never downloaded says it needs the internet (nothing fetched)"
@@ -259,7 +259,7 @@ def test_lists_a_to_z(eq_screen, as_old, check):
     names = [page.target_combo.itemText(i) for i in range(page.target_combo.count())]
     devs = list(page.groups)
     pk = Picker(page, "measurement")
-    # (made firm 2026-10-23: the old check read the rows at once, before This PC's search had finished, so it saw no
+    # (made firm 2026-10-22: the old check read the rows at once, before This PC's search had finished, so it saw no
     # This PC rows and its "A to Z" for them could never fail. Now its lists and This PC's search are waited for, and
     # This PC's rows (the studio's samples: six) must be there to put in order; the app has one measurement set)
     loaded = eq_screen.wait_for(lambda: not pk.db.get("loading") and not pk.lib.get("scanning"), 120)
@@ -284,6 +284,10 @@ def test_lists_a_to_z(eq_screen, as_old, check):
     lay = page.settings.adv_form.fields["best_fit.layout"].box
     rule = (big.searches(), small.searches(), isinstance(lay, SearchCombo) and lay.searches(),
             all(isinstance(b, SearchCombo) for b in page.findChildren(QComboBox)))
+    # (deleted now, not left for Python's garbage collector: big and its pop-up hold each other, and on GitHub's run
+    # of 2026-10-22 the collector deleted them in the next test, while Qt was handing the pop-up an event: a crash)
+    qt.close(big)
+    qt.close(small)
     # every drop-down A to Z, numbers as numbers (a first "Choose…" or "Automatic…" may stay on top); Find…'s filters
     # keep their own order (any, "fits", in the app and this PC first, "not known" last)
     unsorted = []

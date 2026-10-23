@@ -7,7 +7,7 @@ dialogs answered by themselves (helpers.dialogs), a recorder in place of opening
 Errors inside Qt call-backs (a slot, a timer, an event handler): PySide6 hands them to sys.excepthook and carries on.
 Each one is kept in QT_ERRORS (the running test, the error's last line), logged ({"event": "qt_error"}) and passed on
 to the usual hook (its traceback is still printed). The qt_error_check fixture fails the test it happened in (or the
-one its module's fixtures were made for), since 2026-10-23: until then they were only noted, as in the old checks,
+one its module's fixtures were made for), since 2026-10-22: until then they were only noted, as in the old checks,
 while the Guide's two known ones (demos reaching for a row Find… had drawn again) waited to be fixed. `reported`:
 how many of QT_ERRORS have been checked.
 
@@ -15,6 +15,12 @@ The stray watch (the old EQ checks' rule): a control (a button, a label, a box, 
 window of its own flashes on the screen: made visible before it had a parent. Windows by design (dialogs, the main
 window, menus, pop-up lists, tooltips) aren't counted. The stray_check fixture fails a test in which one showed;
 at the end of the session, if the watch was installed and never found one, STRAY_CHECK is logged once as ok.
+
+Leftovers (after every test, tests\\conftest.py): a Qt object made without a parent is Python's to delete. Kept only
+by a loop of references (a control whose signal was used is in one), it goes whenever Python's garbage collector
+next runs, and if that's while Qt hands it or one of its parts an event, the process crashes (an access violation,
+in some later test: GitHub's run of 2026-10-22). free_leftovers() runs the collector after each test, when Qt is
+handling no event, deletes the Qt objects it finds and names them; the test that left them fails (LEFTOVER_CHECK).
 
 PySide6 is imported inside the functions, so a test that never uses Qt never loads it.
 """
@@ -27,6 +33,9 @@ from helpers import checks, dialogs, guard
 
 STRAY_CHECK = ("ui: no control is ever shown as a window of its own (each flashed on the screen: Find…'s rows showed "
                "one Show button each while the lists loaded, 779 in a session, and each cost the window's time)")
+LEFTOVER_CHECK = ("ui: no test leaves a Qt object for Python's garbage collector (it would delete it at a random "
+                  "later moment, and one deleted while Qt hands it an event crashes the process: GitHub's run of "
+                  "2026-10-22, a drop-down a test had made on its own)")
 QT_ERRORS: list[tuple[str, str]] = []  # (the running test, the error's last line)
 reported = 0                           # how many of QT_ERRORS the qt_error_check fixture has checked
 OPENED_URLS: list[str] = []            # what the app asked Windows to open (a website, a folder): never opened
@@ -173,6 +182,45 @@ def close(widget):
     widget.deleteLater()
     QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
     wait_for(lambda: not shiboken6.isValid(widget), 5)
+
+
+def free_leftovers() -> list[str]:
+    """Python's garbage collector run now (tests\\conftest.py: after each test, once its fixtures are taken down, when
+    Qt is handling no event), and the Qt objects among what it found deleted now, as Qt deletes (deleteLater): those
+    owned by Python and kept only by a loop of references. Their names (none when Qt was never loaded here)."""
+    if "shiboken6" not in sys.modules:
+        return []
+    import gc
+    import shiboken6
+    from PySide6.QtCore import QCoreApplication, QEvent, QObject
+    gc.set_debug(gc.DEBUG_SAVEALL)  # (what it finds kept in gc.garbage, to look at, rather than freed at once)
+    try:
+        gc.collect()
+        found = list(gc.garbage)
+        gc.garbage.clear()
+    finally:
+        gc.set_debug(0)
+    left = [o for o in found if isinstance(o, QObject) and shiboken6.isValid(o) and shiboken6.ownedByPython(o)]
+    found.clear()  # (the rest goes back to the collector: nothing of Qt's that's still there is left in it)
+    names = [_named(o) for o in left]
+    for o in left:
+        o.deleteLater()
+    if left:
+        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+    return names
+
+
+def _named(obj) -> str:
+    """A Qt object as a message names it: its class, and its name, title or first choice when it has one."""
+    text = ""
+    for get in ("objectName", "accessibleName", "windowTitle"):
+        f = getattr(obj, get, None)
+        text = f() if callable(f) else ""
+        if text:
+            break
+    if not text and callable(getattr(obj, "itemText", None)) and obj.count():
+        text = obj.itemText(0) + "…"
+    return f"{type(obj).__name__} “{text}”" if text else type(obj).__name__
 
 
 def light(qapp):

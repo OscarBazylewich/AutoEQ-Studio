@@ -61,7 +61,7 @@ def nothing_loads(monkeypatch):
 
 
 def test_nothing_could_be_loaded(monkeypatch, check):
-    # (a bug the tests' reorganization found, fixed 2026-10-23: with the target's rig known and none of the model's
+    # (a bug the tests' reorganization found, fixed 2026-10-22: with the target's rig known and none of the model's
     # measurements loaded, e.g. offline with nothing downloaded before, the note read the first of no measurements,
     # and Which measurement answered "list index out of range")
     from eq import settings

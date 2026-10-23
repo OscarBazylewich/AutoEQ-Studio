@@ -13,6 +13,9 @@ What else happens here, for every test:
   imports helpers.eqpage) are marked slow: selftest.py --quick leaves them out, as the old --quick left out the EQ
   part; the check log names the slow tests --quick left out (relevant_tests.py's quick run says how many);
 - a test that used the check fixture fails, after it ran, listing every check that failed;
+- after each test, once its fixtures (and after a file's last test, the file's) are taken down: the Qt objects it left
+  for Python's garbage collector are deleted then, and fail it (helpers.qt.free_leftovers: left, one could be deleted
+  in the middle of a later test's events, which crashes the process);
 - the check log (AUTOEQSTUDIO_CHECK_LOG) gets a line as each test starts and one per phase of it (setup, call,
   teardown: its outcome, how long it took, and the last line of a failure, a skip's reason or an xfail's reason);
 - at the end, the stray watch's one "ok" line (no control was ever shown as a window of its own), when Qt was used.
@@ -107,12 +110,27 @@ def pytest_runtest_setup(item):
     guard.current = item.nodeid
 
 
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_teardown(item, nextitem):
+    try:
+        result = yield
+    finally:  # (after every fixture's clean-up, a moment when Qt is handling no event)
+        left = qt.free_leftovers()
+    if left:
+        checks.log({"event": "check", "test": item.nodeid, "name": qt.LEFTOVER_CHECK, "ok": False,
+                    "detail": checks.short(f"left: {left}")})
+        pytest.fail(f"FAIL {qt.LEFTOVER_CHECK}  (left: {left}; delete it before the test ends, helpers.qt.close, or "
+                    f"give it a parent)", pytrace=False)
+    return result
+
+
 def pytest_runtest_logstart(nodeid, location):
     checks.log({"event": "start", "test": nodeid})
 
 
 def _message(report):
-    """The last line of a failure, a skip's reason, or an xfail's reason."""
+    """The last line of a failure (without pytest.fail's "Failed: ", so a check's "FAIL …" from a clean-up reads as
+    the check's line and isn't said twice in the run's summary), a skip's reason, or an xfail's reason."""
     if hasattr(report, "wasxfail"):
         return report.wasxfail
     if report.skipped and isinstance(report.longrepr, tuple):
@@ -121,7 +139,7 @@ def _message(report):
         crash = getattr(report.longrepr, "reprcrash", None)
         lines = [line for line in str(crash.message if crash is not None else report.longreprtext).splitlines()
                  if line.strip()]
-        return lines[-1] if lines else ""
+        return lines[-1].removeprefix("Failed: ") if lines else ""
     return ""
 
 

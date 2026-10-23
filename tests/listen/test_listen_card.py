@@ -41,7 +41,7 @@ def test_versions_and_play(card, check):
     # (Play's sound card stood in for: tests\listen\conftest.py, as eq_checks.py line 2926)
     lis.src.setCurrentIndex(lis.src.findData("tone"))
     lis.source_changed()
-    # (both ears hear the same version: chosen by its value. Made firm 2026-10-23: the old check took the Ears list's
+    # (both ears hear the same version: chosen by its value. Made firm 2026-10-22: the old check took the Ears list's
     # first choice, meant to be "both"; since the drop-downs are A to Z that's "A different version in each ear", so
     # the keys and Blind test below ran with the ears split: Blind greyed out, and the keys changing a version that
     # wasn't heard)

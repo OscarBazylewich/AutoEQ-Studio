@@ -99,7 +99,7 @@ def test_restart_waits_for_the_old_copy(copies, check):
     time.sleep(3)  # (not a time limit: how long the new copy must be seen waiting while the old one runs)
     waited = new.poll() is None and c.started() == before + 1  # (still waiting: not started yet)
     # (this --quit used to wait its whole 15 s and end with 1 most times: the new copy takes over the one-copy channel
-    # as soon as the old one has gone, so the channel never looked empty to it. Fixed 2026-10-23: it waits for the
+    # as soon as the old one has gone, so the channel never looked empty to it. Fixed 2026-10-22: it waits for the
     # process it asked, which Windows names from the channel)
     t = time.monotonic()
     asked = c.run("--quit")  # (the old one quits)

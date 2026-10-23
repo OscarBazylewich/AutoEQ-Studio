@@ -4,7 +4,7 @@ couldn't read them. Moved from eq_checks.py's trace_checks.
 
 The check takes the way this PC's Windows allows, as the old one did: which way it went here is said in the test's
 output. The other way, Windows without a text reader, is tried on every PC with a stand-in
-(test_no_text_reader_said, added 2026-10-23: on a PC with a reader, the old check never tried it)."""
+(test_no_text_reader_said, added 2026-10-22: on a PC with a reader, the old check never tried it)."""
 from helpers import capabilities
 from ui import ocr
 from ui.trace_window import sample_image

@@ -483,7 +483,7 @@ def test_compare_odd_queries(api, db_guard, eq_cfg, check):
     # asked while the database lists were still loading, so it was answered "still loading" before the query was
     # read. Here the lists are loaded first, and the measurements Which measurement downloads get a whole curve each
     # from a stand-in, as they got theirs from the sites when the old check ran online: offline, nothing is
-    # downloaded for real. Made firm 2026-10-23: its "no crash" half looked for a traceback in the answers, which
+    # downloaded for real. Made firm 2026-10-22: its "no crash" half looked for a traceback in the answers, which
     # service.call never gives (any error becomes {"error": message}), so it couldn't fail; now each odd query must
     # be answered exactly as a blank one is, a search for the model in use, without an error)
     folder = databases.DOWNLOAD_DIR

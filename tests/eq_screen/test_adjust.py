@@ -67,7 +67,7 @@ def test_save_as_a_target(eq_screen, monkeypatch, check):
     hidden = not page.settings.save_target_btn.isEnabled()  # (greyed until the target is adjusted)
 
     def reload_curves():
-        """The curves loaded again, and waited for until the new ones are there (made firm 2026-10-23: the old
+        """The curves loaded again, and waited for until the new ones are there (made firm 2026-10-22: the old
         check waited only for "some curves", which the page always had, so "drawn the same" compared the curves with
         themselves and could never fail)."""
         old = page.curves

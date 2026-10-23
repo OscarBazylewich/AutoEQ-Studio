@@ -1,6 +1,6 @@
 """Make an EQ's page deleted while its background loads still run: their answers are dropped (ui.tasks.background
 with the page as their owner), never reaching the deleted page. A bug the tests' reorganization found, fixed
-2026-10-23: the page's loads named no owner, so a load still on its way answered a deleted page ("Internal C++ object
+2026-10-22: the page's loads named no owner, so a load still on its way answered a deleted page ("Internal C++ object
 (QLabel) already deleted", from refresh_auto). In the app the page lives as long as the window; tests delete pages."""
 from helpers import eqpage, qt
 

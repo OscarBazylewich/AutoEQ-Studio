@@ -81,7 +81,7 @@ def eq_steps(page):
                     break
         # (Find… draws its rows again while its lists are still loading: a tag kept across a pause may be deleted, so
         # its words are read first and it's pointed at only while it's there; it reached for a deleted row,
-        # 2026-10-23)
+        # 2026-10-22)
         if tag is not None:
             tip = tag.toolTip()
             api.say("A result's rig tag: what it was measured on, and how that was worked out")

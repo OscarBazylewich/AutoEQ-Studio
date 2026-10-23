@@ -29,7 +29,7 @@ def test_ranks_the_measurements(eq_screen, which, check):
 
 
 def test_says_when_nothing_could_be_loaded(eq_screen, monkeypatch, check):
-    # (a bug the tests' reorganization found, fixed 2026-10-23: when the model's measurements were found but none could
+    # (a bug the tests' reorganization found, fixed 2026-10-22: when the model's measurements were found but none could
     # be loaded, the window failed with "list index out of range"; and its line said nothing called it was found)
     from eq import compare
     from helpers import qt, studio

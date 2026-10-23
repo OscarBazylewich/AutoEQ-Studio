@@ -96,7 +96,7 @@ def ask_running(message, wait_gone=0.0):
     """Send the running copy a message ("show", "quit"): None when none runs, else True. wait_gone: seconds to wait
     until it has quit (then False when it hasn't by then). That copy's own process is waited for: during a restart
     after a restore a new copy takes over the channel the moment the old one has gone, so a channel that's still
-    answering doesn't mean the copy asked is still running (it made --quit wait its whole 15 s and fail, 2026-10-23)."""
+    answering doesn't mean the copy asked is still running (it made --quit wait its whole 15 s and fail, 2026-10-22)."""
     from PySide6.QtNetwork import QLocalSocket
     sock = QLocalSocket()
     sock.connectToServer(SERVER)

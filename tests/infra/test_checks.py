@@ -1,6 +1,7 @@
 """The check fixture and the check log (helpers.checks, tests\\conftest.py; PLAN.md 3.6): names logged, a failed
 check fails its test listing every failed name, check.skipped logs its names as skipped, an xfail test's report
-says xfailed, an error inside a Qt call-back is logged and fails its test, and the log's lines. All on an
+says xfailed, an error inside a Qt call-back is logged and fails its test, a Qt object left for Python's garbage
+collector is deleted after its test and fails it (tests\\conftest.py), and the log's lines. All on an
 inner pytest run (its own process and check log: its deliberate failures never reach this run's log). And raises(),
 the EQ part's tests' shared helper (a ValueError's message, or None)."""
 from helpers import checks, inner
@@ -38,6 +39,50 @@ def test_qt_error(qapp):
     qt.pump(300)
 '''
 
+LEFTOVER = '''
+import weakref
+
+KEPT = {}
+
+
+def test_leaves_one(qapp):
+    from PySide6.QtWidgets import QComboBox
+    box = QComboBox()
+    box.setObjectName("left behind")
+    box.me = box  # (a loop of references: only Python's garbage collector would free it)
+    KEPT["box"] = weakref.ref(box)
+
+
+def test_after_it(qapp):
+    import shiboken6
+    box = KEPT["box"]()
+    assert box is None or not shiboken6.isValid(box), "still there after the test that left it"
+
+
+def test_lets_go(qapp):
+    from PySide6.QtWidgets import QComboBox
+    QComboBox().setObjectName("freed at once")  # (no loop: freed as soon as it's let go)
+'''
+
+
+def test_qt_leftovers(pytester, monkeypatch, check):
+    from helpers import paths, qt
+    result, log = inner.run(pytester, monkeypatch, {"test_inner_leftovers.py": LEFTOVER}, "-q")
+    said = [f for f in paths.import_tool("run_tests").summarize("inner", log, result.ret).fails if "test_leaves_one" in f]
+    reports = {(r["test"].split("::")[-1], r["when"]): r for r in log if r["event"] == "report"}
+    found = [r for r in log if r["event"] == "check" and r["name"] == qt.LEFTOVER_CHECK]
+    torn = reports.get(("test_leaves_one", "teardown"), {})
+    check("checks: a Qt object a test leaves for Python's garbage collector is deleted after that test, when Qt "
+          "handles no event (never in the middle of a later test's events), and fails it, naming the object (one FAIL "
+          "line in the run's summary)",
+          [(r["test"].split("::")[-1], r["ok"]) for r in found] == [("test_leaves_one", False)]
+          and "QComboBox “left behind”" in found[0]["detail"]
+          and torn.get("outcome") == "failed" and torn.get("message", "").startswith("FAIL ")
+          and reports.get(("test_after_it", "call"), {}).get("outcome") == "passed"
+          and reports.get(("test_lets_go", "teardown"), {}).get("outcome") == "passed"
+          and result.parseoutcomes() == {"passed": 3, "errors": 1} and len(said) == 1,
+          (torn, result.parseoutcomes(), said, found))
+
 
 def test_check_fixture_and_log(pytester, monkeypatch, check):
     result, log = inner.run(pytester, monkeypatch, {"test_inner_checks.py": INNER}, "-q")
@@ -68,7 +113,7 @@ def test_check_fixture_and_log(pytester, monkeypatch, check):
           reports.get(("test_known_bug", "call")))
     torn = reports.get(("test_qt_error", "teardown"), {})
     check("checks: an error inside a Qt call-back is logged (qt_error, with its test) and fails the test it happened "
-          "in, naming the error (since 2026-10-23: before, it was only noted)",
+          "in, naming the error (since 2026-10-22: before, it was only noted)",
           len(errors) == 1 and "ZeroDivisionError" in errors[0]["text"] and errors[0]["test"].endswith("::test_qt_error")
           and torn.get("outcome") == "failed" and "Qt call-back" in torn.get("message", "")
           and "ZeroDivisionError" in torn.get("message", ""), (errors, torn))
