@@ -111,9 +111,10 @@ def _stylesheet(t):
 
 
 def _pictures(t):
-    """The pictures a stylesheet needs as files, in t's colours: the tick (on the accent), the chevrons of drop-downs
-    and number boxes, the accent's bars that mark what's chosen. Drawn once each into the temporary folder (named
-    by their colour), whole: a copy draws into a file of its own and puts it in place."""
+    """The pictures a stylesheet needs as files, in t's colours: the tick (on the accent), Windows 11's chevrons
+    (down: drop-downs, number boxes, buttons with a menu, an open fold; up: number boxes; right: a closed fold, a
+    menu's submenu), the accent's bars that mark what's chosen. Drawn once each into the temporary folder (named by
+    their colour), whole: a copy draws into a file of its own and puts it in place."""
     import os
     import tempfile
     from PySide6.QtCore import QPointF, QRectF
@@ -123,11 +124,12 @@ def _pictures(t):
         p.setPen(QPen(QColor(t["on_accent"]), 3.2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
         p.drawPolyline([QPointF(7, 14.5), QPointF(11.5, 19), QPointF(21, 9)])
 
-    def chevron(up):
-        def draw(p):
+    def chevron(way):
+        def draw(p):  # (the same chevron each way: down's turned up, or to the right)
             p.setPen(QPen(QColor(t["ink2"]), 2.2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
-            ys = (16, 9, 16) if up else (9, 16, 9)
-            p.drawPolyline([QPointF(5, ys[0]), QPointF(12, ys[1]), QPointF(19, ys[2])])
+            points = {"down": ((5, 9), (12, 16), (19, 9)), "up": ((5, 16), (12, 9), (19, 16)),
+                      "right": ((9, 5), (16, 12), (9, 19))}[way]
+            p.drawPolyline([QPointF(x, y) for x, y in points])
         return draw
 
     def bar(w, h):
@@ -138,8 +140,9 @@ def _pictures(t):
         return draw
     out = {}
     for name, colour, (w, h), draw in (("tick", t["on_accent"], (28, 28), tick),
-                                        ("chevron", t["ink2"], (24, 24), chevron(False)),
-                                        ("chevron_up", t["ink2"], (24, 24), chevron(True)),
+                                        ("chevron", t["ink2"], (24, 24), chevron("down")),
+                                        ("chevron_up", t["ink2"], (24, 24), chevron("up")),
+                                        ("chevron_right", t["ink2"], (24, 24), chevron("right")),
                                         ("pill_h", t["accent"], (16, 3), bar(16, 3)),
                                         ("pill_v", t["accent"], (3, 16), bar(3, 16))):
         path = os.path.join(tempfile.gettempdir(), f"autoeq-studio-{name}-{colour.lstrip('#')}.png")

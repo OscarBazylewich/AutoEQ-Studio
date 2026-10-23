@@ -58,6 +58,7 @@ class SetUpDialog(QDialog):
             lay.addWidget(_words("These lines in config.txt are on now. They apply to every device, on top of each "
                                  "device's EQ:"))
             lst = QListWidget()
+            lst.setAccessibleName("Lines on in config.txt")  # (what a screen reader says for it)
             lst.addItems(self.others)
             lay.addWidget(lst)
             _fit(lst, 3)
@@ -88,6 +89,7 @@ class SetUpDialog(QDialog):
         if self.files:
             lay.addWidget(_words("EQ files config.txt uses (on or off). Add them as profiles?"))
             self.file_list = QListWidget()
+            self.file_list.setAccessibleName("EQ files to add as profiles")
             for f in self.files:
                 it = QListWidgetItem(os.path.basename(f))
                 it.setFlags(it.flags() | Qt.ItemIsUserCheckable)

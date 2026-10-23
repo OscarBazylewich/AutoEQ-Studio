@@ -2,7 +2,8 @@
 profiles, the one on now becoming the playing device's EQ, and EQ Switcher's Start with Windows turned off and EQ
 Switcher asked to quit (both stand-ins here: tests\\ui\\conftest.py's set_up_window, which runs the dialog once for
 this file). Moved from selftest.py's qt_checks. Then its look in Windows 11's (the restyle, 2026-10-23), in a Python of
-its own, themed: its words wrap, nothing is cut or squeezed, Set up is the main action on a band of buttons."""
+its own, themed: its words wrap, nothing is cut or squeezed, Set up is the main action on a band of buttons, and its
+lists have names a screen reader reads."""
 from helpers import session, subproc
 
 KEY = "Headset|EarPods"
@@ -32,6 +33,7 @@ def hidden(lst):  # (rows not wholly in sight)
 print(json.dumps({"size": [dlg.width(), dlg.height()], "boxes": len(boxes),
                   "cut": [b.text()[:40] for b in boxes if b.width() < b.sizeHint().width()],
                   "lists": [(lst.count(), hidden(lst)) for lst in dlg.findChildren(QListWidget)],
+                  "names": [lst.accessibleName() for lst in dlg.findChildren(QListWidget)],
                   "go": go and [go.text(), go.property("primary"), go.isDefault()],
                   "band": dlg.findChild(QFrame, "dialogFooter") is not None and go is not None
                   and go.parent().objectName() == "dialogFooter"}))
@@ -65,4 +67,8 @@ def test_the_set_up_dialog_as_windows_11(themed_window, check, fake_apo, tmp_pat
           and d.get("lists") == [[3, 0], [2, 0]], d or out.stderr[-300:])
     check("set up: Set up is its main action (in the accent, Enter's), on Windows 11's band of buttons below the words",
           d.get("go") == ["Set up", "true", True] and d.get("band") is True, d and (d.get("go"), d.get("band"))
+          or out.stderr[-300:])
+    # (2026-10-23: a screen reader said only "list" for both)
+    check("set up: its two lists have names a screen reader reads (the lines on in config.txt, the EQ files to add)",
+          d.get("names") == ["Lines on in config.txt", "EQ files to add as profiles"], d and d.get("names")
           or out.stderr[-300:])

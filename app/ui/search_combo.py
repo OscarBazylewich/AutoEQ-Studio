@@ -7,13 +7,18 @@ SearchCombo is a QComboBox (addItem, findData, setCurrentIndex, currentData and 
 long list is its own. Every drop-down in the app is one (the user's ask, 2026-10-13: a list over some number of
 choices gets the search box, as Find…'s filters had; Advanced's Layout was the one asked for), and each is A to Z
 (sort_items, where it's filled; the user's ask too).
+
+Both lists, short and long, look alike (the theme's inputs part, ui\\theme_sheet.py): the short one is Qt's own
+list, which draws that look itself (the frame Qt keeps it in has its own frame turned off), the long one is
+#searchPopup, and their rows are drawn as the theme's list rows (the chosen one filled, the accent's bar beside it;
+Qt's own drawing for a drop-down's rows only outlined it). (Qt never lets the app's stylesheet style a frame whose
+parent is a drop-down: #searchPopup is a plain widget for that; as a frame it needed a stylesheet of its own.)
 """
 import re
 
 from PySide6.QtCore import QEvent, QPoint, Qt
-from PySide6.QtWidgets import QComboBox, QFrame, QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout
-
-from ui import theme
+from PySide6.QtWidgets import (QComboBox, QFrame, QLineEdit, QListWidget, QListWidgetItem, QStyledItemDelegate,
+                               QVBoxLayout, QWidget)
 
 
 SEARCH_FROM = 15  # a list with more choices than this opens with the search box (one screen of rows, about)
@@ -26,13 +31,12 @@ def natural_key(s):
     return [float(t) if i % 2 else t for i, t in enumerate(parts)]
 
 
-class _Popup(QFrame):
+class _Popup(QWidget):
     def __init__(self, combo):
         super().__init__(combo, Qt.Popup)
         self.combo = combo
-        t = theme.tokens()
-        self.setObjectName("searchPopup")
-        self.setStyleSheet(f"#searchPopup {{ background: {t['card']}; border: 1px solid {t['line']}; border-radius: 8px; }}")
+        self.setObjectName("searchPopup")  # (its look: the theme's, as the short list's)
+        self.setAttribute(Qt.WA_StyledBackground, True)  # (its background and border drawn from the theme's rule)
         v = QVBoxLayout(self)
         v.setContentsMargins(6, 6, 6, 6)
         v.setSpacing(4)
@@ -122,6 +126,8 @@ class SearchCombo(QComboBox):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._popup = None
+        self.setItemDelegate(QStyledItemDelegate(self))  # (the short list's rows drawn as the theme's list rows)
+        self.setMaxVisibleItems(SEARCH_FROM)  # (a short list shows every choice: a longer one opens with the search box)
 
     def sort_items(self, pinned=0):
         """The choices A to Z, numbers as numbers (natural_key); the first `pinned` (a "Choose…" or "Automatic…" that
@@ -151,12 +157,16 @@ class SearchCombo(QComboBox):
 
     def showPopup(self):
         if not self.searches():
-            return super().showPopup()
+            pop = self.view().window()
+            # (the list draws its look itself, the theme's: the frame Qt keeps it in has its own frame turned off,
+            # each time, as Qt puts it back when the theme changes)
+            pop.setFrameShape(QFrame.NoFrame)
+            super().showPopup()
+            self._wide_enough(pop)
+            return
         if self._popup is None:
             self._popup = _Popup(self)
         p = self._popup
-        t = theme.tokens()  # (each time: light or dark may have changed since it was made)
-        p.setStyleSheet(f"#searchPopup {{ background: {t['card']}; border: 1px solid {t['line']}; border-radius: 8px; }}")
         p.fill()
         rows = max(1, min(self.count(), 14))
         h = self.list_height(p, rows)
@@ -168,6 +178,23 @@ class SearchCombo(QComboBox):
         p.setGeometry(below.x(), below.y(), w, h)
         p.show()
         p.q.setFocus()
+
+    def _wide_enough(self, pop):
+        """The short list as wide as its longest choice, so every name shows whole, and kept on the screen (Qt's own
+        list is only as wide as the drop-down; Fusion's menu-like one, before 2026-10-23, widened itself)."""
+        view = self.view()
+        bar = view.verticalScrollBar()
+        need = view.sizeHintForColumn(0) + 2 * view.frameWidth() + (bar.width() if bar.isVisible() else 0)
+        if need <= pop.width():
+            return
+        g = pop.geometry()
+        g.setWidth(need)
+        screen = self.screen().availableGeometry() if self.screen() else None
+        if screen is not None:
+            g.setWidth(min(g.width(), screen.width()))
+            if g.right() > screen.right():
+                g.moveRight(screen.right())
+        pop.setGeometry(g)
 
     @staticmethod
     def list_height(p, rows):

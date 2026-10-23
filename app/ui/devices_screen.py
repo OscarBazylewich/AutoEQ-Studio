@@ -9,8 +9,8 @@ import os
 import re
 import subprocess
 
-from PySide6.QtCore import QRect, Qt
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QIcon
+from PySide6.QtCore import QRect, QRectF, Qt
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QIcon, QPainter
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QGroupBox, QHBoxLayout, QInputDialog, QLabel,
                                QListWidget, QListWidgetItem, QMenu, QMessageBox, QPushButton, QRadioButton, QScrollArea,
                                QSplitter, QStyle, QStyledItemDelegate, QStyleOptionViewItem, QToolButton, QVBoxLayout,
@@ -21,11 +21,15 @@ from ui import icons, theme
 from ui.window_parts import muted, profile_line, warning_card
 
 
+DOT = Qt.UserRole + 1  # (a device row's dot: "playing", "connected" or "away", ui\\icons.py's DOTS)
+
+
 class DeviceRows(QStyledItemDelegate):
     """The device list's rows as Windows 11 lists devices: the device's name, and under it where it is and its EQ, a
     little smaller in the secondary colour (each line cut with "…" when the list is narrow; the row's tooltip has both
-    whole). The row's own background (pointed at, chosen, the accent's bar beside it) and its dot are the list's, as
-    the theme draws any list; the colours are the theme's when the row is drawn, so they follow light and dark."""
+    whole). The row's own background (pointed at, chosen, the accent's bar beside it) is the list's, as the theme draws
+    any list; the colours, the dot's too (green playing, the accent connected, grey not), are the theme's when the row
+    is drawn, so they follow light and dark, Windows' accent and its contrast themes."""
 
     def paint(self, painter, option, index):
         opt = QStyleOptionViewItem(option)
@@ -53,7 +57,14 @@ class DeviceRows(QStyledItemDelegate):
         height = m1.height() + (gap + m2.height() if rest else 0)
         top = text_rect.top() + (text_rect.height() - height) // 2
         painter.save()
-        if not icon.isNull():
+        kind = index.data(DOT)
+        if kind in icons.DOTS:  # (an 8 px dot in the middle of the icon's place, in the theme's colour for it)
+            painter.setRenderHint(QPainter.Antialiasing)
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(QColor(icons.dot_colour(kind, t)))
+            c = QRectF(icon_rect).center()
+            painter.drawEllipse(QRectF(c.x() - 4, c.y() - 4, 8, 8))
+        elif not icon.isNull():
             icon.paint(painter, icon_rect, Qt.AlignCenter)
         painter.setFont(big)
         painter.setPen(QColor(first))
@@ -126,8 +137,9 @@ class DevicesScreen:
             rec, d = self.sw.record(key), self.sw.device(key)
             where, eq = self._status(key)
             item = QListWidgetItem(f"{shown(rec)}\n{where} · {eq}")
-            item.setIcon(icons.dot("playing" if key == self.sw.playing_key else
-                                   "connected" if d and d.connected else "away"))
+            kind = "playing" if key == self.sw.playing_key else "connected" if d and d.connected else "away"
+            item.setIcon(icons.dot(kind))  # (its place in the row; DeviceRows draws it in the colours of the moment)
+            item.setData(DOT, kind)
             item.setData(Qt.UserRole, key)
             item.setToolTip(f"{shown(rec)}\n{where} · {eq}" + (f"\nWindows calls it {rec['label']}"
                                                                      if rec.get("nickname") else ""))
@@ -218,8 +230,7 @@ class DevicesScreen:
             holder.setLayout(row)
             row.setContentsMargins(0, 0, 0, 0)
             bl.addWidget(holder)
-        add = QPushButton("Add a profile")
-        add.setObjectName("addProfile")  # (its menu's chevron: the theme's window_screens)
+        add = QPushButton("Add a profile")  # (its menu's chevron: every menu button's, the theme's buttons part)
         icons.put(add, "add")
         menu = QMenu(add)
         others = [(pid, p) for pid, p in self.sw.profiles().items() if pid not in rec["profiles"]]

@@ -8,11 +8,13 @@ isn't used); leaving a box with a value past a limit moves it to the limit and s
 (help_texts.HELP; a "to" box shares its "from" box's).
 
 The automatic settings: a box they fill in has a tag beside it, "auto", or "yours ↺" once you've changed it (the tag
-hands it back). A Form is a list of rows in sections; show(predicate) hides a row when it doesn't apply.
+hands it back). A Form is a list of rows in sections; show(predicate) hides a row when it doesn't apply. Every
+section's boxes start at the same place (one label column for the whole form). A Fold is a card that opens and
+closes (Settings, Advanced, the tracer's Why these settings).
 """
 import re
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtWidgets import (QCheckBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
                                QPlainTextEdit, QToolButton, QVBoxLayout, QWidget)
 
@@ -306,7 +308,6 @@ class Field(QWidget):
         self._commit(c)
 
     def eventFilter(self, obj, ev):
-        from PySide6.QtCore import QEvent
         if obj is self.box and ev.type() == QEvent.KeyPress and ev.key() in (Qt.Key_Up, Qt.Key_Down):
             self.step_by(1 if ev.key() == Qt.Key_Up else -1)
             return True
@@ -334,12 +335,15 @@ class Field(QWidget):
 class Form(QWidget):
     """Rows of settings in sections. Each row: (label, [Field spec…], show) where a spec is (path, kind, options);
     two specs in a row are a "from … to …" pair. changed(path, value) is called with each valid value set;
-    hand_back(path) for "yours ↺"; steps {path: step} gives a number box − and + (and ↑ ↓)."""
+    hand_back(path) for "yours ↺"; steps {path: step} gives a number box − and + (and ↑ ↓). The labels are one column
+    for every section, as wide as the widest of them (_line_up): each section's boxes start at the same place (a
+    column per section made them zig-zag down Advanced)."""
 
     def __init__(self, sections, limits, get, changed, hand_back, say, steps=None):
         super().__init__()
         self.limits, self.get, self.say, self.steps = limits, get, say, steps
         self.fields, self.rows = {}, []
+        self._labels, self._grids = [], []
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(10)
@@ -356,6 +360,7 @@ class Form(QWidget):
             grid.setHorizontalSpacing(10)
             grid.setVerticalSpacing(6)
             grid.setColumnStretch(1, 1)
+            self._grids.append(grid)
             for i, row in enumerate(rows):
                 label, specs = row[0], row[1]
                 show = row[2] if len(row) > 2 else None
@@ -364,6 +369,7 @@ class Form(QWidget):
                     self.rows.append(([label], show))
                     continue
                 lab = QLabel(label)
+                self._labels.append(lab)
                 lab.setToolTip(help_of(specs[0][0]) if specs else "")
                 box = QWidget()
                 bl = QHBoxLayout(box)
@@ -391,6 +397,21 @@ class Form(QWidget):
             shows = [r[2] if len(r) > 2 else None for r in rows]
             if shows and all(shows):  # (a section whose rows all may hide: hidden with them, its heading too)
                 self.rows.append(([sec], lambda shows=shows: any(s() for s in shows)))
+        self._line_up()
+
+    def _line_up(self):
+        """The label column as wide as the form's widest label, in every section (hidden rows' labels too, so nothing
+        moves when a row shows or hides)."""
+        for lab in self._labels:
+            lab.ensurePolished()  # (in the theme's text size)
+        width = max((lab.sizeHint().width() for lab in self._labels), default=0)
+        for grid in self._grids:
+            grid.setColumnMinimumWidth(0, width)
+
+    def changeEvent(self, e):
+        super().changeEvent(e)
+        if e.type() in (QEvent.StyleChange, QEvent.FontChange):  # (the theme's text size may have come since)
+            self._line_up()
 
     def refresh(self, tags=None):
         """Show the settings' values; hide what doesn't apply; the automatic settings' tags ({path: state})."""
@@ -405,7 +426,10 @@ class Form(QWidget):
 
 
 class Fold(QFrame):
-    """A card that opens and closes: its title (and a short summary beside it) is the button."""
+    """A card that opens and closes: its title (and a short summary beside it) is the button, Windows 11's chevron
+    before it (the theme's settings_boxes part: right when closed, down when open; filled when pointed at). Its
+    chevron and its content start at a card's inset, as a card's title and content do (theme_sheet's CARD: the card's
+    padding and these margins; the chevron's place starts where the button does)."""
     toggled = Signal(bool)
 
     def __init__(self, title, open_=False):
@@ -427,7 +451,7 @@ class Fold(QFrame):
         lay.addLayout(head)
         self.body = QWidget()
         self.body_lay = QVBoxLayout(self.body)
-        self.body_lay.setContentsMargins(8, 4, 8, 8)
+        self.body_lay.setContentsMargins(0, 4, 0, 8)
         lay.addWidget(self.body)
         self.btn.setChecked(open_)
         self._set(open_)

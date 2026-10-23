@@ -14,6 +14,8 @@ set_up_window   the same window after Set up (selftest.py lines 377-393): the Se
 
 themed_window   the code that makes the same window, with the app's theme applied, in a Python of its own: for the
                 checks of how the window and its screens look (THEMED_WINDOW below).
+shapes          a few lines for such a Python that read a shape off a picture: a pixel clearly not the background,
+                the box of those, whether a shape is open on a chevron's side, the runs of inked columns (SHAPES).
 
 Each window is closed and deleted when its file is done (helpers.qt.close), once the questions it asked APO (in the
 background) have their answers. No theme is applied here: the old self-test drew these screens unthemed, and the
@@ -82,6 +84,44 @@ for _ in range(5):
 '''
 
 
+# Reading a shape off a picture (a QImage), in a test's Python of its own: differs(colour, background) for a pixel
+# clearly not the background (the shape's own, not its edge's faint blend); ink_box(img, x0, y0, x1, y1, background)
+# the box [left, top, right, bottom] of those in a part of the picture (None: none); open_side(img, box, background,
+# way) whether the shape in the box is open where a chevron is (way "right", ">": at its left middle; "down", "v": at
+# its top middle), as a filled triangle (Qt's own arrows) isn't; runs(img, x0, x1, y0, y1, background) the stretches
+# [(first, last)] of columns with ink in them, left to right (a button's words, then its chevron).
+SHAPES = r'''
+def differs(c, bg):
+    return sum(abs(a - b) for a, b in zip(c.getRgb()[:3], bg.getRgb()[:3])) > 60
+
+
+def ink_box(img, x0, y0, x1, y1, bg):
+    pts = [(x, y) for x in range(max(0, x0), min(img.width(), x1)) for y in range(max(0, y0), min(img.height(), y1))
+           if differs(img.pixelColor(x, y), bg)]
+    return [min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts)] if pts \
+        else None
+
+
+def open_side(img, box, bg, way):
+    if box is None:
+        return None
+    x, y = (box[0] + 1, (box[1] + box[3]) // 2) if way == "right" else ((box[0] + box[2]) // 2, box[1] + 1)
+    return not differs(img.pixelColor(x, y), bg)
+
+
+def runs(img, x0, x1, y0, y1, bg):
+    found, start = [], None
+    for x in range(x0, x1 + 1):
+        on = x < x1 and any(differs(img.pixelColor(x, y), bg) for y in range(y0, y1))
+        if on and start is None:
+            start = x
+        elif not on and start is not None:
+            found.append((start, x - 1))
+            start = None
+    return found
+'''
+
+
 class StubApp:
     """What the window asks of the app (selftest.py's Stub, lines 340-357). Each one has its own list of what it
     said in the tray (the old one's list belonged to the class, shared by every stand-in)."""
@@ -145,6 +185,12 @@ def themed_window():
     """THEMED_WINDOW: a test runs it with its own lines added, through helpers.subproc.run_python(code,
     session.SESSION.app, str(tmp_path)), with the fake_apo fixture in the same test."""
     return THEMED_WINDOW
+
+
+@pytest.fixture
+def shapes():
+    """SHAPES: lines a test's own Python adds after its imports, to read shapes off its pictures."""
+    return SHAPES
 
 
 @pytest.fixture(scope="module")
