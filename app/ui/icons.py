@@ -11,7 +11,7 @@ GLYPHS = {"eq": "E9E9", "devices": "E7F6", "profiles": "E8FD", "settings": "E713
           "online": "E774", "run": "E768", "play": "E768", "pause": "E769", "stop": "E71A", "find": "E721",
           "add": "E710", "save": "E74E", "rename": "E8AC", "folder": "E838", "change_folder": "E8B7",
           "new_folder": "E8F4", "backup": "EDE1", "restore": "E8B5", "remove": "E74D", "delete": "E74D",
-          "close": "E711", "cancel": "E711", "ok": "E8FB", "check": "E73E", "refresh": "E72C", "sync": "E895",
+          "close": "E711", "chrome_close": "E8BB", "cancel": "E711", "ok": "E8FB", "check": "E73E", "refresh": "E72C", "sync": "E895",
           "history": "E81C", "list": "E8FD", "listen": "E767", "volume": "E767", "mute": "E74F", "mic": "E720",
           "presets": "E8F1", "compare": "E8C8", "copy": "E8C8", "speaker": "E7F5", "headphones": "E7F6",
           "info": "E946", "warning": "E7BA", "error": "E783", "edit": "E70F", "pen": "EDC6", "erase": "E75C",

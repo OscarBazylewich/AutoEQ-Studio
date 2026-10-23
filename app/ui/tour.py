@@ -872,8 +872,9 @@ class Tour(QWidget):
 
     @staticmethod
     def draw_close(label):
-        """The close symbol of a window's title bar shown inside the tour, in the theme's quieter text colour."""
-        label.setPixmap(icons.glyph("close", theme.tokens()["ink2"], size=10).pixmap(QSize(16, 10)))
+        """The close symbol of a window's title bar shown inside the tour (Windows 11's title bars' own, 10 px), in
+        the theme's quieter text colour."""
+        label.setPixmap(icons.glyph("chrome_close", theme.tokens()["ink2"], size=10).pixmap(QSize(16, 10)))
 
     def retheme(self):
         """The theme changed while the tour is open: what it draws in its own colours drawn again (the card's
