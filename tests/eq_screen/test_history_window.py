@@ -4,15 +4,17 @@ History window lists the EQs and ✕ removes one; a long History draws in batche
 History file that can't be read is said and kept as .bad. Moved from eq_checks.py's ui_checks, review_checks and
 review_low_checks: one page for the file (the eq_screen fixture), a quick run of its own saved as "UI check" (the
 History entry the old checks used), then the checks in the old order. History starts empty here, as it did for the
-old checks (the parts before them had emptied it)."""
+old checks (the parts before them had emptied it). Then the window's look (Windows 11's, 2026-10-23) on a made-up
+History: the rows' colours following the theme, the symbols, ✕, and the window at its smallest."""
 import contextlib
 import os
 import time
 
 import pytest
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QFrame
 
-from helpers import eqpage, paths
+from helpers import eqpage, paths, qt
 from ui import history_window as hwm
 from ui.history_window import HistoryWindow
 
@@ -108,6 +110,77 @@ def test_show_loads_the_measurement(eq_screen, chain, check, dialogs):
     check("review: History's Show loads the measurement as a choice does (Listen's EQs to compare, Error without EQ)",
           page.curves and page.listen.pins_for == page.curves["name"] and page.chip_noeq.isVisibleTo(page),
           (page.listen.pins_for, page.curves and page.curves["name"]))
+
+
+def _near(a, b, by=8):
+    """Two colours the same but for a little rounding (each of red, green and blue within `by`)."""
+    a, b = QColor(a), QColor(b)
+    return max(abs(a.red() - b.red()), abs(a.green() - b.green()), abs(a.blue() - b.blue())) <= by
+
+
+@pytest.fixture
+def made_up_history(eq_screen):
+    """The History window shown on three made-up entries (History swapped for them, put back after)."""
+    page = eq_screen.page
+    real_history, now = page.history, time.time()
+    page.history = [{"key": f"look{i}", "base": f"look{i}", "when": now - (3 - i) * 60, "device": "Look IEM",
+                     "target": "Look target", "mode": "best_fit", "label": "Best fit", "saved": True,
+                     "filters": [{"type": "PK", "freq": 1000, "gain": 1.0, "q": 1.0}], "n_filters": 1, "rms": 0.5,
+                     "preamp": -1.0} for i in range(3)]
+    hw = HistoryWindow(page, False)
+    hw.show()
+    qt.pump(200)
+    yield hw
+    qt.close(hw)
+    page.history = real_history
+
+
+def test_history_look_follows_the_theme(made_up_history, eq_screen, check):
+    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QLabel, QPushButton
+    from ui import theme
+    hw, qapp = made_up_history, eq_screen.qapp
+
+    def drawn():
+        """The rows' first lines, the card's colour under a ✕ as drawn now, and the theme's colours."""
+        body = hw.scroll.widget()
+        heads = [lab.text() for lab in body.findChildren(QLabel) if "→" in lab.text()]
+        x = next(b for b in body.findChildren(QPushButton) if b.text() == "✕")
+        row = x.parentWidget()
+        pm = row.grab()
+        img = pm.toImage()
+        p = x.mapTo(row, QPoint(3, x.height() // 2)) * pm.devicePixelRatio()
+        t = theme.tokens()
+        return {"heads": heads, "muted": t["muted"], "under ✕": (img.pixelColor(p).name(), t["card"])}
+    buttons = hw.scroll.widget().findChildren(QPushButton)
+    symbols = sorted({b.text() for b in buttons if not b.icon().isNull()})
+    try:
+        light = drawn()
+        theme.apply(qapp, dark=True)
+        qt.pump(200)
+        dark = drawn()
+    finally:
+        qt.light(qapp)  # (the light theme back, whatever happened: every later test runs light)
+        qt.pump(100)
+    follows = all(len(d["heads"]) == 3 and all(d["muted"] in h for h in d["heads"]) for d in (light, dark)) \
+        and light["muted"] != dark["muted"]
+    check("history: a row's target is in the theme's quieter colour, redone when Windows switches light/dark (it kept "
+          "the colour it was drawn in)", follows, {"light": light["heads"][:1], "dark": dark["heads"][:1]})
+    check("history: Copy and Listen show Windows 11's symbols beside their words (Show, the main one, its accent); ✕ "
+          "is a subtle button: the row's card shows through it, light and dark",
+          symbols == ["Copy", "Listen"] and all(_near(*d["under ✕"]) for d in (light, dark)),
+          (symbols, light["under ✕"], dark["under ✕"]))
+
+
+def test_history_rows_whole_at_its_smallest(made_up_history, check):
+    hw = made_up_history
+    hw.resize(hw.minimumSize())  # (the smallest the window can be made)
+    qt.pump(200)
+    rows = [f for f in hw.scroll.widget().findChildren(QFrame) if type(f) is QFrame]
+    view = hw.scroll.viewport()
+    smallest = (hw.width(), hw.height(), view.width(), view.height(), [(r.width(), r.height()) for r in rows[:1]])
+    check("history: at its smallest a whole row shows, its buttons in sight (no row could be read)",
+          rows and all(r.width() <= view.width() for r in rows) and view.height() >= rows[0].height(), smallest)
 
 
 def test_unreadable_history_is_said(eq_screen, check, dialogs, fresh_studio):

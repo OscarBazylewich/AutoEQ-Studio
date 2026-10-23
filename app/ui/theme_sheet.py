@@ -232,8 +232,28 @@ def eq_screen(t, img):
 
 
 def eq_windows(t, img):
-    """Make an EQ's own windows: the filter editor, All results, Compare, Run several, History."""
-    return ""
+    """Make an EQ's own windows: the filter editor, All results, Compare, Run several, History. Their controls by
+    object names of their own (eqw…): the filter table's boxes a little apart (the table has no grid lines); ✕ (delete
+    a filter, take an EQ out of History) as Windows 11's subtle buttons, without a fill until pointed at; a
+    switched-off filter's slider with its thumb's ring and a grey dot (Windows 11's), not a flat square; the pre-amp's
+    bar as a slider's empty track; the error grid's corner as its headings; room at the left of the text tables'
+    cells (Run several's, Compare's numbers)."""
+    return f"""
+    QTableWidget#eqwFilters QLineEdit, QTableWidget#eqwFilters QComboBox {{ margin: 1px 2px; }}
+    QToolButton#eqwDelete, QPushButton#eqwDelete {{ background: transparent; border: 1px solid transparent;
+        color: {t['ink2']}; }}
+    QToolButton#eqwDelete:hover, QPushButton#eqwDelete:hover {{ background: {t['subtle_hover']}; color: {t['ink']}; }}
+    QToolButton#eqwDelete:pressed, QPushButton#eqwDelete:pressed {{ background: {t['subtle_press']};
+        color: {t['ink2']}; }}
+    QToolButton#eqwDelete:disabled, QPushButton#eqwDelete:disabled {{ background: transparent; color: {t['disabled']}; }}
+    QSlider#eqwGain::handle:vertical:disabled {{ border: 1px solid {t['stroke']}; background: qradialgradient(cx:0.5,
+        cy:0.5, radius:0.5, fx:0.5, fy:0.5, stop:0 {t['disabled']}, stop:0.48 {t['disabled']}, stop:0.56 {t['thumb']},
+        stop:1 {t['thumb']}); }}
+    QFrame#eqwPreamp {{ background: {t['track']}; border: none; border-radius: 2px; }}
+    QTableWidget#eqwGrid QTableCornerButton::section {{ background: {t['card']}; border: none;
+        border-bottom: 1px solid {t['line']}; }}
+    QTableWidget#eqwQueue::item, QTableWidget#eqwNumbers::item {{ padding: 0px 5px; }}
+"""
 
 
 def find_windows(t, img):

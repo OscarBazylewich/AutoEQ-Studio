@@ -4,6 +4,9 @@ natively). An EQ goes in when it's saved or copied, or after every run if Advanc
 The window lists them by day, newest first (a search over IEM, target and method; "This IEM only"). Each: Show (the
 EQ back on the graph and in the result card, with its files and curve settings when they're still in the app), Copy
 (its filters as Equalizer APO text), ✕ (removed). Clear the history… removes them all (saved files stay).
+Copy and Listen show Windows 11's symbols beside their words; ✕ is a subtle button (ui\\theme_sheet.py's eq_windows).
+A row's target is in the theme's quieter colour, redone when Windows switches light/dark (follow_theme, which
+Compare's graph uses too).
 """
 import datetime
 
@@ -11,10 +14,30 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (QCheckBox, QDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton,
                                QScrollArea, QVBoxLayout, QWidget)
 
-from ui import help_window, theme
+from ui import help_window, icons, theme
+from ui.theme_sheet import CARD
 
 FIRST_ROWS, ROWS_AT_ONCE = 40, 15  # (rows made at once, then a batch at a time: as Find…)
 MODE_SHORT = {"site_single": "Website AutoEQ", "site_sweep": "Website sweep", "best_fit": "Best fit", "autoeq": "AutoEq"}
+
+
+def follow_theme(window, redraw):
+    """redraw(window) each time the theme changes (Windows switched light/dark or its accent colour) while the window
+    is shown: for what a window draws in the theme's colours by itself (a graph, a colour in a row's words). The
+    window is held weakly, never kept by this; once it's gone the theme forgets this (theme.apply drops a listener
+    that raises RuntimeError)."""
+    import weakref
+
+    import shiboken6
+    ref = weakref.ref(window)
+
+    def again():
+        w = ref()
+        if w is None or not shiboken6.isValid(w):
+            raise RuntimeError("its window is gone")
+        if w.isVisible():
+            redraw(w)
+    theme.on_change(again)
 
 
 def day_of(t):
@@ -40,7 +63,10 @@ class HistoryWindow(QDialog):
         self.page = page
         self.setWindowTitle("History")
         self.resize(760, 640)
+        # (smaller, no row was readable; this still fits the Guide's frame, which shows it beside its card)
+        self.setMinimumSize(520, 380)
         v = QVBoxLayout(self)
+        v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as a card's)
         top = QHBoxLayout()
         self.q = QLineEdit()
         self.q.setPlaceholderText("Search: IEM, target, method…")
@@ -48,6 +74,7 @@ class HistoryWindow(QDialog):
         self._later = QTimer(self, singleShot=True, interval=80, timeout=self.render)
         self._more = QTimer(self, singleShot=True, interval=0, timeout=self._make_more)
         self._todo, self._lay = [], None
+        self._heads = []  # ((label, entry)): the rows' first lines, coloured again when the theme changes
         self.q.textChanged.connect(lambda: self._later.start())
         top.addWidget(self.q, 1)
         self.only = QCheckBox("This IEM only", self)  # (the window its parent at once: see setVisible below)
@@ -74,6 +101,7 @@ class HistoryWindow(QDialog):
         bottom.addWidget(close)
         v.addLayout(bottom)
         self.render()
+        follow_theme(self, lambda w: w._recolour())
 
     def render(self, keep=False):
         """The entries, newest first: the first ones at once, the rest a batch at a time. keep: the place in the list
@@ -107,7 +135,7 @@ class HistoryWindow(QDialog):
             todo.append(lambda e=e: self._row(e))
         lay.addStretch(1)
         self._more.stop()
-        self._lay, self._todo = lay, todo
+        self._lay, self._todo, self._heads = lay, todo, []
         self._make_more(len(todo) if keep else FIRST_ROWS)
         self.scroll.setWidget(body)
         if keep:
@@ -131,10 +159,10 @@ class HistoryWindow(QDialog):
         theme.mark(row, card=True)
         h = QHBoxLayout(row)
         text = QVBoxLayout()
-        head = QLabel(f"<b>{_esc(e.get('device'))}</b> <span style='color:{theme.tokens()['muted']}'>→ {_esc(e.get('target'))}</span>"
-                      + ("  · saved" if e.get("saved") else "") + ("  · edited" if str(e.get("label", "")).endswith("(edited)") else ""))
+        head = QLabel(self._head_text(e))
         head.setTextFormat(Qt.RichText)
         head.setWordWrap(True)
+        self._heads.append((head, e))
         text.addWidget(head)
         rms = e.get("rms")
         sub = QLabel(f"{time_of(e['when'])} · {MODE_SHORT.get(e.get('mode'), e.get('mode'))} · {e.get('n_filters')} filter"
@@ -148,17 +176,32 @@ class HistoryWindow(QDialog):
         theme.mark(show, primary=True)
         show.clicked.connect(lambda: (self.page.bring_back(e), self.accept()))
         copy = QPushButton("Copy")
+        icons.put(copy, "copy")  # (Windows 11's symbols beside the words of the common verbs)
         copy.setToolTip("Copy its filters (Equalizer APO / squiglink format)")
         copy.clicked.connect(lambda: self.page.copy_filters(e["filters"], e.get("preamp") or 0, record=False))
         listen = QPushButton("Listen")
+        icons.put(listen, "listen")
         listen.setToolTip("Add it to your EQs to compare for the IEM on the graph: hear it in Listen")
         listen.clicked.connect(lambda: self.listen_to(e))
         x = QPushButton("✕")
+        x.setObjectName("eqwDelete")  # (a subtle button: ui\theme_sheet.py's eq_windows)
         x.setToolTip("Remove from the history")
         x.clicked.connect(lambda: self.remove([e["key"]]))
         for b in (show, copy, listen, x):
             h.addWidget(b)
         return row
+
+    @staticmethod
+    def _head_text(e):
+        """A row's first line: the IEM in bold, then the target in the theme's quieter colour (as it is now)."""
+        return (f"<b>{_esc(e.get('device'))}</b> <span style='color:{theme.tokens()['muted']}'>→ {_esc(e.get('target'))}"
+                "</span>" + ("  · saved" if e.get("saved") else "")
+                + ("  · edited" if str(e.get("label", "")).endswith("(edited)") else ""))
+
+    def _recolour(self):
+        """The rows' first lines in the theme's colours again (Windows switched light/dark)."""
+        for head, e in self._heads:
+            head.setText(self._head_text(e))
 
     def listen_to(self, e):
         """Into the list of the IEM on the graph (an EQ made for another one goes in with a note saying so)."""

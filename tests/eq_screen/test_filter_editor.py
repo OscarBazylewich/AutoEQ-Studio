@@ -2,11 +2,14 @@
 error, the title, the file name and the line on how it sounds at once; a value past the edit limits is red and not
 used; Revert gives the run's filters back and Sort alone isn't an edit; the Sliders view edits the same filters.
 Moved from eq_checks.py's ui_checks: one page for the file (the eq_screen fixture), a quick run of its own (the
-result the old checks edited), then the edits one after another in the old order."""
+result the old checks edited), then the edits one after another in the old order. Then the editor's look
+(Windows 11's, 2026-10-23) on an editor of its own in a window, as Your own filters has it: as tall as the view
+shown, and its colours the theme's, light and dark (read from what's drawn)."""
 import pytest
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QSlider
 
-from helpers import eqpage
+from helpers import eqpage, qt
 
 
 @pytest.fixture(scope="module")
@@ -67,3 +70,96 @@ def test_sliders_edit_the_same_filters(eq_screen, chain, check):
           n == len(r["filters"]) + 1 and page.EDIT[-1]["freq"] == 1000 and page.EDIT[-1]["gain"] == 2.5, page.EDIT[-1])
     page.set_view("table")  # (lines 1562-1563: the Table view again, the run's own filters)
     page.revert()
+
+
+# ---------------------------------------------------------------- the look (the restyle's stage 2, 2026-10-23)
+FILTERS = [{"enabled": True, "type": "LSQ", "freq": 105, "gain": 3.5, "q": 0.7},
+           {"enabled": False, "type": "PK", "freq": 1000, "gain": -2.0, "q": 1.4},  # (switched off)
+           {"enabled": True, "type": "HSQ", "freq": 8000, "gain": -1.5, "q": 0.7}]
+
+
+def _picture(widget):
+    """What the widget draws, as a picture at one pixel per point."""
+    pm = widget.grab()
+    img = pm.toImage()
+    r = pm.devicePixelRatio()
+    return img.scaled(round(img.width() / r), round(img.height() / r)) if r != 1 else img
+
+
+def _near(a, b, by=8):
+    """Two colours the same but for a little rounding (each of red, green and blue within `by`)."""
+    a, b = QColor(a), QColor(b)
+    return max(abs(a.red() - b.red()), abs(a.green() - b.green()), abs(a.blue() - b.blue())) <= by
+
+
+@pytest.fixture
+def own_editor(eq_screen):
+    """A filter editor of its own (three filters, the second switched off) in a window taller than it, as Your own
+    filters has it; closed after."""
+    from PySide6.QtWidgets import QDialog, QVBoxLayout
+    from ui.filter_editor import FilterEditor
+    dlg = QDialog(eq_screen.page)
+    dlg.resize(820, 600)
+    v = QVBoxLayout(dlg)
+    ed = FilterEditor(eq_screen.page.meta.get("limits", {}))
+    ed.set_filters([dict(f) for f in FILTERS])
+    v.addWidget(ed, 1)
+    dlg.show()
+    qt.pump(150)
+    yield ed
+    qt.close(dlg)
+
+
+def test_editor_as_tall_as_its_view(own_editor, check):
+    ed = own_editor
+    table = (ed.sizeHint().height(), ed.table.height(), ed.stack.y())
+    ed.set_view("sliders")
+    qt.pump(100)
+    sliders = (ed.sizeHint().height(), ed.stack.y(), ed.sliders_scroll.height())
+    ed.set_view("table")
+    check("filters: the editor is as tall as the view shown, at the top of a taller window (a short table had an "
+          "empty band under it, as tall as the Sliders view)",
+          table[0] == table[1] < sliders[2] and table[2] == 0 and sliders[:2] == (sliders[2], 0), (table, sliders))
+
+
+def test_editor_colours_are_the_themes(own_editor, eq_screen, check):
+    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QFrame
+    from ui import theme
+    ed, qapp = own_editor, eq_screen.qapp
+
+    def drawn():
+        """(the pre-amp's bar, the card under a ✕, the longest run of the thumb's grey dot down a switched-off
+        slider's middle) as drawn now, with the theme's colours for them."""
+        t = theme.tokens()
+        ed.set_view("table")
+        qt.pump(100)
+        x = ed.table.cellWidget(0, 6)
+        img = _picture(ed.table.viewport())
+        p = x.mapTo(ed.table.viewport(), QPoint(3, x.height() // 2))
+        under_x = img.pixelColor(p).name()
+        ed.set_view("sliders")
+        qt.pump(100)
+        holder = ed.sliders_scroll.widget()
+        bar = next(f for f in holder.findChildren(QFrame) if type(f) is QFrame)  # (the pre-amp's: no words in it)
+        bar_colour = _picture(bar).pixelColor(bar.width() // 2, bar.height() // 2).name()
+        off = holder.findChildren(QSlider)[1]
+        pic = _picture(off)
+        run = best = 0
+        for y in range(pic.height()):
+            run = run + 1 if _near(pic.pixelColor(pic.width() // 2, y), t["disabled"]) else 0
+            best = max(best, run)
+        return {"bar": (bar_colour, t["track"]), "under ✕": (under_x, t["card"]), "dot": best,
+                "set in code": bar.styleSheet() + x.styleSheet() + off.styleSheet()}
+    try:
+        light = drawn()
+        theme.apply(qapp, dark=True)
+        qt.pump(200)
+        dark = drawn()
+    finally:
+        qt.light(qapp)  # (the light theme back, whatever happened: every later test runs light)
+        qt.pump(100)
+    ok = all(_near(*d["bar"]) and _near(*d["under ✕"]) and d["dot"] >= 4 and not d["set in code"] for d in (light, dark))
+    check("filters: the pre-amp's bar (a slider's empty track), ✕ (a subtle button: the card shows through it) and a "
+          "switched-off filter's thumb (its ring with a grey dot, not a flat square) in the theme's colours, light and "
+          "dark, none set in the code", ok and light["bar"][1] != dark["bar"][1], {"light": light, "dark": dark})
