@@ -14,26 +14,34 @@ Offline (net.py): the lists the app has are searched as usual; a curve downloade
 other online one says it needs the internet. A list-only database's entry opens on its site (online only).
 
 The look (Windows 11's, ui\\theme_sheet.py's find_windows part matches the names given here): a row's name in
-semibold (findRowName), the download mark as Windows 11's symbol (findMark, read as "Downloads when used"); only one
-Use has the accent, the one Enter presses (the chosen row's, or the first row's when none is chosen); a row's ✕ quiet
-(no fill until pointed at, as every ✕); the chosen and pointed-at rows as every list.
+semibold (findRowName), ending in "…" when it's longer than its room (never cut mid-letter), the download mark as
+Windows 11's symbol (findMark, read as "Downloads when used"); only one Use has the accent, the one Enter presses (the
+chosen row's, or the first row's when none is chosen); a row's ✕ quiet (no fill until pointed at, as every ✕); Files
+with Windows 11's chevron after its word (findFiles: down while its files are hidden, up while they're shown); the
+chosen and pointed-at rows as every list, laid out again whenever the window changes size. Narrower than its filters
+on one line (the Guide's frame for it), the filters take two lines, the ticks under the boxes, and the status line goes
+above the buttons (Lines); a box's choice too long for it ends in "…".
 
 fit_to_screen(window, size, smallest): Find…, Sources and Which measurement kept within the screen's free room (a
 laptop at 150 % has about 672 px above the taskbar), so their bottom rows are never out of reach.
 """
 import os
 
-from PySide6.QtCore import QSize, Qt, QTimer, QUrl
+from PySide6.QtCore import QRect, QSize, Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QFont
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QHBoxLayout, QLabel, QLineEdit,
-                               QListWidget, QListWidgetItem, QMessageBox, QPushButton, QSizePolicy, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QHBoxLayout, QLabel, QLayout, QLineEdit,
+                               QListWidget, QListWidgetItem, QMessageBox, QPushButton, QSizePolicy, QStyle,
+                               QStyleOptionButton, QStyleOptionComboBox, QStylePainter, QVBoxLayout, QWidget)
 
 import net
 from ui import help_window, icons, tasks, theme
-from ui.search_combo import SearchCombo, natural_key
+from ui.eq_page_parts import Elided, NameCombo
+from ui.search_combo import natural_key
 
 LIMIT_ALL, LIMIT_ONE = {"pc": 40, "db": 120}, 400
 FIRST_ROWS, ROWS_AT_ONCE = 30, 8  # rows made at once when the list changes, then a batch at a time
+STATUS_LEAST = 260  # (px: the status line beside the buttons while it has this much, about three lines; else above them)
+CHOICE_MOST = 220   # (px: a filter's box asks for at most this much to show its choice whole; a longer one ends in "…")
 FORMS = {"iem": "IEM", "hp": "Headphone", "earbud": "Earbud"}
 SOURCES = [("", "All"), ("app", "In the app"), ("pc", "This PC"), ("db", "Online databases")]
 ANY = {"rig": "", "form": "", "site": "", "sure": False, "dl": False}
@@ -76,14 +84,226 @@ def name_form(s):
     return ""
 
 
+def choice_room(box):
+    """The width a filter's box needs to show its choice whole (at most CHOICE_MOST: a longer one ends in "…"), never
+    under its own smallest size: what Lines gives it on one line (a target's "Made for any type" read "Made for any
+    ty" at the Guide's frame's width)."""
+    opt = QStyleOptionComboBox()
+    box.initStyleOption(opt)
+    fm = box.fontMetrics()
+    words = QSize(fm.horizontalAdvance(box.currentText()) + 6, fm.height())  # (6: as NameCombo leaves room)
+    need = box.style().sizeFromContents(QStyle.CT_ComboBox, opt, words, box).width()
+    return max(box.minimumSizeHint().width(), min(need, CHOICE_MOST))
+
+
+def _share(room, least, low):
+    """`room` px shared by controls in equal widths, none under its least; when there isn't room for every least, each
+    gets its smallest (low) and what's left in proportion to how much more it wanted."""
+    if room >= sum(least):
+        out, todo, left = [0] * len(least), list(range(len(least))), room
+        while todo:
+            each = left // len(todo)
+            big = [i for i in todo if least[i] > each]
+            if not big:
+                for k, i in enumerate(todo):  # (the odd pixels to the first ones)
+                    out[i] = each + (1 if k < left - each * len(todo) else 0)
+                break
+            for i in big:
+                out[i] = least[i]
+                left -= least[i]
+                todo.remove(i)
+        return out
+    more = [a - b for a, b in zip(least, low)]
+    spare, wanted = max(0, room - sum(low)), sum(more) or 1
+    return [b + spare * m // wanted for b, m in zip(low, more)]
+
+
+class Lines(QLayout):
+    """A row of controls that takes two lines when there isn't room for it on one (Find…'s filters: the three boxes,
+    then the ticks under them; its status line, then its buttons under it): on one line while each control has at
+    least what it asks for (add's least: a box what its choice needs, a tick or a button its words, the status line
+    STATUS_LEAST), else the `first` ones on a line and the others under them. The room a line has over goes to the
+    controls that stretch, in equal widths (none under what it asks for), else, with right, before them (a window's
+    buttons at its right). It says how tall it is at a width (height for width), so a window as narrow as the Guide's
+    frame for Find… (598 px wide at the app's own size and 523 at its smallest) gives both lines their room; words
+    that wrap, alone on their line, can keep room for more lines than they have now (add's rows). (The recheck,
+    2026-10-23: squeezed into that frame, Find…'s boxes read "Any sour", "Any ri", its tick "Downloadal", and its
+    status line stopped mid-sentence.)"""
+
+    def __init__(self, right=False):
+        super().__init__()
+        self.right, self._items, self._next = right, [], None
+
+    def add(self, w, first=False, stretch=False, least=None, rows=0):
+        """w at the end of the row: on the first line when there are two (first), sharing the room over (stretch),
+        asking for least px on one line (a number, or a function of w; else its own: a stretching control's smallest
+        size, another's whole size); words that wrap, alone on their line, given room for at least `rows` lines."""
+        self._next = (first, stretch, least, rows)
+        self.addWidget(w)  # (Qt makes its item and hands it to addItem)
+
+    # ---------------------------------------------------------------- Qt's own: what's in it
+    def addItem(self, item):
+        self._items.append((item, self._next or (False, False, None, 0)))
+        self._next = None
+
+    def count(self):
+        return len(self._items)
+
+    def itemAt(self, i):
+        return self._items[i][0] if 0 <= i < len(self._items) else None
+
+    def takeAt(self, i):
+        return self._items.pop(i)[0] if 0 <= i < len(self._items) else None
+
+    def expandingDirections(self):
+        return Qt.Orientation.Horizontal
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, width):
+        return self._place(QRect(0, 0, width, 0), False)
+
+    def sizeHint(self):
+        shown, m = self._shown(), self.contentsMargins()
+        w = sum(x[0].sizeHint().width() for x in shown) + self._gap() * max(0, len(shown) - 1) + m.left() + m.right()
+        return QSize(w, self.heightForWidth(w))
+
+    def minimumSize(self):
+        """Its narrowest: on two lines, each control at its smallest; and, as a label whose words wrap, one line's
+        height (how tall it is at a width: heightForWidth). The layout it's in asks its height at no less than this
+        width: the one-line width here left the ticks' line under the list in the Guide's frame."""
+        shown, m, gap = self._shown(), self.contentsMargins(), self._gap()
+        lines = [line for line in ([x for x in shown if x[1]], [x for x in shown if not x[1]]) if line]
+        w = max((sum(x[3] for x in line) + gap * (len(line) - 1) for line in lines), default=0)
+        h = max((x[0].minimumSize().height() for x in shown), default=0)
+        return QSize(w + m.left() + m.right(), h + m.top() + m.bottom())
+
+    def setGeometry(self, rect):
+        super().setGeometry(rect)
+        self._place(rect, True)
+
+    # ---------------------------------------------------------------- the lines
+    def _gap(self):
+        return self.spacing() if self.spacing() >= 0 else 6  # (its window's spacing, once it's in its layout)
+
+    def _shown(self):
+        """[(item, first, stretch, smallest, asked for, rows)] of the controls in sight (a hidden one takes no
+        room)."""
+        out = []
+        for item, (first, stretch, least, rows) in self._items:
+            if item.isEmpty():
+                continue
+            low = item.minimumSize().width() if stretch else item.sizeHint().width()
+            want = least(item.widget()) if callable(least) else least if least is not None else low
+            out.append((item, first, stretch, low, max(low, want), rows))
+        return out
+
+    def _lines(self, shown, width):
+        if sum(x[4] for x in shown) + self._gap() * max(0, len(shown) - 1) <= width:
+            return [shown] if shown else []
+        return [line for line in ([x for x in shown if x[1]], [x for x in shown if not x[1]]) if line]
+
+    def _place(self, rect, move):
+        """The controls placed in rect (move), or only measured: the height they need there. Given less (a window
+        shorter than its parts need), the first line gives up the room and the last stays whole: the buttons stay in
+        sight, as in a row of Qt's own (they went under the window's edge), and words that wrap show whole lines."""
+        m, gap = self.contentsMargins(), self._gap()
+        r = rect.adjusted(m.left(), m.top(), -m.right(), -m.bottom())
+        laid = []  # [(the line, each one's width, each one's own height, the line's height)]
+        for line in self._lines(self._shown(), r.width()):
+            widths = [x[4] for x in line]
+            stretch = [k for k, x in enumerate(line) if x[2]]
+            if stretch:
+                room = r.width() - sum(w for k, w in enumerate(widths) if k not in stretch) - gap * (len(line) - 1)
+                for k, w in zip(stretch, _share(room, [line[k][4] for k in stretch], [line[k][3] for k in stretch])):
+                    widths[k] = w
+            own = []
+            for x, w in zip(line, widths):
+                h = x[0].heightForWidth(w) if x[0].hasHeightForWidth() else x[0].sizeHint().height()
+                if x[5] and len(line) == 1:  # (alone on its line: room for its rows of words)
+                    h = max(h, x[5] * x[0].widget().fontMetrics().lineSpacing())
+                own.append(h)
+            laid.append((line, widths, own, max(own)))
+        need = sum(tall for *_, tall in laid) + gap * max(0, len(laid) - 1)
+        if move:
+            y, short, between = r.y(), need - r.height(), gap
+            if short > 0 and len(laid) > 1:  # (the room between the lines goes first: the Guide's frame gives its
+                between = max(0, gap - short)  # window a pixel less than it measured)
+                short -= gap - between
+            for n, (line, widths, own, tall) in enumerate(laid):
+                if n == 0 and short > 0 and len(laid) > 1:
+                    tall = max(0, tall - short)
+                left = r.width() - sum(widths) - gap * (len(line) - 1)
+                x0 = r.x() + (left if self.right and not any(x[2] for x in line) else 0)
+                for x, w, h in zip(line, widths, own):
+                    # (words that wrap: as tall as they are, in the line's middle; when the line is shorter, as many
+                    # whole lines of them as it has room for)
+                    if x[0].hasHeightForWidth():
+                        if h > tall:
+                            spacing = x[0].widget().fontMetrics().lineSpacing()
+                            h = tall // spacing * spacing or tall
+                        x[0].setGeometry(QRect(x0, y + (tall - h) // 2, w, h))
+                    else:
+                        x[0].setGeometry(QRect(x0, y, w, tall))  # (in the middle of its line's height)
+                    x0 += w + gap
+                y += tall + between
+        return need + m.top() + m.bottom()
+
+
+class FoundList(QListWidget):
+    """Find…'s list (findList), its rows' widgets laid out again, as wide as the list, whenever it changes size: Qt
+    places them before it takes the list's new width, so a window made narrower left every row as wide as before,
+    its rig tag, Files, ✕ and Use out of sight with no way to scroll to them, until the list was drawn again (the
+    recheck, 2026-10-23: from 900 px to its smallest, 680, each row's Use ended at 855 in a list 644 wide)."""
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self.updateGeometries()  # (once more, the list's new width known now)
+
+
+class FilesButton(QPushButton):
+    """Files: a measurement's files shown under its row (to tick or untick one by one), or hidden again. Windows 11's
+    chevron after its word, as on a button with a menu (the theme's own picture, in the same place: theme_sheet's
+    buttons part), down while they're hidden and up while they're shown (find_windows: findFiles, open="true"): drawn
+    as Qt draws a menu button's, this one having no menu (it opens its files in the list). It was "Files ▾" / "Files
+    ▴", typed triangles, where the app uses Windows 11's chevrons (the recheck, 2026-10-23)."""
+
+    def __init__(self, shown):
+        super().__init__("Files")
+        self.setObjectName("findFiles")
+        self.setProperty("open", "true" if shown else "false")
+        self.setAccessibleDescription("Hides its files" if shown else "Shows its files under it")
+
+    def _option(self):
+        opt = QStyleOptionButton()
+        self.initStyleOption(opt)
+        opt.features |= QStyleOptionButton.ButtonFeature.HasMenu  # (the chevron at its right, its word before it)
+        return opt
+
+    def sizeHint(self):
+        s = super().sizeHint()  # (and room for the chevron, as Qt gives a button with a menu)
+        return QSize(s.width() + self.style().pixelMetric(QStyle.PM_MenuButtonIndicator, self._option(), self),
+                     s.height())
+
+    def minimumSizeHint(self):
+        return self.sizeHint()
+
+    def paintEvent(self, _e):
+        p = QStylePainter(self)
+        p.drawControl(QStyle.CE_PushButton, self._option())
+        p.end()
+
+
 class Picker(QDialog):
     def __init__(self, page, kind):
         super().__init__(page)
         self.page, self.kind = page, kind
         self.svc, self.meta = page.svc, page.meta
         self.setWindowTitle("Find a target" if kind == "target" else "Find a measurement")
-        # (the smallest: four rows or so of the list in sight; both within the screen's free room)
-        fit_to_screen(self, (900, 720), (None, 420))
+        # (its smallest: 680 wide, where its filters still fit on one line (narrower, as in the Guide's frame for it,
+        # they take two: Lines), and four rows or so of the list in sight; both within the screen's free room)
+        fit_to_screen(self, (900, 720), (680, 420))
         saved = page.sw.s.get("picker") or {}
         self.filters = {k: dict(ANY, **(saved.get(k) or {})) for k in ("target", "measurement")}
         self.src, self.expanded, self.busy, self._fetching = "", set(), None, False
@@ -113,14 +333,16 @@ class Picker(QDialog):
             srcs.addWidget(b)
         srcs.addStretch(1)
         v.addLayout(srcs)
-        fl = QHBoxLayout()
-        # (the filters' lists open with a search box: the sources alone are over 150)
-        self.f_rig, self.f_form, self.f_site = SearchCombo(), SearchCombo(), SearchCombo()
+        # (on one line, or on two when the window is narrower than that: the boxes, then the ticks under them)
+        self.filter_lines = fl = Lines()
+        # (the filters' lists open with a search box: the sources alone are over 150; a choice longer than its box
+        # ends in "…")
+        self.f_rig, self.f_form, self.f_site = NameCombo(), NameCombo(), NameCombo()
         for box, key in ((self.f_rig, "rig"), (self.f_form, "form"), (self.f_site, "site")):
             box.setAccessibleName({"rig": "Rig", "form": "Type", "site": "Source"}[key])
             box.setMinimumContentsLength(10)  # (at 10.5 pt, 14 kept the window wider than the Guide's room for it)
             box.activated.connect(lambda _i, box=box, key=key: self.set_filter(key, box.currentData()))
-            fl.addWidget(box, 1)
+            fl.add(box, first=True, stretch=True, least=choice_room)
         self.f_sure = QCheckBox("Stated rig")
         self.f_sure.setToolTip("Only those whose source states the rig (not a database's usual rig: a “?”)")
         self.f_sure.toggled.connect(lambda on: self.set_filter("sure", on))
@@ -133,32 +355,37 @@ class Picker(QDialog):
         self.f_clear = QPushButton("Clear filters")
         self.f_clear.clicked.connect(self.clear_filters)
         for w in (self.f_sure, self.f_dl, self.f_clear):
-            fl.addWidget(w)
+            fl.add(w)
         v.addLayout(fl)
-        self.list = QListWidget()
+        self.list = FoundList()  # (its rows laid out again whenever it changes size)
         self.list.setObjectName("findList")  # (its rows' widgets get the whole row: theme_sheet's find_windows)
         self.list.setAccessibleName("Found")
         self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.list.itemDoubleClicked.connect(lambda it: it.data(Qt.UserRole) and self.choose(it.data(Qt.UserRole)))
         self.list.currentItemChanged.connect(lambda *_: self._mark_use())
         v.addWidget(self.list, 1)
-        bottom = QHBoxLayout()
+        # (the status line beside the buttons, or above them when it would have less than STATUS_LEAST there)
+        bottom = Lines(right=True)
         self.status = QLabel()
         self.status.setWordWrap(True)  # (on one line its words kept the window over 1,000 px wide at 10.5 pt)
+        self.status.setAlignment(Qt.AlignLeft | Qt.AlignTop)  # (shorter than its words: its first lines whole; Lines
+        # puts it in the middle of its line otherwise)
         theme.mark(self.status, role="muted")
-        bottom.addWidget(self.status, 1)
+        # (above them, room for two lines: while the lists load it says "Loading online lists…", one line, then two
+        # once they're in, and the Guide's frame, sized while they load, came out a line short at the app's smallest)
+        bottom.add(self.status, first=True, stretch=True, least=STATUS_LEAST, rows=2)
         sources = QPushButton("Sources…")
         sources.setToolTip("Which folders on this PC and which online databases Find… searches; add a database")
         sources.clicked.connect(self.open_sources)
-        bottom.addWidget(sources)
+        bottom.add(sources)
         trace = QPushButton("Trace a graph image…")
         icons.put(trace, "trace")
         trace.setToolTip("Only a picture of the graph? Trace it into a curve (as picker.js's link)")
         trace.clicked.connect(lambda: (self.reject(), self.page.open_trace()))
-        bottom.addWidget(trace)
+        bottom.add(trace)
         close = QPushButton("Close")
         close.clicked.connect(self.reject)
-        bottom.addWidget(close)
+        bottom.add(close)
         v.addLayout(bottom)
         self._later = QTimer(self, singleShot=True, interval=80, timeout=self.render)
         self._pending, self._more = [], QTimer(self, singleShot=True, interval=0, timeout=self._make_more)
@@ -418,6 +645,7 @@ class Picker(QDialog):
             chk.blockSignals(False)
         self.f_dl.setVisible(self.kind != "target")
         self.f_clear.setVisible(any(f.values()))
+        self.filter_lines.invalidate()  # (the boxes' choices changed: the room they ask for too)
 
     # ---------------------------------------------------------------- the list
     def render(self):
@@ -574,12 +802,13 @@ class Picker(QDialog):
         eye.setVisible(not r.get("link"))
         text = QVBoxLayout()
         text.setSpacing(0)
-        name = QLabel(("✓ " if r.get("current") else "") + r["name"])
+        # (a long name ends in "…", never the buttons cut: it was cut mid-letter, "…(L800 IEI", in the Guide's frame)
+        name = Elided(("✓ " if r.get("current") else "") + r["name"])
         name.setObjectName("findRowName")  # (semibold: theme_sheet's find_windows)
         name.setToolTip(r["name"])
-        name.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)  # (a long name is cut, never the buttons)
+        name.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)  # (the room left for it, whatever its length)
         text.addWidget(name)
-        sub = QLabel("Downloading…" if self.busy == r["key"] else r["sub"])
+        sub = Elided("Downloading…" if self.busy == r["key"] else r["sub"])
         theme.mark(sub, role="muted")
         sub.setToolTip(r["sub"])
         sub.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
@@ -597,7 +826,7 @@ class Picker(QDialog):
             h.addWidget(other)
         if r["src"] == "app":
             if r.get("device"):
-                b = QPushButton("Files ▴" if r["device"]["name"] in self.expanded else "Files ▾")
+                b = FilesButton(r["device"]["name"] in self.expanded)  # (Windows 11's chevron after "Files")
                 b.setToolTip("Tick or untick single files (seatings, left and right)")
                 b.clicked.connect(lambda _=False, d=r["device"]["name"]: self.toggle_expand(d))
                 h.addWidget(b)

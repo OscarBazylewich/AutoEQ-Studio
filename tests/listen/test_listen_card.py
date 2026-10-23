@@ -421,3 +421,26 @@ def test_paste_ok_is_the_main_action(card, monkeypatch, check):
     check("listen: Paste filters… asks in a window whose OK is its main action (the accent); cancelled, nothing is "
           "added and the window goes", seen == {"ok": "true", "title": "Paste filters"} and len(lis.pins) == n
           and left == 0, (seen, len(lis.pins), n, left))
+
+
+def test_add_buttons_symbol(card, check):
+    # (the recheck, 2026-10-23: The selected EQ, An EQ file… and Paste filters… began with a typed "+", where every other
+    # Add has Windows 11's add symbol; the Guide's step about your EQs to compare finds them by their words)
+    from PySide6.QtCore import QSize
+
+    from ui import guide, icons, theme
+    page, lis = card.page, card.lis
+    words = ["The selected EQ", "An EQ file…", "Paste filters…"]
+    adds = [next((b for b in lis.findChildren(QPushButton) if b.text().lstrip("+ ") == w), None) for w in words]
+    t, size = theme.tokens(), QSize(22, 16)
+    want = icons.glyph("add", t["ink"], on_colour=t["on_accent"], off_colour=t["disabled"]).pixmap(size).toImage()
+    seen = [(b.text(), _read_as(b), not b.icon().isNull() and b.icon().pixmap(size).toImage() == want)
+            if b is not None else None for b in adds]
+    step = next(s for s in guide.eq_steps(page) if s["title"] == "Your EQs to compare")
+    pointed = [d["at"]() for d in step["demo"]]
+    check("listen: the three that add an EQ to compare (The selected EQ, An EQ file…, Paste filters…) show Windows 11's "
+          "add symbol beside their words, no typed “+”, and a screen reader reads what each adds; the Guide's step "
+          "points at each of them",
+          seen == [("The selected EQ", "Add the selected EQ", True), ("An EQ file…", "Add an EQ file…", True),
+                   ("Paste filters…", "Add filters you paste…", True)] and pointed == adds,
+          (seen, [b.text() if b is not None else None for b in pointed]))

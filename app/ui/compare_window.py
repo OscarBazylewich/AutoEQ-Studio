@@ -6,15 +6,17 @@ agree, the seal, averaging and the data), with the reasons for each.
   are on your target's rig, dotted ones on others; while the mouse is over an average's box, that average (green)
 - Use: the measurement into the app and in use (downloaded first when it's online)
 - Average and use: measurements on one rig averaged into one (unit and fit differences even out); ticked by default,
-  except one far from the others (a fit problem?) and the same data published twice
+  except one far from the others (a fit problem?) and the same data published twice; not offered when they're all
+  copies of one measurement
 Offline (net.py): what's on this PC and in the app is compared; online measurements downloaded before too; the others
 are listed under "Couldn't load".
 
 The look (Windows 11's; theme_sheet's find_windows part matches the names given here): the chart on a card in the
 graph's own colours (blue the recommended one, green the average: never the accent, which is Windows' and may be any
 colour), drawn again when the theme changes; a note to heed as a warning box (its symbol read as "Warning"); each
-measurement a card, filled while the mouse is over it; the accent on one button only, the main action: the first
-average's when one is offered, else the first measurement's Use (Compare is plain: Enter in the model's box runs it).
+measurement and each average a card (its words starting where every card's do), filled while the mouse is over it;
+the accent on one button only, the main action: the first average's when one is offered, else the first
+measurement's Use (Compare is plain: Enter in the model's box runs it).
 Its size kept within the screen's free room (picker.fit_to_screen): on a short screen (a laptop at 150 %) the chart
 and the measurements' list give up height, so Close stays in sight.
 """
@@ -34,6 +36,10 @@ from ui.picker import fit_to_screen
 from ui.search_combo import SearchCombo
 
 TICKS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
+# (a measurement's or an average's box is a card frame, whose padding leaves 4 px for its layout's own margin: with Qt's
+# 9 its words started 5 px further in than a card's, 16 px inside its border as Make an EQ's cards. The recheck,
+# 2026-10-23)
+CARD_MARGINS = (4, 4, 4, 4)
 
 
 class _Row(QFrame):
@@ -274,6 +280,7 @@ class CompareWindow(QDialog):
         row.setObjectName("whichRow")  # (filled while the mouse is over it: theme_sheet's find_windows)
         theme.mark(row, card=True)
         h = QHBoxLayout(row)
+        h.setContentsMargins(*CARD_MARGINS)
         rank = QLabel(str(i + 1))
         rank.setObjectName("whichRank")
         rank.setFixedWidth(30)
@@ -356,6 +363,11 @@ class CompareWindow(QDialog):
                     if p["hash"] not in copy_of and np.sqrt(np.mean((np.asarray(c["vals"]) - np.asarray(p["vals"])) ** 2)) < 0.25:
                         copy_of[c["hash"]] = p
                         break
+            # (copies of one measurement only, e.g. the same files in two folders of this PC: nothing to average. Their
+            # box offered only "Tick at least 2", the copy left out, once your own files' rigs were known: the recheck,
+            # 2026-10-23)
+            if len(lst) - len(copy_of) < 2:
+                continue
             if rig not in self.picked:
                 self.picked[rig] = {c["hash"] for c in lst if (c.get("dev") is None or c["dev"] < 2) and c["hash"] not in copy_of}
             sel = self.picked[rig]
@@ -363,6 +375,7 @@ class CompareWindow(QDialog):
             box.setObjectName("whichAverage")  # (filled while the mouse is over it: theme_sheet's find_windows)
             theme.mark(box, card=True)
             bv = QVBoxLayout(box)
+            bv.setContentsMargins(*CARD_MARGINS)
             head = QHBoxLayout()
             title = QLabel(f"Average the {len(lst)} measurements on the {lst[0]['rig_name']}")
             title.setObjectName("whichName")  # (semibold)

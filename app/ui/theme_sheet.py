@@ -347,7 +347,7 @@ def find_windows(t, img):
     icon font; Segoe MDL2 Assets on Windows 10); a row's quiet ✕, pointed at or pressed, as Windows 11 fills a quiet
     button: the text's colour at 6 % (4 % pressed) laid over the row's own fill under the mouse (the quiet buttons'
     usual fill is the same colour as a pointed-at row's, so on a row it showed nothing; a contrast theme keeps it in
-    sight too).
+    sight too); Files' chevron (#findFiles: drawn as a menu button's, buttons()) turned up while its files are shown.
     Sources: its tree of databases as the lists (a card with rounded corners, whole rows filled when pointed at or
     chosen; their ticks say which are on). Which measurement: the rank, a measurement's name, its reasons (+ good,
     − not), the warning symbol of a note to heed, its chart's card, and a box filled while the mouse is over it (its
@@ -359,6 +359,7 @@ def find_windows(t, img):
     QListWidget#findList::item:disabled:hover {{ background: transparent; }}
     QListWidget#findList QPushButton[quiet="true"]:hover {{ background: {veil("0f")}; }}
     QListWidget#findList QPushButton[quiet="true"]:pressed {{ background: {veil("0a")}; }}
+    QPushButton#findFiles[open="true"]::menu-indicator {{ image: url({img['chevron_up']}); }}
     QLabel#findRowName {{ font-weight: 600; }}
     QLabel#findMark, QLabel#whichNoteMark {{ font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets"; font-size: 12pt;
         color: {t['muted']}; padding: 0px 2px; }}

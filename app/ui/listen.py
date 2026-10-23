@@ -4,11 +4,13 @@
 - the versions: EQ off, the selected EQ (as edited) and this IEM's EQs to compare; click one or press 1-9; Blind
   test hides which is which until Reveal; Ears: both the same, or a different version in each ear (Swap)
 - the tone's frequency slider (and its range); the sweep's and the tone's frequency shown on the graph
-- your EQs to compare (eq.service /api/listen: one list per IEM, kept between sessions, 12 at most): + The selected
-  EQ, + An EQ file…, + Paste filters…; each renamed in place, on the graph or not, ✕ removed
+- your EQs to compare (eq.service /api/listen: one list per IEM, kept between sessions, 12 at most): The selected
+  EQ, An EQ file…, Paste filters… (each with Windows 11's add symbol); each renamed in place, on the graph or not, ✕
+  removed
 - the device's own EQ (Devices) plays on top of what you hear here: said, with a button to switch it off
 
-The look is Windows 11's (2026-10-23): Windows' symbols beside Play / Stop, Undo, Choose a file… and Swap; each version
+The look is Windows 11's (2026-10-23): Windows' symbols beside Play / Stop, Undo, Choose a file…, Swap and the three
+that add an EQ to compare (its add symbol, as every other Add has, where they began with a typed "+"); each version
 marked on its left in its curve's colour on the graph, and the same colour beside each EQ to compare (the property
 listen_mark, matched in ui\\theme_sheet.py's listen part, so light, dark and Windows' accent change them live); the
 versions in as many rows as the card needs; your EQs to compare in columns, each ✕ quiet (no fill until pointed at)
@@ -274,12 +276,17 @@ class Listen(QGroupBox):
         self._undo_timer = QTimer(self, singleShot=True, interval=15000, timeout=self.undo_row.hide)
         help_window.tag(head, "snd_list")
         add = QHBoxLayout()
-        for text, fn in (("+ The selected EQ", self.add_selected), ("+ An EQ file…", self.add_file),
-                         ("+ Paste filters…", self.add_paste)):
+        # (Windows 11's add symbol before their words, as every other Add: they began with a typed "+"; a screen reader
+        # reads what each does, the symbol being read as nothing)
+        for text, name, fn in (("The selected EQ", "Add the selected EQ", self.add_selected),
+                               ("An EQ file…", "Add an EQ file…", self.add_file),
+                               ("Paste filters…", "Add filters you paste…", self.add_paste)):
             b = QPushButton(text)
+            icons.put(b, "add")
+            b.setAccessibleName(name)
             b.clicked.connect(fn)
             add.addWidget(b)
-            if text == "+ The selected EQ":
+            if text == "The selected EQ":
                 self.add_sel_btn = b
         add.addStretch(1)
         v.addLayout(add)

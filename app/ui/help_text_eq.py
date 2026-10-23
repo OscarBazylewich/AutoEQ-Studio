@@ -500,9 +500,9 @@ SETTINGS_EQ = [{'title': 'Choosing and running',
                            'title': 'Your EQs to compare',
                            'body': ['EQs to hear side by side on this IEM or headphone: each is a version above (keys '
                                     '1–9) and, while Graph is ticked, a curve on the graph. Add the EQ on the result '
-                                    'card (Keep to compare, or + The selected EQ), one from History (Listen), an EQ '
-                                    'file or pasted filters. Edit a name to rename it. Each measurement has its own '
-                                    'list, kept between sessions (up to 12).']}]},
+                                    'card (Keep to compare, or “The selected EQ” under the list), one from History '
+                                    '(Listen), an EQ file or pasted filters. Edit a name to rename it. Each '
+                                    'measurement has its own list, kept between sessions (up to 12).']}]},
                {'title': 'Finding curves and History',
                 'items': [{'key': '#pk-anykind',
                            'title': 'Targets and measurements',

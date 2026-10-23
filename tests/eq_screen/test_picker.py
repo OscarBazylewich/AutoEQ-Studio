@@ -3,7 +3,9 @@ its long list drawn in batches and keeping its place, asking only for the lists'
 the rig filter, Show (a curve on the graph without using it), an online entry offline, Use (a file from this PC into
 the app, with Undo); Enter in Find…'s and History's search boxes pressing no button; and every list A to Z. Its
 Windows 11 look (the restyle, 2026-10-23): rows whole at the new text size, the accent on one Use only, each row's ✕
-quiet, the download mark read as words, and its size within a laptop's screen at 150 % and 175 % (stood in).
+quiet, the download mark read as words, and its size within a laptop's screen at 150 % and 175 % (stood in); and the
+recheck's (the same day): its rows as wide as the list after it's made narrower, everything whole in a frame as
+narrow as the Guide's (its filters on two lines, a long name ending in "…"), Files with Windows 11's chevron.
 
 Moved from eq_checks.py's ui_checks (lines 1380-1472), review_checks (1743-1763), review_low_checks (1862-1881) and
 order_checks (2324-2380), on one page (the eq_screen fixture), offline throughout.
@@ -561,3 +563,176 @@ def test_fits_a_small_screen(eq_screen, monkeypatch, check):
           "sight); on a big screen it opens as before",
           all(seen[h]["fits"] and seen[h]["bottom row in sight"] for _w, h in SMALL_SCREENS)
           and big["opens"] == (900, 720) and big["smallest"] == 420 and big["bottom row in sight"], seen)
+
+
+# ---------------------------------------------------------------- the recheck's (2026-10-23)
+def _rows_in_sight(pk):
+    """[(the row's width, where its last control ends)] of each of Find…'s rows in sight, in the list's own
+    coordinates, and the list's width."""
+    from PySide6.QtCore import QPoint, QRect
+    from PySide6.QtWidgets import QWidget
+    vp, out = pk.list.viewport(), []
+    for i in range(pk.list.count()):
+        w = pk.list.itemWidget(pk.list.item(i))
+        if w is None or not w.isVisible():
+            continue
+        r = QRect(w.mapTo(vp, QPoint(0, 0)), w.size())
+        if r.bottom() < 0 or r.top() >= vp.height():  # (scrolled out of sight)
+            continue
+        ends = [c.mapTo(vp, QPoint(c.width(), 0)).x() for c in w.findChildren(QWidget) if c.isVisible()]
+        out.append((r.width(), max(ends, default=0)))
+    return out, vp.width()
+
+
+def test_rows_follow_a_narrower_window(eq_screen, check):
+    # (the recheck, 2026-10-23: made narrower after it opened, e.g. dragged from 900 to its smallest, 680, Find… kept
+    # every row as wide as before: each row's rig tag, Files, ✕ and Use ended at x 855 in a list 644 wide, out of sight
+    # with no sideways scrolling, until the list was drawn again. Qt places the rows' widgets before it takes the
+    # list's new width; narrower at the same height too, where a list laid out again on each resize still kept them)
+    pk = _shown_picker(eq_screen.page, "")  # (900 x 720, as it opens on a big screen)
+    seen = {}
+
+    def look(name, tall=True):
+        rows, wide = _rows_in_sight(pk)
+        seen[name] = {"window": pk.size().toTuple(), "list": wide, "rows (width, last control ends)": rows[:3],
+                      "ok": tall and len(rows) >= 3 and all(w == wide and end <= wide for w, end in rows)}
+    try:
+        for name, size in (("its smallest", (1, 1)), ("wider again", (1000, 700))):
+            pk.resize(*size)
+            qt.pump(300)
+            look(name)
+        # (narrower at the same height: the list exactly as tall, which a list laid out again on each resize misses.
+        # Its status line may wrap onto one more line as the window narrows, making the list shorter: a step of 20 px
+        # at a time until one keeps it as tall)
+        for width in range(980, 800, -20):
+            high = pk.list.viewport().height()
+            pk.resize(width, 700)
+            qt.pump(300)
+            if pk.list.viewport().height() == high:
+                break
+        look("narrower, as tall", pk.list.viewport().height() == high)
+    finally:
+        _close(pk)
+    bad = {name: s for name, s in seen.items() if not s["ok"]}
+    check("restyle: Find… made narrower after it opens (900 to its smallest, or narrower at the same height) lays its "
+          "rows out again, as wide as the list: every row's controls (its rig tag, Files, ✕, Use) stay in sight; and "
+          "made wider again",
+          seen["its smallest"]["window"] == (680, 420) and len(seen) == 3 and not bad, bad or seen)
+
+
+def _in_the_guides_frame(page, kind, width):
+    """What Find… for `kind` shows `width` px wide, inside a window as the Guide's frame holds it (tour.Api.window: its
+    own smallest size taken away, the frame's room deciding; as tall as its parts need at that width, measured as it
+    opens, while its lists are still loading), once its lists are in, searching for the sample's long name (the
+    device's, the target's: in the app whatever the tests before put there)."""
+    from PySide6.QtCore import QPoint, QRect, Qt
+    from PySide6.QtWidgets import QAbstractButton, QDialog, QLabel, QWidget
+    from ui.picker import Picker
+    holder = QDialog(page)
+    holder.resize(width + 100, 900)
+    pk = Picker(page, kind)
+    try:
+        pk.setMinimumSize(0, 0)
+        pk.setParent(holder, Qt.Widget)
+        holder.ensurePolished()  # (in the theme's text, as the Guide measures it)
+        tall = max(pk.minimumSizeHint().height(), pk.layout().minimumHeightForWidth(width))  # (as the frame asks)
+        pk.setGeometry(0, 0, width, tall - 1)  # (and as it gives: a pixel less, at the app's own sizes)
+        holder.show()
+        pk.show()
+        qt.wait_for(lambda: not pk.db.get("loading") and not pk.lib.get("scanning"), 120)
+        pk.q.setText("wide bore" if kind == "measurement" else "diffuse field")
+        pk._later.stop()
+        pk.render()
+        pk.finish_list()
+        qt.pump(300)
+        parts = [w for w in pk.findChildren(QWidget) if w.parentWidget() is pk and w.isVisible()]
+        over = [(type(a).__name__, type(b).__name__) for i, a in enumerate(parts) for b in parts[i + 1:]
+                if a.geometry().intersects(b.geometry())]
+        cut = [b.text() for b in pk.findChildren(QAbstractButton) if b.parentWidget() is pk and b.isVisible()
+               and (b.width() < b.sizeHint().width() or not pk.rect().contains(b.geometry()))]
+
+        def drawn(w):
+            """A box's choice or a row's name as drawn: whole, or ending in "…" (one that can't say: cut when it's
+            longer than its room)."""
+            if hasattr(w, "shown_text"):
+                return w.shown_text()
+            words = w.currentText() if hasattr(w, "currentText") else w.text()
+            return words if w.fontMetrics().horizontalAdvance(words) <= w.width() - (36 if hasattr(w, "currentText")
+                                                                                     else 0) else "(cut)"
+        vp = pk.list.viewport()
+        names = [(lab.text(), drawn(lab)) for lab in pk.list.findChildren(QLabel, "findRowName") if lab.isVisible()
+                 and QRect(lab.mapTo(vp, QPoint(0, 0)), lab.size()).intersects(vp.rect())]
+        rows, wide = _rows_in_sight(pk)
+        st = pk.status
+        return {"filters on lines": 2 if pk.f_sure.y() > pk.f_rig.geometry().bottom() else 1, "over": over,
+                "cut buttons": cut,
+                "boxes (words, drawn, width, smallest)": [(b.currentText(), drawn(b), b.width(),
+                                                           b.minimumSizeHint().width())
+                                                          for b in (pk.f_rig, pk.f_form, pk.f_site)],
+                "names (text, drawn)": names[:3],
+                "status (width, height, needs)": (st.width(), st.height(), st.heightForWidth(st.width())),
+                "rows ok": bool(rows) and all(end <= wide for _w, end in rows)}
+    finally:
+        _close(holder)
+
+
+def test_whole_in_the_guides_frame(eq_screen, check):
+    # (the recheck, 2026-10-23: in the Guide's frame for it, 598 px wide at the app's own size and 523 at its smallest,
+    # Find… was squeezed under its one line of filters: its boxes read "Any sour", "Any ri", "Any ty", "Made for any
+    # ty", its tick "Downloadal"; the in-use row's name was cut mid-letter, "…(L800 IEI", and the status line stopped
+    # mid-sentence)
+    seen = {(kind, width): _in_the_guides_frame(eq_screen.page, kind, width)
+            for kind in ("measurement", "target") for width in (598, 523)}
+
+    def whole(s):
+        boxes, names, (_w, high, needs) = (s["boxes (words, drawn, width, smallest)"], s["names (text, drawn)"],
+                                           s["status (width, height, needs)"])
+        return (not s["over"] and not s["cut buttons"] and s["rows ok"] and high >= needs
+                and all(words == drawn and w >= low for words, drawn, w, low in boxes)
+                and names and all(d == t or (d.endswith("…") and t.startswith(d[:-1])) for t, d in names))
+    bad = {f"{kind} at {width}": s for (kind, width), s in seen.items()
+           if not whole(s) or width == 523 and (s["filters on lines"] != 2  # (the narrowest: two lines, a name shortened)
+                                                or all(d == t for t, d in s["names (text, drawn)"]))}
+    check("restyle: Find…, for a measurement or a target, as narrow as the Guide's frame for it (598 px at the app's "
+          "own size, 523 at its smallest): its filters on two lines when they don't fit on one, every box's choice "
+          "and every button's and tick's words whole, nothing over another, a long name ending in “…”, the status "
+          "line whole", len(seen) == 4 and not bad, bad)
+
+
+def test_files_with_windows_chevron(eq_screen, check):
+    # (the recheck, 2026-10-23: a measurement's Files was "Files ▾" / "Files ▴", typed triangles, where the app now
+    # draws Windows 11's chevron, as on every button with a menu: the theme's own picture, in the same place)
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QMenu, QPushButton
+    pk = _shown_picker(eq_screen.page, "")
+    seen = {}
+    try:
+        app_row = next(pk.list.item(i).data(Qt.UserRole) for i in range(pk.list.count())
+                       if (pk.list.item(i).data(Qt.UserRole) or {}).get("device"))
+
+        def files_button():
+            return next(b for b in pk.list.findChildren(QPushButton) if b.isVisible() and b.text().startswith("Files"))
+        for state in ("hidden", "shown"):
+            if state == "shown":
+                pk.toggle_expand(app_row["device"]["name"])
+                pk.finish_list()
+                qt.pump(200)
+            b = files_button()
+            like = QPushButton(b.text(), b.parentWidget())  # (a button with a menu, beside it in its row)
+            like.setMenu(QMenu(like))
+            like.resize(b.size())
+            like.show()
+            qt.pump(50)
+            same = b.grab().toImage() == like.grab().toImage()
+            seen[state] = {"words": b.text(), "as wide": b.sizeHint() == like.sizeHint(), "drawn as it": same,
+                           "picture": b.grab().toImage()}
+            like.deleteLater()
+    finally:
+        _close(pk)
+    pictures = [s.pop("picture") for s in seen.values()]
+    check("restyle: Find…'s Files shows Windows 11's chevron after its word, as a button with a menu draws it (the "
+          "theme's picture, its room, its place), down while the files are hidden and turned up while they're shown "
+          "(no typed ▾ or ▴)",
+          seen["hidden"] == {"words": "Files", "as wide": True, "drawn as it": True}
+          and seen["shown"]["words"] == "Files" and seen["shown"]["as wide"] and not seen["shown"]["drawn as it"]
+          and pictures[0] != pictures[1], seen)
