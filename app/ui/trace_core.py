@@ -618,7 +618,8 @@ class Tracer:
         # along them; now it's a gap there, bridged
         # (only for a grey curve: coloured ones are kept apart by their colours, and the right channel running beside
         # the left was cut where they touched)
-        others = [o["ys"] for i, o in enumerate(self.curves) if i != self.cur and self.has_data(o)]             if max(c) - min(c) < GREY + 25 else []
+        others = [o["ys"] for i, o in enumerate(self.curves) if i != self.cur and self.has_data(o)] \
+            if max(c) - min(c) < GREY + 25 else []
         mine_at = lambda x, r: not any(r[0] - t - 1 <= o[x] <= r[1] + t + 1 for o in others)
         for direction in (-1, 1):
             y_prev, x_prev, slope, gap = got[x0], x0, 0.0, 0

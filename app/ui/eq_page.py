@@ -180,7 +180,8 @@ class EqPage(EqCards, EqGraph, EqFiles, EqResult, EqHistory, QWidget):
         a = self.eq_app(key) if key not in ("", "other") else None
         if a:
             import html
-            own = self.S["best_fit"].get("layout") == a.get("layout") or a.get("kind") == "site"                 or key != (self.S.get("eq_app") or "")  # (another app, as the Guide shows it: its own limits)
+            own = self.S["best_fit"].get("layout") == a.get("layout") or a.get("kind") == "site" \
+                or key != (self.S.get("eq_app") or "")  # (another app, as the Guide shows it: its own limits)
             text = html.escape(f"{a.get('note') or a.get('summary')}"
                                + (" Its band shapes aren't stated, so the app's result can differ a little." if a.get("approx") else "")
                                + f" {a.get('how', '')}"
