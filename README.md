@@ -29,8 +29,10 @@ It's a native desktop app (Python and Qt), not a web page, and works offline.
   into a measurement, reading the axes with Windows' own text reader.
 - **Device switching:** profiles for each device, a tray icon, a hotkey, notices, and a check that asks Equalizer
   APO whether the EQ really plays.
-- **Help built in:** a guided tour with demos, Help for every term and setting (F1 on any control), light and dark
-  themes, keyboard and screen-reader support.
+- **Help built in:** a guided tour with demos, Help for every term and setting (F1 on any control), keyboard and
+  screen-reader support.
+- **Windows 11's look:** its colours, type and symbols, light or dark as Windows is, in your Windows accent colour,
+  with Mica behind the window (Windows 10 gets the same look on a plain background).
 
 ## Screenshots
 

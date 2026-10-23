@@ -66,6 +66,9 @@ icon's right-click menu. Starting it again while it runs just shows its window.
 The top bar has the screens (Make an EQ, Devices, Profiles, Settings) and, on the right, Presets (on Make an EQ),
 Guide, Help and Online / Offline. The window is light or dark as Windows is (Settings > Personalization > Colors), and changes with it;
 with one of Windows' contrast themes on (Settings > Accessibility > Contrast themes) it uses that theme's colours.
+It looks like Windows 11's own apps: the main buttons, ticks and what's chosen are in your Windows accent colour (on
+the same Colors page), and on Windows 11 the window's background is Mica, tinted by your desktop picture (plain
+while the window isn't the active one, or with Transparency effects off).
 Every control can be reached with Tab (the top bar's screens with the arrow keys) and has a name a screen reader
 says.
 
