@@ -237,8 +237,35 @@ def eq_windows(t, img):
 
 
 def find_windows(t, img):
-    """Find…, Sources and Which measurement."""
-    return ""
+    """Find…, Sources and Which measurement (ui\\picker.py, sources_window.py, compare_window.py). Find…: its list's
+    rows without padding (Qt puts a row's widgets inside it: the lists' 7 px cut its buttons and names; headings and
+    notes keep a little at the sides), a result's name (semibold) and its download mark (Windows 11's symbol, from its
+    icon font; Segoe MDL2 Assets on Windows 10).
+    Sources: its tree of databases as the lists (a card with rounded corners, whole rows filled when pointed at or
+    chosen; their ticks say which are on). Which measurement: the rank, a measurement's name, its reasons (+ good,
+    − not), the warning symbol of a note to heed, its chart's card, and a box filled while the mouse is over it (its
+    curve is the one on top)."""
+    return f"""
+    QListWidget#findList::item {{ padding: 0px; }}
+    QListWidget#findList::item:disabled {{ padding: 0px 8px; }}
+    QListWidget#findList::item:disabled:hover {{ background: transparent; }}
+    QLabel#findRowName {{ font-weight: 600; }}
+    QLabel#findMark, QLabel#whichNoteMark {{ font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets"; font-size: 12pt;
+        color: {t['muted']}; padding: 0px 2px; }}
+    QLabel#whichNoteMark {{ color: {t['warn']}; padding: 1px 4px 0px 0px; }}
+    QTreeWidget#sourcesTree {{ background: {t['card']}; border: 1px solid {t['line']}; border-radius: 8px;
+        outline: none; padding: 2px; show-decoration-selected: 1; }}
+    QTreeWidget#sourcesTree QHeaderView, QTreeWidget#sourcesTree QHeaderView::section {{ background: transparent; }}
+    QTreeWidget#sourcesTree::item {{ padding: 4px 2px; }}
+    QTreeWidget#sourcesTree::item:hover {{ background: {t['subtle_hover']}; }}
+    QTreeWidget#sourcesTree::item:selected {{ background: {t['sel']}; color: {t['sel_ink']}; }}
+    QLabel#whichRank {{ font-family: "Segoe UI Variable Display"; font-size: 15pt; font-weight: 600; }}
+    QLabel#whichName {{ font-weight: 600; }}
+    QLabel[reason="plus"] {{ color: {t['good']}; }}
+    QLabel[reason="minus"] {{ color: {t['err']}; }}
+    QFrame#whichRow:hover, QFrame#whichAverage:hover {{ background: {t['subtle']}; }}
+    QFrame#whichChart {{ padding: 0px; }}
+"""
 
 
 def listen(t, img):
