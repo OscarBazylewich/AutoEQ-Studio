@@ -16,9 +16,9 @@ A value the automatic settings fill in becomes "yours" once you change it (kept 
 until handed back); with them off nothing changes by itself. Settings that change the curves (target adjustments,
 the scored range, the website's levelling, the rig conversion) draw the graph again.
 """
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QCheckBox, QFileDialog, QGridLayout, QHBoxLayout, QLabel, QMessageBox, QPushButton, QToolButton, QVBoxLayout,
-                               QWidget)
+from PySide6.QtCore import QEvent, Qt
+from PySide6.QtWidgets import (QCheckBox, QDialog, QFileDialog, QGridLayout, QHBoxLayout, QLabel, QMessageBox,
+                               QPushButton, QToolButton, QVBoxLayout, QWidget)
 
 from ui import help_window, icons, theme
 from ui.forms import Field, Fold, Form, Limits, fmt_list
@@ -50,6 +50,22 @@ def _muted_label(text):
 
 def _opts(values, names=None):
     return [(v, (names or {}).get(v, f"{v:g}" if isinstance(v, float) else str(v))) for v in values]
+
+
+class OwnFiltersWindow(QDialog):
+    """Your own filters' window: never shorter than its words and the view shown need at its width. Qt works out a
+    window's smallest height with a wrapped line of words counted as one line, so the note's second line came out of
+    the filter editor under it: in the Sliders view its bottom, the sideways scroll bar, was under OK and Cancel and
+    filters past the fifth couldn't be reached (2026-10-23). The smallest height is worked out again as the view
+    changes (the editor's height follows it) and as the window is made wider or narrower (the note wraps again)."""
+
+    def event(self, e):
+        done = super().event(e)
+        if e.type() in (QEvent.LayoutRequest, QEvent.Resize) and self.layout() is not None:
+            need = self.layout().totalMinimumHeightForWidth(self.width())
+            if need > 0 and need != self.minimumHeight():
+                self.setMinimumHeight(need)  # (made taller at once when it's shorter than that)
+        return done
 
 
 class EqSettings:
@@ -416,7 +432,7 @@ class EqSettings:
 
     def edit_own_filters(self):
         """Your own filters in the filter editor (as AutoEQ Local's own-filters table and sliders): OK writes them back."""
-        from PySide6.QtWidgets import QDialog, QDialogButtonBox
+        from PySide6.QtWidgets import QDialogButtonBox
         from ui.filter_editor import FilterEditor
         text = self.page.S["best_fit"].get("start_filters", "")
         r = self.page.svc.call("/api/filters/parse", {"text": text}) if text.strip() else {"filters": []}
@@ -426,9 +442,10 @@ class EqSettings:
             return
         filters = [{"enabled": True, "type": x.get("type", "PK"), "freq": x["freq"], "gain": x["gain"], "q": x["q"]}
                    for x in r.get("filters") or []]
-        dlg = QDialog(self.fold)
+        dlg = OwnFiltersWindow(self.fold)
         dlg.setWindowTitle("Your own filters")
         dlg.resize(820, 560)
+        dlg.setMinimumWidth(640)  # (it went down to 280: the table's boxes squeezed, one slider in sight)
         v = QVBoxLayout(dlg)
         v.setContentsMargins(16, 16, 16, 16)  # (a card's room around it, as Windows 11's own windows have)
         others = len([ln for ln in text.splitlines() if ln.strip()]) > len(filters)
@@ -470,7 +487,9 @@ class EqSettings:
         btns.accepted.connect(dlg.accept)
         btns.rejected.connect(dlg.reject)
         v.addWidget(btns)
-        if dlg.exec():
+        ok = dlg.exec()
+        dlg.deleteLater()  # (each opening made a window of its own, kept hidden under the Settings fold)
+        if ok:
             self.changed("best_fit.start_filters", "\n".join(self._apo_lines(filters)))
             self.page.status(f"{sum(f.get('enabled', True) is not False for f in filters)} filters to start from.", 5000)
 

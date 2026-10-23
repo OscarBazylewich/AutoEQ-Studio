@@ -4,7 +4,9 @@ natively). An EQ goes in when it's saved or copied, or after every run if Advanc
 The window lists them by day, newest first (a search over IEM, target and method; "This IEM only"). Each: Show (the
 EQ back on the graph and in the result card, with its files and curve settings when they're still in the app), Copy
 (its filters as Equalizer APO text), ✕ (removed). Clear the history… removes them all (saved files stay).
-Copy and Listen show Windows 11's symbols beside their words; ✕ is a subtle button (ui\\theme_sheet.py's eq_windows).
+Show, Copy and Listen show Windows 11's symbols beside their words; only the first row's Show (the newest of those
+listed) is in the accent, as Windows 11 keeps the accent for one main action (every row's was: a column of them);
+✕ is a subtle button (ui\\theme_sheet.py's eq_windows).
 A row's target is in the theme's quieter colour, redone when Windows switches light/dark (follow_theme, which
 Compare's graph uses too).
 """
@@ -19,6 +21,7 @@ from ui.theme_sheet import CARD
 
 FIRST_ROWS, ROWS_AT_ONCE = 40, 15  # (rows made at once, then a batch at a time: as Find…)
 MODE_SHORT = {"site_single": "Website AutoEQ", "site_sweep": "Website sweep", "best_fit": "Best fit", "autoeq": "AutoEq"}
+NBSP, NBH = chr(0xA0), chr(0x2011)  # (a space and a hyphen that never end a line: the words they join stay together)
 
 
 def follow_theme(window, redraw):
@@ -135,7 +138,7 @@ class HistoryWindow(QDialog):
             todo.append(lambda e=e: self._row(e))
         lay.addStretch(1)
         self._more.stop()
-        self._lay, self._todo, self._heads = lay, todo, []
+        self._lay, self._todo, self._heads, self._first_show = lay, todo, [], None
         self._make_more(len(todo) if keep else FIRST_ROWS)
         self.scroll.setWidget(body)
         if keep:  # (once laid out; the scroll bar its owner, so a window deleted meanwhile drops it, as Find…'s)
@@ -165,15 +168,23 @@ class HistoryWindow(QDialog):
         self._heads.append((head, e))
         text.addWidget(head)
         rms = e.get("rms")
-        sub = QLabel(f"{time_of(e['when'])} · {MODE_SHORT.get(e.get('mode'), e.get('mode'))} · {e.get('n_filters')} filter"
-                     f"{'' if e.get('n_filters') == 1 else 's'} · error {'–' if rms is None else f'{rms:.2f} dB'} · "
-                     f"pre-amp {self.page.preamp_text(e.get('preamp') or 0)} dB")
+        # (each part kept on one line, the line wrapping only between them: a narrower row, with Show's symbol, left
+        # "dB" alone on a line, or broke "pre-amp" at its hyphen)
+        parts = (time_of(e["when"]), str(MODE_SHORT.get(e.get("mode"), e.get("mode"))),
+                 f"{e.get('n_filters')} filter{'' if e.get('n_filters') == 1 else 's'}",
+                 f"error {'–' if rms is None else f'{rms:.2f} dB'}",
+                 f"pre{NBH}amp {self.page.preamp_text(e.get('preamp') or 0)} dB")
+        sub = QLabel((NBSP + "· ").join(p.replace(" ", NBSP) for p in parts))
         theme.mark(sub, role="muted")
         sub.setWordWrap(True)
         text.addWidget(sub)
         h.addLayout(text, 1)
         show = QPushButton("Show")
-        theme.mark(show, primary=True)
+        if self._first_show is None:  # (the first row's: the accent on one Show only)
+            self._first_show = show
+            theme.mark(show, primary=True)
+        icons.put(show, "view")  # (after the accent: its symbol is drawn in the accent's text colour then)
+        show.setToolTip("The EQ back on the graph and the result card, with its files when they're still in the app")
         show.clicked.connect(lambda: (self.page.bring_back(e), self.accept()))
         copy = QPushButton("Copy")
         icons.put(copy, "copy")  # (Windows 11's symbols beside the words of the common verbs)

@@ -7,6 +7,9 @@ The graph is drawn as Make an EQ's (in a card, the graph's own colours, never th
 EQ), B in its pink, the three told apart from the orange measurement by colour-blind eyes too (the dataviz checks;
 the graph's green failed them beside the orange); its legend at the bottom left, on the card's colour, where it
 hides the least. Redrawn when Windows switches light/dark or its accent colour.
+The numbers and both filter tables in Windows 11's table look, as Profiles and Run several (2026-10-23): no grid
+lines, each heading at the left over its words (the cells' room at the left: ui\\theme_sheet.py's eq_windows,
+#eqwNumbers and #eqwCmpFilters), rows told apart by their shade.
 """
 import numpy as np
 import pyqtgraph as pg
@@ -22,6 +25,16 @@ from ui.theme_sheet import CARD
 
 TYPES = {"PK": "Peak", "LSQ": "Low shelf", "HSQ": "High shelf", "LSC": "Low shelf", "HSC": "High shelf"}
 TICKS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]  # (as the EQ screen's graph)
+LEFT = Qt.AlignLeft | Qt.AlignVCenter  # (Windows 11's tables: words at the left, under their heading)
+
+
+def _table_look(t):
+    """Windows 11's table look: no grid lines, each heading at the left over its words, rows told apart by their
+    shade."""
+    t.setShowGrid(False)
+    t.setAlternatingRowColors(True)
+    t.horizontalHeader().setDefaultAlignment(LEFT)
+    t.horizontalHeader().setHighlightSections(False)
 
 
 def _filters(fs):
@@ -115,6 +128,7 @@ class CompareResults(QDialog):
         self.numbers.setObjectName("eqwNumbers")  # (room at the left of its cells: ui\theme_sheet.py)
         self.numbers.setAccessibleName("Their numbers")
         self.numbers.setHorizontalHeaderLabels(["", "A", "B"])
+        _table_look(self.numbers)
         self.numbers.verticalHeader().hide()
         self.numbers.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.numbers.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -124,8 +138,10 @@ class CompareResults(QDialog):
         self.tables = []
         for side in "AB":
             t = QTableWidget(0, 4)
+            t.setObjectName("eqwCmpFilters")  # (its cells' room at the left: ui\theme_sheet.py's eq_windows)
             t.setAccessibleName(f"Filters of {side}")
             t.setHorizontalHeaderLabels(["Type", "Hz", "Gain (dB)", "Q"])
+            _table_look(t)
             t.verticalHeader().hide()
             t.setEditTriggers(QAbstractItemView.NoEditTriggers)
             t.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -192,11 +208,11 @@ class CompareResults(QDialog):
             self.numbers.setItem(i, 0, QTableWidgetItem(name))
             for j, n in enumerate(nums):
                 it = QTableWidgetItem(fn(n))
-                it.setTextAlignment(Qt.AlignCenter)
+                it.setTextAlignment(LEFT)
                 self.numbers.setItem(i, j + 1, it)
         self.numbers.setItem(len(rows), 0, QTableWidgetItem("How far apart, at most (scored range)"))
         it = QTableWidgetItem(f"{apart:.1f} dB")
-        it.setTextAlignment(Qt.AlignCenter)
+        it.setTextAlignment(LEFT)
         self.numbers.setItem(len(rows), 1, it)
         self.numbers.setSpan(len(rows), 1, 1, 2)
         self.numbers.setFixedHeight(self.numbers.horizontalHeader().height()
@@ -208,7 +224,7 @@ class CompareResults(QDialog):
                 for j, text in enumerate((TYPES.get(x["type"], x["type"]) + ("" if x.get("enabled", True) else " (off)"),
                                           f"{x['freq']:g}", f"{x['gain']:+.1f}", f"{x['q']:g}")):
                     it = QTableWidgetItem(text)
-                    it.setTextAlignment(Qt.AlignCenter)
+                    it.setTextAlignment(LEFT)
                     tbl.setItem(i, j, it)
 
     def show_on_card(self, i):

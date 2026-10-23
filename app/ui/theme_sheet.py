@@ -318,8 +318,9 @@ def eq_windows(t, img):
     object names of their own (eqw…): the filter table's boxes a little apart (the table has no grid lines); ✕ (delete
     a filter, take an EQ out of History) as Windows 11's subtle buttons, without a fill until pointed at; a
     switched-off filter's slider with its thumb's ring and a grey dot (Windows 11's), not a flat square; the pre-amp's
-    bar as a slider's empty track; the error grid's corner as its headings; room at the left of the text tables'
-    cells (Run several's, Compare's numbers)."""
+    bar as a slider's empty track; the error grid's corner as its headings; room at the left of the tables' cells, so
+    their words start under their headings (Run several's, All results' grid and table, Compare's numbers and
+    filters: Windows 11's table look, no grid lines)."""
     return f"""
     QTableWidget#eqwFilters QLineEdit, QTableWidget#eqwFilters QComboBox {{ margin: 1px 2px; }}
     QToolButton#eqwDelete, QPushButton#eqwDelete {{ background: transparent; border: 1px solid transparent;
@@ -334,7 +335,8 @@ def eq_windows(t, img):
     QFrame#eqwPreamp {{ background: {t['track']}; border: none; border-radius: 2px; }}
     QTableWidget#eqwGrid QTableCornerButton::section {{ background: {t['card']}; border: none;
         border-bottom: 1px solid {t['line']}; }}
-    QTableWidget#eqwQueue::item, QTableWidget#eqwNumbers::item {{ padding: 0px 5px; }}
+    QTableWidget#eqwQueue::item, QTableWidget#eqwNumbers::item, QTableWidget#eqwGrid::item,
+    QTableWidget#eqwResults::item, QTableWidget#eqwCmpFilters::item {{ padding: 0px 5px; }}
 """
 
 

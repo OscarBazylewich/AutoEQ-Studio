@@ -154,6 +154,8 @@ def test_history_look_follows_the_theme(made_up_history, eq_screen, check):
         return {"heads": heads, "muted": t["muted"], "under ✕": (img.pixelColor(p).name(), t["card"])}
     buttons = hw.scroll.widget().findChildren(QPushButton)
     symbols = sorted({b.text() for b in buttons if not b.icon().isNull()})
+    # (each row's Show, in the rows' order, newest first: in the accent or not, and its symbol)
+    shows = [(b.property("primary") in (True, "true"), not b.icon().isNull()) for b in buttons if b.text() == "Show"]
     try:
         light = drawn()
         theme.apply(qapp, dark=True)
@@ -166,10 +168,15 @@ def test_history_look_follows_the_theme(made_up_history, eq_screen, check):
         and light["muted"] != dark["muted"]
     check("history: a row's target is in the theme's quieter colour, redone when Windows switches light/dark (it kept "
           "the colour it was drawn in)", follows, {"light": light["heads"][:1], "dark": dark["heads"][:1]})
+    # (2026-10-23, the restyle's checkers: Show has its symbol too now, and its accent on the first row only, below)
     check("history: Copy and Listen show Windows 11's symbols beside their words (Show, the main one, its accent); ✕ "
           "is a subtle button: the row's card shows through it, light and dark",
-          symbols == ["Copy", "Listen"] and all(_near(*d["under ✕"]) for d in (light, dark)),
-          (symbols, light["under ✕"], dark["under ✕"]))
+          {"Copy", "Listen"} <= set(symbols) and any(accent for accent, _symbol in shows)
+          and all(_near(*d["under ✕"]) for d in (light, dark)), (symbols, shows, light["under ✕"], dark["under ✕"]))
+    check("history: only the first row's Show (the newest) is in the accent, the others plain (every row's was: a "
+          "column of accent buttons); every Show has Windows 11's symbol beside its words, as Copy and Listen",
+          len(shows) == 3 and [accent for accent, _symbol in shows] == [True, False, False]
+          and all(symbol for _accent, symbol in shows) and symbols == ["Copy", "Listen", "Show"], (shows, symbols))
 
 
 def test_history_rows_whole_at_its_smallest(made_up_history, check):

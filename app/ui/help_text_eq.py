@@ -384,7 +384,7 @@ SETTINGS_EQ = [{'title': 'Choosing and running',
                            'body': ["This run's best result for each number of filters: fewer filters (simpler to "
                                     'enter) or a closer match, one click away.']},
                           {'key': 'f_retry',
-                           'title': '↻ Retry from these filters',
+                           'title': 'Retry from these filters',
                            'body': ['Runs Best fit again from the filters shown, for this run only. Fine-tune them: '
                                     'each moves a little to match closer. Keep them, add filters: yours stay exactly '
                                     'and more are added.']},

@@ -90,10 +90,14 @@ def eq_steps(page):
             api.hot(tag)
             yield from api.note(tip, tag, 2600)
             api.hot(None)
-        conv = next((x for it, _r in picker_rows(pk) if pk.list.itemWidget(it) is not None
-                     for x in pk.list.itemWidget(it).findChildren(QLabel)
-                     if x.property("role") == "chip" and "⇄" in x.text()), None)
+        found = next(((it, x) for it, _r in picker_rows(pk) if pk.list.itemWidget(it) is not None
+                      for x in pk.list.itemWidget(it).findChildren(QLabel)
+                      if x.property("role") == "chip" and "⇄" in x.text()), None)
+        conv = found[1] if found else None
         if conv is not None:
+            # (its row scrolled into sight first, as the first rig tag's: further down the list, the pointer and the
+            # words went past the list's end, 2026-10-23)
+            pk.list.scrollToItem(found[0])
             tip = conv.toolTip().split("\n")[-1]
             api.say("⇄: its database has a conversion of its own")
             yield from api.move_to(conv)
