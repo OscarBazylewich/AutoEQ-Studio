@@ -20,8 +20,12 @@ def shelf_and_peak():
 
 def test_apo_text(eq_cfg, check):
     cfg, F = eq_cfg, shelf_and_peak()
+    # (the Preamp line too, line 0: the old check read only the first filter's, so a pre-amp with the wrong sign, an
+    # EQ louder than it should be and clipping, would have passed)
+    lines = exports.apo_text(cfg, F, -3.5).splitlines()[:2]
     # was eq_checks.py:165
-    check("formats: Equalizer APO text", exports.apo_text(cfg, F, -3.5).splitlines()[1] == "Filter 1: ON LSC Fc 105 Hz Gain 3.5 dB Q 0.700")
+    check("formats: Equalizer APO text", lines == ["Preamp: -3.5 dB", "Filter 1: ON LSC Fc 105 Hz Gain 3.5 dB Q 0.700"],
+          lines)
 
 
 def test_uapp_refuses_shelves(check):
@@ -39,8 +43,10 @@ def test_preamp_rounded_down(eq_cfg, check):
 
 def test_soundsource_text(eq_cfg, check):
     cfg, F = eq_cfg, shelf_and_peak()
+    lines = exports.soundsource_text(cfg, F, -3.5).splitlines()[:2]  # (the Preamp line too, as for Equalizer APO's)
     # was eq_checks.py:169
-    check("formats: SoundSource text", exports.soundsource_text(cfg, F, -3.5).splitlines()[1] == "Filter 1: ON LS Fc 105 Hz Gain 3.5 dB Q 0.700")
+    check("formats: SoundSource text", lines == ["Preamp: -3.50 dB", "Filter 1: ON LS Fc 105 Hz Gain 3.5 dB Q 0.700"],
+          lines)
 
 
 def test_soundsource_refuses_more_than_32(eq_cfg, check):

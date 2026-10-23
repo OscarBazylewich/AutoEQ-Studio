@@ -3,13 +3,15 @@ folder, AppData, the registry or the internet.
 
 Before any test file is read (pytest reads this file first), helpers.session makes this run's own folder in TEMP: a
 stand-in home, a stand-in Equalizer APO folder and a copy of the app with its samples, and points every variable the
-app reads for its folders there; the app's `paths` is then loaded from that copy, and the guard (helpers.guard)
-blocks and reports anything a test must never do. The folder is deleted when the run ends.
+app reads for its folders there; this process goes into a Windows job object of its own (helpers.subproc), so
+everything it starts, the app's fitting workers too, ends when it ends, however it ends; the app's `paths` is then
+loaded from that copy, and the guard (helpers.guard) blocks and reports anything a test must never do. The folder is
+deleted when the run ends.
 
 What else happens here, for every test:
 - tests that open Make an EQ (every file in tests\\eq_screen, any test using the eq_screen fixture, any file that
   imports helpers.eqpage) are marked slow: selftest.py --quick leaves them out, as the old --quick left out the EQ
-  part;
+  part; the check log names the slow tests --quick left out (relevant_tests.py's quick run says how many);
 - a test that used the check fixture fails, after it ran, listing every check that failed;
 - the check log (AUTOEQSTUDIO_CHECK_LOG) gets a line as each test starts and one per phase of it (setup, call,
   teardown: its outcome, how long it took, and the last line of a failure, a skip's reason or an xfail's reason);
@@ -25,6 +27,9 @@ sys.dont_write_bytecode = True  # (no __pycache__ for the app's copy, the helper
 from helpers import session  # noqa: E402  (tests\ is on the path: pytest.ini)
 
 SESSION = session.prepare()  # the folders, the variables, the app's copy, the studio (PLAN.md 3.9)
+from helpers import subproc  # noqa: E402
+
+subproc.contain_this_process()  # (this process in its job object: all it starts ends with it, however it ends)
 import paths  # noqa: E402,F401  (the copy's: loaded before any tool can put the project's app\ first on the path)
 from helpers import guard  # noqa: E402
 
@@ -78,6 +83,14 @@ def pytest_collection_modifyitems(config, items):
         if (_under(item.path, _SCREEN) or "eq_screen" in getattr(item, "fixturenames", ())
                 or _imports_eqpage(item.path)):
             item.add_marker(pytest.mark.slow)
+
+
+def pytest_deselected(items):
+    # (the slow tests --quick, -m "not slow", left out: named in the check log, so relevant_tests.py's quick run can
+    # say how many of the tests a change needs it didn't run)
+    slow = [item.nodeid for item in items if item.get_closest_marker("slow")]
+    if slow:
+        checks.log({"event": "left_out", "why": "slow", "tests": slow})
 
 
 @pytest.hookimpl(wrapper=True)

@@ -22,14 +22,16 @@ that failed (naming its test), and for a part whose process ended before its tes
 started); a skip, xfail or note line for each test skipped, failing as expected (a known bug), or with an error inside
 a Qt call-back (not a failure); the totals; and last "All checks passed." or "<n> check(s) failed.". Exit code 0 when
 everything passed, 1 when not, 2 for a wrong command line. Without pytest it says so in one FAIL line (exit code 1):
-the release tools show the self-test's FAIL lines.
+the release tools show the self-test's FAIL lines. For relevant_tests.py's --run --quick (say_left_out): when --quick
+left out tests it chose (slow ones), a note line before the last says how many, and the last line, when everything
+that ran passed, is "All the checks that ran passed." (the self-test's own lines never change).
 
 Each part's process goes in a Windows job object of its own, which ends everything in it when it's closed: the runner
 closes it when the part ends (or runs past --timeout), so no copy of the app, fitting worker or anything else a test
 started is left running, even when pytest's own time limit ended the process at once.
 
-For other tools: main(argv) and run(paths, quick=False, jobs=None, out=None, show_all=False, extra=()), each giving
-the exit code.
+For other tools: main(argv) and run(paths, quick=False, jobs=None, out=None, show_all=False, extra=(),
+say_left_out=False), each giving the exit code.
 """
 import argparse
 import ctypes
@@ -353,6 +355,7 @@ class PartResult:
     skips: list = dataclasses.field(default_factory=list)        # "skip ..." and "xfail ..." lines
     notes: list = dataclasses.field(default_factory=list)        # "note ..." lines
     check_lines: list = dataclasses.field(default_factory=list)  # every check's own line (--all)
+    left_out: list = dataclasses.field(default_factory=list)     # the slow tests --quick left out
     last_started: str = ""
 
     def lines(self, show_all=False) -> list:
@@ -430,6 +433,8 @@ def summarize(part, records, returncode, *, seconds=0.0, txt="", output="", time
             blocked = [str(b) for b in rec.get("blocked") or []] or ["(nothing said)"]
             more = f" (and {len(blocked) - 1} more)" if len(blocked) > 1 else ""
             res.fails.append(f"FAIL {part}: the test guard blocked, after the last test: {blocked[0]}{more}  [{test}]")
+        elif event == "left_out":
+            res.left_out += [str(t) for t in rec.get("tests") or [] if str(t) not in res.left_out]
     for (test, text), count in qt_errors.items():
         times = f" ({count} times)" if count > 1 else ""
         res.notes.append(f"note {test}: an error inside a Qt call-back (not a failure): {text}{times}")
@@ -539,12 +544,22 @@ class _Running:
         self.fh.close()
 
 
+def left_out_note(n) -> str:
+    """The note relevant_tests.py's quick run ends with when --quick left out n of the tests it chose."""
+    are, were = ("is", "was") if n == 1 else ("are", "were")
+    return (f"note: {n} of the chosen tests {are} slow (Make an EQ's screen, or long fits) and {were} left out by "
+            "--quick: run without --quick before you say you're done")
+
+
 def run(paths=(), quick=False, jobs=None, out=None, show_all=False, extra=(), *, timeout=DEFAULT_TIMEOUT,
-        root=None) -> int:
+        root=None, say_left_out=False) -> int:
     """Run the tests in `paths` (default: all of them), each part in its own pytest process, up to `jobs` at once,
     and print the summary. out: a folder that keeps the logs (else a temporary one, deleted when all passed); extra:
-    more arguments for pytest; timeout: minutes a part may run; root: the project's folder (default: this one's).
-    Returns the exit code: 0 when everything passed, 1 when not, 2 for paths that aren't tests."""
+    more arguments for pytest; timeout: minutes a part may run; root: the project's folder (default: this one's);
+    say_left_out (relevant_tests.py's run, whose paths are the tests a change needs): with quick, a note before the
+    last line when --quick left some of them out as slow, and then "All the checks that ran passed." instead of
+    "All checks passed.". Returns the exit code: 0 when everything passed, 1 when not, 2 for paths that aren't
+    tests."""
     missing = missing_packages()
     if missing:
         _say(NO_PYTEST if "pytest" in missing else NO_TIMEOUT_PLUGIN)
@@ -609,14 +624,20 @@ def run(paths=(), quick=False, jobs=None, out=None, show_all=False, extra=(), *,
         _say(f"The logs are kept: {out} (each part's pytest output, <part>.txt, and check log, <part>.jsonl)")
     checks = sum(r.checks for r in results)
     tests = sum(r.tests for r in results)
+    left_out = sum(len(r.left_out) for r in results) if quick and say_left_out else 0
     _say(f"{_plural(checks, 'check')}, {_plural(tests, 'test')}, {_plural(len(results), 'part')}, "
          f"{duration(time.monotonic() - began)}")
+    if left_out:  # (else "All checks passed." would read as a clean bill for tests that never ran)
+        _say(left_out_note(left_out))
     if failed:
         _say(f"{len(failed)} check(s) failed.")
         return 1
     if temporary:
         shutil.rmtree(out, ignore_errors=True)
-    _say("All checks passed." if tests else "Nothing ran: no test was left to run.")
+    if not tests:
+        _say("Nothing ran: no test was left to run.")
+    else:
+        _say("All the checks that ran passed." if left_out else "All checks passed.")
     return 0
 
 

@@ -11,7 +11,6 @@ import time
 import pytest
 
 from eq import autoset, pipeline, settings
-from helpers import qt
 from helpers.checks import raises  # (eq_checks.py's raises, line 50: the message of a ValueError, or None)
 
 # a made-up analysis of a device's curves (eq_checks.py lines 296-298)
@@ -53,14 +52,15 @@ def test_each_note_a_line(check):
 
 # ---------------------------------------------------------------- the time estimate
 def test_huge_sweep_refused_and_estimated_quickly(sample_curves, check):
-    # (the limit: time_limit(1), 1 s at the usual pace; measured about 1 ms)
+    # (the limit: 1 s, fixed, exactly as the old check had it: it takes about 1 ms, so even a busy PC stays far below
+    # it; a time limit stretched by the time factor would let a slowdown to 2 or 4 s pass)
     curves = sample_curves[0]
     big = settings.with_auto({"site_sweep": {"freq_high": list(range(1000, 21000, 10)), "q_max": [0.5 + i / 100 for i in range(300)]}})
     t0 = time.time()
     est = autoset.estimate(big, "site_sweep")
     # was eq_checks.py:480
     check("methods: a huge sweep is refused, and its estimate stays quick",
-          "at most" in (raises(pipeline.check_run, "site_sweep", big, curves) or "") and time.time() - t0 < qt.time_limit(1) and est > 3600)
+          "at most" in (raises(pipeline.check_run, "site_sweep", big, curves) or "") and time.time() - t0 < 1 and est > 3600)
 
 
 # ---------------------------------------------------------------- every method and slider end

@@ -231,12 +231,15 @@ def test_only_web_addresses_from_squiglink_list(db_guard, monkeypatch, tmp_path,
 
 def test_squiglink_list_in_background(db_guard, monkeypatch, tmp_path, check):
     # the database lists start in the background: squig.link's list (the network) never holds up the window; a failed
-    # try isn't repeated for a while (eq_checks.py lines 828-853, checked at line 1063)
+    # try isn't repeated for a while (eq_checks.py lines 828-853, checked at line 1063). The stood-in fetch sleeps
+    # time_limit(0.5) and the limit is time_limit(0.3): on a busy PC both get longer together, so a refresh that waits
+    # for the list still goes past the limit at any time factor, as in the old check (0.5 s against 0.3 s)
     seen, tries = [], []
+    nap = qt.time_limit(0.5)
     monkeypatch.setattr(databases, "refresh_now", lambda sites, force=False: databases._state.update(loading=False))
     monkeypatch.setattr(databases, "sites_for", lambda cfg: [])
     with monkeypatch.context() as m:
-        m.setattr(databases, "directory", lambda refresh=False: (seen.append(threading.get_ident()), time.sleep(0.5)))
+        m.setattr(databases, "directory", lambda refresh=False: (seen.append(threading.get_ident()), time.sleep(nap)))
         t0 = time.time()
         databases.start_refresh(settings.DEFAULTS)
         quick = time.time() - t0

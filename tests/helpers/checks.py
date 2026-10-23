@@ -24,9 +24,17 @@ _lock = threading.Lock()
 LOG = os.path.abspath(os.environ["AUTOEQSTUDIO_CHECK_LOG"]) if os.environ.get("AUTOEQSTUDIO_CHECK_LOG") else None
 
 
+LINE_BREAK = " ⏎ "  # (how a line break in a detail is shown: each FAIL line stays one line)
+
+
 def short(text, n=300):
-    """text, cut to n characters."""
+    """text on one line (each line break shown as " ⏎ ", blank lines left out), cut to n characters. One line, so a
+    failed check's FAIL line is one line in pytest's output, the check log and run_tests.py's summary, and the test's
+    own failure (its last line: the last failed check) is known as the checks' and never counted again."""
     text = str(text)
+    lines = text.splitlines()
+    if len(lines) > 1 or (lines and lines[0] != text):
+        text = LINE_BREAK.join(line.strip() for line in lines if line.strip())
     return text if len(text) <= n else text[:n - 1] + "…"
 
 

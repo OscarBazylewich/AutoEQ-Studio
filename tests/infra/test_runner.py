@@ -1,8 +1,9 @@
 """The test runner (app\\tools\\run_tests.py, PLAN.md 6.1): the parts found from the paths given, each part's
 environment, the summary built from a made-up check log (ok, FAIL, skip, xfail and note lines; a process that ended
 early; nothing to run), whole runs on a made-up project (each part in its own pytest process: a failing check, a
-process ended at once, a part with only slow tests, a part over --timeout ended with the child it started), the job
-object, the command line, and the one FAIL line without pytest.
+process ended at once, a part with only slow tests, a part over --timeout ended with the child it started, a failed
+check whose detail runs over several lines counted once, and relevant_tests.py's quick run saying what --quick left
+out), the job object, the command line, and the one FAIL line without pytest.
 
 The made-up projects are in tmp_path: pytest.ini with the real one's settings, a tests\\conftest.py that runs the real
 tests\\conftest.py (so the same session, guard and check log), and a few test files."""
@@ -15,7 +16,7 @@ import time
 
 import pytest
 
-from helpers import paths, qt, session, subproc
+from helpers import checks, paths, qt, session, subproc
 
 run_tests = paths.import_tool("run_tests")
 
@@ -87,6 +88,25 @@ import pytest
 @pytest.mark.slow
 def test_slow(check):
     check("made-up: slow", True)
+'''
+
+SOME_SLOW = '''
+import pytest
+
+
+def test_quick_one(check):
+    check("made-up: quick one", True)
+
+
+@pytest.mark.slow
+def test_slow_one(check):
+    check("made-up: slow one", True)
+'''
+
+# (a failed check whose detail runs over several lines, as Ruff's report does)
+MANY_LINES = '''
+def test_report_over_several_lines(check):
+    check("made-up: a report over several lines", False, "first line\\n    second line\\n\\nFound 1 error.")
 '''
 
 WAITS = '''
@@ -381,6 +401,54 @@ def test_whole_runs(tmp_path, capsys, check):
           code == 0 and os.path.isfile(os.path.join(out, "good.txt")) and os.path.isfile(os.path.join(out,
                                                                                                    "good.jsonl"))
           and "ok   made-up: one\nok   made-up: two\nok   good: 2 checks in 2 tests" in text, text)
+
+
+@pytest.mark.timeout(600)
+def test_detail_over_several_lines_counted_once(tmp_path, capsys, check):
+    # (the verification, V2: Ruff's report, a detail over several lines, made the summary count one failure twice:
+    # the test's own failure ended with the report's last line, so it wasn't known as the checks')
+    proj = make_project(tmp_path / "proj", {"lint/test_lint_like.py": MANY_LINES})
+    code = run_tests.run(["tests/lint"], jobs=1, root=proj)
+    lines = capsys.readouterr().out.strip().splitlines()
+    fails = [line for line in lines if line.startswith("FAIL")]
+    br = checks.LINE_BREAK
+    check("test runner: a failed check whose detail runs over several lines (Ruff's report) is one FAIL line, the "
+          "detail on it, and counted once",
+          code == 1 and lines[-1] == "1 check(s) failed." and fails == [
+              f"FAIL lint: made-up: a report over several lines  (first line{br}second line{br}Found 1 error.)  "
+              "[tests/lint/test_lint_like.py::test_report_over_several_lines]"], lines)
+
+
+@pytest.mark.timeout(600)
+def test_quick_run_says_what_it_left_out(tmp_path, capsys, check):
+    # (the verification, V2: relevant_tests.py --run --quick said "All checks passed." for a change only slow tests
+    # check, e.g. the Guide's: every one of them was left out)
+    proj = make_project(tmp_path / "proj", {"good/test_good.py": PASSING, "slow/test_slow.py": ALL_SLOW,
+                                            "some/test_some.py": SOME_SLOW})
+    said = {}
+    for name, chosen, kw in (("chosen", [], {"say_left_out": True}), ("self-test", [], {}),
+                             ("none slow", ["tests/good"], {"say_left_out": True}),
+                             ("only slow", ["tests/slow"], {"say_left_out": True})):
+        capsys.readouterr()
+        code = run_tests.run(chosen, quick=True, jobs=3, root=proj, **kw)
+        said[name] = (code, capsys.readouterr().out.strip().splitlines())
+    code, lines = said["chosen"]
+    note = run_tests.left_out_note(2)
+    check("test runner: relevant_tests.py's quick run says how many of the chosen tests --quick left out as slow, in a "
+          "note before the last line, and then ends \"All the checks that ran passed.\"",
+          code == 0 and lines[-2:] == [note, "All the checks that ran passed."]
+          and note.startswith("note: 2 of the chosen tests are slow") and "run without --quick before" in note,
+          lines[-4:])
+    (code_st, lines_st), (code_none, lines_none) = said["self-test"], said["none slow"]
+    check("test runner: the self-test's quick run (selftest.py --quick, which the zip and installer gates run) and a "
+          "quick run that left nothing out still end \"All checks passed.\", with no note",
+          code_st == 0 and lines_st[-1] == "All checks passed." and code_none == 0
+          and lines_none[-1] == "All checks passed." and not any(line.startswith("note:") for line in lines_st + lines_none),
+          (lines_st[-3:], lines_none[-3:]))
+    code_slow, lines_slow = said["only slow"]
+    check("test runner: when every chosen test was slow, the note comes before \"Nothing ran\"",
+          code_slow == 0 and lines_slow[-2:] == [run_tests.left_out_note(1), "Nothing ran: no test was left to run."]
+          and run_tests.left_out_note(1).startswith("note: 1 of the chosen tests is slow"), lines_slow[-3:])
 
 
 @pytest.mark.timeout(600)

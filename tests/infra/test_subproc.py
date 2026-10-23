@@ -1,13 +1,39 @@
 """Other processes (helpers.subproc, PLAN.md 3.4 and 3.10): a bit of Python and what it printed, a copy of the
 program, a running copy refused without its own test data folder, ending a process tree, and children ending with
-the test process that started them, however it ends."""
+the test process that started them, however it ends: those started through helpers.subproc, and (the verification,
+V4) those a test process starts itself, a process pool's worker too, when the test process is killed half way."""
 import os
 import subprocess
 import time
 
 import pytest
 
-from helpers import paths, session, subproc
+from helpers import inner, paths, qt, session, subproc
+
+pytest_plugins = ["pytester"]
+
+# (an inner pytest's test: a child it starts itself and a worker of a process pool, as the app's fits start theirs,
+# neither through helpers.subproc; their ids written in the inner check log, which is written at once; then the test
+# process killed, as Task Manager's End task kills it: nothing of Python's runs after)
+INNER_KILLED = '''
+import concurrent.futures
+import ctypes
+import os
+import subprocess
+import sys
+
+
+def test_starts_its_own_and_is_killed():
+    from helpers import checks, subproc
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(600)"])
+    pool = concurrent.futures.ProcessPoolExecutor(1)
+    worker = pool.submit(os.getpid).result(timeout=120)
+    checks.log({"event": "pids", "child": child.pid, "worker": worker, "contained": subproc.this_process})
+    k32 = ctypes.WinDLL("kernel32")
+    k32.GetCurrentProcess.restype = ctypes.c_void_p
+    k32.TerminateProcess.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+    k32.TerminateProcess(k32.GetCurrentProcess(), 9)
+'''
 
 
 def test_run_python(check):
@@ -103,3 +129,22 @@ def test_children_end_with_their_starter(check):
     check("subproc: a process started through helpers.subproc ends when the process that started it ends abruptly",
           out.returncode == 3 and pid and not alive, (out.returncode, pid, alive, out.stderr[-300:]))
 
+
+@pytest.mark.timeout(300)
+def test_test_process_takes_its_own_children_with_it(pytester, monkeypatch, check):
+    # (the verification, V4: a test process started directly with pytest and ended half way, by a crash,
+    # pytest-timeout's stop or a kill, while Make an EQ was fitting, left the fitting workers running, idle, until
+    # ended by hand. tests\conftest.py now puts every test process in a job object of its own)
+    result, log = inner.run(pytester, monkeypatch, {"test_inner_killed.py": INNER_KILLED}, "-q")
+    got = next((r for r in log if r.get("event") == "pids"), {})
+    pids = [got.get("child"), got.get("worker")]
+    end = time.monotonic() + qt.time_limit(20)
+    while any(p and session.process_alive(p) for p in pids) and time.monotonic() < end:
+        time.sleep(0.2)
+    alive = [p for p in pids if p and session.process_alive(p)]
+    for pid in alive:  # (only when the check fails: nothing is left running either way)
+        subproc.kill_tree(pid)
+    check("subproc: a test process killed half way takes everything it started itself with it (a child, and a process "
+          "pool's worker as the app's fits start them), from inside the job object a runner put it in",
+          result.ret == 9 and all(pids) and not alive and (got.get("contained") or {}).get("in_job") is True,
+          (result.ret, got, alive, result.errlines[-5:]))

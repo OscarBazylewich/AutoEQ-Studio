@@ -9,7 +9,10 @@ files it doesn't ignore; --since REF: everything changed since this branch left 
 or not.
 --list   only the test files, one per line.
 --run    runs them (app\tools\run_tests.py: each part in its own process, the plain summary) and exits with its exit
-         code; --quick leaves the slow ones out, --jobs N runs N parts at once, anything after -- goes to pytest.
+         code; --quick leaves the slow ones out (Make an EQ's screen, Listen's card, the tracer's window, the Guide,
+         long fits) and then says how many of the chosen tests it left out, ending "All the checks that ran passed.":
+         run without --quick before you say you're done; --jobs N runs N parts at once, anything after -- goes to
+         pytest.
 Exit code 0 (or the run's), 2 for a wrong command line.
 
 How a test is chosen:
@@ -738,7 +741,7 @@ def main(argv=None, root=None) -> int:
         _say("Nothing to run.")
         return 0
     paths = [] if choice.everything else [os.path.join(root, *t.split("/")) for t in choice.files()]
-    return _run_tests().run(paths, quick=args.quick, jobs=args.jobs, extra=extra, root=root)
+    return _run_tests().run(paths, quick=args.quick, jobs=args.jobs, extra=extra, root=root, say_left_out=True)
 
 
 if __name__ == "__main__":

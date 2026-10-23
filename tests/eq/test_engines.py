@@ -1,9 +1,10 @@
 """The EQ part's methods and the maths of its fits (eq\\engines.py, run as a run runs them, through eq\\pipeline.py):
-the website's AutoEQ (in V8), Best fit on fixed bands, on a device's layout and with your own filters, the number of
-fits its progress says, the fits counted and grown, split filters merged, the starting points, a failed fit stopping
-the others, a scored range without curve points, the queue's errors, one V8 kept per thread, absurd curves, a shelf's
-Q and your own filters' frequency range, and the pick and the ear error. Moved from eq_checks.py's module_checks (and grow_checks and
-review2_maths_checks, which it ran).
+a filter's own response against known values (a peak, a low and a high shelf), the website's AutoEQ (in V8), Best
+fit on fixed bands, on a device's layout and with your own filters, the number of fits its progress says, the fits
+counted and grown, split filters merged, the starting points, a failed fit stopping the others, a scored range
+without curve points, the queue's errors, one V8 kept per thread, absurd curves, a shelf's Q and your own filters'
+frequency range, and the pick and the ear error. Moved from eq_checks.py's module_checks (and grow_checks and
+review2_maths_checks, which it ran); the known values added after the tests' verification.
 
 The curves are the sample target and device (the sample_curves fixture: those files by name). Best fit's runs on a
 device or with your own filters start a pool of worker processes, as the app's runs do (AUTOEQSTUDIO_MAX_WORKERS caps
@@ -33,6 +34,42 @@ def fit_settings():
     309-310)."""
     return dict(settings.with_auto({"best_fit": {"filter_counts": [4, 6], "gain_max": [6, 9], "q_max": [2, 3],
                                                  "fight_penalty": [0.01]}})["best_fit"], build="scratch")
+
+
+# ---------------------------------------------------------------- a filter's own response, against known values
+# (added 2026-10-22 after the tests' verification, V2: every other check compares filters with filters, so a mistake
+# in the formula itself, engines.biquad, would show only by luck: every filter at half its gain failed one check of
+# 311, about something else. Known values instead: a peaking filter gives exactly its gain at its own frequency, and a
+# shelf its whole gain far on its side, half of it at its own frequency and nothing far on the other side.)
+def one_filter(eq_cfg, ftype, at):
+    """The app's own response (engines.eq_gain, at the app's sample rate) of one +6 dB filter at 1 kHz, as the app
+    writes filters ("PK" with Q 1; the shelves "LSQ" and "HSQ" with AutoEq's Q 0.7), in dB at each frequency in `at`."""
+    q = 1.0 if ftype == "PK" else 0.7
+    got = engines.eq_gain(np.array(at, dtype=float), [{"type": ftype, "freq": 1000.0, "gain": 6.0, "q": q}],
+                          eq_cfg["site"]["sample_rate"])
+    return [round(float(g), 3) for g in got]
+
+
+def near(got, want, within=0.05):
+    return len(got) == len(want) and all(abs(g - w) <= within for g, w in zip(got, want))
+
+
+def test_peak_filter_known_values(eq_cfg, check):
+    got = one_filter(eq_cfg, "PK", [1000, 10])
+    check("filters: a +6 dB peaking filter at 1 kHz (Q 1) gives +6.0 dB at 1 kHz and about 0 dB two decades below "
+          "(10 Hz), at the app's sample rate", near(got, [6.0, 0.0]), got)
+
+
+def test_low_shelf_known_values(eq_cfg, check):
+    got = one_filter(eq_cfg, "LSQ", [10, 1000, 20000])
+    check("filters: a +6 dB low shelf at 1 kHz (Q 0.7) gives about +6 dB far below it (10 Hz), +3 dB at 1 kHz and "
+          "about 0 dB far above it (20 kHz)", near(got, [6.0, 3.0, 0.0]), got)
+
+
+def test_high_shelf_known_values(eq_cfg, check):
+    got = one_filter(eq_cfg, "HSQ", [10, 1000, 20000])
+    check("filters: a +6 dB high shelf at 1 kHz (Q 0.7) gives about 0 dB far below it (10 Hz), +3 dB at 1 kHz and "
+          "about +6 dB far above it (20 kHz)", near(got, [0.0, 3.0, 6.0]), got)
 
 
 # ---------------------------------------------------------------- the methods on the sample curves

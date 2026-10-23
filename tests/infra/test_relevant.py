@@ -437,7 +437,8 @@ def test_command_line(tmp_path, capsys, monkeypatch, check):
     expected = [os.path.join(root, *t.split("/")) for t in sorted([FILES, MAIN, MAKER])]
     check("relevant tests: --run runs the chosen tests through run_tests.py (its --quick, --jobs and pytest's own "
           "arguments) and gives its exit code; no tests: says so, exit code 0",
-          code == 5 and got[0] == ((expected,), {"quick": True, "jobs": 2, "extra": ["-x"], "root": root})
+          code == 5 and got[0] == ((expected,), {"quick": True, "jobs": 2, "extra": ["-x"], "root": root,
+                                                 "say_left_out": True})
           and code_none == 0 and text_none.strip().endswith("Nothing to run.") and code_all == 5
           and got[1][0] == ([],) and len(got) == 2, (got, text_none))
     wrong = [said(*args)[0] for args in (["--quick"], ["x.py", "--", "-x"], ["--run", "--jobs", "0"], ["--nothing"],
@@ -480,3 +481,56 @@ def test_this_project(check):
           and chosen(project, ".github/workflows/tests.yml") == "none", project.warnings)
     check("relevant tests: reading the whole project and choosing takes under 2 seconds (nothing imported or run)",
           took < qt.time_limit(2), f"{took:.2f} s")
+
+
+def test_this_project_expected_choices(check):
+    # PLAN.md section 5's rows the consolidation checked once (C): kept here, so a later change that makes a helper
+    # every test loads reach the EQ part (or the switcher) shows at once, instead of every change quietly choosing
+    # nearly every test
+    project = relevant_tests.Project(paths.PROJECT)
+    all_tests = sorted(project.tests)
+    screen = [t for t in all_tests if t.startswith("tests/eq_screen/")]
+    switcher = [t for t in all_tests if t.startswith("tests/switcher/")]
+    eq_maths = [t for t in all_tests if t.startswith("tests/eq/")]
+
+    def picks(path):
+        choice = project.choose([path])
+        return set() if choice.everything else set(choice.tests), bool(choice.everything)
+
+    engines, every = picks("app/eq/engines.py")
+    listen_tracer = {"tests/listen/test_audio.py", "tests/listen/test_listen_card.py",
+                     "tests/tracer/test_trace_window.py"}
+    never = {*switcher, "tests/app/test_backup.py", "tests/ui/test_winsys.py", "tests/ui/test_help.py"}
+    check("relevant tests: on this project, a change to eq\\engines.py chooses tests\\eq\\test_engines.py, every Make "
+          "an EQ test, Listen's and the tracer window's tests, and never a tests\\switcher file (nor test_backup, "
+          "test_winsys or test_help)",
+          not every and screen and {"tests/eq/test_engines.py", *screen, *listen_tracer} <= engines
+          and not engines & never,
+          (len(engines), sorted(engines & never), sorted({"tests/eq/test_engines.py", *screen, *listen_tracer} - engines)))
+    apo, every = picks("app/switcher/apo.py")
+    uses_apo = {"tests/switcher/test_apo.py", "tests/switcher/test_check.py", "tests/switcher/test_core.py",
+                "tests/switcher/test_takeover.py"}
+    check("relevant tests: on this project, a change to switcher\\apo.py chooses the switcher tests that use the APO "
+          "folder, the window's and every Make an EQ test, and never a tests\\eq file",
+          not every and {*uses_apo, "tests/ui/test_window.py", *screen} <= apo and not apo & set(eq_maths),
+          (len(apo), sorted(apo & set(eq_maths)), sorted({*uses_apo, "tests/ui/test_window.py", *screen} - apo)))
+    devices, every = picks("app/ui/devices_screen.py")
+    check("relevant tests: on this project, a change to ui\\devices_screen.py chooses tests\\ui\\test_devices_screen.py "
+          "and fewer than 20 files (a small set: the window's tests, not everything)",
+          not every and "tests/ui/test_devices_screen.py" in devices and len(devices) < 20, sorted(devices))
+    words, every = picks("app/ui/help_text_eq.py")
+    readers = {"tests/ui/test_help.py", "tests/ui/test_forms.py", "tests/ui/test_devices_screen.py",
+               "tests/listen/test_listen_card.py", "tests/tracer/test_trace_window.py", "tests/tools/test_files.py",
+               "tests/tools/test_share_zip.py", "tests/tools/test_lint.py"}
+    check("relevant tests: on this project, a change to ui\\help_text_eq.py chooses the help, forms, Devices screen, "
+          "every Make an EQ, Listen card and tracer window test (and the file tests), and never a tests\\switcher or "
+          "tests\\eq file (nor test_textfile, test_backup or test_winsys)",
+          not every and {*readers, *screen} <= words
+          and not words & {*switcher, *eq_maths, "tests/app/test_textfile.py", "tests/app/test_backup.py",
+                           "tests/ui/test_winsys.py"},
+          (len(words), sorted(words & {*switcher, *eq_maths}), sorted({*readers, *screen} - words)))
+    cards, every = picks("app/ui/eq_page_cards.py")
+    check("relevant tests: on this project, a change to ui\\eq_page_cards.py chooses every Make an EQ test and never a "
+          "tests\\switcher file",
+          not every and set(screen) <= cards and not cards & set(switcher),
+          (len(cards), sorted(cards & set(switcher)), sorted(set(screen) - cards)))

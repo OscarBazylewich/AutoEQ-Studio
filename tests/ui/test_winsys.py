@@ -60,11 +60,11 @@ def test_windows_takes_the_key(qapp, check):
             continue
         if err in NO_DESKTOP:
             check.skipped(f"no interactive desktop here: Windows refused every hotkey (error {err})", name)
-        # was selftest.py:302
+        # (the same check, another outcome)
         check(name, False, f"Windows refused {text} (error {err})")
         return
     print(f"(every key tried is held by another program, so Windows understood each one: {', '.join(taken)})")
-    # was selftest.py:302
+    # (the same check, another outcome)
     check(name, True, f"every key tried is held by another program: {taken}")
 
 

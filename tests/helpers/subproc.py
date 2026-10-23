@@ -2,10 +2,14 @@
 check log): a bit of Python (run_python, start_python), a copy of the program (app_copy), a copy of it running
 (RunningCopy), and ending a process with everything it started (kill_tree).
 
-Every process started here is put into one Windows job object this test process holds, set to end everything in it
-when this process ends (JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE; the processes those start join it too). So a test process
-stopped half way (its time limit, a crash) leaves no copy of the app, and none of its fitting workers, running:
-`taskkill /T` alone can't reach a child whose parent is gone.
+One Windows job object, which this test process holds, ends everything in it when this process ends, however it ends
+(JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE: Windows closes the job with the process). The test process itself goes in it as
+the session starts (contain_this_process, from tests\\conftest.py), so everything it starts joins it by itself: the
+app's own fitting workers too (concurrent.futures starts those, not this module), which otherwise sat idle forever
+after a test process was stopped half way, waiting for work. Every process started here is also put in it right
+after it starts: in a test process it's in already, but a bit of Python that imports this module on its own isn't
+in the job itself. So a test process stopped half way (its time limit, a crash, a kill) leaves no copy of the app,
+and no fitting worker, running: `taskkill /T` alone can't reach a child whose parent is gone.
 """
 import ctypes
 import dataclasses
@@ -49,11 +53,14 @@ _k32.SetInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c
 _k32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
 _k32.OpenProcess.restype = wintypes.HANDLE
 _k32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+_k32.GetCurrentProcess.restype = wintypes.HANDLE
 _k32.CloseHandle.argtypes = [wintypes.HANDLE]
 _KILL_ON_JOB_CLOSE = 0x2000
 _EXTENDED_LIMITS = 9
 _SET_QUOTA_AND_TERMINATE = 0x0100 | 0x0001
 _job = []
+# (contain_this_process's answer: is this process in the job, and if not, why not)
+this_process = {"in_job": False, "why_not": "contain_this_process() wasn't called"}
 
 
 def _job_handle():
@@ -68,6 +75,25 @@ def _job_handle():
             raise ctypes.WinError(ctypes.get_last_error())
         _job.append(job)
     return _job[0]
+
+
+def contain_this_process() -> bool:
+    """This test process put into the job object (tests\\conftest.py, as the session starts), so everything it starts
+    joins the job by itself and ends when it ends, however it ends. A process that is in a job object already (each
+    part run_tests.py runs is in one of its own) gets this one inside that one: Windows 8 and later nest them. True
+    when it's in; else this_process["why_not"] says why (the processes started here still go in one by one)."""
+    if this_process["in_job"]:
+        return True
+    try:
+        job = _job_handle()
+    except OSError as e:
+        this_process["why_not"] = f"no job object could be made ({e})"
+        return False
+    if not _k32.AssignProcessToJobObject(job, _k32.GetCurrentProcess()):
+        this_process["why_not"] = f"Windows error {ctypes.get_last_error()} putting this process in its job object"
+        return False
+    this_process.update(in_job=True, why_not="")
+    return True
 
 
 def _into_job(proc):
