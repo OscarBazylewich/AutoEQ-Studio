@@ -3,7 +3,9 @@ windows (All results, Compare, Run several, History, Find…, Sources) has a nam
 reaches it; the tracer's buttons stay out of the Tab order on purpose (Space is the picture's), so there only the
 names. Moved from eq_checks.py's a11y_checks (lines 2540-2584), on a page opened as the old checks opened it (the
 eq_screen fixture), with the result the old checks had on the card by then (a run, Retry, saved as "UI check" and
-brought back with History's Show: lines 1528-1587; All results reads the result shown), offline."""
+brought back with History's Show: lines 1528-1587; All results reads the result shown), offline. Since 2026-10-23 an
+EQ to compare is kept on Listen's card first, so its row (the name box, Graph, ✕) is looked at too: a screen reader
+read its name box as nothing, and no check had one there to see it."""
 import pytest
 
 from helpers import eqpage, qt
@@ -45,14 +47,21 @@ def test_every_control_named_and_reachable(eq_screen, as_old, check):
     from ui.sources_window import Sources
     a11y = paths.import_tool("a11y")
     page = eq_screen.page
+    lis = page.listen
+    kept = len(lis.pins)
+    lis.add_selected()  # (an EQ to compare: its row on Listen's card is looked at too)
     folds = (page.settings.fold.btn.isChecked(), page.settings.adv.btn.isChecked())
     page.settings.fold.btn.setChecked(True)
     page.settings.adv.btn.setChecked(True)
     page.window().show()
     qt.pump(300)  # (shown for 0.3 s, as the old check: laid out)
     found = {"Make an EQ": (a11y.unnamed(page), a11y.unreachable(page))}
+    pins = len(lis.pins) - kept
     page.settings.fold.btn.setChecked(folds[0])
     page.settings.adv.btn.setChecked(folds[1])
+    if pins:  # (taken out again: the card as it was)
+        lis.pins = lis.pins[:kept]
+        lis.save_pins()
     was_off = net.offline()
     net.set_offline(True)
     try:
@@ -76,5 +85,6 @@ def test_every_control_named_and_reachable(eq_screen, as_old, check):
     bad = {k: v for k, v in found.items() if v[0] or v[1]}
     # was eq_checks.py:2582
     check("access: every control on Make an EQ and in its windows has a name a screen reader reads, and Tab reaches "
-          "it", not bad, {k: ([f"{x[0]}:{x[1] or x[2][:16]}" for x in v[0]], [f"{x[0]}:{x[1]}" for x in v[1]])
-                          for k, v in bad.items()})
+          "it", not bad and pins == 1,
+          ({k: ([f"{x[0]}:{x[1] or x[2][:16]}" for x in v[0]], [f"{x[0]}:{x[1]}" for x in v[1]])
+            for k, v in bad.items()}, f"{pins} EQ to compare kept on Listen's card"))

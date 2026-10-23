@@ -8,10 +8,12 @@
   EQ, + An EQ file…, + Paste filters…; each renamed in place, on the graph or not, ✕ removed
 - the device's own EQ (Devices) plays on top of what you hear here: said, with a button to switch it off
 
-The look is Windows 11's (2026-10-23): Windows' symbols beside Play / Stop, Undo and Choose a file…; each version
+The look is Windows 11's (2026-10-23): Windows' symbols beside Play / Stop, Undo, Choose a file… and Swap; each version
 marked on its left in its curve's colour on the graph, and the same colour beside each EQ to compare (the property
 listen_mark, matched in ui\\theme_sheet.py's listen part, so light, dark and Windows' accent change them live); the
-versions in as many rows as the card needs; your EQs to compare in columns.
+versions in as many rows as the card needs; your EQs to compare in columns, each ✕ quiet (no fill until pointed at)
+and each name box named for a screen reader; the device's own EQ said in Windows 11's warning card
+(window_parts.warning_card: its symbol, the words, Switch it off at the right), as the banner.
 
 The sound itself is ui/audio.py (sounddevice); nothing plays until Play.
 """
@@ -19,12 +21,12 @@ import math
 import os
 
 from PySide6.QtCore import QPoint, QRect, QSize, Qt, QTimer
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QDialogButtonBox, QFileDialog, QFrame, QGridLayout,
-                               QGroupBox, QHBoxLayout, QLabel, QLayout, QLineEdit, QMessageBox, QPlainTextEdit,
-                               QPushButton, QSlider, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QDialogButtonBox, QFileDialog, QGridLayout, QGroupBox,
+                               QHBoxLayout, QLabel, QLayout, QLineEdit, QMessageBox, QPlainTextEdit, QPushButton,
+                               QSlider, QVBoxLayout, QWidget)
 
 import textfile
-from ui import help_window, icons, tasks, theme
+from ui import help_window, icons, tasks, theme, window_parts
 from ui.search_combo import SearchCombo
 
 SOUNDS = [("music", "Music (a short loop)"), ("pink", "Pink noise"), ("white", "White noise"), ("sweep", "Sweep 20 Hz-20 kHz"),
@@ -234,6 +236,7 @@ class Listen(QGroupBox):
         self.right.activated.connect(lambda _i: self.sides_changed())
         sr.addWidget(self.right, 1)
         swap = QPushButton("Swap")
+        icons.put(swap, "swap")
         swap.clicked.connect(self.swap)
         sr.addWidget(swap)
         for w, key in ((self.ears, "#snd-ears"), (self.blind, "#snd-blind"), (self.left, "#snd-left"),
@@ -244,15 +247,10 @@ class Listen(QGroupBox):
         self.note.setWordWrap(True)
         theme.mark(self.note, role="muted")
         v.addWidget(self.note)
-        self.apo_box = QFrame()
-        theme.mark(self.apo_box, card="warn")
-        ab = QHBoxLayout(self.apo_box)
-        self.apo_text = QLabel()
-        self.apo_text.setWordWrap(True)
-        ab.addWidget(self.apo_text, 1)
         self.apo_off = QPushButton("Switch it off")
         self.apo_off.clicked.connect(self.device_eq_off)
-        ab.addWidget(self.apo_off)
+        # (Windows 11's warning card, as the banner's: the warning symbol, the words wrapping, the button at the right)
+        self.apo_box, self.apo_text = window_parts.warning_card("", self.apo_off)
         v.addWidget(self.apo_box)
         # your EQs to compare
         head = QLabel("Your EQs to compare")
@@ -749,6 +747,7 @@ class Listen(QGroupBox):
             theme.mark(sw, listen_mark=COLOURS[p.get("color", i) % len(COLOURS)])  # (theme_sheet.py's listen part)
             grid.addWidget(sw, i, 0)
             name = QLineEdit(p["name"])
+            name.setAccessibleName(f"Name of {p.get('name') or 'this EQ'}")  # (a screen reader read it as nothing)
             name.editingFinished.connect(lambda p=p, name=name: self._rename(p, name.text()))
             grid.addWidget(name, i, 1)
             note = QLabel(f"{len(p['filters'])} filter{'' if len(p['filters']) == 1 else 's'}" +(f" · {p['note']}" if p.get("note") else ""))
@@ -759,6 +758,7 @@ class Listen(QGroupBox):
             graph.toggled.connect(lambda on, p=p: (p.__setitem__("shown", on), self.save_pins()))
             grid.addWidget(graph, i, 3)
             x = QPushButton("✕")
+            theme.mark(x, quiet=True)  # (no fill until pointed at, as every ✕)
             x.setAccessibleName(f"Remove {p.get('name') or 'this EQ'} from the EQs to compare")
             graph.setAccessibleName(f"Show {p.get('name') or 'this EQ'} on the graph")
             x.setToolTip("Remove from the list")

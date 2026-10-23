@@ -14,8 +14,12 @@ Offline (net.py): the lists the app has are searched as usual; a curve downloade
 other online one says it needs the internet. A list-only database's entry opens on its site (online only).
 
 The look (Windows 11's, ui\\theme_sheet.py's find_windows part matches the names given here): a row's name in
-semibold (findRowName), the download mark as Windows 11's symbol (findMark); only one Use has the accent, the one
-Enter presses (the chosen row's, or the first row's when none is chosen); the chosen and pointed-at rows as every list.
+semibold (findRowName), the download mark as Windows 11's symbol (findMark, read as "Downloads when used"); only one
+Use has the accent, the one Enter presses (the chosen row's, or the first row's when none is chosen); a row's ✕ quiet
+(no fill until pointed at, as every ✕); the chosen and pointed-at rows as every list.
+
+fit_to_screen(window, size, smallest): Find…, Sources and Which measurement kept within the screen's free room (a
+laptop at 150 % has about 672 px above the taskbar), so their bottom rows are never out of reach.
 """
 import os
 
@@ -37,6 +41,32 @@ _DB_MADE = {}  # (kind, any kind) -> (the online list, the page's meta, its rows
 _DB_SORTED = {}  # "items" -> (the online list as it came, the same A to Z): sorted once, off the window's thread
 
 
+def fit_to_screen(window, size, smallest):
+    """A window of this area (Find…, Sources, Which measurement) kept within the screen's free room: the size it opens
+    at and its smallest size no taller than the room above the taskbar, less its title bar. On a 1920 x 1080 laptop at
+    150 % that room is about 672 px, and Sources' and Which measurement's bottom rows (Close…) opened under the
+    taskbar, out of reach. size: (width, height) it opens at; smallest: (width, height), the width None to leave it
+    to the window's own parts. The screen: the one its owner (the main window) is on, where it opens. Returns how many
+    pixels lower than `smallest` its smallest height had to be (0 on a screen with room): what its lists and chart
+    give up, or scroll."""
+    owner = window.parentWidget().window() if window.parentWidget() is not None else window
+    free = owner.screen().availableGeometry()
+    (w, h), (min_w, min_h) = size, smallest
+    low = min_h
+    if free.height() > 0:
+        h = min(h, free.height() - 40)        # (its title bar above it: about 31 px at 150 %)
+        low = min(min_h, free.height() - 80)  # (and some room to spare)
+    if free.width() > 0:
+        w = min(w, free.width() - 20)
+        min_w = None if min_w is None else min(min_w, free.width() - 40)
+    if min_w is None:
+        window.setMinimumHeight(low)
+    else:
+        window.setMinimumSize(min_w, low)
+    window.resize(w, max(h, low))
+    return min_h - low
+
+
 def name_form(s):
     import re
     s = s or ""
@@ -52,8 +82,8 @@ class Picker(QDialog):
         self.page, self.kind = page, kind
         self.svc, self.meta = page.svc, page.meta
         self.setWindowTitle("Find a target" if kind == "target" else "Find a measurement")
-        self.resize(900, 720)
-        self.setMinimumHeight(420)  # (four rows or so of the list in sight, however small the window)
+        # (the smallest: four rows or so of the list in sight; both within the screen's free room)
+        fit_to_screen(self, (900, 720), (None, 420))
         saved = page.sw.s.get("picker") or {}
         self.filters = {k: dict(ANY, **(saved.get(k) or {})) for k in ("target", "measurement")}
         self.src, self.expanded, self.busy, self._fetching = "", set(), None, False
@@ -572,6 +602,7 @@ class Picker(QDialog):
                 b.clicked.connect(lambda _=False, d=r["device"]["name"]: self.toggle_expand(d))
                 h.addWidget(b)
                 x = QPushButton("✕")
+                theme.mark(x, quiet=True)  # (no fill until pointed at, as every ✕)
                 x.setToolTip(f"Delete {r['device']['name']} from the app")
                 x.clicked.connect(lambda _=False, d=r["device"]: self.remove("measurement", [f["name"] for f in d["files"]], d["name"]))
                 h.addWidget(x)
@@ -581,6 +612,7 @@ class Picker(QDialog):
                 mv.clicked.connect(lambda _=False, n=r["file"]: self.move("target", n))
                 h.addWidget(mv)
                 x = QPushButton("✕")
+                theme.mark(x, quiet=True)
                 x.setToolTip("Delete from the app")
                 x.clicked.connect(lambda _=False, n=r["file"]: self.remove("target", [n], n))
                 h.addWidget(x)
@@ -593,6 +625,7 @@ class Picker(QDialog):
             dl = QLabel(chr(int(icons.GLYPHS["download"], 16)))  # (Windows 11's symbol, from its icon font: findMark)
             dl.setObjectName("findMark")
             dl.setToolTip("Downloads when used")
+            dl.setAccessibleName("Downloads when used")  # (a screen reader read its symbol's character, as nothing)
             h.addWidget(dl)
         use = QPushButton("Use")
         use.setObjectName("findUse")  # (the accent only on the one Enter presses: _mark_use)
@@ -627,6 +660,7 @@ class Picker(QDialog):
         mv.clicked.connect(lambda _=False, n=fl["name"]: self.move("measurement", n))
         h.addWidget(mv)
         x = QPushButton("✕")
+        theme.mark(x, quiet=True)
         x.setToolTip("Delete from the app")
         x.clicked.connect(lambda _=False, n=fl["name"]: self.remove("measurement", [n], n))
         h.addWidget(x)

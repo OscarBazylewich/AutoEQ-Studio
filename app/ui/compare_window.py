@@ -12,8 +12,11 @@ are listed under "Couldn't load".
 
 The look (Windows 11's; theme_sheet's find_windows part matches the names given here): the chart on a card in the
 graph's own colours (blue the recommended one, green the average: never the accent, which is Windows' and may be any
-colour), drawn again when the theme changes; a note to heed as a warning box; each measurement a card, filled while
-the mouse is over it.
+colour), drawn again when the theme changes; a note to heed as a warning box (its symbol read as "Warning"); each
+measurement a card, filled while the mouse is over it; the accent on one button only, the main action: the first
+average's when one is offered, else the first measurement's Use (Compare is plain: Enter in the model's box runs it).
+Its size kept within the screen's free room (picker.fit_to_screen): on a short screen (a laptop at 150 %) the chart
+and the measurements' list give up height, so Close stays in sight.
 """
 import re
 import weakref
@@ -27,6 +30,7 @@ from PySide6.QtWidgets import (QCheckBox, QDialog, QFrame, QGridLayout, QHBoxLay
 import net
 from ui import help_window, icons, tasks, theme
 from ui.forms import Fold
+from ui.picker import fit_to_screen
 from ui.search_combo import SearchCombo
 
 TICKS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
@@ -54,10 +58,14 @@ class CompareWindow(QDialog):
         self.page, self.svc = page, page.svc
         self.data, self.hot, self.avg_hot, self.picked, self.busy, self.again = None, -1, None, {}, False, None
         self.setWindowTitle("Which measurement to use?")
-        self.resize(940, 860)
         # (Qt's own minimum counts each wrapped line of text once, and then squeezed the chart's card, cutting off its
-        # scale: room here for the note and the legend on two lines each)
-        self.setMinimumSize(700, 660)
+        # scale: room here for the note and the legend on two lines each. Both kept within the screen's free room: on
+        # a short screen the chart and the measurements' list give up what its smallest size is lower, each keeping
+        # some, so Close stays in the window)
+        short = fit_to_screen(self, (940, 860), (700, 660))
+        both = 150 + 120 - short  # (their usual smallest heights: 150 and 120)
+        chart_min = max(60, both * 150 // 270)
+        list_min = max(40, both - chart_min)
         v = QVBoxLayout(self)
         top = QHBoxLayout()
         top.addWidget(QLabel("Model"))
@@ -65,8 +73,7 @@ class CompareWindow(QDialog):
         self.q.setPlaceholderText("e.g. Truthear Gate")
         self.q.returnPressed.connect(lambda: self.run())
         top.addWidget(self.q, 1)
-        self.go = QPushButton("Compare")
-        theme.mark(self.go, primary=True)
+        self.go = QPushButton("Compare")  # (plain: the accent is the main action's, a measurement's or an average's)
         icons.put(self.go, "find")
         self.go.clicked.connect(lambda: self.run())
         top.addWidget(self.go)
@@ -94,6 +101,7 @@ class CompareWindow(QDialog):
         nb.setContentsMargins(4, 0, 4, 0)
         mark = QLabel(chr(int(icons.GLYPHS["warning"], 16)))  # (Windows 11's symbol: whichNoteMark)
         mark.setObjectName("whichNoteMark")
+        mark.setAccessibleName("Warning")  # (a screen reader read its symbol's character, as nothing)
         nb.addWidget(mark, 0, Qt.AlignTop)
         self.note = QLabel()
         self.note.setWordWrap(True)
@@ -101,7 +109,7 @@ class CompareWindow(QDialog):
         self.note_box.hide()
         v.addWidget(self.note_box)
         self.chart = pg.PlotWidget()
-        self.chart.setMinimumHeight(150)  # (230 high, less in a small window: the measurements below stay in sight)
+        self.chart.setMinimumHeight(chart_min)  # (230 high, less in a small window: the measurements stay in sight)
         self.chart.setMaximumHeight(230)
         self.chart.setLogMode(x=True, y=False)
         self.chart.setMenuEnabled(False)
@@ -123,7 +131,7 @@ class CompareWindow(QDialog):
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.scroll.setMinimumHeight(120)  # (a measurement's card in sight however small the window)
+        self.scroll.setMinimumHeight(list_min)  # (a measurement's card in sight however small the window)
         v.addWidget(self.scroll, 4)
         how = Fold("How the ranking works")
         text = QLabel("<b>Rig (40 points).</b> How well its rig matches your target's.<br>"
@@ -235,10 +243,11 @@ class CompareWindow(QDialog):
         body = QWidget()
         lay = QVBoxLayout(body)
         lay.setSpacing(8)
-        for w in self._averages():
+        averages = self._averages()  # (the first's button the main action, the accent: as Windows 11, only one)
+        for w in averages:
             lay.addWidget(w)
         for i, c in enumerate(d["items"]):
-            lay.addWidget(self._row(i, c))
+            lay.addWidget(self._row(i, c, main_action=i == 0 and not averages))
         if d.get("errors"):
             err = QLabel("Couldn't load: " + "; ".join(d["errors"]))
             err.setWordWrap(True)
@@ -258,7 +267,9 @@ class CompareWindow(QDialog):
         self.scroll.setWidget(body)
         self.draw()
 
-    def _row(self, i, c):
+    def _row(self, i, c, main_action=False):
+        """A measurement's card: its rank, name, where it's from, its reasons, its score and Use (main_action: the
+        window's one main action, in the accent)."""
         row = _Row(lambda: self._hover(i), lambda: self._hover(-1))
         row.setObjectName("whichRow")  # (filled while the mouse is over it: theme_sheet's find_windows)
         theme.mark(row, card=True)
@@ -319,7 +330,7 @@ class CompareWindow(QDialog):
         score.setTextFormat(Qt.RichText)
         side.addWidget(score, 0, Qt.AlignHCenter)
         use = QPushButton("Use")
-        if i == 0:
+        if main_action:
             theme.mark(use, primary=True)
         use.clicked.connect(lambda _=False, c=c, b=use: self.use(c, b))
         side.addWidget(use)
@@ -328,7 +339,8 @@ class CompareWindow(QDialog):
         return row
 
     def _averages(self):
-        """Measurements on one known rig, to average into one (the target's rig first)."""
+        """Measurements on one known rig, to average into one (the target's rig first): a box each, the first's
+        button the window's main action (the accent)."""
         d, out = self.data, []
         groups = {}
         for c in d["items"]:
@@ -364,7 +376,8 @@ class CompareWindow(QDialog):
             words.addWidget(sub)
             head.addLayout(words, 1)
             btn = QPushButton()
-            theme.mark(btn, primary=True)
+            if not out:  # (the first average offered)
+                theme.mark(btn, primary=True)
             head.addWidget(btn)
             bv.addLayout(head)
             note = QLabel()

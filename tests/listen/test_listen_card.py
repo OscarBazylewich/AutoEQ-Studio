@@ -4,7 +4,8 @@ Stop; and the review's fixes: an EQ with no filter on refused, colours not in us
 a pasted EQ and Undo, the tone's range. Moved from eq_checks.py's listen_checks, review_checks and
 review_low_checks. Then the Windows 11 look (2026-10-23): Play / Stop's symbols, each version marked in its curve's
 colour by the theme (light and dark), your EQs to compare in columns, the versions in rows that fit the card, Paste
-filters' OK as its main action.
+filters' OK as its main action; the device's own EQ said in Windows 11's warning card, Swap's symbol, the EQs to
+compare's ✕ quiet and their name boxes named for a screen reader.
 
 As in the old checks, it all happens on one Make an EQ, in order (the tests below are a chain, written in the order
 they ran): with a result on its card (a quick Best fit run with the Run button), saved as "UI check" (so History has
@@ -132,6 +133,31 @@ def test_device_eq_said(card, check):
           and "Headset" in lis.apo_text.text(), lis.apo_text.text())
 
 
+def test_device_eq_in_a_warning_card(card, check):
+    # (Windows 11 look, 2026-10-23: it was a warning-coloured box without the warning symbol the banner and Which
+    # measurement's note have. Here in the chain while the device's own EQ is still on)
+    from PySide6.QtWidgets import QLabel
+
+    from helpers import qt
+    from ui import icons, theme
+    lis = card.lis
+    qt.pump(100)
+    box = lis.apo_box
+    signs = [w for w in box.findChildren(QLabel) if w.property("glyph") in (True, "true") and w.isVisible()]
+    sign = signs[0] if signs else None
+    seen = {"card": box.property("card"), "signs": len(signs),
+            "symbol": sign is not None and sign.text() == chr(int(icons.GLYPHS["warning"], 16)),
+            "read as": _read_as(sign) if sign is not None else None,
+            "in the warning colour": sign is not None and theme.tokens()["warn"] in _ink(sign),
+            "words wrap": lis.apo_text.wordWrap(),
+            "button at the right": lis.apo_off.parentWidget() is box
+            and lis.apo_off.geometry().left() > lis.apo_text.geometry().right()}
+    check("listen: the device's own EQ is said in Windows 11's warning card, as the banner: the warning symbol (read "
+          "as “Warning”) in the warning colour, the words wrapping, Switch it off at the right",
+          seen == {"card": "warn", "signs": 1, "symbol": True, "read as": "Warning", "in the warning colour": True,
+                   "words wrap": True, "button at the right": True}, seen)
+
+
 def test_device_eq_switched_off(card, check):
     lis, sw = card.lis, card.sw
     lis.device_eq_off()
@@ -236,6 +262,13 @@ def _ink(label):
     return {img.pixelColor(x, y).name() for x in range(img.width()) for y in range(img.height())}
 
 
+def _read_as(widget):
+    """What a screen reader reads for a widget (its accessible name)."""
+    from PySide6.QtGui import QAccessible
+    iface = QAccessible.queryAccessibleInterface(widget)
+    return (iface.text(QAccessible.Name) if iface is not None else "") or ""
+
+
 def test_play_and_stop_symbols(card, check):
     lis = card.lis
     b = lis.play_btn
@@ -309,6 +342,40 @@ def test_eqs_to_compare_in_columns(card, check):
           "under the one above, however long the notes)",
           len(notes) == len(lis.pins) >= 2 and len({len(n.text()) for n in notes}) > 1
           and all(len(v) == 1 for v in at.values()), (len(lis.pins), at))
+
+
+def test_eqs_to_compare_x_quiet_and_names(card, check):
+    # (each ✕ was a plain button with a border, where every other ✕ of the app is quiet; and a screen reader read each
+    # name box as nothing)
+    from PySide6.QtWidgets import QLineEdit
+
+    from helpers import qt
+    lis = card.lis
+    qt.pump(100)
+    xs = [b for b in lis.pins_box.findChildren(QPushButton) if b.isVisible() and b.text() == "✕"]
+
+    def plain_at_rest(b):
+        """Drawn without a fill or a border of its own while nothing points at it: its edge the colour of its inside."""
+        img = b.grab().toImage()
+        return img.pixelColor(0, img.height() // 2) == img.pixelColor(3, img.height() // 2)
+    quiet = [b.property("quiet") == "true" and plain_at_rest(b) for b in xs]
+    names = [_read_as(w) for w in lis.pins_box.findChildren(QLineEdit) if w.isVisible()]
+    check("restyle: each EQ to compare's ✕ is quiet as every ✕ (no fill or border until pointed at)",
+          len(xs) == len(lis.pins) >= 2 and all(quiet), (len(xs), quiet))
+    check("access: each EQ to compare's name box has a name a screen reader reads (“Name of” its EQ)",
+          names == [f"Name of {p['name']}" for p in lis.pins] and len(names) >= 2, names)
+
+
+def test_swap_symbol(card, check):
+    from PySide6.QtCore import QSize
+
+    from ui import icons, theme
+    lis = card.lis
+    swap = next(b for b in lis.split_row.findChildren(QPushButton) if b.text() == "Swap")
+    t, size = theme.tokens(), QSize(22, 16)
+    want = icons.glyph("swap", t["ink"], on_colour=t["on_accent"], off_colour=t["disabled"]).pixmap(size).toImage()
+    check("listen: Swap (a different version in each ear) shows Windows 11's swap symbol beside its word",
+          not swap.icon().isNull() and swap.icon().pixmap(size).toImage() == want, swap.icon().isNull())
 
 
 def test_versions_in_rows_that_fit(card, check):
