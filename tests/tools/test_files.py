@@ -45,6 +45,28 @@ def test_no_control_characters_and_bat_files_crlf(check):
     check("files: no control characters; the .bat files have CRLF line endings", not bad, bad)
 
 
+# characters that show as nothing (made with chr(), so this file holds none of them itself)
+INVISIBLE = {chr(0x2028): "a line separator", chr(0x2029): "a paragraph separator", chr(0x200B): "a zero-width space",
+             chr(0xFEFF): "a byte-order mark (at the start of a .bat file, cmd reads it as part of the first command)"}
+
+
+def test_no_invisible_characters(check):
+    # (2026-10-23, the restyle: an edit turned the escape for U+2028 in a Python string into the line separator
+    # itself; Python ran it and every check passed, and it was seen only by eye in the diff. Written as escapes, as
+    # the code does, they show)
+    bad = []
+    for p in _project_files():
+        if p.endswith((".py", ".md", ".txt", ".bat")):
+            with open(p, "rb") as fh:
+                text = fh.read().decode("utf-8", "replace")
+            for ch, what in INVISIBLE.items():
+                if ch in text:
+                    line = text.count("\n", 0, text.index(ch)) + 1
+                    bad.append(f"{os.path.relpath(p, project.PROJECT)}, line {line}: {what}")
+    check("files: no character that shows as nothing written as itself (a line or paragraph separator, a zero-width "
+          "space, a byte-order mark)", not bad, bad)
+
+
 def test_deepest_package_file_fits(check):
     # ((review #1) setup.bat moves the environment out of a main folder longer than 80 characters; the deepest file in
     # it must fit under Windows' 260-character limit below such a folder. Measured in the environment running the
