@@ -2,7 +2,8 @@
 stage 2, 2026-10-23): the picture's card drawn in the theme's colours and following a change, no control with a style
 of its own (the traced colour's swatch: only that colour), the chosen curve's row marked as a chosen list row (and the
 mark moved without rebuilding the rows), nothing cut or squeezed at the new sizes, Windows 11's symbols beside the main
-actions' words, and the notes and the zoom bar taking no room while they've nothing to show.
+actions' words, each curve's dot and ✕ named with the curve's name for a screen reader, and the notes and the zoom bar
+taking no room while they've nothing to show.
 
 On Make an EQ (the eq_screen fixture), each test with a tracer's window of its own (deleted at its end) and the app's
 sample graph, its dB values typed whatever Windows' text reader read (as test_trace_window.py does)."""
@@ -158,6 +159,25 @@ def test_symbols_beside_the_words(eq_screen, check):
           "Another curve without their old “? ” and “+ ”), zoom in and out as symbols alone, named for a screen reader",
           not wrong and alone == {"out": ("", False, "Zoom out (-)"), "in": ("", False, "Zoom in (+)")},
           (wrong, alone))
+
+
+def test_curve_rows_named_for_a_screen_reader(eq_screen, check):
+    # (2026-10-23: every curve's dot was read as “Trace into this curve” and every ✕ as “Delete this curve”, so a
+    # screen reader couldn't tell the curves apart; the row's buttons now the shared quiet ones, as the zoom bar's)
+    tw = _new(eq_screen)
+    _sample(eq_screen, tw, 2)
+    names = [[b.accessibleName() for b in r.findChildren(QPushButton)] for r in tw.curve_rows]
+    box = tw.curve_rows[1].findChild(QLineEdit)
+    box.setText("Right")
+    box.textEdited.emit("Right")  # (as typing it does)
+    renamed = [b.accessibleName() for b in tw.curve_rows[1].findChildren(QPushButton)]
+    quiet = sorted({b.property("quiet") for r in tw.curve_rows for b in r.findChildren(QPushButton)}
+                   | {b.property("quiet") for b in tw.stage.zoom_btns.values()})
+    qt.close(tw)
+    check("tracer: each curve's dot and ✕ are named with the curve's name for a screen reader (“Select curve L”, "
+          "“Delete curve L”), again when it's renamed; they and the zoom bar's buttons are the shared quiet buttons",
+          names == [["Select curve L", "Delete curve L"], ["Select curve R", "Delete curve R"]]
+          and renamed == ["Select curve Right", "Delete curve Right"] and quiet == ["true"], (names, renamed, quiet))
 
 
 def test_notes_and_zoom_bar_take_no_room_when_empty(eq_screen, check):

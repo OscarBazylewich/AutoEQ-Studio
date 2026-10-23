@@ -92,6 +92,14 @@ def _dot(colour, size=16):
     return QIcon(pm)
 
 
+def _curve_names(pick, delete, label, i):
+    """A curve's dot and ✕ named with the curve's name for a screen reader ("Select curve L", "Delete curve L"), again
+    when it's renamed: every row's were read alike ("Trace into this curve", "Delete this curve"), 2026-10-23."""
+    name = label or str(i + 1)
+    pick.setAccessibleName(f"Select curve {name}")
+    delete.setAccessibleName(f"Delete curve {name}")
+
+
 def _symbol_only(button, name):
     """Windows 11's symbol `name` alone on a button (no words: its tooltip names it for a screen reader)."""
     button.setText("")
@@ -256,7 +264,7 @@ class Stage(QWidget):
             b.setToolTip(tip)
             b.setFocusPolicy(Qt.NoFocus)
             b.clicked.connect(fn)
-            theme.mark(b, trQuiet=True)
+            theme.mark(b, quiet=True, trCompact=True)
             if text:
                 icons.put(b, "fit")
             else:
@@ -978,7 +986,7 @@ class TraceWindow(QWidget):
             pick = QPushButton()  # (its trace's colour on the picture, as a dot)
             pick.setIcon(_dot(STROKES[i % len(STROKES)]))
             pick.setIconSize(QSize(16, 16))
-            theme.mark(pick, trQuiet=True)
+            theme.mark(pick, quiet=True, trCompact=True)
             pick.setToolTip("Trace into this curve")
             pick.clicked.connect(lambda _=False, i=i: self.select_curve(i))
             h.addWidget(pick)
@@ -986,7 +994,6 @@ class TraceWindow(QWidget):
             name.setAccessibleName(f"Curve {i + 1}'s name")
             name.setMaxLength(12)
             name.setToolTip("Curve name (the files are named with it, e.g. L and R)")
-            name.textEdited.connect(lambda s, c=c: c.__setitem__("label", s.strip()))
             name.installEventFilter(self)
             name.setProperty("curve", i)
             h.addWidget(name, 1)
@@ -994,9 +1001,15 @@ class TraceWindow(QWidget):
             h.addWidget(_label(f"{n} px" if n else "empty", "muted", wrap=False))
             x = QPushButton("✕")
             x.setToolTip("Delete this curve")
-            theme.mark(x, trQuiet=True)
+            theme.mark(x, quiet=True, trCompact=True)
             x.clicked.connect(lambda _=False, i=i: self.delete_curve(i))
             h.addWidget(x)
+            _curve_names(pick, x, c["label"], i)
+
+            def renamed(s, c=c, pick=pick, x=x, i=i):
+                c["label"] = s.strip()
+                _curve_names(pick, x, c["label"], i)
+            name.textEdited.connect(renamed)
             lay.addWidget(row)
         _no_focus(self.curves_box)
         self.curves_note.setText("Saved together as one device, one file per curve (named with the labels, e.g. L and R)."

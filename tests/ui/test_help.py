@@ -1,7 +1,7 @@
 """Help (ui\\help_window.py, ui\\help_texts.py): its words told in AutoEQ Studio's own controls, every "See also" and
 F1 key found, the search, and F1 on a control (moved from selftest.py's help_checks); its look in Windows 11's, light
 and dark (2026-10-23), in a Python of its own: applying the theme restyles the whole application, as test_theme.py
-says."""
+says; its page from the top for a search and named for a screen reader, and Rig tags' words as Find… shows the tags."""
 import json
 import os
 import re
@@ -128,6 +128,23 @@ for dark in (False, True):
     settle()
     out["dark" if dark else "light"]["clicked"] = (before > 0 and bar.value() == before,
                                                    [it.data(Qt.UserRole) for it in toc.selectedItems()] == [anchor])
+    w.q.setText("")  # (the page scrolled half-way, the theme changed and back, then a search typed)
+    settle()
+    pb = w.view.verticalScrollBar()
+    pb.setValue(pb.maximum() // 2)
+    settle()
+    mid = pb.value()
+    theme.apply(qapp, dark=not dark, contrast=False)
+    settle()
+    kept = pb.value()
+    theme.apply(qapp, dark=dark, contrast=False)
+    settle()
+    for text in ("r", "ri", "rig"):
+        w.q.setText(text)
+    settle()
+    out["dark" if dark else "light"]["place"] = (mid > 0, kept == mid, pb.value(), w.view.accessibleName())
+    w.q.setText("")
+    settle()
 print(json.dumps(out))
 '''
 
@@ -151,3 +168,21 @@ def test_the_look_follows_the_theme(check):
           len(d) == 2 and all(v["typed"] == [0, ["set-best-fit-filter-counts"]] and v["clicked"] == [True, True]
                               for v in d.values()),
           {m: (v["typed"], v["clicked"]) for m, v in d.items()} if d else out.stderr[-300:])
+    # (2026-10-23: a search typed kept the page's place, so its results showed part-way down with a line cut at the
+    # top; and a screen reader said nothing for the page)
+    check("help: a search typed shows the page from its top (a theme change leaves it where it was), and the page is "
+          "named for a screen reader (“Help page”)",
+          len(d) == 2 and all(v.get("place") == [True, True, 0, "Help page"] for v in d.values()),
+          {m: v.get("place") for m, v in d.items()} if d else out.stderr[-300:])
+
+
+def test_rig_tags_say_what_find_shows(check):
+    # (2026-10-23: Help said a guessed tag (“711?”) had a dashed outline and that ⇄ was blue when its conversion is for
+    # your target's rig; Find… draws every tag as the same plain chip, the “?” and “ ⇄” in its words)
+    from ui import help_window as hw
+    e = hw._by_id()["rig-tags"]
+    words = " ".join(x for b in e["body"] for x in (b if isinstance(b, list) else [b]))
+    check("help: Rig tags says what Find… shows: every tag the same plain chip, its words saying how sure (“5128”, "
+          "“711?”, “rig ?”, “mixed”, “5128 ⇄”), no dashed outline or blue",
+          not any(w in words.lower() for w in ("dashed", "outline", "blue"))
+          and all(f"“{tag}”" in words for tag in ("5128", "711?", "rig ?", "mixed", "5128 ⇄")), words)

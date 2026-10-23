@@ -134,6 +134,7 @@ class HelpWindow(QWidget):
         h.addWidget(holder)
         self.view = QTextBrowser()
         self.view.setObjectName("helpPage")
+        self.view.setAccessibleName("Help page")  # (a screen reader said nothing for it)
         self.view.document().setDocumentMargin(14)
         self.view.setOpenLinks(False)
         self.view.anchorClicked.connect(lambda url: self.go(url.fragment() or url.toString().lstrip("#")))
@@ -150,7 +151,9 @@ class HelpWindow(QWidget):
 
     def render(self, *_, keep=False):
         """The entries (only those with every word typed) and the contents beside them, in the theme's colours; the
-        contents from their top (a search typed) or where they were (keep: an entry opened, the theme changed)."""
+        page and the contents from their top (a search typed) or where they were (keep: an entry opened, the theme
+        changed). The page kept its place while a search was typed, so its results showed part-way down, a line cut
+        at the top (2026-10-23)."""
         t = theme.tokens()
         words = self.q.text().lower().split()
         by_id = _by_id()
@@ -196,7 +199,7 @@ class HelpWindow(QWidget):
             parts.append("<p class='muted'>Nothing matches every word. Try fewer words.</p>")
         bar = self.view.verticalScrollBar().value()
         self.view.setHtml("".join(parts))
-        self.view.verticalScrollBar().setValue(bar)
+        self.view.verticalScrollBar().setValue(bar if keep else 0)
         place = self.toc.verticalScrollBar().value()
         self.toc.clear()
         self.toc.ensurePolished()

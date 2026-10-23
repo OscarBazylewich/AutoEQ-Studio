@@ -175,14 +175,15 @@ TERMS = [{'title': 'Curves and sound',
                     {'id': 'rig-tags',
                      'title': 'Rig tags: 5128, 711?, rig ?, ⇄',
                      'body': ['The tag after each entry in the search list says which rig it was measured on (for '
-                              "a target, the rig it's made for).",
+                              "a target, the rig it's made for); its words say how sure that is:",
                               ['“5128”: stated by the source, or worked out from its measurements with high '
                                'confidence.',
-                               '“711?” with a dashed outline: probably that rig (worked out with medium '
-                               'confidence, or the usual rig for that database).',
+                               '“711?”: probably that rig (worked out with medium confidence, or the usual rig for '
+                               'that database).',
                                '“rig ?”: not known.',
-                               '⇄ after a tag: that database has a conversion of its own (blue when one is for '
-                               "your target's rig)."],
+                               '“mixed”: its files come from different rigs.',
+                               '“5128 ⇄”: that database has a conversion of its own (hover the tag: for which '
+                               "rig's targets, and how much it helps)."],
                               "Most reviewers don't say which rig they use, so the app compares each database's "
                               'curves with sources whose rig is certain. Hover a tag to see how its rig was '
                               'found.'],

@@ -52,6 +52,7 @@ from ui import icons, theme
 
 PAD = 6
 CARD_W = 390
+SIDE_MIN = 420  # (a window a demo shows goes beside the card when it can be this wide there: 527 px at the smallest)
 SPEEDS = [0.25, 0.5, 1.0, 2.0, 4.0]
 _kept = {"speed": 1.0, "all": False}  # (the speed and Play all steps, for this session)
 _themed = {"hooked": False, "tours": []}  # (the tours made, held weakly: drawn again when the theme changes)
@@ -117,6 +118,15 @@ def bring(ws):
         bar.setValue(max(bar.minimum(), min(bar.maximum(), want)))
 
 
+def _settle():
+    """The window laid out after a change (a fold a step opened or closed): every layout's waiting work done, a few
+    rounds (a layout that changes asks its parent's again), then the other events."""
+    from PySide6.QtWidgets import QApplication
+    for _ in range(3):
+        QApplication.sendPostedEvents(None, QEvent.LayoutRequest)
+        QApplication.processEvents()
+
+
 def _shown(t):
     """The step's widgets that are on screen ([] for none)."""
     ws = t if isinstance(t, (list, tuple)) else [t] if t is not None else []
@@ -150,6 +160,32 @@ def _rect(win, ws):
 def _overlap(a, b):
     c = a.intersected(b)
     return 0 if c.isEmpty() else c.width() * c.height()
+
+
+JOIN = 8  # (px: two lit rectangles' sides this close are one side when they meet: the ring's corner radius)
+GAP = 4   # (px: and they meet when they're this close)
+
+
+def _joined(rects):
+    """Lit rectangles that touch or overlap edge to edge, as one: one over the other with their left and right sides
+    within JOIN px of each other, or side by side with their tops and bottoms so; the others as they are."""
+    from itertools import combinations
+    rs = list(rects)
+    again = True
+    while again:
+        again = False
+        for i, j in combinations(range(len(rs)), 2):
+            a, b = rs[i], rs[j]
+            stacked = abs(a.left() - b.left()) <= JOIN and abs(a.right() - b.right()) <= JOIN \
+                and a.top() <= b.bottom() + 1 + GAP and b.top() <= a.bottom() + 1 + GAP
+            beside = abs(a.top() - b.top()) <= JOIN and abs(a.bottom() - b.bottom()) <= JOIN \
+                and a.left() <= b.right() + 1 + GAP and b.left() <= a.right() + 1 + GAP
+            if stacked or beside:
+                rs[i] = a.united(b)
+                del rs[j]
+                again = True
+                break
+    return rs
 
 
 def _animations_on():
@@ -531,23 +567,46 @@ class Api:
 
     def window(self, w, near=None, size=None):
         """A window of the app (a QDialog made for the demo) shown inside the tour as a window: a frame with its title,
-        only looked at (clicks stop at the glass over it, the keys stay with the tour), beside the card where there's
-        room. Closed when the demo ends; returns the dialog."""
+        only looked at (clicks stop at the glass over it, the keys stay with the tour), at the left with the card's
+        room kept at the right, so the card is never over it. The window is made for the demo and thrown away, so its
+        own smallest size doesn't hold here: it's as wide as its frame, its parts shrinking into it (its lists
+        scroll), and the frame is as tall as its parts need when the tour has the room; when it hasn't (Which
+        measurement at the window's smallest size), the window keeps the height it needs and scrolls inside its frame,
+        what a demo points at scrolled into sight (at Windows 11's sizes Which measurement was cut off at the right
+        and the bottom, its Compare and Close hidden, and at the window's smallest size the card covered Find… and
+        History, 2026-10-23; squeezed into the frame instead, its words overlapped and its graph was a sliver).
+        Closed when the demo ends; returns the dialog."""
         frame, v = self._frame(w.windowTitle())
+        w.setMinimumSize(0, 0)  # (its own window's smallest size: the frame's room decides here)
         w.setParent(frame, Qt.Widget)
         w.setAutoFillBackground(True)
-        v.addWidget(w, 1)
         for c in [frame, w] + w.findChildren(QWidget):
             c.setFocusPolicy(Qt.NoFocus)
         W, H = self.t.width(), self.t.height()
         hint = w.size() if size is None else size
         room = W - CARD_W - 48  # (the card beside it)
-        width = min(hint.width(), room if room >= 560 else W - 40)
+        side = room >= SIDE_MIN
+        width = min(hint.width(), room if side else W - 40)
         frame.ensurePolished()
         bar = frame.findChild(QFrame, "tourWinBar")
         extra = bar.sizeHint().height() + 8  # (the title bar, the frame's border and its room below)
-        QWidget.resize(frame, width, min(hint.height() + extra, H - 40))
-        self.t.show_inside(frame, near, True, side=room >= 560)
+        need = w.minimumSizeHint().height()  # (what its parts need at their smallest, their words wrapped at its width)
+        lay = w.layout()
+        if lay is not None and lay.hasHeightForWidth():
+            need = max(need, lay.minimumHeightForWidth(width - 2))
+        height = min(max(hint.height(), need) + extra, H - 16)
+        if need + extra > height:  # (no room for it in the tour: it scrolls inside its frame)
+            holder = QScrollArea()
+            holder.setObjectName("tourWinScroll")
+            holder.setWidgetResizable(True)
+            holder.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # (as wide as its frame: only up and down)
+            holder.setFocusPolicy(Qt.NoFocus)
+            holder.setWidget(w)
+            v.addWidget(holder, 1)
+        else:
+            v.addWidget(w, 1)
+        QWidget.resize(frame, width, height)
+        self.t.show_inside(frame, near, True, side=side)
         self.t.setFocus()
         w.frame = frame
         return w
@@ -651,13 +710,14 @@ class _Steps(QFrame):
         for i, s in enumerate(tr.steps):
             if s.get("chapter") != ch:
                 ch = s.get("chapter")
-                h = QListWidgetItem(ch.upper() if ch else "")
+                # (a chapter's heading as Windows 11's group headings, and Find…'s: its words as written, in the
+                # list's own text, semibold; they were small capitals, greyed)
+                h = QListWidgetItem(ch or "")
                 h.setFlags(Qt.NoItemFlags)
                 f = QFont(base)
-                f.setPointSizeF(base.pointSizeF() * 0.82)
-                f.setBold(True)
+                f.setWeight(QFont.Weight.DemiBold)
                 h.setFont(f)
-                h.setForeground(QColor(t["muted"]))
+                h.setForeground(QColor(t["ink"]))  # (not the greyed colour of a row that can't be chosen)
                 self.list.addItem(h)
             ok = tr.available(i)
             it = QListWidgetItem(f"{i + 1:>2}   {_val(s['title'])}" + ("   · demo" if s.get("demo") or s.get("alt_demo") else ""))
@@ -817,7 +877,6 @@ class Tour(QWidget):
         self.skip_btn.clicked.connect(self.skip_demo)
         demo_row.addWidget(self.skip_btn)
         demo_row.addStretch(1)
-        b.addLayout(demo_row)
         opts = QHBoxLayout()
         self.all_chk = QCheckBox("Play all steps")
         self.all_chk.setToolTip("Play each step's demo and go on to the next by itself")
@@ -840,10 +899,13 @@ class Tour(QWidget):
         self.speed_lab.setMinimumWidth(26)
         opts.addWidget(self.speed_lab)
         self._show_speed()
+        # (the demo's controls in one box, hidden on a step without a demo: the row of buttons was put in the card
+        # first, so Qt kept it out of the box, and Play demo showed on the tracer's steps that have none, doing
+        # nothing, 2026-10-23; the rows as far apart as they were)
         self.demo_box = QWidget()
         dv = QVBoxLayout(self.demo_box)
-        dv.setContentsMargins(0, 2, 0, 0)
-        dv.setSpacing(2)
+        dv.setContentsMargins(0, 0, 0, 0)
+        dv.setSpacing(6)
         dv.addLayout(demo_row)
         dv.addLayout(opts)
         b.addWidget(self.demo_box)
@@ -907,11 +969,13 @@ class Tour(QWidget):
 
     def _prepare(self, k):
         """Step k shown if its control (or its stand-in) is on screen: its before run; else put back, False."""
-        from PySide6.QtWidgets import QApplication
         st = self.steps[k]
         if st.get("before"):
             st["before"]()
-        QApplication.processEvents()  # (a fold opened, a list filled: laid out before it's measured)
+        # (a fold opened or closed, by this step or the one before, a list filled: the page laid out again before it's
+        # measured and scrolled. Not yet settled, at the window's smallest size going on from Fine-tune the target
+        # scrolled the page past the Measurement card, which wasn't in sight, 2026-10-23)
+        _settle()
         ws = _shown(st.get("target") and st["target"]())
         alt = False
         if not ws and st.get("alt"):
@@ -1035,13 +1099,15 @@ class Tour(QWidget):
     # ---------------------------------------------------------------- the spotlight
     def _holes(self):
         """The lit rectangles (padded, in the window); ones that overlap are drawn as one shape (paintEvent), not as
-        the box around both."""
+        the box around both, and two that touch or overlap edge to edge (one over the other, as wide as each other; or
+        side by side, as tall) are one rectangle: drawn as two, their round corners met in a notch on both sides
+        (step 1's Target and Measurement cards, 2026-10-23)."""
         out = []
         for w in _shown(self.spots):
             r = self._w_rect(w).toRect().adjusted(-PAD, -PAD, PAD, PAD).intersected(self.rect().adjusted(2, 2, -2, -2))
             if r.width() > 4 and r.height() > 4 and not any(h.contains(r) for h in out):
                 out = [h for h in out if not r.contains(h)] + [r]
-        return out
+        return _joined(out)
 
     def spot_on(self, *ws):
         """During a demo: the spotlight over more at once (e.g. a field and the list it opened)."""
@@ -1098,21 +1164,27 @@ class Tour(QWidget):
         self.layer.raise_()
 
     def _avoid_rects(self):
+        """What the card keeps off, [(rectangle, weight)]: what the demo uses, then the step's own ("avoid"), the last
+        of them ×8; a window the demo shows ×8 too (the card beside it, never over it: room kept for the pointer later
+        could take the card over the window); the rest ×1."""
         out = []
         for a in self.avoid:
             if isinstance(a, QRect):
-                out.append(a)
+                out.append((a, 1))
             elif isinstance(a, QWidget) and _alive(a) and a.isVisible():
-                out.append(a.geometry() if a.parentWidget() is self else _rect(self.win, [a]))
+                window = a.parentWidget() is self and a.objectName() == "tourWin"
+                out.append((a.geometry() if a.parentWidget() is self else _rect(self.win, [a]), 8 if window else 1))
         st = self.steps[self.i] if 0 <= self.i < len(self.steps) else {}
         if st.get("avoid"):
-            out += [_rect(self.win, [w]) for w in _shown(st["avoid"]())]
+            out += [(_rect(self.win, [w]), 1) for w in _shown(st["avoid"]())]
+        if out:
+            out[-1] = (out[-1][0], 8)
         return out
 
     def place_card(self, stay=True):
-        """The card where it covers least of what's lit (×3), what the demo uses (the last ×8, others ×1) and the
-        pointer (×4): beside, under or over each lit part, then around the window's edges; it stays where it is
-        while that's as good."""
+        """The card where it covers least of what's lit (×3), what the demo uses (the last ×8, a window it shows ×8,
+        others ×1) and the pointer (×4): beside, under or over each lit part, then around the window's edges; it stays
+        where it is while that's as good."""
         if not hasattr(self, "bubble"):
             return
         bw, bh, W, H, m, gap = self.bubble.width(), self.bubble.height(), self.width(), self.height(), 8, 14
@@ -1122,7 +1194,7 @@ class Tour(QWidget):
 
         def cost(r):
             c = sum(_overlap(r, h) * 3 for h in lit)
-            c += sum(_overlap(r, a) * (8 if n == len(avoid) - 1 else 1) for n, a in enumerate(avoid))
+            c += sum(_overlap(r, a) * k for a, k in avoid)
             return c + (_overlap(r, cur) * 4 if cur is not None else 0)
         tries = []
         for h in lit:
@@ -1185,6 +1257,7 @@ class Tour(QWidget):
         self.inside.append(w)
         self.glass.show()
         self.keep_clear(w)
+        self.place_card()  # (off it at once: on its timer alone, the card showed over a window as it opened)
         self.raise_layer()
         self.update()
 
@@ -1464,23 +1537,24 @@ class Tour(QWidget):
         self.timer.start(max(0, int((ms or 0) / self.speed)))
 
     def _point(self, w, fx=0.5, fy=0.5):
-        """Where on a control the pointer goes (in the window), or None when it isn't shown."""
+        """Where on a control the pointer goes (in the window), or None when it isn't shown. The page scrolls to it
+        (or a window the demo shows, when it scrolls inside its frame)."""
         if w is None or not _alive(w) or not w.isVisible():
             return None
-        if w.window() is self.win and not (w is self or self.isAncestorOf(w)):
+        if w.window() is self.win and w is not self:
             scroll_into_view(w)
-        r = w.geometry() if w.parentWidget() is self else _rect(self.win, [w])
-        if w.parentWidget() is not self and self.isAncestorOf(w):
-            r = QRect(w.mapTo(self, QPoint(0, 0)), w.size())
+        r = self._w_rect(w).toRect()
         if r.width() < 2 or r.height() < 2:
             return None
         return QPointF(r.left() + r.width() * fx, r.top() + r.height() * fy)
 
     def _w_rect(self, w):
+        """A control's rectangle in the tour: on the page, or inside what the demo shows (cut to what its scrolling
+        parts show)."""
         if w.parentWidget() is self:
             return QRectF(w.geometry())
         if self.isAncestorOf(w):
-            return QRectF(QRect(w.mapTo(self, QPoint(0, 0)), w.size()))
+            return QRectF(_rect(self, [w]))
         return QRectF(_rect(self.win, [w]))
 
     def _move(self, to, ms=650, also=None):
@@ -1829,7 +1903,9 @@ class Tour(QWidget):
 def problems(host, steps):
     """The steps whose control (or a demo action's) isn't there, can't be seen or lies outside the window:
     [(n, title, why)]. Each step's before and after are run, as the tour does; a step with a stand-in ("alt") is
-    checked with whichever is on screen."""
+    checked with whichever is on screen. Each control is measured once the page has settled: straight after the step
+    before had closed Adjust the page wasn't laid out again yet, and at the window's smallest size scrolling to Choose
+    your IEM or headphone's card took it out of sight (2026-10-23)."""
     from PySide6.QtWidgets import QApplication
     out = []
     win = host.window()
@@ -1840,6 +1916,7 @@ def problems(host, steps):
             return "no control"
         if not ws:
             return "not shown"
+        _settle()
         scroll_into_view(ws[0])
         QApplication.processEvents()
         r = _rect(win, ws)
@@ -1849,7 +1926,7 @@ def problems(host, steps):
     for n, st in enumerate(steps, 1):
         if st.get("before"):
             st["before"]()
-        QApplication.processEvents()
+        _settle()
         try:
             alt = False
             if "target" in st and st["target"] is not None:
