@@ -1,9 +1,10 @@
 """The tracer's window in Windows 11's look (ui\\trace_window.py and theme_sheet.py's tracer part: the restyle's
 stage 2, 2026-10-23): the picture's card drawn in the theme's colours and following a change, no control with a style
-of its own (the traced colour's swatch: only that colour), the chosen curve's row marked as a chosen list row (and the
-mark moved without rebuilding the rows), nothing cut or squeezed at the new sizes, Windows 11's symbols beside the main
-actions' words, each curve's dot and ✕ named with the curve's name for a screen reader, and the notes and the zoom bar
-taking no room while they've nothing to show.
+of its own (the traced colour's swatch: only that colour; a drop-down's search list neither), the chosen curve's row
+marked as a chosen list row (and the mark moved without rebuilding the rows), its dot and ✕ filled when pointed at,
+the Automatic settings card's content at a card's inset, nothing cut or squeezed at the new sizes, Windows 11's symbols
+beside the main actions' words, each curve's dot and ✕ named with the curve's name for a screen reader, and the notes
+and the zoom bar taking no room while they've nothing to show.
 
 On Make an EQ (the eq_screen fixture), each test with a tracer's window of its own (deleted at its end) and the app's
 sample graph, its dB values typed whatever Windows' text reader read (as test_trace_window.py does)."""
@@ -13,6 +14,7 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QLabel, QLineEdit, QPush
                                QToolButton, QWidget)
 
 from helpers import qt
+from ui.search_combo import SEARCH_FROM
 from ui.trace_window import TOOLS, TraceWindow, sample_image
 
 COVERS = ("ui.eq_page",)  # (the window is opened for Make an EQ's page)
@@ -62,8 +64,14 @@ def test_picture_card_follows_the_theme(eq_screen, check):
     finally:
         qt.light(qapp)  # (the light theme back, whatever happened: every later test runs light)
         qt.pump(50)
-    own = sorted(w.objectName() or type(w).__name__ for w in tw.findChildren(QWidget)
-                 if w.styleSheet() and w.objectName() != "searchPopup")  # (a drop-down's search list: the hub's own)
+    # (a drop-down's long list, with its search box, opened once so it's looked at too: "The graph shows" given more
+    # choices than open without it. It had a style of its own until 2026-10-23, and this check let it off)
+    for k in range(SEARCH_FROM + 1):
+        tw.comp.addItem(f"relative to target {k}", f"target {k}.csv")
+    tw.comp.showPopup()
+    qt.pump(50)
+    tw.comp.hidePopup()
+    own = sorted(w.objectName() or type(w).__name__ for w in tw.findChildren(QWidget) if w.styleSheet())
     qt.close(tw)
     check("tracer: the picture's card is drawn in the theme's card colour and border, dark and light (it follows a "
           "change), and no control of the window has a style of its own",
@@ -107,6 +115,74 @@ def test_chosen_curve_row(eq_screen, check):
           first == ["chosen", ""] and moved == (["", "chosen"], True) and fill == want
           and contrast == ("#1aebff", "#000000") and swatch.startswith("background: rgb(") and "border" not in swatch,
           (first, moved, fill, want, contrast, swatch))
+
+
+def test_chosen_rows_buttons_pointed_at(eq_screen, check):
+    # (2026-10-23: pointed at, the chosen curve's dot and ✕ showed almost no fill: the quiet buttons' own fill on the
+    # chosen row's, #eaeaea on #ececec in light, #383838 on #3a3a3a in dark. Now as Find…'s row's ✕: Windows 11 lays
+    # a quiet button's fill, the text's colour at 6 % (4 % pressed), over the row's)
+    from PySide6.QtCore import QPoint, QPointF
+    from PySide6.QtGui import QMouseEvent
+    from ui import theme
+    qapp = eq_screen.qapp
+    tw = _new(eq_screen)
+    _sample(eq_screen, tw, 2)
+    tw.select_curve(0)
+    qt.pump(50)
+
+    def laid_over(under, ink, alpha):
+        return [round(u * (1 - alpha / 255) + int(ink[k:k + 2], 16) * alpha / 255) for u, k in zip(under, (1, 3, 5))]
+    seen = {}
+    try:
+        for dark in (True, False):
+            theme.apply(qapp, dark=dark)
+            qt.pump(100)
+            row, ink = tw.curve_rows[0], theme.tokens()["sel_ink"]
+            for name, b in zip(("dot", "✕"), row.findChildren(QPushButton)):
+                b.setAttribute(Qt.WA_UnderMouse, True)  # (the mouse on it, as Qt tells a button)
+                mid = QPointF(b.rect().center())
+                QApplication.sendEvent(b, QMouseEvent(QEvent.MouseMove, mid, QPointF(b.mapToGlobal(mid)), Qt.NoButton,
+                                                      Qt.NoButton, Qt.NoModifier))
+                for state, alpha in (("pointed at", 15), ("pressed", 10)):
+                    b.setDown(state == "pressed")
+                    b.update()
+                    qt.pump(50)
+                    img = row.grab().toImage()
+                    under = img.pixelColor(img.width() // 2, 1)  # (the row's own fill, above its name's box)
+                    fill = img.pixelColor(b.mapTo(row, QPoint(3, b.height() // 2)))  # (inside it, beside its symbol)
+                    want = laid_over((under.red(), under.green(), under.blue()), ink, alpha)
+                    seen[f"{'dark' if dark else 'light'}, {name} {state}"] = (
+                        fill.name(), under.name(), all(abs(a - w) <= 2 for a, w in zip(fill.getRgb()[:3], want)))
+                b.setDown(False)
+                b.setAttribute(Qt.WA_UnderMouse, False)
+                b.update()
+    finally:
+        qt.light(qapp)  # (the light theme back, whatever happened: every later test runs light)
+        qt.pump(50)
+    qt.close(tw)
+    check("tracer: the chosen curve's dot and ✕, pointed at or pressed, show a fill of their own over the chosen row's "
+          "(its text colour at 6 %, 4 % pressed, as Find…'s row's ✕ and Windows 11's quiet buttons), dark and light",
+          len(seen) == 8 and all(fill != under and ok for fill, under, ok in seen.values()), seen)
+
+
+def test_cards_content_at_one_inset(eq_screen, check):
+    # (2026-10-23: the Automatic settings card, a card frame, kept Qt's own 9 px layout margin on top of the card's
+    # padding: its heading, its fold and its words started 5 px further in than the numbered cards' under it)
+    from PySide6.QtCore import QPoint
+    from ui import theme_sheet
+    tw = _new(eq_screen)
+    auto, axes = tw.auto_on.parentWidget(), tw.boxes["d1"].parentWidget()
+
+    def sides(w, card):  # (how far in from the card's left edge, and from its right edge)
+        at = w.mapTo(card, QPoint(0, 0)).x()
+        return at, card.width() - at - w.width()
+    got = {"Automatic settings": sides(tw.auto_on, auto)[0], "Why these settings": sides(tw.why, auto)[0],
+           "the card's right": sides(tw.auto_state, auto)[1], "1 Axes": sides(tw.boxes["d1"], axes)[0],
+           "1 Axes' right": sides(tw.boxes["d2"], axes)[1]}
+    qt.close(tw)
+    inset = theme_sheet.CARD + 1  # (inside its 1 px border)
+    check("tracer: the Automatic settings card's content starts and ends at a card's inset, as the numbered cards' "
+          "under it", set(got.values()) == {inset}, (got, inset))
 
 
 def test_nothing_cut_at_the_new_sizes(eq_screen, check):

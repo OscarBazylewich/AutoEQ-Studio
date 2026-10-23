@@ -672,6 +672,9 @@ class TraceWindow(QWidget):
         box = QFrame()
         theme.mark(box, card=True)
         v = QVBoxLayout(box)
+        # (a card frame's padding leaves 4 px for its layout's margin, theme_sheet's cards part, as a fold card's: with
+        # Qt's own 9 px its content started 5 px further in than the cards under it, 2026-10-23)
+        v.setContentsMargins(4, 2, 4, 4)
         top = QHBoxLayout()
         self.auto_on = QCheckBox("Automatic settings")
         self.auto_on.setObjectName("trAutoOn")  # (the card's heading: semibold, theme_sheet's tracer part)

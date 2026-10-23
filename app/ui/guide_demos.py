@@ -187,7 +187,9 @@ def stage_result(page):
 # ---------------------------------------------------------------- the app's own lists, shown by the demos
 def mock_combo(api, combo, to_index, say_rows=None, rows=9):
     """A drop-down's list as it opens under its box (the same rows, a part of a long one), the pointer down it to a
-    row and a click: the box then shows that row (signals blocked: nothing is chosen). Yields."""
+    row and a click: the box then shows that row (signals blocked: nothing is chosen). Yields. It looks as the real
+    list (tour.Mock): its chosen row marked, the mark following the pointer, and a long list (one that opens with a
+    search box: search_combo.SearchCombo) with its search box above the rows."""
     n = combo.count()
     if n == 0 or to_index < 0:
         yield 300
@@ -195,7 +197,8 @@ def mock_combo(api, combo, to_index, say_rows=None, rows=9):
     lo = max(0, min(to_index - rows // 2, n - rows))
     hi = min(n, lo + rows)
     items = [combo.itemText(k) for k in range(lo, hi)]
-    m = api.mock(combo, items, combo.currentIndex() - lo, width=max(combo.width(), 260))
+    long = getattr(combo, "searches", lambda: False)()
+    m = api.mock(combo, items, combo.currentIndex() - lo, search="Search…" if long else None)
     yield 250
     start = combo.currentIndex() - lo if lo <= combo.currentIndex() < hi else 0
     path = range(start, to_index - lo + 1) if to_index - lo >= start else range(start, to_index - lo - 1, -1)
@@ -211,7 +214,9 @@ def mock_combo(api, combo, to_index, say_rows=None, rows=9):
 
 
 def mock_menu(api, near, items):
-    m = api.mock(near, items, width=max(near.width(), 280))
+    """A button's menu as it opens under it (tour.Mock, kind "menu": as wide as its rows, the row pointed at filled; a
+    row ending in " ▸" has a submenu). Yields; returns the menu."""
+    m = api.mock(near, items, kind="menu")
     yield 300
     return m
 

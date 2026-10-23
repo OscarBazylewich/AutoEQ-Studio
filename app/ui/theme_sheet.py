@@ -394,9 +394,12 @@ def tracer(t, img):
     the zoom bar's buttons and a curve's dot and ✕ a little smaller than other buttons (trCompact: they're the shared
     quiet buttons, quiet=true; trIcon: a symbol without words, centred), the chosen curve's row (trRow="chosen": as a
     chosen list row, the accent's bar beside it, its words in a chosen row's text colour, which a contrast theme
-    needs), the traced colour's frame, the zoom bar floating on the picture (as Windows 11's flyouts; its words in the
-    text colour, as its symbols: a quiet button's are greyer). The picture's card itself is drawn by the window in the
-    same colours (trace_window.Stage)."""
+    needs; its dot and ✕ pointed at or pressed filled as Find…'s row's ✕, the row's text colour at 6 % (4 % pressed)
+    laid over the row's fill: the quiet buttons' usual fill is nearly the chosen row's own, so they showed none), the
+    traced colour's frame, the zoom bar floating on the picture (as Windows 11's flyouts; its words in the text colour,
+    as its symbols: a quiet button's are greyer). The picture's card itself is drawn by the window in the same colours
+    (trace_window.Stage)."""
+    veil = lambda alpha: f"#{alpha}{t['sel_ink'][1:]}"  # (the chosen row's text colour, see-through: #AARRGGBB)
     return f"""
     QLabel#trTitle {{ font-family: "Segoe UI Variable Display"; font-size: 15pt; font-weight: 600; }}
     QLabel#trDropHead {{ font-family: "Segoe UI Variable Display"; font-size: 13.5pt; font-weight: 600; }}
@@ -413,6 +416,8 @@ def tracer(t, img):
     QFrame[trRow="chosen"] {{ background-color: {t['subtle_sel']}; border-radius: 4px;
         background-image: url({img['pill_v']}); background-position: center left; background-repeat: no-repeat; }}
     QFrame[trRow="chosen"] QLabel, QFrame[trRow="chosen"] QPushButton {{ color: {t['sel_ink']}; }}
+    QFrame[trRow="chosen"] QPushButton[quiet="true"]:hover {{ background: {veil("0f")}; color: {t['sel_ink']}; }}
+    QFrame[trRow="chosen"] QPushButton[quiet="true"]:pressed {{ background: {veil("0a")}; color: {t['sel_ink']}; }}
     QLabel#trSwatch {{ border: 1px solid {t['stroke']}; border-radius: 4px; }}
     QFrame#trZoom {{ background: {t['menu']}; border: 1px solid {t['stroke']}; border-radius: 8px; }}
 """
@@ -420,14 +425,19 @@ def tracer(t, img):
 
 def guide_and_help(t, img):
     """The Guide's layer and card, and the Help window. The Guide (ui\\tour.py): its card (#tourCard: the step list's
-    button, the “Demo” tag as the settings' tags, the step's title, link-like buttons with link=true), and what a demo
-    shows inside it: a drop-down's list or a menu (#tourMock, as the app's lists), a message (#tourNote), a key
-    (#tourKey), a window or a question with its title bar (#tourWin), the step list (#tourSteps, as a menu), the graph
-    kept in sight (#tourPin). Help (ui\\help_window.py): its contents (#helpContents) and its page (#helpPage) as cards."""
+    button with Windows 11's chevron after its words, the theme's own picture given as its icon, which the tour draws
+    in the room kept at its right; the “Demo” tag as the settings' tags, the step's title, link-like buttons with
+    link=true), and what a demo shows inside it: a drop-down's list or a menu (#tourMock: as the real ones, kind="list"
+    or "menu": a list's rows and its chosen row, filled with the accent's bar beside it, the long list's search box
+    (#tourMockSearch) as the real one's as it opens, ready for typing: the accent's line under it, its grey words as
+    Qt draws a box's (the text colour at half); a menu's rows, square corners and separators, a submenu's chevron
+    (#tourMockArrow)), a message (#tourNote), a key (#tourKey), a window or a question with its title bar (#tourWin),
+    the step list (#tourSteps, as a menu), the graph kept in sight (#tourPin). Help (ui\\help_window.py): its contents
+    (#helpContents) and its page (#helpPage) as cards."""
     return f"""
     QFrame#tourCard {{ padding: 0px; }}
-    QFrame#tourCard QToolButton#tourCount {{ background: transparent; border: none; border-radius: 4px; padding: 3px 6px;
-        color: {t['ink2']}; }}
+    QFrame#tourCard QToolButton#tourCount {{ background: transparent; border: none; border-radius: 4px;
+        padding: 3px 26px 3px 6px; color: {t['ink2']}; qproperty-icon: url({img['chevron']}); }}
     QFrame#tourCard QToolButton#tourCount:hover {{ background: {t['subtle_hover']}; color: {t['ink']}; }}
     QFrame#tourCard QToolButton#tourCount:pressed {{ background: {t['subtle_press']}; }}
     QFrame#tourCard QLabel#tourBadge {{ background: {t['accent_soft']}; color: {t['accent_text']};
@@ -438,11 +448,21 @@ def guide_and_help(t, img):
     QFrame#tourCard QPushButton[link="true"]:hover {{ background: {t['subtle_hover']}; }}
     QFrame#tourCard QPushButton[link="true"]:pressed {{ background: {t['subtle_press']}; }}
     QFrame#tourMock {{ background: {t['menu']}; border: 1px solid {t['stroke']}; border-radius: 8px; }}
-    QFrame#tourMock QLabel {{ padding: 6px 10px; border-radius: 4px; background: transparent; color: {t['ink']}; }}
-    QFrame#tourMock QLabel[cur="true"] {{ font-weight: 600; }}
-    QFrame#tourMock QLabel[hover="true"] {{ background: {t['sel']}; color: {t['sel_ink']}; }}
+    QFrame#tourMock[kind="menu"] {{ border-radius: 0px; }}
+    QFrame#tourMock QLabel {{ padding: 7px 8px 7px 11px; border-radius: 4px; background: transparent; color: {t['ink']};
+        qproperty-indent: 0; }}
+    QFrame#tourMock[kind="menu"] QLabel {{ padding: 6px 28px 6px 12px; }}
+    QFrame#tourMock QLabel[hover="true"] {{ background-color: {t['sel']}; color: {t['sel_ink']}; }}
+    QFrame#tourMock[kind="list"] QLabel[hover="true"] {{ background-image: url({img['pill_v']});
+        background-position: center left; background-repeat: no-repeat; }}
     QFrame#tourMock QLabel[off="true"] {{ color: {t['muted']}; }}
-    QFrame#tourMock QFrame#tourSep {{ background: {t['stroke']}; border: none; max-height: 1px; min-height: 1px; }}
+    QFrame#tourMock QLabel#tourMockSearch {{ background: {t['field_focus']}; color: #80{t['ink'][1:]};
+        border: 1px solid {t['stroke']}; border-bottom: 2px solid {t['accent']};
+        padding: {PAD[0] + 1}px {PAD[1] - 3}px {PAD[0]}px {PAD[1] - 1}px; }}
+    QFrame#tourMock QLabel#tourMockArrow {{ padding: 0px; qproperty-pixmap: url({img['chevron_right']});
+        qproperty-scaledContents: true; }}
+    QFrame#tourMock QFrame#tourSep {{ background: {t['stroke']}; border: none; max-height: 1px; min-height: 1px;
+        margin: 4px 0px; }}
     QLabel#tourNote {{ background: {t['card']}; color: {t['ink']}; border: 1px solid {t['accent']}; border-radius: 8px;
         padding: 7px 10px; }}
     QLabel#tourKey {{ background: {t['field']}; color: {t['ink']}; border: 1px solid {t['strong']};

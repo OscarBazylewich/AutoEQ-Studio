@@ -213,10 +213,13 @@ def test_icons_beside_the_words(check):
     for font in ("windows11", "windows10"):
         out = subproc.run_python(ICONS, session.SESSION.app, font)
         got[font] = out.data or {"error": out.stderr[-300:]}
+    # (the Windows 10 run hides Segoe Fluent Icons: if that stood-in stopped working, both runs would try Windows 11's
+    # font and pass, so it's part of the check, 2026-10-23; the Windows 11 run uses whichever font this PC has)
     check("icons: Windows 11's symbol beside a button's words (the words unchanged), in the theme's text colour and "
           "drawn again when the theme changes; it never keeps its button",
           all(_near(d.get("light"), (d.get("ink") or [None])[0]) and _near(d.get("dark"), (d.get("ink") or [0, None])[1])
-              and d.get("text") == "Find…" and d.get("gone") is True for d in got.values()), got)
+              and d.get("text") == "Find…" and d.get("gone") is True for d in got.values())
+          and got["windows10"].get("fluent icons") is False, got)
 
 
 # A menu as the app's (a note that can't be chosen, an item, a submenu) and two buttons with a menu (one with a symbol,
