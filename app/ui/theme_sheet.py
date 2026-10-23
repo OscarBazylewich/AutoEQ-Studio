@@ -340,8 +340,34 @@ def listen(t, img):
 
 
 def tracer(t, img):
-    """The tracer's window."""
-    return ""
+    """The tracer's window (ui\\trace_window.py, by its objectNames and its own tr* properties): its title and the
+    empty picture's heading (Fluent's subtitle sizes), the Automatic settings switch (the card's heading) and its
+    Why these settings fold (flat inside that card), the tools as one group (trTool: only the group's two ends rounded),
+    quiet buttons (trQuiet: the zoom bar's, a curve's dot and ✕; trIcon: a symbol without words, centred), the chosen
+    curve's row (trRow="chosen": as a chosen list row, the accent's bar beside it, its words in a chosen row's text
+    colour, which a contrast theme needs), the traced colour's frame, the zoom bar floating on the picture (as Windows
+    11's flyouts). The picture's card itself is drawn by the window in the same colours (trace_window.Stage)."""
+    return f"""
+    QLabel#trTitle {{ font-family: "Segoe UI Variable Display"; font-size: 15pt; font-weight: 600; }}
+    QLabel#trDropHead {{ font-family: "Segoe UI Variable Display"; font-size: 13.5pt; font-weight: 600; }}
+    QCheckBox#trAutoOn {{ font-weight: 600; }}
+    QFrame#trWhy {{ background: transparent; border: none; padding: 0px; }}
+    QFrame#trWhy QToolButton[fold="true"] {{ font-size: {FONT}pt; padding: 4px 0px; }}
+    QPushButton[trTool="first"] {{ border-top-right-radius: 0px; border-bottom-right-radius: 0px; }}
+    QPushButton[trTool="mid"] {{ border-radius: 0px; border-left-width: 0px; }}
+    QPushButton[trTool="last"] {{ border-top-left-radius: 0px; border-bottom-left-radius: 0px;
+        border-left-width: 0px; }}
+    QPushButton[trQuiet="true"] {{ background: transparent; border-color: transparent; padding: 4px 8px; }}
+    QPushButton[trQuiet="true"]:hover {{ background: {t['subtle_hover']}; }}
+    QPushButton[trQuiet="true"]:pressed {{ background: {t['subtle_press']}; }}
+    QPushButton[trQuiet="true"]:disabled {{ background: transparent; border-color: transparent; }}
+    QPushButton[trIcon="true"] {{ padding-left: 10px; padding-right: 4px; }}
+    QFrame[trRow="chosen"] {{ background-color: {t['subtle_sel']}; border-radius: 4px;
+        background-image: url({img['pill_v']}); background-position: center left; background-repeat: no-repeat; }}
+    QFrame[trRow="chosen"] QLabel, QFrame[trRow="chosen"] QPushButton {{ color: {t['sel_ink']}; }}
+    QLabel#trSwatch {{ border: 1px solid {t['stroke']}; border-radius: 4px; }}
+    QFrame#trZoom {{ background: {t['menu']}; border: 1px solid {t['stroke']}; border-radius: 8px; }}
+"""
 
 
 def guide_and_help(t, img):

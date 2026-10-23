@@ -3,7 +3,6 @@ trace_steps(tw), every step in order, and start_trace(tw), the tour, on the samp
 open. Keep the steps in their order: the checks find the Auto trace step by its place (t.go(7)).
 """
 from ui import tour
-from ui.guide_demos import button
 
 
 # ---------------------------------------------------------------- the tracer's own Guide
@@ -44,7 +43,7 @@ def trace_steps(tw):
         {"chapter": "2 · Axes", "title": "Snap and follow gridlines", "target": lambda: [tw.snap, tw.every],
          "text": "Snap keeps dragged lines on gridlines. Follow every gridline uses all those in between, which reads "
                  "unevenly drawn axes right. Leave both ticked."},
-        {"chapter": "2 · Axes", "title": "Read labels / Find axes again", "target": lambda: [tw.ocr_btn, button(tw, "Find axes again")],
+        {"chapter": "2 · Axes", "title": "Read labels / Find axes again", "target": lambda: [tw.ocr_btn, tw.detect_btn],
          "text": "Read the labels or find the gridlines again, e.g. to undo changes made by hand."},
         {"chapter": "3 · Trace", "title": "Tools", "target": lambda: list(tw.tool_btns.values()),
          "text": "Click curve: click a curve to follow it. Draw: drag along it by hand. Erase: drag a box over a bad "
@@ -58,8 +57,8 @@ def trace_steps(tw):
                   {"at": lambda: tw.swatch, "say": "The colour it traced"}]},
         {"chapter": "3 · Trace", "title": "Several curves", "target": lambda: [tw.curves_box, tw.add_btn],
          "before": show_traces,
-         "text": "Each traced curve with its name (L, R…). The tools change the selected one; ✕ deletes it. + Another "
-                 "curve starts a new one; saved together they become one device.",
+         "text": "Each traced curve with its name (L, R…); its coloured dot selects it, ✕ deletes it, and the tools "
+                 "change the selected one. Another curve starts a new one; saved together they become one device.",
          "demo": [{"at": lambda: tw.curves_box, "say": "Each traced curve and its name"},
                   {"at": lambda: tw.add_btn, "say": "Start another one (the other channel)"}]},
         {"chapter": "3 · Trace", "title": "Dashed or dotted lines", "target": lambda: tw.dashed,
