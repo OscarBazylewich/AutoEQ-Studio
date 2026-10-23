@@ -12,9 +12,12 @@ set_up_window   the same window after Set up (selftest.py lines 377-393): the Se
                 are let finish, so every test starts from a quiet window. After it: profiles EarPods and Samson,
                 EarPods on the playing device, APO set up.
 
+themed_window   the code that makes the same window, with the app's theme applied, in a Python of its own: for the
+                checks of how the window and its screens look (THEMED_WINDOW below).
+
 Each window is closed and deleted when its file is done (helpers.qt.close), once the questions it asked APO (in the
 background) have their answers. No theme is applied here: the old self-test drew these screens unthemed, and the
-accessibility test counts on that (tests that need the theme apply it in a Python of their own).
+accessibility test counts on that (tests that need the theme apply it in a Python of their own: themed_window).
 """
 import dataclasses
 import os
@@ -24,6 +27,59 @@ import pytest
 from helpers import apo, qt
 
 KEY = "Headset|EarPods"  # (the playing device, as the Switcher names it)
+
+# The window on the stand-in devices (the headset "{5}" playing, without APO on it; earbuds "{1}" away) in a Python of
+# its own, in the app's theme: dark, with Windows' default blue (stood in: this PC's accent never decides a check).
+# argv: the app's copy, the test's folder (holding apo\config: the fake_apo fixture, not set up for AutoEQ Studio, so
+# the banner shows). A test adds its own lines after it, which can use qapp, theme, t (the colours in use), sw, win
+# (shown on Devices), top, conf, KEY and json, and prints one JSON line (helpers.subproc.run_python's data).
+THEMED_WINDOW = r'''
+import json, os, sys
+sys.path.insert(0, sys.argv[1])
+top = sys.argv[2]
+from PySide6.QtWidgets import QApplication
+qapp = QApplication.instance() or QApplication([])
+from switcher import core
+from switcher import devices as D
+from switcher.apo import Apo
+from ui import theme, theme_tokens
+theme.accent_palette = lambda: theme_tokens.DEFAULT_ACCENT
+theme.apply(qapp, dark=True, contrast=False)
+t = theme.tokens()
+
+
+class Stub:  # (what the window asks of the app)
+    hotkey_problem = ""
+
+    def tray_message(self, title, text):
+        pass
+
+    @staticmethod
+    def autostart_on():
+        return False
+
+    def set_autostart(self, on):
+        pass
+
+    @staticmethod
+    def set_offline(on):
+        import net
+        net.set_offline(on)
+
+
+KEY = "Headset|EarPods"
+conf = os.path.join(top, "apo", "config")
+eps = [D.Endpoint("{5}", "Headset", "EarPods", D.ACTIVE, False),
+       D.Endpoint("{1}", "Headphones", "Buds", D.NOT_PRESENT, True)]
+sw = core.Switcher(os.path.join(top, "s.json"), Apo(conf), endpoints=lambda: eps, playing=lambda: "{5}")
+sw.s["page"] = "devices"
+from ui.window import Window
+win = Window(sw, Stub())
+win.resize(1180, 900)
+win.show()
+for _ in range(5):
+    qapp.processEvents()
+'''
 
 
 class StubApp:
@@ -82,6 +138,13 @@ def _take_down(w):
     QThreadPool.globalInstance().waitForDone(int(qt.time_limit(30) * 1000))
     qt.pump(50)  # (their answers delivered while the window is still there)
     qt.close(w.win)
+
+
+@pytest.fixture
+def themed_window():
+    """THEMED_WINDOW: a test runs it with its own lines added, through helpers.subproc.run_python(code,
+    session.SESSION.app, str(tmp_path)), with the fake_apo fixture in the same test."""
+    return THEMED_WINDOW
 
 
 @pytest.fixture(scope="module")

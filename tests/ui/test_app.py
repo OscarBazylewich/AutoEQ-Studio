@@ -1,6 +1,7 @@
 """The App (ui\\app.py: the tray, the window, the hotkey, Online / Offline) in a Python of its own, on a stand-in APO
 folder, data folder and EQ Switcher settings in the test's folder: EQ Switcher's profiles brought over on the first
-start, Offline kept for the next start. Moved from selftest.py's app_checks."""
+start, Offline kept for the next start. Moved from selftest.py's app_checks. Then the tray icon's menu in Windows 11's
+look (the restyle, 2026-10-23): its headings readable."""
 import json
 import os
 
@@ -40,3 +41,41 @@ def test_first_start_brings_eq_switcher_over_and_offline_is_kept(check, fake_apo
     # was selftest.py:977
     check("app: the first start brings EQ Switcher's profiles over; Offline is kept for the next start",
           lines == ["brought 1 ['EarPods']", "offline True True 0"], lines or out.stderr[-400:])
+
+
+# (the app made once, then drawn light: its tray icon's menu, built as when it's right-clicked, read back from its
+# picture: the first heading's darkest pixel, its words' own colour)
+TRAY = ("import json, sys; sys.path.insert(0, sys.argv[1])\n"
+        "from PySide6.QtWidgets import QApplication\n"
+        "qapp = QApplication([])\n"
+        "from ui import theme, theme_tokens\n"
+        "theme.accent_palette = lambda: theme_tokens.DEFAULT_ACCENT\n"
+        "from ui.app import App\n"
+        "a = App(qapp, show=False)\n"
+        "theme.apply(qapp, dark=False, contrast=False)\n"
+        "a.build_menu()\n"
+        "m = a.menu\n"
+        "m.ensurePolished()\n"
+        "m.resize(m.sizeHint())\n"
+        "head = next(x for x in m.actions() if not x.isEnabled() and not x.isSeparator())\n"
+        "r = m.actionGeometry(head)\n"
+        "img = m.grab().toImage()\n"
+        "darkest = min(min(img.pixelColor(x, y).getRgb()[:3]) for x in range(r.left(), r.right())\n"
+        "              for y in range(r.top(), r.bottom()))\n"
+        "t = theme.tokens()\n"
+        "print(json.dumps({'name': m.objectName(), 'head': head.text(), 'darkest': darkest,\n"
+        "                  'muted': int(t['muted'][1:3], 16), 'disabled': int(t['disabled'][1:3], 16)}))\n"
+        "a.tray.hide(); a.win.close()\n")
+
+
+def test_the_tray_menus_headings_readable(check, fake_apo, tmp_path):
+    # (its headings, the device playing or "No device playing", are items that can't be chosen: they were drawn in
+    # the grey of an unavailable item, 2.7:1 on the menu)
+    top = str(tmp_path)
+    out = subproc.run_python(TRAY, session.SESSION.app, env={
+        "AUTOEQSTUDIO_APO_CONFIG": fake_apo, "AUTOEQSTUDIO_OLD_SETTINGS": os.path.join(top, "no-eqswitcher.json"),
+        "AUTOEQSTUDIO_DATA": os.path.join(top, "data"), "AUTOEQSTUDIO_ROOT": os.path.join(top, "root")})
+    d = out.data or {}
+    check("tray: the menu's headings (the device playing, the EQ being tried) in the readable secondary colour, not "
+          "the grey of an item that can't be chosen", d.get("name") == "tray" and d.get("muted") is not None
+          and abs(d.get("darkest", 999) - d["muted"]) <= 12, d or out.stderr[-400:])

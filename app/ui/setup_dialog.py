@@ -5,12 +5,28 @@ uses offered as profiles (the one on now becomes the playing device's)."""
 import os
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QCheckBox, QDialog, QDialogButtonBox, QLabel, QListWidget, QListWidgetItem, QMessageBox,
-                               QVBoxLayout)
+from PySide6.QtWidgets import (QCheckBox, QDialog, QFrame, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
+                               QMessageBox, QPushButton, QVBoxLayout, QWidget)
 
 from switcher import eqfile
 from switcher.core import shown
+from ui import theme
 from ui.window_parts import muted
+
+
+def _words(text):
+    """A line of the dialog's words, wrapping (one long line made the dialog a thousand pixels wide)."""
+    lab = QLabel(text)
+    lab.setWordWrap(True)
+    return lab
+
+
+def _fit(lst, most):
+    """A list as tall as its rows, up to `most` of them (more: it scrolls). Its height is fixed: Windows opens a
+    dialog no taller than two thirds of the screen, and a list that could shrink was squeezed to a row and a half."""
+    lst.ensurePolished()  # (the theme's row height, with its text size: the list is in the dialog by now)
+    rows = sum(lst.sizeHintForRow(i) for i in range(min(lst.count(), most)))
+    lst.setFixedHeight(rows + 2 * lst.frameWidth() + 6)
 
 
 class SetUpDialog(QDialog):
@@ -21,19 +37,30 @@ class SetUpDialog(QDialog):
         super().__init__(parent)
         self.sw = sw
         self.setWindowTitle("Set up Equalizer APO")
-        lay = QVBoxLayout(self)
+        self.setObjectName("setUp")  # (Windows 11's dialog: the words on the card colour, the buttons on a band below)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+        body = QWidget()
+        # (the words wrap at this width at least; set on the dialog itself, it would switch off its layout's own
+        # minimum, and the longest tick box's words were cut)
+        body.setMinimumWidth(520)
+        lay = QVBoxLayout(body)
+        lay.setContentsMargins(24, 18, 24, 18)
+        lay.setSpacing(8)
+        outer.addWidget(body, 1)
         text = sw.apo.read_config()
         self.others = sw.apo.others_on(text)
-        lay.addWidget(QLabel("AutoEQ Studio adds one line to APO's config.txt, which brings in the EQ chosen for each "
+        lay.addWidget(_words("AutoEQ Studio adds one line to APO's config.txt, which brings in the EQ chosen for each "
                              "device. A copy of config.txt is kept first (config.txt.autoeq-studio-backup)."))
         self.chk_off = None
         if self.others:
-            lay.addWidget(QLabel("These lines in config.txt are on now. They apply to every device, on top of each "
+            lay.addWidget(_words("These lines in config.txt are on now. They apply to every device, on top of each "
                                  "device's EQ:"))
             lst = QListWidget()
             lst.addItems(self.others)
-            lst.setMaximumHeight(110)
             lay.addWidget(lst)
+            _fit(lst, 3)
             self.chk_off = QCheckBox("Turn them off (they stay in config.txt with # in front; taking AutoEQ Studio out "
                                      "turns them on again)")
             self.chk_off.setChecked(True)
@@ -59,24 +86,42 @@ class SetUpDialog(QDialog):
         self.files = [f for f in sw.apo.referenced_files() if not sw.has_profile_like(f)]
         self.file_list = None
         if self.files:
-            lay.addWidget(QLabel("EQ files config.txt uses (on or off). Add them as profiles?"))
+            lay.addWidget(_words("EQ files config.txt uses (on or off). Add them as profiles?"))
             self.file_list = QListWidget()
             for f in self.files:
                 it = QListWidgetItem(os.path.basename(f))
                 it.setFlags(it.flags() | Qt.ItemIsUserCheckable)
                 it.setCheckState(Qt.Checked)
                 self.file_list.addItem(it)
-            self.file_list.setMaximumHeight(130)
             lay.addWidget(self.file_list)
+            _fit(self.file_list, 4)
             key, _ = sw.playing()
             if key:
                 lay.addWidget(muted(f"The one on now becomes the EQ of {shown(sw.record(key))}, the device "
                                     "playing now."))
-        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        btns.button(QDialogButtonBox.Ok).setText("Set up")
-        btns.accepted.connect(self._go)
-        btns.rejected.connect(self.reject)
-        lay.addWidget(btns)
+        # the buttons, as Windows 11's dialogs have them: on a band in the window's colour, the main one (Set up,
+        # Enter's) in the accent, sharing the width
+        footer = QFrame()
+        footer.setObjectName("dialogFooter")
+        fl = QHBoxLayout(footer)
+        fl.setContentsMargins(24, 16, 24, 16)
+        fl.setSpacing(8)
+        self.go_btn = QPushButton("Set up")
+        theme.mark(self.go_btn, primary=True)
+        self.go_btn.setDefault(True)
+        self.go_btn.clicked.connect(self._go)
+        cancel = QPushButton("Cancel")
+        cancel.clicked.connect(self.reject)
+        fl.addWidget(self.go_btn, 1)
+        fl.addWidget(cancel, 1)
+        outer.addWidget(footer)
+        # its size, fixed as Windows 11's dialogs are: as wide as its widest tick box's words (a tick box gives way
+        # when there's less room: its words were cut), and as tall as its wrapping words need at that width (Windows
+        # opens a dialog no bigger than two thirds of the screen: squeezed, its words overlapped the lists)
+        self.ensurePolished()  # (the theme's text size, paddings and rows)
+        width = self.sizeHint().width()
+        height = outer.totalHeightForWidth(width) if outer.hasHeightForWidth() else self.sizeHint().height()
+        self.setFixedSize(width, max(height, self.sizeHint().height()))
 
     def _go(self):
         import re

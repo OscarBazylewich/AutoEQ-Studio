@@ -6,13 +6,52 @@ for a device, trying an EQ for 5 minutes, and the device's choices. Moved from s
 One window for the whole file (tests\\ui\\conftest.py's devices_window, then set_up_window: the same window after
 Set up), its tests in the old checks' order: each one starts from the state the one before left, as the old checks
 did (the device's line keeps the last answer; the EQ choices count on the earlier tests putting things back).
+Then the screen's look in Windows 11's (the restyle, 2026-10-23): its rows, a profile's quiet ✕ (drawn in a Python of
+its own, themed), and the symbols beside its buttons' words.
 """
 import os
 import threading
 
-from helpers import qt
+from helpers import qt, session, subproc
 
 KEY = "Headset|EarPods"
+
+# (after tests\ui\conftest.py's THEMED_WINDOW: a profile on the playing device, then the list's first row and the
+# profile's ✕ read back from the screen's picture)
+ROWS = r'''
+from PySide6.QtCore import QPoint
+from PySide6.QtWidgets import QToolButton
+pid = sw.import_profile(os.path.join(conf, "EarPods.txt"))
+sw.add_to_device(KEY, pid)
+win.render_all()
+for _ in range(5):
+    qapp.processEvents()
+lst = win.dev_list
+r = lst.visualItemRect(lst.item(0))
+img = lst.viewport().grab().toImage()
+
+
+def brightest(y0, y1):  # (the text's own colour: its fullest pixel, dark theme)
+    return max(max(img.pixelColor(x, y).getRgb()[:3]) for x in range(r.left() + 30, r.right() - 4)
+               for y in range(y0, y1))
+
+
+mid = r.center().y()
+xs = [b for b in win.dev_panel.findChildren(QToolButton) if b.text() == "✕" and b.isVisible()]
+fill = None
+if xs:
+    panel = win.dev_panel.grab().toImage()
+    fill = panel.pixelColor(xs[0].mapTo(win.dev_panel, QPoint(5, 5))).name()
+out = {"first": brightest(r.top() + 2, mid - 1), "second": brightest(mid + 2, r.bottom() - 2),
+       "text": lst.item(0).text(), "ink2": t["ink2"], "fill": fill, "card": t["card"], "xs": len(xs)}
+theme.apply(qapp, dark=False, contrast=False)  # (Windows switched to light: the rows are drawn again in its colours)
+for _ in range(5):
+    qapp.processEvents()
+img = lst.viewport().grab().toImage()
+out.update(light_second=min(min(img.pixelColor(x, y).getRgb()[:3]) for x in range(r.left() + 30, r.right() - 4)
+                            for y in range(mid + 2, r.bottom() - 2)), light_ink2=theme.tokens()["ink2"])
+print(json.dumps(out))
+'''
 
 
 def _read(path):
@@ -236,3 +275,36 @@ def test_off_switches_the_eq_off_and_one_panel_at_a_time(set_up_window, check, q
     check("window: one device panel at a time (the old one's parts are gone at once)",
           len([r for r in win.dev_panel.findChildren(QRadioButton) if r.parent() is not None and r.isVisible()]) == 2,
           [r.text() for r in win.dev_panel.findChildren(QRadioButton)])
+
+
+def test_device_rows_and_a_quiet_take_off(themed_window, check, fake_apo, tmp_path):
+    out = subproc.run_python(themed_window + ROWS, session.SESSION.app, str(tmp_path))
+    d = out.data or {}
+    second = int((d.get("ink2") or "#000000")[1:3], 16)  # (dark: ink2 is a grey, the same in red, green and blue)
+    check("devices: each row says the device in the text colour and, under it, where it is and its EQ, smaller, in "
+          "the secondary colour (as Windows 11 lists devices); the row's words unchanged",
+          (d.get("first") or 0) >= 245 and abs((d.get("second") or 0) - second) <= 8
+          and "\n" in (d.get("text") or ""), d or out.stderr[-300:])
+    check("devices: a profile's ✕ is a quiet button (the card shows through it until it's pointed at)",
+          d.get("xs") == 1 and d.get("fill") == d.get("card"), d and (d.get("xs"), d.get("fill"), d.get("card"))
+          or out.stderr[-300:])
+    light = int((d.get("light_ink2") or "#ffffff")[1:3], 16)
+    check("devices: the rows, drawn by the screen itself, follow Windows switching from dark to light (the second "
+          "line in light's secondary colour)", abs((d.get("light_second") or 999) - light) <= 8,
+          d and (d.get("light_second"), d.get("light_ink2")) or out.stderr[-300:])
+
+
+def test_symbols_beside_the_device_screens_words(set_up_window, check, qapp):
+    from PySide6.QtWidgets import QLabel, QPushButton
+    win = set_up_window.win
+    win.render_device_panel()
+    qapp.processEvents()  # (the panel's new parts are shown on Qt's next turn)
+    buttons = {b.text(): b for b in win.dev_panel.findChildren(QPushButton) if b.isVisible()}
+    want = ("Rename…", "Add a profile", "Check again")
+    signs = [(lab.accessibleName(), lab.property("role")) for lab in win.dev_panel.findChildren(QLabel)
+             if lab.property("glyph") == "true" and lab.isVisible()]
+    # (the playing device has no APO on it: its card says so)
+    check("devices: Windows 11's symbols beside Rename…, Add a profile and Check again (their words unchanged), and "
+          "the warning sign on the card saying APO isn't on the device",
+          all(w in buttons and not buttons[w].icon().isNull() for w in want) and signs == [("Warning", "warn")],
+          (sorted(buttons), [w for w in want if w in buttons and buttons[w].icon().isNull()], signs))

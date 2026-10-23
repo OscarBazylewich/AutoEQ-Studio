@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QFileDialog, QHBoxLayout, QHea
 
 import paths
 from switcher import eqfile
+from ui import icons
 from ui.window_parts import muted, profile_line
 
 
@@ -26,23 +27,33 @@ class ProfilesScreen:
                             "APO\" file, AutoEq's ParametricEQ.txt, squig.link's export). Double-click a name to "
                             "rename it."))
         self.prof_table = QTableWidget(0, 4)
+        self.prof_table.setObjectName("profileTable")  # (its cells' words under their headings: window_screens)
         self.prof_table.setAccessibleName("Profiles")
         self.prof_table.setHorizontalHeaderLabels(["Name", "EQ", "Used by", "From"])
         self.prof_table.verticalHeader().hide()
         self.prof_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.prof_table.setSelectionMode(QAbstractItemView.SingleSelection)
         self.prof_table.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed)
+        # as Windows 11 draws a table: headings at the left, no grid, rows with room for the 10.5 pt text
+        self.prof_table.setShowGrid(False)
+        self.prof_table.setWordWrap(False)
+        self.prof_table.verticalHeader().setDefaultSectionSize(36)
         h = self.prof_table.horizontalHeader()
-        h.setSectionResizeMode(0, QHeaderView.Stretch)
+        h.setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        h.setHighlightSections(False)
+        # (the name and the file it came from share the room left: neither is cut while the other has plenty)
+        for c in (0, 3):
+            h.setSectionResizeMode(c, QHeaderView.Stretch)
         for c in (1, 2):
             h.setSectionResizeMode(c, QHeaderView.ResizeToContents)
-        h.setSectionResizeMode(3, QHeaderView.Interactive)
         self.prof_table.itemChanged.connect(self._renamed)
         lay.addWidget(self.prof_table, 1)
         row = QHBoxLayout()
-        for text, fn in (("Import EQ files…", lambda: self.import_files()), ("Rename", self._rename),
-                         ("Remove", self._remove), ("Show the files", lambda: self.open_folder(self.sw.apo.profiles))):
+        for text, fn, symbol in (("Import EQ files…", lambda: self.import_files(), "import"),
+                                 ("Rename", self._rename, "rename"), ("Remove", self._remove, "remove"),
+                                 ("Show the files", lambda: self.open_folder(self.sw.apo.profiles), "folder")):
             b = QPushButton(text)
+            icons.put(b, symbol)
             b.clicked.connect(fn)
             row.addWidget(b)
         row.addStretch(1)
@@ -57,6 +68,7 @@ class ProfilesScreen:
             r = t.rowCount()
             t.insertRow(r)
             name = QTableWidgetItem(p["name"])
+            name.setToolTip(p["name"])  # (whole, when the column is too narrow for it)
             name.setData(Qt.UserRole, pid)
             t.setItem(r, 0, name)
             for c, text in ((1, profile_line(p) + ("  (file missing)" if self.sw.profile_missing(pid) else "")),

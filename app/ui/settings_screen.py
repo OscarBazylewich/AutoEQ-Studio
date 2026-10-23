@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (QCheckBox, QFileDialog, QGroupBox, QHBoxLayout, Q
                                QPushButton, QVBoxLayout, QWidget)
 
 import paths
+from ui import icons, theme
 from ui.setup_dialog import SetUpDialog
 from ui.window_parts import muted
 
@@ -67,10 +68,13 @@ class SettingsScreen:
         self.btn_setup = QPushButton("Set up…")
         self.btn_setup.clicked.connect(self.set_up_dialog)
         self.btn_unset = QPushButton("Take AutoEQ Studio out of APO…")
+        icons.put(self.btn_unset, "cancel")
         self.btn_unset.clicked.connect(self.take_out)
         self.btn_conf = QPushButton("Open APO's Configurator")
+        icons.put(self.btn_conf, "open_new")
         self.btn_conf.clicked.connect(self.open_configurator)
         self.btn_folder = QPushButton("Open APO's config folder")
+        icons.put(self.btn_folder, "folder")
         self.btn_folder.clicked.connect(lambda: self.open_folder(self.sw.apo.config))
         for b in (self.btn_setup, self.btn_unset, self.btn_conf, self.btn_folder):
             row.addWidget(b)
@@ -89,8 +93,10 @@ class SettingsScreen:
         bl.addWidget(self.files_label)
         row = QHBoxLayout()
         self.btn_files_open = QPushButton("Open the folder")
+        icons.put(self.btn_files_open, "folder")
         self.btn_files_open.clicked.connect(self.open_files_folder)
         self.btn_files_change = QPushButton("Change…")
+        icons.put(self.btn_files_change, "change_folder")
         self.btn_files_change.setToolTip("Keep your files in another folder (they can be moved there for you)")
         self.btn_files_change.clicked.connect(self.change_files_folder)
         from ui import help_window
@@ -109,8 +115,10 @@ class SettingsScreen:
                            "reinstall."))
         row = QHBoxLayout()
         self.btn_backup = QPushButton("Back up everything…")
+        icons.put(self.btn_backup, "backup")
         self.btn_backup.clicked.connect(self.make_backup)
         self.btn_restore = QPushButton("Restore from a backup…")
+        icons.put(self.btn_restore, "restore")
         self.btn_restore.clicked.connect(self.restore_backup)
         for b in (self.btn_backup, self.btn_restore):
             help_window.tag(b, "#backup")
@@ -196,6 +204,9 @@ class SettingsScreen:
             self.hotkey_edit.setKeySequence(QKeySequence(self.sw.s.get("hotkey") or ""))
         self.hotkey_note.setText(self.app.hotkey_problem or "Works in any program. It goes through the playing "
                                  "device's profiles, then Off.")
+        role = "warn" if self.app.hotkey_problem else "muted"  # (a problem with the hotkey is said as a warning)
+        if self.hotkey_note.property("role") != role:
+            theme.mark(self.hotkey_note, role=role)
         apo = self.sw.apo
         if not apo.found:
             state = "Not installed (or its config folder wasn't found)."
