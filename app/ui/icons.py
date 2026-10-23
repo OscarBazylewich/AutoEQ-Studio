@@ -23,7 +23,7 @@ GLYPHS = {"eq": "E9E9", "devices": "E7F6", "profiles": "E8FD", "settings": "E713
           "lock": "E72E", "unlock": "E785", "pin": "E718", "unpin": "E77A", "favourite": "E734", "view": "E890",
           "hide": "ED1A", "image": "EB9F", "colour": "E790", "ruler": "ECC6", "move": "E7C2", "crop": "E7A8",
           "chart": "E9D9", "report": "E9F9", "select": "E8B3", "clock": "E823", "calendar": "E787", "tag": "E8EC",
-          "tools": "E90F"}
+          "tools": "E90F", "swap": "E8AB"}
 _shown = []  # ((button, name)): the symbols shown, one per button, drawn again when the theme changes
 _told = []  # (not empty once the theme tells put()'s symbols of a change: asked once)
 

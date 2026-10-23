@@ -54,8 +54,8 @@ def text_roles(t, img):
 
 
 def buttons(t, img):
-    """Buttons: plain, pointed at, pressed, unavailable, checked (the accent), and the one main action of a card
-    (primary=true: the accent)."""
+    """Buttons: plain, pointed at, pressed, unavailable, checked (the accent), the one main action of a card
+    (primary=true: the accent), and a quiet one (quiet=true: no fill until pointed at, as a row's ✕)."""
     return f"""
     QPushButton, QToolButton {{ background: {t['field']}; border: 1px solid {t['stroke']};
         border-bottom-color: {t['stroke_bottom']}; border-radius: 4px; padding: {PAD[0]}px {PAD[1]}px; }}
@@ -73,6 +73,14 @@ def buttons(t, img):
     QPushButton[primary="true"]:pressed {{ background: {t['accent_press']}; }}
     QPushButton[primary="true"]:disabled {{ background: {t['accent_disabled']}; border-color: {t['accent_disabled']};
         color: {t['on_accent_disabled']}; }}
+    QPushButton[quiet="true"], QToolButton[quiet="true"] {{ background: transparent; border: 1px solid transparent;
+        color: {t['ink2']}; }}
+    QPushButton[quiet="true"]:hover, QToolButton[quiet="true"]:hover {{ background: {t['subtle_hover']};
+        color: {t['ink']}; }}
+    QPushButton[quiet="true"]:pressed, QToolButton[quiet="true"]:pressed {{ background: {t['subtle_press']};
+        color: {t['ink2']}; }}
+    QPushButton[quiet="true"]:disabled, QToolButton[quiet="true"]:disabled {{ background: transparent;
+        color: {t['disabled']}; }}
 """
 
 
