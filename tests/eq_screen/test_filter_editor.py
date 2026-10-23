@@ -4,8 +4,9 @@ used; Revert gives the run's filters back and Sort alone isn't an edit; the Slid
 Moved from eq_checks.py's ui_checks: one page for the file (the eq_screen fixture), a quick run of its own (the
 result the old checks edited), then the edits one after another in the old order. Then the editor's look
 (Windows 11's, 2026-10-23) on an editor of its own in a window, as Your own filters has it: as tall as the view
-shown, and its colours the theme's, light and dark (read from what's drawn); and Your own filters itself (Settings ›
-Edit as a table…), its Sliders view whole as the window opens and at its smallest."""
+shown, its colours the theme's, light and dark (read from what's drawn), and its table's headings over their words
+(Type's at the left); and Your own filters itself (Settings › Edit as a table…), its Sliders view whole as the window
+opens and at its smallest."""
 import pytest
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QSlider
@@ -156,6 +157,41 @@ def test_editor_colours_are_the_themes(own_editor, eq_screen, check):
     check("filters: the pre-amp's bar (a slider's empty track), ✕ (a subtle button: the card shows through it) and a "
           "switched-off filter's thumb (its ring with a grey dot, not a flat square) in the theme's colours, light and "
           "dark, none set in the code", ok and light["bar"][1] != dark["bar"][1], {"light": light, "dark": dark})
+
+
+def _ink_span(img, rect):
+    """(first, last): the columns of rect in a picture with words in them (far from the colour at its left), from
+    rect's left, read along its middle band (clear of a box's borders); None without words."""
+    back = img.pixelColor(rect.left() + 1, rect.center().y())
+    far = lambda c: max(abs(c.red() - back.red()), abs(c.green() - back.green()), abs(c.blue() - back.blue())) > 80
+    cols = [x for x in range(rect.left(), rect.right() + 1)
+            if any(far(img.pixelColor(x, y)) for y in range(rect.center().y() - 5, rect.center().y() + 6))]
+    return (cols[0] - rect.left(), cols[-1] - rect.left()) if cols else None
+
+
+def test_editor_headings_over_their_words(own_editor, check):
+    # (2026-10-23, the restyle's recheck: the table's headings were all centred, so “Type” sat in the middle of its
+    # column while its drop-downs' words start at their left; the result card and Your own filters both show it)
+    from PySide6.QtCore import QPoint, QRect
+    t = own_editor.table
+    h = t.horizontalHeader()
+    head, cells = qt.picture(h), qt.picture(t.viewport())
+    spans = {}
+    for c, name in ((0, "On"), (2, "Type"), (3, "Frequency (Hz)"), (4, "Gain (dB)"), (5, "Q")):
+        x = h.sectionViewportPosition(c)
+        w = t.cellWidget(0, c)
+        at = w.mapTo(t.viewport(), QPoint(0, 0))
+        words = _ink_span(cells, QRect(at, w.size()))
+        spans[name] = (_ink_span(head, QRect(x, 0, h.sectionSize(c), h.height())),
+                       words and (words[0] + at.x() - x, words[1] + at.x() - x))  # (both from the column's left)
+    whole = all(a is not None and b is not None for a, b in spans.values())
+    middle = lambda s: (s[0] + s[1]) / 2
+    check("filters: the table's Type heading starts at the left, over its drop-downs' words (it sat in the middle of "
+          "its column); the other headings stay centred over their values and ticks (the result card's and Your own "
+          "filters' table)",
+          whole and abs(spans["Type"][0][0] - spans["Type"][1][0]) <= 2
+          and all(abs(middle(spans[k][0]) - middle(spans[k][1])) <= 3
+                  for k in ("On", "Frequency (Hz)", "Gain (dB)", "Q")), spans)
 
 
 def test_own_filters_sliders_whole(eq_screen, check, monkeypatch):

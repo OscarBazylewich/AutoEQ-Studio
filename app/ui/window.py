@@ -155,14 +155,17 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
             h.addWidget(b)
             self.nav[key] = b
         h.addStretch(1)
-        self.presets_btn = QPushButton("Presets ▾")  # (Make an EQ's settings: shown on that screen)
+        self.presets_btn = QPushButton("Presets")  # (Make an EQ's settings: shown on that screen)
         theme.mark(self.presets_btn, nav=True)
         icons.put(self.presets_btn, "presets")
         self.presets_btn.setToolTip("Save all of Make an EQ's settings under a name, and load them again")
         from ui import help_window
         help_window.tag(self.presets_btn, "#presets")
+        # (the menu the button's own, so it shows Windows 11's chevron as every button with a menu does (the theme's
+        # picture), beside Use on device's: "▾" was typed in its words, 2026-10-23; made afresh as it opens)
         self.presets_menu = QMenu(self.presets_btn)
-        self.presets_btn.clicked.connect(self.open_presets)
+        self.presets_menu.aboutToShow.connect(self.fill_presets)
+        self.presets_btn.setMenu(self.presets_menu)
         h.addWidget(self.presets_btn)
         guide = QPushButton("Guide")
         theme.mark(guide, nav=True)
@@ -230,14 +233,15 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         if remember and self.sw.s.get("page") != key:
             self.sw.set("page", key)
 
-    def open_presets(self):
-        """Presets ▾ (AutoEQ Local's): the menu under the button, made afresh from the presets there are now."""
+    def fill_presets(self):
+        """Presets' menu (AutoEQ Local's Presets menu), made afresh as it opens from the presets there are now; before
+        Make an EQ has opened, a note saying when they're ready."""
         page = self.eq_page
         if page is None or getattr(page, "settings", None) is None:
-            self.status("Presets are ready as soon as Make an EQ has opened.", 4000)
+            self.presets_menu.clear()
+            self.presets_menu.addAction("Presets are ready as soon as Make an EQ has opened").setEnabled(False)
             return
         page.fill_presets(self.presets_menu)
-        self.presets_menu.popup(self.presets_btn.mapToGlobal(self.presets_btn.rect().bottomLeft()))
 
     @staticmethod
     def open_help(entry=None):

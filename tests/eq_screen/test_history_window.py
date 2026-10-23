@@ -5,7 +5,8 @@ History file that can't be read is said and kept as .bad. Moved from eq_checks.p
 review_low_checks: one page for the file (the eq_screen fixture), a quick run of its own saved as "UI check" (the
 History entry the old checks used), then the checks in the old order. History starts empty here, as it did for the
 old checks (the parts before them had emptied it). Then the window's look (Windows 11's, 2026-10-23) on a made-up
-History: the rows' colours following the theme, the symbols, ✕, and the window at its smallest."""
+History: the rows' colours following the theme, the symbols, ✕, and the window at its smallest; a row's words at a
+card's inset, and its buttons under its words when the window is narrow."""
 import contextlib
 import os
 import time
@@ -188,6 +189,56 @@ def test_history_rows_whole_at_its_smallest(made_up_history, check):
     smallest = (hw.width(), hw.height(), view.width(), view.height(), [(r.width(), r.height()) for r in rows[:1]])
     check("history: at its smallest a whole row shows, its buttons in sight (no row could be read)",
           rows and all(r.width() <= view.width() for r in rows) and view.height() >= rows[0].height(), smallest)
+
+
+def _rows_now(hw, first=3):
+    """History's first rows as laid out now: for each, its first line's width and where its words start (from what's
+    drawn, inside the row), and whether its Show button is under that line or beside it."""
+    from PySide6.QtCore import QPoint, QRect
+    from PySide6.QtWidgets import QLabel, QPushButton
+    out = []
+    for r in [f for f in hw.scroll.widget().findChildren(QFrame) if type(f) is QFrame][:first]:
+        head = next(lab for lab in r.findChildren(QLabel) if "→" in lab.text())
+        show = next(b for b in r.findChildren(QPushButton) if b.text() == "Show")
+        h, s = QRect(head.mapTo(r, QPoint(0, 0)), head.size()), QRect(show.mapTo(r, QPoint(0, 0)), show.size())
+        start = qt.words_start(qt.picture(r), h)
+        out.append({"words wide": h.width(), "words start": start if start is None else start + h.left(),
+                    "Show under the words": s.top() >= h.bottom(), "Show beside them": s.left() >= h.right(),
+                    "row": (r.width(), r.height())})
+    return out
+
+
+def test_history_rows_words_at_a_cards_inset(made_up_history, check):
+    # (2026-10-23, the restyle's recheck: each row, a card frame, kept Qt's own 9 px layout margin on top of its
+    # padding, so its words started 5 px further in than a card's, 23 px in)
+    from ui import theme_sheet
+    rows = _rows_now(made_up_history)
+    inset = theme_sheet.CARD + 1  # (inside its 1 px border)
+    check("history: a row's words start at a card's inset inside its border, as the cards' content does, not 5 px "
+          "further in", len(rows) == 3 and all(r["words start"] is not None and abs(r["words start"] - inset) <= 2
+                                               for r in rows), {"inset": inset, "rows": rows})
+
+
+def test_history_rows_buttons_under_the_words_when_narrow(made_up_history, check):
+    # (2026-10-23, the restyle's recheck: at its smallest, 520 x 380, each row's words were squeezed into a column about
+    # 100 px wide, up to 9 lines tall, beside Show, Copy, Listen and ✕; the Guide's frame shows it about as narrow)
+    from ui.history_window import WORDS_ROOM
+    hw = made_up_history
+    seen = {}
+    for name, size in (("its own size", (760, 640)), ("its smallest", None), ("its own size again", (760, 640))):
+        if size:
+            hw.resize(*size)
+        else:
+            hw.resize(hw.minimumSize())
+        qt.pump(250)
+        seen[name] = _rows_now(hw)
+    beside = lambda rows: len(rows) == 3 and all(r["Show beside them"] and r["words wide"] >= WORDS_ROOM for r in rows)
+    under = lambda rows: len(rows) == 3 and all(r["Show under the words"] and r["words wide"] >= WORDS_ROOM
+                                                for r in rows)
+    check("history: at its smallest a row's buttons go on a line under its words, which keep room to be read (they "
+          "were squeezed into a column about 100 px wide, up to 9 lines tall); at its own size the buttons stay beside "
+          "the words",
+          beside(seen["its own size"]) and under(seen["its smallest"]) and beside(seen["its own size again"]), seen)
 
 
 def test_history_deleted_straight_after_drawing_again(made_up_history, check):

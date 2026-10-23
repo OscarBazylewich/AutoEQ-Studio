@@ -62,6 +62,9 @@ class EqCards:
         card = QFrame()
         theme.mark(card, card=True)
         v = QVBoxLayout(card)
+        # (a card frame's padding leaves 4 px for this: its title then starts where the cards' titles below it do;
+        # Qt's own 9 px put it 5 px further in, 2026-10-23)
+        v.setContentsMargins(4, 4, 4, 4)
         head = QHBoxLayout()
         self.graph_title = PairTitle()  # (the target under the measurement on a narrow window: on one line it made
         theme.mark(self.graph_title, eqtitle=True)  # the page wider than the window)

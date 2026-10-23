@@ -2,8 +2,12 @@
 room enough (2026-10-23, found by the restyle's checkers). The “Many results?” demo points at a ⇄ rig tag only once
 its row is scrolled into sight in Find… (further down the list, the pointer and the tag's words went past the list's
 end); the “Several measurements of the same model?” demo asks for Which measurement at least as tall as that window's
-smallest size and what its wrapped words need. On Make an EQ opened as the other screen tests open it (the eq_screen
-fixture); the demos are only looked at, as the Guide plays them."""
+smallest size and what its wrapped words need. Then (the recheck): the History demo at the window's smallest, its rows
+readable; the menus the Presets and Use on device demos draw, a submenu's arrow the real menus' chevron. On Make an EQ
+opened as the other screen tests open it (the eq_screen fixture); the demos are only looked at, as the Guide plays
+them."""
+import time
+
 import pytest
 
 from helpers import qt
@@ -106,3 +110,118 @@ def test_which_measurement_demo_asks_for_room(eq_screen, check, monkeypatch):
     check("guide: the “Several measurements of the same model?” demo asks for Which measurement at least as tall as "
           "that window's smallest size and what its wrapped words need (it asked for 640, under its smallest, 660)",
           ended and not errors and height >= need, (ended, errors, asked))
+
+
+def _history_rows(hw):
+    """History's first two rows as laid out now: each one's first line's width, and whether its Show button is under
+    that line."""
+    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QFrame, QLabel, QPushButton
+    out = []
+    for r in [f for f in hw.scroll.widget().findChildren(QFrame) if type(f) is QFrame][:2]:
+        head = next(lab for lab in r.findChildren(QLabel) if "→" in lab.text())
+        show = next(b for b in r.findChildren(QPushButton) if b.text() == "Show")
+        out.append({"words wide": head.width(), "row": (r.width(), r.height()),
+                    "Show under the words": show.mapTo(r, QPoint(0, 0)).y() >= head.mapTo(r, QPoint(0, head.height())).y()})
+    return out
+
+
+def test_history_demo_rows_readable_at_the_smallest(eq_screen, check, monkeypatch):
+    # (2026-10-23, the restyle's recheck: at the window's smallest the Guide shows History about 523 px wide, and each
+    # row's words were squeezed into a column about 100 px wide beside its buttons)
+    from ui import tasks, tour
+    from ui.history_window import WORDS_ROOM, HistoryWindow
+    page = eq_screen.page
+    now = time.time()
+    monkeypatch.setattr(page, "history", [
+        {"key": f"guide{i}", "base": f"guide{i}", "when": now - i * 3600, "mode": "best_fit", "label": "Best fit",
+         "device": "Truthear GATe (Wide Bore Tips) (L800 IEM)", "target": "Diffuse field 5128 -1dB per octave (AutoEq)",
+         "saved": True, "filters": [{"type": "PK", "freq": 1000, "gain": 1.0, "q": 1.0}], "n_filters": 1, "rms": 0.5,
+         "preamp": -1.0} for i in range(3)])
+    shown, seen = [], {}
+    real_window, real_at = tour.Api.window, tour.Api.at
+
+    def window(api, w, near=None, size=None):  # (the window the demo shows)
+        if isinstance(w, HistoryWindow):
+            shown.append(w)
+        return real_window(api, w, near, size)
+
+    def at(api, w, *a, **k):  # (its rows read once the demo has pointed at them: shown and laid out by then)
+        yield from real_at(api, w, *a, **k)
+        if shown and "rows" not in seen and tasks.alive(shown[-1]):
+            seen.update(width=shown[-1].width(), rows=_history_rows(shown[-1]))
+    monkeypatch.setattr(tour.Api, "window", window)
+    monkeypatch.setattr(tour.Api, "at", at)
+    size = page.size()
+    try:
+        page.resize(965, 433)  # (the window at its smallest, the top bar's width: the room the Guide has there)
+        qt.pump(200)
+        ended, errors = _play(eq_screen, "History")
+    finally:
+        page.resize(size)
+        qt.pump(200)
+    rows = seen.get("rows") or []
+    check("guide: at the window's smallest, the History demo shows History's rows with their buttons under their "
+          "words, which keep room to be read (squeezed beside the buttons, they were a column about 100 px wide)",
+          ended and not errors and seen.get("width", 10 ** 6) < 640 and len(rows) == 2
+          and all(r["Show under the words"] and r["words wide"] >= WORDS_ROOM for r in rows), (ended, errors, seen))
+
+
+def test_menus_drawn_with_the_real_submenu_arrow(eq_screen, check, monkeypatch):
+    # (2026-10-23, the restyle's recheck: the menus the Presets and Use on device demos draw wrote a submenu's arrow as
+    # a typed “▸”, where the real menus show Windows 11's chevron)
+    import re
+    from PySide6.QtWidgets import QLabel, QPushButton
+    from ui import guide_eq, tasks
+    page = eq_screen.page
+    # (the Presets step lights the top bar's Presets, so it's in the Guide only when Make an EQ is in the app's window:
+    # here the page is on its own, so a Presets button is stood in on it, and the page serves as that window)
+    bar = QPushButton("Presets", page)
+    bar.move(page.width() - 160, 6)
+    bar.show()
+    for name, value in (("presets_btn", bar), ("help_btn", bar),
+                        ("nav", {k: bar for k in ("eq", "devices", "profiles", "settings")})):
+        monkeypatch.setattr(page, name, value, raising=False)
+    # (a preset with a long name: the menu is then drawn again, wider, so none of its rows is cut, as the real one)
+    monkeypatch.setattr(page, "preset_names", lambda: ["For the website, as listener800 and squig.link draw it"])
+    seen = []
+    real_pick = guide_eq.pick
+
+    def pick(api, m, i, *a, **k):  # (each menu as the demo picks from it: shown for a while, laid out)
+        if tasks.alive(m):
+            arrow = m.findChild(QLabel, "eqMockArrow")
+            img = qt.picture(arrow) if arrow is not None else None
+            labels = [r for r in m.rows if isinstance(r, QLabel)]
+            seen.append({"rows": [r.text() for r in labels],
+                         "cut": [r.text() for r in labels if r.sizeHint().width() > r.width()],
+                         "arrow in": arrow is not None and arrow.parentWidget().text(),
+                         "arrow": img is not None and _chevron_right(img)})
+        yield from real_pick(api, m, i, *a, **k)
+    monkeypatch.setattr(guide_eq, "pick", pick)
+    try:
+        played = {title: _play(eq_screen, title) for title in ("Presets", "Save it, or use it on a device")}
+    finally:
+        qt.close(bar)
+    sheet = eq_screen.qapp.styleSheet()
+    url = lambda rule: (re.search(rule + r"\s*\{[^}]*image:\s*url\(([^)]*)\)", sheet) or [None, None])[1]
+    pictures = (url(r"QLabel#eqMockArrow"), url(r"QMenu::right-arrow"))
+    check("guide: the menus the Presets and Use on device demos draw show a submenu's arrow as the app's menus do "
+          "(Windows 11's chevron, the same picture), not a typed “▸”; none of their rows is cut (Use on device's cut "
+          "“not connected”)",
+          all(ended and not errors for ended, errors in played.values()) and len(seen) >= 3
+          and not any("▸" in row for s in seen for row in s["rows"]) and not any(s["cut"] for s in seen)
+          and any("listener800" in row for s in seen for row in s["rows"])
+          and all(s["arrow in"] in ("Delete a preset", "Try for 5 minutes on") and s["arrow"] for s in seen)
+          and pictures[0] is not None and pictures[0] == pictures[1], (played, seen, pictures))
+
+
+def _chevron_right(img):
+    """Whether a small picture is a chevron pointing right (">": ink in it, none at the middle of its left side, which
+    a filled triangle has)."""
+    bg = img.pixelColor(0, 0)
+    ink = [(x, y) for x in range(img.width()) for y in range(img.height())
+           if sum(abs(a - b) for a, b in zip(img.pixelColor(x, y).getRgb()[:3], bg.getRgb()[:3])) > 60]
+    if not ink:
+        return False
+    left, top, bottom = min(x for x, _y in ink), min(y for _x, y in ink), max(y for _x, y in ink)
+    return (left + 1, (top + bottom) // 2) not in ink and bottom - top >= 4

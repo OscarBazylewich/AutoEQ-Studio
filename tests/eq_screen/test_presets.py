@@ -1,4 +1,4 @@
-"""Make an EQ's Presets ▾ (ui\\eq_page.py: save_preset, fill_presets, load_preset, delete_preset, reset_settings):
+"""Make an EQ's Presets (ui\\eq_page.py: save_preset, fill_presets, load_preset, delete_preset, reset_settings):
 the settings saved under a name (not your files), listed, loaded (Undo puts the ones before back), deleted; Reset
 all settings with its Undo. Moved from eq_checks.py's preset_checks (lines 2120-2159), on a page opened as the old
 checks opened it (the eq_screen fixture). Delete and Reset ask first: answered Yes by the tests' dialogs
