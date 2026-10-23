@@ -138,8 +138,8 @@ class HistoryWindow(QDialog):
         self._lay, self._todo, self._heads = lay, todo, []
         self._make_more(len(todo) if keep else FIRST_ROWS)
         self.scroll.setWidget(body)
-        if keep:
-            QTimer.singleShot(0, lambda: bar.setValue(pos))
+        if keep:  # (once laid out; the scroll bar its owner, so a window deleted meanwhile drops it, as Find…'s)
+            QTimer.singleShot(0, bar, lambda: bar.setValue(pos))
 
     @staticmethod
     def _heading(d):

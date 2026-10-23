@@ -183,6 +183,23 @@ def test_history_rows_whole_at_its_smallest(made_up_history, check):
           rows and all(r.width() <= view.width() for r in rows) and view.height() >= rows[0].height(), smallest)
 
 
+def test_history_deleted_straight_after_drawing_again(made_up_history, check):
+    # (drawn again keeping its place in the list, as ✕ does, the window puts the place back once laid out: a moment
+    # later, by a timer that had no owner, so it reached for the scroll bar of a window deleted meanwhile, an error
+    # inside a Qt call-back (qt_error_check fails this test then). Find… had the same, 2026-10-23)
+    import shiboken6
+    from PySide6.QtCore import QCoreApplication, QEvent
+    hw = made_up_history
+    hw.render(keep=True)
+    hw.close()
+    hw.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+    gone = not shiboken6.isValid(hw)
+    qt.pump(200)  # (the timer's moment)
+    check("history: deleted straight after it's drawn again keeping its place (✕), nothing reaches for its list "
+          "afterwards", gone, gone)
+
+
 def test_unreadable_history_is_said(eq_screen, check, dialogs, fresh_studio):
     # (last in this file: it breaks History on purpose; fresh_studio puts the studio back after it)
     page = eq_screen.page
