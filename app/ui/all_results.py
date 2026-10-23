@@ -4,16 +4,35 @@
   several results)
 - the table: every result (error, filters, rows, range, gain, Q max, max boost, pre-amp), sorted by a click on a
   heading; a click on a row shows it
+The shading is the theme's colour for "good" (its "pill"), taken as each cell is drawn: it follows light and dark
+(in Windows' contrast themes: Windows' highlight).
 """
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QBrush, QColor, QFont
-from PySide6.QtWidgets import (QAbstractItemView, QDialog, QHeaderView, QLabel, QTableWidget, QTableWidgetItem,
-                               QVBoxLayout)
+from PySide6.QtGui import QBrush, QColor, QFont, QFontMetrics, QPalette
+from PySide6.QtWidgets import (QAbstractItemView, QDialog, QHeaderView, QLabel, QStyledItemDelegate, QTableWidget,
+                               QTableWidgetItem, QVBoxLayout)
 
 from ui import theme
+from ui.theme_sheet import CARD
 
 HEAD = [("Error (dB)", "rms"), ("Filters", "n_filters"), ("Rows", "rows"), ("Range", None), ("Gain", None),
         ("Q max", "q_max"), ("Max boost", "max_boost"), ("Pre-amp", "preamp")]
+SAME = Qt.UserRole + 1  # (a grid cell's mark: sounds the same as the target)
+
+
+class _Shade(QStyledItemDelegate):
+    """The grid's cells: one that sounds the same as the target shaded in the theme's "good" colour as it's drawn;
+    in Windows' contrast themes, which have no such colour (it's the window's), in Windows' highlight and its text."""
+
+    def initStyleOption(self, option, index):
+        super().initStyleOption(option, index)
+        if index.data(SAME):
+            t = theme.tokens()
+            if t["pill"] != t["card"]:
+                option.backgroundBrush = QBrush(QColor(t["pill"]))
+            else:
+                option.backgroundBrush = QBrush(QColor(t["sel"]))
+                option.palette.setColor(QPalette.Text, QColor(t["on_sel"]))
 
 
 class _Num(QTableWidgetItem):
@@ -35,13 +54,19 @@ class AllResults(QDialog):
         run, _r = page.current()
         self.run = run
         self.setWindowTitle(f"All {len(run['results'])} results of run {run.get('n', 1)}")
-        self.resize(900, 720)
+        self.resize(940, 720)  # (the note under the grid on one line at Windows 11's text size)
+        self.setMinimumSize(720, 560)  # (smaller, the grid's numbers were cut and the note ran over it)
         v = QVBoxLayout(self)
+        v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as a card's)
         lead = QLabel("Every result the run tried. Click one to show it.")
         theme.mark(lead, role="muted")
         v.addWidget(lead)
         self.grid_title, self.grid, self.grid_note = QLabel(), QTableWidget(), QLabel()
-        self.grid_title.setStyleSheet("font-weight: 600;")
+        theme.mark(self.grid_title, role="section")
+        self.grid.setObjectName("eqwGrid")  # (its corner: ui\theme_sheet.py's eq_windows)
+        self.grid.setItemDelegate(_Shade(self.grid))
+        self._grid_height = None  # (its rows' height: render())
+        self.grid.horizontalScrollBar().rangeChanged.connect(self._fit_grid)
         self.grid_note.setWordWrap(True)
         theme.mark(self.grid_note, role="muted")
         for w in (self.grid_title, self.grid, self.grid_note):
@@ -66,9 +91,15 @@ class AllResults(QDialog):
         self.page.show_result(rid)
         self.render()
 
+    def _fit_grid(self, *_):
+        """The grid as tall as its rows, and its scroll bar more while it scrolls sideways (a narrow window): the bar
+        covered its last row."""
+        if self._grid_height is not None:
+            bar = self.grid.horizontalScrollBar()
+            self.grid.setFixedHeight(self._grid_height + (bar.sizeHint().height() if bar.maximum() > 0 else 0))
+
     def render(self):
         run, page = self.run, self.page
-        tok = theme.tokens()
         # the grid
         rs = run["results"]
         show = run["mode"] in ("site_sweep", "best_fit") and len(rs) > 1
@@ -92,7 +123,7 @@ class AllResults(QDialog):
             g.setRowCount(len(rows))
             g.setColumnCount(len(qs))
             g.setHorizontalHeaderLabels([f"Q max {q}" for q in qs])
-            g.setVerticalHeaderLabels([f"{rv} {'rows' if site else 'filters'}" for rv in rows])
+            g.setVerticalHeaderLabels([f"{rv} {'row' if site else 'filter'}{'' if rv == 1 else 's'}" for rv in rows])
             g.setEditTriggers(QAbstractItemView.NoEditTriggers)
             g.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
             for i, rv in enumerate(rows):
@@ -106,14 +137,23 @@ class AllResults(QDialog):
                         it = QTableWidgetItem(f"{c['rms']:.2f}  ({sub})")
                         it.setData(Qt.UserRole, c["id"])
                         if c.get("ear") is not None and c["ear"] <= ear_db:
-                            it.setBackground(QBrush(QColor(tok["sel"])))
+                            it.setData(SAME, True)  # (shaded as it's drawn: _Shade)
                         if c["id"] == page.sel:
                             f = QFont(it.font())
                             f.setBold(True)
                             it.setFont(f)
                     it.setTextAlignment(Qt.AlignCenter)
                     g.setItem(i, j, it)
-            g.setFixedHeight(min(320, g.horizontalHeader().height() + sum(g.rowHeight(i) for i in range(len(rows))) + 4))
+            # (never narrower than its widest number, in bold as the one shown: in a narrow window the grid scrolls
+            # sideways instead)
+            g.ensurePolished()  # (the theme's text size)
+            bold = QFont(g.font())
+            bold.setBold(True)
+            fm = QFontMetrics(bold)
+            g.horizontalHeader().setMinimumSectionSize(16 + max(fm.horizontalAdvance(g.item(i, j).text())
+                                                               for i in range(len(rows)) for j in range(len(qs))))
+            self._grid_height = min(320, g.horizontalHeader().height() + sum(g.rowHeight(i) for i in range(len(rows))) + 4)
+            self._fit_grid()
             self.grid_title.setText(f"Error by {'filter rows' if site else 'filter count'} and max Q (run {run.get('n', 1)})")
             self.grid_note.setText(f"Lowest error (dB) per cell (the best: {best:.2f} dB); shaded = sounds the same "
                                    f"as the target (within {ear_db:g} dB, as the ear hears it). Click a cell to view it.")

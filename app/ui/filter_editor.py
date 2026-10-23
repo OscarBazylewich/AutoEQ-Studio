@@ -5,7 +5,9 @@ part's limits for edits: edit.freq, edit.gain, edit.q; red and not used when wro
 and ✕ to delete it. Sliders: one per filter (Poweramp's look): its gain by dragging, arrow keys or the wheel
 (0.1 dB steps), double-click for 0 dB; its frequency and Q under it; the pre-amp in its own column (set for you).
 changed() is called after every edit (the caller works out the error, pre-amp and graph again); rebuilt() after a
-filter is added or deleted.
+filter is added or deleted. The editor is as tall as the view shown (a short table leaves no empty band under it).
+Its look is the theme's (ui\\theme_sheet.py's eq_windows, by the object names eqw…): the table's boxes a little apart
+without grid lines, ✕ as Windows 11's subtle buttons, the pre-amp's bar as a slider's empty track.
 """
 from PySide6.QtCore import QTimer, Qt, Signal
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QFrame, QGridLayout, QHBoxLayout, QHeaderView,
@@ -17,6 +19,7 @@ from ui.forms import Limits, _num
 from ui.search_combo import SearchCombo
 
 TYPES = [("PK", "Peak"), ("LSQ", "Low shelf"), ("HSQ", "High shelf")]
+SLIDERS_HEIGHT = 440  # (the Sliders view, with its scroll bar)
 
 
 def _hz(v):
@@ -36,6 +39,8 @@ class FilterEditor(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
         self.stack = QStackedWidget()
         self.table = QTableWidget(0, 7)
+        self.table.setObjectName("eqwFilters")  # (its look: ui\theme_sheet.py's eq_windows)
+        self.table.setShowGrid(False)  # (each row's boxes stand a little apart instead, as Windows 11's rows)
         self.table.setAccessibleName("Filters")
         self.table.setHorizontalHeaderLabels(["On", "#", "Type", "Frequency (Hz)", "Gain (dB)", "Q", ""])
         self.table.verticalHeader().hide()
@@ -48,9 +53,9 @@ class FilterEditor(QWidget):
         self.stack.addWidget(self.table)
         self.sliders_scroll = QScrollArea()
         self.sliders_scroll.setWidgetResizable(True)
-        self.sliders_scroll.setFixedHeight(440)
+        self.sliders_scroll.setFixedHeight(SLIDERS_HEIGHT)
         self.stack.addWidget(self.sliders_scroll)
-        lay.addWidget(self.stack)
+        lay.addWidget(self.stack, 0, Qt.AlignTop)  # (in a taller window, Your own filters: at the top)
 
     # ---------------------------------------------------------------- the list
     def set_filters(self, filters, preamp_text="0.0"):
@@ -115,6 +120,7 @@ class FilterEditor(QWidget):
                 box.editingFinished.connect(lambda f=f, key=key, box=box: self._left(f, key, box))
                 t.setCellWidget(i, c, box)
             x = QToolButton()
+            x.setObjectName("eqwDelete")  # (a subtle button: ui\theme_sheet.py's eq_windows)
             x.setText("✕")
             x.setToolTip("Delete this filter")
             x.setAccessibleName(f"Delete filter {i + 1}")
@@ -123,7 +129,9 @@ class FilterEditor(QWidget):
             self._dim(i)
         t.resizeRowsToContents()
         rows = sum(t.rowHeight(i) for i in range(t.rowCount()))
-        t.setFixedHeight(min(560, t.horizontalHeader().height() + rows + 2 * t.frameWidth() + 2))
+        height = min(560, t.horizontalHeader().height() + rows + 2 * t.frameWidth() + 2)
+        t.setFixedHeight(height)
+        self.stack.setFixedHeight(height)  # (as tall as the table: the Sliders view's height left no empty band)
 
     def _dim(self, i):
         """A switched-off filter's row shows paler."""
@@ -185,8 +193,8 @@ class FilterEditor(QWidget):
         pre.setAlignment(Qt.AlignCenter)
         g.addWidget(pre, 0, 1)
         bar = QFrame()
-        bar.setFixedWidth(6)
-        bar.setStyleSheet(f"background: {theme.tokens()['line']}; border-radius: 3px;")
+        bar.setObjectName("eqwPreamp")  # (a slider's empty track, in the theme's colour: ui\theme_sheet.py)
+        bar.setFixedWidth(4)
         g.addWidget(bar, 1, 1, Qt.AlignHCenter)
         note = QLabel("Pre-amp\nset for you")
         theme.mark(note, role="muted")
@@ -199,6 +207,7 @@ class FilterEditor(QWidget):
             val.setAlignment(Qt.AlignCenter)
             g.addWidget(val, 0, col)
             s = _Slider(Qt.Vertical)
+            s.setObjectName("eqwGain")  # (switched off: its thumb's ring with a grey dot, ui\theme_sheet.py)
             s.setAccessibleName(f"Filter {i + 1} gain (dB)")
             s.setRange(int(round(-top * 10)), int(round(top * 10)))
             s.setValue(int(round(f["gain"] * 10)))
@@ -245,6 +254,7 @@ class FilterEditor(QWidget):
                                                QTimer.singleShot(0, self.rebuild)))  # (not inside its own signal)
             fl.addWidget(on)
             x = QToolButton()
+            x.setObjectName("eqwDelete")
             x.setText("✕")
             x.setToolTip(f"Delete filter {i + 1}")
             x.setAccessibleName(f"Delete filter {i + 1}")
@@ -257,6 +267,7 @@ class FilterEditor(QWidget):
             g.addWidget(num, 6, col)
         g.setColumnStretch(len(self.filters) + 2, 1)
         self.sliders_scroll.setWidget(holder)
+        self.stack.setFixedHeight(SLIDERS_HEIGHT)
 
     def set_preamp_text(self, text):
         self.preamp_text = text

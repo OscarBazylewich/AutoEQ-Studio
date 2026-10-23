@@ -3,16 +3,22 @@ for each filter count) and this IEM's History, any two of them: on one graph wit
 their numbers (the error in the scored range, filters, pre-amp, biggest boost and Q, how far apart they are) and their
 filters in two tables. Nothing is changed; Show A / Show B put one back on the result card when it's a result of
 this session.
+The graph is drawn as Make an EQ's (in a card, the graph's own colours, never the accent): A in its blue (with the
+EQ), B in its pink, the three told apart from the orange measurement by colour-blind eyes too (the dataviz checks;
+the graph's green failed them beside the orange); its legend at the bottom left, on the card's colour, where it
+hides the least. Redrawn when Windows switches light/dark or its accent colour.
 """
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import (QAbstractItemView, QDialog, QGridLayout, QHBoxLayout, QHeaderView, QLabel,
+from PySide6.QtWidgets import (QAbstractItemView, QDialog, QFrame, QGridLayout, QHBoxLayout, QHeaderView, QLabel,
                                QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout)
 
 from ui import theme
+from ui.history_window import follow_theme
 from ui.search_combo import SearchCombo, natural_key
+from ui.theme_sheet import CARD
 
 TYPES = {"PK": "Peak", "LSQ": "Low shelf", "HSQ": "High shelf", "LSC": "Low shelf", "HSC": "High shelf"}
 TICKS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]  # (as the EQ screen's graph)
@@ -59,7 +65,9 @@ class CompareResults(QDialog):
         self.opts = options(page)
         self.setWindowTitle("Compare two EQs")
         self.resize(1000, 820)
+        self.setMinimumWidth(760)  # (narrower, the tables' words were cut; the height is its layout's)
         v = QVBoxLayout(self)
+        v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as a card's)
         lead = QLabel("Any two of: the result shown now, this session's runs and this IEM's History, on your "
                       "measurement and target as they are now.")
         lead.setWordWrap(True)
@@ -95,14 +103,22 @@ class CompareResults(QDialog):
         self.plot.getAxis("left").setLabel("dB")
         self.plot.setMinimumHeight(260)
         self.plot.showGrid(x=True, y=True, alpha=0.25)
-        self.plot.addLegend(offset=(10, 10))
-        v.addWidget(self.plot, 2)
+        # (bottom left: under the curves' bass, which IEMs and headphones keep well above the bottom of the graph)
+        self.legend = self.plot.addLegend(offset=(10, -10))
+        card = QFrame()  # (the graph in a card, as Make an EQ's)
+        theme.mark(card, card=True)
+        cl = QVBoxLayout(card)
+        cl.setContentsMargins(0, 0, 0, 0)
+        cl.addWidget(self.plot)
+        v.addWidget(card, 2)
         self.numbers = QTableWidget(0, 3)
+        self.numbers.setObjectName("eqwNumbers")  # (room at the left of its cells: ui\theme_sheet.py)
         self.numbers.setAccessibleName("Their numbers")
         self.numbers.setHorizontalHeaderLabels(["", "A", "B"])
         self.numbers.verticalHeader().hide()
         self.numbers.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.numbers.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.numbers.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)  # (the names whole)
         v.addWidget(self.numbers)
         tables = QHBoxLayout()
         self.tables = []
@@ -120,6 +136,7 @@ class CompareResults(QDialog):
         close.clicked.connect(self.accept)
         v.addWidget(close, 0, Qt.AlignRight)
         self.render()
+        follow_theme(self, lambda w: w.render())
 
     def chosen(self):
         return [self.opts[c.currentIndex()] for c in self.combos] if self.opts else []
@@ -143,18 +160,28 @@ class CompareResults(QDialog):
         self.plot.clear()
         if not self.opts or not page.curves:
             return
-        t, col = theme.tokens(), theme.graph_colours()
+        col = theme.graph_colours()
         self.plot.setBackground(col["bg"])
+        for ax in ("left", "bottom"):  # (as Make an EQ's graph)
+            self.plot.getAxis(ax).setPen(pg.mkPen(col["axis"]))
+            self.plot.getAxis(ax).setTextPen(pg.mkPen(col["axis"]))
+        back = QColor(col["bg"])
+        back.setAlpha(220)  # (the words readable, a curve under them still seen)
+        self.legend.setBrush(back)
+        self.legend.setPen(None)
+        self.legend.setLabelTextColor(col["axis"])
         c = page.curves
         f = np.asarray(c["f"])
         self.plot.plot(f, np.asarray(c["meas"]), pen=pg.mkPen(QColor(col["meas"]), width=1.2, style=Qt.DotLine),
                        name="Measurement")
         self.plot.plot(f, np.asarray(c["target"]), pen=pg.mkPen(col["target"], width=2, style=Qt.DashLine), name="Target")
         nums = []
-        for side, o, key in zip("AB", self.chosen(), ("c1", "c3")):
+        # A in the graph's blue for "with the EQ", B over it in its pink (the EQ's on Make an EQ, free here: no EQ
+        # curve is drawn), a little thinner, so where they're the same the blue shows at its edges
+        for side, o, colour, width in zip("AB", self.chosen(), (col["with_eq"], col["eq"]), (2.6, 1.8)):
             n = self.numbers_of(o["filters"])
             nums.append(n)
-            self.plot.plot(f, n["with"], pen=pg.mkPen(t[key], width=2.2), name=f"{side}: with the EQ")
+            self.plot.plot(f, n["with"], pen=pg.mkPen(colour, width=width), name=f"{side}: with the EQ")
         self.plot.setXRange(np.log10(20), np.log10(20000), padding=0)
         apart = float(np.max(np.abs(nums[0]["with"] - nums[1]["with"])[nums[0]["inside"]])) if nums[0]["inside"].any() else 0
         rows = [("Error in the scored range (dB)", lambda n: f"{n['rms']:.2f}" if n["rms"] is not None else "–"),

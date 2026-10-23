@@ -12,7 +12,8 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (QAbstractItemView, QDialog, QHBoxLayout, QHeaderView, QLabel, QListWidget,
                                QListWidgetItem, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout)
 
-from ui import theme
+from ui import icons, theme
+from ui.theme_sheet import CARD
 
 
 def _checklist(items, on):
@@ -36,8 +37,10 @@ class QueueWindow(QDialog):
         self.page = page
         self.setWindowTitle("Run several")
         self.resize(900, 720)
+        self.setMinimumSize(640, 520)  # (smaller, the lists showed a row and the words ran over each other)
         self.jobs, self.i, self.running, self.stop = [], -1, False, False
         v = QVBoxLayout(self)
+        v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as a card's)
         lead = QLabel("Make an EQ for each IEM ticked with each target ticked, one after another, with the settings "
                       "and method you have now. Each picked result is saved into your Saved EQs folder and kept in "
                       "History; you can leave it running.")
@@ -48,11 +51,11 @@ class QueueWindow(QDialog):
         now_dev = page.measurement_combo.currentData()
         now_tgt = page.S["files"].get("active_target")
         left, right = QVBoxLayout(), QVBoxLayout()
-        left.addWidget(QLabel("IEMs and headphones"))
+        left.addWidget(theme.mark(QLabel("IEMs and headphones"), role="section"))
         self.devs = _checklist(list(page.groups), {now_dev})
         self.devs.setAccessibleName("IEMs and headphones")
         left.addWidget(self.devs)
-        right.addWidget(QLabel("Targets"))
+        right.addWidget(theme.mark(QLabel("Targets"), role="section"))
         self.tgts = _checklist(list(page.inputs.get("targets") or []), {now_tgt})
         self.tgts.setAccessibleName("Targets")
         right.addWidget(self.tgts)
@@ -66,6 +69,7 @@ class QueueWindow(QDialog):
         row.addWidget(self.count_lab, 1)
         self.start_btn = QPushButton("Start")
         theme.mark(self.start_btn, primary=True)
+        icons.put(self.start_btn, "run")  # (Windows 11's symbol beside the words)
         self.start_btn.clicked.connect(self.start)
         self.cancel_btn = QPushButton("Cancel")
         self.cancel_btn.setEnabled(False)
@@ -76,11 +80,15 @@ class QueueWindow(QDialog):
             row.addWidget(b)
         v.addLayout(row)
         self.table = QTableWidget(0, 3)
+        self.table.setObjectName("eqwQueue")  # (room at the left of its cells: ui\theme_sheet.py's eq_windows)
         self.table.setAccessibleName("How each one went")
         self.table.setHorizontalHeaderLabels(["IEM", "Target", "How it went"])
         self.table.verticalHeader().hide()
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setShowGrid(False)  # (rows told apart by their shade, as Windows 11's lists)
+        self.table.setAlternatingRowColors(True)
         h = self.table.horizontalHeader()
+        h.setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)  # (each heading over its words)
         h.setSectionResizeMode(QHeaderView.Interactive)
         h.setSectionResizeMode(2, QHeaderView.Stretch)
         self.table.setColumnWidth(0, 220)

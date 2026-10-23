@@ -1,10 +1,12 @@
 """Compare… on Make an EQ (ui\\compare_results.py): the result shown now and another side by side (the error as the
 result card works it out, every number, both filter tables), and Show B putting B on the result card. Moved from
 eq_checks.py's compare_results_checks: one page for the file (the eq_screen fixture) with a History EQ on the card, as
-the old check had, and a made-up run of this session to compare it with (the result's first 4 filters)."""
+the old check had, and a made-up run of this session to compare it with (the result's first 4 filters). Then the
+graph's colours (Windows 11's look, 2026-10-23: the graph's own, never the accent), light and dark, and the window at
+its smallest."""
 import pytest
 
-from helpers import eqpage
+from helpers import eqpage, qt
 from ui.compare_results import CompareResults, options
 
 
@@ -56,3 +58,53 @@ def test_compare_two_results(eq_screen, history_eq, check):
           and a_rms == f"{card:.2f}" and len(names) == 6 and rows[0] == len(page.active()) and rows[1] == 4
           and (other is None or other["rid"] is None or moved == other["rid"]) and page.cmp_btn.isVisibleTo(page),
           (len(opts), a_rms, card, names, rows, moved))
+
+
+def test_compare_colours_follow_the_theme(eq_screen, history_eq, check):
+    from helpers import palette
+    from ui import theme, theme_tokens
+    page, qapp = eq_screen.page, eq_screen.qapp
+    dlg = CompareResults(page)  # (A: the result shown now, B: the History EQ)
+    dlg.show()
+    qt.pump(200)
+
+    def drawn():
+        """A's and B's pens and the axes' as drawn now, with the graph's colours and the accent."""
+        pens = {it.name(): it.opts["pen"].color().name() for it in dlg.plot.listDataItems()}
+        col = theme.graph_colours()
+        return {"A": (pens.get("A: with the EQ"), col["with_eq"]), "B": (pens.get("B: with the EQ"), col["eq"]),
+                "axis": (dlg.plot.getAxis("left").pen().color().name(), col["axis"]),
+                "accent": theme.tokens()["accent"]}
+    try:
+        light = drawn()
+        theme.apply(qapp, dark=True)
+        qt.pump(200)
+        dark = drawn()
+    finally:
+        qt.light(qapp)  # (the light theme back, whatever happened: every later test runs light)
+        qt.pump(100)
+        qt.close(dlg)
+    told = {mode: palette.check([g["meas"], g["with_eq"], g["c2"]], mode, base["card"], "all")[0]
+            for mode, base, g in (("light", theme_tokens.BASE_LIGHT, theme_tokens.GRAPH_LIGHT),
+                                  ("dark", theme_tokens.BASE_DARK, theme_tokens.GRAPH_DARK))}
+    ok = (all(d[k][0] == d[k][1] for d in (light, dark) for k in ("A", "B", "axis"))
+          and all(d["A"][0] != d["accent"] for d in (light, dark)) and light["A"][0] != dark["A"][0])
+    check("compare: A in the graph's blue (with the EQ) and B in its pink, never the accent, both told apart from the "
+          "orange measurement by colour-blind eyes too (the dataviz checks); the graph's axes as Make an EQ's; redrawn "
+          "when the theme changes", ok and all(told.values()), {"light": light, "dark": dark, "told apart": told})
+
+
+def test_compare_names_whole_at_its_smallest(eq_screen, history_eq, check):
+    page = eq_screen.page
+    dlg = CompareResults(page)
+    dlg.show()
+    dlg.resize(dlg.minimumSize())  # (the smallest the window can be made)
+    qt.pump(200)
+    t = dlg.numbers
+    fm = t.fontMetrics()
+    names = [t.item(i, 0).text() for i in range(t.rowCount()) if t.item(i, 0)]
+    need = max(fm.horizontalAdvance(n) for n in names)
+    got = (dlg.width(), t.columnWidth(0), need)
+    qt.close(dlg)
+    check("compare: at its smallest the numbers' names are whole (“How far apart, at most (scored range)” was cut)",
+          names and got[1] >= got[2] + 10, got)
