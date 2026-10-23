@@ -1,9 +1,10 @@
 """The app's stylesheet (Qt's style rules for every kind of control) in small named parts, in the order they
 apply (when two rules style the same thing, the later one wins: the order matters). sheet(t, img) joins them into
 the one text theme.apply() gives the whole app: t is the colours in use (theme.tokens()), img the paths of the
-pictures a stylesheet needs as files (theme.py draws them in t's colours: "tick", "chevron", "chevron_up", and the
-accent's small bars that mark what's chosen, "pill_h" under a screen's name, "pill_v" beside a row). Each part
-styles one kind of control, so a new look for one kind changes one part. Nothing is imported here.
+pictures a stylesheet needs as files (theme.py draws them in t's colours: "tick", Windows 11's chevrons "chevron"
+(down), "chevron_up" and "chevron_right", and the accent's small bars that mark what's chosen, "pill_h" under a
+screen's name, "pill_v" beside a row). Each part styles one kind of control, so a new look for one kind changes one
+part. Nothing is imported here.
 
 The look is Windows 11's (Fluent, 2026-10-23, the user's choice from pictures): its type sizes (10.5 pt text),
 4 px corners on controls and 8 px on cards, thin borders with a slightly darker bottom edge, fills that change when
@@ -12,7 +13,9 @@ pointed at, the accent (Windows' own colour) on the main action, ticks and what'
 
 FONT = 10.5   # (pt: Fluent's body text, 14 px)
 PAD = (5, 11)  # (a control's padding, up and down / sideways: 32 px tall with the text)
-CARD = 16     # (a card's padding)
+CARD = 16     # (a card's inset: its title and its content start this far inside its border, as Windows 11's cards)
+LAYOUT = 9    # (the margin Qt's own layouts keep inside a widget when the code doesn't set one: a card's padding is
+#               CARD less this, so its content starts at CARD too)
 
 
 def base_and_tooltips(t, img):
@@ -27,12 +30,17 @@ def base_and_tooltips(t, img):
 
 def cards_and_group_boxes(t, img):
     """Cards: a QGroupBox (its title the card's heading) or a frame with card=true; a warning card (card="warn");
-    the labels on them."""
+    the labels on them. A QGroupBox's title and content start CARD inside its border (its padding is CARD less the
+    margin Qt's layout adds; Qt centres the title in a place a space wider than its words: half a space less); its
+    title is drawn in the box's own font (Qt doesn't size ::title), 11 pt as a fold's title, while what's on it keeps
+    10.5 pt (the QWidget rule). A card frame's padding leaves 4 px for its code's own layout margin (the trial bar's, a
+    fold's)."""
     return f"""
     QGroupBox, QFrame[card="true"] {{ background: {t['card']}; border: 1px solid {t['line']}; border-radius: 8px; }}
-    QGroupBox {{ margin-top: 0px; padding: {CARD + 24}px {CARD}px {CARD}px {CARD}px; font-weight: 600; }}
-    QGroupBox::title {{ subcontrol-origin: padding; subcontrol-position: top left; left: {CARD}px; top: {CARD - 3}px;
-        color: {t['ink']}; font-size: {FONT + 0.5}pt; font-weight: 600; }}
+    QGroupBox {{ margin-top: 0px; padding: {CARD + 24}px {CARD - LAYOUT}px {CARD}px {CARD - LAYOUT}px;
+        font-size: {FONT + 0.5}pt; font-weight: 600; }}
+    QGroupBox::title {{ subcontrol-origin: padding; subcontrol-position: top left; left: {CARD - 2}px;
+        top: {CARD - 3}px; color: {t['ink']}; }}
     QFrame[card="true"] {{ padding: {CARD - 4}px; }}
     QFrame[card="warn"] {{ background: {t['warn_bg']}; border: 1px solid {t['line']}; border-radius: 8px;
         padding: 8px; }}
@@ -41,21 +49,24 @@ def cards_and_group_boxes(t, img):
 
 
 def text_roles(t, img):
-    """Text roles (QLabel's role): a screen's title, muted, warn, good, a chip, the brand."""
+    """Text roles (QLabel's role): a screen's title, muted, warn, good, a chip, the brand. A label with padding gets
+    no indent of Qt's own (half an "x" more at its left: a chip's words sat off its middle)."""
     return f"""
     QLabel[role="title"] {{ font-family: "Segoe UI Variable Display"; font-size: 20pt; font-weight: 600; }}
     QLabel[role="muted"] {{ color: {t['muted']}; }}
     QLabel[role="warn"] {{ color: {t['warn']}; }}
     QLabel[role="good"] {{ color: {t['good']}; }}
     QLabel[role="chip"] {{ background: {t['subtle']}; border: 1px solid {t['stroke']}; border-radius: 4px;
-        padding: 2px 8px; }}
+        padding: 2px 8px; qproperty-indent: 0; }}
     QLabel[role="brand"] {{ font-family: "Segoe UI Variable Display"; font-size: 12pt; font-weight: 600; }}
 """
 
 
 def buttons(t, img):
     """Buttons: plain, pointed at, pressed, unavailable, checked (the accent), the one main action of a card
-    (primary=true: the accent), and a quiet one (quiet=true: no fill until pointed at, as a row's ✕)."""
+    (primary=true: the accent), a quiet one (quiet=true: no fill until pointed at, as a row's ✕), and a button with a
+    menu (Use on device, Add a profile …: Windows 11's chevron at its right, with room before it; Qt gives the
+    button that much more width)."""
     return f"""
     QPushButton, QToolButton {{ background: {t['field']}; border: 1px solid {t['stroke']};
         border-bottom-color: {t['stroke_bottom']}; border-radius: 4px; padding: {PAD[0]}px {PAD[1]}px; }}
@@ -81,6 +92,8 @@ def buttons(t, img):
         color: {t['ink2']}; }}
     QPushButton[quiet="true"]:disabled, QToolButton[quiet="true"]:disabled {{ background: transparent;
         color: {t['disabled']}; }}
+    QPushButton::menu-indicator {{ image: url({img['chevron']}); subcontrol-origin: padding;
+        subcontrol-position: center right; width: 16px; height: 12px; right: 6px; }}
 """
 
 
@@ -103,12 +116,16 @@ def top_bar(t, img):
 
 def inputs(t, img):
     """Drop-downs, text and number boxes, the hotkey box, and a drop-down's open list. A text box has a darker line
-    under it, the accent's when typing in it."""
+    under it, the accent's when typing in it. A drop-down's list has one look, short or long (one with its search box,
+    #searchPopup: ui\\search_combo.py): on the menus' colour in a thin border with 8 px corners (the short list draws
+    it itself; the long one's list inside its frame is without one), its rows as the lists' (filled when pointed at;
+    the chosen one filled, the accent's bar beside it), and both open under the drop-down (combobox-popup: 0, Qt's
+    list rather than Fusion's menu-like one, which drew a frame of its own around the list)."""
     return f"""
     QComboBox, QLineEdit, QSpinBox, QDoubleSpinBox, QKeySequenceEdit {{ background: {t['field']};
         border: 1px solid {t['stroke']}; border-radius: 4px; padding: {PAD[0]}px {PAD[1] - 3}px; }}
     QLineEdit, QSpinBox, QDoubleSpinBox, QKeySequenceEdit {{ border-bottom: 1px solid {t['strong']}; }}
-    QComboBox {{ border-bottom-color: {t['stroke_bottom']}; padding-right: 26px; }}
+    QComboBox {{ border-bottom-color: {t['stroke_bottom']}; padding-right: 26px; combobox-popup: 0; }}
     QComboBox:hover, QLineEdit:hover, QSpinBox:hover, QDoubleSpinBox:hover {{ background: {t['field_hover']}; }}
     QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QKeySequenceEdit:focus {{ background: {t['field_focus']};
         border-bottom: 2px solid {t['accent']}; padding-bottom: {PAD[0] - 1}px; }}
@@ -122,8 +139,15 @@ def inputs(t, img):
     QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{ image: url({img['chevron']}); width: 9px; height: 9px; }}
     QComboBox:disabled, QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled {{
         background: {t['field_disabled']}; color: {t['disabled']}; border-color: {t['stroke']}; }}
-    QComboBox QAbstractItemView {{ background: {t['menu']}; border: 1px solid {t['stroke']}; padding: 4px;
-        selection-background-color: {t['sel']}; selection-color: {t['sel_ink']}; outline: none; }}
+    QComboBox QAbstractItemView, QWidget#searchPopup {{ background: {t['menu']}; border: 1px solid {t['stroke']};
+        border-radius: 8px; }}
+    QComboBox QAbstractItemView {{ padding: 4px; selection-background-color: {t['sel']};
+        selection-color: {t['sel_ink']}; outline: none; }}
+    QComboBox QAbstractItemView::item {{ padding: 7px 8px; border-radius: 4px; }}
+    QComboBox QAbstractItemView::item:hover {{ background: {t['subtle_hover']}; }}
+    QComboBox QAbstractItemView::item:selected {{ background: {t['sel']}; color: {t['sel_ink']};
+        background-image: url({img['pill_v']}); background-position: center left; background-repeat: no-repeat; }}
+    QWidget#searchPopup QListWidget {{ background: transparent; border: none; padding: 0px; }}
 """
 
 
@@ -164,7 +188,9 @@ def progress_and_sliders(t, img):
 
 
 def scroll_areas_and_menus(t, img):
-    """Scroll areas and their thin scroll bars, splitters, the status bar and menus."""
+    """Scroll areas and their thin scroll bars, splitters, the status bar and menus. A menu's item that can't be
+    chosen is a note in this app ("No presets yet: …", "Run first", the tray's device playing): in the muted colour,
+    readable (4.5:1), not the unavailable grey. A submenu's arrow is Windows 11's chevron."""
     return f"""
     QScrollArea {{ background: transparent; border: none; }}
     QScrollArea > QWidget > QWidget {{ background: transparent; }}
@@ -173,7 +199,8 @@ def scroll_areas_and_menus(t, img):
     QMenu {{ background: {t['menu']}; border: 1px solid {t['stroke']}; padding: 4px; }}
     QMenu::item {{ padding: 6px 28px 6px 12px; border-radius: 4px; }}
     QMenu::item:selected {{ background: {t['sel']}; color: {t['sel_ink']}; }}
-    QMenu::item:disabled {{ color: {t['disabled']}; }}
+    QMenu::item:disabled {{ color: {t['muted']}; }}
+    QMenu::right-arrow {{ image: url({img['chevron_right']}); width: 12px; height: 12px; right: 8px; }}
     QMenu::separator {{ height: 1px; background: {t['stroke']}; margin: 4px 0; }}
     QScrollBar:vertical {{ background: transparent; width: 12px; margin: 0; }}
     QScrollBar::handle:vertical {{ background: {t['scroll']}; border-radius: 3px; min-height: 32px; margin: 2px 3px; }}
@@ -187,7 +214,10 @@ def scroll_areas_and_menus(t, img):
 
 def settings_boxes(t, img):
     """Settings boxes: a value that isn't one (bad=true), the many-line text box, a setting's “auto” / “yours ↺” tag
-    (tag=true), section headings, folds (fold=true)."""
+    (tag=true), section headings (in line with the labels under them: no indent of Qt's own), folds (fold=true:
+    ui\\forms.py's Fold, the Target card's Adjust; Windows 11's chevron, right when closed and down when open, its
+    place starting where the button does, so in line with the card's content, and a fill when pointed at, as Windows
+    11's expanders)."""
     return f"""
     QLineEdit[bad="true"], QPlainTextEdit[bad="true"] {{ border: 1px solid {t['err']}; border-bottom: 2px solid {t['err']};
         background: {t['field']}; }}
@@ -197,9 +227,14 @@ def settings_boxes(t, img):
         border-radius: 10px; padding: 1px 8px; font-size: {FONT - 1.5}pt; }}
     QToolButton[tag="true"]:enabled {{ background: {t['accent_soft']}; color: {t['accent_text']};
         border-color: {t['accent_soft_line']}; }}
-    QLabel[role="section"] {{ color: {t['ink']}; font-size: {FONT}pt; font-weight: 600; padding-top: 6px; }}
-    QToolButton[fold="true"] {{ background: transparent; border: none; font-size: {FONT + 0.5}pt; font-weight: 600;
-        padding: 6px 4px; }}
+    QLabel[role="section"] {{ color: {t['ink']}; font-size: {FONT}pt; font-weight: 600; padding-top: 6px;
+        qproperty-indent: 0; }}
+    QToolButton[fold="true"] {{ background: transparent; border: none; border-radius: 4px; font-size: {FONT + 0.5}pt;
+        font-weight: 600; padding: 6px 8px 6px 0px; }}
+    QToolButton[fold="true"]:hover {{ background: {t['subtle_hover']}; }}
+    QToolButton[fold="true"]:pressed {{ background: {t['subtle_press']}; }}
+    QToolButton[fold="true"]::right-arrow {{ image: url({img['chevron_right']}); padding-right: 6px; }}
+    QToolButton[fold="true"]::down-arrow {{ image: url({img['chevron']}); padding-right: 6px; }}
 """
 
 
@@ -235,10 +270,10 @@ def window_screens(t, img):
     Enter gives in the accent).
     - a symbol in front of words (glyph=true: the warning sign on the banner, the trial's clock), in its role's colour
     - the status line, its words lined up with the screens'
-    - Devices: a profile's ✕ (#takeOff: a quiet button, filled when pointed at), Add a profile's chevron (#addProfile)
+    - Devices: a profile's ✕ (#takeOff: a quiet button, filled when pointed at); Add a profile's chevron is every
+      menu button's (buttons()), the tray menu's headings every menu's notes (scroll_areas_and_menus())
     - Profiles: the table's words under their headings (#profileTable)
     - Set up (#setUp): the words on the card colour, the buttons on a band in the window's colour (#dialogFooter)
-    - the tray menu (#tray): its headings (the device playing, the EQ being tried) readable, not greyed
     - message boxes' buttons made wider by their padding (a min-width is a fixed minimum in Qt: a message box then
       squeezed its long buttons below their words)"""
     default = (f"background: {t['accent']}; color: {t['on_accent']}; border: 1px solid {t['accent']}; "
@@ -253,9 +288,6 @@ def window_screens(t, img):
     QToolButton#takeOff:hover {{ background: {t['subtle_hover']}; color: {t['ink']}; }}
     QToolButton#takeOff:pressed {{ background: {t['subtle_press']}; }}
     QTableWidget#profileTable::item {{ padding: 0px 5px; }}
-    QPushButton#addProfile {{ padding-right: 30px; }}
-    QPushButton#addProfile::menu-indicator {{ image: url({img['chevron']}); subcontrol-origin: padding;
-        subcontrol-position: center right; right: 10px; width: 12px; height: 12px; }}
     QDialog#setUp {{ background: {t['card']}; }}
     QDialog#setUp QListWidget::item {{ padding: 3px 8px; }}
     QFrame#dialogFooter {{ background: {t['bg']}; border: none; border-top: 1px solid {t['line']}; }}
@@ -264,7 +296,6 @@ def window_screens(t, img):
     QMessageBox QPushButton:default:hover, QInputDialog QPushButton:default:hover {{ background: {t['accent_hover']}; }}
     QMessageBox QPushButton:default:pressed, QInputDialog QPushButton:default:pressed {{
         background: {t['accent_press']}; }}
-    QMenu#tray::item:disabled {{ color: {t['muted']}; }}
 """
 
 

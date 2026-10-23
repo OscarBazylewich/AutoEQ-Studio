@@ -58,8 +58,8 @@ def test_dead_windows_listener_let_go(qapp, monkeypatch, check):
 
 
 def test_tick_written_whole(check):
-    # (since 2026-10-23 the stylesheet's pictures are five, each named by its colour: the tick, two chevrons, the
-    # accent's two bars)
+    # (since 2026-10-23 the stylesheet's pictures are six, each named by its colour: the tick, three chevrons (down,
+    # up, and right: a closed fold's and a submenu's, since the checkers' findings), the accent's two bars)
     code = ("import glob, json, os, sys, tempfile; sys.path.insert(0, sys.argv[1])\n"
             "from PySide6.QtWidgets import QApplication\n"
             "from PySide6.QtGui import QImage\n"
@@ -84,7 +84,7 @@ def test_tick_written_whole(check):
     check("app hooks: the stylesheet's pictures (the tick, the chevrons, the accent's bars) are drawn into this "
           "session's TEMP, whole (a .part file put in place), and nothing is left behind when another copy put them "
           "there first",
-          [n for n, _, _ in drawn] == ["chevron", "chevron_up", "pill_h", "pill_v", "tick"]
+          [n for n, _, _ in drawn] == ["chevron", "chevron_right", "chevron_up", "pill_h", "pill_v", "tick"]
           and all(w > 0 and used for _, w, used in drawn) and d.get("parts") == [] and d.get("in_place") == []
           and session.inside(d.get("temp", "?")), (d, out.stderr[-400:]))
 

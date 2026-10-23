@@ -54,6 +54,58 @@ print(json.dumps(out))
 '''
 
 
+# (after THEMED_WINDOW: a third device, connected; then each row's dot read back from the list's picture, dark, then
+# light, then light with Windows' green accent, beside the colours the theme has for each)
+DOTS = r'''
+eps.append(D.Endpoint("{3}", "Speakers", "Realtek(R) Audio", D.ACTIVE, True))
+sw.refresh()
+win.render_all()
+for _ in range(5):
+    qapp.processEvents()
+''' + "{shapes}" + r'''
+KINDS = {"Playing now": "playing", "Connected": "connected", "Not connected": "away"}
+
+
+def dots():  # (each row's dot, by its row's words: the colour in its middle)
+    lst = win.dev_list
+    img = lst.viewport().grab().toImage()
+    got = {}
+    for i in range(lst.count()):
+        it = lst.item(i)
+        r = lst.visualItemRect(it)
+        y = r.center().y()
+        bg = img.pixelColor(r.left() + 6, r.top() + 3)
+        found = runs(img, r.left() + 4, r.left() + 40, y - 1, y + 2, bg)
+        kind = KINDS.get(it.text().split("\n")[1].split(" · ")[0])
+        got[kind] = img.pixelColor((found[0][0] + found[0][1]) // 2, y).name() if found else None
+    return got
+
+
+def wanted(blue=False):
+    t = theme.tokens()
+    return {"playing": t["good"], "connected": theme_tokens.LIGHT["accent"] if blue else t["accent"], "away": t["muted"],
+            "card": t["card"]}
+
+
+out = {"dark": [dots(), wanted()]}
+theme.apply(qapp, dark=False, contrast=False)  # (Windows switched to light)
+for _ in range(5):
+    qapp.processEvents()
+out["light"] = [dots(), wanted()]
+theme.accent_palette = lambda: ("#9ff0a4", "#6ccb5f", "#3aa53b", "#107c10", "#0e6b0e", "#0b5a08", "#073f05")
+theme.apply(qapp, dark=False, contrast=False)  # (Windows' accent changed to its green)
+for _ in range(5):
+    qapp.processEvents()
+out["green accent"] = [dots(), wanted(blue=True)]
+print(json.dumps(out))
+'''
+
+
+def _near(a, b, most=2):
+    """Two colours (#rrggbb) the same to within `most` in each of red, green and blue."""
+    return bool(a and b) and all(abs(int(a[i:i + 2], 16) - int(b[i:i + 2], 16)) <= most for i in (1, 3, 5))
+
+
 def _read(path):
     """A file's text (APO's switcher.txt: the app writes it as UTF-8)."""
     with open(path, encoding="utf-8") as fh:
@@ -292,6 +344,23 @@ def test_device_rows_and_a_quiet_take_off(themed_window, check, fake_apo, tmp_pa
     check("devices: the rows, drawn by the screen itself, follow Windows switching from dark to light (the second "
           "line in light's secondary colour)", abs((d.get("light_second") or 999) - light) <= 8,
           d and (d.get("light_second"), d.get("light_ink2")) or out.stderr[-300:])
+
+
+def test_device_dots_in_the_themes_colours(themed_window, check, fake_apo, tmp_path, shapes):
+    # (2026-10-23: EQ Switcher's own colours, #1f9d55, #2f6fde and #9aa0a6, whatever the theme: the grey 2.5:1 on the
+    # light list, and neither Windows' accent nor its contrast themes followed)
+    from ui import theme_tokens
+    out = subproc.run_python(themed_window + DOTS.replace("{shapes}", shapes), session.SESSION.app, str(tmp_path))
+    d = out.data or {}
+
+    def right(case):
+        got, want = (d.get(case) or [{}, {}])
+        return all(_near(got.get(k), want.get(k)) and theme_tokens.contrast(got[k], want["card"]) >= 3
+                   for k in ("playing", "connected", "away")) and len(set(got.values())) == 3
+    check("devices: the list's dots in the theme's colours (playing: its green; connected: Windows' accent, its default "
+          "blue a green accent's stand-in; not connected: its grey), drawn again when Windows switches light or dark or "
+          "its accent, each 3:1 on the list and the three told apart",
+          all(right(c) for c in ("dark", "light", "green accent")), d or out.stderr[-300:])
 
 
 def test_symbols_beside_the_device_screens_words(set_up_window, check, qapp):

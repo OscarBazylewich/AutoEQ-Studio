@@ -1,7 +1,9 @@
 """The app's look (ui\\theme.py, theme_tokens.py, theme_sheet.py, icons.py: Windows 11's, 2026-10-23): Windows'
 contrast themes followed (and left again), checked buttons drawn as checked, text that keeps 4.5:1 on what it sits on
 whatever Windows' accent colour, the accent followed (also when it changes while the app runs), the graph's colours
-told apart (the dataviz skill's checks, tests\\helpers\\palette.py), and Windows 11's symbols beside buttons' words.
+told apart (the dataviz skill's checks, tests\\helpers\\palette.py), Windows 11's symbols beside buttons' words, and
+the shared parts the checkers' findings of 2026-10-23 were about: a menu's notes readable, Windows 11's chevrons on
+menu buttons and submenus, a card's title in a fold title's size, and a card's title and content at one inset.
 The first two moved from selftest.py's contrast_checks and eq_checks.py's review_checks.
 
 Those that apply the theme do it in a Python of their own: applying it restyles the whole application and, once per
@@ -21,9 +23,9 @@ ACCENTS = {"blue (Windows' default)": ("#99ebff", "#4cc2ff", "#0091f8", "#0078d4
            "grey": ("#d9d9d9", "#b3b3b3", "#8c8c8c", "#767676", "#5e5e5e", "#454545", "#2e2e2e")}
 TEXT_ON = (("ink", "bg"), ("ink", "card"), ("ink", "field"), ("ink", "menu"), ("ink", "subtle_hover"),
            ("ink2", "bg"), ("ink2", "card"), ("muted", "bg"), ("muted", "card"), ("muted", "field"),
-           ("muted", "subtle_sel"), ("sel_ink", "sel"), ("on_accent", "accent"), ("accent_text", "card"),
-           ("accent_text", "accent_soft"), ("warn", "warn_bg"), ("warn", "card"), ("err", "card"), ("good", "card"),
-           ("good", "pill"))
+           ("muted", "subtle_sel"), ("muted", "menu"), ("sel_ink", "sel"), ("on_accent", "accent"),
+           ("accent_text", "card"), ("accent_text", "accent_soft"), ("warn", "warn_bg"), ("warn", "card"),
+           ("err", "card"), ("good", "card"), ("good", "pill"))
 
 CONTRAST = r'''
 import json, sys
@@ -168,16 +170,20 @@ def test_graph_colours_told_apart(check):
 ICONS = r'''
 import gc, json, sys, weakref
 sys.path.insert(0, sys.argv[1])
+from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import QApplication, QPushButton
 qapp = QApplication([])
+if sys.argv[2] == "windows10":  # (Windows 10's icon font, Segoe MDL2 Assets: as if Segoe Fluent Icons weren't there)
+    real = QFontDatabase.families
+    QFontDatabase.families = staticmethod(lambda *a: [f for f in real(*a) if f != "Segoe Fluent Icons"])
 from ui import icons, theme
 
 
-def colour(b):
+def colour(b):  # (the symbol's fullest pixel: its colour, give or take the rounding of a blended pixel)
     img = b.icon().pixmap(b.iconSize()).toImage()  # (its own size: 22 x 16, the symbol and the room after it)
     seen = [img.pixelColor(x, y) for x in range(img.width()) for y in range(img.height())]
-    strong = [c for c in seen if c.alpha() > 200]
-    return strong[0].name() if strong else None
+    best = max(seen, key=lambda c: c.alpha()) if seen else None
+    return best.name() if best is not None and best.alpha() > 200 else None
 theme.apply(qapp, dark=False, contrast=False)
 b = QPushButton("Find…")
 icons.put(b, "find")
@@ -189,18 +195,181 @@ del b
 gc.collect()
 gone = ref() is None
 theme.apply(qapp, dark=False, contrast=False)  # (redrawn without the button that's gone)
-print(json.dumps({"light": light, "dark": dark, "text": text, "gone": gone,
+print(json.dumps({"fluent icons": "Segoe Fluent Icons" in QFontDatabase.families(),
+                  "light": light, "dark": dark, "text": text, "gone": gone,
                   "ink": [theme.LIGHT["ink"], theme.DARK["ink"]]}))
 '''
 
 
+def _near(a, b, most=2):
+    """Two colours (#rrggbb) the same to within `most` in each of red, green and blue."""
+    return bool(a and b) and all(abs(int(a[i:i + 2], 16) - int(b[i:i + 2], 16)) <= most for i in (1, 3, 5))
+
+
 def test_icons_beside_the_words(check):
-    out = subproc.run_python(ICONS, session.SESSION.app)
-    d = out.data or {}
+    # (with Windows 11's icon font and with Windows 10's, as GitHub's machine may have: there the symbol's fullest
+    # pixel read #1a1a1a for the text's #1b1b1b, its blend's rounding, and the old exact match failed: 2026-10-23)
+    got = {}
+    for font in ("windows11", "windows10"):
+        out = subproc.run_python(ICONS, session.SESSION.app, font)
+        got[font] = out.data or {"error": out.stderr[-300:]}
     check("icons: Windows 11's symbol beside a button's words (the words unchanged), in the theme's text colour and "
           "drawn again when the theme changes; it never keeps its button",
-          d.get("light") == d.get("ink", [0])[0] and d.get("dark") == d.get("ink", [0, 0])[1]
-          and d.get("text") == "Find…" and d.get("gone") is True, d or out.stderr[-300:])
+          all(_near(d.get("light"), (d.get("ink") or [None])[0]) and _near(d.get("dark"), (d.get("ink") or [0, None])[1])
+              and d.get("text") == "Find…" and d.get("gone") is True for d in got.values()), got)
+
+
+# A menu as the app's (a note that can't be chosen, an item, a submenu) and two buttons with a menu (one with a symbol,
+# as Add a profile, one without, as Retry from these filters), dark and light, read back from their pictures
+MENUS = r'''
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication, QMenu, QPushButton, QVBoxLayout, QWidget
+qapp = QApplication([])
+from ui import icons, theme, theme_tokens
+theme.accent_palette = lambda: theme_tokens.DEFAULT_ACCENT
+''' + "{shapes}" + r'''
+out = {}
+for dark in (True, False):
+    theme.apply(qapp, dark=dark, contrast=False)
+    holder = QWidget()
+    lay = QVBoxLayout(holder)
+    menu = QMenu(holder)
+    note = menu.addAction("No presets yet: a preset keeps all your settings (not your files)")
+    note.setEnabled(False)
+    menu.addAction("Save current settings as…")
+    sub = menu.addMenu("Try for 5 minutes on")
+    sub.addAction("Headphones")
+    menu.resize(menu.sizeHint())
+    img = menu.grab().toImage()
+    g = menu.actionGeometry(note)
+    bg = img.pixelColor(g.left() + 3, g.center().y())
+    text = max((img.pixelColor(x, y) for x in range(g.left(), g.right()) for y in range(g.top(), g.bottom())),
+               key=lambda c: theme_tokens.contrast(c.name(), bg.name()))
+    g = menu.actionGeometry(sub.menuAction())
+    arrow = ink_box(img, g.right() - 30, g.top() + 2, g.right(), g.bottom() - 1, bg)
+    res = out["dark" if dark else "light"] = {"note": round(theme_tokens.contrast(text.name(), bg.name()), 2),
+                                              "submenu": open_side(img, arrow, bg, "right")}
+    buttons = []
+    for words, symbol in (("Add a profile", "add"), ("Retry from these filters", None)):
+        b = QPushButton(words)
+        if symbol:
+            icons.put(b, symbol)
+        m = QMenu(b)
+        m.addAction("Import an EQ file…")
+        b.setMenu(m)
+        lay.addWidget(b, 0, Qt.AlignLeft)  # (as wide as it asks to be: its words and its chevron, nothing more)
+        buttons.append(b)
+    holder.show()
+    for _ in range(5):
+        qapp.processEvents()
+    for b in buttons:
+        img = b.grab().toImage()
+        bg = img.pixelColor(img.width() // 2, 2)
+        found = runs(img, 3, img.width() - 3, 4, img.height() - 4, bg)
+        if len(found) < 2:
+            res[b.text()] = found
+            continue
+        box = ink_box(img, found[-1][0], 3, found[-1][1] + 1, img.height() - 3, bg)
+        res[b.text()] = {"chevron": open_side(img, box, bg, "down"), "gap": found[-1][0] - found[-2][1] - 1,
+                         "after": img.width() - 1 - found[-1][1]}
+    holder.close()
+    holder.deleteLater()
+    for _ in range(3):
+        qapp.processEvents()
+print(json.dumps(out))
+'''
+
+
+def test_menus_notes_and_chevrons(check, shapes):
+    out = subproc.run_python(MENUS.replace("{shapes}", shapes), session.SESSION.app)
+    d = out.data or {}
+    seen = [d.get(m) or {} for m in ("dark", "light")]
+    # (2026-10-23: a menu's notes, Presets' “No presets yet”, Use on device's “Run first”, were in the grey of an item
+    # that can't be chosen: 2.5:1 on the menu in light, 3.2:1 in dark)
+    check("menus: a note in a menu (an item that can't be chosen: Presets' “No presets yet”, Use on device's “Run "
+          "first”, the tray's device playing) is readable, 4.5:1 on the menu, light and dark",
+          len(seen) == 2 and all((m.get("note") or 0) >= 4.5 for m in seen),
+          [m.get("note") for m in seen] if d else out.stderr[-300:])
+    # (Qt's small filled triangles were on Use on device, Retry from these filters and the submenu; Add a profile had
+    # a rule of its own)
+    check("menus: a button with a menu (Add a profile, Use on device, Retry from these filters) shows Windows 11's "
+          "chevron, clear of its words and its edge, and a menu's submenu Windows 11's chevron pointing right; light "
+          "and dark",
+          len(seen) == 2 and all(m.get("submenu") is True and all(
+              isinstance(m.get(k), dict) and m[k]["chevron"] is True and m[k]["gap"] >= 5 and m[k]["after"] >= 10
+              for k in ("Add a profile", "Retry from these filters")) for m in seen), d or out.stderr[-300:])
+
+
+# A card (a QGroupBox, as Make the EQ: a label and a button on it) beside a fold's title size, dark and light: its
+# title's size as drawn and where its title and content start
+CARDS = r'''
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from PySide6.QtCore import QPoint
+from PySide6.QtGui import QFont, QFontMetrics
+from PySide6.QtWidgets import QApplication, QGroupBox, QLabel, QPushButton, QVBoxLayout, QWidget
+qapp = QApplication([])
+from ui import theme, theme_sheet, theme_tokens
+theme.accent_palette = lambda: theme_tokens.DEFAULT_ACCENT
+''' + "{shapes}" + r'''
+out = {"card": theme_sheet.CARD}
+for dark in (True, False):
+    theme.apply(qapp, dark=dark, contrast=False)
+    holder = QWidget()
+    lay = QVBoxLayout(holder)
+    box = QGroupBox("Make the EQ")
+    v = QVBoxLayout(box)
+    words = QLabel("Your EQ app")
+    run = QPushButton("Run")
+    v.addWidget(words)
+    v.addWidget(run)
+    lay.addWidget(box)
+    holder.resize(600, 300)
+    holder.show()
+    for _ in range(5):
+        qapp.processEvents()
+    img = box.grab().toImage()
+    bg = img.pixelColor(box.width() // 2, 4)
+    title = ink_box(img, 10, 3, box.width() - 10, 38, bg)  # (inside the card's round corners)
+    at = words.mapTo(box, QPoint(0, 0))
+    ink = ink_box(img, at.x(), at.y(), at.x() + words.width(), at.y() + words.height(), bg)
+    f = QFont(box.font())
+    sizes = {}
+    for pt in (10.5, 11):
+        f.setPointSizeF(pt)
+        sizes[str(pt)] = QFontMetrics(f).horizontalAdvance("Make the EQ")
+    out["dark" if dark else "light"] = {
+        "box_pt": box.font().pointSizeF(), "words_pt": words.font().pointSizeF(), "run_pt": run.font().pointSizeF(),
+        "title_width": title and title[2] - title[0] + 1, "widths": sizes, "title_x": title and title[0],
+        "words_x": ink and ink[0], "run_x": run.mapTo(box, QPoint(0, 0)).x()}
+    holder.close()
+    holder.deleteLater()
+    for _ in range(3):
+        qapp.processEvents()
+print(json.dumps(out))
+'''
+
+
+def test_cards_titles_and_insets(check, shapes):
+    out = subproc.run_python(CARDS.replace("{shapes}", shapes), session.SESSION.app)
+    d = out.data or {}
+    seen = [d.get(m) or {} for m in ("dark", "light")]
+    # (2026-10-23: Qt ignores a size on QGroupBox::title, which takes the box's own font: Make the EQ's title was
+    # drawn at 10.5 pt beside Settings' 11 pt)
+    check("cards: a card's title in a fold's title size (11 pt: Qt draws it in the card's own size), what's on the "
+          "card still in 10.5 pt; light and dark",
+          len(seen) == 2 and all(m.get("box_pt") == 11 and m.get("words_pt") == m.get("run_pt") == 10.5
+                                 and abs((m.get("title_width") or 0) - m["widths"]["11"]) <= 2
+                                 < abs((m.get("title_width") or 0) - m["widths"]["10.5"]) for m in seen),
+          d or out.stderr[-300:])
+    inset = d.get("card", 0) + 1  # (inside its 1 px border)
+    # (the card's padding and Qt's own layout margin put its content 9 px right of its title)
+    check("cards: a card's title and its content start at one inset (theme_sheet's CARD), the content's words and "
+          "controls under the title's; light and dark",
+          len(seen) == 2 and all(abs((m.get("title_x") or 0) - inset) <= 2 and abs((m.get("words_x") or 0) - inset) <= 2
+                                 and m.get("run_x") == inset for m in seen), d or out.stderr[-300:])
 
 
 ICONS_ONE_EACH = r'''

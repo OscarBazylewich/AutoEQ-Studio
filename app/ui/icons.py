@@ -1,8 +1,8 @@
 """The app's icons, drawn here (no image files): three EQ sliders on a rounded square, blue when an EQ is on for the
-device playing, grey when it's off. Also the small dots in the device list (playing, connected, not connected), and
-Windows 11's own symbols beside a button's words (put(button, name): from Windows' icon font, Segoe Fluent Icons, or
-Segoe MDL2 Assets on Windows 10; in the theme's text colour, the accent's text colour on the accent, drawn again when
-the theme changes). GLYPHS names them."""
+device playing, grey when it's off. Also the small dots in the device list (playing, connected, not connected: in
+the theme's colours, DOTS and dot_colour()), and Windows 11's own symbols beside a button's words (put(button, name):
+from Windows' icon font, Segoe Fluent Icons, or Segoe MDL2 Assets on Windows 10; in the theme's text colour, the
+accent's text colour on the accent, drawn again when the theme changes). GLYPHS names them."""
 from PySide6.QtCore import QPointF, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
 
@@ -92,8 +92,43 @@ def _redraw():
         else:
             _shown.remove((ref, name))
 
-ON, OFF = QColor("#2f6fde"), QColor("#7a7f87")
-DOTS = {"playing": QColor("#1f9d55"), "connected": QColor("#2f6fde"), "away": QColor("#9aa0a6")}
+ON, OFF = QColor("#2f6fde"), QColor("#7a7f87")  # (the app's own icon, in the tray too: its colours are its own)
+# the device list's dots, each in a colour of the theme (green playing, the accent connected: blue with Windows'
+# default, grey not connected), so they follow light and dark, Windows' accent and its contrast themes
+DOTS = {"playing": "good", "connected": "accent", "away": "muted"}
+
+
+def _hsv(c):
+    import colorsys
+    return colorsys.rgb_to_hsv(*(int(c[i:i + 2], 16) / 255 for i in (1, 3, 5)))
+
+
+def _alike(a, b):
+    """Two colours an eye takes for one: two greys of about the same lightness, or two strong colours of nearly the
+    same hue."""
+    (h1, s1, v1), (h2, s2, v2) = _hsv(a), _hsv(b)
+    if s1 <= 0.3 and s2 <= 0.3:
+        return abs(v1 - v2) < 0.15
+    return s1 > 0.3 and s2 > 0.3 and min(abs(h1 - h2), 1 - abs(h1 - h2)) < 30 / 360
+
+
+def dot_colour(kind, t):
+    """A device dot's colour (DOTS) in the colours t (theme.tokens()), the three told apart and 3:1 on the list (as
+    Windows asks of what isn't text): with Windows' green or grey accent the connected dot is Windows' default blue
+    (not a second green or grey); in a contrast theme, whose one text colour would be the playing and the grey dot's
+    both, the playing dot is in its highlight colour and the connected one in its link colour; an accent too pale
+    (Windows' yellow, in light) gives way to its darker shade (the accent button's lower edge's)."""
+    from ui import theme_tokens
+    colours = {k: t[name] for k, name in DOTS.items()}
+    if _alike(colours["playing"], colours["away"]):  # (a contrast theme)
+        colours.update(playing=t["accent"], connected=t["accent_text"])
+    elif any(_alike(colours["connected"], colours[k]) for k in ("playing", "away")):  # (a green or a grey accent)
+        on_dark = theme_tokens.contrast(t["card"], "#ffffff") > theme_tokens.contrast(t["card"], "#000000")
+        colours["connected"] = (theme_tokens.DARK if on_dark else theme_tokens.LIGHT)["accent"]
+    if theme_tokens.contrast(colours["connected"], t["card"]) < 3:  # (Windows' yellow accent, in light)
+        colours["connected"] = next((c for c in (t["accent_bottom"], t["accent_text"])
+                                     if theme_tokens.contrast(c, t["card"]) >= 3), t["ink"])
+    return colours[kind]
 
 
 def _sliders(size, colour):
@@ -126,12 +161,15 @@ def app_icon(on=True):
 
 
 def dot(kind, size=12):
+    """A device's dot (DOTS) as an icon, in the theme's colours now (the device list draws its rows' dots itself, in
+    the colours of the moment: ui\\devices_screen.py's DeviceRows)."""
+    from ui import theme
     pm = QPixmap(size, size)
     pm.fill(Qt.transparent)
     p = QPainter(pm)
     p.setRenderHint(QPainter.Antialiasing)
     p.setPen(Qt.NoPen)
-    p.setBrush(DOTS[kind])
+    p.setBrush(QColor(dot_colour(kind, theme.tokens())))
     p.drawEllipse(QRectF(2, 2, size - 4, size - 4))
     p.end()
     return QIcon(pm)
