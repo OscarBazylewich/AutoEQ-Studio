@@ -2,7 +2,9 @@
 to compare, Blind test, a version in each ear, History's Listen, the device's own EQ said and switched off, ✕ and
 Stop; and the review's fixes: an EQ with no filter on refused, colours not in use, the volume saved a moment later,
 a pasted EQ and Undo, the tone's range. Moved from eq_checks.py's listen_checks, review_checks and
-review_low_checks.
+review_low_checks. Then the Windows 11 look (2026-10-23): Play / Stop's symbols, each version marked in its curve's
+colour by the theme (light and dark), your EQs to compare in columns, the versions in rows that fit the card, Paste
+filters' OK as its main action.
 
 As in the old checks, it all happens on one Make an EQ, in order (the tests below are a chain, written in the order
 they ran): with a result on its card (a quick Best fit run with the Run button), saved as "UI check" (so History has
@@ -143,8 +145,9 @@ def test_remove_and_stop(card, check):
     lis._remove(lis.pins[-1])
     lis.stop()
     # was eq_checks.py:2980
+    # (since the Windows 11 look, 2026-10-23, the ▶ beside Play is Windows' symbol, not a character of its words)
     check("listen: ✕ removes an EQ to compare; Stop stops and the mark goes",
-          len(lis.pins) == n + 1 and not lis.playing and not page.marker.isVisible() and lis.play_btn.text() == "▶ Play")
+          len(lis.pins) == n + 1 and not lis.playing and not page.marker.isVisible() and lis.play_btn.text() == "Play")
     card.s.qapp.processEvents()
 
 
@@ -218,3 +221,136 @@ def test_tone_range_values_used_and_kept(card, check):
     lis.tone_from.setText("20")  # (back to the whole range, as the old check left it: lines 1932-1934)
     lis.tone_to.setText("20000")
     lis.tone_range_done()
+
+
+# ---------------------------------------------------------------- the Windows 11 look (2026-10-23)
+def _edge(widget):
+    """The colour in the middle of a control's left edge, as drawn."""
+    img = widget.grab().toImage()
+    return img.pixelColor(2, img.height() // 2).name()
+
+
+def _ink(label):
+    """Every colour a label is drawn in."""
+    img = label.grab().toImage()
+    return {img.pixelColor(x, y).name() for x in range(img.width()) for y in range(img.height())}
+
+
+def test_play_and_stop_symbols(card, check):
+    lis = card.lis
+    b = lis.play_btn
+    shown = []
+    for text in ("Stop", "Play", "■ Stop", "▶ Play"):  # (the Guide's demo shows "■ Stop" on it)
+        b.setText(text)
+        shown.append((b.text(), b.symbol, not b.icon().isNull()))
+    b.setText("Preparing…")
+    preparing = (b.text(), b.symbol, b.sizeHint().width() <= b.minimumWidth())
+    lis.play()
+    playing = (b.text(), b.symbol)
+    lis.stop()
+    stopped = (b.text(), b.symbol)
+    check("listen: Play and Stop show Windows 11's symbol beside their word, whoever sets it (the Guide's demo too); "
+          "the button keeps its width while the music is prepared",
+          shown == [("Stop", "stop", True), ("Play", "play", True), ("Stop", "stop", True), ("Play", "play", True)]
+          and preparing == ("Preparing…", "play", True) and playing == ("Stop", "stop")
+          and stopped == ("Play", "play"), (shown, preparing, playing, stopped))
+
+
+def test_version_marks_follow_the_theme(card, check):
+    from PySide6.QtWidgets import QLabel
+
+    from helpers import qt
+    from ui import theme
+    from ui.listen import COLOURS
+    s, lis = card.s, card.lis
+    lis.blind.setChecked(False)
+    lis.ears.setCurrentIndex(lis.ears.findData("both"))
+    lis.ears_changed()
+    want = ["meas", "with_eq"] + [COLOURS[p.get("color", i) % len(COLOURS)] for i, p in enumerate(lis.pins)]
+    seen = {}
+    try:
+        for mode, put in (("dark", qt.dark), ("light", qt.light)):
+            put(s.qapp)  # (the page draws Listen again in the theme's colours, as when Windows switches)
+            qt.pump(150)
+            t = theme.tokens()
+            btns = [b for b in lis.ab_box.findChildren(QPushButton) if b.isVisible()]
+            swatches = [w for w in lis.pins_box.findChildren(QLabel) if w.isVisible() and w.text() == "■"]
+            seen[mode] = {"marks": [b.property("listen_mark") for b in btns],
+                          "own styles": [w.styleSheet() for w in btns + swatches if w.styleSheet()],
+                          "edges": [_edge(b) == t[m] for b, m in zip(btns, want)],
+                          "swatches": [t.get(w.property("listen_mark")) in _ink(w) for w in swatches]}
+    finally:
+        qt.light(s.qapp)  # (as the page was opened)
+    check("listen: each version is marked in its curve's colour on the graph (EQ off the measurement's, the selected EQ "
+          "the blue of “with the EQ”, not Windows' accent; each EQ to compare its own, as beside it in the list), drawn "
+          "by the theme in light and dark",
+          all(v["marks"] == want and not v["own styles"] and v["edges"] and all(v["edges"])
+              and len(v["swatches"]) == len(lis.pins) and all(v["swatches"]) for v in seen.values())
+          and len(seen) == 2, seen)
+
+
+def test_eqs_to_compare_in_columns(card, check):
+    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QCheckBox, QLabel, QLineEdit
+
+    from helpers import qt
+    lis = card.lis
+    qt.pump(100)
+
+    def shown(kind):
+        return [w for w in lis.pins_box.findChildren(kind) if w.isVisible()]
+
+    def left(ws):
+        return {w.mapTo(lis, QPoint(0, 0)).x() for w in ws}  # (where each one starts)
+    notes = [w for w in shown(QLabel) if w.text() != "■"]
+    at = {"name boxes' widths": {w.width() for w in shown(QLineEdit)}, "notes": left(notes),
+          "Graph": left(shown(QCheckBox)), "✕": left(shown(QPushButton))}
+    check("listen: your EQs to compare line up in columns (each name box as wide as the others, its notes, Graph and ✕ "
+          "under the one above, however long the notes)",
+          len(notes) == len(lis.pins) >= 2 and len({len(n.text()) for n in notes}) > 1
+          and all(len(v) == 1 for v in at.values()), (len(lis.pins), at))
+
+
+def test_versions_in_rows_that_fit(card, check):
+    from PySide6.QtWidgets import QButtonGroup, QScrollArea
+
+    from helpers import qt
+    page, lis = card.page, card.lis
+    for n in range(4):
+        lis.add(f"An EQ to compare with a long name, number {n + 1}, to see where the row of versions ends",
+                [{"type": "PK", "freq": 2000 + 100 * n, "gain": 2, "q": 1}])
+    for _ in range(3):
+        lis.refresh()
+    qt.pump(200)
+    area = next(a for a in page.findChildren(QScrollArea) if a.widget() and a.widget().isAncestorOf(lis))
+    btns = [b for b in lis.ab_box.findChildren(QPushButton) if b.isVisible()]
+    rows = sorted({b.y() for b in btns})
+    inside = all(b.geometry().right() < lis.ab_box.width() for b in btns)
+    wide = (lis.minimumSizeHint().width(), area.viewport().width())
+    check("listen: the versions take as many rows as they need, so many EQs to compare with long names keep the card "
+          "within Make an EQ (it never scrolls sideways for them)",
+          len(btns) == len(lis.versions()) >= 8 and len(rows) >= 2 and inside and wide[0] <= wide[1],
+          (len(btns), rows, inside, wide))
+    groups = len(lis.findChildren(QButtonGroup))
+    check("listen: drawing the versions again keeps one button group (one more was left behind with each redraw)",
+          groups == 1, groups)
+
+
+def test_paste_ok_is_the_main_action(card, monkeypatch, check):
+    from PySide6.QtCore import QCoreApplication, QEvent
+    from PySide6.QtWidgets import QDialog, QDialogButtonBox
+    lis = card.lis
+    seen = {}
+
+    def look(dlg, *a, **k):
+        seen.update(ok=dlg.findChild(QDialogButtonBox).button(QDialogButtonBox.Ok).property("primary"),
+                    title=dlg.windowTitle())
+        return QDialog.Rejected
+    monkeypatch.setattr(QDialog, "exec", look)
+    n = len(lis.pins)
+    lis.add_paste()
+    QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+    left = len(lis.findChildren(QDialog))
+    check("listen: Paste filters… asks in a window whose OK is its main action (the accent); cancelled, nothing is "
+          "added and the window goes", seen == {"ok": "true", "title": "Paste filters"} and len(lis.pins) == n
+          and left == 0, (seen, len(lis.pins), n, left))
