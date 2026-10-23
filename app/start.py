@@ -63,18 +63,54 @@ def open_log():
     sys.stdout = sys.stderr = log
 
 
+def _serving_process(sock):
+    """The id of the process serving the one-copy channel this socket is connected to (Windows says it, from the
+    channel's pipe), or 0 when it can't be told."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        k32.GetNamedPipeServerProcessId.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.ULONG)]
+        pid = wintypes.ULONG(0)
+        if k32.GetNamedPipeServerProcessId(wintypes.HANDLE(int(sock.socketDescriptor())), ctypes.byref(pid)):
+            return int(pid.value)
+    except (AttributeError, OSError, ValueError):
+        pass
+    return 0
+
+
+def _wait_process_gone(pid, seconds):
+    """True when that process has ended within `seconds`, False when it still runs, None when it can't be watched."""
+    import ctypes
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    handle = k32.OpenProcess(0x00100000, False, pid)  # (SYNCHRONIZE: only to wait for it)
+    if not handle:
+        return True if ctypes.get_last_error() == 87 else None  # (87: no such process: it has ended already)
+    try:
+        return k32.WaitForSingleObject(handle, int(seconds * 1000)) == 0
+    finally:
+        k32.CloseHandle(handle)
+
+
 def ask_running(message, wait_gone=0.0):
     """Send the running copy a message ("show", "quit"): None when none runs, else True. wait_gone: seconds to wait
-    until it has quit (then False when it hasn't by then)."""
+    until it has quit (then False when it hasn't by then). That copy's own process is waited for: during a restart
+    after a restore a new copy takes over the channel the moment the old one has gone, so a channel that's still
+    answering doesn't mean the copy asked is still running (it made --quit wait its whole 15 s and fail, 2026-10-23)."""
     from PySide6.QtNetwork import QLocalSocket
     sock = QLocalSocket()
     sock.connectToServer(SERVER)
     if not sock.waitForConnected(500):
         return None
+    serving = _serving_process(sock) if wait_gone else 0
     sock.write(message)
     sock.waitForBytesWritten(500)
     sock.disconnectFromServer()
-    t = time.time()
+    if serving:
+        gone = _wait_process_gone(serving, wait_gone)
+        if gone is not None:
+            return gone
+    t = time.time()  # (its process can't be told or watched: wait until the channel has gone quiet, as before)
     while wait_gone and time.time() - t < wait_gone:
         probe = QLocalSocket()
         probe.connectToServer(SERVER)

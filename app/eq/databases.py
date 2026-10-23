@@ -267,7 +267,10 @@ def directory_sites():
         mtime = os.path.getmtime(DIRECTORY_PATH)
     except OSError:
         mtime = None
-    if mtime != _dir_sites["mtime"]:
+    # (built the first time too: without squig.link's saved list, a first start offline, its time stayed "none", as
+    # at the start, so the index, the built-in databases' included, was never built: no device type or rig for
+    # AutoEq's entries; fixed 2026-10-23)
+    if mtime != _dir_sites["mtime"] or not _dir_sites["by_url"]:
         items = saved_directory() if mtime else []
         have = {norm_url(s["url"]) for s in SITES}
         out, shorts = [], {s["short"] for s in SITES}

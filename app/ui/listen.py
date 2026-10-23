@@ -507,7 +507,7 @@ class Listen(QGroupBox):
             self.source_changed()
             if play_after and not self.playing:
                 self.play()
-        tasks.background(lambda: audio.read_file(f, sr), done)
+        tasks.background(lambda: audio.read_file(f, sr), done, owner=self)
 
     # ---------------------------------------------------------------- the device's own EQ (Devices)
     def render_apo(self):

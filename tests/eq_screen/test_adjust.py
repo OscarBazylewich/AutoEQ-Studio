@@ -65,18 +65,24 @@ def test_save_as_a_target(eq_screen, monkeypatch, check):
         page.svc.call("/api/settings", {"settings": S})
     was_target, was_adj = S["files"]["active_target"], dict(S["target_adjust"])
     hidden = not page.settings.save_target_btn.isEnabled()  # (greyed until the target is adjusted)
+
+    def reload_curves():
+        """The curves loaded again, and waited for until the new ones are there (made firm 2026-10-23: the old
+        check waited only for "some curves", which the page always had, so "drawn the same" compared the curves with
+        themselves and could never fail)."""
+        old = page.curves
+        page.load_curves()
+        return wait_for(lambda: page.curves is not None and page.curves is not old, 30)
     S["target_adjust"]["tilt"] = -0.5
     S["target_adjust"]["bass_gain"] = 4.0
     page.svc.call("/api/settings", {"settings": S})
-    page.load_curves()
-    wait_for(lambda: page.curves is not None, 30)
-    shown_before = np.asarray(page.curves["target"]).copy()
+    adjusted = reload_curves()
+    shown_before = np.asarray(page.curves["target"]).copy()  # (the target as adjusted, drawn)
     with monkeypatch.context() as m:  # (the name asked for: "My bassy target")
         m.setattr(QInputDialog, "getText", staticmethod(lambda *a, **k: ("My bassy target", True)))
         page.save_adjusted_target()
     wait_for(lambda: page.curves is not None and page.S["files"]["active_target"] == "My bassy target.csv", 30)
-    page.load_curves()
-    wait_for(lambda: page.curves is not None, 30)
+    saved = reload_curves()  # (the saved target, drawn: its adjustments are in it now, and back to 0)
     now = page.S
     same = float(np.max(np.abs(np.asarray(page.curves["target"]) - shown_before))) if page.curves else 99
     rig_kept = rigs.target_rig("My bassy target.csv")[0] == rigs.target_rig(was_target)[0]
@@ -90,8 +96,9 @@ def test_save_as_a_target(eq_screen, monkeypatch, check):
     # was eq_checks.py:2463
     check("target: Save as a target… (shown once the target is adjusted) keeps it as a target of its own, in use, the "
           "adjustments back to 0, drawn the same (its rig kept); Undo puts it all back",
-          hidden and state == ("My bassy target.csv", 0.0, 0.0) and same < 0.05 and rig_kept
-          and made and undo_shown and back == (was_target, 4.0, False), (hidden, state, same, rig_kept, made, back))
+          hidden and state == ("My bassy target.csv", 0.0, 0.0) and adjusted and saved and same < 0.05 and rig_kept
+          and made and undo_shown and back == (was_target, 4.0, False),
+          (hidden, state, adjusted, saved, same, rig_kept, made, back))
     page.S["target_adjust"] = was_adj
     page.S["files"]["active_target"] = was_target
     page.svc.call("/api/settings", {"settings": page.S})

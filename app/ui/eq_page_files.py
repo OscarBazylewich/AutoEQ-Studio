@@ -70,7 +70,7 @@ class EqFiles:
             if after:
                 after()
         s = self.S
-        tasks.background(lambda: self.svc.call("/api/settings", {"settings": s}), done)
+        tasks.background(lambda: self.svc.call("/api/settings", {"settings": s}), done, owner=self)
 
     def add_files(self, kind):
         start = os.path.expanduser("~")

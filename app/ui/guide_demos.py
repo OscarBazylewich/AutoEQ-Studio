@@ -276,6 +276,19 @@ def picker_rows(pk):
     return out
 
 
+def row_now(pk, r):
+    """The list's item and row for result r as Find…'s list is now, or (None, None). Find… draws its rows again while
+    its lists and This PC's search are still loading (it asks every half second), so a row kept across a demo's pause
+    may be deleted: a demo finds it again after each pause (it reached for a deleted row, 2026-10-23)."""
+    key = (r.get("src"), r.get("id"), r.get("name"))
+    for k in range(pk.list.count()):
+        it = pk.list.item(k)
+        d = it.data(Qt.UserRole)
+        if d and (d.get("src"), d.get("id"), d.get("name")) == key:
+            return it, pk.list.itemWidget(it)
+    return None, None
+
+
 def choose_row(page, api, pk, prefer, combo):
     """A row of the real list hovered and its Use clicked; the window closes and the box shows it; its curve (a file
     in the app or on this PC: read there, nothing downloaded) is returned."""
@@ -293,12 +306,14 @@ def choose_row(page, api, pk, prefer, combo):
     name = next((x for x in w.findChildren(QLabel) if x.text().endswith(r["name"])), w)
     yield from api.move_to(name, 0.2, 0.5)
     yield 450
-    use = next((b for b in w.findChildren(QPushButton) if b.text() == "Use"), w)
-    yield from api.move_to(use)
-    api.hot(use)
-    yield from api.ripple()
-    yield 250
-    api.hot(None)
+    _it, w = row_now(pk, r)  # (its row may have been drawn again during the pause)
+    use = next((b for b in w.findChildren(QPushButton) if b.text() == "Use"), w) if w is not None else None
+    if use is not None:  # (gone from the list meanwhile: the demo goes on without pointing at its Use)
+        yield from api.move_to(use)
+        api.hot(use)
+        yield from api.ripple()
+        yield 250
+        api.hot(None)
     body = dict(pk.body(r), settings=page.S) if local(r) else None
     api.close(pk)
     _stage_choice(api, combo, r["name"])

@@ -193,6 +193,7 @@ class CompareWindow(QDialog):
         d = self.data
         n = len(d["items"])
         st = (f"{n} measurement{'s' if n != 1 else ''} of “{d['query']}”. " if n else
+              f"None of the measurements of “{d['query']}” could be loaded. " if d.get("errors") else
               f"Nothing called “{d['query']}” was found. Try fewer words (e.g. just the model). ")
         st += (f"Your target is made for the {d['target_rig_name']}." if d.get("target_rig") else
                "Your target's rig isn't known, so the rig isn't scored (choose it above if you know it).")

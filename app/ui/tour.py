@@ -681,6 +681,7 @@ class Tour(QWidget):
         self.inside = []           # what the demo shows inside the tour (lists, windows, notes)
         # the demo: its actions run one by one (a generator: each yield is how long to wait, in the demo's ms)
         self.gen, self.undos, self.demo_running, self.paused, self.paused_by_you = None, [], False, False, False
+        self.demo_errors = []      # "step title: error" for each demo that ended on an error (the checks read it)
         self.scrolled = {}         # paused by your scrolling: where every scrolling part was, for Resume
         self.cur = None            # the pointer (in the window), or None before a demo
         self.hot_w = None          # the control the pointer is on (ringed)
@@ -1379,9 +1380,12 @@ class Tour(QWidget):
         except StopIteration:
             self._finished()
             return
-        except (RuntimeError, AttributeError, KeyError, IndexError, TypeError, ValueError):
+        except (RuntimeError, AttributeError, KeyError, IndexError, TypeError, ValueError) as e:
             import traceback
             traceback.print_exc()  # (a demo that fails ends as if it had finished: said in the log)
+            steps, i = getattr(self, "steps", []), getattr(self, "i", -1)
+            title = steps[i].get("title", "?") if 0 <= i < len(steps) else "?"
+            self.demo_errors.append(f"{title}: {type(e).__name__}: {e}")
             self._finished()
             return
         self.timer.start(max(0, int((ms or 0) / self.speed)))

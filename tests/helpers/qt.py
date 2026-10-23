@@ -6,9 +6,10 @@ dialogs answered by themselves (helpers.dialogs), a recorder in place of opening
 
 Errors inside Qt call-backs (a slot, a timer, an event handler): PySide6 hands them to sys.excepthook and carries on.
 Each one is kept in QT_ERRORS (the running test, the error's last line), logged ({"event": "qt_error"}) and passed on
-to the usual hook (its traceback is still printed). It doesn't fail the test: the old checks didn't fail on them
-either, and the two known ones are app bugs the reorganization doesn't fix (PLAN.md 3.7, open question 1). Once
-they are fixed, a failing test is one line here.
+to the usual hook (its traceback is still printed). The qt_error_check fixture fails the test it happened in (or the
+one its module's fixtures were made for), since 2026-10-23: until then they were only noted, as in the old checks,
+while the Guide's two known ones (demos reaching for a row Find… had drawn again) waited to be fixed. `reported`:
+how many of QT_ERRORS have been checked.
 
 The stray watch (the old EQ checks' rule): a control (a button, a label, a box, a bare widget or frame) shown as a
 window of its own flashes on the screen: made visible before it had a parent. Windows by design (dialogs, the main
@@ -27,6 +28,7 @@ from helpers import checks, dialogs, guard
 STRAY_CHECK = ("ui: no control is ever shown as a window of its own (each flashed on the screen: Find…'s rows showed "
                "one Show button each while the lists loaded, 779 in a session, and each cost the window's time)")
 QT_ERRORS: list[tuple[str, str]] = []  # (the running test, the error's last line)
+reported = 0                           # how many of QT_ERRORS the qt_error_check fixture has checked
 OPENED_URLS: list[str] = []            # what the app asked Windows to open (a website, a folder): never opened
 _made = []
 _watch = []

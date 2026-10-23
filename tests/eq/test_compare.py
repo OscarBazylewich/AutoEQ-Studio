@@ -48,6 +48,36 @@ def test_short_name_matches_whole_words(check):
           and compare.matches("Blessing 2", "Moondrop Blessing2"))
 
 
+def nothing_loads(monkeypatch):
+    """Two measurements of the model found, and neither can be loaded (as offline with nothing downloaded before):
+    compare's search and download stood in."""
+    found = [{"src": "db", "id": f"x{i}", "name": "Truthear GATe", "source": f"Site {i}", "site": f"Site {i}"}
+             for i in range(2)]
+    monkeypatch.setattr(compare, "candidates", lambda query, links=None: [dict(c) for c in found])
+
+    def no_internet(c):
+        raise OSError("no internet in the tests")
+    monkeypatch.setattr(compare, "_fetch", no_internet)
+
+
+def test_nothing_could_be_loaded(monkeypatch, check):
+    # (a bug the tests' reorganization found, fixed 2026-10-23: with the target's rig known and none of the model's
+    # measurements loaded, e.g. offline with nothing downloaded before, the note read the first of no measurements,
+    # and Which measurement answered "list index out of range")
+    from eq import settings
+    from helpers import studio
+    nothing_loads(monkeypatch)
+    try:
+        res, err = compare.compare(settings.with_auto({}), "Truthear GATe", studio.target_path()), None
+    except Exception as e:  # noqa: BLE001 - the bug: an error instead of an answer
+        res, err = {}, f"{type(e).__name__}: {e}"
+    check("compare: when none of the model's measurements can be loaded (offline, nothing downloaded before), it says "
+          "so, with each one's reason, instead of failing with \"list index out of range\"",
+          err is None and res.get("target_rig") and res.get("items") == [] and len(res.get("errors") or []) == 2
+          and "could be loaded" in (res.get("note") or ""), (err, res.get("target_rig"), res.get("note"),
+                                                              res.get("errors")))
+
+
 def test_averaged_name_is_windows_safe(sample_curves, monkeypatch, check):
     curves = sample_curves[0]
     # (the last comparison: two made-up measurements with the sample's curve, as eq_checks.py lines 987-990 put them)

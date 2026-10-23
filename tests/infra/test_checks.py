@@ -1,6 +1,6 @@
 """The check fixture and the check log (helpers.checks, tests\\conftest.py; PLAN.md 3.6): names logged, a failed
 check fails its test listing every failed name, check.skipped logs its names as skipped, an xfail test's report
-says xfailed, an error inside a Qt call-back is logged and doesn't fail its test, and the log's lines. All on an
+says xfailed, an error inside a Qt call-back is logged and fails its test, and the log's lines. All on an
 inner pytest run (its own process and check log: its deliberate failures never reach this run's log). And raises(),
 the EQ part's tests' shared helper (a ValueError's message, or None)."""
 from helpers import checks, inner
@@ -66,16 +66,19 @@ def test_check_fixture_and_log(pytester, monkeypatch, check):
           reports.get(("test_known_bug", "call"), {}).get("outcome") == "xfailed"
           and reports[("test_known_bug", "call")].get("message") == "a known bug",
           reports.get(("test_known_bug", "call")))
-    check("checks: an error inside a Qt call-back is logged (qt_error, with its test) and doesn't fail the test",
+    torn = reports.get(("test_qt_error", "teardown"), {})
+    check("checks: an error inside a Qt call-back is logged (qt_error, with its test) and fails the test it happened "
+          "in, naming the error (since 2026-10-23: before, it was only noted)",
           len(errors) == 1 and "ZeroDivisionError" in errors[0]["text"] and errors[0]["test"].endswith("::test_qt_error")
-          and reports.get(("test_qt_error", "call"), {}).get("outcome") == "passed", errors)
+          and torn.get("outcome") == "failed" and "Qt call-back" in torn.get("message", "")
+          and "ZeroDivisionError" in torn.get("message", ""), (errors, torn))
     check("checks: the log has the session's line, a start line per test and a report per phase; the run's summary "
           "agrees",
           len(session_lines) == 1 and {"pid", "root", "python"} <= set(session_lines[0])
           and starts == ["test_names", "test_fails", "test_skips", "test_known_bug", "test_qt_error"]
           and all((t, w) in reports for t in starts for w in ("setup", "call", "teardown") if t != "test_skips")
-          and result.parseoutcomes() == {"failed": 1, "passed": 2, "skipped": 1, "xfailed": 1} and result.ret == 1,
-          (result.parseoutcomes(), starts))
+          and result.parseoutcomes() == {"failed": 1, "passed": 2, "skipped": 1, "xfailed": 1, "errors": 1}
+          and result.ret == 1, (result.parseoutcomes(), starts))
 
 
 def test_raises(check):

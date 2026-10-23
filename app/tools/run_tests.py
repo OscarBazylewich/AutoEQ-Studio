@@ -20,7 +20,8 @@ PATHS      test folders or files (default: the whole tests folder; one test, fil
 The summary, from the check logs: "ok" with a count for each part that passed; a FAIL line for each check or test
 that failed (naming its test), and for a part whose process ended before its tests did (naming the last test it
 started); a skip, xfail or note line for each test skipped, failing as expected (a known bug), or with an error inside
-a Qt call-back (not a failure); the totals; and last "All checks passed." or "<n> check(s) failed.". Exit code 0 when
+a Qt call-back (which also fails that test, in its clean-up: a FAIL line of its own); the totals; and last "All checks
+passed." or "<n> check(s) failed.". Exit code 0 when
 everything passed, 1 when not, 2 for a wrong command line. Without pytest it says so in one FAIL line (exit code 1):
 the release tools show the self-test's FAIL lines. For relevant_tests.py's --run --quick (say_left_out): when --quick
 left out tests it chose (slow ones), a note line before the last says how many, and the last line, when everything
@@ -445,7 +446,7 @@ def summarize(part, records, returncode, *, seconds=0.0, txt="", output="", time
             res.notes.append(_left_running_note(part, len(rec.get("pids") or []), "ended with the test process"))
     for (test, text), count in qt_errors.items():
         times = f" ({count} times)" if count > 1 else ""
-        res.notes.append(f"note {test}: an error inside a Qt call-back (not a failure): {text}{times}")
+        res.notes.append(f"note {test}: an error inside a Qt call-back: {text}{times}")
     res.tests = len(started)
 
     # How the process ended.

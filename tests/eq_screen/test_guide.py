@@ -14,10 +14,10 @@ Windows' animation effects: a tour reads them as it starts (tour._animations_on)
 on, so the demos glided; here they're taken as on for every tour of this file, whatever this PC's setting, and the
 check of the markers turns them off itself, as the old one did (t.glide = False).
 
-Two demos print an error inside a Qt call-back, known app bugs left as they are (PLAN.md open question 1): "many
-results" (ui\\guide_eq.py line 88, many_results, "QListWidgetItem already deleted") and "choose the measurement"
-(ui\\guide_demos.py line 296, choose_row, "QWidget already deleted"); guide.py lines 473 and 300 before the Guide was
-split into three files. They don't fail the test (helpers.qt records them)."""
+Two demos used to reach for a row of Find…'s list that Find… had drawn again meanwhile (it does every half second
+while its lists load): "many results" ("QListWidgetItem already deleted") and "choose the measurement" ("QWidget
+already deleted"). Fixed 2026-10-23 (ui\\guide_demos.py row_now): test_find_demos_while_find_redraws plays both while
+Find… redraws its rows every 100 ms."""
 import json
 
 import pytest
@@ -163,10 +163,13 @@ def test_demos(s, check):
     now = (page.view_combo.currentIndex(), page.yrange_combo.currentIndex(), page.channels_chk.isChecked(),
            page.sa_what.text(), page.name_edit.text(), page.settings.fold.btn.isChecked())
     # was eq_checks.py:2725
+    # (made firm 2026-10-23: a demo that fails ends as if it had finished, its error only in the log, so "played to
+    # its end" counted it too; the tour's demo_errors names each one)
     check("guide: every step's demo plays to its end, a view it shows is put back when the tour ends mid-demo, and "
           "nothing of yours changed (settings, the graph's view, the search chosen, the file name)",
-          played >= 20 and not stuck and mid == "rel" and before == after and before_S == after_S and now == kept
-          and not changing, (played, stuck, mid, before == after, before_S == after_S, now, kept, changing))
+          played >= 20 and not stuck and not t.demo_errors and mid == "rel" and before == after
+          and before_S == after_S and now == kept and not changing,
+          (played, stuck, t.demo_errors, mid, before == after, before_S == after_S, now, kept, changing))
     # was eq_checks.py:2729
     check("guide: with Windows' animation effects off, a step's demo is numbered markers on its controls and a list "
           "in the card (nothing moves)", marked == (5, True, False), marked)
@@ -175,6 +178,50 @@ def test_demos(s, check):
           "step list (3 of 28 ▾) goes straight to a step",
           paused == (True, "▶ Resume") and scrolled == (True, True, True) and resumed == (True, False) and listed
           and jumped == (1, False), (paused, scrolled, resumed, listed, jumped))
+
+
+@pytest.mark.timeout(900)
+def test_find_demos_while_find_redraws(s, check):
+    # (a bug the tests' reorganization found, fixed 2026-10-23: the demos kept a row of Find…'s list across their
+    # pauses, while Find… draws its rows again every half second until its lists and This PC's search finish; the demo
+    # then reached for a deleted row and stopped short, with an error inside a Qt call-back. Here Find… redraws every
+    # 100 ms while both demos play at their own speed, so their pauses always see their rows drawn again)
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QApplication
+    from helpers import qt
+    from ui import guide
+    from ui.picker import Picker
+    page, wait_for = s.page, s.wait_for
+
+    redrawn = []
+
+    def redraw():  # (every widget: the Guide shows Find… inside its own layer, not as a window of its own)
+        for w in QApplication.allWidgets():
+            if isinstance(w, Picker) and w.isVisible():
+                w.render()
+                redrawn.append(1)
+    timer = QTimer()
+    timer.timeout.connect(redraw)
+    errors_before = len(qt.QT_ERRORS)
+    played, stuck = [], []
+    t = guide.start_eq(page)
+    t.all_chk.setChecked(False)
+    timer.start(100)
+    try:
+        for title in ("Choose your IEM or headphone", "Many results?"):
+            t.go(next(n for n, st in enumerate(t.steps) if st["title"] == title))
+            t.speed = 1.0
+            t.replay()
+            (played if wait_for(lambda: not t.demo_running, 90) else stuck).append(title)
+    finally:
+        timer.stop()
+        t.end()
+    errors = qt.QT_ERRORS[errors_before:]
+    # (a demo that fails ends as if it had finished, its error only in the log: t.demo_errors names them)
+    check("guide: the demos that use Find… (choose the measurement, many results) play to their end while Find… draws "
+          "its rows again (as it does while its lists load), reaching for no row that's gone",
+          len(played) == 2 and not stuck and not t.demo_errors and not errors and len(redrawn) >= 20,
+          (played, stuck, t.demo_errors, errors, len(redrawn)))
 
 
 @pytest.mark.timeout(900)  # (the tracer's sample traced first, then every demo of its Guide)

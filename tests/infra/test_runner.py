@@ -297,11 +297,11 @@ def test_summary_of_failures_skips_and_notes(check):
           "line, and its failed checks are no failure",
           res.skips == [f"xfail {T}known: a known bug", f"skip {T}skipped: Inno Setup 6 isn't installed here"]
           and not any("known bug" in f for f in fails), res.skips)
-    check("test runner: an error inside a Qt call-back is a note, not a failure (repeats counted), and so is a stray "
-          "window an allow_strays mark let pass",
+    check("test runner: an error inside a Qt call-back is a note (repeats counted; the test's own failure, in its "
+          "clean-up, is a FAIL line of its own), and so is a stray window an allow_strays mark let pass",
           res.notes == [f"note {T}qt: shown as windows of their own, allowed by its allow_strays mark (Find's rows): "
                         "QPushButton 'Show' (3 times)",
-                        f"note {T}qt: an error inside a Qt call-back (not a failure): RuntimeError: already deleted "
+                        f"note {T}qt: an error inside a Qt call-back: RuntimeError: already deleted "
                         "(2 times)"], res.notes)
     every = res.lines(show_all=True)
     check("test runner: --all prints every check's own line first (ok, FAIL, xfail, skip), then the part's lines",

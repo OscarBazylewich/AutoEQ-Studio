@@ -98,9 +98,12 @@ def test_restart_waits_for_the_old_copy(copies, check):
     new = c.start("--restarted", "--tray")
     time.sleep(3)  # (not a time limit: how long the new copy must be seen waiting while the old one runs)
     waited = new.poll() is None and c.started() == before + 1  # (still waiting: not started yet)
-    # (this --quit often waits its whole 15 s and ends with 1: the new copy takes over the one-copy channel as soon as
-    # the old one has gone, so the channel never looks empty to it. As in the old check, which didn't look either)
-    c.run("--quit")  # (the old one quits)
+    # (this --quit used to wait its whole 15 s and end with 1 most times: the new copy takes over the one-copy channel
+    # as soon as the old one has gone, so the channel never looked empty to it. Fixed 2026-10-23: it waits for the
+    # process it asked, which Windows names from the channel)
+    t = time.monotonic()
+    asked = c.run("--quit")  # (the old one quits)
+    took = time.monotonic() - t
     then = c.wait_started(before + 2)
     old_gone = old.poll() is not None
     c.run("--quit")
@@ -112,6 +115,9 @@ def test_restart_waits_for_the_old_copy(copies, check):
     # was selftest.py:1221
     check("restart: the copy started by a restore waits for the old one to quit, then starts (one copy at a time)",
           first and waited and then and old_gone, (first, waited, then, old_gone))
+    check("restart: --quit asked while a restart waits ends as soon as the old copy has quit, saying it did (exit code "
+          "0), not after waiting 15 s for the channel the new copy took over",
+          asked.returncode == 0 and took < qt.time_limit(10), (asked.returncode, round(took, 1)))
 
 
 def test_uninstall_turns_start_with_windows_off(monkeypatch, check):

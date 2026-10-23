@@ -42,10 +42,8 @@ def _downloads_as_found():
 
 
 def test_device_type_from_folders_database_and_names(check):
-    # (this needs squig.link's saved list, squigsites.json, in the session's data\eq\cache, put there from
-    # tests\fixtures\db: without it databases.directory_sites() never builds its index, not even of the built-in
-    # databases, and item_form() gives "" for AutoEq's and Earphones Archive's entries. An app bug the map stage
-    # found, left as it is here)
+    # (with squig.link's saved list, squigsites.json, in the session's data\eq\cache, put there from tests\fixtures\db,
+    # as the old check had it; without it, see test_device_type_without_squiglinks_list)
     assert os.path.isfile(databases.DIRECTORY_PATH), "squig.link's saved list (squigsites.json) is missing"
     ae = "https://github.com/jaakkopasanen/AutoEq"
     forms = [databases.name_form(n) for n in ("Harman IE 2019", "Harman over-ear 2018", "HD600", "Tie T3")]
@@ -54,6 +52,22 @@ def test_device_type_from_folders_database_and_names(check):
               databases.item_form({"kind": "target", "name": "Harman IE 2019", "sub": "target", "site_url": ae})]
     # was eq_checks.py:509
     check("search filters: device type from AutoEq's folders, the database and names", forms == ["iem", "hp", "", "", "hp", "hp", "iem"], forms)
+
+
+def test_device_type_without_squiglinks_list(db_guard, monkeypatch, tmp_path, check):
+    # (a bug the map stage found, fixed 2026-10-23: without squig.link's saved list, a first start offline, the index
+    # of the databases was never built, not even of the built-in ones, so AutoEq's and Earphones Archive's entries had
+    # no device type or rig)
+    monkeypatch.setattr(databases, "DIRECTORY_PATH", os.path.join(tmp_path, "never saved", "squigsites.json"))
+    monkeypatch.setattr(databases, "_dir_sites", {"mtime": None, "sites": [], "by_url": {}})  # (as at a first start)
+    ae = "https://github.com/jaakkopasanen/AutoEq"
+    forms = [databases.item_form({"kind": "measurement", "name": "HD600", "sub": "oratory1990 · over-ear", "site_url": ae}),
+             databases.item_form({"kind": "measurement", "name": "X", "sub": "B",
+                                  "site_url": "https://earphonesarchive.squig.link/headphones/"})]
+    found = [(databases.find_site(s["url"]) or {}).get("name") for s in databases.SITES]
+    check("search filters: without squig.link's saved list (a first start offline), the built-in databases still give "
+          "their entries' device type, and every built-in database is found by its address",
+          forms == ["hp", "hp"] and found == [s["name"] for s in databases.SITES], (forms, found))
 
 
 def test_recent_lists_read_not_written(db_guard, monkeypatch, tmp_path, check):

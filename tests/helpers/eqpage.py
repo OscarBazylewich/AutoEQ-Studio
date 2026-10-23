@@ -106,9 +106,9 @@ def close_screen(s):
             qt.wait_for(lambda: service.JOB.get("status") != "running", 60)
         service.SET_ASIDE[:] = [fn for fn in service.SET_ASIDE if any(fn is b for b in s.set_aside_before)]
     # (quiet first, not only "nothing running now": each load that ends starts the next as its answer arrives (the
-    # curves, their analysis, the automatic settings), and one still on its way once the page is deleted answers a
-    # page that's gone: an error inside a Qt call-back, "Internal C++ object already deleted". The page's loads
-    # name no owner (ui.tasks.background), so nothing else stops them)
+    # curves, their analysis, the automatic settings). Since 2026-10-23 the page's loads name it as their owner
+    # (ui.tasks.background), so an answer arriving once the page is deleted is dropped; waiting for quiet still lets a
+    # test's last load finish rather than be cut off, as the app would have it)
     qt.settle(0.5, 30)
     QThreadPool.globalInstance().waitForDone(30000)
     qt.pump(50)

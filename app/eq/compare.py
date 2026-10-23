@@ -187,7 +187,11 @@ def compare(cfg, query, target, rig_override=None, progress=None):
     same = sum(1 for c in items if tgt_rig and c["rig"] == tgt_rig)
     conv = sum(1 for c in items if (c.get("conv") or {}).get("how") in ("own", "rigs"))
     note = ""
-    if tgt_rig and not same and conv:
+    if not items:  # (every one failed to load: offline with nothing downloaded before, or their sites didn't answer)
+        note = ("None of them could be loaded (the reasons are below). Measurements from the online databases are "
+                "downloaded when compared: that needs the internet (Online, at the top right), and their sites must "
+                "answer. Try again later.")
+    elif tgt_rig and not same and conv:
         note = (f"None of these was measured on the {RIGS[tgt_rig]}, the rig your target is made for. The target is converted "
                 f"for {conv} of them; the error that leaves is in their reasons.")
     elif tgt_rig and not same:

@@ -124,7 +124,7 @@ class EqPage(EqCards, EqGraph, EqFiles, EqResult, EqHistory, QWidget):
             self.load_curves()
             self._lists_timer = QTimer(self, interval=500, timeout=self._lists_loaded)
             self._lists_timer.start()
-        tasks.background(load, loaded)
+        tasks.background(load, loaded, owner=self)
 
     def _lists_loaded(self):
         """Once the database lists are in: the rig tags and the curves again (a target's rig may only be known from
@@ -144,7 +144,7 @@ class EqPage(EqCards, EqGraph, EqFiles, EqResult, EqHistory, QWidget):
             if err or (res or {}).get("error"):
                 self.status(f"Couldn't save the settings: {err or res['error']}", 8000)
         s = self.S
-        tasks.background(lambda: self.svc.call("/api/settings", {"settings": s}), done)
+        tasks.background(lambda: self.svc.call("/api/settings", {"settings": s}), done, owner=self)
 
     def changed(self, curves=False):
         """A setting changed: save it soon, show it, ask the automatic settings again (and reload the curves)."""

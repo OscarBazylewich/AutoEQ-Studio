@@ -483,8 +483,9 @@ def test_compare_odd_queries(api, db_guard, eq_cfg, check):
     # asked while the database lists were still loading, so it was answered "still loading" before the query was
     # read. Here the lists are loaded first, and the measurements Which measurement downloads get a whole curve each
     # from a stand-in, as they got theirs from the sites when the old check ran online: offline, nothing is
-    # downloaded for real. With every download failing instead, each answer is an app error, "list index out of
-    # range": compare.compare's note reads the first of no measurements.)
+    # downloaded for real. Made firm 2026-10-23: its "no crash" half looked for a traceback in the answers, which
+    # service.call never gives (any error becomes {"error": message}), so it couldn't fail; now each odd query must
+    # be answered exactly as a blank one is, a search for the model in use, without an error)
     folder = databases.DOWNLOAD_DIR
     before = set(os.listdir(folder)) if os.path.isdir(folder) else set()
     try:
@@ -492,12 +493,16 @@ def test_compare_odd_queries(api, db_guard, eq_cfg, check):
         st = databases.status()
         assert st["count"] and not st["loading"], f"the database lists didn't load: {st}"
         db_guard.stub_get(lambda url, **k: (CURVE, url))
+        blank = api.call("/api/compare", {"query": "", "settings": eq_cfg})  # (as if nothing was typed)
         odd = [api.call("/api/compare", {"query": q, "settings": eq_cfg}) for q in (5, ["x"], None)]
         avg = api.call("/api/compare/average", {"keys": "x", "name": 3})
+        said = [(r.get("query"), r.get("error"), len(r.get("items") or [])) for r in [blank] + odd]
         # was eq_checks.py:2115
         check("compare: a query that isn't text is answered (no crash); average with odd keys says what to choose",
-              all("Traceback" not in json.dumps(r) for r in odd) and "Choose the measurements" in avg.get("error", ""),
-              (odd, avg))
+              all("Traceback" not in json.dumps(r) for r in odd) and "Choose the measurements" in avg.get("error", "")
+              and blank.get("query") and all("error" not in r and isinstance(r.get("items"), list)
+                                             and r.get("query") == blank.get("query") for r in [blank] + odd),
+              (said, avg))
     finally:  # (the database folders a download tried to make, taken away again)
         for name in (set(os.listdir(folder)) if os.path.isdir(folder) else set()) - before:
             shutil.rmtree(os.path.join(folder, name), ignore_errors=True)

@@ -83,6 +83,19 @@ def stray_check(request):
                 pytrace=False)
 
 
+@pytest.fixture(autouse=True)
+def qt_error_check():
+    # (an error inside a Qt call-back fails the test it happened in, or the one its module's fixtures were made for:
+    # checked after the test, as stray_check. Since 2026-10-23, once the Guide's two known ones were fixed)
+    from helpers import qt
+    yield
+    new = qt.QT_ERRORS[qt.reported:]
+    qt.reported = len(qt.QT_ERRORS)
+    if new:
+        pytest.fail("Errors inside Qt call-backs (a slot, a timer or an event handler) during this test or while its "
+                    "fixtures were made: " + "; ".join(text for _test, text in new), pytrace=False)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def offline():
     import net

@@ -28,7 +28,7 @@ class EqGraph:
         def done(c, err):
             if seq == self._curves_seq:
                 self.curves_loaded({"error": str(err)} if err else c)
-        tasks.background(lambda: self.svc.call("/api/curves", {"settings": s}), done)
+        tasks.background(lambda: self.svc.call("/api/curves", {"settings": s}), done, owner=self)
 
     def curves_loaded(self, c):
         """New curves: the graph, its title and note, the shown curves, History's note, Listen's list, the result's
@@ -65,7 +65,7 @@ class EqGraph:
                 return
             self.analysis = None if err or (an or {}).get("error") else an
             self.refresh_auto()
-        tasks.background(lambda: self.svc.call("/api/analysis", {"settings": s}), done)
+        tasks.background(lambda: self.svc.call("/api/analysis", {"settings": s}), done, owner=self)
 
     def refresh_auto(self):
         """The automatic settings for these curves: their values go into the settings (not yours), and the Search
@@ -295,7 +295,7 @@ class EqGraph:
                     return
                 self.previews = [(k, n, res["vals"] if k == key else v) for k, n, v in self.previews]
                 self.draw()
-            tasks.background(lambda req=req: self.svc.call("/api/preview", req), done)
+            tasks.background(lambda req=req: self.svc.call("/api/preview", req), done, owner=self)
 
     # ---------------------------------------------------------------- Listen (ui/listen.py): its marker on the graph
     def draw_marker(self):

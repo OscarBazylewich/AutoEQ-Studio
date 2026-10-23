@@ -6,7 +6,7 @@ guide_demos.py. Keep the steps in their order: the checks find steps by their ti
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QPushButton
 
-from ui import theme, tour
+from ui import tasks, theme, tour
 from ui.guide_demos import (adjust_demo, bg, button, card, choose_row, demo_filters, eq_now, fold, mock_combo,
                             mock_menu, open_picker, pick, picker_rows, plot_value, show_on_graph, stage_result,
                             type_search)
@@ -79,18 +79,25 @@ def eq_steps(page):
                 if tag is not None:
                     pk.list.scrollToItem(it)
                     break
+        # (Find… draws its rows again while its lists are still loading: a tag kept across a pause may be deleted, so
+        # its words are read first and it's pointed at only while it's there; it reached for a deleted row,
+        # 2026-10-23)
         if tag is not None:
+            tip = tag.toolTip()
             api.say("A result's rig tag: what it was measured on, and how that was worked out")
             yield from api.move_to(tag)
+            tag = tag if tasks.alive(tag) else None
             api.hot(tag)
-            yield from api.note(tag.toolTip(), tag, 2600)
+            yield from api.note(tip, tag, 2600)
             api.hot(None)
-        conv = next((x for it, _r in rows for x in pk.list.itemWidget(it).findChildren(QLabel)
+        conv = next((x for it, _r in picker_rows(pk) if pk.list.itemWidget(it) is not None
+                     for x in pk.list.itemWidget(it).findChildren(QLabel)
                      if x.property("role") == "chip" and "⇄" in x.text()), None)
         if conv is not None:
+            tip = conv.toolTip().split("\n")[-1]
             api.say("⇄: its database has a conversion of its own")
             yield from api.move_to(conv)
-            yield from api.note(conv.toolTip().split("\n")[-1], conv, 3000)
+            yield from api.note(tip, conv if tasks.alive(conv) else None, 3000)
         api.say("Keep only one rig (or type, or source)")
         yield from api.move_to(pk.f_rig, 0.3, 0.5)
         yield from api.ripple()

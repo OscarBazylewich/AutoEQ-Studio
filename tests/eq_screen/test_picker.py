@@ -259,7 +259,12 @@ def test_lists_a_to_z(eq_screen, as_old, check):
     names = [page.target_combo.itemText(i) for i in range(page.target_combo.count())]
     devs = list(page.groups)
     pk = Picker(page, "measurement")
-    pk.finish_list()  # (at once, as the old check: not waiting for its lists)
+    # (made firm 2026-10-23: the old check read the rows at once, before This PC's search had finished, so it saw no
+    # This PC rows and its "A to Z" for them could never fail. Now its lists and This PC's search are waited for, and
+    # This PC's rows (the studio's samples: six) must be there to put in order; the app has one measurement set)
+    loaded = eq_screen.wait_for(lambda: not pk.db.get("loading") and not pk.lib.get("scanning"), 120)
+    pk.render()
+    pk.finish_list()
     rows = _rows(pk)
     app_rows = [r["name"] for r in rows if r["src"] == "app"]
     pc_rows = [r["name"] for r in rows if r["src"] == "pc"]
@@ -297,12 +302,13 @@ def test_lists_a_to_z(eq_screen, as_old, check):
           "choices (Advanced's Layout), a short one doesn't; every drop-down A to Z",
           keyed == ["Alpha  b", "IEM 1", "iem 2", "IEM 10"] and sorted(["0.8", "0.707", "0.42", "0.5"], key=natural_key) == ["0.42", "0.5", "0.707", "0.8"] and names == sorted(names, key=natural_key)
           and devs == sorted(devs, key=natural_key) and app_rows == sorted(app_rows, key=natural_key)
-          and pc_rows == sorted(pc_rows, key=natural_key) and combos and len(sites) >= 2 and shown == [last]
+          and pc_rows == sorted(pc_rows, key=natural_key) and loaded and app_rows and len(pc_rows) >= 2
+          and combos and len(sites) >= 2 and shown == [last]
           and chosen == (True, False) and sites[0] == "" and sites[1] in ("app", "pc")
           and rule == (True, False, True, True) and not unsorted,
           (combos, sites[:4], last, shown, chosen, rule, unsorted[:3], names == sorted(names, key=natural_key),
            devs == sorted(devs, key=natural_key), app_rows == sorted(app_rows, key=natural_key),
-           pc_rows == sorted(pc_rows, key=natural_key), keyed))
+           pc_rows == sorted(pc_rows, key=natural_key), keyed, loaded, len(app_rows), len(pc_rows)))
 
 
 def test_use_offers_undo(eq_screen, dialogs, check):

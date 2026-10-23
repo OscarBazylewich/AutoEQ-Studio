@@ -1097,7 +1097,7 @@ class TraceWindow(QWidget):
             self.render_ta()
             self.update_ui()
         token = t.label_token
-        tasks.background(lambda: t.read_labels(ocr.words), done)
+        tasks.background(lambda: t.read_labels(ocr.words), done, owner=self)
 
     # ---------------------------------------------------------------- trace
     def set_tool(self, key):

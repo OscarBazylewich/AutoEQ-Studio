@@ -41,16 +41,18 @@ def test_versions_and_play(card, check):
     # (Play's sound card stood in for: tests\listen\conftest.py, as eq_checks.py line 2926)
     lis.src.setCurrentIndex(lis.src.findData("tone"))
     lis.source_changed()
-    # (the Ears list's first choice, as the old check took it. The list is sorted A to Z, so that's "A different
-    # version in each ear": the keys and Blind test below are checked with the ears split, as they were)
-    lis.ears.setCurrentIndex(0)
+    # (both ears hear the same version: chosen by its value. Made firm 2026-10-23: the old check took the Ears list's
+    # first choice, meant to be "both"; since the drop-downs are A to Z that's "A different version in each ear", so
+    # the keys and Blind test below ran with the ears split: Blind greyed out, and the keys changing a version that
+    # wasn't heard)
+    lis.ears.setCurrentIndex(lis.ears.findData("both"))
     lis.ears_changed()
     keys = [k for k, *_ in lis.versions()]
     lis.play()
     # was eq_checks.py:2933
     check("listen: the versions are EQ off, the selected EQ, then the EQs to compare; Play plays the selected EQ",
-          keys[:2] == ["off", "sel"] and lis.playing and lis.engine.active == "sel"
-          and [s["key"] for s in lis.engine.slots] == keys, (keys, lis.play_btn.text()))
+          keys[:2] == ["off", "sel"] and lis.playing and lis.engine.active == "sel" and lis.engine.ears == "both"
+          and [s["key"] for s in lis.engine.slots] == keys, (keys, lis.play_btn.text(), lis.engine.ears))
 
 
 def test_keys_1_and_2(card, check):
@@ -60,8 +62,9 @@ def test_keys_1_and_2(card, check):
     k1 = lis.engine.active
     page.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_2, Qt.NoModifier))
     # was eq_checks.py:2940
-    check("listen: keys 1 and 2 switch to EQ off and the selected EQ", (k1, lis.engine.active) == ("off", "sel"),
-          (k1, lis.engine.active))
+    check("listen: keys 1 and 2 switch to EQ off and the selected EQ",
+          (k1, lis.engine.active) == ("off", "sel") and lis.engine.ears == "both",
+          (k1, lis.engine.active, lis.engine.ears))
 
 
 def test_tone_marked(card, check):
@@ -88,14 +91,15 @@ def test_keep_to_compare(card, check):
 
 def test_blind_test(card, check):
     lis = card.lis
+    offered = lis.blind.isEnabled()  # (with both ears hearing the same version: test_versions_and_play chose it)
     lis.blind.setChecked(True)
     hidden = [b.text() for b in lis.ab_box.findChildren(QPushButton)]
     lis.reveal()
     shown = [b.text() for b in lis.ab_box.findChildren(QPushButton) if not b.isHidden()]
     # was eq_checks.py:2958
     check("listen: Blind test names the versions A, B, C … until Reveal",
-          [t.split()[1] for t in hidden] == ["A", "B", "C"][:len(hidden)] and len(hidden) >= 3
-          and all(" = " in t for t in shown), (hidden, shown))
+          offered and [t.split()[1] for t in hidden] == ["A", "B", "C"][:len(hidden)] and len(hidden) >= 3
+          and all(" = " in t for t in shown), (offered, hidden, shown))
 
 
 def test_version_in_each_ear_and_swap(card, check):
