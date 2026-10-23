@@ -30,7 +30,7 @@ INSTALLED = os.path.isfile(os.path.join(APP, "installed.txt"))
 # folder is given, so trying the installer never reaches the user's own app, settings or EQs)
 TEST_BUILD = os.path.isfile(os.path.join(APP, "test-build.txt"))
 NAME = "AutoEQ Studio (test)" if TEST_BUILD else "AutoEQ Studio"
-VERSION = "1.0.19"  # (the one place it's set: the installer, Windows' list of apps and Settings read it from here)
+VERSION = "1.1.0"  # (the one place it's set: the installer, Windows' list of apps and Settings read it from here)
 FILES_KEY = "files_folder"  # (settings.json: the folder you chose for your files; none: DEFAULT_FILES)
 # each kind of your files: its folder's name in your files' folder
 TARGETS_NAME, MEASUREMENTS_NAME, SAVED_EQS_NAME, PRESETS_NAME = "Targets", "Measurements", "Saved EQs", "Presets"
