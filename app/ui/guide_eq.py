@@ -561,7 +561,7 @@ def eq_steps(page):
          "before": result_before, "after": result_after, "ready": has_curves,
          "text": lambda: "Save filters writes your EQ app's file under the File name; Copy puts the filters on the "
                          "clipboard; Use on device makes the EQ a device's profile and switches it on (or tries it there "
-                         "for 5 minutes); 📌 Keep to compare adds it to your EQs to compare; Report makes an HTML page."
+                         "for 5 minutes); Keep to compare adds it to your EQs to compare; Report makes an HTML page."
                          + example(),
          "demo": [{"run": save_demo, "say": "Name it, save it, or use it on a device"}]},
         {"chapter": "3 · Run & review", "title": "Listen", "target": lambda: page.listen, "ready": lambda: page.listen.isVisible(),
@@ -570,7 +570,7 @@ def eq_steps(page):
          "demo": [{"run": listen_demo, "say": "Choose a sound, play, switch versions"}]},
         {"chapter": "3 · Run & review", "title": "Your EQs to compare", "target": lambda: page.listen.pins_box,
          "ready": lambda: page.listen.isVisible(),
-         "text": "Keep the EQs you want to hear side by side: from the result card (📌 Keep to compare), History, an "
+         "text": "Keep the EQs you want to hear side by side: from the result card (Keep to compare), History, an "
                  "EQ file or pasted filters. Each IEM or headphone has its own list, kept between sessions; ticked "
                  "Graph: on the graph too.",
          "demo": [{"at": lambda: button(page.listen, "+ The selected EQ"), "say": "The EQ on the result card"},
@@ -591,10 +591,10 @@ def eq_steps(page):
          "demo": lambda: [{"click": lambda: button(page, "History"), "say": "History: your past EQs", "then": history_demo}]
          + ([{"at": lambda: page.eqd_show, "say": "Under Measurement: when you've EQ'd it before; Show opens those"}]
             if page.eqd_show.isVisible() else [])},
-        {"chapter": "More", "title": "Only have a picture of a graph?", "target": lambda: button(page, "✎ Trace image"),
+        {"chapter": "More", "title": "Only have a picture of a graph?", "target": lambda: button(page, "Trace image"),
          "text": "Trace image turns a graph's picture into a measurement or a target. It has its own Guide. You can "
                  "also paste or drop a picture on the window.",
-         "demo": [{"at": lambda: button(page, "✎ Trace image"), "say": "A picture of a graph becomes a curve"}]},
+         "demo": [{"at": lambda: button(page, "Trace image"), "say": "A picture of a graph becomes a curve"}]},
         {"chapter": "More", "title": "Your devices", "target": lambda: win.nav["devices"], "top bar": True,
          "text": "Devices gives each playback device its own EQ through Equalizer APO, switched by itself when the "
                  "device plays, with a line saying whether it really plays; Profiles lists the EQs. Use on device puts "

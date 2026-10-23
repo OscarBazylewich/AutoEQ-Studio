@@ -12,6 +12,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QColor
 
 from ui import tasks, theme
+from ui.eq_page_parts import note
 
 
 class EqGraph:
@@ -36,14 +37,14 @@ class EqGraph:
         if not c or c.get("error"):
             self.curves, self.rig_note = None, ""
             self.graph_title.setText("")
-            self.graph_note.setText(str((c or {}).get("error") or "The curves couldn't be worked out."))
+            note(self.graph_note, str((c or {}).get("error") or "The curves couldn't be worked out."))
             self.chip_noeq.hide()
             self.draw()
             return
         self.curves = c
-        self.graph_title.setText(f"{c['name']}  →  {c['target_name']}")
+        self.graph_title.set_pair(c["name"], c["target_name"])  # ("A  →  B", or B under A on a narrow window)
         self.rig_note = ((c.get("rig") or {}).get("text") or "") if isinstance(c.get("rig"), dict) else ""
-        self.graph_note.setText(self.rig_note)
+        note(self.graph_note, self.rig_note)
         self.chip_noeq.setVisible(c.get("no_eq_rms") is not None)
         if c.get("no_eq_rms") is not None:
             self.chip_noeq.setText(f"Error without EQ  {c['no_eq_rms']:.2f} dB")
@@ -96,6 +97,9 @@ class EqGraph:
             self.settings.refresh()  # (the values filled in, "Why these values")
 
     def _recolour(self, draw=True):
+        """The theme changed (light or dark, Windows' accent): what the page draws in its own colours, again."""
+        if not hasattr(self, "plot"):  # (the EQ part still opening: the page is built in the colours then in use)
+            return
         col = theme.graph_colours()
         for p in (self.plot, self.eqplot):
             p.setBackground(col["bg"])
@@ -103,6 +107,9 @@ class EqGraph:
                 p.getAxis(ax).setPen(pg.mkPen(col["axis"]))
                 p.getAxis(ax).setTextPen(pg.mkPen(col["axis"]))
             p.showGrid(x=True, y=True, alpha=0.25)
+        self.legend.setLabelTextColor(col["axis"])  # (pyqtgraph's own grey was 2.9:1 on the light card: the axes')
+        if hasattr(self, "notice_icon"):
+            self._notice_symbol()
         if draw:
             self.draw()
             if hasattr(self, "listen"):

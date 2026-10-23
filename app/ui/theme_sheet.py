@@ -227,8 +227,17 @@ def window_screens(t, img):
 
 
 def eq_screen(t, img):
-    """Make an EQ: its cards, settings folds, result card, notices."""
-    return ""
+    """Make an EQ: its cards, settings folds, result card, notices. Its own properties: eqtitle (the graph's title,
+    the result's name: a little bigger than a card's heading, in Windows 11's display type), eqsub (a fold inside a
+    card, the Target card's Adjust: body text, quieter than the card's title, as Windows 11's expanders), eqsubtle (a
+    button with no fill until it's pointed at: the notice's ✕, as the close button of Windows 11's information bar)."""
+    return f"""
+    QLabel[eqtitle="true"] {{ font-family: "Segoe UI Variable Display"; font-size: {FONT + 1.5}pt; font-weight: 600; }}
+    QToolButton[eqsub="true"] {{ font-size: {FONT}pt; font-weight: 400; }}
+    QPushButton[eqsubtle="true"] {{ background: transparent; border-color: transparent; }}
+    QPushButton[eqsubtle="true"]:hover {{ background: {t['subtle_hover']}; }}
+    QPushButton[eqsubtle="true"]:pressed {{ background: {t['subtle_press']}; color: {t['ink2']}; }}
+"""
 
 
 def eq_windows(t, img):

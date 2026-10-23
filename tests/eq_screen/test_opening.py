@@ -1,6 +1,7 @@
-"""Make an EQ opening (ui\\eq_page.py): the app's files drawn (the curves, the automatic settings), and your EQ app
-setting the method and what Save writes. Moved from eq_checks.py's ui_checks (the page opened as the old checks
-opened it: helpers.eqpage.open_screen, on the settings they started from).
+"""Make an EQ opening (ui\\eq_page.py): the app's files drawn (the curves, the automatic settings), the line under
+File name saying what Save writes from the start (2026-10-23), and your EQ app setting the method and what Save
+writes. Moved from eq_checks.py's ui_checks (the page opened as the old checks opened it: helpers.eqpage.open_screen,
+on the settings they started from).
 
 At the end: no control was shown as a window of its own while this file ran. The stray watch itself (helpers.qt)
 watches every Qt test of the session, from before the page is made: the stray_check fixture fails the test in which a
@@ -43,6 +44,15 @@ def test_opens_with_the_apps_files(eq_screen, check):
     check("ui: the EQ screen opens with the app's files and draws them (the curves, the automatic settings)",
           loaded and page.target_combo.count() >= 1 and page.measurement_combo.count() >= 1
           and "→" in page.graph_title.text(), (loaded, page.graph_note.text()))
+
+
+def test_says_what_save_writes_from_the_start(eq_screen, check):
+    # (before anything changes a setting, so before the next test: the line under File name was empty when the page
+    # opened, and filled in only once a setting changed. The Guide's save demo points at it. Found 2026-10-23)
+    page = eq_screen.page
+    line = page.formats_line.text()
+    check("ui: the line under File name says what Save filters writes as soon as the page opens",
+          line.startswith("Save filters writes"), line)
 
 
 def test_eq_app_sets_method_and_files(eq_screen, check):

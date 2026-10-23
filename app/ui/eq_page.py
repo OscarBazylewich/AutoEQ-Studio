@@ -1,6 +1,6 @@
 """The "Make an EQ" screen: AutoEQ Local's page, natively. One column, as there:
 - the graph: your measurement, the target and the measurement with the EQ; under it the EQ itself (0 dB = no change)
-- Target | Measurement: what's in the app (your Targets and Measurements folders), and Add… for files on this PC
+- Target, then Measurement: what's in the app (your Targets and Measurements folders), and Add… for files on this PC
 - Make the EQ: your EQ app (its limits are kept, its file is what Save writes), the method, the search (what a run
   tries and how long it takes), Run, and the run's progress
 - the result: its numbers, its filters (Fewer or more filters: the best result for each count), Save filters (the
@@ -15,7 +15,8 @@ Its Guide: ui\\guide.py (the top bar's Guide); F1 on a control: its entry in Hel
 
 The page is one object, EqPage, made of parts, one file each: plain classes (no __init__, no signals) that share the
 page's controls and data, joined here with QWidget last:
-- ui/eq_page_cards.py, EqCards: the cards (how the page is laid out: the file to restyle it in)
+- ui/eq_page_cards.py, EqCards: the cards (how the page is laid out: the file to restyle it in; its own style rules
+  are ui/theme_sheet.py's eq_screen part)
 - ui/eq_page_graph.py, EqGraph: the curves, the analysis and automatic settings, the graph, the curves shown from
   Find…, Listen's marker
 - ui/eq_page_files.py, EqFiles: the files, Find…'s call-backs, a picture pasted, the tracer, Which measurement

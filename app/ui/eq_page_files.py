@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 import textfile
 from ui import tasks
-from ui.eq_page_parts import modal
+from ui.eq_page_parts import modal, note
 
 
 class EqFiles:
@@ -27,7 +27,7 @@ class EqFiles:
         for n in sorted(inputs["targets"], key=lambda n: natural_key(os.path.splitext(n)[0])):  # (A to Z)
             t.addItem(os.path.splitext(n)[0], n)
         t.setCurrentIndex(max(0, t.findData(inputs["active_target"])))
-        self.target_note.setText("" if inputs["targets"] else "No targets yet: Add… one from this PC.")
+        note(self.target_note, "" if inputs["targets"] else "No targets yet: Add… one from this PC.")
         from eq import inputs as eq_inputs
         groups = {}
         for m in sorted(inputs["measurements"], key=lambda m: natural_key(m["name"])):
@@ -42,12 +42,12 @@ class EqFiles:
                 current = current or dev
         mc.setCurrentIndex(max(0, mc.findData(current)))
         if not groups:
-            self.measurement_note.setText("No measurements yet: Add… one from this PC (L and R, or several seatings).")
+            note(self.measurement_note, "No measurements yet: Add… one from this PC (L and R, or several seatings).")
         else:
             on = [f["name"] for f in groups.get(current, []) if f["included"]]
             rigs = {inputs.get("rigs", {}).get(n) for n in on} - {None, ""}
-            self.measurement_note.setText(f"{len(on)} file{'s' if len(on) != 1 else ''} used"
-                                          + (f" · measured on {', '.join(sorted(rigs))}" if rigs else ""))
+            note(self.measurement_note, f"{len(on)} file{'s' if len(on) != 1 else ''} used"
+                 + (f" · measured on {', '.join(sorted(rigs))}" if rigs else ""))
 
     def _file_chosen(self, kind):
         S = self.S
