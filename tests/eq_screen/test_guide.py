@@ -15,13 +15,14 @@ on, so the demos glided; here they're taken as on for every tour of this file, w
 check of the markers turns them off itself, as the old one did (t.glide = False).
 
 Two demos print an error inside a Qt call-back, known app bugs left as they are (PLAN.md open question 1): "many
-results" (guide.py line 473, "QListWidgetItem already deleted") and "choose the measurement" (guide.py line 300,
-_choose_row, "QWidget already deleted"). They don't fail the test (helpers.qt records them)."""
+results" (ui\\guide_eq.py line 88, many_results, "QListWidgetItem already deleted") and "choose the measurement"
+(ui\\guide_demos.py line 296, choose_row, "QWidget already deleted"); guide.py lines 473 and 300 before the Guide was
+split into three files. They don't fail the test (helpers.qt records them)."""
 import json
 
 import pytest
 
-from helpers import eqpage, qt
+from helpers import eqpage
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -31,22 +32,6 @@ def glide():
     with pytest.MonkeyPatch.context() as m:
         m.setattr(tour, "_animations_on", lambda: True)
         yield
-
-
-@pytest.fixture(scope="module", autouse=True)
-def settled(eq_screen):
-    """After the file's last test, the page's background work finished before the eq_screen fixture closes it: each
-    load that ends starts the next in the background (the curves, their analysis, the automatic settings), and one
-    still on its way once the page is deleted answers a page that's gone (an error inside a Qt call-back, "Internal
-    C++ object already deleted"). Quiet for half a second: nothing running, nothing new started."""
-    yield
-    from PySide6.QtCore import QThreadPool
-    idle = {"n": 0}
-
-    def quiet():
-        idle["n"] = idle["n"] + 1 if QThreadPool.globalInstance().activeThreadCount() == 0 else 0
-        return idle["n"] >= 25
-    qt.wait_for(quiet, 30)
 
 
 def _retry(s):

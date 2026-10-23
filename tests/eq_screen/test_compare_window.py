@@ -5,24 +5,6 @@ and in the app is ranked, as the old checks did offline. The two are one chain, 
 its top Use."""
 import pytest
 
-from helpers import qt
-
-
-@pytest.fixture(scope="module", autouse=True)
-def settled(eq_screen):
-    """After the file's last test, the page's background work finished before the eq_screen fixture closes it: each
-    load that ends starts the next in the background (the curves, their analysis, the automatic settings), and one
-    still on its way once the page is deleted answers a page that's gone (an error inside a Qt call-back, "Internal
-    C++ object already deleted"). Quiet for half a second: nothing running, nothing new started."""
-    yield
-    from PySide6.QtCore import QThreadPool
-    idle = {"n": 0}
-
-    def quiet():
-        idle["n"] = idle["n"] + 1 if QThreadPool.globalInstance().activeThreadCount() == 0 else 0
-        return idle["n"] >= 25
-    qt.wait_for(quiet, 30)
-
 
 @pytest.fixture(scope="module")
 def which(eq_screen):

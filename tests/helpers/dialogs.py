@@ -1,5 +1,5 @@
 """Message boxes and dialogs answered by themselves, so no test can wait for a click that never comes (the app runs
-dialogs with exec() in your_files.py, window.py, picker.py, listen.py, eq_page.py and eq_settings.py).
+dialogs with exec() in your_files.py, settings_screen.py, picker.py, listen.py, eq_page_parts.py and eq_settings.py).
 
 install() (called by helpers.qt.app(), once per process) replaces, for the whole process:
 - QMessageBox.information, warning, critical, about: recorded, answered OK;

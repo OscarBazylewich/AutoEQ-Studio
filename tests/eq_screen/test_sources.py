@@ -6,26 +6,6 @@ Sources window and one list of what it said, as there, so they're one test: the 
 adds made before the first check."""
 import json
 
-import pytest
-
-from helpers import qt
-
-
-@pytest.fixture(scope="module", autouse=True)
-def settled(eq_screen):
-    """After the file's last test, the page's background work finished before the eq_screen fixture closes it: each
-    load that ends starts the next in the background (the curves, their analysis, the automatic settings), and one
-    still on its way once the page is deleted answers a page that's gone (an error inside a Qt call-back, "Internal
-    C++ object already deleted"). Quiet for half a second: nothing running, nothing new started."""
-    yield
-    from PySide6.QtCore import QThreadPool
-    idle = {"n": 0}
-
-    def quiet():
-        idle["n"] = idle["n"] + 1 if QThreadPool.globalInstance().activeThreadCount() == 0 else 0
-        return idle["n"] >= 25
-    qt.wait_for(quiet, 30)
-
 
 def test_sources(eq_screen, monkeypatch, check):
     import net
