@@ -1,8 +1,9 @@
 """AutoEQ Studio's window: a top bar (the app's name, its screens, Online / Offline) over one screen at a time.
 - Make an EQ (ui\\eq_page.py): AutoEQ Local's part. Its code is loaded in a thread of its own (ui\\preload.py), never
   on the window's: the first time it's opened ("Opening the EQ part…" shows at once meanwhile), or, once you've used
-  it, ahead of the click while the window is open (made about a second after the window shows, hidden behind the
-  screen you're on, so the click shows it at once). Never while the app is only in the tray, which stays light.
+  it, ahead of the click while the window is open (made at the first quiet moment a second or more after the window
+  shows, or as soon as its tab is pointed at, hidden behind the screen you're on, so the click shows it at once).
+  Never while the app is only in the tray, which stays light.
 - Devices: your playback devices (the one playing first), and for the one chosen: its profiles, the one on (or Off),
   adding and taking off profiles, whether Equalizer APO is installed on it, your name for it (Rename…), and a line
   saying whether its EQ really plays (Equalizer APO asked by itself, switcher\\check.py; again when something changes).
@@ -54,7 +55,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
     hotkey_changed = Signal(str)   # (the app registers it, and says when Windows refused it)
     AHEAD_MS = 1000     # (Make an EQ made ahead this long after the window shows: once it has drawn itself)
     TRIM_MS = 30000     # (the window's memory given back to Windows this long after it closes to the tray)
-    QUIET_MS = 300      # (the symbols' font looked up ahead only after this long without a key or mouse input)
+    QUIET_MS = 300      # (made ahead only after this long without a key or mouse input: a quiet moment)
 
     def __init__(self, sw, app):
         super().__init__()
@@ -65,10 +66,9 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.selected = sw.playing_key or (sw.devices[0].key if sw.devices else None)
         self.eq_page = None
         # Make an EQ made ahead and the memory given back in the tray: only when the app allows it (allow_preload)
-        self._ahead_ok, self._eq_awaited = None, False
+        self._ahead_ok, self._eq_awaited, self._eq_error = None, False, None
         self._ahead_timer = QTimer(self, singleShot=True, interval=self.AHEAD_MS, timeout=self._make_eq_ahead)
         self._trim_timer = QTimer(self, singleShot=True, interval=self.TRIM_MS, timeout=self._trim)
-        self._warm_timer = QTimer(self, singleShot=True, interval=200, timeout=self._warm_symbols)
         # Windows 11's Mica: the window made see-through before Windows first draws it (it can't be later); turned on
         # when it first shows (_mica_on), followed when the theme changes
         self._mica = winsys.materials(QGuiApplication.platformName())[0]
@@ -241,6 +241,8 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         """Show one screen. Make an EQ's page is made once its code is in (ui\\preload.py loads it in a thread of its
         own; until then "Opening the EQ part…" shows): at once when it's in already, as after it was loaded ahead;
         never while the app is hidden in the tray, which stays light (made when the window shows)."""
+        if key != "eq":  # (another screen asked for since Make an EQ was, hidden: the tray's Add a profile… shows it)
+            self._eq_pending = False
         if key == "eq" and self.eq_page is None:
             if not self.isVisible():
                 self._eq_pending = True
@@ -248,6 +250,10 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
                 self._make_eq_page()
             else:
                 self._eq_when_code_in()
+        if key == "eq" and self.isVisible() and not getattr(self.eq_page, "ready", False):
+            # (while "Opening the EQ part…" shows, you're waiting anyway: the symbols' font looked up then, not halfway
+            # through the build: ~0.2 s, once per run, theme.warm_symbols)
+            QTimer.singleShot(50, self, self._warm_while_opening)
         self.stack.setCurrentWidget(self.pages[key])
         self.nav[key].setChecked(True)
         self.presets_btn.setVisible(key == "eq")
@@ -283,8 +289,17 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
 
     def _make_eq_page(self):
         """The page made (its code is in: nothing is imported here) and put in the placeholder's place, the screen
-        shown unchanged; started (when made ahead, hidden: page.start() keeps what it would say until it's shown)."""
-        from ui.eq_page import EqPage  # (imported already; after the preload's error, here: the error shows as before)
+        shown unchanged; started (when made ahead, hidden: page.start() keeps what it would say until it's shown).
+        Its code that can't be loaded (a damaged copy) is said where Make an EQ shows, as the page says its own."""
+        try:
+            from ui.eq_page import EqPage  # (imported already; after the preload's error, again here)
+        except Exception as e:  # noqa: BLE001 - (said on the screen and in the log, as the page's own errors are)
+            import traceback
+            traceback.print_exc()
+            self._eq_error = e
+            for words in self.pages["eq"].findChildren(QLabel):
+                words.setText(f"The EQ part couldn't open: {e}\nThe details are in data\\app.log.")
+            return
         page = EqPage(self.sw, self.status)
         placeholder = self.pages["eq"]
         shown_now = self.stack.currentWidget() is placeholder
@@ -305,7 +320,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self._ahead_ok = worth_it
         self.nav["eq"].installEventFilter(self)
         if self.isVisible() and self.eq_page is None:
-            self._ahead_timer.start()
+            self._ahead_timer.start(self.AHEAD_MS)
 
     def _ahead_wanted(self):
         try:
@@ -313,28 +328,33 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         except Exception:  # noqa: BLE001 - (can't tell: made on the click, as for a first opening)
             return False
 
-    def _make_eq_ahead(self):
-        if self.isVisible() and self.eq_page is None and self._ahead_wanted():
-            self._eq_when_code_in()
-            self._warm_timer.start()
-
-    def _warm_symbols(self):
-        """The symbols the app's font lacks (✕ ↺ ⇄ ▶ …) looked up ahead (theme.warm_symbols: ~0.2 s on the window's
-        thread, once per run), when there's been no key or mouse input for QUIET_MS: tried every 200 ms while the
-        window is open on another screen. Without it, Make an EQ's first drawing took ~0.3 s when no screen had drawn
-        one of them yet (Devices draws ✕ only beside a device's profiles). Made ahead, with Make an EQ shown or the
-        window hidden, it's left: the screen that draws one first looks them up."""
-        if theme.symbols_warm() or not self.isVisible() or self.page() == "eq":
+    def _make_eq_ahead(self, hurry=False):
+        """Make an EQ made ahead (its code, then its page, hidden behind the screen shown) at a quiet moment: once
+        there has been no key or mouse input for QUIET_MS (tried every 200 ms; the work holds the window now and
+        then, and a click while it ran was answered ~0.4 s late, 2026-10-24), the symbols' font looked up first
+        (theme.warm_symbols: ~0.2 s, once per run, on the window's thread: a thread of its own was no better). At once
+        when hurried: its tab pointed at, or reached with Tab (about to be clicked)."""
+        if not (self.isVisible() and self.eq_page is None and self._ahead_wanted()):
             return
-        if winsys.idle_ms() >= self.QUIET_MS:
+        if not hurry:
+            if winsys.idle_ms() < self.QUIET_MS:
+                self._ahead_timer.start(200)
+                return
             theme.warm_symbols()
-        else:
-            self._warm_timer.start()
+        self._eq_when_code_in()
+
+    def _warm_while_opening(self):
+        if self.isVisible() and self.page() == "eq" and not getattr(self.eq_page, "ready", False):
+            theme.warm_symbols()
 
     def eventFilter(self, obj, e):
-        if obj is self.nav.get("eq") and e.type() in (QEvent.Enter, QEvent.FocusIn) and self._ahead_ok is not None:
+        # (the tab pointed at, or reached with Tab: not the focus Qt gives it as the window becomes active, which made
+        # it ahead ~20 ms after the window showed instead of a second after)
+        if obj is self.nav.get("eq") and self._ahead_ok is not None and (
+                e.type() == QEvent.Enter or (e.type() == QEvent.FocusIn
+                                             and e.reason() in (Qt.TabFocusReason, Qt.BacktabFocusReason))):
             self._ahead_timer.stop()
-            self._make_eq_ahead()  # (pointed at or reached with Tab: about to be clicked)
+            self._make_eq_ahead(hurry=True)
         return super().eventFilter(obj, e)
 
     def _trim(self):
@@ -372,9 +392,12 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
 
     def _guide_when_ready(self):
         page = self.eq_page
+        if self.page() != "eq":  # (you went on to another screen meanwhile: the Guide is left, ready or not)
+            self._guide_waiting = False
+            return
         if page is None or not getattr(page, "ready", False):  # (still opening: started when it's there)
-            if page is None:  # (its code still loading; the Guide given up when its loading failed or you went on)
-                self._guide_waiting = preload.error() is None and self.page() == "eq"
+            if page is None:  # (its code still loading; given up when Make an EQ couldn't open)
+                self._guide_waiting = preload.error() is None and self._eq_error is None
             else:
                 self._guide_waiting = not page.loading.text().startswith("The EQ part couldn't")
             if self._guide_waiting:
@@ -418,7 +441,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         if self.page() == "eq" and self.eq_page:
             self.eq_page.start()
         if self._ahead_ok is not None and self.eq_page is None:
-            self._ahead_timer.start()  # (Make an EQ made ahead once the window has drawn itself, when worth it)
+            self._ahead_timer.start(self.AHEAD_MS)  # (Make an EQ made ahead once the window has drawn itself, if worth it)
 
     def _mica_on(self):
         """Mica behind the window, its title bar dark or light with the theme; in a contrast theme the window paints

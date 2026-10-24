@@ -199,6 +199,9 @@ def free_leftovers() -> list[str]:
     import gc
     import shiboken6
     from PySide6.QtCore import QCoreApplication, QEvent, QObject
+    # (what Make an EQ's opening set aside from the collector, gc.freeze, looked at again: never collected, a loop of
+    # references made before it would never be found, 2026-10-24)
+    gc.unfreeze()
     gc.set_debug(gc.DEBUG_SAVEALL)  # (what it finds kept in gc.garbage, to look at, rather than freed at once)
     try:
         gc.collect()

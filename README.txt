@@ -228,6 +228,11 @@ Start with Windows (Settings): starts in the tray when you sign in. Task Manager
 "AutoEQ Studio" (a copy of Python's pythonw.exe by that name, in the .venv\Scripts folder; an entry called
 "pythonw" there is EQ Switcher's, which Set up offers to turn off).
 
+In the tray it stays light: Make an EQ isn't loaded there. Once you've used Make an EQ, opening the window gets it
+ready in the background at the first quiet moment (no key or mouse input for a moment), so its tab opens at once;
+the window uses a few hundred MB more then. Closed to the tray, the window gives that memory back to Windows after
+30 s: Task Manager then shows a few MB.
+
 
 BACKUP
 ------

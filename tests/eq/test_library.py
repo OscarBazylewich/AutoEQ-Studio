@@ -96,3 +96,30 @@ def test_find_doesnt_search_or_load_again(scanned, db_guard, monkeypatch, check)
     check("Find…: the same folders aren't searched again within a minute (unless asked), nor the lists loaded again "
           "within half an hour; their rows are made once per list", again is False and forced is True and skipped
           and rows1 is rows2, (again, forced, skipped, rows1 is rows2))
+
+
+def test_folders_looked_at_in_the_search_thread(monkeypatch, check):
+    # (2026-10-24, the checkers: start_scan looked at each folder (os.path.isdir) on the thread that asked, before
+    # starting its own: on a network folder that doesn't answer (or a disk asleep) that took seconds, and Make an EQ,
+    # Find… and Sources ask from the window's thread. A folder of this test's own stands in)
+    import threading
+    mine, missing = os.path.join(_top(), "mine-slow"), os.path.join(_top(), "missing-slow")
+    cfg = dict(settings.DEFAULTS, library={"folders": [mine, missing]})
+    looked, real = [], os.path.isdir
+
+    def isdir(p):
+        if os.path.normcase(str(p)) in (os.path.normcase(mine), os.path.normcase(missing)):
+            looked.append(threading.current_thread() is threading.main_thread())
+        return real(p)
+    with _made_here(mine):
+        os.makedirs(mine, exist_ok=True)
+        monkeypatch.setattr(os.path, "isdir", isdir)
+        started = library.start_scan(cfg, force=True)
+        end = time.monotonic() + qt.time_limit(30)
+        while library.status()["scanning"] and time.monotonic() < end:
+            time.sleep(0.05)
+        monkeypatch.setattr(os.path, "isdir", real)
+        searched = library.status()["folders"]
+    check("This PC: which folders exist is seen in the search's own thread, never on the one that asked (a network "
+          "folder that doesn't answer held the window for seconds); the search then has those that exist",
+          started is True and len(looked) >= 2 and not any(looked) and searched == [mine], (started, looked, searched))

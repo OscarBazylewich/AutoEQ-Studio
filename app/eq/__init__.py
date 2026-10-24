@@ -2,9 +2,10 @@
 History, EQs to compare), brought over almost unchanged. service.py is how the rest of the app uses them: one
 function per thing to do, taking and answering plain dicts (they were AutoEQ Local's page's /api/... requests).
 
-Nothing here is imported until the EQ part is used, so the tray stays light. Importing it sets the maths libraries'
-thread counts first: the fits use small matrices, extra threads only add overhead, and the worker pool already uses
-every core (worker processes inherit the environment).
+Nothing here is imported while the app is only in the tray, so it stays light: it's imported when Make an EQ first
+opens, or ahead of the click, in a thread of its own, while the window is open and you've used Make an EQ before
+(ui\\preload.py). Importing it sets the maths libraries' thread counts first: the fits use small matrices, extra
+threads only add overhead, and the worker pool already uses every core (worker processes inherit the environment).
 """
 import os
 

@@ -332,7 +332,7 @@ print(json.dumps(out))
 WARM = COMMON + r'''
 from ui import winsys
 from ui.window import Window
-Window.AHEAD_MS = 600000
+Window.AHEAD_MS = 100
 quiet = [0]
 winsys.idle_ms = lambda: quiet[0]
 calls = []
@@ -341,12 +341,12 @@ theme.warm_symbols = lambda: calls.append(1) or real()
 win = make_window("devices")
 pump(0.3)
 win.allow_preload(lambda: True)
-QApplication.sendEvent(win.nav["eq"], QEvent(QEvent.Enter))
 pump(1.2)
-out = {"while busy": len(calls), "warm while busy": theme.symbols_warm()}
+out = {"while busy": len(calls), "warm while busy": theme.symbols_warm(),
+       "made while busy": win.eq_page is not None or "ui.eq_page" in sys.modules}
 quiet[0] = 5000
-pump(2.0, lambda: bool(calls))
-out.update({"once quiet": len(calls), "warm": theme.symbols_warm()})
+made = pump(60, lambda: win.eq_page is not None and win.eq_page.ready)
+out.update({"once quiet": len(calls), "warm": theme.symbols_warm(), "made": made, "page": win.page()})
 pump(0.6)
 out["later"] = len(calls)
 print(json.dumps(out))
@@ -592,9 +592,155 @@ def test_memory_given_back_in_the_tray(qapp, stub_app, tmp_path, monkeypatch, ch
 def test_symbols_font_looked_up_at_a_quiet_moment(check, tmp_path):
     # (2026-10-24: the first symbol the app's font lacks (✕ ↺ ⇄ ▶ …) took 150-250 ms on the window's thread, Windows
     # finding it in another font; when no screen had drawn one yet, Make an EQ's first drawing paid it at the click.
-    # Made ahead, the window looks them up ahead, but only while the keys and the mouse are quiet)
+    # Made ahead, the window looks them up first, and makes Make an EQ ahead only at a quiet moment: the work holds
+    # the window now and then, and a click while it ran was answered ~0.4 s late)
     d, err = _run(WARM, str(tmp_path), _studio(str(tmp_path)))
-    check("window: with Make an EQ made ahead, the symbols' font is looked up ahead (theme.warm_symbols) only once the "
-          "keys and the mouse have been quiet a moment, and once",
-          d.get("while busy") == 0 and d.get("warm while busy") is False and d.get("once quiet") == 1
-          and d.get("warm") is True and d.get("later") == 1, d or err)
+    check("window: Make an EQ made ahead only once the keys and the mouse have been quiet a moment (nothing loaded "
+          "while they're busy), the symbols' font looked up first (theme.warm_symbols), once",
+          d.get("while busy") == 0 and d.get("warm while busy") is False and d.get("made while busy") is False
+          and d.get("once quiet") == 1 and d.get("warm") is True and d.get("made") is True
+          and d.get("page") == "devices" and d.get("later") == 1, d or err)
+
+
+def _window(stub_app, tmp_path):
+    """A window of this test's own (on Devices, a stand-in device, no Equalizer APO folder), not shown."""
+    from switcher import core
+    from switcher import devices as D
+    from switcher.apo import Apo
+    from ui.window import Window
+    eps = [D.Endpoint("{5}", "Headset", "EarPods", D.ACTIVE, False)]
+    sw = core.Switcher(str(tmp_path / "s.json"), Apo(str(tmp_path / "no-apo")), endpoints=lambda: eps,
+                       playing=lambda: "{5}")
+    sw.s["page"] = "devices"
+    return Window(sw, stub_app)
+
+
+def test_made_ahead_at_a_quiet_moment_or_when_about_to_be_clicked(qapp, stub_app, tmp_path, monkeypatch, check):
+    # (2026-10-24, the checkers: made ahead ~20 ms after the window showed, not a second after: Qt gives the Make an
+    # EQ tab the focus as the window becomes active, and any focus was taken as "reached with Tab". Its work holds the
+    # window now and then: a click while it ran was answered ~0.4 s late. Here what it's asked to do is recorded:
+    # nothing is loaded)
+    from PySide6.QtCore import QEvent, Qt
+    from PySide6.QtGui import QFocusEvent
+    from PySide6.QtWidgets import QApplication
+    from ui import theme, winsys
+    win = _window(stub_app, tmp_path)
+    quiet, calls = [0], []
+    monkeypatch.setattr(winsys, "idle_ms", lambda: quiet[0])
+    monkeypatch.setattr(theme, "warm_symbols", lambda: calls.append("symbols"))
+    monkeypatch.setattr(win, "_eq_when_code_in", lambda: calls.append("made"))
+    seen = {}
+    try:
+        win.show()
+        qt.pump(30)
+        win.allow_preload(lambda: True)
+        win._ahead_timer.stop()  # (its wait after the window shows: the moment it ends is played by hand below)
+        win._make_eq_ahead()
+        seen["busy"], seen["tried again"] = list(calls), win._ahead_timer.isActive()
+        win._ahead_timer.stop()
+        quiet[0] = 5000
+        win._make_eq_ahead()
+        seen["quiet"] = list(calls)
+        del calls[:]
+        for reason in (Qt.ActiveWindowFocusReason, Qt.OtherFocusReason, Qt.MouseFocusReason):
+            QApplication.sendEvent(win.nav["eq"], QFocusEvent(QEvent.FocusIn, reason))
+        seen["focus as the window opens or clicked"] = list(calls)
+        quiet[0] = 0
+        QApplication.sendEvent(win.nav["eq"], QFocusEvent(QEvent.FocusIn, Qt.TabFocusReason))
+        seen["reached with Tab, busy"] = list(calls)
+        del calls[:]
+        QApplication.sendEvent(win.nav["eq"], QEvent(QEvent.Enter))
+        seen["pointed at, busy"] = list(calls)
+    finally:
+        qt.close(win)
+    check("window: Make an EQ made ahead at a quiet moment (no key or mouse input for a while: tried again until "
+          "then), the symbols' font first; at once when its tab is pointed at or reached with Tab, not for the focus "
+          "Qt gives it as the window opens",
+          seen == {"busy": [], "tried again": True, "quiet": ["symbols", "made"],
+                   "focus as the window opens or clicked": [], "reached with Tab, busy": ["made"],
+                   "pointed at, busy": ["made"]}, seen)
+
+
+def test_another_screen_asked_for_while_hidden(qapp, stub_app, tmp_path, monkeypatch, check):
+    # (2026-10-24, the checkers: the tray's Add a profile… (shown when the playing device has none) opened Make an EQ
+    # when Make an EQ had been asked for while the window was hidden: it stayed waiting to be made when it shows)
+    from ui import preload
+    win = _window(stub_app, tmp_path)
+    made = []
+    monkeypatch.setattr(preload, "ready", lambda: False)
+    monkeypatch.setattr(win, "_eq_when_code_in", lambda: made.append(1))
+    try:
+        win.show_page("eq", remember=False)  # (asked for while hidden: made when the window shows)
+        win.show_page("devices", remember=False)  # (the tray's Add a profile…, then the window shown)
+        win.show()
+        qt.pump(50)
+        shown = win.page()
+    finally:
+        qt.close(win)
+    check("window: the screen asked for last while it was hidden is the one it shows (the tray's Add a profile… "
+          "showed Make an EQ when that had been asked for before)", shown == "devices" and not made, (shown, made))
+
+
+def test_code_that_cant_load_is_said(qapp, stub_app, tmp_path, monkeypatch, check):
+    # (2026-10-24, the checkers: with Make an EQ's code broken (a damaged copy), the click showed "Opening the EQ
+    # part…" for ever, the error only in the log; the Guide's button raised)
+    import sys
+
+    from PySide6.QtWidgets import QLabel
+    from ui import guide, preload, theme
+    win = _window(stub_app, tmp_path)
+    tours = []
+    monkeypatch.setattr(preload, "ready", lambda: True)
+    monkeypatch.setattr(preload, "error", lambda: ImportError("stood in"))
+    monkeypatch.setitem(sys.modules, "ui.eq_page", None)  # (its import fails, as in a damaged copy)
+    monkeypatch.setattr(guide, "start_eq", lambda page: tours.append(page))
+    monkeypatch.setattr(theme, "warm_symbols", lambda: False)
+    raised = None
+    try:
+        win.show()
+        qt.pump(30)
+        try:
+            win.show_page("eq", remember=False)
+            win.start_guide()
+        except Exception as e:  # noqa: BLE001 - (what the check reports)
+            raised = f"{type(e).__name__}: {e}"
+        qt.pump(400)
+        words = [lab.text() for lab in win.stack.currentWidget().findChildren(QLabel)]
+        seen = {"raised": raised, "page": win.page(), "made": win.eq_page is not None,
+                "says": [w.split(":")[0] for w in words], "guide waits": win._guide_waiting, "tours": len(tours)}
+    finally:
+        qt.close(win)
+    check("window: Make an EQ's code that can't be loaded (a damaged copy) is said where Make an EQ shows (“The EQ "
+          "part couldn't open: …”), not “Opening the EQ part…” for ever; nothing raises and the Guide doesn't wait",
+          seen == {"raised": None, "page": "eq", "made": False, "says": ["The EQ part couldn't open"],
+                   "guide waits": False, "tours": 0}, seen)
+
+
+def test_the_guide_left_when_you_go_on(qapp, stub_app, tmp_path, monkeypatch, check):
+    # (2026-10-24, the checkers: the Guide asked for while Make an EQ opened, then another screen chosen: the tour
+    # started over that screen once the page was ready)
+    from types import SimpleNamespace
+
+    from PySide6.QtWidgets import QLabel
+    from ui import guide
+    win = _window(stub_app, tmp_path)
+    tours = []
+    monkeypatch.setattr(guide, "start_eq", lambda page: tours.append(page))
+    loading = QLabel("Opening the EQ part…")
+    try:
+        win.show()
+        qt.pump(30)
+        win.stack.setCurrentWidget(win.pages["eq"])  # (Make an EQ shown, its page made and still opening)
+        win.eq_page = SimpleNamespace(ready=False, loading=loading)
+        win._guide_when_ready()
+        waiting = win._guide_waiting
+        win.show_page("devices", remember=False)  # (gone on to Devices)
+        win.eq_page.ready = True
+        qt.pump(500)
+        seen = {"waited": waiting, "tours": len(tours), "page": win.page()}
+    finally:
+        win.eq_page = None
+        qt.close(win)
+        qt.close(loading)
+    check("window: the Guide asked for while Make an EQ opens is left when you go on to another screen (it started "
+          "over that screen once the page was ready)", seen == {"waited": True, "tours": 0, "page": "devices"}, seen)

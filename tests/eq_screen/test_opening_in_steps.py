@@ -279,6 +279,21 @@ def test_damaged_history_said(ahead, check):
           (boxes, os.path.exists(bad)))
 
 
+def test_graphs_value_axes_one_width(ahead, check):
+    # (2026-10-24, the checkers: pyqtgraph sized each graph's value axis to the first numbers it drew and kept it; made
+    # ahead, the top graph was first drawn with its curves ("70") and the EQ graph under it empty ("0.9"), so their
+    # axes were 36 and 40 px wide and the two graphs' left edges 4 px apart; and each jumped wider once its curves came)
+    page = ahead.s.page
+    qt.pump(200)
+    widths = [round(p.getAxis("left").width(), 1) for p in (page.plot, page.eqplot)]
+    page.draw()  # (drawn again with its curves)
+    qt.pump(200)
+    again = [round(p.getAxis("left").width(), 1) for p in (page.plot, page.eqplot)]
+    check("eq page: both graphs' value axes are one width (the graphs' edges line up), made ahead too, and stay so "
+          "when the curves are drawn again", widths[0] == widths[1] and again == widths and widths[0] > 0,
+          (widths, again))
+
+
 def test_preload_held_while_it_opens(ahead, check):
     holds = ahead.holds
     check("eq page: ui.preload is held while Make an EQ opens (its imports in the background shared Python's lock: each "

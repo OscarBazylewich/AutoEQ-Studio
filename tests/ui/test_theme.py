@@ -600,12 +600,19 @@ def test_building_takes_the_filter_off_and_back(check):
 WARM_SYMBOLS = r'''
 import json, sys
 sys.path.insert(0, sys.argv[1])
+from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import QApplication
 qapp = QApplication([])
 from ui import theme
 theme.apply(qapp, dark=False, contrast=False)
-print(json.dumps({"before": theme.symbols_warm(), "first": theme.warm_symbols(), "again": theme.warm_symbols(),
-                  "after": theme.symbols_warm(), "symbols": theme.SYMBOLS}))
+measured, weights = [], []  # (what warm_symbols measures, and the weights it sets: recorded on the way)
+real_advance, real_weight = QFontMetrics.horizontalAdvance, QFont.setWeight
+QFontMetrics.horizontalAdvance = lambda self, text, *a: (measured.append(text), real_advance(self, text, *a))[1]
+QFont.setWeight = lambda self, w: (weights.append(int(w.value) if hasattr(w, "value") else int(w)), real_weight(self, w))[1]
+out = {"before": theme.symbols_warm(), "first": theme.warm_symbols()}
+out.update(measured=list(measured), weights=list(weights), again=theme.warm_symbols(), after=theme.symbols_warm(),
+           symbols=theme.SYMBOLS, normal=int(QFont.Normal.value), semibold=int(QFont.DemiBold.value))
+print(json.dumps(out))
 '''
 
 
@@ -614,7 +621,9 @@ def test_symbols_looked_up_once(check):
     # window looks them up ahead at a quiet moment, ui\window.py)
     out = subproc.run_python(WARM_SYMBOLS, session.SESSION.app)
     d = out.data or {}
+    sym = d.get("symbols", "")
     check("theme: the symbols the app's font lacks (✕ ✓ ▶ ↺ ⇄ ▾ ▴) are looked up once per run, ahead when asked "
-          "(theme.warm_symbols), and not again",
+          "(theme.warm_symbols): measured with the app's font, plain and semibold; not again",
           d.get("before") is False and d.get("first") is True and d.get("again") is False and d.get("after") is True
-          and set("✕✓▶↺⇄▾▴") <= set(d.get("symbols", "")), d or out.stderr[-300:])
+          and set("✕✓▶↺⇄▾▴") <= set(sym) and d.get("measured") == [sym, sym]
+          and d.get("weights") == [d.get("normal"), d.get("semibold")], d or out.stderr[-300:])

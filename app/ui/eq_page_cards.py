@@ -22,8 +22,9 @@ moved into place at the end, as before, 149 ms).
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
-                               QMenu, QProgressBar, QPushButton, QScrollArea, QVBoxLayout, QWidget)
+from PySide6.QtGui import QFontMetrics
+from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
+                               QLineEdit, QMenu, QProgressBar, QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
 from ui import help_window, icons, theme
 from ui.eq_page_parts import TICKS, Elided, NameCombo, PairTitle, hz, label
@@ -155,6 +156,13 @@ class EqCards:
         self.legend = self.plot.addLegend(offset=(10, 10))
         self.plot.getAxis("left").setLabel("dB")
         self.eqplot.getAxis("left").setLabel("EQ dB")
+        # (both graphs' value axes one width, room for three characters ("-12", "100") in the font pyqtgraph draws
+        # them in: left to themselves, each took the width of the first numbers it drew, so a page made ahead, first
+        # drawn with its curves, had a narrower one than the EQ graph under it (their edges 4 px apart), and each
+        # jumped wider once its curves came, 2026-10-24)
+        room = QFontMetrics(QApplication.font()).horizontalAdvance("-188") + 1
+        for p in (self.plot, self.eqplot):
+            p.getAxis("left").setStyle(autoExpandTextSpace=False, tickTextWidth=room)
         v.addWidget(self.plot)
         v.addWidget(self.eqplot)
         self.graph_note = label("", "muted")

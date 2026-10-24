@@ -65,6 +65,32 @@ def test_lets_go(qapp):
 '''
 
 
+LEFTOVER_FROZEN = '''
+import gc
+
+
+def test_leaves_one_set_aside(qapp):
+    from PySide6.QtWidgets import QComboBox
+    box = QComboBox()
+    box.setObjectName("set aside")
+    box.me = box  # (a loop of references: only Python's garbage collector would free it)
+    del box
+    gc.freeze()  # (as Make an EQ's opening does: what's alive now is out of the collector's reach)
+'''
+
+
+def test_qt_leftovers_set_aside(pytester, monkeypatch, check):
+    # (2026-10-24, the checkers: Make an EQ's opening runs gc.freeze(), which takes what's alive out of the
+    # collector's reach for good, so a Qt object left in a loop of references before it was never found)
+    from helpers import qt
+    result, log = inner.run(pytester, monkeypatch, {"test_inner_frozen.py": LEFTOVER_FROZEN}, "-q")
+    found =[r for r in log if r["event"] == "check" and r["name"] == qt.LEFTOVER_CHECK]
+    check("checks: a Qt object a test leaves for Python's garbage collector is found even when the collector was "
+          "told to set what's alive aside (gc.freeze, as Make an EQ's opening does)",
+          [(r["test"].split("::")[-1], r["ok"]) for r in found] == [("test_leaves_one_set_aside", False)]
+          and "QComboBox “set aside”" in found[0]["detail"], (result.parseoutcomes(), found))
+
+
 def test_qt_leftovers(pytester, monkeypatch, check):
     from helpers import paths, qt
     result, log = inner.run(pytester, monkeypatch, {"test_inner_leftovers.py": LEFTOVER}, "-q")

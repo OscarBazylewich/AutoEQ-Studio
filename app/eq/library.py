@@ -35,19 +35,28 @@ _state = {"scanning": False, "seen": 0, "found": 0, "cloud": 0, "folders": [], "
 _by_id = {}
 
 
-def default_folders():
+def _usual_folders():
     home = os.path.expanduser("~")
     cands = [os.path.join(home, d) for d in ("Downloads", "Documents", "Desktop", "Music")]
     od = os.environ.get("OneDrive")
     if od:
         cands += [os.path.join(od, d) for d in ("Documents", "Desktop")]
-    return [c for c in dict.fromkeys(cands) if os.path.isdir(c)]
+    return list(dict.fromkeys(cands))
+
+
+def default_folders():
+    return [c for c in _usual_folders() if os.path.isdir(c)]
+
+
+def _asked_for(cfg):
+    """The folders to search, yours or the usual ones, not yet looked at (folders_for keeps those that exist)."""
+    user = [os.path.expandvars(os.path.expanduser(f.strip())) for f in (cfg.get("library", {}).get("folders") or [])
+            if f.strip()]
+    return user or _usual_folders()
 
 
 def folders_for(cfg):
-    user = [os.path.expandvars(os.path.expanduser(f.strip())) for f in (cfg.get("library", {}).get("folders") or [])
-            if f.strip()]
-    return [f for f in (user or default_folders()) if os.path.isdir(f)]
+    return [f for f in _asked_for(cfg) if os.path.isdir(f)]
 
 
 def sniff(path):
@@ -218,17 +227,26 @@ RESCAN_AFTER = 60  # seconds: the same folders searched again within this only w
 
 def start_scan(cfg, force=False):
     """Search the folders in the background. Not again for the same folders within RESCAN_AFTER unless force (Find…
-    asks each time it opens; a search that had just ended was done again, and the list drawn again after it)."""
-    folders = folders_for(cfg)
+    asks each time it opens; a search that had just ended was done again, and the list drawn again after it). Which
+    of them exist is seen in the search's own thread: on a network folder that doesn't answer (or a disk asleep) that
+    took seconds, and Make an EQ, Find… and Sources ask from the window's thread (2026-10-24)."""
+    asked = _asked_for(cfg)
     with _lock:
         if _state["scanning"]:
             return False
         if not force and _state["finished"] and time.time() - _state["finished"] < RESCAN_AFTER \
-                and _state["folders"] == folders and not _state["error"]:
+                and _state.get("asked") == asked and not _state["error"]:
             return False
-        _state.update(scanning=True, seen=0, found=0, cloud=0, folders=folders)
-    threading.Thread(target=_scan, args=(folders,), daemon=True).start()
+        _state.update(scanning=True, seen=0, found=0, cloud=0, asked=asked)
+    threading.Thread(target=_scan_asked, args=(asked,), daemon=True).start()
     return True
+
+
+def _scan_asked(asked):
+    folders = [f for f in asked if os.path.isdir(f)]
+    with _lock:
+        _state["folders"] = folders
+    _scan(folders)
 
 
 def status(with_items=False):
