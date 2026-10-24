@@ -2,7 +2,8 @@
 starts hidden in the tray: the tray stays light), Online / Offline at the top, and closing it leaving the app in the
 tray. Moved from selftest.py's qt_checks. Then its look in Windows 11's (the restyle, 2026-10-23): the top bar's
 Presets and its chevron, the app's message boxes, the line at the bottom, the banner and the trial bar (drawn themed
-in a Python of their own, but the last).
+in a Python of their own, but the last). A window made here never makes Make an EQ ahead: only the app allows that
+(tests\\ui\\test_window_eq_opening.py).
 
 Two of these look at what a Python has loaded (the EQ part, numpy, pyqtgraph), and this test process may have loaded
 them already (Make an EQ's tests, a helper): those make their window in a Python of their own (CHILD below), on a
@@ -14,10 +15,11 @@ from helpers import session, subproc
 COVERS = ("ui.window", "switcher.core", "switcher.apo", "switcher.devices", "net")
 
 # The old self-test's window (selftest.py lines 336-363) in a Python of its own. argv: the app's copy, the test's
-# folder (holding apo\config: the fake_apo fixture), the screen to start on ("devices": shown; "eq": never shown, as
-# when the app starts hidden in the tray). It prints one JSON line.
+# folder (holding apo\config: the fake_apo fixture), the screen to start on ("devices": shown, then its event loop
+# turning for 1.5 s, past when the app's own window would start making Make an EQ ahead; "eq": never shown, as when
+# the app starts hidden in the tray). It prints one JSON line.
 CHILD = r'''
-import json, os, sys
+import json, os, sys, time
 sys.path.insert(0, sys.argv[1])
 top, page = sys.argv[2], sys.argv[3]
 from PySide6.QtWidgets import QApplication
@@ -58,6 +60,10 @@ sw.s["page"] = page
 win = Window(sw, Stub())
 if page == "devices":
     win.show()
+    end = time.monotonic() + 1.5
+    while time.monotonic() < end:
+        qapp.processEvents()
+        time.sleep(0.01)
 qapp.processEvents()
 print(json.dumps({"nav": [b.text() for b in win.nav.values()], "page": win.page(), "eq_page_none": win.eq_page is None,
                   "eq_pending": bool(getattr(win, "_eq_pending", False)), "eq": "eq" in sys.modules,
@@ -68,8 +74,10 @@ print(json.dumps({"nav": [b.text() for b in win.nav.values()], "page": win.page(
 def test_screens_and_the_eq_part_not_loaded(check, fake_apo, tmp_path):
     out = subproc.run_python(CHILD, session.SESSION.app, str(tmp_path), "devices")
     d = out.data or {}
-    # was selftest.py:364
-    check("window: the screens; the EQ screen isn't made (nor the EQ part loaded) until it's opened",
+    # was selftest.py:364 ("window: the screens; the EQ screen isn't made (nor the EQ part loaded) until it's opened":
+    # reworded 2026-10-24, when the app's own window began making it ahead)
+    check("window: the screens; a window the app didn't allow to make Make an EQ ahead doesn't make it (nor load the "
+          "EQ part) until it's opened",
           d.get("nav") == ["Make an EQ", "Devices", "Profiles", "Settings"] and d.get("page") == "devices"
           and d.get("eq_page_none") is True and d.get("eq") is False and d.get("pyqtgraph") is False,
           d or out.stderr[-300:])
