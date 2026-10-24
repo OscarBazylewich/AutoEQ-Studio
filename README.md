@@ -83,7 +83,7 @@ yours is stored in this repository.
   [Ruff](https://docs.astral.sh/ruff/), the linter the tests run):
   `.venv\Scripts\python.exe -m pip install -r app\requirements-dev.txt`
 - Every test, each part in its own process, with a short summary: `.venv\Scripts\python.exe app\tools\selftest.py`
-  (about two minutes; `--quick` leaves out Make an EQ's screen and long fitting runs).
+  (a few minutes; `--quick` leaves out Make an EQ's screen and long fitting runs).
 - Only the tests your changes need: `.venv\Scripts\python.exe app\tools\relevant_tests.py --run --quick`; one file:
   `.venv\Scripts\python.exe -m pytest tests\ui\test_theme.py`.
 - GitHub runs the same tests on Windows for every push to main and every pull request
