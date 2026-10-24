@@ -2,7 +2,8 @@
 the limits (a value's range, whole numbers, a pair's order, clamping) as AutoEQ Local's limits.js. Moved from
 selftest.py's qt_checks. Then their look in Windows 11's (the checkers' findings, 2026-10-23), drawn themed in a Python
 of their own: a fold's chevrons and its fill when pointed at, its chevron and content at a card's inset, and one label
-column for a whole form."""
+column for a whole form. And a form made in two halves (Form.add_sections, 2026-10-24: Make an EQ makes Advanced so,
+one half per step of its build) the same as one made at once."""
 from helpers import session, subproc
 from ui import forms
 
@@ -159,3 +160,45 @@ def test_folds_as_windows_11(check, shapes):
                                                           ("Website", "Which website to copy"),
                                                           ("Saved files", "Extra headroom (dB)")))
                                  for m in seen), d or out.stderr[-300:])
+
+
+def test_a_form_made_in_two_halves(qapp, check):
+    from PySide6.QtWidgets import QLabel, QWidget
+    shown = {"rate": False}
+    sections = [("Best fit", [("Filter counts to try", [("best_fit.filter_counts", "intlist")]),
+                              ("Q from", [("best_fit.q_min", "num")])]),
+                ("Website", [("Which website to copy", [("site.profile", "choice", [("a", "listener800")])]),
+                             ("Frequency from", [("site.freq_low", "num"), ("site.freq_high", "num")])]),
+                ("Saved files", [("", [("export.apo", "check")]),
+                                 ("Impulse response sample rate", [("export.convolution_rate", "num")],
+                                  lambda: shown["rate"])]),
+                ("History", [("History keeps", [("history.keep", "choice", [("saved", "Saved")])],
+                              lambda: shown["rate"])])]
+    told = []
+
+    def make(parts):
+        form = forms.Form(parts[0], forms.Limits({}, []), lambda p: None, lambda p, v: told.append((p, v)),
+                          lambda p: told.append(("back", p)), lambda s: None)
+        for more in parts[1:]:
+            form.add_sections(more)
+        form.refresh()
+        return form
+
+    def seen(form):
+        labels = [lab.text() for lab in form.findChildren(QLabel)]
+        return {"fields": list(form.fields), "names": [f.box.accessibleName() for f in form.fields.values()],
+                "labels": labels, "rows": len(form.rows), "widgets": len(form.findChildren(QWidget)),
+                "label column": {g.columnMinimumWidth(0) for g in form._grids},
+                "shown": [w.isVisibleTo(form) for widgets, _show in form.rows for w in widgets]}
+    whole, halves = make([sections]), make([sections[:2], sections[2:]])
+    try:
+        a, b = seen(whole), seen(halves)
+        halves.fields["export.apo"].box.setChecked(True)  # (a box of the second half, ticked: said to the form's owner)
+        check("settings boxes: a form made in two halves (add_sections) is the one made at once: the same boxes, names "
+              "for a screen reader, labels, rows shown and hidden, one label column for all of it, and its boxes' "
+              "changes said to the form's owner",
+              a == b and len(b["label column"]) == 1 and b["rows"] == 8 and told == [("export.apo", True)], (a, b, told))
+    finally:
+        from helpers import qt
+        qt.close(whole)
+        qt.close(halves)

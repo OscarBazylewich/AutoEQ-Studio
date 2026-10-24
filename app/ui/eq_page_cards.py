@@ -9,6 +9,15 @@ title wraps, a long name ends in "…"; Target and Measurement one above the oth
 style rules are theme_sheet.py's eq_screen part (the properties eqtitle, eqsubtle, and eqsub in ui/eq_settings.py).
 EqCards is a plain class (no __init__, no signals); EqPage (ui/eq_page.py) joins it with the other parts. What it
 makes is the page's (self.run_btn, self.plot …), and the other parts use it.
+
+The page is made in steps (_build_steps, 2026-10-24: made in one go it froze the window for ~0.45 s), one per turn of
+the window's event loop, so the window answers in between (each step a few ms; EqPage runs them): the page's frame
+first (its scroll area and column, in the page, hidden), then the graph, Target and Measurement with the notice, Make
+the EQ, the settings in four parts (ui/eq_settings.py), the result, Listen, the files in their lists, and last the
+whole page shown at once ("Opening the EQ part…" until then: never seen half-made). The rule for every step: each part
+goes into its final place in the step that makes it, never in a later one. Qt styles what it made between steps, and
+a part moved once styled is styled again, all of it (the settings' folds moved a step later cost 42 ms; the whole page
+moved into place at the end, as before, 149 ms).
 """
 import numpy as np
 import pyqtgraph as pg
@@ -22,41 +31,53 @@ from ui.search_combo import SearchCombo
 
 
 class EqCards:
-    """Make an EQ's cards, made once, in this order, by _build."""
+    """Make an EQ's cards, made once, in this order, by _build_steps."""
 
     # ---------------------------------------------------------------- building
-    def _build(self):
-        self.loading.hide()
+    def _build_steps(self):
+        """The page, a step at a time (each yield ends one: EqPage runs the next in the next turn of the event loop).
+        Each part goes into its final place in the step that makes it (see the module's words); the page is shown in
+        the last step (after the last yield), whole."""
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         body = QWidget()
         col = QVBoxLayout(body)
         col.setSpacing(12)
         col.setContentsMargins(14, 14, 14, 14)
+        scroll.setWidget(body)
+        scroll.hide()  # ("Opening the EQ part…" until the page is whole)
+        self.layout().addWidget(scroll)  # (in its place first: the cards then go straight into it, never moved)
+        yield "the page's frame"
         col.addWidget(self._graph_card())
+        yield "the graph"
         # (one above the other, each the page's width: side by side, with Windows 11's sizes, a measurement's name was
         # cut off in its drop-down at the window's own size, 2026-10-23)
         col.addWidget(self._file_card("target"))
         col.addWidget(self._file_card("measurement"))
         col.addWidget(self._notice_row())
+        yield "Target, Measurement, the notice"
         col.addWidget(self._eq_card())
+        yield "Make the EQ"
         from ui.eq_settings import EqSettings
-        self.settings = EqSettings(self)
-        self.target_box.layout().addWidget(self.settings.adjust_row)  # (Adjust, under the target: AutoEQ Local's)
-        self.target_box.layout().addWidget(self.settings.adjust_panel)
-        col.addWidget(self.settings.fold)
-        col.addWidget(self.settings.adv)
+        settings = EqSettings(self)
+        # (Adjust onto the Target card, under the target: AutoEQ Local's; the Settings fold; Advanced in two halves)
+        yield from settings.parts(col, self.target_box.layout())
+        self.settings = settings
         col.addWidget(self._result_card())
         # (the settings shown again now the result card is there: its line under File name, "Save filters writes: …",
         # was made after Make the EQ first showed them, and stayed empty until a setting changed, 2026-10-23)
         self.show_settings()
+        yield "the result"
         from ui.listen import Listen
         self.listen = Listen(self)
         self.listen.hide()  # (once there are curves)
         col.addWidget(self.listen)
         col.addStretch(1)
-        scroll.setWidget(body)
-        self.layout().addWidget(scroll)
+        yield "Listen"
+        self.show_inputs(self.meta["inputs"])  # (the files in their lists before the page shows: never empty there)
+        yield "the files"
+        self.loading.hide()
+        scroll.show()
 
     def _graph_card(self):
         card = QFrame()

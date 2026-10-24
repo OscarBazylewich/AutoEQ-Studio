@@ -15,6 +15,11 @@ matching and its code; saved files (the formats, pre-amp, Q decimals); History; 
 A value the automatic settings fill in becomes "yours" once you change it (kept through new files
 until handed back); with them off nothing changes by itself. Settings that change the curves (target adjustments,
 the scored range, the website's levelling, the rig conversion) draw the graph again.
+
+EqSettings(page) keeps what the settings need; parts(col, target_layout) makes them in four parts, one per step of
+the page's build (ui/eq_page_cards.py: each a few ms, so the window answers in between): Adjust (put on the Target
+card in the same step), the Settings fold, Advanced's first half, its second half (Form.add_sections). Each part goes
+into its place in the step that makes it.
 """
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtWidgets import (QCheckBox, QDialog, QFileDialog, QGridLayout, QHBoxLayout, QLabel, QMessageBox,
@@ -70,13 +75,20 @@ class OwnFiltersWindow(QDialog):
 
 class EqSettings:
     def __init__(self, page):
+        """What the settings need (their limits, the paths the automatic settings fill in); parts() makes them."""
         self.page = page
         m = page.meta
         self.limits = Limits(m.get("limits", {}), m.get("limit_pairs", []))
         self.auto_paths = [p for ps in (m.get("auto_paths") or {}).values() for p in ps]
         from eq import settings as eq_settings
         self.eq_settings = eq_settings
-        C = eq_settings.CHOICES
+
+    def parts(self, col, target_lay):
+        """The settings made in four parts, each put in its place in the same step (yield: the step ends there):
+        Adjust onto the Target card (target_lay), the Settings fold into col, Advanced's first half into col, its
+        second half into Advanced's form."""
+        page, m = self.page, self.page.meta
+        C = self.eq_settings.CHOICES
         S = lambda: page.S
         mode = lambda *ms: lambda: S()["mode"] in ms
         lay = lambda: next((l for l in m.get("layouts", []) if l["key"] == S()["best_fit"]["layout"]), {})
@@ -86,6 +98,11 @@ class EqSettings:
         multi = mode("site_sweep", "best_fit")
         audible = lambda: multi() and S()["scoring"]["pick"] == "audible"
         get, changed, back, say = self.get, self.changed, self.hand_back, lambda t: page.status(t, 6000)
+
+        # ---------------------------------------------------------------- Adjust, on the Target card (first: Tab
+        # reaches it after Make the EQ and before the Settings fold, as when the page was made in one go)
+        self._adjust_panel(C, get, changed, back, say, target_lay)
+        yield "adjust"
 
         # ---------------------------------------------------------------- Settings (the fold)
         self.fold = Fold("Settings")
@@ -137,13 +154,14 @@ class EqSettings:
         ], self.limits, get, changed, back, say)
         self.fold.add(self.form)
         self._label_checks()
-        self._adjust_panel(C, get, changed, back, say)
+        col.addWidget(self.fold)
+        yield "settings"
 
-        # ---------------------------------------------------------------- Advanced
+        # ---------------------------------------------------------------- Advanced (in two halves)
         self.adv = Fold("Advanced")
         layouts = [(l["key"], f"{l['group']}: {l['name']}" if l["group"] not in ("Any",) else l["name"])
                    for l in m.get("layouts", [])]
-        self.adv_form = Form([
+        sections = [
             ("Best fit", [
                 ("Layout", [("best_fit.layout", "choice", layouts)], mode("best_fit")),
                 ("Band frequencies (Hz)", [("best_fit.bands.freqs", "numlist", None, "e.g. 31, 62, 125, 250…")],
@@ -190,16 +208,21 @@ class EqSettings:
                                                                ("all", "Every run's result, and the EQs you save")])]),
                 ("", [("history.eqd_before", "check")])]),
             ("This PC", [("CPU cores (0 = all but one)", [("performance.cores", "num")])]),
-        ], self.limits, get, changed, back, say)
+        ]
+        self.adv_form = Form(sections[:2], self.limits, get, changed, back, say)  # (Best fit, Website sweep)
         self.adv.add(self.adv_form)
+        col.addWidget(self.adv)
+        yield "advanced, first half"
+        self.adv_form.add_sections(sections[2:])  # (Website, Saved files, History, This PC)
         self._label_checks(self.adv_form)
+        yield "advanced, second half"
 
     # ---------------------------------------------------------------- the Target card's Adjust (AutoEQ Local's)
-    def _adjust_panel(self, C, get, changed, back, say):
+    def _adjust_panel(self, C, get, changed, back, say, target_lay):
         """Adjust, on the Target card: the target's tilt, bass, half-tilt, ear gain, treble and air (listener800's
         Custom DF) as a table: Amount with − and +, Hz and Q (greyed while the amount is 0); Reset adjustments and
         Save as a target… (usable once adjusted).
-        adjust_btn (with adjust_summary) opens adjust_panel; eq_page puts both on the card."""
+        adjust_btn (with adjust_summary) opens adjust_panel; both put on the Target card (target_lay) here."""
         self.adjust_btn = QToolButton()
         self.adjust_btn.setText("Adjust")
         self.adjust_btn.setCheckable(True)
@@ -215,6 +238,7 @@ class EqSettings:
         r.setContentsMargins(0, 0, 0, 0)
         r.addWidget(self.adjust_btn)
         r.addWidget(self.adjust_summary, 1)
+        target_lay.addWidget(self.adjust_row)  # (under the target, AutoEQ Local's; the panel under it)
         # a table: one row each, Amount (with − and +), Hz and Q always in their columns (greyed while the amount is 0),
         # so nothing appears or moves as you type (a row of Hz and Q under the amount, popping up, was hard to follow)
         self.adjust_form = form = Form([], self.limits, get, changed, back, say,
@@ -283,8 +307,8 @@ class EqSettings:
                                         "back to 0)")
         self.save_target_btn.clicked.connect(self.page.save_adjusted_target)
         help_window.tag(self.save_target_btn, "#target-save")
-        # (the page as its parent until the Target card takes it: opened before, with no parent, it was a window)
-        self.adjust_panel = QWidget(self.page)
+        # (made on the Target card, its place: opened before it had a parent, it was a window of its own)
+        self.adjust_panel = QWidget(target_lay.parentWidget())
         v = QVBoxLayout(self.adjust_panel)
         v.setContentsMargins(0, 4, 0, 0)
         v.addWidget(grid_w)
@@ -294,6 +318,7 @@ class EqSettings:
         b.addWidget(self.save_target_btn)
         b.addStretch(1)
         v.addLayout(b)
+        target_lay.addWidget(self.adjust_panel)
         self.adjust_btn.setChecked(self.adjusted())  # (open when the target is adjusted already)
         self._adjust_open(self.adjust_btn.isChecked())
 
