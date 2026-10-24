@@ -21,6 +21,8 @@ theme_sheet.py (in parts, by kind of control; _stylesheet() joins them with the 
 building(*roots): a screen's controls being made (Make an EQ's build, in steps): the app-wide event filter that
 names controls for a screen reader is taken off meanwhile (Qt sends it tens of thousands of events then, each a call
 into Python: 43 % of that build's time, 2026-10-24) and put back after, even on an error.
+warm_symbols(): the symbols the app's font lacks (SYMBOLS: ✕ ✓ ▶ ↺ …) looked up ahead, once per run: Windows finds
+them in another font, and the first time took 150-250 ms (2026-10-24); the window does it at a quiet moment.
 """
 import re
 from contextlib import contextmanager
@@ -38,6 +40,9 @@ _POLISH, _SHOW, _THEME_CHANGE = QEvent.Polish, QEvent.Show, QEvent.ThemeChange
 
 _state = {"dark": False, "listeners": []}
 FONT = "Segoe UI Variable Text"  # (Windows 11's; Windows 10 has Segoe UI)
+# the symbols the app's screens draw that its font lacks: Windows draws them from another font (MS UI Gothic), found
+# the first time one is measured (warm_symbols)
+SYMBOLS = "✕✓▶↺⇄▾▴"
 ACCENT_KEY = r"Software\Microsoft\Windows\CurrentVersion\Explorer\Accent"
 
 
@@ -306,6 +311,28 @@ def apply(app, dark=None, contrast=None):
             QGuiApplication.styleHints().colorSchemeChanged.connect(lambda *_: apply(app))
         except AttributeError:
             pass
+
+
+def warm_symbols():
+    """SYMBOLS looked up with the app's font, plain and semibold, once per run: Windows finds them in another font, the
+    first time ~0.2 s on the window's thread (and ~50 MB, then or later: one screen or another draws them). Done ahead
+    at a quiet moment (ui\\window.py), Make an EQ's first drawing doesn't wait for it. (In a thread of its own it was
+    no better: Qt holds Python's lock meanwhile, and the window waited as long.) True when it's done now."""
+    if _state.get("symbols"):
+        return False
+    from PySide6.QtGui import QFont, QFontMetrics
+    from PySide6.QtWidgets import QApplication
+    font = QApplication.font()
+    for weight in (QFont.Normal, QFont.DemiBold):
+        f = QFont(font)
+        f.setWeight(weight)
+        QFontMetrics(f).horizontalAdvance(SYMBOLS)
+    _state["symbols"] = True
+    return True
+
+
+def symbols_warm():
+    return bool(_state.get("symbols"))
 
 
 def mark(widget, **props):

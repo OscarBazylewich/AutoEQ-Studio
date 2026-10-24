@@ -54,6 +54,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
     hotkey_changed = Signal(str)   # (the app registers it, and says when Windows refused it)
     AHEAD_MS = 1000     # (Make an EQ made ahead this long after the window shows: once it has drawn itself)
     TRIM_MS = 30000     # (the window's memory given back to Windows this long after it closes to the tray)
+    QUIET_MS = 300      # (the symbols' font looked up ahead only after this long without a key or mouse input)
 
     def __init__(self, sw, app):
         super().__init__()
@@ -67,6 +68,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self._ahead_ok, self._eq_awaited = None, False
         self._ahead_timer = QTimer(self, singleShot=True, interval=self.AHEAD_MS, timeout=self._make_eq_ahead)
         self._trim_timer = QTimer(self, singleShot=True, interval=self.TRIM_MS, timeout=self._trim)
+        self._warm_timer = QTimer(self, singleShot=True, interval=200, timeout=self._warm_symbols)
         # Windows 11's Mica: the window made see-through before Windows first draws it (it can't be later); turned on
         # when it first shows (_mica_on), followed when the theme changes
         self._mica = winsys.materials(QGuiApplication.platformName())[0]
@@ -314,6 +316,20 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
     def _make_eq_ahead(self):
         if self.isVisible() and self.eq_page is None and self._ahead_wanted():
             self._eq_when_code_in()
+            self._warm_timer.start()
+
+    def _warm_symbols(self):
+        """The symbols the app's font lacks (✕ ↺ ⇄ ▶ …) looked up ahead (theme.warm_symbols: ~0.2 s on the window's
+        thread, once per run), when there's been no key or mouse input for QUIET_MS: tried every 200 ms while the
+        window is open on another screen. Without it, Make an EQ's first drawing took ~0.3 s when no screen had drawn
+        one of them yet (Devices draws ✕ only beside a device's profiles). Made ahead, with Make an EQ shown or the
+        window hidden, it's left: the screen that draws one first looks them up."""
+        if theme.symbols_warm() or not self.isVisible() or self.page() == "eq":
+            return
+        if winsys.idle_ms() >= self.QUIET_MS:
+            theme.warm_symbols()
+        else:
+            self._warm_timer.start()
 
     def eventFilter(self, obj, e):
         if obj is self.nav.get("eq") and e.type() in (QEvent.Enter, QEvent.FocusIn) and self._ahead_ok is not None:

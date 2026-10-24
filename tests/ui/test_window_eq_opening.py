@@ -327,6 +327,32 @@ print(json.dumps(out))
 '''
 
 
+# The symbols' font looked up ahead (theme.warm_symbols) once Make an EQ is being made ahead, only at a quiet moment:
+# Windows' time since the last key or mouse input stood in (busy, then quiet); and not again
+WARM = COMMON + r'''
+from ui import winsys
+from ui.window import Window
+Window.AHEAD_MS = 600000
+quiet = [0]
+winsys.idle_ms = lambda: quiet[0]
+calls = []
+real = theme.warm_symbols
+theme.warm_symbols = lambda: calls.append(1) or real()
+win = make_window("devices")
+pump(0.3)
+win.allow_preload(lambda: True)
+QApplication.sendEvent(win.nav["eq"], QEvent(QEvent.Enter))
+pump(1.2)
+out = {"while busy": len(calls), "warm while busy": theme.symbols_warm()}
+quiet[0] = 5000
+pump(2.0, lambda: bool(calls))
+out.update({"once quiet": len(calls), "warm": theme.symbols_warm()})
+pump(0.6)
+out["later"] = len(calls)
+print(json.dumps(out))
+'''
+
+
 def _studio(top, eq_settings=True):
     """A studio of its own in top: your files (the samples, the sample target and device) and the EQ part's data
     (the database lists; its settings file, This PC's search on the samples, unless eq_settings is False: then it's
@@ -560,3 +586,15 @@ def test_memory_given_back_in_the_tray(qapp, stub_app, tmp_path, monkeypatch, ch
     check("window: closed to the tray, the app's own window gives its memory back to Windows after a while (once), "
           "not when it's shown again by then, nor a window the app didn't allow it (a test's)",
           seen == {"a test's window": 0, "the app's window": 1, "shown again": 0}, seen)
+
+
+@pytest.mark.slow
+def test_symbols_font_looked_up_at_a_quiet_moment(check, tmp_path):
+    # (2026-10-24: the first symbol the app's font lacks (✕ ↺ ⇄ ▶ …) took 150-250 ms on the window's thread, Windows
+    # finding it in another font; when no screen had drawn one yet, Make an EQ's first drawing paid it at the click.
+    # Made ahead, the window looks them up ahead, but only while the keys and the mouse are quiet)
+    d, err = _run(WARM, str(tmp_path), _studio(str(tmp_path)))
+    check("window: with Make an EQ made ahead, the symbols' font is looked up ahead (theme.warm_symbols) only once the "
+          "keys and the mouse have been quiet a moment, and once",
+          d.get("while busy") == 0 and d.get("warm while busy") is False and d.get("once quiet") == 1
+          and d.get("warm") is True and d.get("later") == 1, d or err)

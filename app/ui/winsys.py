@@ -1,7 +1,8 @@
 """The bits of Windows the app uses directly: a hotkey that works in any program (RegisterHotKey), starting with
 Windows (the "Run" list in your user's registry, as Task Manager's Startup apps shows it), Windows 11's window
-materials (Mica behind the main window, rounded corners on pop-ups, the title bar dark or light: Windows' DWM), and
-the app's memory given back to Windows while it waits in the tray (trim_memory).
+materials (Mica behind the main window, rounded corners on pop-ups, the title bar dark or light: Windows' DWM), the
+app's memory given back to Windows while it waits in the tray (trim_memory), and how long since your last key or
+mouse input (idle_ms).
 
 Task Manager names a startup entry by its program's file, not the entry's name: run by pythonw.exe it would say
 "pythonw" (as EQ Switcher's does). So Start with Windows runs "AutoEQ Studio.exe", a copy of the environment's
@@ -306,3 +307,23 @@ def trim_memory():
         return bool(k32.K32EmptyWorkingSet(k32.GetCurrentProcess()))
     except (AttributeError, OSError):
         return False
+
+
+# ---------------------------------------------------------------- you, at the keyboard or the mouse
+class _LastInput(ctypes.Structure):
+    _fields_ = [("cbSize", wintypes.UINT), ("dwTime", wintypes.DWORD)]
+
+
+def idle_ms():
+    """How long since the last key or mouse input, in any program (GetLastInputInfo), in ms: work that holds the
+    window a moment waits for a quiet one (ui\\window.py). 0 when Windows can't say."""
+    try:
+        info = _LastInput()
+        info.cbSize = ctypes.sizeof(_LastInput)
+        k32 = ctypes.WinDLL("kernel32")
+        k32.GetTickCount.restype = wintypes.DWORD
+        if not _user32.GetLastInputInfo(ctypes.byref(info)):
+            return 0
+        return (k32.GetTickCount() - info.dwTime) & 0xFFFFFFFF
+    except (AttributeError, OSError):
+        return 0

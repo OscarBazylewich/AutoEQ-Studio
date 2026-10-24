@@ -595,3 +595,26 @@ def test_building_takes_the_filter_off_and_back(check):
           d.get("in the step") == "" and d.get("after it") == "Delete from the app"
           and d.get("polished after") == "Take it off this device" and d.get("box") == "Search the help"
           and d.get("after an error") == "Find axes again" and d.get("depth") == 0, d or out.stderr[-300:])
+
+
+WARM_SYMBOLS = r'''
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from PySide6.QtWidgets import QApplication
+qapp = QApplication([])
+from ui import theme
+theme.apply(qapp, dark=False, contrast=False)
+print(json.dumps({"before": theme.symbols_warm(), "first": theme.warm_symbols(), "again": theme.warm_symbols(),
+                  "after": theme.symbols_warm(), "symbols": theme.SYMBOLS}))
+'''
+
+
+def test_symbols_looked_up_once(check):
+    # (2026-10-24: the symbols the app's font lacks cost ~0.2 s the first time one is measured, once per run; the
+    # window looks them up ahead at a quiet moment, ui\window.py)
+    out = subproc.run_python(WARM_SYMBOLS, session.SESSION.app)
+    d = out.data or {}
+    check("theme: the symbols the app's font lacks (✕ ✓ ▶ ↺ ⇄ ▾ ▴) are looked up once per run, ahead when asked "
+          "(theme.warm_symbols), and not again",
+          d.get("before") is False and d.get("first") is True and d.get("again") is False and d.get("after") is True
+          and set("✕✓▶↺⇄▾▴") <= set(d.get("symbols", "")), d or out.stderr[-300:])
