@@ -4,6 +4,9 @@ It lives in the tray: the icon's menu switches the playing device's EQ (its prof
 quits; a click on the icon opens the window. Every 1.5 s it reads the devices again (plugged in or out, another one
 playing): the window, the menu and the icon follow, and a notice says the EQ of a device that starts playing. The
 hotkey switches the playing device's EQ. start.py makes one (one copy runs at a time).
+The app lets its window make Make an EQ ahead while it's open, for someone who has used it (preload_worth_it), and
+give its memory back to Windows while it waits in the tray (ui\\window.py's allow_preload); AUTOEQSTUDIO_PRELOAD=0
+turns both off (the tests' copies of the app).
 """
 import os
 import time
@@ -15,6 +18,7 @@ from PySide6.QtWidgets import QMenu, QMessageBox, QSystemTrayIcon
 
 import net
 import paths
+import userfiles
 from switcher import core
 from switcher.core import shown
 from ui import icons, theme, winsys
@@ -41,6 +45,8 @@ class App:
         from ui.window import Window
         self.win = Window(self.sw, self)
         self.win.hotkey_changed.connect(self.set_hotkey)
+        if os.environ.get("AUTOEQSTUDIO_PRELOAD") != "0":  # (the tests' copies of the app: 0, never ahead)
+            self.win.allow_preload(self.preload_worth_it)
 
         self.tray = QSystemTrayIcon(icons.app_icon(), qapp)
         self.menu = QMenu()
@@ -65,6 +71,20 @@ class App:
         self.timer.start(POLL_MS)
         if show:
             self.win.show_front()
+
+    @staticmethod
+    def preload_worth_it():
+        """Is Make an EQ made ahead while the window is open (ui\\window.py)? Only for someone who has opened it before
+        (its settings file is in the data folder: the EQ part writes it as it first opens, eq\\paths.py SETTINGS_PATH)
+        and has no older files waiting to be moved: a first opening's question, AutoEQ Local's files brought over and
+        the samples put in your folders stay on the click."""
+        try:
+            if not os.path.isfile(os.path.join(paths.DATA, "eq", "settings.json")):
+                return False
+            pairs, sources = userfiles.old_places()
+        except OSError:
+            return False
+        return not pairs and not sources
 
     # ---------------------------------------------------------------- devices and changes
     def poll(self):

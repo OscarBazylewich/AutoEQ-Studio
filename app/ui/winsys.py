@@ -1,6 +1,7 @@
 """The bits of Windows the app uses directly: a hotkey that works in any program (RegisterHotKey), starting with
-Windows (the "Run" list in your user's registry, as Task Manager's Startup apps shows it), and Windows 11's window
-materials (Mica behind the main window, rounded corners on pop-ups, the title bar dark or light: Windows' DWM).
+Windows (the "Run" list in your user's registry, as Task Manager's Startup apps shows it), Windows 11's window
+materials (Mica behind the main window, rounded corners on pop-ups, the title bar dark or light: Windows' DWM), and
+the app's memory given back to Windows while it waits in the tray (trim_memory).
 
 Task Manager names a startup entry by its program's file, not the entry's name: run by pythonw.exe it would say
 "pythonw" (as EQ Switcher's does). So Start with Windows runs "AutoEQ Studio.exe", a copy of the environment's
@@ -289,3 +290,19 @@ def round_corners(hwnd):
     """Windows 11's rounded corners on a pop-up (a menu, a drop-down's list, a tooltip): Windows rounds a window with a
     frame by itself, a pop-up only when asked."""
     return _dwm_set(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND)
+
+
+# ---------------------------------------------------------------- memory
+def trim_memory():
+    """The app's memory given back to Windows (K32EmptyWorkingSet on this process), for while it waits in the tray:
+    Task Manager then shows a few MB instead of a few hundred once Make an EQ was opened; what's used again comes back
+    as it's used (the next showing of the window took 10-15 ms longer, 2026-10-24). Nothing is lost or unloaded.
+    Whether Windows did it."""
+    try:
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        k32.GetCurrentProcess.restype = wintypes.HANDLE
+        k32.K32EmptyWorkingSet.argtypes = [wintypes.HANDLE]
+        k32.K32EmptyWorkingSet.restype = wintypes.BOOL
+        return bool(k32.K32EmptyWorkingSet(k32.GetCurrentProcess()))
+    except (AttributeError, OSError):
+        return False

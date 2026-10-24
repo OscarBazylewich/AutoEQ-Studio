@@ -309,10 +309,13 @@ def copy_env_problem(app_dir, env):
 def child_env(*, without_folders=False, keep_log=False, **overrides):
     """os.environ for a subprocess (the session's variables are in it already). without_folders: the
     AUTOEQSTUDIO_* folder variables left out; the check log's two variables are left out unless keep_log (a child,
-    e.g. an inner pytest, never writes into the run's log); an override of None removes that variable."""
+    e.g. an inner pytest, never writes into the run's log); an override of None removes that variable.
+    AUTOEQSTUDIO_PRELOAD=0 unless overridden: a copy of the app a test starts never makes Make an EQ ahead nor gives
+    its memory back to Windows (ui\\app.py; a test of those removes it: AUTOEQSTUDIO_PRELOAD=None)."""
     env = dict(os.environ)
     for k in (FOLDER_VARS if without_folders else ()) + (() if keep_log else LOG_VARS):
         env.pop(k, None)
+    env["AUTOEQSTUDIO_PRELOAD"] = "0"
     for k, v in overrides.items():
         if v is None:
             env.pop(k, None)
