@@ -9,8 +9,15 @@
   History; under the result, Listen (ui/listen.py)
 
 Everything it does goes through eq.service (AutoEQ Local's page's requests, called directly); slow ones run off the
-window's thread (ui.tasks). The EQ part is imported only when this screen is first opened (the tray stays light),
-after AutoEQ Local's files are brought over (eq.bring_over: once, on the first opening).
+window's thread (ui.tasks). The EQ part is loaded when this screen is first opened, or ahead of that while the window
+is open for someone who has opened it before (the window makes the page then, hidden: ui/preload.py), never while the
+app is only in the tray (it stays light); AutoEQ Local's files are brought over first (eq.bring_over: once, on the
+first opening).
+Opening (start()): the EQ part loads off the window's thread, then the page is made in steps, one per turn of the
+window's event loop, each a few ms, so the window never freezes (ui/eq_page_cards.py); `ready` is True once the page
+is whole and its files are shown (the window, the Guide and Presets wait for it). Made ahead while you're on another
+screen, it says nothing (no message box, no status line) until you first see it: what it would have said then is
+said when it's first shown. This PC is searched once you've seen the page (Find… asks again as it opens).
 Its Guide: ui\\guide.py (the top bar's Guide); F1 on a control: its entry in Help.
 
 The page is one object, EqPage, made of parts, one file each: plain classes (no __init__, no signals) that share the
@@ -25,6 +32,7 @@ page's controls and data, joined here with QWidget last:
 - ui/eq_page_parts.py: the names and small helpers they share
 This file keeps the opening, the settings and Qt's own handlers (a picture dropped, Listen's keys 1-9).
 """
+import gc
 import os
 import time
 
@@ -44,11 +52,40 @@ from ui.eq_page_result import EqResult
 # and the tests (tests\eq_screen\test_run_and_result.py) file_base_name; TICKS too)
 from ui.eq_page_parts import MODE_SHORT, TICKS, file_base_name  # noqa: F401
 
+_FROZEN = set()  # (the moments of the opening gc.freeze() has run at in this process: once each)
+
+
+def _freeze(moment):
+    """What's alive now (the app's code, the window, the EQ part's state, the page's controls) taken out of Python's
+    full garbage collections for good: each walked every object (~255,000) and took 50-60 ms of the window's time
+    while the curves were worked out. Once per moment in a process: the app makes the page once (the tests make many,
+    and what's frozen is never collected)."""
+    if moment not in _FROZEN:
+        _FROZEN.add(moment)
+        gc.freeze()
+
+
+class _Held:
+    """ui.preload held while the page opens (its imports in the background share Python's lock with the window's
+    thread: each step of the build took about twice as long), and let go once: when the page is whole, when the
+    opening fails, or when the page is deleted half-way."""
+
+    def __init__(self):
+        from ui import preload
+        preload.hold()
+        self.held = True
+
+    def release(self):
+        if self.held:
+            self.held = False
+            from ui import preload
+            preload.release()
+
 
 class EqPage(EqCards, EqGraph, EqFiles, EqResult, EqHistory, QWidget):
     def __init__(self, sw, status):
         super().__init__()
-        self.sw, self.status = sw, status  # (the per-device part, for Use on device; status(text): the window's line)
+        self.sw, self._window_status = sw, status  # (the per-device part, for Use on device; the window's line)
         self.svc = None
         self.S = self.meta = self.curves = self.analysis = self.auto = self.run_result = None
         self.sel = None  # the result shown (its id)
@@ -58,6 +95,9 @@ class EqPage(EqCards, EqGraph, EqFiles, EqResult, EqHistory, QWidget):
         self.preview_bodies = {}  # key: what /api/preview was asked (to work them out again with new settings)
         self.started = False
         self.ready = False  # (built and its files shown: the Guide, Presets and the window wait for it)
+        self._seen = self._seeing = self._searched = False  # (first shown; This PC searched)
+        self._kept = []  # what it would have said before it was first seen: ("status", text, ms) or ("warning", text)
+        self._hold = None
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         self.loading = label("Opening the EQ part…", "muted")
@@ -68,15 +108,54 @@ class EqPage(EqCards, EqGraph, EqFiles, EqResult, EqHistory, QWidget):
         self._auto_timer = QTimer(self, singleShot=True, interval=150, timeout=self.refresh_auto)
         self._poll = QTimer(self, interval=400, timeout=self._poll_job)
         self.setAcceptDrops(True)
-        # (in a text box, "/" and Ctrl+V type and paste as usual: they take their keys first)
-        QShortcut(QKeySequence("/"), self, lambda: self.svc and self.find("measurement"),
+        # (in a text box, "/" and Ctrl+V type and paste as usual: they take their keys first; nothing until the page
+        # is whole: while it's made, Find… or the tracer would open over half a page)
+        QShortcut(QKeySequence("/"), self, lambda: self.ready and self.find("measurement"),
                   context=Qt.WidgetWithChildrenShortcut)
-        QShortcut(QKeySequence.Paste, self, self.paste_picture, context=Qt.WidgetWithChildrenShortcut)
+        QShortcut(QKeySequence.Paste, self, lambda: self.ready and self.paste_picture(),
+                  context=Qt.WidgetWithChildrenShortcut)
         theme.on_change(self._recolour)
+
+    # ---------------------------------------------------------------- what it says (once it's been seen)
+    def status(self, text, ms=6000):
+        """A message in the window's line at the bottom, for ms milliseconds. Before the page is first seen (made
+        ahead while you're on another screen) it's kept, and said when it's first shown."""
+        if self._seen:
+            self._window_status(text, ms)
+        else:
+            self._kept.append(("status", text, ms))
+
+    def _warn(self, text):
+        """A file set aside (it couldn't be read: kept as .bad), said in a box over the page; before the page is first
+        seen, when it's first shown."""
+        if self._seen:
+            QMessageBox.warning(self, "AutoEQ Studio", text)
+        else:
+            self._kept.append(("warning", text))
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        if not self._seen and not self._seeing:
+            self._seeing = True
+            QTimer.singleShot(0, self, self._first_seen)  # (once it's drawn: a box then comes over the page)
+
+    def _first_seen(self):
+        """Shown for the first time: what it kept until now said (the boxes as one), and This PC searched if the page
+        is whole."""
+        self._seen = True
+        kept, self._kept = self._kept, []
+        warnings = [said[1] for said in kept if said[0] == "warning"]
+        for said in kept:
+            if said[0] == "status":
+                self._window_status(said[1], said[2])
+        if warnings:
+            QMessageBox.warning(self, "AutoEQ Studio", "\n\n".join(warnings))
+        self._search_this_pc()
 
     # ---------------------------------------------------------------- opening (once)
     def start(self):
-        """The first time the screen is shown: bring AutoEQ Local's files over (once), load the EQ part, its state."""
+        """The first time the screen is shown (or made ahead by the window): bring AutoEQ Local's files over (once),
+        load the EQ part and its state off the window's thread, then make the page in steps (_step)."""
         if self.started:
             return
         self.started = True
@@ -90,44 +169,107 @@ class EqPage(EqCards, EqGraph, EqFiles, EqResult, EqHistory, QWidget):
         except OSError:  # (said in the log; the EQ part opens with what's there)
             import traceback
             traceback.print_exc()
+        held = self._hold = _Held()  # (ui.preload paused until the page is whole)
+        self.destroyed.connect(lambda: held.release())  # (the page deleted half-way: let go too)
 
         def load():
             from eq import bring_over
             brought = bring_over.bring_over() if bring_over.needed() else []
-            from eq import databases, library, settings as eq_settings
-            cfg = eq_settings.load()
+            from eq import databases, service
+            state, history = service.call("/api/state"), service.call("/api/history")
             # (as AutoEQ Local did at launch: the saved lists, which also say which rig a target was made for; online
-            # new ones every few days. Offline nothing is fetched: net.check in databases)
-            library.start_scan(cfg)
-            databases.start_refresh(cfg)
-            from eq import service
-            return brought, service, service.call("/api/state"), service.call("/api/history").get("entries", [])
+            # new ones every few days. Offline nothing is fetched: net.check in databases. Here, while the window
+            # shows "Opening the EQ part…", and waited for (up to a second) before the page is made: loading their
+            # 55,000 entries holds Python's lock most of its ~0.3 s, and the window's drawing of the page or the graph
+            # took ~0.35 s instead of ~0.03 s meanwhile, 2026-10-24. The curves need them too: a target's rig. After
+            # the state: by then the window has drawn "Opening the EQ part…")
+            if "settings" in state:
+                import copy
+                databases.start_refresh(copy.deepcopy(state["settings"]))  # (a copy: the page changes its own)
+            waited = time.monotonic()
+            while databases.status()["loading"] and time.monotonic() - waited < 1.0:  # (online: they may take longer)
+                time.sleep(0.01)
+            return brought, service, state, history
 
         def loaded(res, err):
             if err:
-                self.loading.setText(f"The EQ part couldn't open: {err}\nThe details are in data\\app.log.")
+                self._not_opened(f"The EQ part couldn't open: {err}\nThe details are in data\\app.log.")
                 return
-            brought, self.svc, st, self.history = res
-            from eq import service
-            self._notices = Notices()
-            self._notices.said.connect(lambda t: QMessageBox.warning(self, "AutoEQ Studio", t))
-            service.SET_ASIDE.append(self._notices.said.emit)
-            if st.get("set_aside"):
-                self._notices.said.emit(st["set_aside"])
-            if "error" in st:
-                self.loading.setText(f"The EQ part couldn't open: {st['error']}")
-                return
-            self.meta, self.S = st, st["settings"]
-            self._build()
-            if brought:
-                self.status(f"Brought over {len(brought)} files from AutoEQ Local (your settings, History, targets, "
-                            "measurements and saved EQs); AutoEQ Local keeps its own.", 12000)
-            self.show_inputs(st["inputs"])
+            try:
+                brought, self.svc, st, hist = res
+                self.history = hist.get("entries", [])
+                _freeze("loaded")  # (the EQ part's code and state)
+                from eq import service
+                self._notices = Notices()
+                self._notices.said.connect(self._warn)
+                service.SET_ASIDE.append(self._notices.said.emit)
+                # (settings.json or history.json damaged, set aside as the state and History were read: said, as one
+                # box; History's went unsaid until 2026-10-24, its answer's notice dropped)
+                aside = " ".join(t for t in (st.get("set_aside"), hist.get("set_aside")) if t)
+                if aside:
+                    self._warn(aside)
+                if "error" in st:
+                    self._not_opened(f"The EQ part couldn't open: {st['error']}")
+                    return
+                self.meta, self.S = st, st["settings"]
+                self._brought = brought
+                self._steps = self._build_steps()
+            except Exception as e:
+                self._not_opened(f"The EQ part couldn't open: {e}\nThe details are in data\\app.log.")
+                raise
+            self._step()
+        tasks.background(load, loaded, owner=self)
+
+    def _step(self):
+        """One step of the page's build (ui/eq_page_cards.py: the screen-reader naming filter out of Qt's way
+        meanwhile, theme.building), the next one in the next turn of the event loop (the page is its timer's context:
+        once the page is deleted, the rest never runs)."""
+        try:
+            with theme.building(self):
+                more = next(self._steps, None) is not None
+        except Exception as e:
+            self._not_opened(f"The EQ part couldn't open: {e}\nThe details are in data\\app.log.")
+            raise
+        if more:
+            QTimer.singleShot(0, self, self._step)
+        else:  # (the page whole and shown, in this same turn: so it's never seen, nor used, before it's ready)
+            self._built()
+
+    def _built(self):
+        """The page whole and shown: the rest of the opening, then ready."""
+        try:
+            _freeze("built")  # (the page's controls too)
+            if self._brought:
+                self.status(f"Brought over {len(self._brought)} files from AutoEQ Local (your settings, History, "
+                            "targets, measurements and saved EQs); AutoEQ Local keeps its own.", 12000)
             self.load_curves()
+            # (the database lists, asked as the EQ part loaded: once they're in, the rig tags and the curves again)
             self._lists_timer = QTimer(self, interval=500, timeout=self._lists_loaded)
             self._lists_timer.start()
             self.ready = True
-        tasks.background(load, loaded, owner=self)
+        finally:
+            self._hold.release()
+        # (This PC: once the window has drawn the page, a frame later; searched meanwhile, it made that drawing longer)
+        QTimer.singleShot(16 if self.isVisible() else 0, self, self._search_this_pc)
+
+    def _not_opened(self, text):
+        """The EQ part couldn't open, or its page couldn't be made: said where the page would be."""
+        from PySide6.QtWidgets import QScrollArea
+        for w in self.findChildren(QScrollArea, options=Qt.FindDirectChildrenOnly):
+            w.hide()
+        self.loading.setText(text)
+        self.loading.show()
+        self._hold.release()
+
+    def _search_this_pc(self):
+        """This PC searched for frequency responses (eq.library) once the page is whole and you've seen it: not while
+        it's made (the search shares Python's lock with the window's thread: each step took longer), nor while it's
+        made ahead unseen. Find… asks for a search again as it opens."""
+        if self._searched or not (self.ready and self._seen):
+            return
+        self._searched = True
+        from eq import library
+        library.start_scan(self.S)
 
     def _lists_loaded(self):
         """Once the database lists are in: the rig tags and the curves again (a target's rig may only be known from
@@ -238,6 +380,8 @@ class EqPage(EqCards, EqGraph, EqFiles, EqResult, EqHistory, QWidget):
 
     # ---------------------------------------------------------------- a picture dropped on the page (Qt's own handlers)
     def dragEnterEvent(self, e):
+        if not self.ready:  # (still being made: nothing to drop it on yet)
+            return
         from ui.trace_window import IMAGE_SUFFIXES
         md = e.mimeData()
         if md.hasImage() or any(u.isLocalFile() and os.path.splitext(u.toLocalFile())[1].lower() in IMAGE_SUFFIXES
@@ -245,7 +389,7 @@ class EqPage(EqCards, EqGraph, EqFiles, EqResult, EqHistory, QWidget):
             e.acceptProposedAction()
 
     def dropEvent(self, e):
-        if self._picture_in(e.mimeData()):
+        if self.ready and self._picture_in(e.mimeData()):
             e.acceptProposedAction()
 
     # ---------------------------------------------------------------- Listen (ui/listen.py)

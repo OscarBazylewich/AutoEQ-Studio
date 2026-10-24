@@ -337,16 +337,24 @@ class Form(QWidget):
     two specs in a row are a "from … to …" pair. changed(path, value) is called with each valid value set;
     hand_back(path) for "yours ↺"; steps {path: step} gives a number box − and + (and ↑ ↓). The labels are one column
     for every section, as wide as the widest of them (_line_up): each section's boxes start at the same place (a
-    column per section made them zig-zag down Advanced)."""
+    column per section made them zig-zag down Advanced). add_sections(sections) adds more sections under them later,
+    exactly as if they'd been in the list (Make an EQ makes Advanced in two halves, one per step of its build)."""
 
     def __init__(self, sections, limits, get, changed, hand_back, say, steps=None):
         super().__init__()
         self.limits, self.get, self.say, self.steps = limits, get, say, steps
+        self._changed, self._hand_back = changed, hand_back
         self.fields, self.rows = {}, []
         self._labels, self._grids = [], []
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(10)
+        self.add_sections(sections)
+
+    def add_sections(self, sections):
+        """More sections under those there are (their rows and boxes as the form's own), the label column lined up
+        again over all of them."""
+        lay, changed, hand_back = self.layout(), self._changed, self._hand_back
         for title, rows in sections:
             sec = QWidget()
             sl = QVBoxLayout(sec)
