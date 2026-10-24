@@ -57,6 +57,7 @@ class EqPage(EqCards, EqGraph, EqFiles, EqResult, EqHistory, QWidget):
         self.previews = []  # [(key, name, values)]: curves shown from the search, not in use
         self.preview_bodies = {}  # key: what /api/preview was asked (to work them out again with new settings)
         self.started = False
+        self.ready = False  # (built and its files shown: the Guide, Presets and the window wait for it)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         self.loading = label("Opening the EQ part…", "muted")
@@ -125,6 +126,7 @@ class EqPage(EqCards, EqGraph, EqFiles, EqResult, EqHistory, QWidget):
             self.load_curves()
             self._lists_timer = QTimer(self, interval=500, timeout=self._lists_loaded)
             self._lists_timer.start()
+            self.ready = True
         tasks.background(load, loaded, owner=self)
 
     def _lists_loaded(self):
