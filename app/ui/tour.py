@@ -275,6 +275,42 @@ class _Follow(QObject):
         return False
 
 
+class _Grows(QObject):
+    """A demo window's frame told that the parts inside it changed size (Qt's LayoutRequest): then() a moment later,
+    once Qt has laid them out again (several at once count as one). Goes with the frame."""
+
+    def __init__(self, frame, then):
+        super().__init__(frame)
+        self.timer = QTimer(self, singleShot=True, interval=0, timeout=then)
+        frame.installEventFilter(self)
+
+    def eventFilter(self, obj, e):
+        if e.type() == QEvent.LayoutRequest:
+            self.timer.start()
+        return False
+
+
+def _needs(w, width):
+    """The height a demo's window needs at its smallest, its words wrapped at its frame's width."""
+    need = w.minimumSizeHint().height()
+    lay = w.layout()
+    if lay is not None and lay.hasHeightForWidth():
+        need = max(need, lay.minimumHeightForWidth(width - 2))
+    return need
+
+
+def _scroll_holder(w):
+    """A demo's window taller than the tour has room for, in a scroll area (tourWinScroll) as wide as its frame: it
+    scrolls only up and down."""
+    holder = QScrollArea()
+    holder.setObjectName("tourWinScroll")
+    holder.setWidgetResizable(True)
+    holder.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+    holder.setFocusPolicy(Qt.NoFocus)
+    holder.setWidget(w)
+    return holder
+
+
 class _Bar(QWidget):
     """The tour's progress: a thin bar, as the app's progress bars (the accent on a quiet track)."""
 
@@ -334,12 +370,12 @@ class Mock(QFrame):
     """A list as the app would open it, drawn inside the tour, looking as the real one does (#tourMock in
     theme_sheet.py): a drop-down's list (kind "list") opens with its chosen row marked as the real list marks it, the
     quiet fill and the accent's bar beside it, and the mark follows the pointer down the rows as the real one's does
-    (hover); a long list (search: its box's grey words) has its search box above its rows, as the real one; a menu
-    (kind "menu") marks only the row pointed at, filled, and a row whose words end in " ▸" opens a submenu: Windows
-    11's chevron at its right, as a real menu's. (Before 2026-10-23 the chosen row was only semibold: the real list
-    had the fill and the bar by then.)"""
+    (hover); a long list (search: its box's grey words) has its search box above its rows, as the real one (typed:
+    the words typed in it, in the text's colour, the rows those left); a menu (kind "menu") marks only the row pointed
+    at, filled, and a row whose words end in " ▸" opens a submenu: Windows 11's chevron at its right, as a real
+    menu's. (Before 2026-10-23 the chosen row was only semibold: the real list had the fill and the bar by then.)"""
 
-    def __init__(self, tour, items, current=-1, width=None, kind="list", search=None):
+    def __init__(self, tour, items, current=-1, width=None, kind="list", search=None, typed=False):
         super().__init__(tour)
         self.setObjectName("tourMock")
         self.setProperty("kind", kind)
@@ -350,6 +386,7 @@ class Mock(QFrame):
         if search:
             box = QLabel(search)
             box.setObjectName("tourMockSearch")
+            box.setProperty("typed", typed)  # (typed words, in the text's colour; else the box's grey hint)
             v.addWidget(box)
             v.addSpacing(4)
         self.rows = []
@@ -558,13 +595,13 @@ class Api:
         self.stage_blocked(w.value, w.setValue, v, w)
 
     # what the demo opens inside the tour
-    def mock(self, near, items, current=-1, width=None, below=True, kind="list", search=None):
+    def mock(self, near, items, current=-1, width=None, below=True, kind="list", search=None, typed=False):
         """A list as it would open just under (or over) a control (kind "list": a drop-down's, at least as wide as its
-        box, as the real one; "menu": a menu's, as wide as its rows), its look the real one's (Mock); closed when the
-        demo ends."""
+        box, as the real one; "menu": a menu's, as wide as its rows), its look the real one's (Mock; search: its search
+        box's words, typed: typed in it); closed when the demo ends."""
         if width is None and kind == "list" and near is not None:
             width = near.width()
-        m = Mock(self.t, items, current, width, kind, search)
+        m = Mock(self.t, items, current, width, kind, search, typed)
         self.t.show_inside(m, near, below, gap=2)
         return m
 
@@ -628,7 +665,9 @@ class Api:
         measurement at the window's smallest size), the window keeps the height it needs and scrolls inside its frame,
         what a demo points at scrolled into sight (at Windows 11's sizes Which measurement was cut off at the right
         and the bottom, its Compare and Close hidden, and at the window's smallest size the card covered Find… and
-        History, 2026-10-23; squeezed into the frame instead, its words overlapped and its graph was a sliver).
+        History, 2026-10-23; squeezed into the frame instead, its words overlapped and its graph was a sliver). When
+        its parts come to need more room later (a list loaded, words grown), the frame grows with them, or the window
+        scrolls in it (_refit; before 2026-10-24 they were squeezed into the frame it opened with).
         Closed when the demo ends; returns the dialog."""
         frame, v = self._frame(w.windowTitle())
         w.setMinimumSize(0, 0)  # (its own window's smallest size: the frame's room decides here)
@@ -644,26 +683,38 @@ class Api:
         frame.ensurePolished()
         bar = frame.findChild(QFrame, "tourWinBar")
         extra = bar.sizeHint().height() + 8  # (the title bar, the frame's border and its room below)
-        need = w.minimumSizeHint().height()  # (what its parts need at their smallest, their words wrapped at its width)
-        lay = w.layout()
-        if lay is not None and lay.hasHeightForWidth():
-            need = max(need, lay.minimumHeightForWidth(width - 2))
+        need = _needs(w, width)  # (what its parts need at their smallest, their words wrapped at its width)
         height = min(max(hint.height(), need) + extra, H - 16)
         if need + extra > height:  # (no room for it in the tour: it scrolls inside its frame)
-            holder = QScrollArea()
-            holder.setObjectName("tourWinScroll")
-            holder.setWidgetResizable(True)
-            holder.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # (as wide as its frame: only up and down)
-            holder.setFocusPolicy(Qt.NoFocus)
-            holder.setWidget(w)
-            v.addWidget(holder, 1)
+            v.addWidget(_scroll_holder(w), 1)
         else:
             v.addWidget(w, 1)
         QWidget.resize(frame, width, height)
         self.t.show_inside(frame, near, True, side=side)
         self.t.setFocus()
         w.frame = frame
+        self._refit(frame, w)  # (laid out now: what's around it measured, not guessed, 1 px short before)
+        _Grows(frame, lambda: self._refit(frame, w))
         return w
+
+    def _refit(self, frame, w):
+        """A demo's window whose parts came to need more room than its frame gives: the frame made taller, kept inside
+        the tour; with no more room in the tour, the window scrolls inside it, as one that opened so does."""
+        if not (_alive(frame) and _alive(w)) or not frame.isVisible() or w.parentWidget() is not frame:
+            return  # (gone, or scrolling in its frame already: its scroll area follows by itself)
+        t = self.t
+        need = _needs(w, frame.width())
+        if w.height() >= need:
+            return
+        around = frame.height() - w.height()  # (its title bar, the frame's border and its room below, as laid out)
+        height = min(need + around, t.height() - 16)
+        if need + around > height:
+            lay = frame.layout()
+            lay.removeWidget(w)
+            lay.addWidget(_scroll_holder(w), 1)
+        frame.setGeometry(frame.x(), max(8, min(frame.y(), t.height() - 8 - height)), frame.width(), height)
+        t.follow(force=True)
+        t.place_card()
 
     def scroll_to(self, w, ymargin=60):
         scroll_into_view(w, ymargin)

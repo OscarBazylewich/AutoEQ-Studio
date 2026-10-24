@@ -345,3 +345,16 @@ def test_all_results_opens_wide_enough(eq_screen, history_eq, check, monkeypatch
     check("all results: opened, its whole grid is in sight when the screen has room (nine filter counts by six Q "
           "limits scrolled sideways)",
           found["scrolls sideways"] == 0 and found["rows"] == ["2 filters", "up to 10 filters"], found)
+
+
+def test_all_results_fits_a_small_screen(eq_screen, history_eq, check, monkeypatch):
+    # (2026-10-24, left from the restyle: it opened 720 high, under the taskbar of a 1920 x 1080 laptop at 150 % (672
+    # px above it) and 175 %, as Find… and Sources did before theirs)
+    page = eq_screen.page
+    page.show_result(page.run_result["pick"])
+    seen = qt.on_screens(monkeypatch, lambda: AllResults(page))
+    big = seen[qt.BIG_SCREEN]
+    check("all results: opens within a laptop's screen at 150 % and 175 % (above the taskbar, its smallest size too), "
+          "its parts not squeezed; on a big screen as before (720 high, its smallest 720 x 560)",
+          all(seen[s]["fits"] for s in qt.SMALL_SCREENS) and big["fits"] and big["opens"][1] == 720
+          and big["opens"][0] >= 940 and big["smallest"] == (720, 560), seen)

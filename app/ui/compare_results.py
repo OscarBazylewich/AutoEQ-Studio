@@ -10,18 +10,21 @@ hides the least. Redrawn when Windows switches light/dark or its accent colour.
 The numbers and both filter tables in Windows 11's table look, as Profiles and Run several (2026-10-23): no grid
 lines, each heading at the left over its words (the cells' room at the left: ui\\theme_sheet.py's eq_windows,
 #eqwNumbers and #eqwCmpFilters), rows told apart by their shade.
+Its size kept within the screen's room (window_parts.fit_to_screen): on a short screen (a laptop at 150 %) its parts
+scroll as a page, Close under them in sight.
 """
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QAbstractItemView, QDialog, QFrame, QGridLayout, QHBoxLayout, QHeaderView, QLabel,
-                               QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout)
+                               QPushButton, QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
 from ui import theme
 from ui.history_window import follow_theme
 from ui.search_combo import SearchCombo, natural_key
 from ui.theme_sheet import CARD
+from ui.window_parts import fit_to_screen
 
 TYPES = {"PK": "Peak", "LSQ": "Low shelf", "HSQ": "High shelf", "LSC": "Low shelf", "HSC": "High shelf"}
 TICKS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]  # (as the EQ screen's graph)
@@ -77,10 +80,21 @@ class CompareResults(QDialog):
         self.page = page
         self.opts = options(page)
         self.setWindowTitle("Compare two EQs")
-        self.resize(1000, 820)
-        self.setMinimumWidth(760)  # (narrower, the tables' words were cut; the height is its layout's)
-        v = QVBoxLayout(self)
-        v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as a card's)
+        # (narrower than 760, the tables' words were cut. Within the screen's room: its parts need about 764 px of
+        # height, more than a laptop's screen at 150 % has above the taskbar (672), so they're on a page that scrolls
+        # there, as Windows 11's Settings, with Close under it in sight; on a big screen it opens as before)
+        fit_to_screen(self, (1000, 820), (760, 440))
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as a card's)
+        page_w = QWidget()
+        v = QVBoxLayout(page_w)
+        v.setContentsMargins(0, 0, 0, 0)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # (only up and down: its parts fit its width)
+        scroll.setWidget(page_w)
+        outer.addWidget(scroll, 1)
         lead = QLabel("Any two of: the result shown now, this session's runs and this IEM's History, on your "
                       "measurement and target as they are now.")
         lead.setWordWrap(True)
@@ -150,7 +164,7 @@ class CompareResults(QDialog):
         v.addLayout(tables, 2)
         close = QPushButton("Close")
         close.clicked.connect(self.accept)
-        v.addWidget(close, 0, Qt.AlignRight)
+        outer.addWidget(close, 0, Qt.AlignRight)
         self.render()
         follow_theme(self, lambda w: w.render())
 

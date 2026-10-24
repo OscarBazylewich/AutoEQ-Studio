@@ -18,6 +18,13 @@ LAYOUT = 9    # (the margin Qt's own layouts keep inside a widget when the code 
 #               CARD less this, so its content starts at CARD too)
 
 
+def veil(colour, alpha):
+    """A colour (#rrggbb) made see-through, as #aarrggbb: alpha "0f" is about 6 %, "0a" 4 %. Windows 11 fills a quiet
+    button with the text's colour laid over whatever is under it, so it shows on a card, on a row pointed at and on a
+    chosen row alike (an opaque fill was a pointed-at row's own colour, and nearly a chosen row's)."""
+    return f"#{alpha}{colour.lstrip('#')}"
+
+
 def base_and_tooltips(t, img):
     """The windows' background (the main window's left clear while it shows Windows 11's Mica: mica=true, set by
     ui\\window.py), the text, tooltips."""
@@ -66,9 +73,10 @@ def text_roles(t, img):
 
 def buttons(t, img):
     """Buttons: plain, pointed at, pressed, unavailable, checked (the accent), the one main action of a card
-    (primary=true: the accent), a quiet one (quiet=true: no fill until pointed at, as a row's ✕), and a button with a
-    menu (Use on device, Add a profile …: Windows 11's chevron at its right, with room before it; Qt gives the
-    button that much more width)."""
+    (primary=true: the accent), a quiet one (quiet=true: no fill until pointed at, as a row's ✕; then the text's
+    colour at 6 %, 4 % pressed, laid over what's under it, veil(): it shows on a pointed-at or chosen row too), and a
+    button with a menu (Use on device, Add a profile …: Windows 11's chevron at its right, with room before it; Qt
+    gives the button that much more width)."""
     return f"""
     QPushButton, QToolButton {{ background: {t['field']}; border: 1px solid {t['stroke']};
         border-bottom-color: {t['stroke_bottom']}; border-radius: 4px; padding: {PAD[0]}px {PAD[1]}px; }}
@@ -88,9 +96,9 @@ def buttons(t, img):
         color: {t['on_accent_disabled']}; }}
     QPushButton[quiet="true"], QToolButton[quiet="true"] {{ background: transparent; border: 1px solid transparent;
         color: {t['ink2']}; }}
-    QPushButton[quiet="true"]:hover, QToolButton[quiet="true"]:hover {{ background: {t['subtle_hover']};
+    QPushButton[quiet="true"]:hover, QToolButton[quiet="true"]:hover {{ background: {veil(t['ink'], '0f')};
         color: {t['ink']}; }}
-    QPushButton[quiet="true"]:pressed, QToolButton[quiet="true"]:pressed {{ background: {t['subtle_press']};
+    QPushButton[quiet="true"]:pressed, QToolButton[quiet="true"]:pressed {{ background: {veil(t['ink'], '0a')};
         color: {t['ink2']}; }}
     QPushButton[quiet="true"]:disabled, QToolButton[quiet="true"]:disabled {{ background: transparent;
         color: {t['disabled']}; }}
@@ -349,21 +357,17 @@ def find_windows(t, img):
     """Find…, Sources and Which measurement (ui\\picker.py, sources_window.py, compare_window.py). Find…: its list's
     rows without padding (Qt puts a row's widgets inside it: the lists' 7 px cut its buttons and names; headings and
     notes keep a little at the sides), a result's name (semibold) and its download mark (Windows 11's symbol, from its
-    icon font; Segoe MDL2 Assets on Windows 10); a row's quiet ✕, pointed at or pressed, as Windows 11 fills a quiet
-    button: the text's colour at 6 % (4 % pressed) laid over the row's own fill under the mouse (the quiet buttons'
-    usual fill is the same colour as a pointed-at row's, so on a row it showed nothing; a contrast theme keeps it in
-    sight too); Files' chevron (#findFiles: drawn as a menu button's, buttons()) turned up while its files are shown.
+    icon font; Segoe MDL2 Assets on Windows 10); a row's ✕ is every quiet button (buttons(): its fill laid over the
+    row's, so it shows on a pointed-at row); Files' chevron (#findFiles: drawn as a menu button's, buttons()) turned
+    up while its files are shown.
     Sources: its tree of databases as the lists (a card with rounded corners, whole rows filled when pointed at or
     chosen; their ticks say which are on). Which measurement: the rank, a measurement's name, its reasons (+ good,
     − not), the warning symbol of a note to heed, its chart's card, and a box filled while the mouse is over it (its
     curve is the one on top)."""
-    veil = lambda alpha: f"#{alpha}{t['ink'][1:]}"  # (the text's colour, see-through: #AARRGGBB)
     return f"""
     QListWidget#findList::item {{ padding: 0px; }}
     QListWidget#findList::item:disabled {{ padding: 0px 8px; }}
     QListWidget#findList::item:disabled:hover {{ background: transparent; }}
-    QListWidget#findList QPushButton[quiet="true"]:hover {{ background: {veil("0f")}; }}
-    QListWidget#findList QPushButton[quiet="true"]:pressed {{ background: {veil("0a")}; }}
     QPushButton#findFiles[open="true"]::menu-indicator {{ image: url({img['chevron_up']}); }}
     QLabel#findRowName {{ font-weight: 600; }}
     QLabel#findMark, QLabel#whichNoteMark {{ font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets"; font-size: 12pt;
@@ -400,12 +404,10 @@ def tracer(t, img):
     the zoom bar's buttons and a curve's dot and ✕ a little smaller than other buttons (trCompact: they're the shared
     quiet buttons, quiet=true; trIcon: a symbol without words, centred), the chosen curve's row (trRow="chosen": as a
     chosen list row, the accent's bar beside it, its words in a chosen row's text colour, which a contrast theme
-    needs; its dot and ✕ pointed at or pressed filled as Find…'s row's ✕, the row's text colour at 6 % (4 % pressed)
-    laid over the row's fill: the quiet buttons' usual fill is nearly the chosen row's own, so they showed none), the
+    needs, its dot and ✕ too when pointed at or pressed: their fill is every quiet button's, laid over the row's), the
     traced colour's frame, the zoom bar floating on the picture (as Windows 11's flyouts; its words in the text colour,
     as its symbols: a quiet button's are greyer). The picture's card itself is drawn by the window in the same colours
     (trace_window.Stage)."""
-    veil = lambda alpha: f"#{alpha}{t['sel_ink'][1:]}"  # (the chosen row's text colour, see-through: #AARRGGBB)
     return f"""
     QLabel#trTitle {{ font-family: "Segoe UI Variable Display"; font-size: 15pt; font-weight: 600; }}
     QLabel#trDropHead {{ font-family: "Segoe UI Variable Display"; font-size: 13.5pt; font-weight: 600; }}
@@ -422,8 +424,8 @@ def tracer(t, img):
     QFrame[trRow="chosen"] {{ background-color: {t['subtle_sel']}; border-radius: 4px;
         background-image: url({img['pill_v']}); background-position: center left; background-repeat: no-repeat; }}
     QFrame[trRow="chosen"] QLabel, QFrame[trRow="chosen"] QPushButton {{ color: {t['sel_ink']}; }}
-    QFrame[trRow="chosen"] QPushButton[quiet="true"]:hover {{ background: {veil("0f")}; color: {t['sel_ink']}; }}
-    QFrame[trRow="chosen"] QPushButton[quiet="true"]:pressed {{ background: {veil("0a")}; color: {t['sel_ink']}; }}
+    QFrame[trRow="chosen"] QPushButton[quiet="true"]:hover, QFrame[trRow="chosen"] QPushButton[quiet="true"]:pressed {{
+        color: {t['sel_ink']}; }}
     QLabel#trSwatch {{ border: 1px solid {t['stroke']}; border-radius: 4px; }}
     QFrame#trZoom {{ background: {t['menu']}; border: 1px solid {t['stroke']}; border-radius: 8px; }}
 """
@@ -436,7 +438,8 @@ def guide_and_help(t, img):
     link=true), and what a demo shows inside it: a drop-down's list or a menu (#tourMock: as the real ones, kind="list"
     or "menu": a list's rows and its chosen row, filled with the accent's bar beside it, the long list's search box
     (#tourMockSearch) as the real one's as it opens, ready for typing: the accent's line under it, its grey words as
-    Qt draws a box's (the text colour at half); a menu's rows, square corners and separators, a submenu's chevron
+    Qt draws a box's (the text colour at half), or words typed in it (typed=true) in the text's colour; a menu's rows,
+    square corners and separators, a submenu's chevron
     (#tourMockArrow)), a message (#tourNote), a key (#tourKey), a window or a question with its title bar (#tourWin),
     the step list (#tourSteps, as a menu), the graph kept in sight (#tourPin). Help (ui\\help_window.py): its contents
     (#helpContents) and its page (#helpPage) as cards."""
@@ -465,6 +468,7 @@ def guide_and_help(t, img):
     QFrame#tourMock QLabel#tourMockSearch {{ background: {t['field_focus']}; color: #80{t['ink'][1:]};
         border: 1px solid {t['stroke']}; border-bottom: 2px solid {t['accent']};
         padding: {PAD[0] + 1}px {PAD[1] - 3}px {PAD[0]}px {PAD[1] - 1}px; }}
+    QFrame#tourMock QLabel#tourMockSearch[typed="true"] {{ color: {t['ink']}; }}
     QFrame#tourMock QLabel#tourMockArrow {{ padding: 0px; qproperty-pixmap: url({img['chevron_right']});
         qproperty-scaledContents: true; }}
     QFrame#tourMock QFrame#tourSep {{ background: {t['stroke']}; border: none; max-height: 1px; min-height: 1px;

@@ -121,8 +121,8 @@ def eq_steps(page):
             api.say("Many sources? Their list has a search box: type part of a name")
             yield from api.move_to(pk.f_site, 0.3, 0.5)
             yield from api.ripple()
-            m = api.mock(pk.f_site, [f"🔍  {word}"] + found, width=max(pk.f_site.width(), 300))
-            m.hover(1)
+            m = api.mock(pk.f_site, found, width=max(pk.f_site.width(), 300), search=word, typed=True)
+            m.hover(0)
             yield 2200
             api.close(m)
 

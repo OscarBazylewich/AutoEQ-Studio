@@ -65,3 +65,14 @@ def test_run_several_look(eq_screen, check):
     check("queue: at its smallest the window's words are whole and the lists and the results keep room for a few "
           "rows (they had one, and the words ran over each other)",
           smallest[2] <= smallest[3] and smallest[4] >= 3 * smallest[6] and smallest[5] >= 3 * smallest[6], smallest)
+
+
+def test_run_several_fits_a_small_screen(eq_screen, check, monkeypatch):
+    # (2026-10-24, left from the restyle: it opened 720 high, under the taskbar of a 1920 x 1080 laptop at 150 % (672
+    # px above it) and 175 %)
+    seen = qt.on_screens(monkeypatch, lambda: QueueWindow(eq_screen.page))
+    big = seen[qt.BIG_SCREEN]
+    check("queue: Run several opens within a laptop's screen at 150 % and 175 % (above the taskbar, its smallest size "
+          "too), its parts not squeezed; on a big screen as before (900 x 720, its smallest 640 x 520)",
+          all(seen[s]["fits"] for s in qt.SMALL_SCREENS) and big["fits"] and big["opens"] == (900, 720)
+          and big["smallest"] == (640, 520), seen)

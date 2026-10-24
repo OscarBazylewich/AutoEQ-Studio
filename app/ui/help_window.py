@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QListWidget, QListWidgetI
 
 from ui import theme
 from ui.help_texts import HELP, WIKI
+from ui.window_parts import fit_to_screen
 
 _window = None
 ROW_PAD = (6, 8)  # (a contents row's padding, up and down / sideways: theme_sheet.py's #helpContents::item)
@@ -111,7 +112,7 @@ class HelpWindow(QWidget):
     def __init__(self):
         super().__init__(None, Qt.Window)
         self.setWindowTitle("Help: terms and questions · AutoEQ Studio")
-        self.resize(1000, 760)
+        fit_to_screen(self, (1000, 760))  # (within the screen's room: 760 high was under a laptop's taskbar at 150 %)
         self.sections = _entries()
         self.lit = None
         h = QHBoxLayout(self)

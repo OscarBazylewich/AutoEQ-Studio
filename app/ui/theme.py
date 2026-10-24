@@ -113,8 +113,10 @@ def _stylesheet(t):
 def _pictures(t):
     """The pictures a stylesheet needs as files, in t's colours: the tick (on the accent), Windows 11's chevrons
     (down: drop-downs, number boxes, buttons with a menu, an open fold; up: number boxes; right: a closed fold, a
-    menu's submenu), the accent's bars that mark what's chosen. Drawn once each into the temporary folder (named by
-    their colour), whole: a copy draws into a file of its own and puts it in place."""
+    menu's submenu), the accent's bars that mark what's chosen (the one beside a chosen row in the chosen row's text
+    colour when the accent wouldn't keep 3:1 on its fill: in a contrast theme they're both Windows' highlight, and the
+    bar wasn't there to see). Drawn once each into the temporary folder (named by their colour), whole: a copy draws
+    into a file of its own and puts it in place."""
     import os
     import tempfile
     from PySide6.QtCore import QPointF, QRectF
@@ -132,19 +134,20 @@ def _pictures(t):
             p.drawPolyline([QPointF(x, y) for x, y in points])
         return draw
 
-    def bar(w, h):
+    def bar(w, h, colour):
         def draw(p):
             p.setPen(Qt.NoPen)
-            p.setBrush(QColor(t["accent"]))
+            p.setBrush(QColor(colour))
             p.drawRoundedRect(QRectF(0, 0, w, h), min(w, h) / 2, min(w, h) / 2)
         return draw
+    beside = t["accent"] if theme_tokens.contrast(t["accent"], t["sel"]) >= 3 else t["sel_ink"]  # (a chosen row's)
     out = {}
     for name, colour, (w, h), draw in (("tick", t["on_accent"], (28, 28), tick),
                                         ("chevron", t["ink2"], (24, 24), chevron("down")),
                                         ("chevron_up", t["ink2"], (24, 24), chevron("up")),
                                         ("chevron_right", t["ink2"], (24, 24), chevron("right")),
-                                        ("pill_h", t["accent"], (16, 3), bar(16, 3)),
-                                        ("pill_v", t["accent"], (3, 16), bar(3, 16))):
+                                        ("pill_h", t["accent"], (16, 3), bar(16, 3, t["accent"])),
+                                        ("pill_v", beside, (3, 16), bar(3, 16, beside))):
         path = os.path.join(tempfile.gettempdir(), f"autoeq-studio-{name}-{colour.lstrip('#')}.png")
         if not os.path.exists(path):
             pm = QPixmap(w, h)

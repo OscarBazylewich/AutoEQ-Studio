@@ -1,11 +1,12 @@
 """Make an EQ's Guide (ui\\guide_eq.py): what two of its demos point at and the window one opens, in sight and with
 room enough (2026-10-23, found by the restyle's checkers). The “Many results?” demo points at a ⇄ rig tag only once
 its row is scrolled into sight in Find… (further down the list, the pointer and the tag's words went past the list's
-end); the “Several measurements of the same model?” demo asks for Which measurement at least as tall as that window's
-smallest size and what its wrapped words need. Then (the recheck): the History demo at the window's smallest, its rows
-readable; the menus the Presets and Use on device demos draw, the Guide's menus (a submenu's arrow the real menus'
-chevron), not its drop-down lists. On Make an EQ opened as the other screen tests open it (the eq_screen fixture); the
-demos are only looked at, as the Guide plays them."""
+end), and (2026-10-24) the Source list it shows has its search box with a word typed in it; the “Several measurements
+of the same model?” demo asks for Which measurement at least as tall as that window's smallest size and what its
+wrapped words need. Then (the recheck): the History demo at the window's smallest, its rows readable; the menus the
+Presets and Use on device demos draw, the Guide's menus (a submenu's arrow the real menus' chevron), not its drop-down
+lists. On Make an EQ opened as the other screen tests open it (the eq_screen fixture); the demos are only looked at,
+as the Guide plays them."""
 import time
 
 import pytest
@@ -38,25 +39,26 @@ def _play(s, title, speed=8.0):
         qt.pump(200)
 
 
+def _made_up_online(page, monkeypatch):
+    """Find…'s online entries stood in: 24 of the model on a made-up site, the first twenty without a conversion of
+    their own, then four with one (so the first ⇄ is far down the list, as with the real lists)."""
+    from ui.picker import Picker
+    rigs = page.meta.get("rigs") or {}
+    on = "5128" if "5128" in rigs else next(iter(rigs))
+    other = next(k for k in rigs if k != on)
+    rows = [{"src": "db", "key": f"db:Made-up site|Truthear Gate {n:02d}|in-ear", "id": f"made-up-{n}",
+             "name": f"Truthear Gate {n:02d}", "other": False, "sub": "in-ear · Made-up site", "link": None,
+             "rig": on, "is_target": False, "form": "", "site": "Made-up site", "how": "",
+             "convs": [{"from": other, "models": 12, "error": 1.0, "before": 3.0}] if n >= 20 else None}
+            for n in range(24)]
+    monkeypatch.setattr(Picker, "db_rows", lambda self, ws: [dict(r) for r in rows])
+
+
 def test_many_results_points_at_tags_in_sight(eq_screen, check, monkeypatch):
     from PySide6.QtCore import QPoint, QRect
     from PySide6.QtWidgets import QLabel, QListWidget
     from ui import tour
-    from ui.picker import Picker
-    page = eq_screen.page
-    rigs = page.meta.get("rigs") or {}
-    on = "5128" if "5128" in rigs else next(iter(rigs))
-    other = next(k for k in rigs if k != on)
-
-    def made_up(n):
-        """An online entry of the model: the first twenty without a conversion of their own, then four with one (so
-        the first ⇄ is far down the list, as with the real lists)."""
-        return {"src": "db", "key": f"db:Made-up site|Truthear Gate {n:02d}|in-ear", "id": f"made-up-{n}",
-                "name": f"Truthear Gate {n:02d}", "other": False, "sub": "in-ear · Made-up site", "link": None,
-                "rig": on, "is_target": False, "form": "", "site": "Made-up site", "how": "",
-                "convs": [{"from": other, "models": 12, "error": 1.0, "before": 3.0}] if n >= 20 else None}
-    rows = [made_up(n) for n in range(24)]
-    monkeypatch.setattr(Picker, "db_rows", lambda self, ws: [dict(r) for r in rows])
+    _made_up_online(eq_screen.page, monkeypatch)
     seen = []
     real_move = tour.Api.move_to
 
@@ -74,6 +76,40 @@ def test_many_results_points_at_tags_in_sight(eq_screen, check, monkeypatch):
     check("guide: the “Many results?” demo points at a ⇄ rig tag only once its row is in sight in Find… (further down "
           "the list, the pointer and the tag's words went past the list's end)",
           ended and not errors and bool(seen) and all(s["in sight"] for s in seen), (ended, errors, seen))
+
+
+def test_many_results_source_list_searched(eq_screen, check, monkeypatch):
+    # (2026-10-24, left from the restyle: the Source list this demo shows had the word typed as a row of the list,
+    # “🔍  crin”, where the real long list has its search box above its rows)
+    from PySide6.QtWidgets import QLabel
+    from ui import theme, tour
+    _made_up_online(eq_screen.page, monkeypatch)
+    seen = []
+    real_mock = tour.Api.mock
+
+    def mock(api, near, items, *a, **k):  # (each list the demo shows, read as it opens)
+        m = real_mock(api, near, items, *a, **k)
+        box = m.findChild(QLabel, "tourMockSearch")
+        img = qt.picture(box) if box is not None else None
+        darkest = min((img.pixelColor(x, y) for x in range(img.width()) for y in range(img.height())),
+                      key=lambda c: c.lightness()).name() if img is not None else None
+        seen.append({"box": box.text() if box is not None else None, "darkest": darkest,
+                     "above its rows": box is not None and bool(m.rows)
+                     and box.geometry().bottom() < m.rows[0].geometry().top(),
+                     "rows": [r.text() for r in m.rows]})
+        return m
+    monkeypatch.setattr(tour.Api, "mock", mock)
+    ended, errors = _play(eq_screen, "Many results?")
+    last = seen[-1] if seen else {}
+    word = (last.get("box") or "").lower()
+    ink = [int(theme.tokens()["ink"][k:k + 2], 16) for k in (1, 3, 5)]
+    drawn = [int((last.get("darkest") or "#ffffff")[k:k + 2], 16) for k in (1, 3, 5)]
+    check("guide: the Source list the “Many results?” demo shows has its search box above its rows, a word typed in "
+          "it in the text's colour (typed words, not the box's grey hint), the rows those with the word, as the real "
+          "long list's; not a row of the list (“🔍  crin”)",
+          ended and not errors and bool(word) and last["above its rows"] and bool(last["rows"])
+          and all(word in r.lower() and not r.startswith("🔍") for r in last["rows"])
+          and all(abs(a - b) <= 40 for a, b in zip(drawn, ink)), (ended, errors, seen))
 
 
 def test_which_measurement_demo_asks_for_room(eq_screen, check, monkeypatch):

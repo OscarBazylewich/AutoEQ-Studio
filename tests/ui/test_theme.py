@@ -423,3 +423,117 @@ def test_icons_one_entry_per_button(check):
           "the theme is asked once to tell of a change",
           d.get("entries") == ["stop"] and d.get("listed") == 2 and d.get("emptied") == 0 and d.get("asked") == 1
           and d.get("shown") is True, d or out.stderr[-300:])
+
+
+# A quiet button (a row's ✕) on a card, on a row pointed at and on a chosen row (the colours the lists fill those rows
+# with), pointed at and pressed, light and dark: its fill, the row's colour beside it, the text's colour, the old fill
+QUIET = r'''
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
+from PySide6.QtGui import QMouseEvent
+from PySide6.QtWidgets import QApplication, QFrame, QHBoxLayout, QPushButton
+qapp = QApplication([])
+from ui import theme
+out = {}
+for look in ("light", "dark"):
+    theme.apply(qapp, dark=look == "dark", contrast=False)
+    t = theme.tokens()
+    for under in ("card", "subtle_hover", "sel"):  # (a card; a row pointed at; a chosen row)
+        row = QFrame()
+        row.setObjectName("row")
+        row.setStyleSheet("QFrame#row { background: %s; border: none; }" % t[under])
+        lay = QHBoxLayout(row)
+        lay.setContentsMargins(12, 6, 12, 6)
+        b = QPushButton("✕", row)
+        theme.mark(b, quiet=True)
+        lay.addWidget(b)
+        lay.addStretch(1)
+        row.resize(160, 44)
+        row.show()
+        qapp.processEvents()
+        b.setAttribute(Qt.WA_UnderMouse, True)  # (the mouse on it, as Qt tells a button)
+        mid = QPointF(b.rect().center())
+        QApplication.sendEvent(b, QMouseEvent(QEvent.MouseMove, mid, QPointF(b.mapToGlobal(mid)), Qt.NoButton,
+                                              Qt.NoButton, Qt.NoModifier))
+        for state, old in (("pointed at", "subtle_hover"), ("pressed", "subtle_press")):
+            b.setDown(state == "pressed")
+            b.update()
+            qapp.processEvents()
+            img = row.grab().toImage()
+            fill = img.pixelColor(b.mapTo(row, QPoint(4, b.height() // 2)))  # (inside it, beside its ✕)
+            back = img.pixelColor(row.width() - 4, row.height() // 2)          # (the row's own colour)
+            out[f"{look}, {under}, {state}"] = {"fill": fill.getRgb()[:3], "under": back.getRgb()[:3],
+                                                "ink": t["ink"], "old": t[old]}
+        row.deleteLater()
+        qapp.processEvents()
+print(json.dumps(out))
+'''
+
+
+def _laid_over(under, ink, alpha):
+    """A colour (#rrggbb) at alpha (of 255) laid over under ([r, g, b]), as it's drawn."""
+    return [round(u * (1 - alpha / 255) + int(ink[k:k + 2], 16) * alpha / 255) for u, k in zip(under, (1, 3, 5))]
+
+
+def test_quiet_buttons_fill_shows_on_any_row(check):
+    # (2026-10-24, left from the restyle: a quiet button's fill, pointed at, was an opaque grey, the colour a list fills
+    # a row pointed at with and nearly a chosen row's, so on such a row it showed nothing; Find… and the tracer each
+    # had a rule of their own laying the text's colour over the row's. Now the shared rule does, as Windows 11 fills
+    # its quiet buttons)
+    out = subproc.run_python(QUIET, session.SESSION.app)
+    seen = {}
+    for name, d in (out.data or {}).items():
+        want = _laid_over(d["under"], d["ink"], 15 if name.endswith("pointed at") else 10)
+        old = [int(d["old"][k:k + 2], 16) for k in (1, 3, 5)]
+        seen[name] = {"laid over": all(abs(a - b) <= 2 for a, b in zip(d["fill"], want)),
+                      "shows": max(abs(a - b) for a, b in zip(d["fill"], d["under"])) >= 5,
+                      "as before on a card": ", card, pointed at" not in name
+                      or all(abs(a - b) <= 5 for a, b in zip(d["fill"], old))}
+    # (pressed, it's lighter than pointed at now, as Windows 11's quiet buttons and Find…'s ✕ were: the old pressed
+    # grey was darker than the pointed-at one)
+    check("theme: a quiet button (a row's ✕) pointed at or pressed shows a fill of its own wherever it is: on a card, "
+          "on a row pointed at and on a chosen row (the text's colour at 6 %, 4 % pressed, laid over what's under it, "
+          "as Windows 11's), light and dark; pointed at on a card it looks as before",
+          len(seen) == 12 and all(all(v.values()) for v in seen.values()), seen or out.stderr[-300:])
+
+
+# A list with its first row chosen, light, dark and in a contrast theme (Windows' own colours): the colour at the
+# row's left edge (the accent's bar) and its fill
+BARS = r'''
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from PySide6.QtWidgets import QApplication, QListWidget
+qapp = QApplication([])
+from ui import theme
+out = {}
+for look in ("light", "dark", "contrast"):
+    theme.apply(qapp, dark=look == "dark", contrast=theme.system_tokens() if look == "contrast" else False)
+    t = theme.tokens()
+    lst = QListWidget()
+    lst.addItems(["Headphones", "Speakers"])
+    lst.resize(240, 120)
+    lst.show()
+    lst.setCurrentRow(0)
+    qapp.processEvents()
+    img = lst.viewport().grab().toImage()
+    r = lst.visualItemRect(lst.item(0))
+    out[look] = {"bar": img.pixelColor(r.left() + 1, r.center().y()).name(),
+                 "fill": img.pixelColor(r.right() - 6, r.center().y()).name(), "accent": t["accent"]}
+    lst.deleteLater()
+    qapp.processEvents()
+print(json.dumps(out))
+'''
+
+
+def test_chosen_rows_bar_in_sight(check):
+    # (2026-10-24, left from the restyle: in a contrast theme the accent is Windows' highlight colour, which is also the
+    # chosen row's fill, so the bar beside a chosen row (Devices' list, Find…'s, every list's) wasn't there to see)
+    from ui import theme_tokens
+    out = subproc.run_python(BARS, session.SESSION.app)
+    d = out.data or {}
+    seen = {look: dict(v, contrast=round(theme_tokens.contrast(v["bar"], v["fill"]), 2)) for look, v in d.items()}
+    check("theme: a chosen row's bar keeps 3:1 on the row's fill, in a contrast theme too (in the chosen row's text "
+          "colour there: the accent is the row's own colour); light and dark keep the accent's",
+          set(seen) == {"light", "dark", "contrast"} and all(v["contrast"] >= 3 for v in seen.values())
+          and all(seen[look]["bar"] == seen[look]["accent"] for look in ("light", "dark")), seen or out.stderr[-300:])

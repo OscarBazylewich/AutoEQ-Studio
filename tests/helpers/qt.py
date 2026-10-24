@@ -25,6 +25,9 @@ handling no event, deletes the Qt objects it finds and names them; the test that
 What's drawn: picture() (a widget's picture at one pixel per point), words_start() and headings_over_words() (where a
 table's headings' and cells' words start, read from the pixels: Windows 11's table look).
 
+Small screens: on_screens() opens a window as it would open on a laptop's screen at 150 % and 175 % and on a big one
+(SMALL_SCREENS, BIG_SCREEN: the room above the taskbar, stood in for what Qt says the screen has), and measures it.
+
 PySide6 is imported inside the functions, so a test that never uses Qt never loads it.
 """
 import os
@@ -270,3 +273,38 @@ def headings_over_words(table, cols):
         out.append((words_start(head, QRect(x, 0, h.sectionSize(c), h.height())),
                     words_start(cells, table.visualItemRect(table.item(0, c)))))
     return out
+
+
+# The room above the taskbar Qt says a 1920 x 1080 laptop's screen has at 150 % and 175 %, and a big screen's; a
+# window's title bar (about 32 px at 150 %) comes on top of its own size
+SMALL_SCREENS = ((1280, 672), (1097, 569))
+BIG_SCREEN = (1920, 1032)
+TITLE_BAR = 32
+
+
+def on_screens(monkeypatch, make, screens=SMALL_SCREENS + (BIG_SCREEN,)):
+    """Each window make() returns, made and shown with a screen of each size stood in (the room Qt says it has above
+    the taskbar), measured as it opened: {(screen's width, height): {"opens": its size, "needs": what its parts need
+    at their smallest, "smallest": the smallest it can be made, "fits": within the screen's room with its title bar,
+    its smallest size too, and its parts not squeezed}}. Each window is closed after; Qt's own screen is put back."""
+    from PySide6.QtCore import QRect
+    from PySide6.QtGui import QScreen
+    real, seen = QScreen.availableGeometry, {}
+    try:
+        for width, height in screens:
+            monkeypatch.setattr(QScreen, "availableGeometry", lambda self, w=width, h=height: QRect(0, 0, w, h))
+            win = make()
+            try:
+                win.show()
+                pump(150)
+                opens, needs = win.size().toTuple(), win.minimumSizeHint().toTuple()
+                smallest = (win.minimumWidth(), win.minimumHeight())
+                seen[(width, height)] = {
+                    "opens": opens, "needs": needs, "smallest": smallest,
+                    "fits": opens[0] <= width and opens[1] + TITLE_BAR <= height and smallest[0] <= width
+                    and smallest[1] + TITLE_BAR <= height and opens[0] >= needs[0] and opens[1] >= needs[1]}
+            finally:
+                close(win)
+    finally:
+        monkeypatch.setattr(QScreen, "availableGeometry", real)
+    return seen

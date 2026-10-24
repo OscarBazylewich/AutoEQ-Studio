@@ -130,3 +130,15 @@ def test_compare_tables_in_windows_11s_table_look(eq_screen, history_eq, check):
           "grid lines, each heading at the left over its words, rows told apart by their shade",
           all(not f["grid lines"] and f["rows shaded"] and over(f["headings over their words"]) for f in found.values()),
           found)
+
+
+def test_compare_fits_a_small_screen(eq_screen, history_eq, check, monkeypatch):
+    # (2026-10-24, left from the restyle: it opened 820 high, under the taskbar of a 1920 x 1080 laptop at 150 % (672
+    # px above it) and 175 %)
+    page = eq_screen.page
+    seen = qt.on_screens(monkeypatch, lambda: CompareResults(page))
+    big = seen[qt.BIG_SCREEN]
+    check("compare: opens within a laptop's screen at 150 % and 175 % (above the taskbar, its smallest size too), its "
+          "parts not squeezed; on a big screen as before (1000 x 820, at least 760 wide)",
+          all(seen[s]["fits"] for s in qt.SMALL_SCREENS) and big["fits"] and big["opens"] == (1000, 820)
+          and big["smallest"][0] == 760, seen)

@@ -7,7 +7,8 @@ card's symbols drawn again when the theme changes, a demo's messages and keys fi
 checkers' findings on it: the windows the demos show fitting their frames beside the card (at the app's own size and
 the window's smallest), every step in sight at the smallest size, one ring round two lit cards that touch, the step
 list's headings as Windows 11's, Play demo only on a step with a demo; and after their recheck, the step list's button
-with Windows 11's chevron, and the lists and menus a demo shows looking as the real ones.
+with Windows 11's chevron, and the lists and menus a demo shows looking as the real ones; then (2026-10-24) a demo
+window's frame growing when its parts come to need more room.
 
 Moved from eq_checks.py's guide_checks (lines 2625-2760), review_checks (1764-1780) and review_low_checks (1946-1948),
 on a page opened as the old checks opened it (the eq_screen fixture) with the result they had on the card by then (a
@@ -512,6 +513,54 @@ def test_demo_windows_fit_their_frames(s, check, monkeypatch):
           "and the card beside it, not over it, at the app's own size (1040 x 760) and at the window's smallest "
           "(965 x 433)", not bad and not missing and len(seen) == len(WINDOW_DEMOS) * len(SIZES),
           (bad, missing, seen))
+
+
+def test_demo_window_frame_grows(s, check):
+    # (2026-10-24, left from the restyle: the Guide framed a demo's window once, as it opened; when its parts came to
+    # need more room later (Find… opened while its online lists were still loading), they were squeezed into the old
+    # frame. Now the frame grows with them, kept inside the Guide, and a window that comes to need more room than the
+    # Guide has scrolls inside its frame, as one that opened so)
+    from PySide6.QtCore import QSize
+    from PySide6.QtWidgets import QDialog, QLabel, QScrollArea, QVBoxLayout
+    from helpers import qt
+    from ui import tour
+    t = _on_step(s.page, "Pick an EQ method")
+    seen = {}
+    try:
+        api = tour.Api(t)
+        dlg = QDialog()
+        dlg.setWindowTitle("A window that grows")
+        lay = QVBoxLayout(dlg)
+        for i in range(3):
+            lay.addWidget(QLabel(f"Line {i + 1}"))
+        api.window(dlg, size=QSize(420, 160))
+        qt.pump(100)
+        frame = dlg.frame
+
+        def measure(name):
+            seen[name] = {"frame": frame.geometry().getRect(), "window": dlg.size().toTuple(),
+                          "needs": dlg.minimumSizeHint().height(), "tour": t.height(),
+                          "scrolls": frame.findChild(QScrollArea, "tourWinScroll") is not None,
+                          "inside": t.rect().adjusted(8, 8, -8, -8).contains(frame.geometry())}
+        measure("as it opened")
+        for i in range(3, 14):  # (its parts come to need more: the Guide has room for them)
+            lay.addWidget(QLabel(f"Line {i + 1}"))
+        qt.pump(150)
+        measure("grown")
+        for i in range(14, 90):  # (more than the Guide has room for)
+            lay.addWidget(QLabel(f"Line {i + 1}"))
+        qt.pump(150)
+        measure("more than the room")
+    finally:
+        t.end()
+        qt.pump(100)
+    first, grown, most = (seen.get(k, {}) for k in ("as it opened", "grown", "more than the room"))
+    check("guide: a demo's window whose parts come to need more room after it opens gets a taller frame, kept inside "
+          "the Guide (its parts were squeezed into the frame it opened with), and one that comes to need more than "
+          "the Guide has scrolls inside its frame",
+          len(seen) == 3 and not first["scrolls"] and not grown["scrolls"] and grown["window"][1] >= grown["needs"]
+          and grown["frame"][3] > first["frame"][3] and grown["inside"] and most["scrolls"] and most["inside"]
+          and most["frame"][3] <= most["tour"] - 16, seen)
 
 
 @pytest.mark.timeout(900)  # (every step's before and after, as test_every_step_points_at_a_control)

@@ -16,6 +16,7 @@ themed_window   the code that makes the same window, with the app's theme applie
                 checks of how the window and its screens look (THEMED_WINDOW below).
 shapes          a few lines for such a Python that read a shape off a picture: a pixel clearly not the background,
                 the box of those, whether a shape is open on a chevron's side, the runs of inked columns (SHAPES).
+stub_app        a stand-in for the app the window talks to, for a test that makes windows of its own (StubApp).
 
 Each window is closed and deleted when its file is done (helpers.qt.close), once the questions it asked APO (in the
 background) have their answers. No theme is applied here: the old self-test drew these screens unthemed, and the
@@ -191,6 +192,12 @@ def themed_window():
 def shapes():
     """SHAPES: lines a test's own Python adds after its imports, to read shapes off its pictures."""
     return SHAPES
+
+
+@pytest.fixture
+def stub_app():
+    """A stand-in for the app a window talks to (StubApp), for a test that makes windows of its own."""
+    return StubApp()
 
 
 @pytest.fixture(scope="module")

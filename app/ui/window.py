@@ -39,7 +39,7 @@ from ui.devices_screen import DevicesScreen, check_line  # noqa: F401 - (check_l
 from ui.profiles_screen import ProfilesScreen
 from ui.settings_screen import SettingsScreen
 from ui.setup_dialog import SetUpDialog  # noqa: F401 - (still taken from here, as before the screens had files)
-from ui.window_parts import glyph, warning_card
+from ui.window_parts import fit_to_screen, glyph, warning_card
 
 PAGES = [("eq", "Make an EQ"), ("devices", "Devices"), ("profiles", "Profiles"), ("settings", "Settings")]
 
@@ -55,7 +55,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.sw, self.app = sw, app
         self.setWindowTitle("AutoEQ Studio")
         self.setWindowIcon(icons.app_icon())
-        self.resize(1040, 760)
+        fit_to_screen(self, (1040, 760))  # (within the screen's room: 760 high was under a laptop's taskbar at 150 %)
         self.selected = sw.playing_key or (sw.devices[0].key if sw.devices else None)
         self.eq_page = None
         # Windows 11's Mica: the window made see-through before Windows first draws it (it can't be later); turned on

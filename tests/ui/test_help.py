@@ -186,3 +186,15 @@ def test_rig_tags_say_what_find_shows(check):
           "“711?”, “rig ?”, “mixed”, “5128 ⇄”), no dashed outline or blue",
           not any(w in words.lower() for w in ("dashed", "outline", "blue"))
           and all(f"“{tag}”" in words for tag in ("5128", "711?", "rig ?", "mixed", "5128 ⇄")), words)
+
+
+def test_help_fits_a_small_screen(qapp, monkeypatch, check):
+    # (2026-10-24, left from the restyle: it opened 760 high, under the taskbar of a 1920 x 1080 laptop at 150 % (672
+    # px above it) and 175 %)
+    from helpers import qt
+    from ui.help_window import HelpWindow
+    seen = qt.on_screens(monkeypatch, HelpWindow)
+    big = seen[qt.BIG_SCREEN]
+    check("help: its window opens within a laptop's screen at 150 % and 175 % (above the taskbar, its smallest size "
+          "too), its parts not squeezed; on a big screen as before (1000 x 760)",
+          all(seen[s]["fits"] for s in qt.SMALL_SCREENS) and big["fits"] and big["opens"] == (1000, 760), seen)

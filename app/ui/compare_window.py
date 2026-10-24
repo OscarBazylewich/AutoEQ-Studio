@@ -17,8 +17,8 @@ colour), drawn again when the theme changes; a note to heed as a warning box (it
 measurement and each average a card (its words starting where every card's do), filled while the mouse is over it;
 the accent on one button only, the main action: the first average's when one is offered, else the first
 measurement's Use (Compare is plain: Enter in the model's box runs it).
-Its size kept within the screen's free room (picker.fit_to_screen): on a short screen (a laptop at 150 %) the chart
-and the measurements' list give up height, so Close stays in sight.
+Its size kept within the screen's free room (window_parts.fit_to_screen): on a short screen (a laptop at 150 %) the
+chart and the measurements' list give up height, so Close stays in sight.
 """
 import re
 import weakref
@@ -32,8 +32,8 @@ from PySide6.QtWidgets import (QCheckBox, QDialog, QFrame, QGridLayout, QHBoxLay
 import net
 from ui import help_window, icons, tasks, theme
 from ui.forms import Fold
-from ui.picker import fit_to_screen
 from ui.search_combo import SearchCombo
+from ui.window_parts import fit_to_screen
 
 TICKS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
 # (a measurement's or an average's box is a card frame, whose padding leaves 4 px for its layout's own margin: with Qt's

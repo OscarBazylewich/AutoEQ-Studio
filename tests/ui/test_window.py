@@ -327,3 +327,23 @@ def test_mica_and_rounded_popups(check, fake_apo, tmp_path):
           and d.get("light") == "true" and d.get("contrast") is False and d.get("back") == "true"
           and micas[:2] == [["mica", True], ["mica", False]] and d.get("menu") == 1 and d.get("plain") == 0
           and d.get("tip") == 1, d or out.stderr[-400:])
+
+
+def test_fits_a_small_screen(qapp, stub_app, tmp_path, monkeypatch, check):
+    # (2026-10-24, left from the restyle: the window opened 760 high, taller than a 1920 x 1080 laptop's screen at 150 %
+    # (672 px above the taskbar) and 175 %: its status line under the taskbar. No Equalizer APO folder here, so the
+    # window asks APO nothing in the background and closes at once)
+    from helpers import qt
+    from switcher import core
+    from switcher import devices as D
+    from switcher.apo import Apo
+    from ui.window import Window
+    eps = [D.Endpoint("{5}", "Headset", "EarPods", D.ACTIVE, False)]
+    sw = core.Switcher(str(tmp_path / "s.json"), Apo(str(tmp_path / "no-apo")), endpoints=lambda: eps,
+                       playing=lambda: "{5}")
+    sw.s["page"] = "devices"
+    seen = qt.on_screens(monkeypatch, lambda: Window(sw, stub_app))
+    big = seen[qt.BIG_SCREEN]
+    check("window: opens within a laptop's screen at 150 % and 175 % (above the taskbar, its smallest size too), its "
+          "parts not squeezed; on a big screen as before (1040 x 760)",
+          all(seen[s]["fits"] for s in qt.SMALL_SCREENS) and big["fits"] and big["opens"] == (1040, 760), seen)

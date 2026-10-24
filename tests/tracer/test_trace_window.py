@@ -130,3 +130,15 @@ def test_add_as_measurement(eq_screen, fresh_studio, monkeypatch, check):
           and [m["name"] for m in page.inputs["measurements"] if m["included"]] == ["Sample IEM L.txt", "Sample IEM R.txt"],
           (tw.save_note.text(), page.graph_title.text()))
     tw.close()
+
+
+def test_fits_a_small_screen(eq_screen, monkeypatch, check):
+    # (2026-10-24, left from the restyle: it opened 1320 x 860, bigger than a 1920 x 1080 laptop's screen at 150 %
+    # (1280 x 672 above the taskbar) and 175 %)
+    from helpers import qt
+    from ui.trace_window import TraceWindow
+    seen = qt.on_screens(monkeypatch, lambda: TraceWindow(eq_screen.page))
+    big = seen[qt.BIG_SCREEN]
+    check("trace: the tracer's window opens within a laptop's screen at 150 % and 175 % (above the taskbar, its "
+          "smallest size too), its parts not squeezed; on a big screen as before (1320 x 860)",
+          all(seen[s]["fits"] for s in qt.SMALL_SCREENS) and big["fits"] and big["opens"] == (1320, 860), seen)

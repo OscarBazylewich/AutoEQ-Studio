@@ -32,6 +32,7 @@ from ui import help_window, icons, tasks, theme
 from ui.forms import Fold, Limits, help_of
 from ui import trace_core as tc
 from ui.search_combo import SearchCombo
+from ui.window_parts import fit_to_screen
 
 RED, BLUE, GREEN = "#d93025", "#1a73e8", "#16a34a"
 STROKES = ["#ff00d4", "#00a8e8", "#ff8a00", "#8e44ff", "#00b35f", "#e6b800"]
@@ -592,7 +593,7 @@ class TraceWindow(QWidget):
         super().__init__(None, Qt.Window)
         self.page = page
         self.setWindowTitle("Trace a graph image")
-        self.resize(1320, 860)
+        fit_to_screen(self, (1320, 860))  # (within the screen's room: a laptop's at 150 % is 1280 x 672)
         self.setAcceptDrops(True)
         self.t = tc.Tracer()
         st = page.sw.s.get("trace") or {}

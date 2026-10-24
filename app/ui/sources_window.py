@@ -8,7 +8,7 @@
 Changes are saved at once and the lists load again a moment later (offline: the saved ones).
 The look: Windows 11's; the databases' tree is styled as the lists by theme_sheet's find_windows (sourcesTree); the
 folders' box as tall as four lines of its text (the four usual folders whole). Its size kept within the screen's free
-room (picker.fit_to_screen): on a short screen (a laptop at 150 %) its parts scroll as a page, as Windows 11's
+room (window_parts.fit_to_screen): on a short screen (a laptop at 150 %) its parts scroll as a page, as Windows 11's
 Settings do, and the bottom row (Refresh, Open the downloads folder, Close) stays in sight.
 """
 import math
@@ -21,8 +21,8 @@ from PySide6.QtWidgets import (QDialog, QFrame, QHBoxLayout, QHeaderView, QLabel
 
 import net
 from ui import help_window, icons, tasks, theme
-from ui.picker import fit_to_screen
 from ui.search_combo import SearchCombo
+from ui.window_parts import fit_to_screen
 
 url_key = lambda u: u.strip().rstrip("/").lower()
 

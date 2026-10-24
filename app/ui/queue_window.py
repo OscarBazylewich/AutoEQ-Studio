@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QDialog, QHBoxLayout, QHeaderV
 
 from ui import icons, theme
 from ui.theme_sheet import CARD
+from ui.window_parts import fit_to_screen
 
 
 def _checklist(items, on):
@@ -36,8 +37,9 @@ class QueueWindow(QDialog):
         super().__init__(page)
         self.page = page
         self.setWindowTitle("Run several")
-        self.resize(900, 720)
-        self.setMinimumSize(640, 520)  # (smaller, the lists showed a row and the words ran over each other)
+        # (smaller than 640 x 520, the lists showed a row and the words ran over each other; both within the screen's
+        # room: 720 high was under the taskbar of a laptop at 150 %)
+        fit_to_screen(self, (900, 720), (640, 520))
         self.jobs, self.i, self.running, self.stop = [], -1, False, False
         v = QVBoxLayout(self)
         v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as a card's)

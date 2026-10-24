@@ -22,8 +22,8 @@ chosen and pointed-at rows as every list, laid out again whenever the window cha
 on one line (the Guide's frame for it), the filters take two lines, the ticks under the boxes, and the status line goes
 above the buttons (Lines); a box's choice too long for it ends in "…".
 
-fit_to_screen(window, size, smallest): Find…, Sources and Which measurement kept within the screen's free room (a
-laptop at 150 % has about 672 px above the taskbar), so their bottom rows are never out of reach.
+Find… is kept within the screen's free room (ui\\window_parts.fit_to_screen, as every window of the app: a laptop at
+150 % has about 672 px above the taskbar), so its bottom row is never out of reach.
 """
 import os
 
@@ -37,6 +37,7 @@ import net
 from ui import help_window, icons, tasks, theme
 from ui.eq_page_parts import Elided, NameCombo
 from ui.search_combo import natural_key
+from ui.window_parts import fit_to_screen
 
 LIMIT_ALL, LIMIT_ONE = {"pc": 40, "db": 120}, 400
 FIRST_ROWS, ROWS_AT_ONCE = 30, 8  # rows made at once when the list changes, then a batch at a time
@@ -47,32 +48,6 @@ SOURCES = [("", "All"), ("app", "In the app"), ("pc", "This PC"), ("db", "Online
 ANY = {"rig": "", "form": "", "site": "", "sure": False, "dl": False}
 _DB_MADE = {}  # (kind, any kind) -> (the online list, the page's meta, its rows): kept from one Find… to the next
 _DB_SORTED = {}  # "items" -> (the online list as it came, the same A to Z): sorted once, off the window's thread
-
-
-def fit_to_screen(window, size, smallest):
-    """A window of this area (Find…, Sources, Which measurement) kept within the screen's free room: the size it opens
-    at and its smallest size no taller than the room above the taskbar, less its title bar. On a 1920 x 1080 laptop at
-    150 % that room is about 672 px, and Sources' and Which measurement's bottom rows (Close…) opened under the
-    taskbar, out of reach. size: (width, height) it opens at; smallest: (width, height), the width None to leave it
-    to the window's own parts. The screen: the one its owner (the main window) is on, where it opens. Returns how many
-    pixels lower than `smallest` its smallest height had to be (0 on a screen with room): what its lists and chart
-    give up, or scroll."""
-    owner = window.parentWidget().window() if window.parentWidget() is not None else window
-    free = owner.screen().availableGeometry()
-    (w, h), (min_w, min_h) = size, smallest
-    low = min_h
-    if free.height() > 0:
-        h = min(h, free.height() - 40)        # (its title bar above it: about 31 px at 150 %)
-        low = min(min_h, free.height() - 80)  # (and some room to spare)
-    if free.width() > 0:
-        w = min(w, free.width() - 20)
-        min_w = None if min_w is None else min(min_w, free.width() - 40)
-    if min_w is None:
-        window.setMinimumHeight(low)
-    else:
-        window.setMinimumSize(min_w, low)
-    window.resize(w, max(h, low))
-    return min_h - low
 
 
 def name_form(s):

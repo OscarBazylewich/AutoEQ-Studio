@@ -11,7 +11,8 @@ Both in Windows 11's table look, as Profiles and Run several (2026-10-23): no gr
 words at the left (the cells' room at the left: ui\\theme_sheet.py's eq_windows, #eqwGrid and #eqwResults); the
 grid's rows told apart by a thin line under each (drawn in the theme's colour for lines, as each cell is: shading
 there means "sounds the same"), the table's by their shade. The window opens wide enough for its whole grid when
-the screen has room.
+the screen has room, and within the screen's room (window_parts.fit_to_screen: a laptop at 150 % has 672 px above
+the taskbar).
 """
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QFontMetrics, QPalette
@@ -20,6 +21,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QDialog, QHeaderView, QLabel, 
 
 from ui import theme
 from ui.theme_sheet import CARD
+from ui.window_parts import fit_to_screen
 
 HEAD = [("Error (dB)", "rms"), ("Filters", "n_filters"), ("Rows", "rows"), ("Range", None), ("Gain", None),
         ("Q max", "q_max"), ("Max boost", "max_boost"), ("Pre-amp", "preamp")]
@@ -85,8 +87,9 @@ class AllResults(QDialog):
         run, _r = page.current()
         self.run = run
         self.setWindowTitle(f"All {len(run['results'])} results of run {run.get('n', 1)}")
-        self.resize(940, 720)  # (the note under the grid on one line at Windows 11's text size)
-        self.setMinimumSize(720, 560)  # (smaller, the grid's numbers were cut and the note ran over it)
+        # (940 wide: the note under the grid on one line at Windows 11's text size; smaller than 720 x 560, the grid's
+        # numbers were cut and the note ran over it. Both within the screen's room: 720 high was under the taskbar)
+        fit_to_screen(self, (940, 720), (720, 560))
         v = QVBoxLayout(self)
         v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as a card's)
         lead = QLabel("Every result the run tried. Click one to show it.")
