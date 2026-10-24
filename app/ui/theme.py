@@ -17,15 +17,24 @@ followed when it's switched while the app runs.
 
 The colours themselves are in theme_tokens.py (build(): one theme's, with an accent), the stylesheet's rules in
 theme_sheet.py (in parts, by kind of control; _stylesheet() joins them with the pictures _pictures() draws).
+
+building(*roots): a screen's controls being made (Make an EQ's build, in steps): the app-wide event filter that
+names controls for a screen reader is taken off meanwhile (Qt sends it tens of thousands of events then, each a call
+into Python: 43 % of that build's time, 2026-10-24) and put back after, even on an error.
 """
 import re
+from contextlib import contextmanager
 
 from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QColor, QGuiApplication, QPalette
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QAbstractButton, QLineEdit, QPlainTextEdit, QWidget
 
 from ui import theme_sheet, theme_tokens
 from ui.theme_tokens import DARK, LIGHT  # (the colours with Windows' default accent: other code still takes them)
+
+# (the events the app-wide filter acts on, read once: each e.type() makes a Python object, and the filter sees every
+# event of every control)
+_POLISH, _SHOW, _THEME_CHANGE = QEvent.Polish, QEvent.Show, QEvent.ThemeChange
 
 _state = {"dark": False, "listeners": []}
 FONT = "Segoe UI Variable Text"  # (Windows 11's; Windows 10 has Segoe UI)
@@ -199,28 +208,67 @@ class _Names(QObject):
     Windows 11's own screen only)."""
 
     def eventFilter(self, obj, e):
-        if e.type() == QEvent.Show and _state.get("corners") and isinstance(obj, QWidget) and obj.isWindow() and \
-                obj.windowType() in (Qt.Popup, Qt.ToolTip) and not obj.property("roundedByWindows"):
-            from ui import winsys
-            obj.setProperty("roundedByWindows", winsys.round_corners(int(obj.winId())))
-        if e.type() == QEvent.ThemeChange and isinstance(obj, QWidget) and obj.isWindow() and \
-                _state.get("following") and not _state.get("again") and \
-                (bool(_state.get("contrast")) != high_contrast() or accent_palette() != _state.get("accent")):
-            from PySide6.QtCore import QTimer
-            from PySide6.QtWidgets import QApplication
-            _state["again"] = True  # (once for all the windows told)
+        t = e.type()  # (once: the three tests below each read it before, 2.55 µs an event; now 0.77)
+        if t == _POLISH:
+            if isinstance(obj, QWidget):
+                _reader_name(obj)
+        elif t == _SHOW:
+            if _state.get("corners") and isinstance(obj, QWidget) and obj.isWindow() and \
+                    obj.windowType() in (Qt.Popup, Qt.ToolTip) and not obj.property("roundedByWindows"):
+                from ui import winsys
+                obj.setProperty("roundedByWindows", winsys.round_corners(int(obj.winId())))
+        elif t == _THEME_CHANGE:
+            if isinstance(obj, QWidget) and obj.isWindow() and _state.get("following") and not _state.get("again") \
+                    and (bool(_state.get("contrast")) != high_contrast() or accent_palette() != _state.get("accent")):
+                from PySide6.QtCore import QTimer
+                from PySide6.QtWidgets import QApplication
+                _state["again"] = True  # (once for all the windows told)
 
-            def again():
-                _state["again"] = False
-                apply(QApplication.instance())
-            QTimer.singleShot(0, again)
-        if e.type() == QEvent.Polish and isinstance(obj, QWidget) and not obj.accessibleName():
-            from PySide6.QtWidgets import QAbstractButton, QLineEdit, QPlainTextEdit
-            if isinstance(obj, QAbstractButton) and len(re.sub(r"[^\w]", "", obj.text())) < 2 and obj.toolTip():
-                obj.setAccessibleName(obj.toolTip().split("\n")[0].rstrip("."))
-            elif isinstance(obj, (QLineEdit, QPlainTextEdit)) and obj.placeholderText():
-                obj.setAccessibleName(obj.placeholderText().split("\n")[0].rstrip("…. "))
+                def again():
+                    _state["again"] = False
+                    apply(QApplication.instance())
+                QTimer.singleShot(0, again)
         return False
+
+
+def _reader_name(obj):
+    """A control's name for a screen reader, when the code gave it none: a button showing only a symbol is named by
+    its tooltip, a text box by its grey placeholder (_Names, as each control is first drawn)."""
+    if obj.accessibleName():
+        return
+    if isinstance(obj, QAbstractButton) and len(re.sub(r"[^\w]", "", obj.text())) < 2 and obj.toolTip():
+        obj.setAccessibleName(obj.toolTip().split("\n")[0].rstrip("."))
+    elif isinstance(obj, (QLineEdit, QPlainTextEdit)) and obj.placeholderText():
+        obj.setAccessibleName(obj.placeholderText().split("\n")[0].rstrip("…. "))
+
+
+@contextmanager
+def building(*roots):
+    """While a screen's controls are made and put in place: the app-wide filter (_Names) off, so Qt's many events
+    then aren't each a call into Python; put back after, even on an error. It names controls at Polish, which Qt
+    sends after the step for what it made; a control of roots polished during the step (sizeHint() can) is named
+    here instead. Nested, only the outermost one takes the filter off and puts it back."""
+    from PySide6.QtWidgets import QApplication
+    app, names = QApplication.instance(), _state.get("names")
+    depth = _state.get("building", 0)
+    _state["building"] = depth + 1
+    off = depth == 0 and app is not None and names is not None
+    if off:
+        app.removeEventFilter(names)
+    try:
+        yield
+    finally:
+        _state["building"] = depth
+        if off:
+            app.installEventFilter(names)
+            import shiboken6
+            for root in roots:
+                if root is None or not shiboken6.isValid(root):
+                    continue
+                for kind in (QAbstractButton, QLineEdit, QPlainTextEdit):
+                    for w in root.findChildren(kind):
+                        if w.testAttribute(Qt.WA_WState_Polished):
+                            _reader_name(w)
 
 
 def apply(app, dark=None, contrast=None):

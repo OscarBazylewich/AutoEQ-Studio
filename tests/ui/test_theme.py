@@ -537,3 +537,61 @@ def test_chosen_rows_bar_in_sight(check):
           "colour there: the accent is the row's own colour); light and dark keep the accent's",
           set(seen) == {"light", "dark", "contrast"} and all(v["contrast"] >= 3 for v in seen.values())
           and all(seen[look]["bar"] == seen[look]["accent"] for look in ("light", "dark")), seen or out.stderr[-300:])
+
+
+# A screen's controls made inside theme.building(): the app-wide filter off meanwhile (a symbol-only button polished
+# in the step isn't named yet), each control named all the same once the step is over (polished during it, or after
+# it by Qt), and the filter back after a step that ended in an error
+BUILDING = r'''
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from PySide6.QtWidgets import QApplication, QLineEdit, QPushButton, QVBoxLayout, QWidget
+qapp = QApplication([])
+from ui import theme
+theme.apply(qapp, dark=False, contrast=False)
+
+def button(parent, tip):
+    b = QPushButton("✕", parent)
+    b.setToolTip(tip)
+    parent.layout().addWidget(b)
+    return b
+root = QWidget()
+QVBoxLayout(root)
+with theme.building(root):
+    early = button(root, "Delete from the app.")
+    early.ensurePolished()  # (as sizeHint() can, inside a step)
+    in_step = early.accessibleName()
+    late = button(root, "Take it off this device")
+    box = QLineEdit(root)
+    box.setPlaceholderText("Search the help…")
+    root.layout().addWidget(box)
+after_step = early.accessibleName()
+root.show()
+qapp.processEvents()
+try:
+    with theme.building(root):
+        raise ValueError("a step's error")
+except ValueError:
+    pass
+again = QPushButton("↺", root)
+again.setToolTip("Find axes again")
+root.layout().addWidget(again)
+again.show()
+qapp.processEvents()
+print(json.dumps({"in the step": in_step, "after it": after_step, "polished after": late.accessibleName(),
+                  "box": box.accessibleName(), "after an error": again.accessibleName(),
+                  "depth": theme._state.get("building")}))
+'''
+
+
+def test_building_takes_the_filter_off_and_back(check):
+    # (2026-10-24: Make an EQ's build sent ~27,000 events through the app-wide filter that names controls for a
+    # screen reader, 43 % of the build's time; its steps now run with it off. Names must come out the same)
+    out = subproc.run_python(BUILDING, session.SESSION.app)
+    d = out.data or {}
+    check("theme: while a screen is built (theme.building) the screen-reader naming filter is off, and every control "
+          "is named all the same once the step is over (polished during it or after it); after a step that ends in an "
+          "error the filter is back",
+          d.get("in the step") == "" and d.get("after it") == "Delete from the app"
+          and d.get("polished after") == "Take it off this device" and d.get("box") == "Search the help"
+          and d.get("after an error") == "Find axes again" and d.get("depth") == 0, d or out.stderr[-300:])
