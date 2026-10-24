@@ -263,7 +263,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         if key == "eq" and self.isVisible() and self.eq_page is not None:
             self.eq_page.start()
         if remember and self.sw.s.get("page") != key:
-            self.sw.set("page", key)
+            self.sw.set("page", key, tell=False)  # (nothing shows it: no screen drawn again for it)
 
     # ---------------------------------------------------------------- Make an EQ's page: made when its code is in
     def _eq_when_code_in(self):

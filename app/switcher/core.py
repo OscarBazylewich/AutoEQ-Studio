@@ -93,10 +93,13 @@ class Switcher:
             return
         textfile.write_json(self.path, self.s, indent=1, quiet=False)
 
-    def set(self, key, value):
+    def set(self, key, value, tell=True):
+        """A setting changed and saved; the listeners told, unless tell is False (a setting nothing shows: the
+        window's last screen, whose telling had the window draw every screen again at each tab's click)."""
         self.s[key] = value
         self.save()
-        self._tell("settings")
+        if tell:
+            self._tell("settings")
 
     def _tell(self, what, **info):
         for fn in list(self.listeners):

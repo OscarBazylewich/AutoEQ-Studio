@@ -7,8 +7,9 @@ part (the window's tests count on it), and what a Python has loaded is what's ch
 - the loading (PRELOAD below, from what the window has loaded): every class of Qt's modules made on the window's
   thread before the thread starts (two threads making one at once corrupted memory); started twice, one thread and
   each waiter called once; the import makes no Qt object; the EQ part loaded too when no files wait to be moved, not
-  when some do; Python's thread switch put back after; hold() and release() pause and resume it (one release for each
-  hold).
+  when some do; Python's thread switch left at the app's; hold() and release() pause and resume it (one release for
+  each hold); what's loaded after ready waits for the window's thread to have handled it (a page made then holds it);
+- Python's thread switch (ui\\__init__.py): the window's thread gets Python's lock at once beside a busy thread.
 """
 import ast
 import os
@@ -89,6 +90,11 @@ called = []
 if mode == "held":
     preload.hold()
     preload.hold()
+if mode == "held at ready":  # (as the page made once the code is in: it holds the loading while it opens)
+    def at_ready():
+        out["later at ready"] = [m for m in preload.LATER if m in sys.modules]
+        preload.hold()
+    preload.when_ready(at_ready)
 preload.start(0)
 preload.start(0)
 preload.when_ready(lambda: called.append("first"))
@@ -100,6 +106,11 @@ if mode == "held":
     preload.release()
     pump(1.0)
     out["released once"] = [loaded(), preload.ready()]
+    preload.release()
+if mode == "held at ready":
+    pump(60, preload.ready)
+    pump(1.0)
+    out["later held"] = [m for m in preload.LATER if m in sys.modules]
     preload.release()
 done = pump(60, lambda: preload.ready() and started and not running())
 new = [o for o in gc.get_objects() if isinstance(o, QObject) and id(o) not in qt_before]
@@ -166,10 +177,10 @@ def test_the_import_makes_no_qt_object(plain, check):
     d, err = plain
     check("preload: the screen's code, the EQ part and SciPy imported in the loading's thread make no Qt object (one "
           "would belong to that thread); one made in another thread is seen (the check works); Python's thread switch "
-          "put back after",
+          "left at the app's 0.5 ms (ui sets it as it loads: the window's thread gets Python's lock at once)",
           d.get("before") == [] and "ui.eq_page" in d.get("after", []) and "scipy.signal" in d.get("after", [])
           and d.get("new_qt") == [] and d.get("control") == [["QObject", False]]
-          and d.get("switch_after") == d.get("switch"), d or err)
+          and d.get("switch_after") == d.get("switch") == 0.0005, d or err)
 
 
 def test_the_eq_part_only_when_no_files_wait(plain, check):
@@ -189,3 +200,64 @@ def test_hold_and_release(check):
           "is ready",
           d.get("held") == [[], False, True] and d.get("released once") == [[], False] and d.get("done") is True
           and "ui.eq_page" in d.get("after", []), d or err)
+
+
+def test_held_as_ready_is_handled(check):
+    d, err = _run("held at ready")
+    check("preload: held by a function waiting for ready (as the page made then holds it while it opens), nothing loaded "
+          "after ready has begun by then (V8 and SciPy's parts were imported meanwhile: a click then was answered ~0.1 s "
+          "late), nor a second later; released, it goes on",
+          d.get("later at ready") == [] and d.get("later held") == [] and d.get("done") is True
+          and "scipy.signal" in d.get("after", []), d or err)
+
+
+# (argv: the app's copy) The window's thread's calls into Python beside a thread that's busy: Python's lock handed over
+# at once (ui sets the switch); then, as a control, at Python's usual 5 ms (it must be seen to wait)
+LOCK = r'''
+import json, sys, threading, time
+sys.path.insert(0, sys.argv[1])
+import ui
+out = {"switch": sys.getswitchinterval()}
+
+
+def work(n):
+    s = 0
+    for i in range(n):
+        s += i & 7
+    return s
+
+
+def calls(switch):
+    sys.setswitchinterval(switch)
+    stop = threading.Event()
+
+    def busy():
+        while not stop.is_set():
+            work(20000)
+    t = threading.Thread(target=busy)
+    t.start()
+    time.sleep(0.05)
+    start = time.perf_counter()
+    for _ in range(300):  # (each a short call needing the lock, then let go of, as Qt's call-backs are)
+        sum(range(50))
+        time.sleep(0)
+    took = time.perf_counter() - start
+    stop.set()
+    t.join()
+    return round(took * 1000, 1)
+
+
+out["the app's (ms)"] = calls(ui.SWITCH)
+out["usual 5 ms (ms)"] = calls(0.005)
+print(json.dumps(out))
+'''
+
+
+def test_window_gets_the_lock_at_once(check):
+    out = subproc.run_python(LOCK, session.SESSION.app, timeout=120)
+    d = out.data or {}
+    check("ui: Python's thread switch under 1 ms as ui loads, so the window's thread gets Python's lock at once beside "
+          "a busy thread: 300 calls into Python take under 0.15 s (at Python's usual 5 ms they took ~0.75 s: each waited "
+          "for the lock, and a click while Make an EQ loaded was drawn ~0.1 s late)",
+          d.get("switch") is not None and d["switch"] < 0.001 and d.get("the app's (ms)", 1e9) < 150
+          and d.get("usual 5 ms (ms)", 0) > 3 * d.get("the app's (ms)", 1e9), d or out.stderr[-600:])

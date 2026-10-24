@@ -75,13 +75,72 @@ def test_recent_lists_read_not_written(db_guard, monkeypatch, tmp_path, check):
     # start)
     site = {"name": "Test", "url": "https://example.invalid/", "short": "T"}
     monkeypatch.setattr(databases, "CACHE_PATH", os.path.join(tmp_path, "db-test.json"))
+    item = {"kind": "measurement", "name": "X", "sub": ""}
+    item["h"] = databases.entry_base(site["url"], item)  # (as the app saves its lists since 2026-10-24)
     textfile.write_json(databases.CACHE_PATH, {site["url"]: {"time": time.time(), "conf": {}, "v": databases.LIST_VERSION,
-                                                             "items": [{"kind": "measurement", "name": "X", "sub": ""}]}})
+                                                             "items": [item]}})
     os.utime(databases.CACHE_PATH, (1, 1))
     databases.refresh_now([site])
     # was eq_checks.py:531
     check("databases: recent lists read, not written again", os.path.getmtime(databases.CACHE_PATH) == 1
           and databases.status()["count"] == 1, databases.status())
+
+
+def test_lists_saved_before_given_their_ids_once(db_guard, monkeypatch, tmp_path, check):
+    # (2026-10-24: each entry's id was worked out at every start, 55,000 hashes, ~146 ms of Python's time shared with
+    # the window; it's kept in the lists file now. A file saved before has none: they're worked out and written once)
+    site = {"name": "Test", "url": "https://example.invalid/", "short": "T"}
+    monkeypatch.setattr(databases, "CACHE_PATH", os.path.join(tmp_path, "db-old.json"))
+    textfile.write_json(databases.CACHE_PATH, {site["url"]: {"time": time.time(), "conf": {}, "v": databases.LIST_VERSION,
+                                                             "items": [{"kind": "measurement", "name": "X", "sub": ""}]}})
+    os.utime(databases.CACHE_PATH, (1, 1))
+    databases.refresh_now([site])
+    first = os.path.getmtime(databases.CACHE_PATH) != 1
+    saved = databases.load_cache()[site["url"]]["items"][0].get("h")
+    os.utime(databases.CACHE_PATH, (1, 1))
+    databases.refresh_now([site])
+    check("databases: lists saved before the ids were kept get them written once (worked out as before, the same "
+          "ids), then aren't written again",
+          first and saved == databases.entry_base(site["url"], {"kind": "measurement", "name": "X"})
+          and os.path.getmtime(databases.CACHE_PATH) == 1 and databases.status()["count"] == 1,
+          (first, saved, os.path.getmtime(databases.CACHE_PATH)))
+
+
+def test_lists_read_a_site_at_a_time(monkeypatch, check):
+    # (2026-10-24: json.loads of the whole lists file (9 MB) held Python's lock ~55 ms in one go, and the window,
+    # which needs it to answer, waited that long; read a site at a time, the lock is let go after each. The session's
+    # own lists, as installed for the tests)
+    import json
+    with open(databases.CACHE_PATH, encoding="utf-8") as fh:
+        text = fh.read()
+    whole = json.loads(text)
+    let_go, real_sleep, me = [], time.sleep, threading.get_ident()
+    monkeypatch.setattr(databases.time, "sleep", lambda s: (let_go.append(s) if threading.get_ident() == me else None,
+                                                           real_sleep(s))[1])
+    pieces = databases.load_cache()
+    monkeypatch.setattr(databases.time, "sleep", real_sleep)
+    odd = databases._sites_one_at_a_time(' \n{ "a" : {"items": [1, 2]} ,\t"b":{} }\n')
+    saved = []
+    monkeypatch.setattr(databases.textfile, "write_atomic", lambda path, data: saved.append(data))
+    databases._save_cache(whole)
+    check("databases: the lists file is read a site at a time (Python's lock let go after each), the same as read "
+          "whole; any spacing; written back as the same text",
+          pieces == whole and len(let_go) == len(whole) >= 2 and odd == {"a": {"items": [1, 2]}, "b": {}}
+          and saved == [json.dumps(whole)], (len(whole), len(let_go), odd))
+
+
+def test_lists_ids_the_same(check):
+    # (the ids kept in the lists file are the ones worked out at every start before: a Use button, a History entry
+    # or a download named by one finds the same entry)
+    cache = databases.load_cache()
+    entries = [dict(it, site="s", site_url=url) for url, c in cache.items() for it in (c or {}).get("items", [])]
+    without = [{k: v for k, v in e.items() if k != "h"} for e in entries]
+    stored = [dict(e, h=databases.entry_base(e["site_url"], e)) for e in without]
+    databases.assign_ids(without)
+    databases.assign_ids(stored)
+    check("databases: the ids from the first parts kept with the entries are the ones worked out before, for every "
+          "entry of the session's lists",
+          len(without) >= 10 and [e["id"] for e in without] == [e["id"] for e in stored], len(without))
 
 
 @pytest.fixture

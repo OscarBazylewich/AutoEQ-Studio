@@ -16,15 +16,16 @@ How, in order:
    modules loaded (QtCore, QtGui, QtWidgets, and any other the app has loaded already) is made. PySide6 (6.11) makes
    each class the first time it's asked for, and two threads making the same one at once corrupted memory (a crash in
    5 of 5 stress runs, 2026-10-24); pyqtgraph's import asks for every one of them.
-2. A thread of its own (a daemon: quitting never waits for it) imports, Python switching threads every 1 ms meanwhile
-   (at the usual 5 ms the window waited up to ~30 ms at a time for Python's lock), then as before:
+2. A thread of its own (a daemon: quitting never waits for it) imports (Python hands its lock to the window's thread
+   at once when that asks: ui\\__init__.py), then as before:
    - the screen's code: numpy, pyqtgraph, ui.eq_page and the parts its page loads;
    - the EQ part (eq.service and what it loads), only when no files of yours wait to be moved: eq.paths and
      eq.library take your files' folders as they're imported, and the move offered as Make an EQ first opens
      (ui\\your_files.py) may change them;
    then ready(), said on the window's thread;
-   - then, in short steps (each a moment to pause in), what the opening loads next in its own background work: V8
-     for the curves (py_mini_racer), and SciPy's parts the automatic settings use.
+   - then, once the window's thread has handled that (a page made then holds this until it's whole), in short steps
+     (each a moment to pause in), what the opening loads next in its own background work: V8 for the curves
+     (py_mini_racer), and SciPy's parts the automatic settings use.
 Importing these makes no Qt object (tests\\ui\\test_preload.py checks it): one made in that thread would belong to
 it, not to the window's. Nothing here loads anything until start() (the tray stays light: the window starts it only
 while it's open, ui\\window.py).
@@ -46,6 +47,8 @@ LATER = ("py_mini_racer", "scipy.linalg", "scipy.special", "scipy.fft", "scipy.s
 _state = {"held": 0, "started": False, "ready": False, "error": None, "names": None, "made": 0}
 _go = threading.Event()  # (set: the import goes on; cleared while held)
 _go.set()
+# (set once the window's thread has handled ready: the page made then has held the import by then)
+_handled = threading.Event()
 _waiting = []            # (when_ready's functions, until it's ready)
 _qt = {}                 # (start's timer and the messenger: kept here, on the window's thread)
 
@@ -144,8 +147,6 @@ def _eq_part_wanted():
 
 def _load():
     """Step 2, in the import's own thread."""
-    old = sys.getswitchinterval()
-    sys.setswitchinterval(0.001)
     told = False
     try:
         err = None
@@ -168,6 +169,9 @@ def _load():
         told = True
         if not _tell(err) or err is not None:
             return
+        # (what's next waits for the window's thread to have made the page, which holds it while it opens: going on at
+        # once, V8 and asyncio were imported meanwhile, and a click then was answered ~0.1 s later, 2026-10-24)
+        _handled.wait()
         for name in LATER:
             _go.wait()
             try:
@@ -175,7 +179,6 @@ def _load():
             except Exception:  # noqa: BLE001 - (imported again where it's used, and said there)
                 break
     finally:
-        sys.setswitchinterval(old)
         if not told:  # (stopped by something other than an import's error: the window imports it itself)
             _tell(RuntimeError("Make an EQ's code wasn't loaded ahead"))
 
@@ -198,5 +201,6 @@ def _on_ready(err):
             fn()
         except Exception as e:  # noqa: BLE001 - (each one called; then the first error said, as Qt's call-backs say it)
             first = first or e
+    _handled.set()
     if first is not None:
         raise first

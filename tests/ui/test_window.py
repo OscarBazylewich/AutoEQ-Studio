@@ -217,6 +217,28 @@ def test_online_offline(devices_window, online, check):
           off == (True, "○ Offline", True) and not net.offline() and win.online_btn.text() == "● Online", off)
 
 
+def test_a_tab_click_draws_no_screen_again(devices_window, check, monkeypatch):
+    import json
+    w = devices_window
+    drawn, told = [], []
+    monkeypatch.setattr(w.win, "render_all", lambda: drawn.append("all"))
+    w.sw.listeners.append(lambda what, info: told.append(what))
+    try:
+        w.win.nav["profiles"].click()
+        with open(w.settings, encoding="utf-8") as fh:
+            saved = json.load(fh).get("page")
+        w.win.nav["devices"].click()
+    finally:
+        w.sw.listeners.pop()
+    with open(w.settings, encoding="utf-8") as fh:
+        saved_after = json.load(fh).get("page")
+    check("window: a tab's click remembers the screen (saved) without telling the app's listeners, so no screen is "
+          "drawn again (each click drew every screen again and read Equalizer APO's config file: under a busy thread "
+          "the click took ~0.1 s)",
+          w.win.page() == "devices" and saved == "profiles" and saved_after == "devices" and drawn == [] and told == [],
+          (w.win.page(), saved, saved_after, drawn, told))
+
+
 def test_closing_leaves_the_app_in_the_tray(devices_window, check):
     w = devices_window
     w.win.close()

@@ -487,8 +487,77 @@ _confs = {}  # site url -> its graph tool's config, from the lists as last loade
 
 
 def load_cache():
-    """{site url: {"time", "items", "conf"}}: every database's list as last downloaded."""
-    return textfile.read_json(CACHE_PATH, {})
+    """{site url: {"time", "items", "conf"}}: every database's list as last downloaded. Read a site at a time, Python's
+    lock let go between them: json.loads of the whole file (9 MB, 55,000 entries) held it ~55 ms in one go, and the
+    window, which needs it to answer, waited that long (2026-10-24; the biggest site's list takes ~7 ms). A file that
+    isn't one JSON object of sites is read whole, as before; one that can't be read gives none."""
+    try:
+        text = textfile.read(CACHE_PATH)
+    except OSError:
+        return {}
+    try:
+        return _sites_one_at_a_time(text)
+    except (ValueError, IndexError):
+        try:
+            return json.loads(text)
+        except ValueError:
+            return {}
+
+
+_SPACE = " \t\n\r"
+
+
+def _skip(text, i):
+    while text[i] in _SPACE:  # (IndexError at the end: not one whole object, read whole instead)
+        i += 1
+    return i
+
+
+def _sites_one_at_a_time(text):
+    """The lists file's object read one site's list after another (json.JSONDecoder.raw_decode), Python's lock let go
+    after each (time.sleep(0): the window's thread, waiting for it, takes it then). ValueError when it isn't one."""
+    dec, out = json.JSONDecoder(), {}
+    i = _skip(text, 0)
+    if text[i] != "{":
+        raise ValueError("not an object")
+    i = _skip(text, i + 1)
+    if text[i] == "}":
+        return out
+    while True:
+        key, i = dec.raw_decode(text, i)
+        i = _skip(text, i)
+        if not isinstance(key, str) or text[i] != ":":
+            raise ValueError("not a site's name")
+        out[key], i = dec.raw_decode(text, _skip(text, i + 1))
+        time.sleep(0)
+        i = _skip(text, i)
+        if text[i] == "}":
+            return out
+        if text[i] != ",":
+            raise ValueError("no comma")
+        i = _skip(text, i + 1)
+
+
+def _save_cache(cache):
+    """The lists file written a site at a time, the same text json.dumps(cache) makes (all 9 MB at once held Python's
+    lock ~0.1 s). Quietly: a cache that can't be written simply isn't kept."""
+    parts = []
+    for url, c in cache.items():
+        parts.append(json.dumps(url) + ": " + json.dumps(c))
+        time.sleep(0)
+    try:
+        os.makedirs(os.path.dirname(CACHE_PATH), exist_ok=True)
+        textfile.write_atomic(CACHE_PATH, "{" + ", ".join(parts) + "}")
+    except OSError:
+        pass
+
+
+def entry_base(site_url, it):
+    """The first part of an entry's id, the same for the same entry through every refresh (assign_ids): kept with
+    each entry in the lists file ("h"), worked out as its list is downloaded (hashing all 55,000 at every start took
+    ~146 ms of Python's time, shared with the window)."""
+    return hashlib.sha1(json.dumps([site_url, it["kind"], it["name"], it.get("ref")], sort_keys=True)
+                        .encode()).hexdigest()[:12]
 
 
 def refresh_now(sites, force=False):
@@ -508,6 +577,7 @@ def refresh_now(sites, force=False):
     with ThreadPoolExecutor(10) as ex:
         results = {site["url"]: (c, err) for site, c, err in ex.map(one, sites)}
     downloaded = any(c is not None and c is not cache.get(url) for url, (c, _) in results.items())
+    added = False  # (ids' first parts worked out for entries without them: a list just downloaded, or saved before)
     status, entries = [], []
     for site in sites:
         c, err = results[site["url"]]
@@ -515,13 +585,20 @@ def refresh_now(sites, force=False):
         if c:
             cache[site["url"]] = c
             for it in c["items"]:
+                if "h" not in it:
+                    it["h"] = entry_base(site["url"], it)
+                    added = True
                 entries.append(dict(it, site=site["name"], site_url=site["url"]))
                 n += 1
+                if not n % 1000:
+                    time.sleep(0)  # (Python's lock let go now and then: the window's thread may be waiting for it)
         status.append({"name": site["name"], "url": site["url"], "count": n, "error": err, "group": site.get("group", "added"),
                        "extra": bool(site.get("extra")), "updated": c["time"] if c else None})
     assign_ids(entries)
-    if downloaded:  # (only then: writing every list takes a while and slowed the app's start)
-        textfile.write_json(CACHE_PATH, cache)
+    # (only then: writing every list takes a while and slowed the app's start; ids' first parts added to lists saved
+    # without them are written once, so later starts read them)
+    if downloaded or added:
+        _save_cache(cache)
     keep_confs(cache)
     set_items(entries)  # (before "loading" ends: the page asks for the entries as soon as it does)
     with _lock:
@@ -543,8 +620,7 @@ def assign_ids(entries):
     for it in entries:
         names[(it["site_url"], it["kind"], it["name"])] = names.get((it["site_url"], it["kind"], it["name"]), 0) + 1
     for it in entries:
-        base = hashlib.sha1(json.dumps([it["site_url"], it["kind"], it["name"], it.get("ref")], sort_keys=True)
-                            .encode()).hexdigest()[:12]
+        base = it.get("h") or entry_base(it["site_url"], it)  # (kept with the entry in the lists file)
         seen[base] = seen.get(base, 0) + 1
         it["id"] = base if seen[base] == 1 else f"{base}-{seen[base]}"
         if names[(it["site_url"], it["kind"], it["name"])] > 1:

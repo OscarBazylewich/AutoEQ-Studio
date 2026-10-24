@@ -7,7 +7,17 @@ written another way). No module of the app uses that (tests\\ui\\test_preload.py
 "no": given at once, instead of some 800 files read (about half a second, and 18 MB of their text kept in memory) as
 Make an EQ opens (2026-10-24). A module answered "no" is one PySide6 ignores for its features, as it would have been
 anyway. On a PySide6 without that check, nothing changes.
+
+It also has Python hand its lock to the window's thread at once when that asks (SWITCH, 2026-10-24). Each call from
+Qt into Python needs the lock, and a thread of the app's own working meanwhile (the database lists, This PC's search,
+Make an EQ's loading) kept each one waiting: ~2.5 ms at Python's usual 5 ms switch, ~3 ms at 1 ms (on Windows a wait of
+1 ms or more lasts until the clock's next tick; under 1 ms, Python asks for the lock without waiting). A click while
+Make an EQ was made ahead was drawn ~0.1 s late. At 0.5 ms each call waits ~7 µs. The cost is a thread waiting for
+the lock spins on a core of its own meanwhile; two busy threads did their work about 1 % slower.
 """
+import sys
+
+SWITCH = 0.0005  # (seconds: Python's thread switch interval for the whole app)
 
 
 def _never(module):
@@ -15,7 +25,6 @@ def _never(module):
 
 
 def _skip_pyside_source_check():
-    import sys
     try:
         import PySide6  # noqa: F401 - (sets the check up)
         feature = sys.modules.get("PySide6.support.feature")
@@ -27,3 +36,4 @@ def _skip_pyside_source_check():
 
 
 _skip_pyside_source_check()
+sys.setswitchinterval(SWITCH)
