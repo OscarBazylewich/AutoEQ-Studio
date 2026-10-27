@@ -5,8 +5,8 @@ fixture), offline: the lists are the saved ones (tests\\fixtures\\db).
 
 And its Windows 11 look (the restyle's stage 2, 2026-10-23): the page as wide as the window and no wider (at the
 window's own size and its narrowest: a long title, long names, two runs this session, the values under the pointer),
-Windows 11's symbols beside the main actions' words, the notice as Windows 11's information bar (its "i" in the
-accent's colour, followed when the theme changes), "yours" and the graph's legend in colours that read 4.5:1, a long
+Windows 11's symbols beside the main actions' words, what was just done in the window's message line with Undo (the
+notice card that moved the page went, 2026-10-27), "yours" and the graph's legend in colours that read 4.5:1, a long
 name ending in "…" and an empty note taking no room, the graph card's title in line with the cards' titles under it,
 and a theme change while the page is still opening."""
 import json
@@ -24,14 +24,6 @@ WIDTHS = (965, 1040)
 def _scroll_area(page):
     from PySide6.QtWidgets import QScrollArea
     return next(a for a in page.findChildren(QScrollArea) if a.widget() and a.widget().isAncestorOf(page.run_btn))
-
-
-def _strongest(pixmap):
-    """The colour of a symbol's most solid pixel (its antialiased edges are see-through)."""
-    img = pixmap.toImage()
-    seen = [img.pixelColor(x, y) for x in range(img.width()) for y in range(img.height())]
-    best = max(seen, key=lambda c: c.alpha(), default=None)
-    return (best.name(), best.alpha()) if best is not None else (None, 0)
 
 
 def _near(a, b, by=10):
@@ -138,7 +130,6 @@ def test_symbols_beside_the_main_actions(eq_screen, check):
             "Save filters": named(page.result_box, "Save filters"),
             "Use on device": page.use_btn, "Copy": named(page.result_box, "Copy"),
             "Keep to compare": named(page.result_box, "Keep to compare"), "Add filter": named(page.result_box, "Add filter"),
-            "Undo": page.notice_undo,
             # (2026-10-23, the restyle's checkers: the only button opening a folder without Windows' folder symbol)
             "Open the Saved EQs folder": named(page.result_box, "Open the Saved EQs folder")}
     missing = sorted(k for k, b in want.items() if b is None or b.icon().isNull())
@@ -148,25 +139,20 @@ def test_symbols_beside_the_main_actions(eq_screen, check):
           not missing and not old, (missing, old))
 
 
-def test_notice_as_windows_11s_information_bar(eq_screen, check):
-    from PySide6.QtWidgets import QPushButton
-    from ui import theme
-    page, qapp = eq_screen.page, eq_screen.qapp
-    found = {}
-    try:
-        for mode in ("dark", "light"):
-            theme.apply(qapp, dark=mode == "dark")
-            qapp.processEvents()
-            found[mode] = (_strongest(page.notice_icon.pixmap()), theme.tokens()["accent"])
-    finally:
-        qt.light(qapp)  # (the light theme back, whatever happened: every later test runs light)
-        qapp.processEvents()
-    x = next((b for b in page.notice.findChildren(QPushButton) if b.text() == "✕"), None)
-    quiet = x is not None and x.property("eqsubtle") == "true" and 'QPushButton[eqsubtle="true"]' in qapp.styleSheet()
-    check("look: the notice is Windows 11's information bar: an “i” in the accent's colour (drawn again when the theme "
-          "changes), its words, Undo, a quiet ✕ (no fill until pointed at)",
-          all(alpha > 150 and _near(c, accent) for (c, alpha), accent in found.values())
-          and found["dark"][1] != found["light"][1] and quiet, (found, quiet))
+def test_done_with_undo_in_the_message_line(eq_screen, check):
+    # (2026-10-27, UI-RULES 24: the notice card between Measurement and Make the EQ moved the page as it came and went;
+    # what was done goes to the window's message line now, with Undo beside it)
+    page = eq_screen.page
+    put_back = []
+    page.notify("Moved it.", lambda: put_back.append(True))
+    offered = (eq_screen.said[-1], eq_screen.undo_offered())
+    pressed = eq_screen.undo()
+    page.notify("Saved it.")
+    plain = (eq_screen.said[-1], eq_screen.undo_offered())
+    check("eq page: what was just done goes to the window's message line, with Undo beside it when it can be undone "
+          "(Undo puts it back), none when it can't; no notice card on the page any more (it made the page jump)",
+          offered == ("Moved it.", True) and pressed and put_back == [True] and plain == ("Saved it.", False)
+          and not hasattr(page, "notice"), (offered, pressed, put_back, plain))
 
 
 def test_yours_and_the_legend_read_well(eq_screen, check):

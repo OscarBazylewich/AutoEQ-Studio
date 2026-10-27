@@ -99,7 +99,7 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, QWidget)
         self.started = False
         self.ready = False  # (built and its files shown: the Guide, Presets and the window wait for it)
         self._seen = self._seeing = self._searched = False  # (first shown; This PC searched)
-        self._kept = []  # what it would have said before it was first seen: ("status", text, ms) or ("warning", text)
+        self._kept = []  # what it would have said before it was first seen: ("status", text, ms, undo) or ("warning", text)
         self._hold = None
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -120,13 +120,21 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, QWidget)
         theme.on_change(self._recolour)
 
     # ---------------------------------------------------------------- what it says (once it's been seen)
-    def status(self, text, ms=6000):
-        """A message in the window's line at the bottom, for ms milliseconds. Before the page is first seen (made
-        ahead while you're on another screen) it's kept, and said when it's first shown."""
+    def status(self, text, ms=None, undo=None):
+        """A message in the window's line at the bottom, for ms milliseconds (None: the line's own time); undo: what Undo
+        beside it does (window_parts.MessageLine). Before the page is first seen (made ahead while you're on another
+        screen) it's kept, and said when it's first shown."""
         if self._seen:
+            self._say(text, ms, undo)
+        else:
+            self._kept.append(("status", text, ms, undo))
+
+    def _say(self, text, ms, undo):
+        # (Undo only when there is one: a window's line that takes none, as some checks' stand-ins, still works)
+        if undo is None:
             self._window_status(text, ms)
         else:
-            self._kept.append(("status", text, ms))
+            self._window_status(text, ms, undo)
 
     def _warn(self, text):
         """A file set aside (it couldn't be read: kept as .bad), said in a box over the page; before the page is first
@@ -150,7 +158,7 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, QWidget)
         warnings = [said[1] for said in kept if said[0] == "warning"]
         for said in kept:
             if said[0] == "status":
-                self._window_status(said[1], said[2])
+                self._say(*said[1:])
         if warnings:
             QMessageBox.warning(self, "AutoEQ Studio", "\n\n".join(warnings))
         self._search_this_pc()

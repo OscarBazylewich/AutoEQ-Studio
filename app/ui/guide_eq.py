@@ -155,7 +155,7 @@ def eq_steps(page):
         api.say("Its rig, how well they agree, the bass seal and the seatings")
         yield from api.move_to(w.chart, 0.4, 0.5)
         yield 1100
-        api.say("Compare looks for them; Use makes one your measurement, or average several from one rig")
+        api.say("Search looks for them; Use makes one your measurement, or average several from one rig")
         yield from api.move_to(w.go)
         yield from api.ripple()
         yield 900
@@ -387,7 +387,7 @@ def eq_steps(page):
                  "label": words, "ms": 1300, "say": "Drag a handle: left and right its frequency, up and down its gain"},
                 {"at": lambda: page.editor, "x": 0.5, "y": 0.15, "say": "The table, the numbers and Listen follow"},
                 {"at": lambda: page.eqplot, "x": 0.9, "y": 0.2,
-                 "say": "The mouse wheel over a handle: its Q; right-click: its type, on or off, Delete"},
+                 "say": "The mouse wheel over a handle: its Q; right-click: its type, on or off, Remove"},
                 {"at": lambda: page.eqplot, "x": 0.12, "y": 0.8, "say": "Double-click where there's none: a new filter"}]
 
     def hand_demo(api):
@@ -519,7 +519,7 @@ def eq_steps(page):
                                                              int(min(520, api.t.height() * 0.6))))
         api.spot_on(w.frame)
         yield from api.at(w.scroll, 0.4, 0.25, 1500, say="Your past EQs by day: Show brings one back with its files, "
-                                                         "Listen adds it to your EQs to compare")
+                                                         "Keep to compare adds it to your EQs to compare")
         yield from api.at(w.q, 0.2, 0.5, 900, say="Search by IEM, target or method")
 
     steps = [
@@ -669,7 +669,7 @@ def eq_steps(page):
          "before": result_before, "after": result_after, "ready": has_curves,
          "text": lambda: "Each filter has a handle on the EQ graph, under the graph, numbered as in the table. Drag it: "
                          "left and right its frequency, up and down its gain; the mouse wheel over it: its Q; "
-                         "right-click: its type, on or off, Delete. Double-click where there's none for a new filter. "
+                         "right-click: its type, on or off, Remove. Double-click where there's none for a new filter. "
                          "An EQ you're trying on a device plays each change there too." + example(),
          "demo": lambda: drag_actions()},
         {"chapter": "3 · Run & review", "title": "Save it, or use it on a device",
@@ -706,7 +706,7 @@ def eq_steps(page):
          "demo": [{"run": preset_demo, "say": "Save the settings as a preset, load it later"}]},
         {"chapter": "More", "title": "History", "target": lambda: button(page, "History"),
          "text": "Your past EQs, kept after you close the app: the ones you save or copy (or every run: Advanced › "
-                 "History). Show one to bring it back with its files, or Listen to add it to your EQs to compare.",
+                 "History). Show one to bring it back with its files, or Keep to compare to add it to your EQs to compare.",
          "demo": lambda: [{"click": lambda: button(page, "History"), "say": "History: your past EQs", "then": history_demo}]
          + ([{"at": lambda: page.eqd_show, "say": "Under Measurement: when you've EQ'd it before; Show opens those"}]
             if page.eqd_show.isVisible() else [])},

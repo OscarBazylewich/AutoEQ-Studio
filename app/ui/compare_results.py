@@ -11,7 +11,9 @@ The numbers and both filter tables in Windows 11's table look, as Profiles and R
 lines, each heading at the left over its words (the cells' room at the left: ui\\theme_sheet.py's eq_windows,
 #eqwNumbers and #eqwCmpFilters), rows told apart by their shade.
 Its size kept within the screen's room (window_parts.fit_to_screen): on a short screen (a laptop at 150 %) its parts
-scroll as a page, Close under them in sight.
+scroll as a page, its footer under them in sight: every window's (window_parts.Footer: its own message line, where
+Show A / Show B say what they did, and Close). The lists are A to Z, as every list (the user's ask), the result shown
+now pinned on top (it sorted last); Enter presses nothing (Qt made "Show A" Enter's).
 """
 import numpy as np
 import pyqtgraph as pg
@@ -24,7 +26,7 @@ from ui import theme
 from ui.history_window import follow_theme
 from ui.search_combo import SearchCombo, natural_key
 from ui.theme_sheet import CARD
-from ui.window_parts import fit_to_screen
+from ui.window_parts import Footer, enter_presses, fit_to_screen
 
 TYPES = {"PK": "Peak", "LSQ": "Low shelf", "HSQ": "High shelf", "LSC": "Low shelf", "HSC": "High shelf"}
 TICKS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]  # (as the EQ screen's graph)
@@ -109,15 +111,18 @@ class CompareResults(QDialog):
         v.addWidget(lead)
         pick = QGridLayout()
         self.combos = []
-        # (A to Z, as every list; A and B start as the first two options were: this EQ and the one beside it)
+        # (A to Z, as every list, the result shown now on top: UI-RULES 22; A and B start as the first two options
+        # were: this EQ and the one beside it)
         first = self.opts[:2]
-        self.opts = sorted(self.opts, key=lambda o: natural_key(o["label"]))
+        shown = [o for o in self.opts if o["run"] is not None and o["label"].startswith("Shown now")]
+        self.opts = shown + sorted((o for o in self.opts if o not in shown), key=lambda o: natural_key(o["label"]))
         for i, side in enumerate("AB"):
             pick.addWidget(QLabel(side), i, 0)
             c = SearchCombo()
             c.setAccessibleName(f"EQ {side}")
             for o in self.opts:
                 c.addItem(o["label"])
+            c.pinned = len(shown)  # (kept on top: search_combo's own sort would say so)
             c.setCurrentIndex(self.opts.index(first[min(i, len(first) - 1)]) if first else -1)
             c.currentIndexChanged.connect(self.render)
             pick.addWidget(c, i, 1)
@@ -169,9 +174,9 @@ class CompareResults(QDialog):
             tables.addWidget(t)
             self.tables.append(t)
         v.addLayout(tables, 2)
-        close = QPushButton("Close")
-        close.clicked.connect(self.accept)
-        outer.addWidget(close, 0, Qt.AlignRight)
+        self.footer = Footer(self)
+        outer.addWidget(self.footer)
+        enter_presses(self)
         self.render()
         follow_theme(self, lambda w: w.render())
 
@@ -252,13 +257,13 @@ class CompareResults(QDialog):
         """A result of this session back on the result card (a History entry: History's Show does that)."""
         o = self.chosen()[i]
         if o["label"].startswith("Shown now"):
-            self.page.status("That one is on the result card already.", 5000)
+            self.footer.say("That one is on the result card already.")
             return
         if o["run"] is None:
-            self.page.status("That one is from History: History's Show brings it back.", 6000)
+            self.footer.say("That one is from History: History's Show brings it back.")
             return
         if o["run"] is not self.page.run_result:
             self.page.run_result = o["run"]
             self.page.name_edit.clear()
         self.page.show_result(o["rid"])
-        self.page.status(f"Shown: {o['label']}", 5000)
+        self.footer.say(f"Shown on the result card: {o['label']}")

@@ -160,7 +160,7 @@ def test_right_click_menu(eq_screen, check):
     next(a for a in page.handle_menu_now.actions() if a.text() == "Switched on").trigger()
     off = page.EDIT[0]["enabled"]
     page.handle_menu(1, QPointF(10, 10))
-    next(a for a in page.handle_menu_now.actions() if a.text() == "Delete").trigger()
+    next(a for a in page.handle_menu_now.actions() if a.text() == "Remove").trigger()
     check("handles: right-click shows the filter's type (ticked) and Switched on; choosing changes it, and Delete "
           "takes the filter away (the table and the handles follow)",
           sorted(ticked) == ["Peak", "Switched on"] and shelf == "LSQ" and off is False and len(page.EDIT) == 2

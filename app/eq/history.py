@@ -37,6 +37,34 @@ def _number(v, default=None):
 
 def add(entry):
     """Add an entry, or update the one with its key (it stays saved once saved). Returns all entries."""
+    e = _clean(entry)
+    with _LOCK:
+        return _add(e)
+
+
+def restore(back):
+    """Entries taken out a moment ago put back as they were (History's Undo): each kept as it was, its time too, and
+    in its place by that time. One whose key is there again meanwhile stays as it is now. Returns all entries."""
+    if not isinstance(back, list):
+        raise ValueError("There's nothing to put back.")
+    with _LOCK:
+        items = entries()
+        have = {x["key"] for x in items}
+        for entry in back:
+            when = _number(entry.get("when")) if isinstance(entry, dict) else None
+            if when is None or not isinstance(entry.get("key"), str) or entry["key"] in have:
+                continue
+            e = _clean(entry)
+            e["when"] = when
+            items.append(e)
+            have.add(e["key"])
+        items.sort(key=lambda x: x.get("when") or 0)  # (oldest first, as they're kept: each back in its place)
+        textfile.write_json(PATH, items, quiet=False)
+        return items
+
+
+def _clean(entry):
+    """An entry as it's kept: its words short, its numbers numbers, its parts plain; its time now."""
     if not isinstance(entry, dict) or not isinstance(entry.get("key"), str) or not entry["key"].strip():
         raise ValueError("This EQ can't go into the history: it has no name.")
     e = {k: str(entry.get(k) or "")[:300] for k in TEXT}
@@ -55,8 +83,7 @@ def add(entry):
         "band": [float(x) for x in band] if isinstance(band := entry.get("band"), list) and len(band) == 2
                 and all(_number(x) is not None for x in band) else None,
     })
-    with _LOCK:
-        return _add(e)
+    return e
 
 
 def _add(e):

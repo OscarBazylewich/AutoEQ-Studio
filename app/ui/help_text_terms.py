@@ -234,7 +234,7 @@ TERMS = [{'title': 'Curves and sound',
                      'body': ["An IEM that doesn't seal in the ear (or on the rig) loses bass. A measurement with "
                               'much less bass than others of the same model was probably not sealed; an EQ fitted '
                               'to it would boost bass you already have.',
-                              '“Which measurement to use” scores this (Bass), and Listen lets you check with your '
+                              '“Other measurements of this model…” scores this (Bass), and Listen lets you check with your '
                               'own ears.'],
                      'see': ['compare-measurements', 'measurement']},
                     {'id': 'treble-limit',
@@ -432,7 +432,7 @@ TERMS = [{'title': 'Curves and sound',
                      'title': 'History',
                      'body': ["Your past EQs, kept between sessions (History, by the graph's title): the ones you "
                               'save or copy, or every run (Advanced › History). Show brings one back with its '
-                              'files and settings; Listen adds it to your EQs to compare.'],
+                              'files and settings; Keep to compare adds it to your EQs to compare.'],
                      'see': ['eqs-to-compare']},
                     {'id': 'eqs-to-compare',
                      'title': 'EQs to compare',

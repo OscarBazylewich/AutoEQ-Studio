@@ -12,7 +12,8 @@ words at the left (the cells' room at the left: ui\\theme_sheet.py's eq_windows,
 grid's rows told apart by a thin line under each (drawn in the theme's colour for lines, as each cell is: shading
 there means "sounds the same"), the table's by their shade. The window opens wide enough for its whole grid when
 the screen has room, and within the screen's room (window_parts.fit_to_screen: a laptop at 150 % has 672 px above
-the taskbar).
+the taskbar). It ends with every window's footer (window_parts.Footer: its Close; it had none, only the title bar's
+✕ and Esc), and Enter presses nothing (a cell or row is clicked).
 """
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QFontMetrics, QPalette
@@ -21,7 +22,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QDialog, QHeaderView, QLabel, 
 
 from ui import theme
 from ui.theme_sheet import CARD
-from ui.window_parts import fit_to_screen
+from ui.window_parts import Footer, enter_presses, fit_to_screen
 
 HEAD = [("Error (dB)", "rms"), ("Filters", "n_filters"), ("Rows", "rows"), ("Range", None), ("Gain", None),
         ("Q max", "q_max"), ("Max boost", "max_boost"), ("Pre-amp", "preamp")]
@@ -122,6 +123,9 @@ class AllResults(QDialog):
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.cellClicked.connect(lambda row, _c: self.pick(self.table.item(row, 0).data(Qt.UserRole)))
         v.addWidget(self.table, 1)
+        self.footer = Footer(self)
+        v.addWidget(self.footer)
+        enter_presses(self)
         self.render()
         self._wide_enough()
 

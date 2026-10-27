@@ -32,7 +32,7 @@ def test_adjust_on_the_target_card(eq_screen, check):
     shown = st.reset_adjust_btn.isEnabled() and st.save_target_btn.isEnabled()
     st.reset_adjust_btn.click()
     reset = (page.S["target_adjust"]["tilt"], tilt.box.text(), st.reset_adjust_btn.isEnabled())
-    page.notice_undo.click()
+    eq_screen.undo()  # (the message line's Undo)
     undone = page.S["target_adjust"]["tilt"]
     bass, bass_hz = st.adjust_form.fields["target_adjust.bass_gain"], st.adjust_form.fields["target_adjust.bass_freq"]
     hz_greyed = bass_hz.box.isVisibleTo(page) and not bass_hz.box.isEnabled()
@@ -88,8 +88,8 @@ def test_save_as_a_target(eq_screen, monkeypatch, check):
     rig_kept = rigs.target_rig("My bassy target.csv")[0] == rigs.target_rig(was_target)[0]
     state = (now["files"]["active_target"], now["target_adjust"]["tilt"], now["target_adjust"]["bass_gain"])
     made = os.path.exists(os.path.join(eq_paths.TARGET_DIR, "My bassy target.csv"))
-    undo_shown = page.notice_undo.isVisibleTo(page)
-    page.notice_undo.click()
+    undo_shown = eq_screen.undo_offered()
+    eq_screen.undo()
     wait_for(lambda: page.S["files"]["active_target"] == was_target, 30)
     back = (page.S["files"]["active_target"], page.S["target_adjust"]["bass_gain"],
             os.path.exists(os.path.join(eq_paths.TARGET_DIR, "My bassy target.csv")))

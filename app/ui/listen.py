@@ -266,18 +266,6 @@ class Listen(QGroupBox):
         self.pins_lay = QVBoxLayout(self.pins_box)  # (holds their table, drawn again with each change: render_pins)
         self.pins_lay.setContentsMargins(0, 0, 0, 0)
         v.addWidget(self.pins_box)
-        self.undo_row = QWidget()
-        ur = QHBoxLayout(self.undo_row)
-        ur.setContentsMargins(0, 0, 0, 0)
-        self.undo_text = QLabel()
-        theme.mark(self.undo_text, role="muted")
-        ur.addWidget(self.undo_text, 1)
-        self.undo_btn = QPushButton("Undo")
-        icons.put(self.undo_btn, "undo")
-        ur.addWidget(self.undo_btn)
-        self.undo_row.hide()
-        v.addWidget(self.undo_row)
-        self._undo_timer = QTimer(self, singleShot=True, interval=15000, timeout=self.undo_row.hide)
         help_window.tag(head, "snd_list")
         add = QHBoxLayout()
         # (Windows 11's add symbol before their words, as every other Add: they began with a typed "+"; a screen reader
@@ -983,20 +971,15 @@ class Listen(QGroupBox):
             self.save_pins()
 
     def _remove(self, p):
+        """✕: off the list, with Undo in the window's message line (UI-RULES 20, 24: the row of its own that was here
+        moved the card's buttons as it came and went)."""
         self.pins = [x for x in self.pins if x is not p]
         if self.save_pins():
             device = self.pins_for
-            self.undo_text.setText(f"“{p['name']}” removed from your EQs to compare.")
-            if getattr(self, "_undo_connected", False):  # (only what was connected: no warning)
-                self.undo_btn.clicked.disconnect()
-            self._undo_connected = True
-            self.undo_btn.clicked.connect(lambda: self._put_back(device, p))
-            self.undo_row.show()
-            self._undo_timer.start()
+            self.page.status(f"“{p['name']}” removed from your EQs to compare.", undo=lambda: self._put_back(device, p))
 
     def _put_back(self, device, p):
         """Undo of ✕ (eqlist.js undoRemove): back in the list it came from, also after another IEM was chosen."""
-        self.undo_row.hide()
         if device == self.pins_for:
             self.add(p["name"], p["filters"], p.get("note", ""))
             return

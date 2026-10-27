@@ -87,13 +87,16 @@ def test_says_when_nothing_could_be_loaded(eq_screen, monkeypatch, check):
     try:
         cw.data = compare.compare(eq_screen.page.S, "Truthear GATe", studio.target_path())
         cw.render()
-        status, note = cw.status.text(), cw.note.text()
-        reasons = [w.text() for w in cw.scroll.widget().findChildren(type(cw.status)) if w.text().startswith("Couldn't")]
+        note = cw.note.text()
+        # (said in the list, where they'd be: UI-RULES 21, 2026-10-27; it was the line over the chart)
+        listed = [w.text() for w in cw.scroll.widget().findChildren(type(cw.status))]
+        status = " ".join(t for t in listed if "could be loaded" in t or "was found" in t)
+        reasons = [t for t in listed if t.startswith("Couldn't")]
     finally:
         qt.close(cw)
-    check("ui: Which measurement says none of the model's measurements could be loaded, and why (not that nothing was "
-          "found)", "could be loaded" in status and "was found" not in status and "could be loaded" in note
-          and reasons and "no internet in the tests" in reasons[0], (status, note, reasons))
+    check("ui: Which measurement says, in its list, none of the model's measurements could be loaded, and why (not "
+          "that nothing was found)", "could be loaded" in status and "was found" not in status
+          and "could be loaded" in note and reasons and "no internet in the tests" in reasons[0], (status, note, reasons))
 
 
 def test_use_puts_the_top_one_in_use(eq_screen, which, check):

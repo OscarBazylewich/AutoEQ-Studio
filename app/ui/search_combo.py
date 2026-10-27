@@ -126,12 +126,15 @@ class SearchCombo(QComboBox):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._popup = None
+        self.pinned = 0  # (how many choices stay on top of the A to Z: sort_items' pinned)
         self.setItemDelegate(QStyledItemDelegate(self))  # (the short list's rows drawn as the theme's list rows)
         self.setMaxVisibleItems(SEARCH_FROM)  # (a short list shows every choice: a longer one opens with the search box)
 
     def sort_items(self, pinned=0):
         """The choices A to Z, numbers as numbers (natural_key); the first `pinned` (a "Choose…" or "Automatic…" that
-        belongs on top) stay where they are. The chosen one stays chosen, and nothing is said about it (no signals)."""
+        belongs on top) stay where they are, and the list remembers how many (self.pinned). The chosen one stays chosen,
+        and nothing is said about it (no signals)."""
+        self.pinned = pinned
         cur = self.currentIndex()
         keep, keep_text = (self.itemData(cur), self.itemText(cur)) if cur >= 0 else (None, None)
         # (each choice's words, value and tooltip read and added back in order: moving Qt's own rows across from Python

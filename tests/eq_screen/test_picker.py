@@ -295,15 +295,16 @@ def test_lists_a_to_z(eq_screen, as_old, check):
     # of 2026-10-22 the collector deleted them in the next test, while Qt was handing the pop-up an event: a crash)
     qt.close(big)
     qt.close(small)
-    # every drop-down A to Z, numbers as numbers (a first "Choose…" or "Automatic…" may stay on top); Find…'s filters
-    # keep their own order (any, "fits", in the app and this PC first, "not known" last)
+    # every drop-down A to Z, numbers as numbers (a first "Choose…" or "Automatic…" may stay on top, or the special
+    # choices a list pins there: its sort_items' pinned, 2026-10-27); Find…'s filters keep their own order (any,
+    # "fits", in the app and this PC first, "not known" last)
     unsorted = []
     for c in page.findChildren(SearchCombo):
         # (the Target and Measurement lists: A to Z by name, their own check above; the counts after a name aside)
         if isinstance(c.window(), Picker) or c.count() < 3 or c in (page.target_combo, page.measurement_combo):
             continue
         texts = [c.itemText(k) for k in range(c.count())]
-        if not any(texts[k:] == sorted(texts[k:], key=natural_key) for k in (0, 1)):
+        if not any(texts[k:] == sorted(texts[k:], key=natural_key) for k in (0, 1, c.pinned)):
             unsorted.append((texts[:4], type(c.parent()).__name__))
     pk.clear_filters()
     pk.reject()
@@ -334,8 +335,8 @@ def test_use_offers_undo(eq_screen, dialogs, check):
     before = list(page.S["files"]["excluded"])
     res = page.svc.call("/api/use", dict(pk.body(row), kind="measurement", settings=page.S))
     page.used(res)
-    offered = page.notice.isVisibleTo(page) and page.notice_undo.isVisibleTo(page)
-    page.notice_undo.click()
+    offered = eq_screen.undo_offered()  # (Undo beside the message, in the window's line)
+    eq_screen.undo()
     eq_screen.wait_for(lambda: not any(n in {m["name"] for m in page.inputs["measurements"]}
                                        for n in res.get("created") or []), 30)
     names_now = {m["name"] for m in page.inputs["measurements"]}
@@ -429,7 +430,6 @@ def _plain_at_rest(button):
 def test_x_buttons_quiet(eq_screen, check):
     # (a row's ✕ was a plain button with a border, where every other ✕ of the app is quiet: no fill until pointed at)
     from PySide6.QtCore import Qt
-    from PySide6.QtWidgets import QPushButton
     from ui.picker import Picker
     page = eq_screen.page
     seen = {}
@@ -440,7 +440,7 @@ def test_x_buttons_quiet(eq_screen, check):
         pk.toggle_expand(app_row["device"]["name"])
         pk.finish_list()
         qt.pump(200)
-        xs = [b for b in pk.list.findChildren(QPushButton) if b.isVisible() and b.text() == "✕"]
+        xs = _bins(pk)
         seen["measurement"] = (len(xs), sum(b.property("quiet") == "true" and _plain_at_rest(b) for b in xs))
     finally:
         _close(pk)
@@ -449,13 +449,19 @@ def test_x_buttons_quiet(eq_screen, check):
     try:
         pk.finish_list()
         qt.pump(200)
-        xs = [b for b in pk.list.findChildren(QPushButton) if b.isVisible() and b.text() == "✕"]
+        xs = _bins(pk)
         seen["target"] = (len(xs), sum(b.property("quiet") == "true" and _plain_at_rest(b) for b in xs))
     finally:
         _close(pk)
-    check("restyle: Find…'s ✕ (a measurement, each of its files, a target) is quiet as every ✕: no fill or border "
-          "until pointed at", seen["measurement"][0] >= 2 and seen["target"][0] >= 1
+    check("restyle: Find…'s delete button (a measurement, each of its files, a target: the bin, as a file goes for "
+          "good) is quiet as every row's: no fill or border until pointed at", seen["measurement"][0] >= 2 and seen["target"][0] >= 1
           and all(n == quiet for n, quiet in seen.values()), seen)
+
+
+def _bins(pk):
+    """Find…'s delete buttons shown (the bin: a file of yours, deleted for good), by their tooltip."""
+    from PySide6.QtWidgets import QPushButton
+    return [b for b in pk.list.findChildren(QPushButton) if b.isVisible() and b.toolTip().startswith("Delete")]
 
 
 def test_x_pointed_at_shows_its_fill(eq_screen, check):
@@ -464,7 +470,7 @@ def test_x_pointed_at_shows_its_fill(eq_screen, check):
     # the row's. In light and in a contrast theme, where most fills are the window's own colour)
     from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
     from PySide6.QtGui import QHoverEvent, QMouseEvent
-    from PySide6.QtWidgets import QApplication, QPushButton
+    from PySide6.QtWidgets import QApplication
     from ui import theme
     qapp, seen = eq_screen.qapp, {}
 
@@ -477,7 +483,7 @@ def test_x_pointed_at_shows_its_fill(eq_screen, check):
                 qt.pump(100)
             pk = _shown_picker(eq_screen.page, "")
             try:
-                x = next(b for b in pk.list.findChildren(QPushButton) if b.isVisible() and b.text() == "✕")
+                x = _bins(pk)[0]
                 view = pk.list.viewport()
                 # (the mouse put on it as Qt tells the list and the button on the screen: off-screen a moved mouse goes
                 # to the first window under it, here Make an EQ's own, never to Find… over it)

@@ -122,7 +122,7 @@ def _open(tmp, monkeypatch, ahead, before_start=None):
     windows = {_key(w) for w in qapp.topLevelWidgets()}
     holds = []
     real_hold, real_release = _REAL.setdefault("hold", preload.hold), _REAL.setdefault("release", preload.release)
-    page = EqPage(sw, lambda text, ms=0: said.append(text))
+    page = EqPage(sw, lambda text, ms=0, undo=None: said.append(text))
     monkeypatch.setattr(preload, "hold", lambda: (holds.append(("hold", page.ready)), real_hold())[1])
     monkeypatch.setattr(preload, "release", lambda: (holds.append(("release", page.ready)), real_release())[1])
     stack = other = None
@@ -218,7 +218,7 @@ def test_each_part_placed_in_the_step_that_makes_it(ahead, check):
     lay = body.layout()
     items = [lay.itemAt(i) for i in range(lay.count())]
     cards = [it.widget() for it in items if it.widget() is not None]
-    want = [page.plot.parentWidget(), page.target_box, page.measurement_box, page.notice, page.eq_box,
+    want = [page.plot.parentWidget(), page.target_box, page.measurement_box, page.eq_box,
             page.settings.fold, page.settings.adv, page.result_box, page.listen]
     tlay = page.target_box.layout()
     target_last = [tlay.itemAt(i).widget() for i in range(tlay.count() - 2, tlay.count())]
@@ -237,7 +237,7 @@ def test_each_part_placed_in_the_step_that_makes_it(ahead, check):
             "Advanced's label column one width": len(grids) == 1, "names": names,
             "shown": [a.isVisibleTo(page) for a in _content(page)], "opening shown": page.loading.isVisibleTo(page)}
     check("eq page: the finished page's parts are where they were: the cards in order (graph, Target, Measurement, "
-          "the notice, Make the EQ, Settings, Advanced, Your result, Listen), Adjust under the target, every section "
+          "Make the EQ, Settings, Advanced, Your result, Listen), Adjust under the target, every section "
           "of both folds, Advanced's two halves one form (one label column, its boxes named for a screen reader)",
           seen["cards in order"] and seen["a stretch last"] and seen["Adjust's row and panel last on the Target card"]
           and seen["Settings' sections"] == ["Website AutoEQ: one run", "Website AutoEQ: find best settings",

@@ -93,8 +93,9 @@ class EqHistory:
             self.history = r["entries"]
         modal(HistoryWindow(self, this_iem))
 
-    def copy_filters(self, filters, preamp_raw, record=True):
-        """The filters as Equalizer APO text on the clipboard (kept in History when they're the result's)."""
+    def copy_filters(self, filters, preamp_raw, record=True, say=None):
+        """The filters as Equalizer APO text on the clipboard (kept in History when they're the result's). say: the
+        message line to tell it in (a window's own, UI-RULES 7; none: the main window's)."""
         from PySide6.QtGui import QGuiApplication
         on = [f for f in filters if f.get("enabled", True) is not False]
         res = self.svc.call("/api/text", {"settings": self.S, "filters": on, "preamp": preamp_raw})
@@ -102,7 +103,7 @@ class EqHistory:
             QMessageBox.warning(self, "Copy", res["error"])
             return
         QGuiApplication.clipboard().setText(res["apo"])
-        self.status("Copied the filters (Equalizer APO / squiglink format).", 5000)
+        (say or self.status)("Copied the filters (Equalizer APO / squiglink format).")
         if record:
             self.record(True)
 

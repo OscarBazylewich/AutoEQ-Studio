@@ -25,7 +25,7 @@ def test_presets(eq_screen, monkeypatch, check):
     page.changed()
     page.load_preset("Check preset")
     loaded = (page.S["mode"], json.dumps(page.S["files"]), page.mode_combo.currentData())
-    page.notice_undo.click()
+    eq_screen.undo()  # (the message line's Undo)
     undone = page.S["mode"]
     page.load_preset("Check preset")
     page.delete_preset("Check preset")
@@ -33,7 +33,7 @@ def test_presets(eq_screen, monkeypatch, check):
     page.S["best_fit"]["q_min"] = 0.7
     page.reset_settings()
     reset = page.S["best_fit"]["q_min"] != 0.7 and json.dumps(page.S["files"]) == was_files
-    page.notice_undo.click()
+    eq_screen.undo()  # (the message line's Undo)
     reset_undone = page.S["best_fit"]["q_min"] == 0.7
     # was eq_checks.py:2152
     check("presets: Presets ▾ saves the settings (not the files) under a name, lists it, loads it (Undo puts the ones "

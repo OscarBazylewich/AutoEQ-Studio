@@ -240,7 +240,7 @@ class DevicesScreen:
                                              self.sw.profile_missing(pid) else ""))
             row.addWidget(note, 1)
             x = QToolButton()
-            x.setObjectName("takeOff")  # (a quiet button, as Windows 11's in a list's row: the theme's window_screens)
+            theme.mark(x, quiet=True)  # (a row's ✕: every list's one look, UI-RULES 18)
             x.setText("✕")
             x.setToolTip("Take it off this device (it stays in Profiles)")
             x.setAccessibleName(f"Take {p['name']} off this device")

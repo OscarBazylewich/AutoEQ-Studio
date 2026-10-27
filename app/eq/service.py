@@ -655,6 +655,12 @@ def history_remove(body):
     return {"entries": history.remove(None if body.get("all") is True else names_of(body))}
 
 
+@route("/api/history/restore")
+def history_restore(body):
+    """History's Undo: the entries just removed put back as they were."""
+    return {"entries": history.restore(body.get("entries"))}
+
+
 # ---------------------------------------------------------------- your EQs to compare, per IEM (listening.py)
 @route("/api/listen")
 def listen_list(body):

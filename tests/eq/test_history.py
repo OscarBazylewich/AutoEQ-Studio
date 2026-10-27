@@ -79,6 +79,23 @@ def test_one_removed_then_all(emptied, check):
     check("history: one removed, then all", [x["key"] for x in history.remove(["u3"])] == ["a-1", "u4"] and history.remove(None) == [])
 
 
+def test_restore_puts_one_back_in_its_place(emptied, check):
+    # (2026-10-27, History's ✕ with Undo, UI-RULES 20: the entry back as it was, its time too, in its place; one whose
+    # key is there again meanwhile isn't doubled. After the test before: History is empty)
+    e = entry()
+    for k in ("r1", "r2", "r3"):
+        history.add({**e, "key": k})
+    gone = next(x for x in history.entries() if x["key"] == "r2")
+    history.remove(["r2"])
+    back = history.restore([gone])
+    again = history.restore([gone])
+    put = next((x for x in back if x["key"] == "r2"), {})
+    history.remove(None)
+    check("history: Undo of a removed entry puts it back as it was (its time too) in its place, once",
+          [x["key"] for x in back] == ["r1", "r2", "r3"] and put.get("when") == gone["when"]
+          and [x["key"] for x in again] == ["r1", "r2", "r3"], ([x["key"] for x in back], put.get("when"), gone["when"]))
+
+
 # ---------------------------------------------------------------- the second chain (lines 718-746)
 def test_damaged_file_kept_aside(emptied, check):
     import textfile

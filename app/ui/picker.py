@@ -8,7 +8,10 @@
 Filters (kept for the next search, for targets and measurements apart): Rig (or "Fits your target's rig": on it, or
 its database has a conversion of its own for it), Type, Source, Stated rig (not the usual rig of a database, a "?"),
 Downloadable (not a list-only database's). Each choice says how many results it would leave.
-Each row: Show (its curve on the graph, without using it; again to take it off) and Use (double-click too).
+Each row's buttons at its right end, as every list's (.claude/notes/UI-RULES.md 18): Preview (its curve on the graph,
+dotted, without using it; Hide takes it off), the row's own (Files, → the other side), Use (the main one, last;
+double-click too), then the bin apart (your own files: deleted for good, asked first). A button a row hasn't got keeps
+its room, so every Use is in one column.
 
 Offline (net.py): the lists the app has are searched as usual; a curve downloaded before is used from this PC, any
 other online one says it needs the internet. A list-only database's entry opens on its site (online only).
@@ -19,8 +22,9 @@ Windows 11's symbol (findMark, read as "Downloads when used"); only one Use has 
 chosen row's, or the first row's when none is chosen); a row's ✕ quiet (no fill until pointed at, as every ✕); Files
 with Windows 11's chevron after its word (findFiles: down while its files are hidden, up while they're shown); the
 chosen and pointed-at rows as every list, laid out again whenever the window changes size. Narrower than its filters
-on one line (the Guide's frame for it), the filters take two lines, the ticks under the boxes, and the status line goes
-above the buttons (Lines); a box's choice too long for it ends in "…".
+on one line (the Guide's frame for it), the filters take two lines, the ticks under the boxes (Lines); a box's choice
+too long for it ends in "…". How many there are where is said under the filters; the footer is every window's
+(window_parts.Footer: Sources… and Trace a graph image… at the left, the window's own message line, Close).
 
 Find… is kept within the screen's free room (ui\\window_parts.fit_to_screen, as every window of the app: a laptop at
 150 % has about 672 px above the taskbar), so its bottom row is never out of reach.
@@ -28,7 +32,7 @@ Find… is kept within the screen's free room (ui\\window_parts.fit_to_screen, a
 import os
 
 from PySide6.QtCore import QRect, QSize, Qt, QTimer, QUrl
-from PySide6.QtGui import QDesktopServices, QFont
+from PySide6.QtGui import QDesktopServices, QFont, QFontMetrics
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QHBoxLayout, QLabel, QLayout, QLineEdit,
                                QListWidget, QListWidgetItem, QMessageBox, QPushButton, QSizePolicy, QStyle,
                                QStyleOptionButton, QStyleOptionComboBox, QStylePainter, QVBoxLayout, QWidget)
@@ -37,17 +41,25 @@ import net
 from ui import help_window, icons, tasks, theme
 from ui.eq_page_parts import Elided, NameCombo
 from ui.search_combo import natural_key
-from ui.window_parts import fit_to_screen
+from ui.theme_sheet import CARD
+from ui.window_parts import Footer, fit_to_screen
 
 LIMIT_ALL, LIMIT_ONE = {"pc": 40, "db": 120}, 400
 FIRST_ROWS, ROWS_AT_ONCE = 30, 8  # rows made at once when the list changes, then a batch at a time
-STATUS_LEAST = 260  # (px: the status line beside the buttons while it has this much, about three lines; else above them)
 CHOICE_MOST = 220   # (px: a filter's box asks for at most this much to show its choice whole; a longer one ends in "…")
 FORMS = {"iem": "IEM", "hp": "Headphone", "earbud": "Earbud"}
 SOURCES = [("", "All"), ("app", "In the app"), ("pc", "This PC"), ("db", "Online databases")]
 ANY = {"rig": "", "form": "", "site": "", "sure": False, "dl": False}
 _DB_MADE = {}  # (kind, any kind) -> (the online list, the page's meta, its rows): kept from one Find… to the next
 _DB_SORTED = {}  # "items" -> (the online list as it came, the same A to Z): sorted once, off the window's thread
+
+
+def _keeping_room(w):
+    """w, keeping its room when it's hidden (a row without that button: the next ones stay in their column)."""
+    keep = w.sizePolicy()
+    keep.setRetainSizeWhenHidden(True)
+    w.setSizePolicy(keep)
+    return w
 
 
 def name_form(s):
@@ -95,9 +107,8 @@ def _share(room, least, low):
 
 class Lines(QLayout):
     """A row of controls that takes two lines when there isn't room for it on one (Find…'s filters: the three boxes,
-    then the ticks under them; its status line, then its buttons under it): on one line while each control has at
-    least what it asks for (add's least: a box what its choice needs, a tick or a button its words, the status line
-    STATUS_LEAST), else the `first` ones on a line and the others under them. The room a line has over goes to the
+    then the ticks under them): on one line while each control has at least what it asks for (add's least: a box
+    what its choice needs, a tick or a button its words), else the `first` ones on a line and the others under them. The room a line has over goes to the
     controls that stretch, in equal widths (none under what it asks for), else, with right, before them (a window's
     buttons at its right). It says how tall it is at a width (height for width), so a window as narrow as the Guide's
     frame for Find… (598 px wide at the app's own size and 523 at its smallest) gives both lines their room; words
@@ -286,9 +297,11 @@ class Picker(QDialog):
         self.db, self.lib = {"items": [], "loading": True}, {"items": [], "scanning": True}
 
         v = QVBoxLayout(self)
+        v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as every window's: UI-RULES 5)
         top = QHBoxLayout()
         self.q = QLineEdit()
-        self.q.setPlaceholderText("Search: a model, a maker, a database…")
+        self.q.setPlaceholderText("Search models, makers and databases…")
+        self.q.setClearButtonEnabled(True)
         self.q.textChanged.connect(lambda _t: self._later.start())
         top.addWidget(self.q, 1)
         self.anykind = QCheckBox("Targets and measurements")
@@ -327,11 +340,17 @@ class Picker(QDialog):
             help_window.tag(w, key)
         self.f_dl.setToolTip("Leave out list-only databases (they don't let other programs download their files)")
         self.f_dl.toggled.connect(lambda on: self.set_filter("dl", on))
-        self.f_clear = QPushButton("Clear filters")
+        self.f_clear = QPushButton("Clear filters")  # (always there, off with no filter on: it made the row jump)
         self.f_clear.clicked.connect(self.clear_filters)
         for w in (self.f_sure, self.f_dl, self.f_clear):
             fl.add(w)
         v.addLayout(fl)
+        # (how many there are where, under the filters, over the list: UI-RULES 21; it was in the footer, where the
+        # window's messages go now)
+        self.status = QLabel()
+        self.status.setWordWrap(True)
+        theme.mark(self.status, role="muted")
+        v.addWidget(self.status)
         self.list = FoundList()  # (its rows laid out again whenever it changes size)
         self.list.setObjectName("findList")  # (its rows' widgets get the whole row: theme_sheet's find_windows)
         self.list.setAccessibleName("Found")
@@ -339,29 +358,19 @@ class Picker(QDialog):
         self.list.itemDoubleClicked.connect(lambda it: it.data(Qt.UserRole) and self.choose(it.data(Qt.UserRole)))
         self.list.currentItemChanged.connect(lambda *_: self._mark_use())
         v.addWidget(self.list, 1)
-        # (the status line beside the buttons, or above them when it would have less than STATUS_LEAST there)
-        bottom = Lines(right=True)
-        self.status = QLabel()
-        self.status.setWordWrap(True)  # (on one line its words kept the window over 1,000 px wide at 10.5 pt)
-        self.status.setAlignment(Qt.AlignLeft | Qt.AlignTop)  # (shorter than its words: its first lines whole; Lines
-        # puts it in the middle of its line otherwise)
-        theme.mark(self.status, role="muted")
-        # (above them, room for two lines: while the lists load it says "Loading online lists…", one line, then two
-        # once they're in, and the Guide's frame, sized while they load, came out a line short at the app's smallest)
-        bottom.add(self.status, first=True, stretch=True, least=STATUS_LEAST, rows=2)
+        # (every window's footer, window_parts.Footer: its other actions at the left, its own message line, Close)
         sources = QPushButton("Sources…")
+        icons.put(sources, "list")
         sources.setToolTip("Which folders on this PC and which online databases Find… searches; add a database")
         sources.clicked.connect(self.open_sources)
-        bottom.add(sources)
         trace = QPushButton("Trace a graph image…")
         icons.put(trace, "trace")
         trace.setToolTip("Only a picture of the graph? Trace it into a curve (as picker.js's link)")
         trace.clicked.connect(lambda: (self.reject(), self.page.open_trace()))
-        bottom.add(trace)
-        close = QPushButton("Close")
-        close.clicked.connect(self.reject)
-        bottom.add(close)
-        v.addLayout(bottom)
+        for b in (sources, trace):
+            b.setAutoDefault(False)
+        self.footer = Footer(self, [sources, trace])
+        v.addWidget(self.footer)
         self._later = QTimer(self, singleShot=True, interval=80, timeout=self.render)
         self._pending, self._more = [], QTimer(self, singleShot=True, interval=0, timeout=self._make_more)
         self._poll = QTimer(self, interval=500, timeout=self._load)
@@ -619,7 +628,7 @@ class Picker(QDialog):
             chk.setChecked(bool(f[key]))
             chk.blockSignals(False)
         self.f_dl.setVisible(self.kind != "target")
-        self.f_clear.setVisible(any(f.values()))
+        self.f_clear.setEnabled(any(f.values()))
         self.filter_lines.invalidate()  # (the boxes' choices changed: the room they ask for too)
 
     # ---------------------------------------------------------------- the list
@@ -764,17 +773,6 @@ class Picker(QDialog):
         w = QWidget()
         h = QHBoxLayout(w)
         h.setContentsMargins(8, 3, 8, 3)  # (8: clear of the accent's bar beside a chosen row, level with the headings)
-        prev = self.page.preview_on(r["key"])
-        eye = QPushButton("Hide" if prev else "Show")
-        eye.setToolTip("Take it off the graph" if prev else "Show it on the graph (without using it)")
-        eye.clicked.connect(lambda _=False, r=r: self.preview(r))
-        keep = eye.sizePolicy()  # (hidden, its room kept: every row's name starts at the same place)
-        keep.setRetainSizeWhenHidden(True)
-        eye.setSizePolicy(keep)
-        h.addWidget(eye)
-        # (only once it's in the row: shown before, a button with no parent is a window of its own, and every row
-        # flashed one on the screen while the lists loaded: the user saw them, and each cost the window's time)
-        eye.setVisible(not r.get("link"))
         text = QVBoxLayout()
         text.setSpacing(0)
         # (a long name ends in "…", never the buttons cut: it was cut mid-letter, "…(L800 IEI", in the Guide's frame)
@@ -799,28 +797,7 @@ class Picker(QDialog):
             theme.mark(other, role="muted")
             other.setToolTip(f"Filed as a {'measurement' if self.kind == 'target' else 'target'}")
             h.addWidget(other)
-        if r["src"] == "app":
-            if r.get("device"):
-                b = FilesButton(r["device"]["name"] in self.expanded)  # (Windows 11's chevron after "Files")
-                b.setToolTip("Tick or untick single files (seatings, left and right)")
-                b.clicked.connect(lambda _=False, d=r["device"]["name"]: self.toggle_expand(d))
-                h.addWidget(b)
-                x = QPushButton("✕")
-                theme.mark(x, quiet=True)  # (no fill until pointed at, as every ✕)
-                x.setToolTip(f"Delete {r['device']['name']} from the app")
-                x.clicked.connect(lambda _=False, d=r["device"]: self.remove("measurement", [f["name"] for f in d["files"]], d["name"]))
-                h.addWidget(x)
-            else:
-                mv = QPushButton("→ Measurement")
-                mv.setToolTip("It's a measurement: move it to Measurement")
-                mv.clicked.connect(lambda _=False, n=r["file"]: self.move("target", n))
-                h.addWidget(mv)
-                x = QPushButton("✕")
-                theme.mark(x, quiet=True)
-                x.setToolTip("Delete from the app")
-                x.clicked.connect(lambda _=False, n=r["file"]: self.remove("target", [n], n))
-                h.addWidget(x)
-        elif r.get("link"):
+        if r.get("link"):
             ext = QLabel("open on site ↗")
             theme.mark(ext, role="muted")
             ext.setToolTip("This site doesn't let other programs download its files: Use opens it on the site")
@@ -831,11 +808,44 @@ class Picker(QDialog):
             dl.setToolTip("Downloads when used")
             dl.setAccessibleName("Downloads when used")  # (a screen reader read its symbol's character, as nothing)
             h.addWidget(dl)
+        # (the row's buttons at its right end as every list's, UI-RULES 18: Preview, the row's own, Use (the main one)
+        # last, then the ✕ apart; a button a row hasn't got keeps its room, so every Use is in one column)
+        prev = self.page.preview_on(r["key"])
+        eye = QPushButton("Hide" if prev else "Preview")  # ("Show" puts an EQ on the result card: UI-RULES 16)
+        eye.setMinimumWidth(QFontMetrics(eye.font()).horizontalAdvance("Preview") + 2 * 12 + 2)
+        eye.setToolTip("Take it off the graph" if prev else "Show it on the graph, dotted, without using it")
+        eye.clicked.connect(lambda _=False, r=r: self.preview(r))
+        h.addWidget(_keeping_room(eye))
+        # (only once it's in the row: shown before, a button with no parent is a window of its own, and every row
+        # flashed one on the screen while the lists loaded: the user saw them, and each cost the window's time)
+        eye.setVisible(not r.get("link"))
+        x = QPushButton()  # (deleted for good: the bin, UI-RULES 10; quiet, no fill until pointed at, as every row's)
+        icons.put(x, "delete")
+        theme.mark(x, quiet=True)
+        if r["src"] == "app":
+            if r.get("device"):
+                b = FilesButton(r["device"]["name"] in self.expanded)  # (Windows 11's chevron after "Files")
+                b.setToolTip("Tick or untick single files (seatings, left and right)")
+                b.clicked.connect(lambda _=False, d=r["device"]["name"]: self.toggle_expand(d))
+                h.addWidget(b)
+                x.setToolTip(f"Delete {r['device']['name']} from the app")
+                x.clicked.connect(lambda _=False, d=r["device"]: self.remove("measurement", [f["name"] for f in d["files"]], d["name"]))
+            else:
+                mv = QPushButton("→ Measurement")
+                mv.setToolTip("It's a measurement: move it to Measurement")
+                mv.clicked.connect(lambda _=False, n=r["file"]: self.move("target", n))
+                h.addWidget(mv)
+                x.setToolTip("Delete from the app")
+                x.clicked.connect(lambda _=False, n=r["file"]: self.remove("target", [n], n))
+        x.setAccessibleName(x.toolTip() or "Delete from the app")
         use = QPushButton("Use")
         use.setObjectName("findUse")  # (the accent only on the one Enter presses: _mark_use)
         use.setEnabled(self.busy is None)
         use.clicked.connect(lambda _=False, r=r: self.choose(r))
         h.addWidget(use)
+        h.addSpacing(8)  # (the ✕ apart from Use, the main action: UI-RULES 14)
+        h.addWidget(_keeping_room(x))
+        x.setVisible(r["src"] == "app")
         self._place(it, w)
 
     def _place(self, it, w):
@@ -863,9 +873,12 @@ class Picker(QDialog):
         mv.setToolTip("It's a target: move it to Target")
         mv.clicked.connect(lambda _=False, n=fl["name"]: self.move("measurement", n))
         h.addWidget(mv)
-        x = QPushButton("✕")
+        h.addSpacing(8)  # (the bin apart, as every row's: UI-RULES 14)
+        x = QPushButton()  # (deleted for good: the bin, UI-RULES 10)
+        icons.put(x, "delete")
         theme.mark(x, quiet=True)
         x.setToolTip("Delete from the app")
+        x.setAccessibleName(f"Delete {fl['name']} from the app")
         x.clicked.connect(lambda _=False, n=fl["name"]: self.remove("measurement", [n], n))
         h.addWidget(x)
         self._place(it, w)
@@ -915,13 +928,13 @@ class Picker(QDialog):
         if self.busy:
             return
         if r.get("link"):
-            if net.offline():
-                QMessageBox.information(self, "Offline", "This database's entries open on its website, and AutoEQ "
-                                        "Studio is offline. Switch to Online (top right) to open it.")
+            if net.offline():  # (said in this window's line, as every "Offline: …", UI-RULES 7)
+                self.footer.say("Offline: this database's entries open on its website. Switch to Online (top right) "
+                                "to open it.", 10000)
                 return
             QDesktopServices.openUrl(QUrl(r["link"]))
-            self.page.status(f"{r['sub'].split(' · ')[-1]} doesn't let other programs download its files, so it opened "
-                             "on the site.", 10000)
+            self.footer.say(f"{r['sub'].split(' · ')[-1]} doesn't let other programs download its files, so it opened "
+                            "on the site.", 10000)
             return
         if r["src"] == "app":
             if r.get("device"):
@@ -941,7 +954,7 @@ class Picker(QDialog):
             if err or (res or {}).get("error"):
                 if here:
                     self.busy = None
-                    QMessageBox.warning(self, "Couldn't use it", str(err or res["error"]))
+                    QMessageBox.warning(self, "Use", str(err or res["error"]))
                     self.render()
                 return
             page.used(res)
@@ -955,8 +968,8 @@ class Picker(QDialog):
             self.page.remove_preview(r["key"])
             self.render()
             return
-        if not self.page.curves:
-            QMessageBox.information(self, "Show", "Choose a target and a measurement first: a curve is shown beside them.")
+        if not self.page.curves:  # ("do this first", said in this window's line: UI-RULES 25)
+            self.footer.say("Choose a target and a measurement first: a preview is drawn beside them.")
             return
         loading = self.__dict__.setdefault("_showing", set())
         if r["key"] in loading:  # (pressed again while it loads)
@@ -967,7 +980,7 @@ class Picker(QDialog):
         def done(res, err):
             loading.discard(r["key"])
             if err or (res or {}).get("error"):
-                QMessageBox.warning(self, "Couldn't show it", str(err or res["error"]))
+                QMessageBox.warning(self, "Preview", str(err or res["error"]))
             else:
                 self.page.add_preview(r["key"], res["name"], res["vals"], self.body(r))
             self.render()
@@ -996,8 +1009,9 @@ class Picker(QDialog):
 
     def remove(self, kind, names, label):
         if QMessageBox.question(self, "Delete", f"Delete “{label}” ({len(names)} file{'s' if len(names) != 1 else ''}) "
-                                "from the app? (A copy you have elsewhere stays.)") != QMessageBox.Yes:
-            return
+                                "from the app? (A copy you have elsewhere stays.)",
+                                QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
+            return  # (No the default: it can't be undone, UI-RULES 17)
         r = self.svc.call("/api/files/remove", {"kind": kind, "names": names, "settings": self.page.S})
         if r.get("error"):
             QMessageBox.warning(self, "Delete", r["error"])

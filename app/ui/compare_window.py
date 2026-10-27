@@ -16,7 +16,9 @@ graph's own colours (blue the recommended one, green the average: never the acce
 colour), drawn again when the theme changes; a note to heed as a warning box (its symbol read as "Warning"); each
 measurement and each average a card (its words starting where every card's do), filled while the mouse is over it;
 the accent on one button only, the main action: the first average's when one is offered, else the first
-measurement's Use (Compare is plain: Enter in the model's box runs it).
+measurement's Use (Search is plain: Enter in the model's box runs it); an average's button under its ticks, after
+what it depends on. Its title is its button's words (Measurement's "Other measurements of this model…"); nothing
+found is said in the list; its footer is every window's (window_parts.Footer: Close).
 Its size kept within the screen's free room (window_parts.fit_to_screen): on a short screen (a laptop at 150 %) the
 chart and the measurements' list give up height, so Close stays in sight.
 """
@@ -33,7 +35,8 @@ import net
 from ui import help_window, icons, tasks, theme
 from ui.forms import Fold
 from ui.search_combo import SearchCombo
-from ui.window_parts import fit_to_screen
+from ui.theme_sheet import CARD
+from ui.window_parts import Footer, fit_to_screen, warning_card
 
 TICKS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
 # (a measurement's or an average's box is a card frame, whose padding leaves 4 px for its layout's own margin: with Qt's
@@ -63,7 +66,7 @@ class CompareWindow(QDialog):
         super().__init__(page)
         self.page, self.svc = page, page.svc
         self.data, self.hot, self.avg_hot, self.picked, self.busy, self.again = None, -1, None, {}, False, None
-        self.setWindowTitle("Which measurement to use?")
+        self.setWindowTitle("Other measurements of this model")  # (its button's words, UI-RULES 17)
         # (Qt's own minimum counts each wrapped line of text once, and then squeezed the chart's card, cutting off its
         # scale: room here for the note and the legend on two lines each. Both kept within the screen's free room: on
         # a short screen the chart and the measurements' list give up what its smallest size is lower, each keeping
@@ -73,13 +76,17 @@ class CompareWindow(QDialog):
         chart_min = max(60, both * 150 // 270)
         list_min = max(40, both - chart_min)
         v = QVBoxLayout(self)
+        v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as every window's)
         top = QHBoxLayout()
         top.addWidget(QLabel("Model"))
         self.q = QLineEdit()
         self.q.setPlaceholderText("e.g. Truthear Gate")
+        self.q.setClearButtonEnabled(True)
         self.q.returnPressed.connect(lambda: self.run())
         top.addWidget(self.q, 1)
-        self.go = QPushButton("Compare")  # (plain: the accent is the main action's, a measurement's or an average's)
+        # (plain: the accent is the main action's, a measurement's or an average's. "Search", what it does: it was
+        # "Compare", the result card's word for two EQs side by side)
+        self.go = QPushButton("Search")
         icons.put(self.go, "find")
         self.go.clicked.connect(lambda: self.run())
         top.addWidget(self.go)
@@ -101,17 +108,7 @@ class CompareWindow(QDialog):
         self.status.setWordWrap(True)
         theme.mark(self.status, role="muted")
         v.addWidget(self.status)
-        self.note_box = QFrame()  # (a note to heed: a warning box, as Windows 11's)
-        theme.mark(self.note_box, card="warn")
-        nb = QHBoxLayout(self.note_box)
-        nb.setContentsMargins(4, 0, 4, 0)
-        mark = QLabel(chr(int(icons.GLYPHS["warning"], 16)))  # (Windows 11's symbol: whichNoteMark)
-        mark.setObjectName("whichNoteMark")
-        mark.setAccessibleName("Warning")  # (a screen reader read its symbol's character, as nothing)
-        nb.addWidget(mark, 0, Qt.AlignTop)
-        self.note = QLabel()
-        self.note.setWordWrap(True)
-        nb.addWidget(self.note, 1)
+        self.note_box, self.note = warning_card("")  # (a note to heed: every window's warning bar, Windows 11's)
         self.note_box.hide()
         v.addWidget(self.note_box)
         self.chart = pg.PlotWidget()
@@ -148,12 +145,8 @@ class CompareWindow(QDialog):
         text.setWordWrap(True)
         how.add(text)
         v.addWidget(how)
-        close = QPushButton("Close")
-        close.clicked.connect(self.reject)
-        row = QHBoxLayout()
-        row.addStretch(1)
-        row.addWidget(close)
-        v.addLayout(row)
+        self.footer = Footer(self)
+        v.addWidget(self.footer)
         _redraw_on_theme(self)
         self.open_query()
 
@@ -170,10 +163,10 @@ class CompareWindow(QDialog):
         auto = f"{rigs.get(r['target_rig'], r['target_rig'])} ({r.get('how')})" if r.get("target_rig") else "not known"
         self.rig.clear()
         self.rig.addItem(f"Automatic: {auto}", "")
+        self.rig.addItem("Don't know / ignore the rig", "none")
         for k, name in rigs.items():
             self.rig.addItem(name, k)
-        self.rig.addItem("Don't know / ignore the rig", "none")
-        self.rig.sort_items(pinned=1)  # ("Automatic" on top)
+        self.rig.sort_items(pinned=2)  # ("Automatic" and "Don't know" on top, the rigs A to Z under them: UI-RULES 22)
         self.target_lab.setText(f"Target {(r.get('target') or 'not chosen').rsplit('.', 1)[0]} is made for")
         self.q.setText(r.get("query") or "")
         if self.q.text().strip():
@@ -238,9 +231,7 @@ class CompareWindow(QDialog):
     def render(self):
         d = self.data
         n = len(d["items"])
-        st = (f"{n} measurement{'s' if n != 1 else ''} of “{d['query']}”. " if n else
-              f"None of the measurements of “{d['query']}” could be loaded. " if d.get("errors") else
-              f"Nothing called “{d['query']}” was found. Try fewer words (e.g. just the model). ")
+        st = f"{n} measurement{'s' if n != 1 else ''} of “{d['query']}”. " if n else ""
         st += (f"Your target is made for the {d['target_rig_name']}." if d.get("target_rig") else
                "Your target's rig isn't known, so the rig isn't scored (choose it above if you know it).")
         self.status.setText(st)
@@ -254,6 +245,12 @@ class CompareWindow(QDialog):
             lay.addWidget(w)
         for i, c in enumerate(d["items"]):
             lay.addWidget(self._row(i, c, main_action=i == 0 and not averages))
+        if not n:  # (said in the list, where they'd be: UI-RULES 21)
+            none = QLabel(f"None of the measurements of “{d['query']}” could be loaded." if d.get("errors") else
+                          f"Nothing called “{d['query']}” was found. Try fewer words (e.g. just the model).")
+            none.setWordWrap(True)
+            theme.mark(none, role="muted")
+            lay.addWidget(none)
         if d.get("errors"):
             err = QLabel("Couldn't load: " + "; ".join(d["errors"]))
             err.setWordWrap(True)
@@ -388,11 +385,10 @@ class CompareWindow(QDialog):
             theme.mark(sub, role="muted")
             words.addWidget(sub)
             head.addLayout(words, 1)
-            btn = QPushButton()
+            bv.addLayout(head)
+            btn = QPushButton()  # (under the ticks it depends on, at the right as a measurement's Use: added below)
             if not out:  # (the first average offered)
                 theme.mark(btn, primary=True)
-            head.addWidget(btn)
-            bv.addLayout(head)
             note = QLabel()
             note.setWordWrap(True)
             names = {" ".join(re.sub(r"[^a-z0-9]+", " ", c["name"].lower()).split()) for c in lst}
@@ -415,6 +411,10 @@ class CompareWindow(QDialog):
                 cb.toggled.connect(lambda on, h=c["hash"], sel=sel, update=update: (sel.add(h) if on else sel.discard(h), update()))
                 bv.addWidget(cb)
             bv.addWidget(note)
+            go = QHBoxLayout()
+            go.addStretch(1)
+            go.addWidget(btn)
+            bv.addLayout(go)
             btn.clicked.connect(lambda _=False, lst=lst, sel=sel, btn=btn: self.average(lst, sel, btn))
             update()
             out.append(box)
@@ -478,7 +478,7 @@ class CompareWindow(QDialog):
             if err or (res or {}).get("error"):
                 if here:
                     btn.setEnabled(True)
-                    QMessageBox.warning(self, "Couldn't use it", str(err or res["error"]))
+                    QMessageBox.warning(self, "Use", str(err or res["error"]))
                 return
             page.used(res)
             if here:
@@ -497,7 +497,7 @@ class CompareWindow(QDialog):
             here = tasks.alive(self)
             if err or (res or {}).get("error"):
                 if here:
-                    QMessageBox.warning(self, "Couldn't average", str(err or res["error"]))
+                    QMessageBox.warning(self, "Average and use", str(err or res["error"]))
                     btn.setEnabled(True)
                     btn.setText(f"Average {len(keys)} and use")
                 return

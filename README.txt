@@ -106,8 +106,8 @@ One column, top to bottom:
   there. The shaded ends aren't scored; a target converted to another rig has a band showing how far off it may be.
 - Target and Measurement: the files in the app, A to Z (numbers as numbers: "IEM 2" before "IEM 10"; a
   measurement is a set: left and right, or several seatings). Add…
-  takes files from this PC; Find… (or the / key) searches the app, this PC and the online databases (Show draws one
-  on the graph, dotted: "Hide shown curves" takes them off; Use takes it, and Undo under the files puts back what you
+  takes files from this PC; Find… (or the / key) searches the app, this PC and the online databases (Preview draws one
+  on the graph, dotted: "Hide shown curves" takes them off; Use takes it, and Undo at the bottom of the window puts back what you
   had; Sources… chooses where it looks: this PC's folders, each online database on or off, another squig.link-style
   database added from squig.link's list or by its address; its results are A to Z in each part, and the Rig, Type
   and Source filters' lists are A to Z with a search box at the top: type part of a name to find it); "Other measurements of this model…" ranks every measurement of your IEM for the target (Which measurement to
@@ -135,7 +135,7 @@ One column, top to bottom:
   Amount with − and + (or ↑ ↓ and the mouse wheel in the box; the graph follows), then Hz and Q (greyed while the
   amount is 0). "Reset adjustments" puts them back to 0; "Save as a
   target…" keeps the target as adjusted as a target of your own, in use (the adjustments go back to 0: they're in it
-  now; Undo in the notice puts it all back).
+  now; Undo, at the bottom of the window, puts it all back).
 - Your result: its error, pre-amp, biggest boost and Max Q, "Runs this session" (an earlier run back), "Fewer or more
   filters" (the best result for each count; "All results…" lists every result the run tried, with a grid of the
   error by filter count and max Q; "Compare…" puts two EQs side by side: this one, another filter count or run, or

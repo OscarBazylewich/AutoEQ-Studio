@@ -111,12 +111,13 @@ def open_at(entry_id=None):
 class HelpWindow(QWidget):
     def __init__(self):
         super().__init__(None, Qt.Window)
-        self.setWindowTitle("Help: terms and questions · AutoEQ Studio")
+        self.setWindowTitle("Help - AutoEQ Studio")  # (a window of its own: Windows' " - " and the app's name, UI-RULES 3)
         fit_to_screen(self, (1000, 760))  # (within the screen's room: 760 high was under a laptop's taskbar at 150 %)
         self.sections = _entries()
         self.lit = None
         h = QHBoxLayout(self)
         side = QVBoxLayout()
+        side.setContentsMargins(0, 0, 0, 0)  # (its column lined up with the page beside it: Qt's 9 px put it lower)
         self.q = QLineEdit()
         self.q.setPlaceholderText("Search the help…")
         self.q.setClearButtonEnabled(True)

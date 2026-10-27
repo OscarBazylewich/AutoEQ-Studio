@@ -404,7 +404,7 @@ SETTINGS_EQ = [{'title': 'Choosing and running',
                                     "as in the table, on the filter's own curve at its frequency (a shelf's handle "
                                     'half way up its shelf). Drag one: left and right moves its frequency, up and '
                                     'down its gain. The mouse wheel over it: its Q (up: narrower). Right-click it: '
-                                    'Peak, Low shelf or High shelf, Switched on, Delete. Double-click where there is '
+                                    'Peak, Low shelf or High shelf, Switched on, Remove. Double-click where there is '
                                     'no handle: a new filter there (with no EQ shown, an EQ by hand begins with it).',
                                     'While you drag, the curves, the numbers, the table and what Listen plays follow; '
                                     'the scale stays put until you let go. An EQ you are trying on a device (Use on '
@@ -557,7 +557,7 @@ SETTINGS_EQ = [{'title': 'Choosing and running',
                            'body': ['EQs to hear side by side on this IEM or headphone: each is a version above (keys '
                                     '1–9) and, while Graph is ticked, a curve on the graph. Add the EQ on the result '
                                     'card (Keep to compare, or “The selected EQ” under the list), one from History '
-                                    '(Listen), an EQ file or pasted filters. Edit a name to rename it. Each '
+                                    '(Keep to compare), an EQ file or pasted filters. Edit a name to rename it. Each '
                                     'measurement has its own list, kept between sessions (up to 12).']}]},
                {'title': 'Finding curves and History',
                 'items': [{'key': '#pk-anykind',
@@ -681,7 +681,8 @@ SETTINGS_EQ = [{'title': 'Choosing and running',
                                     'Hz: where it acts (a shelf from there on, the ear gain around it). Q: how steep '
                                     'a shelf is, or how wide the ear gain. Hz and Q are greyed while the amount is 0, '
                                     'since they do nothing then. Beside Adjust, what is adjusted. Reset adjustments '
-                                    'puts them all back to 0 (Undo, in the notice, brings them back).'],
+                                    'puts them all back to 0 (Undo, beside the message at the bottom of the window, '
+                                    'brings them back).'],
                            'see': ['target-adjustments']},
                           {'key': '#target-save',
                            'title': 'Save as a target…',
@@ -689,7 +690,8 @@ SETTINGS_EQ = [{'title': 'Choosing and running',
                                     'target as adjusted as a target of your own (in the app\'s targets, under the name '
                                     'you give), puts it in use and sets the adjustments back to 0, since they are in it '
                                     'now. It is made for the original target\'s rig and converted for a measurement '
-                                    'the same way. Undo, in the notice, puts everything back.']}]},
+                                    'the same way. Undo, beside the message at the bottom of the window, puts '
+                                    'everything back.']}]},
                {'title': 'Presets',
                 'items': [{'key': '#presets',
                            'title': 'Presets (top bar, on Make an EQ)',
@@ -698,7 +700,7 @@ SETTINGS_EQ = [{'title': 'Choosing and running',
                                     'scoring, Advanced. Not your files: the target and measurement stay as they are. '
                                     'Keep one per use, e.g. one for the website and one for Equalizer APO.',
                                     'Save current settings as… asks for a name (the same name again replaces that '
-                                    'preset); click a preset to load all its settings, and Undo in the notice puts the '
+                                    'preset); click a preset to load all its settings, and Undo, beside the message at the bottom, puts the '
                                     'ones before back. Delete a preset removes one; Reset all settings… puts every '
                                     'setting back to its default (your files and presets are kept). Presets are files '
                                     'in your Presets folder (Settings › Your files).']}]}]

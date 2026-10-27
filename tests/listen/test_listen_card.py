@@ -117,13 +117,15 @@ def test_version_in_each_ear_and_swap(card, check):
 
 
 def test_history_listen_for_another_iem(card, check):
-    page, lis, said, entry, n = card.page, card.lis, card.said, card.entry, card.n
+    page, lis, entry, n = card.page, card.lis, card.entry, card.n
     hw = HistoryWindow(page, True)
-    hw.listen_to(dict(entry, device="Another IEM", filters=[dict(f, gain=f["gain"] - 1) for f in entry["filters"]]))
+    hw.keep_to_compare(dict(entry, device="Another IEM", filters=[dict(f, gain=f["gain"] - 1) for f in entry["filters"]]))
+    told = hw.footer.line.text.text()  # (said in History's own line, not the window's behind it: UI-RULES 7)
     hw.close()
     # was eq_checks.py:2971
-    check("listen: History's Listen adds an EQ made for another IEM, and says it won't sound as intended",
-          len(lis.pins) == n + 2 and "made for Another IEM" in lis.pins[-1]["note"] and "won't sound" in said[-1], said[-1:])
+    check("listen: History's Keep to compare adds an EQ made for another IEM, and says in History's own line that it "
+          "won't sound as intended", len(lis.pins) == n + 2 and "made for Another IEM" in lis.pins[-1]["note"]
+          and "won't sound" in told, told)
 
 
 def test_device_eq_said(card, check):
@@ -225,9 +227,9 @@ def test_tone_shown_pasted_eq_and_undo(card, check):
     lis._add_text("Filter 1: ON PK Fc 333 Hz Gain 2 dB Q 1", "Pasted check", "pasted")
     pasted_note = lis.pins[-1]["note"] if lis.pins else ""
     lis._remove(lis.pins[-1])
-    undo_shown = lis.undo_row.isVisibleTo(lis)
+    undo_shown = card.s.undo_offered()  # (Undo beside the message, in the window's line)
     n = len(lis.pins)
-    lis.undo_btn.click()
+    card.s.undo()
     # was eq_checks.py:1921
     check("review: Listen: the tone's frequency shown from the start; a pasted EQ says so; ✕ offers Undo, which puts it back",
           tone_text.endswith("Hz") and pasted_note == "pasted" and undo_shown and len(lis.pins) == n + 1,

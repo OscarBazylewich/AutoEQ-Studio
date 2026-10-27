@@ -60,10 +60,19 @@ def test_history_window_lists_and_removes(eq_screen, chain, check):
     page, kept = eq_screen.page, chain["kept"]
     hw = HistoryWindow(page, True)  # (lines 1589-1591: this IEM only, never shown)
     rows = len(hw.scroll.widget().findChildren(QFrame))
+    was = next(e for e in page.history if e["key"] == kept[0]["key"])  # (as it is now: Copy kept it again since)
     hw.remove([kept[0]["key"]])
+    gone = not any(e["key"] == kept[0]["key"] for e in page.history)
+    # (2026-10-27, UI-RULES 20: Undo beside it, in History's own line; it puts the entry back as it was, its time too)
+    line = hw.footer.line
+    offered = (line.text.text().startswith("Removed"), line.undo_btn.isVisibleTo(hw))
+    line.undo_btn.click()
+    back = next((e for e in page.history if e["key"] == kept[0]["key"]), None)
+    hw.remove([kept[0]["key"]])  # (taken out again: the checks after this one find it gone, as before)
     # was eq_checks.py:1592
-    check("ui: the History window lists the EQs (this IEM only) and ✕ removes one", rows >= 1 and not any(
-          e["key"] == kept[0]["key"] for e in page.history), rows)
+    check("ui: the History window lists the EQs (this IEM only) and ✕ removes one, with Undo in its own line that "
+          "puts it back as it was", rows >= 1 and gone and offered == (True, True) and back is not None
+          and back["when"] == was["when"], (rows, gone, offered, back and back["when"], was["when"]))
     hw.close()
 
 
@@ -170,14 +179,14 @@ def test_history_look_follows_the_theme(made_up_history, eq_screen, check):
     check("history: a row's target is in the theme's quieter colour, redone when Windows switches light/dark (it kept "
           "the colour it was drawn in)", follows, {"light": light["heads"][:1], "dark": dark["heads"][:1]})
     # (2026-10-23, the restyle's checkers: Show has its symbol too now, and its accent on the first row only, below)
-    check("history: Copy and Listen show Windows 11's symbols beside their words (Show, the main one, its accent); ✕ "
-          "is a subtle button: the row's card shows through it, light and dark",
-          {"Copy", "Listen"} <= set(symbols) and any(accent for accent, _symbol in shows)
+    check("history: Copy and Keep to compare show Windows 11's symbols beside their words (Show, the main one, its "
+          "accent); ✕ is every row's quiet button: the row's card shows through it, light and dark",
+          {"Copy", "Keep to compare"} <= set(symbols) and any(accent for accent, _symbol in shows)
           and all(_near(*d["under ✕"]) for d in (light, dark)), (symbols, shows, light["under ✕"], dark["under ✕"]))
     check("history: only the first row's Show (the newest) is in the accent, the others plain (every row's was: a "
-          "column of accent buttons); every Show has Windows 11's symbol beside its words, as Copy and Listen",
+          "column of accent buttons); every Show has Windows 11's symbol beside its words, as Copy and Keep to compare",
           len(shows) == 3 and [accent for accent, _symbol in shows] == [True, False, False]
-          and all(symbol for _accent, symbol in shows) and symbols == ["Copy", "Listen", "Show"], (shows, symbols))
+          and all(symbol for _accent, symbol in shows) and symbols == ["Copy", "Keep to compare", "Show"], (shows, symbols))
 
 
 def test_history_rows_whole_at_its_smallest(made_up_history, check):

@@ -280,8 +280,8 @@ def window_screens(t, img):
     Enter gives in the accent).
     - a symbol in front of words (glyph=true: the warning sign on the banner, the trial's clock), in its role's colour
     - the status line, its words lined up with the screens'
-    - Devices: a profile's ✕ (#takeOff: a quiet button, filled when pointed at); Add a profile's chevron is every
-      menu button's (buttons()), the tray menu's headings every menu's notes (scroll_areas_and_menus())
+    - Devices: a profile's ✕ is every row's (quiet=true, buttons()); Add a profile's chevron is every menu button's
+      (buttons()), the tray menu's headings every menu's notes (scroll_areas_and_menus())
     - Profiles: the table's words under their headings (#profileTable)
     - Set up (#setUp): the words on the card colour, the buttons on a band in the window's colour (#dialogFooter)
     - message boxes' buttons made wider by their padding (a min-width is a fixed minimum in Qt: a message box then
@@ -293,10 +293,6 @@ def window_screens(t, img):
     QLabel#trialGlyph {{ color: {t['accent_text']}; }}
     QStatusBar#windowStatus::item {{ border: none; }}
     QStatusBar#windowStatus QLabel {{ color: {t['ink2']}; padding-left: 8px; }}
-    QToolButton#takeOff {{ background: transparent; border: 1px solid transparent; color: {t['ink2']};
-        padding: 4px 9px; }}
-    QToolButton#takeOff:hover {{ background: {t['subtle_hover']}; color: {t['ink']}; }}
-    QToolButton#takeOff:pressed {{ background: {t['subtle_press']}; }}
     QTableWidget#profileTable::item {{ padding: 0px 5px; }}
     QDialog#setUp {{ background: {t['card']}; }}
     QDialog#setUp QListWidget::item {{ padding: 3px 8px; }}
@@ -312,15 +308,11 @@ def window_screens(t, img):
 def eq_screen(t, img):
     """Make an EQ: its cards, settings folds, result card, notices. Its own properties: eqtitle (the graph's title,
     the result's name: a little bigger than a card's heading, in Windows 11's display type), eqsub (a fold inside a
-    card, the Target card's Adjust: body text, quieter than the card's title, as Windows 11's expanders), eqsubtle (a
-    button with no fill until it's pointed at: the notice's ✕, as the close button of Windows 11's information bar).
+    card, the Target card's Adjust: body text, quieter than the card's title, as Windows 11's expanders).
     (The menus its Guide draws, a submenu's chevron too, are the Guide's own: guide_and_help's #tourMock.)"""
     return f"""
     QLabel[eqtitle="true"] {{ font-family: "Segoe UI Variable Display"; font-size: {FONT + 1.5}pt; font-weight: 600; }}
     QToolButton[eqsub="true"] {{ font-size: {FONT}pt; font-weight: 400; }}
-    QPushButton[eqsubtle="true"] {{ background: transparent; border-color: transparent; }}
-    QPushButton[eqsubtle="true"]:hover {{ background: {t['subtle_hover']}; }}
-    QPushButton[eqsubtle="true"]:pressed {{ background: {t['subtle_press']}; color: {t['ink2']}; }}
 """
 
 
@@ -328,20 +320,13 @@ def eq_windows(t, img):
     """Make an EQ's own windows: the filter editor, All results, Compare, Run several, History. Their controls by
     object names of their own (eqw…): the filter table's boxes a little apart (the table has no grid lines) and its
     headings 3 px further in, so Type's (at the left) starts where its drop-downs' words do, inside their border and
-    padding (the centred ones stay centred over their values); ✕ (delete a filter, take an EQ out of History) as
-    Windows 11's subtle buttons, without a fill until pointed at; a switched-off filter's slider with its thumb's ring
+    padding (the centred ones stay centred over their values); a switched-off filter's slider with its thumb's ring
     and a grey dot (Windows 11's), not a flat square; the pre-amp's bar as a slider's empty track; the error grid's
     corner as its headings; room at the left of the tables' cells, so their words start under their headings (Run
     several's, All results' grid and table, Compare's numbers and filters: Windows 11's table look, no grid lines)."""
     return f"""
     QTableWidget#eqwFilters QLineEdit, QTableWidget#eqwFilters QComboBox {{ margin: 1px 2px; }}
     QTableWidget#eqwFilters QHeaderView::section {{ padding-left: 11px; padding-right: 11px; }}
-    QToolButton#eqwDelete, QPushButton#eqwDelete {{ background: transparent; border: 1px solid transparent;
-        color: {t['ink2']}; }}
-    QToolButton#eqwDelete:hover, QPushButton#eqwDelete:hover {{ background: {t['subtle_hover']}; color: {t['ink']}; }}
-    QToolButton#eqwDelete:pressed, QPushButton#eqwDelete:pressed {{ background: {t['subtle_press']};
-        color: {t['ink2']}; }}
-    QToolButton#eqwDelete:disabled, QPushButton#eqwDelete:disabled {{ background: transparent; color: {t['disabled']}; }}
     QSlider#eqwGain::handle:vertical:disabled {{ border: 1px solid {t['stroke']}; background: qradialgradient(cx:0.5,
         cy:0.5, radius:0.5, fx:0.5, fy:0.5, stop:0 {t['disabled']}, stop:0.48 {t['disabled']}, stop:0.56 {t['thumb']},
         stop:1 {t['thumb']}); }}
@@ -362,17 +347,16 @@ def find_windows(t, img):
     up while its files are shown.
     Sources: its tree of databases as the lists (a card with rounded corners, whole rows filled when pointed at or
     chosen; their ticks say which are on). Which measurement: the rank, a measurement's name, its reasons (+ good,
-    − not), the warning symbol of a note to heed, its chart's card, and a box filled while the mouse is over it (its
-    curve is the one on top)."""
+    − not), its chart's card, and a box filled while the mouse is over it (its curve is the one on top); a note to
+    heed is every window's warning bar (window_parts.warning_card)."""
     return f"""
     QListWidget#findList::item {{ padding: 0px; }}
     QListWidget#findList::item:disabled {{ padding: 0px 8px; }}
     QListWidget#findList::item:disabled:hover {{ background: transparent; }}
     QPushButton#findFiles[open="true"]::menu-indicator {{ image: url({img['chevron_up']}); }}
     QLabel#findRowName {{ font-weight: 600; }}
-    QLabel#findMark, QLabel#whichNoteMark {{ font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets"; font-size: 12pt;
+    QLabel#findMark {{ font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets"; font-size: 12pt;
         color: {t['muted']}; padding: 0px 2px; }}
-    QLabel#whichNoteMark {{ color: {t['warn']}; padding: 1px 4px 0px 0px; }}
     QTreeWidget#sourcesTree {{ background: {t['card']}; border: 1px solid {t['line']}; border-radius: 8px;
         outline: none; padding: 2px; show-decoration-selected: 1; }}
     QTreeWidget#sourcesTree QHeaderView, QTreeWidget#sourcesTree QHeaderView::section {{ background: transparent; }}

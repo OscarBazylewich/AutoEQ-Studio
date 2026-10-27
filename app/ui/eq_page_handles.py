@@ -1,7 +1,7 @@
 """Make an EQ's EQ graph (under the graph) as a place to edit the filters (a part of EqPage, ui/eq_page.py,
 2026-10-26): a handle for each filter of the EQ shown, on its own curve at its frequency (a peak's top, a shelf's
 middle: half its gain), with its number (over it; under it at the graph's top). Drag one: left and right its
-frequency, up and down its gain; the mouse wheel over it: its Q; right-click it: its type, on or off, Delete.
+frequency, up and down its gain; the mouse wheel over it: its Q; right-click it: its type, on or off, Remove.
 Double-click the graph where there's no handle: a new peak there (with no EQ shown, it starts one by hand). While a
 handle is held only what follows it changes (the EQ's curves, the numbers, the table's values, Listen's sound) and the
 graph's scale stays as it was until it's let go: a scale that moved under the pointer made the handle run away from
@@ -218,7 +218,8 @@ class EqHandles:
         on.setCheckable(True)
         on.setChecked(f.get("enabled", True) is not False)
         on.triggered.connect(lambda checked: self._change(i, enabled=bool(checked)))
-        m.addAction("Delete", lambda: self._delete(i))
+        m.addSeparator()  # (set apart: UI-RULES 14; "Remove": the filter off the EQ, not a file gone, UI-RULES 16)
+        m.addAction("Remove", lambda: self._delete(i))
         m.aboutToHide.connect(m.deleteLater)
         self.handle_menu_now = m
         m.popup(QPoint(int(screen_pos.x()), int(screen_pos.y())))

@@ -108,8 +108,6 @@ class EqGraph:
                 p.getAxis(ax).setTextPen(pg.mkPen(col["axis"]))
             p.showGrid(x=True, y=True, alpha=0.25)
         self.legend.setLabelTextColor(col["axis"])  # (pyqtgraph's own grey was 2.9:1 on the light card: the axes')
-        if hasattr(self, "notice_icon"):
-            self._notice_symbol()
         if draw:
             self.draw()
             if hasattr(self, "listen"):

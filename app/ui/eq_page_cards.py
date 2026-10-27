@@ -1,18 +1,18 @@
 """Make an EQ's cards (a part of EqPage, ui/eq_page.py): the page laid out once the EQ part has opened, top to
 bottom: the graph (its title, Trace image, History, View, Y range, Channels), Target, then Measurement (Find…,
-Add…), the notice with Undo, Make the EQ (your EQ app, the method, the search, Run), the settings' folds
+Add…), Make the EQ (your EQ app, the method, the search, Run), the settings' folds
 (ui/eq_settings.py), Your result (its numbers, the filters, File name, Save filters, Use on device) and Listen
 (ui/listen.py). This is the file to restyle Make an EQ in.
 The look is Windows 11's (the restyle, 2026-10-23): Windows 11's symbols beside the main actions' words
-(ui/icons.py), the notice as Windows 11's information bar, and every card as wide as the window and no wider (a long
+(ui/icons.py), and every card as wide as the window and no wider (a long
 title wraps, a long name ends in "…"; Target and Measurement one above the other, so their names fit). Its own
-style rules are theme_sheet.py's eq_screen part (the properties eqtitle, eqsubtle, and eqsub in ui/eq_settings.py).
+style rules are theme_sheet.py's eq_screen part (the properties eqtitle, and eqsub in ui/eq_settings.py).
 EqCards is a plain class (no __init__, no signals); EqPage (ui/eq_page.py) joins it with the other parts. What it
 makes is the page's (self.run_btn, self.plot …), and the other parts use it.
 
 The page is made in steps (_build_steps, 2026-10-24: made in one go it froze the window for ~0.45 s), one per turn of
 the window's event loop, so the window answers in between (each step a few ms; EqPage runs them): the page's frame
-first (its scroll area and column, in the page, hidden), then the graph, Target and Measurement with the notice, Make
+first (its scroll area and column, in the page, hidden), then the graph, Target and Measurement, Make
 the EQ, the settings in four parts (ui/eq_settings.py), the result, Listen, the files in their lists, and last the
 whole page shown at once ("Opening the EQ part…" until then: never seen half-made). The rule for every step: each part
 goes into its final place in the step that makes it, never in a later one. Qt styles what it made between steps, and
@@ -21,10 +21,9 @@ moved into place at the end, as before, 149 ms).
 """
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontMetrics
-from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
-                               QLineEdit, QMenu, QProgressBar, QPushButton, QScrollArea, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLineEdit, QMenu, QProgressBar, QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
 from ui import help_window, icons, theme
 from ui.eq_page_parts import TICKS, Elided, NameCombo, PairTitle, hz, label
@@ -55,8 +54,7 @@ class EqCards:
         # cut off in its drop-down at the window's own size, 2026-10-23)
         col.addWidget(self._file_card("target"))
         col.addWidget(self._file_card("measurement"))
-        col.addWidget(self._notice_row())
-        yield "Target, Measurement, the notice"
+        yield "Target, Measurement"
         col.addWidget(self._eq_card())
         yield "Make the EQ"
         from ui.eq_settings import EqSettings
@@ -177,48 +175,11 @@ class EqCards:
         self._recolour(draw=False)
         return card
 
-    def _notice_row(self):
-        """What was just done to the files (Use, an average, a move), with Undo (AutoEQ Local's toasts): as Windows
-        11's information bar, an "i" in the accent's colour first (drawn again when the theme changes: _recolour),
-        then the words, Undo, and a quiet ✕."""
-        self.notice = QFrame()
-        theme.mark(self.notice, card=True)
-        h = QHBoxLayout(self.notice)
-        h.setContentsMargins(14, 6, 6, 6)
-        h.setSpacing(10)
-        self.notice_icon = QLabel()
-        h.addWidget(self.notice_icon, 0, Qt.AlignVCenter)
-        self.notice_text = label("")
-        h.addWidget(self.notice_text, 1)
-        self.notice_undo = QPushButton("Undo")
-        icons.put(self.notice_undo, "undo")
-        h.addWidget(self.notice_undo)
-        x = QPushButton("✕")
-        x.setAccessibleName("Close the notice")
-        x.setToolTip("Close")
-        theme.mark(x, eqsubtle=True)  # (no fill until pointed at, as the information bar's own)
-        x.clicked.connect(self.notice.hide)
-        h.addWidget(x)
-        self.notice.hide()
-        self._notice_timer = QTimer(self, singleShot=True, interval=20000, timeout=self.notice.hide)
-        self._notice_symbol()
-        return self.notice
-
-    def _notice_symbol(self):
-        """The notice's "i", in the accent's colour now (Windows' own, light or dark)."""
-        from PySide6.QtCore import QSize
-        self.notice_icon.setPixmap(icons.glyph("info", theme.tokens()["accent"]).pixmap(QSize(22, 16)))
-
     def notify(self, text, undo=None):
-        self.notice_text.setText(text)
-        if getattr(self, "_undo_connected", False):  # (only what was connected: no warning)
-            self.notice_undo.clicked.disconnect()
-        self._undo_connected = bool(undo)
-        if undo:
-            self.notice_undo.clicked.connect(lambda: (self.notice.hide(), undo()))
-        self.notice_undo.setVisible(bool(undo))
-        self.notice.show()
-        self._notice_timer.start()
+        """What was just done to your files or settings (Use, an average, a move, a preset) in the window's message
+        line, with Undo beside it when it can be undone (window_parts.MessageLine: every message in one place; the
+        notice card that was here, between the cards, made the page jump as it came and went)."""
+        self.status(text, undo=undo)
 
     def _file_card(self, kind):
         box = QGroupBox("Target" if kind == "target" else "Measurement")

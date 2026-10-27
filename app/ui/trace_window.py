@@ -32,6 +32,7 @@ from ui import help_window, icons, tasks, theme
 from ui.forms import Fold, Limits, help_of
 from ui import trace_core as tc
 from ui.search_combo import SearchCombo
+from ui.theme_sheet import CARD
 from ui.window_parts import fit_to_screen
 
 RED, BLUE, GREEN = "#d93025", "#1a73e8", "#16a34a"
@@ -592,7 +593,7 @@ class TraceWindow(QWidget):
     def __init__(self, page):
         super().__init__(None, Qt.Window)
         self.page = page
-        self.setWindowTitle("Trace a graph image")
+        self.setWindowTitle("Trace a graph image - AutoEQ Studio")  # (a window of its own: the app's name, UI-RULES 3)
         fit_to_screen(self, (1320, 860))  # (within the screen's room: a laptop's at 150 % is 1280 x 672)
         self.setAcceptDrops(True)
         self.t = tc.Tracer()
@@ -602,7 +603,7 @@ class TraceWindow(QWidget):
         self.tool = "trace"
         self.limits = Limits((page.meta or {}).get("limits", {}), [])
         v = QVBoxLayout(self)
-        v.setContentsMargins(14, 10, 14, 14)
+        v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as every window's)
         v.setSpacing(10)
         head = QHBoxLayout()
         head.setSpacing(8)
@@ -611,21 +612,24 @@ class TraceWindow(QWidget):
         head.addWidget(title)
         self.file_lab = _label("", "muted", wrap=False)
         head.addWidget(self.file_lab, 1)
-        self.remove_btn = QPushButton("Remove image")
-        self.remove_btn.setToolTip("Remove this picture (e.g. the wrong one) and the curves traced on it")
-        self.remove_btn.clicked.connect(self.remove_image)
-        icons.put(self.remove_btn, "remove")
-        head.addWidget(self.remove_btn)
-        self.guide_btn = QPushButton("Guide")  # (Windows 11's symbol where "? " was, as the top bar's Guide)
-        self.guide_btn.setToolTip("A tour of the tracer (on a sample graph when no picture is open)")
-        self.guide_btn.clicked.connect(self.start_guide)
-        icons.put(self.guide_btn, "guide")
-        head.addWidget(self.guide_btn)
+        # (the picture's own actions together, Remove last; then Guide apart at the right end, as the top bar's: it sat
+        # between them, UI-RULES 14 and 28)
         self.open_btn = opn = QPushButton("Open image…")
         opn.setToolTip("Open another picture (or drop / paste one)")
         opn.clicked.connect(self.choose_image)
         icons.put(opn, "open")
         head.addWidget(opn)
+        self.remove_btn = QPushButton("Remove image")
+        self.remove_btn.setToolTip("Remove this picture (e.g. the wrong one) and the curves traced on it")
+        self.remove_btn.clicked.connect(self.remove_image)
+        icons.put(self.remove_btn, "remove")
+        head.addWidget(self.remove_btn)
+        head.addSpacing(16)
+        self.guide_btn = QPushButton("Guide")  # (Windows 11's symbol where "? " was, as the top bar's Guide)
+        self.guide_btn.setToolTip("A tour of the tracer (on a sample graph when no picture is open)")
+        self.guide_btn.clicked.connect(self.start_guide)
+        icons.put(self.guide_btn, "guide")
+        head.addWidget(self.guide_btn)
         v.addLayout(head)
         body = QHBoxLayout()
         body.setSpacing(12)
@@ -754,7 +758,8 @@ class TraceWindow(QWidget):
         box = QGroupBox("2  Trace")
         v = QVBoxLayout(box)
         tools = QHBoxLayout()
-        tools.setSpacing(0)  # (one group: theme_sheet's tracer part rounds only its two ends)
+        tools.setSpacing(0)  # (one group: theme_sheet's tracer part rounds only its two ends; the one on is filled in
+        # the accent, as Windows 11's toggle buttons: UI-RULES 8)
         self.tool_btns = {}
         group = QButtonGroup(self)
         for n, (key, text, tip) in enumerate(TOOLS):
@@ -822,11 +827,9 @@ class TraceWindow(QWidget):
         for key, text, tip, fn in (("smooth", "Smooth", "Smooth out pixel steps (S)", self.smooth),
                                    ("undo", "Undo", "Undo (Ctrl+Z)", self.undo), ("redo", "Redo", "Redo (Ctrl+Shift+Z)", self.redo),
                                    ("clear", "Clear", "Remove the whole trace (Delete)", self.clear)):
-            b = QPushButton(text)
+            b = QPushButton(text)  # (no symbols in this row: Smooth and Clear have none, UI-RULES 9)
             b.setToolTip(tip)
             b.clicked.connect(fn)
-            if key in ("undo", "redo"):
-                icons.put(b, key)
             row.addWidget(b)
             self.edit_btns[key] = b
         row.addStretch(1)
@@ -881,6 +884,7 @@ class TraceWindow(QWidget):
         icons.put(self.save_meas, "add")
         self.save_tgt = QPushButton("Add as target")
         self.save_tgt.clicked.connect(lambda: self.save("target"))
+        icons.put(self.save_tgt, "add")  # (every button in the row with its symbol, UI-RULES 9)
         self.download_btn = QPushButton("Save .txt…")
         self.download_btn.clicked.connect(self.download)
         icons.put(self.download_btn, "save")
@@ -1384,8 +1388,9 @@ class TraceWindow(QWidget):
             folder = QFileDialog.getExistingDirectory(self, "A folder for the traced curves", start)
             paths = [os.path.join(folder, o["file"]) for o in outs] if folder else []
             there = [os.path.basename(p) for p in paths if os.path.exists(p)]
-            if there and QMessageBox.question(self, "Replace?", "Already in that folder:\n\n" + "\n".join(there)
-                                              + "\n\nReplace them?") != QMessageBox.Yes:
+            if there and QMessageBox.question(self, "Save .txt", "Already in that folder:\n\n" + "\n".join(there)
+                                              + "\n\nReplace them?", QMessageBox.Yes | QMessageBox.No,
+                                              QMessageBox.No) != QMessageBox.Yes:
                 return
         for path, o in zip(paths, outs):
             try:
@@ -1393,8 +1398,8 @@ class TraceWindow(QWidget):
             except OSError as e:  # (a folder you can't write to, a file another program holds: said, not silent)
                 QMessageBox.warning(self, "Trace", f"Couldn't save {os.path.basename(path)}: {e}")
                 return
-        if paths:
-            self.page.status(f"Saved {', '.join(os.path.basename(p) for p in paths)}.", 6000)
+        if paths:  # (said here, under the buttons, as Add as measurement's: never in the window behind, UI-RULES 7)
+            self.save_note.setText(f"Saved {', '.join(os.path.basename(p) for p in paths)}.")
             gaps = self.t.gaps_text(outs)
             if gaps:
                 QMessageBox.information(self, "Trace", gaps)

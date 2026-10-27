@@ -2,14 +2,16 @@
 - This PC: the folders searched for curve files (one per line; empty: Downloads, Documents, Desktop, Music), and
   "Search again now"
 - Online databases: every database by kind of rig, each on or off (a group at once too), how many curves each list
-  has, a filter and All / On / Off; ones you added can be removed
-- Add a database: from squig.link's list (searched), or any squig.link-style page by its address
-- Refresh the lists now (online only); Open the downloads folder
-Changes are saved at once and the lists load again a moment later (offline: the saved ones).
+  has, a search and All / On / Off; ones you added taken off with their row's ✕ (Undo in the window's line)
+- Add a database: from squig.link's list (searched; one clicked fills the address box, double-clicked is added), or
+  any squig.link-style page by its address; one Add, beside the box (Enter there too)
+Changes are saved at once and the lists load again a moment later (offline: the saved ones). The footer is every
+window's (window_parts.Footer): Refresh the lists now (online only) and Open the downloads folder at the left, its own
+message line, Close; a list with nothing to show says so.
 The look: Windows 11's; the databases' tree is styled as the lists by theme_sheet's find_windows (sourcesTree); the
 folders' box as tall as four lines of its text (the four usual folders whole). Its size kept within the screen's free
 room (window_parts.fit_to_screen): on a short screen (a laptop at 150 %) its parts scroll as a page, as Windows 11's
-Settings do, and the bottom row (Refresh, Open the downloads folder, Close) stays in sight.
+Settings do, and its footer stays in sight.
 """
 import math
 
@@ -22,7 +24,8 @@ from PySide6.QtWidgets import (QDialog, QFrame, QHBoxLayout, QHeaderView, QLabel
 import net
 from ui import help_window, icons, tasks, theme
 from ui.search_combo import SearchCombo
-from ui.window_parts import fit_to_screen
+from ui.theme_sheet import CARD
+from ui.window_parts import Footer, enter_presses, fit_to_screen
 
 url_key = lambda u: u.strip().rstrip("/").lower()
 
@@ -73,6 +76,7 @@ class Sources(QDialog):
         S["databases"].setdefault("disabled", [])
         self.st, self.dir = {"sites": []}, None
         outer = QVBoxLayout(self)
+        outer.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as every window's)
         self.scroll = QScrollArea()  # (the parts as a page that scrolls when the window is shorter than they need)
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QFrame.NoFrame)
@@ -82,7 +86,7 @@ class Sources(QDialog):
         v = QVBoxLayout(body)
         v.setContentsMargins(0, 0, 0, 0)
         v.addWidget(_head("This PC"))
-        v.addWidget(QLabel("Folders to search (one per line, with their subfolders):"))
+        v.addWidget(QLabel("Folders to search (one per line, with their subfolders)"))
         self.folders = QPlainTextEdit("\n".join(S["library"].get("folders") or []))
         self.folders.setPlaceholderText("\n".join(page.meta.get("library_defaults") or []) or "Downloads, Documents, …")
         self.folders.setFixedHeight(lines_high(self.folders, 4))  # (the four usual folders, whole)
@@ -101,14 +105,15 @@ class Sources(QDialog):
         v.addWidget(_muted("Lists refresh every few days; curves download when you use or preview them."))
         bar = QHBoxLayout()
         self.filter = QLineEdit()
-        self.filter.setPlaceholderText("Filter the databases…")
+        self.filter.setPlaceholderText("Search the databases…")
+        self.filter.setClearButtonEnabled(True)
         self.filter.textChanged.connect(self.render)
         bar.addWidget(self.filter, 1)
         self.show_box = SearchCombo()
         self.show_box.setAccessibleName("Show the databases")
         for k, name in (("all", "All"), ("on", "On"), ("off", "Off")):
             self.show_box.addItem(name, k)
-        self.show_box.sort_items()
+        self.show_box.sort_items(pinned=1)  # (All on top, the others A to Z: UI-RULES 22)
         self.show_box.activated.connect(lambda _i: self.render())
         bar.addWidget(self.show_box)
         self.db_status = _muted()
@@ -133,6 +138,7 @@ class Sources(QDialog):
         v.addWidget(self.dir_note)
         self.dir_q = QLineEdit()
         self.dir_q.setPlaceholderText("Search by reviewer or type (IEMs, 5128, headphones)…")
+        self.dir_q.setClearButtonEnabled(True)
         self.dir_q.textChanged.connect(self.render_dir)
         v.addWidget(self.dir_q)
         self.dir_list = QListWidget()
@@ -140,33 +146,35 @@ class Sources(QDialog):
         self.dir_list.setMinimumHeight(72)  # (130 high, less in a small window: the databases' tree comes first)
         self.dir_list.setMaximumHeight(130)
         self.dir_list.itemDoubleClicked.connect(lambda it: it.data(Qt.UserRole) and self.add(it.data(Qt.UserRole)))
+        # (one clicked: its address in the box, for the one Add under the list, UI-RULES 19; "+ Add" in its words
+        # looked like a button, and a click on it did nothing)
+        self.dir_list.itemClicked.connect(lambda it: it.data(Qt.UserRole) and self.url.setText(it.data(Qt.UserRole)))
         v.addWidget(self.dir_list)
         row = QHBoxLayout()
         self.url = QLineEdit()
         self.url.setPlaceholderText("https://example.squig.link/")
+        self.url.setClearButtonEnabled(True)
+        self.url.returnPressed.connect(lambda: self._add_typed())
         row.addWidget(self.url, 1)
         add = QPushButton("Add")
         icons.put(add, "add")
-        add.clicked.connect(lambda: self.add(self.url.text()) and self.url.clear())  # (refused: kept to correct)
+        add.clicked.connect(self._add_typed)
         row.addWidget(add)
         v.addLayout(row)
         self.scroll.setWidget(body)
         outer.addWidget(self.scroll, 1)
-        row = QHBoxLayout()  # (the bottom row, under the page: always in sight)
         refresh = QPushButton("Refresh the lists now")
         icons.put(refresh, "refresh")
         refresh.setToolTip("Download every list again (online only)")
         refresh.clicked.connect(lambda: self.refresh(force=True))
-        row.addWidget(refresh)
         folder = QPushButton("Open the downloads folder")
         icons.put(folder, "folder")
         folder.clicked.connect(lambda: self.svc.call("/api/open", {"what": "downloads"}))
-        row.addWidget(folder)
-        row.addStretch(1)
-        close = QPushButton("Close")
-        close.clicked.connect(self.accept)
-        row.addWidget(close)
-        outer.addLayout(row)
+        for b in (refresh, folder):
+            b.setAutoDefault(False)
+        self.footer = Footer(self, [refresh, folder])  # (under the page: always in sight, as every window's)
+        outer.addWidget(self.footer)
+        enter_presses(self)  # (Enter in the address box adds it; anywhere else it presses nothing)
         self._refresh_soon = QTimer(self, singleShot=True, interval=500, timeout=self.refresh)
         self._poll = QTimer(self, interval=700, timeout=self.poll)
         self._lib_poll = QTimer(self, interval=600, timeout=self.poll_lib)
@@ -241,7 +249,7 @@ class Sources(QDialog):
         show = self.show_box.currentData()
         self.tree.blockSignals(True)
         self.tree.clear()
-        total_on = 0
+        total_on, shown = 0, 0
         for g, title in groups:
             members = [r for r in rows if (r["group"] if r["group"] in keys else "added") == g]
             if not members:
@@ -258,22 +266,37 @@ class Sources(QDialog):
             top.setFlags(top.flags() | Qt.ItemIsUserCheckable)
             top.setData(0, Qt.UserRole, ("group", g))
             self.tree.addTopLevelItem(top)
+            shown += 1
             for d in vis:
                 s = by_url.get(d["url"])
                 count = ("off" if not d["on"] else "" if not s else "couldn't load" if s.get("error")
                          else f"{s.get('count', 0):,}" + (" · list only" if d.get("browse") else ""))
                 if d["on"] and not s and self.st.get("loading"):
                     count = "loading…"
-                it = QTreeWidgetItem([d["name"], count, "Remove" if d["extra"] else "↗ site"])
+                it = QTreeWidgetItem([d["name"], count, "" if d["extra"] else "↗ site"])
                 it.setFlags(it.flags() | Qt.ItemIsUserCheckable)
                 it.setCheckState(0, Qt.Checked if d["on"] else Qt.Unchecked)
                 it.setData(0, Qt.UserRole, ("site", d))
                 if s and s.get("error"):
                     it.setToolTip(1, s["error"])
                 top.addChild(it)
+                if d["extra"]:  # (one you added: its row's ✕, as every list's, UI-RULES 18; it was the word Remove)
+                    x = QPushButton("✕")
+                    theme.mark(x, quiet=True)
+                    x.setToolTip("Remove it from the list")
+                    x.setAccessibleName(f"Remove {d['name']} from the list")
+                    x.setAutoDefault(False)
+                    x.clicked.connect(lambda _=False, d=d: self.remove_added(d))
+                    self.tree.setItemWidget(it, 2, x)
             n_on = sum(d["on"] for d in vis)
             top.setCheckState(0, Qt.Checked if n_on == len(vis) else Qt.Unchecked if not n_on else Qt.PartiallyChecked)
             top.setExpanded(True)
+        if not shown:  # (a list with nothing to show says so, UI-RULES 21)
+            none = QTreeWidgetItem(["Nothing matches: try other words, or show All." if f or show != "all" else
+                                    "No databases.", "", ""])
+            none.setFlags(Qt.NoItemFlags)
+            none.setData(0, Qt.UserRole, ("none", None))
+            self.tree.addTopLevelItem(none)
         self.tree.blockSignals(False)
         self.db_status.setText("Loading…" if self.st.get("loading") else
                                f"{total_on} on · {self.st.get('count', 0):,} curves")
@@ -303,16 +326,19 @@ class Sources(QDialog):
 
     def item_clicked(self, it, col):
         kind, d = it.data(0, Qt.UserRole)
-        if kind != "site" or col != 2:
+        if kind != "site" or col != 2 or d["extra"]:
             return
-        if d["extra"]:
-            self.set_on(d, False)
-            self.changed()
-            QTimer.singleShot(0, self, self.render)
-        elif net.offline():
-            self.page.status("Offline: switch to Online (top right) to open websites.", 6000)
+        if net.offline():  # (said in this window's line, as every "Offline: …", UI-RULES 7)
+            self.footer.say("Offline: switch to Online (top right) to open websites.")
         else:
             QDesktopServices.openUrl(QUrl(d["url"]))
+
+    def remove_added(self, d):
+        """A database you added, off the list (its ✕), with Undo in the window's line (UI-RULES 20)."""
+        self.set_on(d, False)
+        self.changed()
+        QTimer.singleShot(0, self, self.render)  # (not inside its own button's click: render deletes the button)
+        self.footer.say(f"Removed “{d['name']}” from the list.", undo=lambda: self.add(d["url"]))
 
     def refresh(self, force=False):
         self.svc.call("/api/db/refresh", {"settings": self.page.S, "force": force})
@@ -342,8 +368,8 @@ class Sources(QDialog):
                                       "database by its page address below.")
                 return
             self.dir = items
-            self.dir_note.setText(f"From squig.link's list ({len(items)} databases; double-click one to add it) or by "
-                                  "page address.")
+            self.dir_note.setText(f"From squig.link's list ({len(items)} databases: click one, then Add) or by page "
+                                  "address.")
             self.render_dir()
         tasks.background(lambda: self.svc.call("/api/db/directory"), done, owner=self)
 
@@ -360,12 +386,18 @@ class Sources(QDialog):
         hits = [d for d in self.dir if all(w in (d["name"] + " " + d.get("type", "")).lower() for w in ws)]
         for d in hits[:60]:
             added = url_key(d["url"]) in have
-            it = QListWidgetItem(f"{d['name']}  ·  {d.get('type', '')}" + ("   ✓ in the list" if added else "   + Add"))
+            it = QListWidgetItem(f"{d['name']}  ·  {d.get('type', '')}" + ("   ✓ in the list" if added else ""))
             if not added:
                 it.setData(Qt.UserRole, d["url"])
             self.dir_list.addItem(it)
+        if not hits:  # (a list with nothing to show says so, UI-RULES 21)
+            self.dir_list.addItem("Nothing matches: try other words.")
         if len(hits) > 60:
             self.dir_list.addItem(f"{len(hits) - 60} more: type to narrow the list")
+
+    def _add_typed(self):
+        if self.add(self.url.text()):  # (refused: kept in the box to correct)
+            self.url.clear()
 
     def add(self, u):
         u = (u or "").strip()
@@ -377,7 +409,7 @@ class Sources(QDialog):
             return False
         self.page.S["databases"]["extra"].append(u)
         self.changed()
-        self.page.status("Added. Its list is loading…", 5000)
+        self.footer.say("Added. Its list is loading…")
         self.render()
         self.render_dir()
         return True

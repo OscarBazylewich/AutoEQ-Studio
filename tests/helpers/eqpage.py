@@ -40,6 +40,20 @@ class EqScreen:
     wait_for: object   # helpers.qt.wait_for
     set_aside_before: list = dataclasses.field(default_factory=list)  # eq.service.SET_ASIDE before the page opened
     windows_before: set = dataclasses.field(default_factory=set)      # the top-level windows there before it
+    undos: list = dataclasses.field(default_factory=list)  # each message's Undo (None: it had none), as said's
+
+    def undo(self):
+        """The message line's Undo pressed: what the last message with one offered put back (the window's line has
+        Undo beside its message, window_parts.MessageLine). Returns whether there was one."""
+        fn = next((u for u in reversed(self.undos) if u is not None), None)
+        self.undos[:] = [None] * len(self.undos)  # (pressed once: the line's Undo goes)
+        if fn is not None:
+            fn()
+        return fn is not None
+
+    def undo_offered(self):
+        """Whether the last message offered Undo."""
+        return bool(self.undos) and self.undos[-1] is not None
 
 
 def _key(widget):
@@ -73,12 +87,13 @@ def open_screen(tmp, settings=None, size=(1000, 900)) -> EqScreen:
     service = sys.modules.get("eq.service")
     before = list(service.SET_ASIDE) if service else []
     windows = {_key(w) for w in qapp.topLevelWidgets()}
-    page = EqPage(sw, lambda text, ms=0: said.append(text))
+    undos = []
+    page = EqPage(sw, lambda text, ms=0, undo=None: (said.append(text), undos.append(undo)))
     page.resize(*size)
     page.show()
     net.set_offline(True)  # (opening, the EQ part loads the database lists: never fetched in a test)
     page.start()
-    s = EqScreen(page, sw, said, qapp, conf, qt.wait_for, before, windows)
+    s = EqScreen(page, sw, said, qapp, conf, qt.wait_for, before, windows, undos)
     if not qt.wait_for(lambda: page.curves is not None and page.auto is not None, 90):
         note = page.graph_note.text() if hasattr(page, "graph_note") else page.loading.text()
         close_screen(s)

@@ -1,12 +1,15 @@
 """History: your past EQs, kept between sessions (eq.service /api/history, eq/history.py; AutoEQ Local's history.js,
 natively). An EQ goes in when it's saved or copied, or after every run if Advanced › History says so.
 
-The window lists them by day, newest first (a search over IEM, target and method; "This IEM only"). Each: Show (the
-EQ back on the graph and in the result card, with its files and curve settings when they're still in the app), Copy
-(its filters as Equalizer APO text), ✕ (removed). Clear the history… removes them all (saved files stay).
-Show, Copy and Listen show Windows 11's symbols beside their words; only the first row's Show (the newest of those
-listed) is in the accent, as Windows 11 keeps the accent for one main action (every row's was: a column of them);
-✕ is a subtle button (ui\\theme_sheet.py's eq_windows).
+The window lists them by day, newest first (a search over IEM, target and method; "This IEM only"). Each row, its
+buttons as every list's (.claude\\notes\\UI-RULES.md 18): Copy (its filters as Equalizer APO text), Keep to compare
+(into Listen's EQs to compare), Show (the EQ back on the graph and in the result card, with its files and curve
+settings when they're still in the app), then ✕ apart (taken out, with Undo in the window's line). Clear the
+history… removes them all, asked first (saved files stay). The footer is every window's (window_parts.Footer): Clear the history at the
+left, the window's own message line, Close.
+Show, Copy and Keep to compare show Windows 11's symbols beside their words; only the first row's Show (the newest
+of those listed) is in the accent, as Windows 11 keeps the accent for one main action (every row's was: a column of
+them), and Enter presses it; ✕ is every row's quiet button.
 A row's target is in the theme's quieter colour, redone when Windows switches light/dark (follow_theme, which
 Compare's graph uses too).
 Each row is a card, its words starting where a card's do; in a narrow window (History at its smallest, or in the
@@ -20,6 +23,7 @@ from PySide6.QtWidgets import (QBoxLayout, QCheckBox, QDialog, QFrame, QHBoxLayo
 
 from ui import help_window, icons, theme
 from ui.theme_sheet import CARD
+from ui.window_parts import Footer, enter_presses, fit_to_screen
 
 FIRST_ROWS, ROWS_AT_ONCE = 40, 15  # (rows made at once, then a batch at a time: as Find…)
 WORDS_ROOM = 240  # (the least a row's words get beside its buttons: with less, the buttons go on a line under them)
@@ -69,14 +73,15 @@ class HistoryWindow(QDialog):
         super().__init__(page)
         self.page = page
         self.setWindowTitle("History")
-        self.resize(760, 640)
-        # (smaller, no row was readable; this still fits the Guide's frame, which shows it beside its card)
-        self.setMinimumSize(520, 380)
+        # (smaller, no row was readable; this still fits the Guide's frame, which shows it beside its card. Within the
+        # screen's room, as every window: at 175 % its Clear and Close were under the taskbar)
+        fit_to_screen(self, (760, 640), (520, 380))
         v = QVBoxLayout(self)
         v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as a card's)
         top = QHBoxLayout()
         self.q = QLineEdit()
-        self.q.setPlaceholderText("Search: IEM, target, method…")
+        self.q.setPlaceholderText("Search IEMs, targets and methods…")
+        self.q.setClearButtonEnabled(True)
         # (each key waits a moment: a full History, 1,000 entries, took 2 s a key drawn at once)
         self._later = QTimer(self, singleShot=True, interval=80, timeout=self.render)
         self._more = QTimer(self, singleShot=True, interval=0, timeout=self._make_more)
@@ -98,15 +103,13 @@ class HistoryWindow(QDialog):
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # (rows wrap their words instead)
         v.addWidget(self.scroll, 1)
-        bottom = QHBoxLayout()
-        clear = QPushButton("Clear the history…")
+        clear = QPushButton("Clear the history…")  # ("…": it asks first, UI-RULES 11)
+        icons.put(clear, "delete")
+        clear.setAutoDefault(False)
         clear.clicked.connect(self.clear_all)
-        bottom.addWidget(clear)
-        bottom.addStretch(1)
-        close = QPushButton("Close")
-        close.clicked.connect(self.accept)
-        bottom.addWidget(close)
-        v.addLayout(bottom)
+        self.footer = Footer(self, [clear])
+        v.addWidget(self.footer)
+        self._enter = enter_presses(self)  # (the first row's Show, set as the rows are made)
         self.render()
         follow_theme(self, lambda w: w._recolour())
 
@@ -143,6 +146,7 @@ class HistoryWindow(QDialog):
         lay.addStretch(1)
         self._more.stop()
         self._lay, self._todo, self._heads, self._first_show = lay, todo, [], None
+        self._enter.button = None  # (Enter: the first row's Show, once it's made)
         self._make_more(len(todo) if keep else FIRST_ROWS)
         self.scroll.setWidget(body)
         if keep:  # (once laid out; the scroll bar its owner, so a window deleted meanwhile drops it, as Find…'s)
@@ -188,27 +192,32 @@ class HistoryWindow(QDialog):
         text.addWidget(sub)
         h.addLayout(text, 1)
         show = QPushButton("Show")
-        if self._first_show is None:  # (the first row's: the accent on one Show only)
+        if self._first_show is None:  # (the first row's: the accent on one Show only, and Enter's)
             self._first_show = show
             theme.mark(show, primary=True)
+            self._enter.button = show
         icons.put(show, "view")  # (after the accent: its symbol is drawn in the accent's text colour then)
         show.setToolTip("The EQ back on the graph and the result card, with its files when they're still in the app")
         show.clicked.connect(lambda: (self.page.bring_back(e), self.accept()))
         copy = QPushButton("Copy")
         icons.put(copy, "copy")  # (Windows 11's symbols beside the words of the common verbs)
         copy.setToolTip("Copy its filters (Equalizer APO / squiglink format)")
-        copy.clicked.connect(lambda: self.page.copy_filters(e["filters"], e.get("preamp") or 0, record=False))
-        listen = QPushButton("Listen")
-        icons.put(listen, "listen")
-        listen.setToolTip("Add it to your EQs to compare for the IEM on the graph: hear it in Listen")
-        listen.clicked.connect(lambda: self.listen_to(e))
+        copy.clicked.connect(lambda: self.page.copy_filters(e["filters"], e.get("preamp") or 0, record=False,
+                                                            say=self.footer.say))
+        keep = QPushButton("Keep to compare")  # (the result card's words for the same act, UI-RULES 16)
+        icons.put(keep, "pin")
+        keep.setToolTip("Add it to your EQs to compare for the IEM on the graph: hear it in Listen")
+        keep.clicked.connect(lambda: self.keep_to_compare(e))
         x = QPushButton("✕")
-        x.setObjectName("eqwDelete")  # (a subtle button: ui\theme_sheet.py's eq_windows)
+        theme.mark(x, quiet=True)  # (a row's ✕: every list's one look, UI-RULES 18)
         x.setToolTip("Remove from the history")
+        x.setAccessibleName("Remove from the history")
         x.clicked.connect(lambda: self.remove([e["key"]]))
         btns = QHBoxLayout()
-        for b in (show, copy, listen, x):
+        for b in (copy, keep, show):  # (the main one last, then the ✕ apart: every list's row, UI-RULES 18)
             btns.addWidget(b)
+        btns.addSpacing(12)
+        btns.addWidget(x)
         h.addLayout(btns)
         h.setAlignment(btns, Qt.AlignLeft)  # (under the words: at their left, as wide as the buttons)
         row.installEventFilter(self)  # (its width: _fit_row)
@@ -247,51 +256,63 @@ class HistoryWindow(QDialog):
         for head, e in self._heads:
             head.setText(self._head_text(e))
 
-    def listen_to(self, e):
-        """Into the list of the IEM on the graph (an EQ made for another one goes in with a note saying so)."""
+    def keep_to_compare(self, e):
+        """Keep to compare: into Listen's EQs to compare of the IEM on the graph (an EQ made for another one goes in
+        with a note saying so). Said in this window's line."""
         page = self.page
         if not page.curves:
-            QMessageBox.information(self, "Listen", "Choose a measurement first: each IEM or headphone has its own list "
-                                    "of EQs to compare.")
+            QMessageBox.information(self, "Keep to compare", "Choose a measurement first: each IEM or headphone has its "
+                                    "own list of EQs to compare.")
             return
         other = e.get("device") != page.curves["name"]
         ok = page.listen.add(f"{MODE_SHORT.get(e.get('mode'), 'EQ')}, {e.get('n_filters')} filters "
                              f"({day_of(e['when']).lower()} {time_of(e['when'])})", [dict(f) for f in e["filters"]],
                              f"made for {e.get('device')}" if other else
                              "from History" + (f" · error {e['rms']:.2f} dB" if e.get("rms") is not None else ""))
-        if ok and other:
-            page.status(f"That EQ was made for {e.get('device')}: on the {page.curves['name']} it won't sound as intended.", 10000)
-
-    def keyPressEvent(self, e):
-        if e.key() in (Qt.Key_Return, Qt.Key_Enter):  # (never a row's button Qt made the default: the search is live)
-            return
-        super().keyPressEvent(e)
+        if ok:
+            self.footer.say(f"In your EQs to compare: that EQ was made for {e.get('device')}, so on the "
+                            f"{page.curves['name']} it won't sound as intended." if other else
+                            "In your EQs to compare: hear it in Listen.", 10000 if other else None)
 
     def remove(self, keys):
+        """The ✕: out of the history, with Undo in this window's line (UI-RULES 20)."""
+        gone = [e for e in self.page.history if e.get("key") in set(keys)]
         r = self.page.svc.call("/api/history/remove", {"names": keys})
         if r.get("error"):
-            QMessageBox.warning(self, "History", r["error"])
+            QMessageBox.warning(self, "Remove from the history", r["error"])
             return
-        self.page.history = r.get("entries", [])
+        self._show_entries(r.get("entries", []), keep=True)  # (the place in the list stays)
+        if gone:
+            self.footer.say(f"Removed “{gone[0].get('device')} → {gone[0].get('target')}” from the history.",
+                            undo=lambda: self._put_back(gone))
+
+    def _put_back(self, gone):
+        r = self.page.svc.call("/api/history/restore", {"entries": gone})
+        if r.get("error"):
+            QMessageBox.warning(self, "Undo", r["error"])
+            return
+        self._show_entries(r.get("entries", []), keep=True)
+
+    def _show_entries(self, entries, keep=False):
+        self.page.history = entries
         self.page.history_note()
-        self.render(keep=True)  # (the place in the list stays)
+        self.render(keep=keep)
 
     def clear_all(self):
         n = len(self.page.history)
         if not n:
-            self.page.status("The history is already empty.")
+            self.footer.say("The history is already empty.")
             return
         if QMessageBox.question(self, "Clear the history",
-                                f"Remove all {n} EQs from the history? Files you saved stay in your Saved EQs folder.") != QMessageBox.Yes:
-            return
+                                f"Remove all {n} EQs from the history? Files you saved stay in your Saved EQs folder.",
+                                QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
+            return  # (No the default: it can't be undone, UI-RULES 17)
         r = self.page.svc.call("/api/history/remove", {"all": True})
         if r.get("error"):  # (history.json couldn't be written: nothing is said cleared)
             QMessageBox.warning(self, "Clear the history", r["error"])
             return
-        self.page.history = r.get("entries", [])
-        self.page.history_note()
-        self.render()
-        self.page.status("History cleared.")
+        self._show_entries(r.get("entries", []))
+        self.footer.say("History cleared.")
 
 
 def _esc(s):

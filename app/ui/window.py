@@ -33,7 +33,7 @@ import time
 from PySide6.QtCore import QEvent, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QCursor, QDesktopServices, QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel, QMainWindow, QMenu, QPushButton,
-                               QScrollArea, QSizePolicy, QStackedWidget, QVBoxLayout, QWidget)
+                               QScrollArea, QStackedWidget, QVBoxLayout, QWidget)
 
 import net
 import paths
@@ -43,7 +43,7 @@ from ui.devices_screen import DevicesScreen, check_line  # noqa: F401 - (check_l
 from ui.profiles_screen import ProfilesScreen
 from ui.settings_screen import SettingsScreen
 from ui.setup_dialog import SetUpDialog  # noqa: F401 - (still taken from here, as before the screens had files)
-from ui.window_parts import fit_to_screen, glyph, warning_card
+from ui.window_parts import MessageLine, fit_to_screen, glyph, warning_card
 
 PAGES = [("eq", "Make an EQ"), ("devices", "Devices"), ("profiles", "Profiles"), ("settings", "Settings")]
 
@@ -141,11 +141,10 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         bar = self.statusBar()
         bar.setObjectName("windowStatus")
         bar.setSizeGripEnabled(False)
-        self.status_text = QLabel()
-        # (a long message never widens the window: it's cut at its edge instead, its tooltip whole)
-        self.status_text.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
-        bar.addWidget(self.status_text, 1)
-        self._status_timer = QTimer(self, singleShot=True, timeout=lambda: self.status("", 0))
+        # (what was just done, with Undo beside it when it can be undone: every window's line is this one part)
+        self.message = MessageLine(role=None)
+        self.status_text = self.message.text
+        bar.addWidget(self.message, 1)
 
         sw.listeners.append(self._changed)
         # F1 in any of the app's windows: Help, at the setting under the pointer (or the one being typed in)
@@ -435,14 +434,10 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
     def page(self):
         return next(k for k, w in self.pages.items() if w is self.stack.currentWidget())
 
-    def status(self, text, ms=6000):
-        """A message in the line at the bottom, for ms milliseconds (0: until the next one)."""
-        self.status_text.setText(text)
-        self.status_text.setToolTip(text)  # (all of it, when the window is too narrow for it)
-        if ms:
-            self._status_timer.start(ms)
-        else:
-            self._status_timer.stop()
+    def status(self, text, ms=None, undo=None):
+        """A message in the line at the bottom (window_parts.MessageLine): for ms milliseconds (None: 6 s, or 20 s with
+        Undo; 0: until the next one); undo: what Undo beside it does."""
+        self.message.say(text, ms, undo)
 
     def showEvent(self, e):
         self.render_all()  # (devices plugged in, EQs switched from the tray while it was hidden)

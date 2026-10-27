@@ -1,8 +1,11 @@
 """Several EQs in one go (Make an EQ › Run several…): tick IEMs (measurements in the app) and targets, and each pair
 is run in turn with the settings and method you have now (the automatic settings worked out for each pair), the
 picked result saved into your Saved EQs folder under its automatic name (never over a file: " (2)" …), kept in History
-and in "Runs this session". Cancel stops the run going on and the rest. Your own choice of files is put back after: the runs
-use their own copy of the settings.
+and in "Runs this session". Cancel (beside Start, there all along and off until it runs: nothing moves) stops the
+run going on and the rest; closing the window does too. Your own choice of files is put back after: the runs use
+their own copy of the settings. Its buttons are every window's footer (window_parts.Footer: how many to make at the
+left, its own message line, where it says how many it made, Start in the accent with Cancel, Close at the bottom
+right; they sat in a row over the table, Close mid-window).
 """
 import copy
 import os
@@ -14,7 +17,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QDialog, QHBoxLayout, QHeaderV
 
 from ui import icons, theme
 from ui.theme_sheet import CARD
-from ui.window_parts import fit_to_screen
+from ui.window_parts import Footer, enter_presses, fit_to_screen
 
 
 def _checklist(items, on):
@@ -45,7 +48,7 @@ class QueueWindow(QDialog):
         v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as a card's)
         lead = QLabel("Make an EQ for each IEM ticked with each target ticked, one after another, with the settings "
                       "and method you have now. Each picked result is saved into your Saved EQs folder and kept in "
-                      "History; you can leave it running.")
+                      "History. Keep this window open while it runs: closing it stops them.")
         lead.setWordWrap(True)
         theme.mark(lead, role="muted")
         v.addWidget(lead)
@@ -66,21 +69,17 @@ class QueueWindow(QDialog):
         v.addLayout(cols, 1)
         for lst in (self.devs, self.tgts):
             lst.itemChanged.connect(lambda _it: self.count())
-        row = QHBoxLayout()
         self.count_lab = QLabel()
-        row.addWidget(self.count_lab, 1)
         self.start_btn = QPushButton("Start")
         theme.mark(self.start_btn, primary=True)
         icons.put(self.start_btn, "run")  # (Windows 11's symbol beside the words)
         self.start_btn.clicked.connect(self.start)
-        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn = QPushButton("Cancel")  # (beside Start, off until it runs: UI-RULES 13)
+        icons.put(self.cancel_btn, "cancel")  # (✕, as Run's Cancel)
         self.cancel_btn.setEnabled(False)
         self.cancel_btn.clicked.connect(self.cancel)
-        close = QPushButton("Close")
-        close.clicked.connect(self.close)
-        for b in (self.start_btn, self.cancel_btn, close):
-            row.addWidget(b)
-        v.addLayout(row)
+        for b in (self.start_btn, self.cancel_btn):
+            b.setAutoDefault(False)
         self.table = QTableWidget(0, 3)
         self.table.setObjectName("eqwQueue")  # (room at the left of its cells: ui\theme_sheet.py's eq_windows)
         self.table.setAccessibleName("How each one went")
@@ -96,6 +95,9 @@ class QueueWindow(QDialog):
         self.table.setColumnWidth(0, 220)
         self.table.setColumnWidth(1, 220)
         v.addWidget(self.table, 1)
+        self.footer = Footer(self, [self.count_lab], main=[self.start_btn, self.cancel_btn])
+        v.addWidget(self.footer)
+        enter_presses(self, self.start_btn)
         self.timer = QTimer(self, interval=400, timeout=self.poll)
         self.count()
 
@@ -222,7 +224,7 @@ class QueueWindow(QDialog):
         self.count()
         done = sum(1 for i in range(self.table.rowCount())
                    if (self.table.item(i, 2) or QTableWidgetItem("")).text().startswith("Done"))
-        page.status(f"Run several: {done} of {len(self.jobs)} EQs made.", 10000)
+        self.footer.say(f"{done} of {len(self.jobs)} EQs made.", 0)  # (its own line, kept until the next)
         if page.run_result is None and page.session_runs:  # (the result card was hidden: Runs this session out of reach)
             page.choose_run(id(page.session_runs[-1]))
 
