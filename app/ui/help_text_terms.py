@@ -450,7 +450,18 @@ TERMS = [{'title': 'Curves and sound',
                      'title': 'Blind test',
                      'body': ['Hides which version is which (A, B…) until you press Reveal, so what you expect '
                               "doesn't decide what you hear. Switch between them with the buttons or keys 1-9."],
-                     'see': ['match-loudness']}]}]
+                     'see': ['match-loudness', 'abx']},
+                    {'id': 'abx',
+                     'title': 'ABX test',
+                     'body': ['A way to find out whether you can really hear a difference, not just believe you '
+                              'do. Two versions, A and B; in each trial X is one of them, chosen at random, and '
+                              'you say which. Guessing gets about half right, so the score alone says little; '
+                              'what counts is how often guessing would do as well. 12 of 16 happens by chance '
+                              'about 4 % of the time, 9 of 16 about 40 %: under 5 % is the usual line for '
+                              '“you can tell them apart”.',
+                              'Level matching matters here most: a version even slightly louder is easy to pick '
+                              'out for that alone, so Listen keeps them equally loud while a test runs.'],
+                     'see': ['blind-test', 'match-loudness']}]}]
 
 QUESTIONS = [{'id': 'q-which-method',
               'q': 'Which EQ method should I use?',

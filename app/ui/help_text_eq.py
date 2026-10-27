@@ -95,6 +95,8 @@ HELP_EQ = {'slot:target': ['The curve you want your earphone to sound like.', 't
  '#snd-vol': 'Playback volume: start low.',
  '#snd-lm': ['Plays every version equally loud.', 'match-loudness'],
  '#snd-blind': ['Hides which version is which until you reveal it.', 'blind-test'],
+ '#snd-abx': ['Whether you can really tell two versions apart: X is A or B at random, you say which.', 'abx',
+              'match-loudness'],
  '#snd-ears': 'The same version in both ears, or a different one in each.',
  '#snd-left': 'What your left ear hears.',
  '#snd-right': 'What your right ear hears.',
@@ -518,6 +520,20 @@ SETTINGS_EQ = [{'title': 'Choosing and running',
                            'title': 'Blind test',
                            'body': ["Hides which version is which until you press Reveal, so expectations don't "
                                     'decide what you hear.']},
+                          {'key': '#snd-abx',
+                           'title': 'ABX test',
+                           'body': ['Whether you can really hear a difference between two versions: choose A and B '
+                                    '(EQ off, the selected EQ, any EQ to compare) and how many trials, then Start '
+                                    'ABX. Each trial X is A or B at random; Listen to A, B and X as often as you '
+                                    'like, then say X is A or X is B. Nothing says whether you were right until '
+                                    'the end.',
+                                    'Then: how many you got right, and how often guessing alone gets that many '
+                                    'or more. Under 5 %, you can tell them apart; above it, that score could be '
+                                    'luck (a longer test can show a small difference). While it runs Listen is '
+                                    'level-matched with both ears the same, and the version buttons and keys 1–9 '
+                                    'are put away (they would give X away). Stop the test says what you answered '
+                                    'so far; so does changing A or B while it runs (an edit, another result shown), '
+                                    'which ends it. The results are kept until you close AutoEQ Studio.']},
                           {'key': '#snd-ears',
                            'title': 'Ears',
                            'body': ['The same version in both ears (switch with the buttons or keys 1–9), or a '

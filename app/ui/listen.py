@@ -3,6 +3,10 @@
 - Play / Stop; the sound (music, pink or white noise, a sweep, a tone, your own file); volume; level matching
 - the versions: EQ off, the selected EQ (as edited) and this IEM's EQs to compare; click one or press 1-9; Blind
   test hides which is which until Reveal; Ears: both the same, or a different version in each ear (Swap)
+- the ABX test (2026-10-26, ui/abx.py): A and B from the versions and how many trials; each trial X is one of them
+  at random, heard with Listen to A, B and X, answered with X is A or X is B; at the end the score and how often
+  guessing alone does as well (kept for the session). Level-matched and both ears the same while it runs, the
+  version buttons hidden and keys 1-9 off (either would give X away); Listen's own choices put back after
 - the tone's frequency slider (and its range); the sweep's and the tone's frequency shown on the graph
 - your EQs to compare (eq.service /api/listen: one list per IEM, kept between sessions, 12 at most): The selected
   EQ, An EQ file…, Paste filters… (each with Windows 11's add symbol); each renamed in place, on the graph or not, ✕
@@ -22,7 +26,7 @@ The sound itself is ui/audio.py (sounddevice); nothing plays until Play.
 import math
 import os
 
-from PySide6.QtCore import QPoint, QRect, QSize, Qt, QTimer
+from PySide6.QtCore import QPoint, QRect, QSignalBlocker, QSize, Qt, QTimer
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFileDialog, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
                                QLayout, QLineEdit, QMessageBox, QPushButton, QSlider, QVBoxLayout, QWidget)
 
@@ -221,6 +225,7 @@ class Listen(QGroupBox):
         ears.addWidget(self.reveal_btn)
         ears.addStretch(1)
         v.addLayout(ears)
+        self._abx_controls(v)
         self.ab_box = QWidget()
         self.ab = _Rows(self.ab_box)  # (in as many rows as the card needs)
         self.version_group = QButtonGroup(self)  # (one of them chosen; the same group however often they're redrawn)
@@ -297,6 +302,201 @@ class Listen(QGroupBox):
         self.tone_lab.setText(self._tone_text(self.tone_hz()))  # (the tone's frequency shown from the start)
         self.refresh()
 
+    # ---------------------------------------------------------------- the ABX test (ui\abx.py)
+    def _abx_controls(self, v):
+        """The ABX test's row (A, B, how many trials, Start ABX) and its panel while it runs (the trial, Listen to A, B
+        and X, X is A, X is B, Stop), then its result."""
+        from ui import abx as abx_mod
+        self.abx, self.abx_results, self._abx_was = None, [], None
+        self._abx_labels, self._abx_heard = {}, {}  # (a test's versions' names and filters as it began)
+        self.abx_row = QWidget()
+        ar = QHBoxLayout(self.abx_row)
+        ar.setContentsMargins(0, 0, 0, 0)
+        ar.addWidget(QLabel("ABX test:  A"))
+        self.abx_a = SearchCombo()
+        self.abx_a.setAccessibleName("ABX test: version A")
+        ar.addWidget(self.abx_a, 1)
+        ar.addWidget(QLabel("B"))
+        self.abx_b = SearchCombo()
+        self.abx_b.setAccessibleName("ABX test: version B")
+        ar.addWidget(self.abx_b, 1)
+        self.abx_n = SearchCombo()
+        for n in abx_mod.TRIALS:
+            self.abx_n.addItem(f"{n} trials", n)
+        self.abx_n.setCurrentIndex(self.abx_n.findData(16))
+        self.abx_n.setAccessibleName("ABX test: how many trials")
+        ar.addWidget(self.abx_n)
+        self.abx_start = QPushButton("Start ABX")
+        icons.put(self.abx_start, "run")
+        self.abx_start.setToolTip("Each trial X is A or B at random: listen to all three, say which X is. At the end: "
+                                  "your score, and how often guessing alone does as well")
+        self.abx_start.clicked.connect(self.abx_begin)
+        ar.addWidget(self.abx_start)
+        # (F1 on its buttons opens ABX test's entry through the row they're in: tagged themselves, a screen reader
+        # would name every one of them "ABX test" instead of by its words)
+        for w in (self.abx_row, self.abx_a, self.abx_b, self.abx_n):
+            help_window.tag(w, "#snd-abx")
+        v.addWidget(self.abx_row)
+        self.abx_box = QWidget()
+        ab = QVBoxLayout(self.abx_box)
+        ab.setContentsMargins(0, 0, 0, 0)
+        self.abx_text = QLabel()
+        self.abx_text.setWordWrap(True)
+        ab.addWidget(self.abx_text)
+        row = QHBoxLayout()
+        self.abx_group = QButtonGroup(self)
+        self.abx_hear = {}
+        for which in ("A", "B", "X"):
+            b = QPushButton(f"Listen to {which}")
+            b.setCheckable(True)
+            b.clicked.connect(lambda _=False, w=which: self.abx_listen(w))
+            self.abx_group.addButton(b)
+            self.abx_hear[which] = b
+            row.addWidget(b)
+        row.addSpacing(16)
+        self.abx_says = {}
+        for which in ("A", "B"):
+            b = QPushButton(f"X is {which}")  # (not filled: only the version heard is lit, as Listen's own buttons)
+            b.clicked.connect(lambda _=False, w=which: self.abx_answer(w))
+            self.abx_says[which] = b
+            row.addWidget(b)
+        row.addStretch(1)
+        stop = QPushButton("Stop the test")
+        icons.put(stop, "cancel")
+        stop.clicked.connect(lambda: self.abx_end(finished=False))
+        row.addWidget(stop)
+        ab.addLayout(row)
+        help_window.tag(self.abx_box, "#snd-abx")  # (its buttons: through it, as the row's)
+        self.abx_box.hide()
+        v.addWidget(self.abx_box)
+        self.abx_said = QLabel()
+        self.abx_said.setWordWrap(True)
+        self.abx_said.hide()
+        v.addWidget(self.abx_said)
+
+    def _abx_fill(self):
+        """A and B's lists: the versions (EQ off, the selected EQ, your EQs to compare), what was chosen kept."""
+        vs = self.versions()
+        for box, want in ((self.abx_a, "off"), (self.abx_b, "sel" if any(k == "sel" for k, *_ in vs) else None)):
+            now = box.currentData()
+            box.blockSignals(True)
+            box.clear()
+            for k, label, *_ in vs:
+                box.addItem(label, k)
+            box.sort_items()
+            pick = now if box.findData(now) >= 0 else want
+            if box is self.abx_b and (pick is None or pick == self.abx_a.currentData()):
+                pick = next((k for k, *_ in vs if k != self.abx_a.currentData()), pick)
+            box.setCurrentIndex(max(0, box.findData(pick)))
+            box.blockSignals(False)
+        self.abx_start.setEnabled(len(vs) >= 2 and self.abx is None)
+
+    def abx_begin(self):
+        """An ABX test of A and B: level-matched and both ears the same version while it runs (put back after), the
+        version buttons hidden (one lit would give X away), X heard first."""
+        from ui import abx as abx_mod
+        a, b = self.abx_a.currentData(), self.abx_b.currentData()
+        if a is None or b is None or a == b:
+            QMessageBox.information(self, "ABX test", "Choose two different versions for A and B.")
+            return
+        self.abx = abx_mod.Abx(a, b, self.abx_n.currentData())
+        vs = self.versions()
+        self._abx_labels, self._abx_heard = {k: label for k, label, *_ in vs}, self._abx_sound(vs)
+        self._abx_was = {"lm": self.lm.isChecked(), "ears": self.ears.currentData(), "blind": self.blind.isChecked()}
+        self._abx_set(True, "both", False)
+        for w in (self.lm, self.ears, self.blind, self.abx_row):
+            w.setEnabled(False)
+        self.abx_said.hide()
+        self.abx_listen("X")
+
+    def abx_listen(self, which):
+        """Hear A, B or the trial's X."""
+        if self.abx is None:
+            return
+        self.choose(self.abx.key(which))
+        self.abx_hear[which].setChecked(True)
+        self.abx_render()
+
+    def abx_answer(self, says):
+        """X is A or B: the next trial (X heard first), or the result once the last is answered."""
+        if self.abx is None:
+            return
+        self.abx.answer(says)
+        if self.abx.done:
+            self.abx_end(finished=True)
+        else:
+            self.abx_listen("X")
+
+    def _abx_set(self, lm, ears, blind):
+        """Level-matched, the ears and Blind test as an ABX test needs them, or back as they were: what's heard
+        changes, your Listen settings don't (they're the test's for its while, not choices of yours to keep), and a
+        blind test you had keeps its letters."""
+        for w, set_it in ((self.lm, lambda: self.lm.setChecked(lm)),
+                          (self.ears, lambda: self.ears.setCurrentIndex(max(0, self.ears.findData(ears)))),
+                          (self.blind, lambda: self.blind.setChecked(blind))):
+            with QSignalBlocker(w):
+                set_it()
+        if self.engine:
+            self.engine.set_level_match(lm)
+        self._apply()
+
+    def _abx_sound(self, vs):
+        """What A and B sound like: their filters that are on, in any order."""
+        t = self.abx
+        return {k: sorted((f.get("type", "PK"), float(f["freq"]), float(f["gain"]), float(f["q"])) for f in fl)
+                for k, _label, fl, _c in vs if k in (t.a, t.b)}
+
+    def _abx_stops(self, vs):
+        """Why an ABX test can't go on ("" if it can): a version it tests gone, or its filters changed (an edit,
+        another result shown): the rest of its trials would be a test of something else."""
+        t, now = self.abx, self._abx_sound(vs)
+        for k in (t.a, t.b):
+            if k not in now:
+                return f"{self._abx_labels.get(k, k)} is gone"
+            if now[k] != self._abx_heard.get(k):
+                return f"{self._abx_labels.get(k, k)} changed"
+        return ""
+
+    def abx_render(self):
+        t = self.abx
+        if t is None:
+            return
+        names = {k: label for k, label, *_ in self.versions()}
+        self.abx_text.setText(f"Trial {t.trial + 1} of {t.n}: A is {names.get(t.a, t.a)}, B is {names.get(t.b, t.b)}, "
+                              "and X is one of them. Listen to each as often as you like, then say which X is."
+                              + ("" if self.playing else " (Play first.)"))
+        self.abx_box.show()
+        self.render_ab()
+
+    def abx_end(self, finished, quiet=False, why=""):
+        """The test over: its result said (and kept in this session's list) when it was finished or answered at all;
+        why: why it stopped by itself (said too). Listen's own choices put back."""
+        t, self.abx = self.abx, None
+        if t is None:
+            return
+        self.abx_box.hide()
+        for w in (self.lm, self.ears, self.blind, self.abx_row):
+            w.setEnabled(True)
+        was, self._abx_was = self._abx_was or {}, None
+        self._abx_set(was.get("lm", True), was.get("ears") or "both", was.get("blind", False))
+        names = {**{k: label for k, label, *_ in self.versions()}, **self._abx_labels}  # (as they were when it began)
+        because = f" ({why})" if why else ""
+        if not quiet and t.answers:
+            self.abx_results = (self.abx_results + [{"what": f"{names.get(t.a, t.a)} vs {names.get(t.b, t.b)}",
+                                                     "score": f"{t.right()} of {len(t.answers)}",
+                                                     "verdict": t.verdict()}])[-5:]
+            now, earlier = self.abx_results[-1], self.abx_results[:-1]
+            head = "" if finished else f"Stopped after {len(t.answers)} of {t.n} trials{because}. "
+            self.abx_said.setText(head + f"{now['what']}: {now['verdict']}" + (
+                "\nEarlier ABX tests this session: " + " · ".join(f"{r['what']}: {r['score']}" for r in earlier)
+                if earlier else ""))
+            self.abx_said.show()
+        elif not quiet and why:
+            self.abx_said.setText(f"The ABX test stopped before any answer: {why}.")
+            self.abx_said.show()
+        self._abx_fill()
+        self.render_ab()
+
     # ---------------------------------------------------------------- settings kept (the switcher's, app-wide)
     def _keep(self, **kw):
         """Listen's choices into the app's settings, written half a second after the last change (a slider moves
@@ -341,11 +541,15 @@ class Listen(QGroupBox):
         self.right_key = self.right_key if self.right_key in keys else first_eq
         if self.blind_order and sorted(self.blind_order) != sorted(keys):
             self.new_blind()
+        stops = self._abx_stops(vs) if self.abx is not None else ""
+        if stops:
+            self.abx_end(finished=False, why=stops)  # (what was answered is said, and why it stopped)
         self._apply()
         self.render_ab()
         self.render_pins()
         self.render_apo()
         self.add_sel_btn.setEnabled(has_sel)
+        self._abx_fill()
 
     def update_sound(self):
         """Only what's heard (a filter dragged on the EQ graph: many changes a second): each version's filters into the
@@ -365,7 +569,10 @@ class Listen(QGroupBox):
             self.render_ab()
 
     def choose_number(self, n):
-        """Keys 1-9: the nth version as the buttons show them (in a blind test, the nth letter)."""
+        """Keys 1-9: the nth version as the buttons show them (in a blind test, the nth letter); not during an ABX
+        test (its own buttons choose what's heard)."""
+        if self.abx is not None:
+            return
         order = self._order()
         if 0 <= n < len(order):
             self.choose(order[n][0])
@@ -387,10 +594,11 @@ class Listen(QGroupBox):
                 w.setParent(None)
                 w.deleteLater()
         split = self.ears.currentData() == "split"
-        self.ab_box.setVisible(not split)
-        self.split_row.setVisible(split)
-        self.blind.setEnabled(not split)
-        self.reveal_btn.setVisible(self.blind.isChecked() and not self.revealed and not split)
+        testing = getattr(self, "abx", None) is not None  # (an ABX test: its own buttons; one lit here would give X away)
+        self.ab_box.setVisible(not split and not testing)
+        self.split_row.setVisible(split and not testing)
+        self.blind.setEnabled(not split and not testing)
+        self.reveal_btn.setVisible(self.blind.isChecked() and not self.revealed and not split and not testing)
         blind = self.blind.isChecked()
         for i, (key, label, _f, colour) in enumerate(self._order()):
             name = chr(65 + i) + (f" = {label}" if self.revealed else "") if blind else label
@@ -422,7 +630,7 @@ class Listen(QGroupBox):
         if split:
             note += "Swap sides too: your ears differ. "
         # (each ear chooses its own version there: the keys would only change one that isn't heard)
-        self.note.setText(note + ("" if split else "Keys 1-9 switch versions. ") + "Start with the volume low.")
+        self.note.setText(note + ("" if split or testing else "Keys 1-9 switch versions. ") + "Start with the volume low.")
 
     def ears_changed(self):
         self._keep(ears=self.ears.currentData())
@@ -503,6 +711,7 @@ class Listen(QGroupBox):
         self.play_btn.setText("Stop")
         if kind in ("tone", "sweep"):
             self.marker_timer.start()
+        self.abx_render()  # (an ABX test's trial: "Play first." goes)
 
     def stop(self):
         if self.engine:
@@ -511,6 +720,7 @@ class Listen(QGroupBox):
         self.play_btn.setText("Play")
         self.marker_timer.stop()
         self.page.draw_marker()
+        self.abx_render()
 
     def marker_hz(self):
         """The frequency being played (the tone's, the sweep's), for the graph's marker; None otherwise."""

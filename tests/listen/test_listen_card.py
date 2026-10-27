@@ -398,7 +398,7 @@ def test_versions_in_rows_that_fit(card, check):
           "within Make an EQ (it never scrolls sideways for them)",
           len(btns) == len(lis.versions()) >= 8 and len(rows) >= 2 and inside and wide[0] <= wide[1],
           (len(btns), rows, inside, wide))
-    groups = len(lis.findChildren(QButtonGroup))
+    groups = len([g for g in lis.findChildren(QButtonGroup) if g is not lis.abx_group])  # (the ABX test's: its own)
     check("listen: drawing the versions again keeps one button group (one more was left behind with each redraw)",
           groups == 1, groups)
 

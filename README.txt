@@ -158,6 +158,13 @@ One column, top to bottom:
   Level-matched keeps them all equally loud, so you compare the EQ, not the volume. Blind test hides which is which
   until Reveal; "A different version in each ear" puts one in each (Swap them too: your ears differ). If the device
   playing has its own EQ on (Devices), it plays on top of what you hear here: Listen says so, with "Switch it off".
+  ABX test: whether you can really tell two versions apart. Choose A and B (any two of the versions) and how many
+  trials, then Start ABX; each trial X is A or B at random: "Listen to A", "Listen to B", "Listen to X" as often as
+  you like, then "X is A" or "X is B" (nothing says whether you were right until the end). Then: how many you got
+  right, and how often guessing alone gets that many or more (under 5 %: you can tell them apart; above it, it could
+  be luck). While it runs, Listen stays level-matched with both ears the same, and the version buttons and keys 1-9
+  are put away (they'd give X away); "Stop the test" says what you answered so far, and so does changing A or B
+  while it runs (editing the EQ, showing another result), which ends it. Results stay for the session.
 
 
 TRACING A GRAPH (Trace image, by the graph's title)

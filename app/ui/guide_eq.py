@@ -443,6 +443,38 @@ def eq_steps(page):
             api.spot_on(L.split_row)
             yield 1500
 
+    def abx_demo(api):
+        L = page.listen
+        if not L.abx_start.isEnabled() or L.abx is not None:
+            yield 300
+            return
+        before = (L.active, L.picked)
+
+        def back():
+            L.abx_end(finished=False, quiet=True)
+            L.active, L.picked = before
+            L._apply()
+            L.render_ab()
+        api.undo(back)
+        yield from api.at(L.abx_a, 0.3, 0.5, 800, say="An ABX test: choose A and B (here EQ off and the EQ)")
+        yield from api.click(L.abx_start)
+        L.abx_begin()
+        api.spot_on(L.abx_box)
+        yield 900
+        api.say("Each trial X is A or B at random: listen to A, B and X as often as you like")
+        yield from api.click(L.abx_hear["A"])
+        L.abx_listen("A")
+        yield 300
+        yield from api.click(L.abx_hear["X"])
+        L.abx_listen("X")
+        yield 300
+        api.say("Then say which X is (nothing says if you were right until the end)")
+        yield from api.click(L.abx_says["A"])
+        L.abx_answer("A")
+        yield 600
+        yield from api.note("At the end: your score, and how often guessing alone does as well. (Demo: nothing kept.)",
+                            L.abx_box, 1600)
+
     def preset_demo(api):
         b = win.presets_btn
         names = page.preset_names()
@@ -655,8 +687,11 @@ def eq_steps(page):
         {"chapter": "3 · Run & review", "title": "Compare by ear", "target": lambda: page.listen,
          "ready": lambda: page.listen.isVisible(),
          "text": "Level-matched so you compare the sound, not the volume. A blind test hides which is which; or put a "
-                 "different version in each ear.",
-         "demo": [{"run": compare_ear_demo, "say": "A blind test, or a version in each ear"}]},
+                 "different version in each ear. An ABX test says whether you can really tell two apart: each trial X "
+                 "is A or B at random, you say which, and at the end comes your score and how often guessing alone "
+                 "does as well.",
+         "demo": [{"run": compare_ear_demo, "say": "A blind test, or a version in each ear"},
+                  {"run": abx_demo, "say": "An ABX test: can you really tell them apart?"}]},
         {"chapter": "More", "title": "Presets", "target": lambda: win.presets_btn, "top bar": True,
          "text": "Save all settings under a name and load them later, e.g. one for the website and one for Equalizer "
                  "APO. A preset keeps settings, not your files.",

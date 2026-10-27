@@ -22,13 +22,18 @@ It's a native desktop app (Python and Qt), not a web page, and works offline.
   AutoEq) and the files on your PC. It compares several measurements of the same model, and converts targets
   between measurement rigs (711 coupler, B&K 5128).
 - **Target adjustments:** tilt, bass, treble, ear gain and more, shown live on the graph.
+- **EQs by hand:** start empty, or from an EQ file (Equalizer APO, Room EQ Wizard, Peace), pasted filters or a
+  device's profile, read exactly as Equalizer APO plays them. Drag each filter on the EQ graph (frequency and gain;
+  Q with the mouse wheel); an EQ you're trying on a device plays each change there as you make it.
 - **Exports for 34 EQ apps and devices**, each within its own limits: Equalizer APO, Peace, foobar2000, Roon,
   Wavelet, Poweramp, USB Audio Player PRO, Qudelix, FiiO, miniDSP, EasyEffects and more, plus an HTML report.
-- **Listen:** hear the EQ through your own headphones, level-matched, with a blind test option.
+- **Listen:** hear the EQ through your own headphones, level-matched, with a blind test option and an ABX test (each
+  trial X is A or B at random; at the end, your score and how often guessing alone does as well).
 - **Graph tracer:** turns a picture of a frequency-response graph (a manufacturer's sheet, a review's screenshot)
   into a measurement, reading the axes with Windows' own text reader.
 - **Device switching:** profiles for each device, a tray icon, a hotkey, notices, and a check that asks Equalizer
-  APO whether the EQ really plays.
+  APO whether the EQ really plays. A second hotkey turns the playing device's EQ off and on again to compare,
+  level-matched so the louder one doesn't win.
 - **Help built in:** a guided tour with demos, Help for every term and setting (F1 on any control), keyboard and
   screen-reader support.
 - **Windows 11's look:** its colours, type and symbols, light or dark as Windows is, in your Windows accent colour,
