@@ -112,20 +112,22 @@ One column, top to bottom:
   database added from squig.link's list or by its address; its results are A to Z in each part, and the Rig, Type
   and Source filters' lists are A to Z with a search box at the top: type part of a name to find it); "Other measurements of this model…" ranks every measurement of your IEM for the target (Which measurement to
   use?). History (by the graph's title) has the EQs you saved or copied before.
-- Make the EQ: Your EQ app (its limits are kept, and Save writes exactly its file), the method (Best fit for EQ apps;
-  the Website ones for squig.link's own AutoEQ), the search (what a run tries and how long it takes on this PC), Run. Best fit adds filters one at a time and keeps the simplest EQ that sounds the same as the target
-  (within 0.25 dB everywhere, as the ear hears it); the line under the result's numbers says so, or how far off it is
-  and where when your EQ app's limits can't get there.
+- Make the EQ: first the way, as two tabs, Automatically or By hand (it opens on the one you chose last); Your EQ app,
+  under them, counts for both (its limits are kept, and Save writes exactly its file).
+  Automatically: the method (Best fit for EQ apps; the Website ones for squig.link's own AutoEQ), the search (what a
+  run tries and how long it takes on this PC), Run. Best fit adds filters one at a time and keeps the simplest EQ that
+  sounds the same as the target (within 0.25 dB everywhere, as the ear hears it); the line under the result's numbers
+  says so, or how far off it is and where when your EQ app's limits can't get there.
   "Run several…" makes EQs for several IEMs or targets in one go (tick them; each is saved and kept in History).
-  "By hand" makes the EQ yourself: Start empty, From an EQ file… (Equalizer APO, AutoEq, squig.link, Room EQ
-  Wizard's "Export filter settings as text", a Peace preset), Paste filters…, From a device's profile, or A copy of
-  the EQ shown. It shows on the result card as a run of its own, so everything below works for it; a measurement
+  By hand makes the EQ yourself: Start from an empty EQ, a copy of the selected EQ, an EQ file (Equalizer APO, AutoEq,
+  squig.link, Room EQ Wizard's "Export filter settings as text", a Peace preset), pasted filters or a device's profile,
+  then Start. It shows on the result card as a run of its own, so everything below works for it; a measurement
   and target are optional (chosen, the graph shows your IEM with it and its error). Files are read as Equalizer APO
   plays them (a shelf at its corner frequency moved to its centre, a slope as its Q); an EQ here has peaking and
   shelf filters, so other filter types, a graphic EQ or a convolution are left out, and said. Begun from a
   profile, Use on device › Update puts it back into that profile (Profiles: "Edit in Make an EQ" does the same).
   Close (at the right of its title) goes back to what was shown before it: your run, or none. Changed, it stays in
-  "Runs this session" to come back to; empty or as it began, it just goes.
+  "Runs this session" to come back to; empty, it just goes; as it began, it goes with Undo at the bottom of the window.
 - Settings and Advanced (folds): the automatic settings' values and why, or your own ("yours", ↺ hands one back).
   Every list is A to Z (numbers as numbers; a "Choose…" stays on top), and any list of more than 15 choices
   (Advanced › Layout, Find…'s Source, …) opens with a search box at its top.

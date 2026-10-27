@@ -2,10 +2,11 @@
 shown (its numbers, Fewer or more filters, All results…, Compare…, Run several…), this session's runs, the filters
 being edited (Table, Sliders, Add filter, Sort, Revert), Save filters, Report, and Use on device (or Try for 5
 minutes on).
-By hand (beside Run): an EQ of your own, begun empty, from an EQ file (Equalizer APO's lines, a Room EQ Wizard export,
-a Peace preset: read as Equalizer APO plays them, eq\\eqtext.py), from pasted lines, from a device's profile or as a
-copy of the EQ shown. It's a run of its own ("manual", one result), so everything a result has works for it; begun
-from a profile, Use on device can update that profile.
+By hand (Make the EQ's second way, set_way: its tab beside Automatically): an EQ of your own, begun empty, from an EQ
+file (Equalizer APO's lines, a Room EQ Wizard export, a Peace preset: read as Equalizer APO plays them,
+eq\\eqtext.py), from pasted lines, from a device's profile or as a copy of the EQ shown (Start from, then Start). It's a
+run of its own ("manual", one result), so everything a result has works for it; begun from a profile, Use on device
+can update that profile.
 EqResult is a plain class (no __init__, no signals); EqPage (ui/eq_page.py) joins it with the other parts.
 """
 import os
@@ -17,6 +18,15 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 import textfile
 from ui.eq_page_parts import MODE_SHORT, file_base_name, modal
+
+# By hand's Start from: an EQ's sources in the order every such list has (.claude/notes/UI-RULES.md 16), each with the
+# note under the box; then each device's profile ("profile:<id>"; "profile:" when there's none yet)
+HAND_SOURCES = (("empty", "An empty EQ", "Add filters on the EQ graph (double-click where you want one) or with Add filter."),
+                ("copy", "A copy of the selected EQ", "The EQ on the result card, to change without losing it."),
+                ("file", "An EQ file", "Equalizer APO, AutoEq, Room EQ Wizard or Peace: you choose the file when you "
+                 "press Start."),
+                ("paste", "Pasted filters", "Equalizer APO lines, a Room EQ Wizard export, or one filter per line: you "
+                 "paste them when you press Start."))
 
 
 class EqResult:
@@ -33,6 +43,7 @@ class EqResult:
             return
         if self.S["auto"]["enabled"]:
             self.refresh_auto()  # (the values for exactly these settings)
+        self.set_way("auto", remember=False)  # (its progress and Cancel are Automatically's: a Retry from an EQ by hand)
         body = {"settings": self.S, "mode": "best_fit" if retry else self.S["mode"], "analysis": self.analysis}
         if retry:
             body["retry"] = retry
@@ -500,25 +511,80 @@ class EqResult:
         return res.get("path")
 
     # ---------------------------------------------------------------- an EQ made by hand
-    def fill_hand_menu(self):
-        """By hand's menu, made as it opens, in the order every list of an EQ's sources has (UI-RULES 16): Start empty,
-        A copy of the selected EQ, From an EQ file…, Paste filters…, From a device's profile (each profile, with the
-        devices that have it)."""
-        m = self.hand_menu
-        m.clear()
-        m.addAction("Start empty", lambda: self.start_by_hand([], "started empty"))
-        a = m.addAction("A copy of the selected EQ", self.hand_from_shown)
-        a.setEnabled(bool(self.current()[1]))
-        m.addAction("From an EQ file…", self.hand_from_file)
-        m.addAction("Paste filters…", self.hand_from_paste)
-        sub = m.addMenu("From a device's profile")
-        profiles = sorted(self.sw.profiles().items(), key=lambda x: x[1]["name"].lower())
-        for pid, p in profiles:
-            used = self.sw.used_by(pid)
-            a = sub.addAction(p["name"] + (f"  ·  {', '.join(used)}" if used else ""))
-            a.triggered.connect(lambda _=False, pid=pid: self.hand_from_profile(pid))
-        if not profiles:
-            sub.addAction("No profiles yet (Devices › Add a profile)").setEnabled(False)
+    # ---------------------------------------------------------------- Make the EQ's two ways
+    def set_way(self, way, remember=True):
+        """Make the EQ's way: "auto" (Automatically: Method, Search, Run) or "hand" (By hand: Start from, Start), its
+        tab marked and only its steps shown. remember: kept for the next start (a tab you click; not a switch the app
+        makes as it shows what you did: an EQ by hand begun elsewhere, a run started from the result card)."""
+        way = way if way in ("auto", "hand") else "auto"
+        self.way = way
+        for key, b in self.way_btns.items():
+            b.setChecked(key == way)
+        self.auto_w.setVisible(way == "auto")
+        self.hand_w.setVisible(way == "hand")
+        if way == "hand":
+            self.fill_hand_sources()  # (the profiles as they are now)
+        if remember and self.sw is not None and self.sw.s.get("make_way") != way:
+            self.sw.set("make_way", way, tell=False)
+
+    def fill_hand_sources(self):
+        """By hand's Start from: HAND_SOURCES, then each device's profile, A to Z, with the devices that have it (one
+        line saying there's none yet when there isn't). The choice stays when it's still there."""
+        c = self.hand_source
+        keep = c.currentData()
+        c.blockSignals(True)
+        try:
+            c.clear()
+            for key, words, _note in HAND_SOURCES:
+                c.addItem(words, key)
+            profiles = list(self.sw.profiles().items()) if self.sw else []
+            for pid, p in profiles:
+                used = self.sw.used_by(pid)
+                c.addItem(f"Profile: {p['name']}" + (f"  ·  {', '.join(used)}" if used else ""), f"profile:{pid}")
+            if not profiles:
+                c.addItem("A device's profile (none yet)", "profile:")
+            # (the sources in their order on top, the profiles under them A to Z: as every list pins its special
+            # choices, UI-RULES 22)
+            c.sort_items(pinned=len(HAND_SOURCES))
+            i = c.findData(keep) if keep is not None else -1
+            c.setCurrentIndex(i if i >= 0 else 0)
+        finally:
+            c.blockSignals(False)
+        self.hand_source_changed()
+
+    def hand_source_changed(self):
+        """The note under Start from for the source chosen, and Start's words ("Start…" when it asks first: a file,
+        pasted lines, UI-RULES 11)."""
+        key = self.hand_source.currentData() or "empty"
+        note = next((n for k, _w, n in HAND_SOURCES if k == key), "")
+        if key == "profile:":
+            note = "No profiles yet: add one in Devices (Add a profile), then start from it here."
+        elif key.startswith("profile:"):
+            note = "A device's profile: Use on device › Update puts your changes back into it."
+        self.hand_src_note.setText(note)
+        self.hand_start.setText("Start…" if key in ("file", "paste") else "Start")
+
+    def start_from_source(self):
+        """Start (By hand): an EQ by hand from the source chosen in Start from. What's needed first is said in a box
+        (UI-RULES 25: no EQ on the result card to copy, no profile yet)."""
+        key = self.hand_source.currentData() or "empty"
+        if key == "empty":
+            self.start_by_hand([], "started empty")
+        elif key == "copy":
+            if not self.current()[1]:
+                QMessageBox.information(self, "Start", "There's no EQ on the result card yet: run one, or start from "
+                                        "something else.")
+                return
+            self.hand_from_shown()
+        elif key == "file":
+            self.hand_from_file()
+        elif key == "paste":
+            self.hand_from_paste()
+        elif key == "profile:":
+            QMessageBox.information(self, "Start", "No profiles yet: add one in Devices (Add a profile), then start "
+                                    "from it here.")
+        else:
+            self.hand_from_profile(key.split(":", 1)[1])
 
     def start_by_hand(self, filters, source, name="", profile=None, left_out=()):
         """An EQ of your own on the result card, made by hand from these filters (none: start empty), as a run of its
@@ -538,6 +604,7 @@ class EqResult:
             run["target_file"] = self.inputs.get("active_target")
             run["meas_files"] = [m["name"] for m in self.inputs["measurements"] if m["included"]]
         self.hand_before = (run, self.run_result)  # (what its Close goes back to)
+        self.set_way("hand", remember=False)  # (begun from Profiles or the Guide too: the card shows how it was made)
         self.run_result = run
         self.keep_run(run)
         self.name_edit.clear()

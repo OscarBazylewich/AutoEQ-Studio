@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QLabel, QPushButton
 from ui import tasks, theme, tour
 from ui.guide_demos import (adjust_demo, bg, button, card, choose_row, demo_filters, eq_now, fold, mock_combo,
                             mock_menu, open_picker, pick, picker_rows, plot_value, show_on_graph, stage_hand,
-                            stage_result, type_search)
+                            stage_result, type_search, way)
 
 # (A menu a demo draws is the Guide's own, guide_demos.mock_menu: as wide as its longest row and drawn as a real menu;
 # a row ending in " ▸" is a submenu's, Windows 11's chevron at its right, as the app's menus draw it.)
@@ -24,6 +24,10 @@ def eq_steps(page):
     has_curves = lambda: bool(page.curves)
     settings_open, settings_close = fold(st.fold.btn, None)
     adjust_open, adjust_close = fold(st.adjust_btn, None)
+    # (Make the EQ shows one way's steps: a step about the other's shows its tab, then the one that was shown)
+    auto_on, auto_off = way(page, "auto")
+    auto_settings_open, auto_settings_close = way(page, "auto", (settings_open, settings_close))
+    hand_on, hand_off = way(page, "hand")
     staged = {}
 
     def result_before():
@@ -393,18 +397,27 @@ def eq_steps(page):
                  "say": "The mouse wheel over a handle: its Q; right-click: its type, on or off, Remove"},
                 {"at": lambda: page.eqplot, "x": 0.12, "y": 0.8, "say": "Double-click where there's none: a new filter"}]
 
+    def way_demo(api):
+        """Each tab in turn: the card shows that way's steps; the way shown before, back after."""
+        was = getattr(page, "way", "auto")
+        api.undo(lambda: page.set_way(was, remember=False))
+        for key, say in (("hand", "By hand: where it starts, then Start"), ("auto", "Automatically: the method, then Run")):
+            api.say(say)
+            yield from api.click(page.way_btns[key])
+            page.set_way(key, remember=False)
+            api.spot_on(page.hand_w if key == "hand" else page.auto_w)
+            yield 1300
+
     def hand_demo(api):
-        items = ["Start empty", "A copy of the selected EQ", "From an EQ file…", "Paste filters…",
-                 "From a device's profile ▸"]
-        m = yield from mock_menu(api, page.hand_btn, items)
-        api.spot_on(m)
-        api.say("Start empty, or from an EQ you have (a file, pasted lines, a profile)")
-        yield from pick(api, m, 0)
-        api.close(m)
+        api.undo(page.hand_source_changed)  # (put back last: the note and Start's words for the choice as it is again)
+        api.say("Start from: empty, or an EQ you have (a file, pasted lines, a profile, a copy)")
+        yield from mock_combo(api, page.hand_source, 0)
+        page.hand_source_changed()
+        yield from api.click(page.hand_start)
         undo = stage_hand(page)  # (an EQ by hand on the result card, as Start empty makes it: put back after)
         if undo is None:  # (an ABX test running: left as it is)
             yield from api.note("An EQ of your own, on the result card: add filters, then save it or use it on a "
-                                "device. (Demo: nothing was changed.)", page.hand_btn, 1700)
+                                "device. (Demo: nothing was changed.)", page.hand_start, 1700)
             return
         api.undo(undo)
         yield from api.at(page.res_title, 0.1, 0.5, 1500,
@@ -573,12 +586,18 @@ def eq_steps(page):
                           {"run": rig_demo, "say": "As made, and converted"}]
          if getattr(page, "rig_note", "") and ((page.curves or {}).get("rig") or {}).get("applied") else
          [{"at": lambda: page.measurement_note, "x": 0.3, "hold": 1500, "say": "Which rig it was measured on"}]},
+        {"chapter": "2 · Settings", "title": "Automatically or by hand", "target": lambda: list(page.way_btns.values()),
+         "text": "Make the EQ starts with how. Automatically: AutoEQ fits the filters to the target for your EQ app "
+                 "(choose the method, then Run). By hand: you set them, starting empty or from an EQ you have. The card "
+                 "shows that way's steps, and opens on the one you chose last.",
+         "demo": [{"run": way_demo, "say": "Each way shows its own steps"}]},
         {"chapter": "2 · Settings", "title": "Your EQ app", "target": lambda: [page.app_combo, page.app_note],
          "text": "Say which app or device will play the EQ (Windows, Mac, Linux, Android, iPhone, a DAC or squig.link). "
                  "Its own limits are kept (bands, gain, Q, a graphic EQ's sliders) and Save filters writes exactly the "
                  "file it imports.",
          "demo": [{"click": lambda: page.app_combo, "say": "Click Your EQ app", "then": app_demo}]},
         {"chapter": "2 · Settings", "title": "Pick an EQ method", "target": lambda: [page.mode_combo, page.mode_hint],
+         "before": auto_on, "after": auto_off,
          "text": "Choose by where the EQ goes. Best fit (the default) for EQ apps and devices: the closest match. The "
                  "website methods give the values to type into squiglink's or listener800's AutoEQ.",
          "demo": [{"click": lambda: page.mode_combo, "say": "Click the method", "then": mode_demo}]},
@@ -590,6 +609,7 @@ def eq_steps(page):
                   {"at": lambda: st.auto_on, "x": 0.1, "say": "They follow the measurement and target you chose"},
                   {"at": lambda: st.why, "x": 0.3, "y": 0.3, "say": "Each automatic value comes with its reason"}]},
         {"chapter": "2 · Settings", "title": "What a run tries", "target": lambda: [page.sa],
+         "before": auto_on, "after": auto_off,
          "text": "Best fit adds filters one at a time under every boost and Q limit that suits your curves, until the "
                  "EQ sounds the same as the target. This says what the next run tries and how long it takes on this "
                  "PC: seconds for most IEMs.",
@@ -603,7 +623,7 @@ def eq_steps(page):
                   {"at": lambda: st.auto_on, "x": 0.1, "say": "Or turn Automatic settings off"}]},
         {"chapter": "2 · Settings", "title": "Start from your own filters",
          "target": lambda: st.form.fields["best_fit.start_filters"] if st.form.fields["best_fit.start_filters"].isVisible() else None,
-         "alt": lambda: page.mode_combo, "before": settings_open, "after": settings_close,
+         "alt": lambda: page.mode_combo, "before": auto_settings_open, "after": auto_settings_close,
          "text": "Best fit can start from an EQ you already have: type its filters, edit them as a table, or load its "
                  "file. It adds filters to yours, or adjusts them too.",
          "alt_text": "With Best fit as the method (and an app that takes any filters), Settings › “Start from your own "
@@ -616,16 +636,20 @@ def eq_steps(page):
                    "“Keep them exactly” keeps them as they are, else the fit adjusts them too"}],
          "alt_demo": [{"at": lambda: page.mode_combo, "say": "Choose Best fit as the method to start from your own filters"}]},
         {"chapter": "3 · Run & review", "title": "Run", "target": lambda: [page.run_btn, page.queue_btn, page.estimate],
+         "before": auto_on, "after": auto_off,
          "text": "Finds the filters. Longer runs show their progress and can be cancelled. Run several… makes EQs for "
                  "several IEMs or targets in one go (each saved and kept in History).",
          "demo": [{"click": lambda: page.run_btn, "say": "Click Run", "then": run_demo},
                   {"at": lambda: page.queue_btn, "say": "Run several…: several IEMs or targets in one go"}]},
-        {"chapter": "3 · Run & review", "title": "Or make it by hand", "target": lambda: page.hand_btn,
-         "text": "By hand makes an EQ yourself, shown as a result of its own: start empty, or from an EQ file "
-                 "(Equalizer APO, AutoEq, Room EQ Wizard, Peace), pasted filters, a device's profile or a copy of the EQ "
-                 "shown, then add and change its filters. Save, Use on device and Listen work as for a run; a "
-                 "measurement and target are optional. Close goes back to what was shown before.",
-         "demo": [{"click": lambda: page.hand_btn, "say": "Click By hand", "then": hand_demo}]},
+        {"chapter": "3 · Run & review", "title": "Or make it by hand",
+         "target": lambda: [page.way_btns["hand"], page.hand_source, page.hand_start],
+         "before": hand_on, "after": hand_off,
+         "text": "By hand (its tab beside Automatically) makes an EQ yourself, shown as a result of its own: Start "
+                 "from an empty EQ, a copy of the selected EQ, an EQ file (Equalizer APO, AutoEq, Room EQ Wizard, Peace), "
+                 "pasted filters or a device's profile, press Start, then add and change its filters. Save, Use on "
+                 "device and Listen work as for a run; a measurement and target are optional. Close goes back to what "
+                 "was shown before.",
+         "demo": [{"click": lambda: page.way_btns["hand"], "say": "Click By hand", "then": hand_demo}]},
         {"chapter": "3 · Run & review", "title": "Check it on the graph", "target": lambda: page.plot, "ready": has_curves,
          "text": "Orange: your IEM. Dashed: the target. Blue: with the EQ. Under it, pink: the EQ itself (above 0 "
                  "boosts, below cuts). Point at the graph for each curve's value; the shaded ends aren't scored.",

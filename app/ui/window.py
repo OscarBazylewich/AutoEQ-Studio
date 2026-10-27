@@ -536,6 +536,8 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         # (Listen's "own EQ on top" note; only once the page is ready: while it opens there's no Listen yet)
         if getattr(self.eq_page, "ready", False) and what in ("active", "devices", "apo", "profiles"):
             self.eq_page.listen.render_apo()
+            if what in ("devices", "profiles"):  # (By hand's Start from lists the profiles, with their devices)
+                self.eq_page.fill_hand_sources()
 
     def render_trial(self):
         self.render_compare()

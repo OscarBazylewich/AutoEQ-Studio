@@ -18,16 +18,18 @@ Filter  3: ON  LP       Fc   18000 Hz
 """
 
 
-def _menu_action(page, text):
-    page.fill_hand_menu()
-    for a in page.hand_menu.actions():
-        if a.text() == text:
-            return a
-        if a.menu() is not None:
-            for b in a.menu().actions():
-                if b.text().startswith(text):
-                    return b
-    raise LookupError(text)
+def _start(page, what):
+    """By hand (Make the EQ's tab), as you'd use it: `what` chosen in Start from (empty, copy, file or paste; else a
+    profile's name), then Start."""
+    page.set_way("hand", remember=False)
+    page.fill_hand_sources()
+    c = page.hand_source
+    i = c.findData(what) if what in ("empty", "copy", "file", "paste") else next(
+        (k for k in range(c.count()) if c.itemText(k).startswith(f"Profile: {what}")), -1)
+    if i < 0:
+        raise LookupError(what)
+    c.setCurrentIndex(i)
+    page.hand_start.click()
 
 
 def _write(path, text):
@@ -38,7 +40,7 @@ def _write(path, text):
 
 def test_start_empty_and_add_a_filter(eq_screen, check):
     page = eq_screen.page
-    _menu_action(page, "Start empty").trigger()
+    _start(page, "empty")
     run, r = page.current()
     empty = (run["mode"], page.res_title.text(), page.count_combo.isVisible(), page.count_lab.isVisible(),
              page.pick_lab.text(), list(page.EDIT), page.listen.isVisible(), page.result_box.isVisible())
@@ -55,7 +57,7 @@ def test_from_a_room_eq_wizard_file(eq_screen, tmp_path, dialogs, check):
     page = eq_screen.page
     path = _write(os.path.join(str(tmp_path), "Room fix.txt"), REW)
     dialogs.answer("getOpenFileName", (path, ""))
-    _menu_action(page, "From an EQ file…").trigger()
+    _start(page, "file")
     run, r = page.current()
     box = [t for kind, t in dialogs.asked if kind == "information"]
     got = [(f["type"], f["enabled"]) for f in page.EDIT]
@@ -71,7 +73,7 @@ def test_pasted_filters(eq_screen, check, monkeypatch):
     page = eq_screen.page
     monkeypatch.setattr(eq_page_parts, "paste_dialog", lambda *a: ("Mine", "Filter 1: ON PK Fc 1000 Hz Gain 3 dB Q 1\n"
                                                                      "Filter 2: OFF HSC Fc 8000 Hz Gain -2 dB Q 0.7"))
-    _menu_action(page, "Paste filters…").trigger()
+    _start(page, "paste")
     run, _ = page.current()
     check("by hand: Paste filters… takes Equalizer APO lines, a switched-off filter staying off",
           [(f["type"], f["enabled"]) for f in page.EDIT] == [("PK", True), ("HSQ", False)] and run["source"] == "pasted",
@@ -83,7 +85,7 @@ def test_from_a_profile_then_update_it(eq_screen, tmp_path, check):
     pid = sw.import_profile(_write(os.path.join(str(tmp_path), "Daily.txt"),
                                    "Preamp: -3 dB\nFilter 1: ON PK Fc 1000 Hz Gain 3 dB Q 1\n"), "Daily")
     sw.add_to_device(eqpage.DEVICE, pid, switch_on=True)
-    _menu_action(page, "Daily").trigger()
+    _start(page, "Daily")
     page.EDIT[0]["gain"] = 4.5
     page.live_update()
     page._fill_use_menu()
@@ -100,7 +102,7 @@ def test_from_a_profile_then_update_it(eq_screen, tmp_path, check):
     graphic = sw.import_profile(_write(os.path.join(str(tmp_path), "Graphic.txt"),
                                        "Filter 1: ON PK Fc 500 Hz Gain 1 dB Q 1\nGraphicEQ: 20 0; 1000 2; 20000 0\n"),
                                 "Graphic one")
-    _menu_action(page, "Graphic one").trigger()
+    _start(page, "Graphic one")
     page._fill_use_menu()
     refused = next(a for a in page.use_menu.actions() if a.text().startswith("Update “Graphic one”"))
     check("by hand: a profile with parts an EQ here can't show (a graphic EQ) can't be updated from it (said why); "
@@ -115,7 +117,7 @@ def test_a_copy_of_the_eq_shown(eq_screen, check):
     page.EDIT.append({"enabled": True, "type": "LSQ", "freq": 100, "gain": 3, "q": 0.7})
     page.live_update()
     before = len(page.session_runs)
-    _menu_action(page, "A copy of the selected EQ").trigger()
+    _start(page, "copy")
     run, _ = page.current()
     check("by hand: A copy of the selected EQ starts another EQ by hand with its filters as they are now, the one before "
           "kept in this session's runs",
@@ -185,16 +187,16 @@ def test_close_goes_back(eq_screen, check):
     page = eq_screen.page
     page.session_runs = []  # (nothing shown before it: the page as it opens)
     page.show_run(None)
-    _menu_action(page, "Start empty").trigger()
+    _start(page, "empty")
     shown = (page.hand_close.isVisible(), page.result_box.isVisible())
     page.hand_close.click()
     alone = (_nothing_shown(page), page.session_runs, page.name_edit.text())
     first = eqpage.quick_run(eq_screen)
-    _menu_action(page, "Start empty").trigger()
+    _start(page, "empty")
     page.hand_close.click()
     back = (page.run_result is first, page.res_title.text().startswith("Best fit"), page.hand_close.isVisible(),
             [x["mode"] for x in page.session_runs])
-    _menu_action(page, "Start empty").trigger()
+    _start(page, "empty")
     mine = page.run_result
     page.add_filter()
     page.hand_close.click()
@@ -216,7 +218,7 @@ def test_close_on_pasted_filters_offers_undo(eq_screen, check):
     page.session_runs = []
     page.show_run(None)
     n = len(eq_screen.said)
-    _menu_action(page, "Start empty").trigger()
+    _start(page, "empty")
     page.hand_close.click()
     empty = eq_screen.said[n:]
     page.start_by_hand([{"type": "PK", "freq": 1000, "gain": 3, "q": 1}], "pasted", "Mine")

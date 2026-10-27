@@ -30,13 +30,14 @@ def ran(eq_screen):
     area.ensureWidgetVisible(page.run_btn, 0, 40)
     qt.pump(50)
     idle = (page.progress_text.isVisibleTo(page), page.progress_text.text())
-    xs = [b.mapTo(page, b.rect().topLeft()).x() for b in (page.run_btn, page.queue_btn, page.hand_btn)]
+    page.set_way("auto", remember=False)
+    xs = [b.mapTo(page, b.rect().topLeft()).x() for b in (page.run_btn, page.queue_btn)]
     at = bar.value()
     page.run_btn.click()
     qt.pump(30)
     during = {"cancel shown": page.cancel_btn.isVisibleTo(page), "line shown": page.progress_text.isVisibleTo(page),
               "others where they were": [b.mapTo(page, b.rect().topLeft()).x()
-                                         for b in (page.run_btn, page.queue_btn, page.hand_btn)] == xs,
+                                         for b in (page.run_btn, page.queue_btn)] == xs,
               "cancel after them": page.cancel_btn.mapTo(page, page.cancel_btn.rect().topLeft()).x() > xs[-1]}
     eq_screen.wait_for(lambda: page.run_btn.isEnabled(), 180)
     qt.pump(100)
@@ -87,14 +88,16 @@ def test_remove_a_run_with_undo(eq_screen, check):
           "back and shows it again", gone == (True, True, True) and back == (True, True), (gone, back))
 
 
-def test_by_hand_menu_in_the_sources_order(eq_screen, check):
+def test_by_hand_sources_in_their_order(eq_screen, check):
     page = eq_screen.page
-    page.fill_hand_menu()
-    words = [a.text() for a in page.hand_menu.actions() if not a.isSeparator()]
-    check("eq page: By hand's menu lists an EQ's sources in the order every such list has (Start empty, A copy of the "
-          "selected EQ, From an EQ file…, Paste filters…, From a device's profile)",
-          words == ["Start empty", "A copy of the selected EQ", "From an EQ file…", "Paste filters…",
-                    "From a device's profile"], words)
+    page.fill_hand_sources()
+    c = page.hand_source
+    words = [c.itemText(k) for k in range(c.count())]
+    check("eq page: By hand's Start from lists an EQ's sources in the order every such list has (an empty EQ, a copy "
+          "of the selected EQ, an EQ file, pasted filters), then the devices' profiles",
+          words[:4] == ["An empty EQ", "A copy of the selected EQ", "An EQ file", "Pasted filters"]
+          and (bool(words[4:]) and all(w.startswith("Profile: ") for w in words[4:])
+               or words[4:] == ["A device's profile (none yet)"]), words)
 
 
 def test_result_card_lines_up(eq_screen, check):

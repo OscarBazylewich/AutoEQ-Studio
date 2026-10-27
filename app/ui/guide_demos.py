@@ -41,6 +41,25 @@ def fold(btn, before):
     return b, a
 
 
+def way(page, which, also=None):
+    """A step's before/after that show Make the EQ's way `which` ("auto": Method, Search, Run; "hand": Start from,
+    Start) for it, then the way that was shown (never kept as yours: remember=False). also: a (before, after) pair run
+    with them (a fold the step opens too)."""
+    was = {}
+
+    def b():
+        was["way"] = getattr(page, "way", "auto")
+        page.set_way(which, remember=False)
+        if also:
+            also[0]()
+
+    def a():
+        if also:
+            also[1]()
+        page.set_way(was.get("way", "auto"), remember=False)
+    return b, a
+
+
 def _slide(slider, to, say, back=None, label=None):
     """A demo action: the pointer drags a slider's handle to a value (and back), the slider following; put back."""
     from PySide6.QtCore import QSignalBlocker
@@ -185,17 +204,20 @@ def stage_result(page):
 
 
 def stage_hand(page):
-    """An EQ by hand on the result card, as By hand › Start empty makes it (the Guide's: nothing is kept), so its step
-    can show Close. The function it returns puts the page back as it was: the result shown (with edits not yet saved),
-    this session's runs, the file name. None while an ABX test runs (a new EQ shown would end it)."""
+    """An EQ by hand on the result card, as By hand's Start from an empty EQ makes it (the Guide's: nothing is kept),
+    so its step can show Close. The function it returns puts the page back as it was: the result shown (with edits not
+    yet saved), this session's runs, the file name, Make the EQ's way. None while an ABX test runs (a new EQ shown
+    would end it)."""
     if getattr(page.listen, "abx", None) is not None:
         return None
     keep = (page.run_result, page.sel, page.EDIT, page.ORIG, page.name_edit.text(), page.name_edit.property("auto"),
-            list(page.session_runs), page.runs, page.listen.isVisible(), getattr(page, "hand_before", None))
+            list(page.session_runs), page.runs, page.listen.isVisible(), getattr(page, "hand_before", None),
+            getattr(page, "way", "auto"))
     page.start_by_hand([], "started empty")
 
     def undo():
-        run, sel, edit, orig, name, auto, runs, n, heard, before = keep
+        run, sel, edit, orig, name, auto, runs, n, heard, before, was_way = keep
+        page.set_way(was_way, remember=False)
         page.session_runs, page.runs, page.hand_before = runs, n, before
         if run is not None and sel is not None:
             page.run_result = run

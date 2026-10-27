@@ -130,10 +130,14 @@ HELP_EQ = {'slot:target': ['The curve you want your earphone to sound like.', 't
  '#eq-graph': ["The EQ itself: drag a filter's handle for its frequency and gain, the mouse wheel for its Q.",
                'by-hand',
                'q'],
- '#by-hand': ['Make the EQ yourself: empty, a copy of the selected EQ, an EQ file, pasted filters or a profile.',
+ '#make-way': ['How to make the EQ: Automatically (AutoEQ fits the filters) or By hand (you set them).', 'by-hand'],
+ '#by-hand': ['Make the EQ yourself: start from an empty EQ, a copy of the selected EQ, an EQ file, pasted filters or a '
+              'profile, then Start.',
               'by-hand',
               'peaking-filter',
               'shelf'],
+ '#hand-start': ['Starts an EQ by hand from what Start from says (Start… asks for the file or the lines first).',
+                 'by-hand'],
  '#hand-close': ['Back to what was shown before this EQ by hand: the run you had, or none.', 'by-hand'],
  '#use-try': ['Plays the EQ on a device for 5 minutes in every app, then Keep it or let its own EQ come back.',
               'q-try']}
@@ -150,6 +154,15 @@ SETTINGS_EQ = [{'title': 'Choosing and running',
                                     'databases (press / to search). Its ticked files (left, right, seatings) are '
                                     'averaged. Several to choose from? “Other measurements of this model” ranks '
                                     'them.']},
+                          {'key': '#make-way',
+                           'title': 'Automatically or By hand (Make the EQ)',
+                           'body': ['The first choice in Make the EQ, as two tabs. Automatically: AutoEQ fits the '
+                                    'filters to the target for your EQ app; choose the method, then Run (or Run '
+                                    'several… for many at once). By hand: you set the filters yourself; choose where it '
+                                    'starts (Start from), press Start, then change them on the EQ graph or in the table.',
+                                    'Your EQ app, under the tabs, counts for both: its limits are kept and Save filters '
+                                    'writes its file. The card opens on the way you chose last; making an EQ by hand '
+                                    'from Profiles shows By hand, and a run shows Automatically.']},
                           {'key': 'eq_app',
                            'title': 'Your EQ app',
                            'body': ['The app or device that will play the EQ. Its own limits are kept (how many '
@@ -412,16 +425,24 @@ SETTINGS_EQ = [{'title': 'Choosing and running',
                                     'table and the sliders do the same by keyboard.']},
                           {'key': '#by-hand',
                            'title': 'By hand',
-                           'body': ['Beside Run: an EQ you make yourself, shown on the result card as a run of its '
-                                    'own, so Save filters, Copy, Use on device, Listen and the rest work as for any '
-                                    'result. Start empty, as a copy of the selected EQ, or from an EQ you have: an EQ '
-                                    "file (Equalizer APO, AutoEq, squig.link, Room EQ Wizard's export, a Peace preset), "
-                                    "pasted filters or a device's profile. Files are read as Equalizer APO plays them; "
+                           'body': ["Make the EQ's By hand tab: an EQ you make yourself, shown on the result card as "
+                                    'a run of its own, so Save filters, Copy, Use on device, Listen and the rest work '
+                                    'as for any result. Start from an empty EQ, a copy of the selected EQ, or an EQ you '
+                                    "have: an EQ file (Equalizer APO, AutoEq, squig.link, Room EQ Wizard's export, a "
+                                    "Peace preset), pasted filters or a device's profile; then press Start (Start… asks "
+                                    'for the file or the lines first). Files are read as Equalizer APO plays them; '
                                     "what an EQ here can't have (other filter types, a graphic EQ…) is said, never "
                                     'left out without a word.',
                                     'A measurement and target are optional: chosen, the graph shows your IEM with the '
                                     'EQ and the error. Begun from a profile, Use on device › Update puts it back into '
                                     'that profile. Close, on its result card, goes back to what was shown before.']},
+                          {'key': '#hand-start',
+                           'title': 'Start (By hand)',
+                           'body': ['Under By hand\'s Start from: an EQ by hand begins from what it says, shown on the '
+                                    'result card. An empty EQ: add filters on the EQ graph (double-click) or with Add '
+                                    'filter. A copy of the selected EQ: the one on the result card, to change without '
+                                    'losing it. An EQ file or pasted filters: Start… asks for the file or the lines '
+                                    "first. A device's profile: Use on device › Update puts your changes back into it."]},
                           {'key': '#hand-close',
                            'title': 'Close (an EQ by hand)',
                            'body': ['On an EQ by hand\'s result card, at the right of its title: back to '
