@@ -306,7 +306,7 @@ def test_trying_an_eq_for_5_minutes(set_up_window, check, qapp):
         sw.try_eq("Headset|EarPods", "Preamp: -1 dB\r\n", "Third", 5)
         sw.trial["until"] = 0
         # (the app's 1.5 s poll, with a stand-in for the app: what poll uses of it, the switcher and ending a trial)
-        app_mod.App.poll(type("A", (), {"sw": sw, "hotkey_problem": "",
+        app_mod.App.poll(type("A", (), {"sw": sw, "hotkey_problem": "", "onoff_problem": "",
                                         "end_trial": staticmethod(lambda keep=False: sw.end_trial(keep))})())
         # was selftest.py:562
         check("devices: Try for 5 minutes plays the EQ on that device only (APO's file, the bar, the status), Keep it "

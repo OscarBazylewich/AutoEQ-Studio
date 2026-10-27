@@ -42,7 +42,7 @@ def copies(tmp_path_factory):
     data = os.path.join(run, "data")
     os.makedirs(data)
     with open(os.path.join(data, "settings.json"), "w", encoding="utf-8") as fh:
-        json.dump({"offline": True, "hotkey": ""}, fh)  # (never online, never the hotkey: see above)
+        json.dump({"offline": True, "hotkey": "", "onoff_hotkey": ""}, fh)  # (never online, never the hotkey: see above)
     env = session.child_env(AUTOEQSTUDIO_APO_CONFIG=conf, AUTOEQSTUDIO_OLD_SETTINGS=os.path.join(top, "none.json"),
                             AUTOEQSTUDIO_DATA=data, AUTOEQSTUDIO_ROOT=os.path.join(run, "root"))
     state = types.SimpleNamespace(program=subproc.RunningCopy(app, env), conf=conf, running=None)

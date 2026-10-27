@@ -674,9 +674,11 @@ def eq_steps(page):
         {"chapter": "More", "title": "Your devices", "target": lambda: win.nav["devices"], "top bar": True,
          "text": "Devices gives each playback device its own EQ through Equalizer APO, switched by itself when the "
                  "device plays, with a line saying whether it really plays; Profiles lists the EQs. Use on device puts "
-                 "a result there in one click.",
+                 "a result there in one click. Two hotkeys work in any program (Settings): one goes through the "
+                 "playing device's EQs; the other switches its EQ off for now and back, level-matched, to compare.",
          "demo": [{"at": lambda: win.nav["devices"], "say": "Each device's own EQ"},
-                  {"at": lambda: win.nav["profiles"], "say": "Your EQs, as profiles"}]},
+                  {"at": lambda: win.nav["profiles"], "say": "Your EQs, as profiles"},
+                  {"at": lambda: win.nav["settings"], "say": "The hotkeys: through the EQs, and EQ off and on to compare"}]},
         {"chapter": "More", "title": "Settings", "target": lambda: st.adv.btn,
          "text": "Advanced, under Settings: what's set for you (Best fit's layout, limits and penalties, the website "
                  "sweep's lists, the website's own details, the files Save writes, History, CPU cores). A list of more "

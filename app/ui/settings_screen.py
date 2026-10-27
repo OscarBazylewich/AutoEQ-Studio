@@ -1,5 +1,5 @@
-"""The Settings screen of AutoEQ Studio's window (ui\\window.py): starting with Windows, notices, the hotkey, online
-or offline, Equalizer APO (setting it up for AutoEQ Studio: ui\\setup_dialog.py; taking AutoEQ Studio out of it; its
+"""The Settings screen of AutoEQ Studio's window (ui\\window.py): starting with Windows, notices, the hotkeys (the
+playing device's EQs one by one; its EQ off for now and back, to compare, level-matched or not), online or offline, Equalizer APO (setting it up for AutoEQ Studio: ui\\setup_dialog.py; taking AutoEQ Studio out of it; its
 Configurator and config folder), your files' folder (paths.py, ui\\your_files.py), and Backup (everything of yours in
 one .zip, and back: backup.py).
 SettingsScreen is one part of the window's class (Window, in ui\\window.py): a plain class whose methods work on the
@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (QCheckBox, QFileDialog, QGroupBox, QHBoxLayout, Q
                                QPushButton, QVBoxLayout, QWidget)
 
 import paths
-from ui import icons, theme
+from ui import help_window, icons, theme
 from ui.setup_dialog import SetUpDialog
 from ui.window_parts import muted
 
@@ -51,6 +51,29 @@ class SettingsScreen:
         bl.addLayout(row)
         self.hotkey_note = muted()
         bl.addWidget(self.hotkey_note)
+        help_window.tag(self.hotkey_edit, "#hotkey")
+        # the on/off hotkey (2026-10-26): the playing device's EQ off for now, to compare, and back
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Hotkey to switch the EQ off for now and back on, to compare:"))
+        self.onoff_edit = QKeySequenceEdit()
+        self.onoff_edit.setMaximumSequenceLength(1)
+        self.onoff_edit.setAccessibleName("Hotkey to switch the EQ off for now and back on")
+        self.onoff_edit.editingFinished.connect(lambda: self.onoff_hotkey_changed.emit(
+            self.onoff_edit.keySequence().toString(QKeySequence.PortableText)))
+        row.addWidget(self.onoff_edit)
+        clear = QPushButton("None")
+        clear.setAccessibleName("No hotkey to switch the EQ off and on")
+        clear.clicked.connect(lambda: (self.onoff_edit.clear(), self.onoff_hotkey_changed.emit("")))
+        row.addWidget(clear)
+        row.addStretch(1)
+        bl.addLayout(row)
+        help_window.tag(self.onoff_edit, "#onoff-hotkey")
+        self.chk_matched = QCheckBox("Level-matched: “off” plays as loud as the EQ (turned down to its loudness)")
+        self.chk_matched.toggled.connect(lambda on: self.sw.set("onoff_matched", bool(on)))
+        help_window.tag(self.chk_matched, "#onoff-matched")
+        bl.addWidget(self.chk_matched)
+        self.onoff_note = muted()
+        bl.addWidget(self.onoff_note)
         about = muted(f"Version {paths.VERSION}" + (" · installed" if paths.INSTALLED
                                                      else f" · run from its folder ({paths.PROGRAM})"))
         about.setTextInteractionFlags(Qt.TextSelectableByMouse)
@@ -99,7 +122,6 @@ class SettingsScreen:
         icons.put(self.btn_files_change, "change_folder")
         self.btn_files_change.setToolTip("Keep your files in another folder (they can be moved there for you)")
         self.btn_files_change.clicked.connect(self.change_files_folder)
-        from ui import help_window
         for b in (self.btn_files_open, self.btn_files_change):
             help_window.tag(b, "#files-folder")
             row.addWidget(b)
@@ -207,6 +229,18 @@ class SettingsScreen:
         role = "warn" if self.app.hotkey_problem else "muted"  # (a problem with the hotkey is said as a warning)
         if self.hotkey_note.property("role") != role:
             theme.mark(self.hotkey_note, role=role)
+        if not self.onoff_edit.hasFocus():
+            self.onoff_edit.setKeySequence(QKeySequence(self.sw.s.get("onoff_hotkey") or ""))
+        self.chk_matched.blockSignals(True)
+        self.chk_matched.setChecked(bool(self.sw.s.get("onoff_matched", True)))
+        self.chk_matched.blockSignals(False)
+        problem = getattr(self.app, "onoff_problem", "")
+        self.onoff_note.setText(problem or "Works in any program: the playing device's EQ off for now, then back on. "
+                                "Level-matched, “off” isn't louder than the EQ, so neither seems better for being "
+                                "louder.")
+        role = "warn" if problem else "muted"
+        if self.onoff_note.property("role") != role:
+            theme.mark(self.onoff_note, role=role)
         apo = self.sw.apo
         if not apo.found:
             state = "Not installed (or its config folder wasn't found)."

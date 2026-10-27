@@ -13,6 +13,11 @@ Trying an EQ (try_eq): it plays on a device for a few minutes from a file of its
 (TRIAL_FILE), never saved in the settings; end_trial() keeps it as a profile or puts the device's own EQ back. A
 start removes a trial left by a crash (APO's file is written again without it).
 
+Off for now, to compare (compare_toggle: the on/off hotkey, 2026-10-26): the playing device's EQ off until it's
+pressed again, never saved (a start, or any other choice for the device, ends it). Level-matched (onoff_matched, on
+to start with): instead of nothing, the device plays COMPARE_FILE, a pre-amp alone that turns it down to the EQ's
+loudness (switcher\\level.py, Listen's measure), so "off" isn't louder and the louder one doesn't win for that.
+
 Listeners (on_change) are told after every change, with what changed: "devices" (plugged in or out, another one
 playing), "profiles", "active" (an EQ switched), "settings", "apo".
 """
@@ -24,9 +29,11 @@ import textfile
 
 from . import devices as devices_mod
 from . import eqfile
+from . import level
 from .apo import Apo
 
 TRIAL_FILE = "_trying.txt"
+COMPARE_FILE = "_compare.txt"  # (the on/off hotkey's "off": a pre-amp alone, the EQ's loudness)
 
 
 def shown(rec):
@@ -35,7 +42,8 @@ def shown(rec):
 
 
 DEFAULTS = {"profiles": {}, "devices": {}, "notify": True, "hotkey": "Ctrl+Alt+E", "autostart": False,
-            "told_tray": False, "offline": False, "page": "eq"}
+            "told_tray": False, "offline": False, "page": "eq", "onoff_hotkey": "Ctrl+Alt+Space",
+            "onoff_matched": True}
 
 
 class Switcher:
@@ -45,6 +53,7 @@ class Switcher:
         self.s = self._load()
         self.devices, self.playing_key, self.listeners = [], None, []
         self.trial = None  # {"key", "name", "until"}: an EQ being tried on a device (try_eq)
+        self.compare = None  # {"key", "matched", "db", "louder", "complete"}: a device's EQ off for now (compare_toggle)
         self.refresh(quiet=True)
         if os.path.isfile(self.trial_path()) and not self.hold:  # (a trial the app didn't end: APO's file without it, the file gone)
             self.apply()
@@ -85,6 +94,8 @@ class Switcher:
                        "active": d.get("active") if d.get("active") in ids else None}
             if isinstance(d.get("nickname"), str) and d["nickname"].strip():
                 devs[k]["nickname"] = d["nickname"].strip()[:60]
+            if d.get("last") in ids:  # (the EQ it had before it was switched off: the on/off hotkey's way back)
+                devs[k]["last"] = d["last"]
         out["devices"] = devs
         return out
 
@@ -222,11 +233,14 @@ class Switcher:
         p = self.s["profiles"].pop(pid, None)
         if not p:
             return
-        for d in self.s["devices"].values():
+        for key, d in self.s["devices"].items():
             if pid in d["profiles"]:
                 d["profiles"].remove(pid)
             if d["active"] == pid:
                 d["active"] = None
+                self._end_compare(key)
+            if d.get("last") == pid:
+                d.pop("last")
         self.save()
         self.apply()
         try:
@@ -281,6 +295,9 @@ class Switcher:
         d["profiles"].remove(pid)
         if d["active"] == pid:
             d["active"] = None
+            self._end_compare(key)
+        if d.get("last") == pid:
+            d.pop("last")
         self.save()
         self.apply()
         self._tell("active", key=key)
@@ -290,8 +307,14 @@ class Switcher:
         d = self.record(key)
         if self.trial and self.trial["key"] == key:  # (an EQ chosen by hand ends a trial on that device)
             self.end_trial()
+        ended = self._end_compare(key)  # (and its "off for now")
         if not d or (pid is not None and pid not in d["profiles"]) or d["active"] == pid:
-            return False
+            if ended:
+                self.apply()
+                self._tell("active", key=key)
+            return ended
+        if pid is None and d["active"] is not None:
+            d["last"] = d["active"]
         d["active"] = pid
         self.save()
         self.apply()
@@ -325,6 +348,7 @@ class Switcher:
         os.makedirs(self.apo.profiles, exist_ok=True)
         textfile.write_atomic(self.trial_path(), apo_text)
         self.trial = {"key": key, "name": name, "until": time.time() + minutes * 60}
+        self._end_compare(key)
         self.apply()
         self._tell("active", key=key)
 
@@ -343,6 +367,7 @@ class Switcher:
         t, pid = self.trial, None
         if not t:
             return None
+        self._end_compare(t["key"])
         if keep and self.record(t["key"]):
             pid = self.import_profile(self.trial_path(), t["name"])
             self.trial = None
@@ -356,12 +381,85 @@ class Switcher:
         self._tell("active", key=t["key"])
         return pid
 
+    # ---------------------------------------------------------------- off for now, to compare (the on/off hotkey)
+    def compare_path(self):
+        return os.path.join(self.apo.profiles, COMPARE_FILE)
+
+    def eq_file(self, key):
+        """The file of the EQ a device plays (the one being tried there, else its profile on), or None."""
+        if self.trial and self.trial["key"] == key:
+            return self.trial_path()
+        d = self.record(key)
+        p = self.s["profiles"].get(d["active"]) if d else None
+        return os.path.join(self.apo.profiles, p["file"]) if p else None
+
+    def eq_name(self, key):
+        """The name of the EQ a device plays (the one being tried there, else its profile on), or None."""
+        if self.trial and self.trial["key"] == key:
+            return self.trial["name"]
+        d = self.record(key)
+        return self.profile_name(d["active"]) if d else None
+
+    def compare_toggle(self, key=None):
+        """The on/off hotkey (and the tray's "EQ off for now"): the device's EQ (the playing one's when key is None)
+        off for now, to compare, then back on. ("off", self.compare) or ("on", the EQ's name); with no EQ on, its last
+        one (or its first profile) switched on instead, ("on", name); None with nothing to switch. Raises OSError when
+        APO's files can't be written."""
+        key = key or self.playing_key
+        d = self.record(key)
+        if not d:
+            return None
+        if self.compare and self.compare["key"] == key:
+            self.compare = None
+            self.apply()
+            self._tell("active", key=key)
+            return "on", self.eq_name(key)
+        path = self.eq_file(key)
+        if path is None:
+            pid = d.get("last") if d.get("last") in d["profiles"] else (d["profiles"][0] if d["profiles"] else None)
+            if pid is None:
+                return None
+            self.set_active(key, pid)
+            return "on", self.profile_name(pid)
+        self._writable()
+        matched = bool(self.s.get("onoff_matched", True))
+        c = {"key": key, "matched": matched, "db": None, "louder": False, "complete": True}
+        if matched:
+            try:
+                text = textfile.read(path)
+            except OSError:
+                text = ""
+            lv = level.level(text)
+            c.update(db=round(min(0.0, lv["db"]), 1), louder=lv["db"] > 0.05, complete=lv["complete"])
+            os.makedirs(self.apo.profiles, exist_ok=True)
+            textfile.write_atomic(self.compare_path(), f"Preamp: {c['db']:.1f} dB\n")  # (written with Windows' line end)
+        self.compare = c
+        self.apply()
+        self._tell("active", key=key)
+        return "off", c
+
+    def compare_end(self):
+        """Off for now ended (the app quits): the device's EQ back in APO's file."""
+        if self.compare:
+            key, self.compare = self.compare["key"], None
+            self.apply()
+            self._tell("active", key=key)
+
+    def _end_compare(self, key):
+        """Off for now ended for this device, quietly (another choice for it): True when it was."""
+        if self.compare and self.compare["key"] == key:
+            self.compare = None
+            return True
+        return False
+
     # ---------------------------------------------------------------- APO's file
     def sections(self):
         out = []
         for key, d in self.s["devices"].items():
             p = self.s["profiles"].get(d["active"])
             file = TRIAL_FILE if self.trial and self.trial["key"] == key else p["file"] if p else None
+            if self.compare and self.compare["key"] == key:  # (off for now: a pre-amp alone, or nothing)
+                file = COMPARE_FILE if self.compare["matched"] else None
             out.append((d["label"], d["guids"], file))
         return out
 

@@ -11,7 +11,12 @@ HELP_DEVICES = {'#dev-check': ["Whether this device's EQ really plays: Equalizer
  '#files-folder': ['Where your targets, measurements, saved EQs and presets are: Documents\\AutoEQ Studio unless you '
                    'chose another folder (Change…).', 'q-files'],
  '#dev-rename': 'Your own name for this device, shown everywhere instead of Windows\' name.',
- '#prof-edit': ["The chosen profile's filters, changed by hand in Make an EQ; Update puts them back.", 'by-hand']}
+ '#prof-edit': ["The chosen profile's filters, changed by hand in Make an EQ; Update puts them back.", 'by-hand'],
+ '#hotkey': "Goes through the playing device's EQs, then Off, in any program.",
+ '#onoff-hotkey': ["Switches the playing device's EQ off for now and back on, to compare, in any program.",
+                   'match-loudness'],
+ '#onoff-matched': ["“Off” plays as loud as the EQ, so the louder one doesn't seem better for that.",
+                    'match-loudness']}
 
 SETTINGS_DEVICES = [{'title': 'Devices',
                      'items': [{'key': '#dev-check',
@@ -45,6 +50,27 @@ SETTINGS_DEVICES = [{'title': 'Devices',
                                          'backup… puts them back, on this PC or another, after keeping how things are now '
                                          '(data\\backups); files with the same name are replaced, nothing else is deleted. '
                                          'AutoEQ Studio starts again after it.']},
+                               {'key': '#hotkey',
+                                'title': 'Hotkey (Settings)',
+                                'body': ["Works in any program: it goes through the playing device's profiles, "
+                                         'then Off (Ctrl+Alt+E to start with). Click the box and press the keys you '
+                                         'want; None takes it off. Windows refuses keys another program has.']},
+                               {'key': '#onoff-hotkey',
+                                'title': 'Hotkey to switch the EQ off for now and back on (Settings)',
+                                'body': ["Works in any program (Ctrl+Alt+Space to start with): the playing device's "
+                                         'EQ off for now, to compare it with no EQ on whatever is playing, then back '
+                                         "on. It isn't saved: choosing an EQ for the device, or starting AutoEQ "
+                                         'Studio again, ends it. With no EQ on, it switches on the one the device had '
+                                         "last. The tray icon's menu has it too (EQ off for now, to compare); Devices "
+                                         "says when a device's EQ is off for now, with Switch it back on."]},
+                               {'key': '#onoff-matched',
+                                'title': 'Level-matched (the on/off hotkey)',
+                                'body': ['On (to start with), “off” is no EQ turned down to the EQ’s loudness (pink '
+                                         'noise as the ear weighs it, as Listen matches), so you compare the sound, '
+                                         'not the volume: the louder one nearly always seems better. The notice says '
+                                         'by how much. An EQ louder than none (a boost with no pre-amp) can’t be '
+                                         'matched without clipping, and the notice says so. Off: “off” is no EQ at '
+                                         'all.']},
                                {'key': '#prof-edit',
                                 'title': 'Edit in Make an EQ (Profiles)',
                                 'body': ['Opens the chosen profile in Make an EQ as an EQ by hand: change its filters '

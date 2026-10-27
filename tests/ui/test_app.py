@@ -33,7 +33,7 @@ def test_first_start_brings_eq_switcher_over_and_offline_is_kept(check, fake_apo
         fh.write(apo.EARPODS)
     old = os.path.join(top, "eqswitcher.json")
     with open(old, "w") as fh:
-        json.dump({"profiles": {"p1": {"name": "EarPods", "file": "EarPods.txt"}}, "devices": {}, "hotkey": ""}, fh)
+        json.dump({"profiles": {"p1": {"name": "EarPods", "file": "EarPods.txt"}}, "devices": {}, "hotkey": "", "onoff_hotkey": ""}, fh)
     out = subproc.run_python(CODE, session.SESSION.app, env={
         "AUTOEQSTUDIO_APO_CONFIG": conf, "AUTOEQSTUDIO_OLD_SETTINGS": old,
         "AUTOEQSTUDIO_DATA": os.path.join(top, "data"), "AUTOEQSTUDIO_ROOT": os.path.join(top, "root")})

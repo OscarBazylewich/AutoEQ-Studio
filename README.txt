@@ -238,6 +238,13 @@ playing or you switch (Settings: turn notices off).
 Hotkey (Settings; Ctrl+Alt+E to start with): goes through the playing device's profiles, then Off, in any program.
 If Windows refuses a key (another program has it), Settings says so: choose another.
 
+On/off hotkey (Settings; Ctrl+Alt+Space to start with): the playing device's EQ off for now, to compare it with no EQ
+on whatever is playing, then back on (also the tray icon's menu: "EQ off for now, to compare"). Level-matched (on to
+start with), "off" plays no EQ turned down to the EQ's loudness (Listen's measure: pink noise as the ear weighs it),
+so the louder one doesn't seem better for being louder; the notice says by how much. It isn't saved: choosing an EQ
+for the device, or starting AutoEQ Studio again, ends it; Devices says when it's on, with "Switch it back on". With
+no EQ on, the hotkey switches on the one the device had last.
+
 Start with Windows (Settings): starts in the tray when you sign in. Task Manager's Startup apps lists it as
 "AutoEQ Studio" (a copy of Python's pythonw.exe by that name, in the .venv\Scripts folder; an entry called
 "pythonw" there is EQ Switcher's, which Set up offers to turn off).

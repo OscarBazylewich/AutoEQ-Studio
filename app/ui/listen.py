@@ -616,6 +616,8 @@ class Listen(QGroupBox):
         name = sw.profile_name(rec["active"]) if rec else None
         if rec and sw.trial and sw.trial["key"] == key:  # (an EQ tried for a few minutes plays instead of its own)
             name = sw.trial["name"]
+        if rec and sw.compare and sw.compare["key"] == key:  # (its EQ off for now, the on/off hotkey: none on top)
+            name = None
         on = bool(name) and sw.apo.set_up()
         self.apo_box.setVisible(on)
         if on:

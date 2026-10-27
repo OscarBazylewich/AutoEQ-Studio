@@ -377,7 +377,7 @@ def _app_env(top, conf, eq_settings=True, **more):
     so the app makes Make an EQ ahead; left out, it's the tests' own 0)."""
     env = _studio(top, eq_settings)
     with open(os.path.join(env["AUTOEQSTUDIO_DATA"], "settings.json"), "w", encoding="utf-8") as fh:
-        json.dump({"offline": True, "hotkey": "", "page": "devices", "told_tray": True}, fh)
+        json.dump({"offline": True, "hotkey": "", "onoff_hotkey": "", "page": "devices", "told_tray": True}, fh)
     env.update(AUTOEQSTUDIO_APO_CONFIG=conf, AUTOEQSTUDIO_OLD_SETTINGS=os.path.join(top, "no-eqswitcher.json"), **more)
     return env
 

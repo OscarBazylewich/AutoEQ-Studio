@@ -53,6 +53,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
     classes in files of their own; Qt's main window comes last). The hotkey_changed signal is here: a signal can't be
     on a plain class."""
     hotkey_changed = Signal(str)   # (the app registers it, and says when Windows refused it)
+    onoff_hotkey_changed = Signal(str)  # (the same for the on/off hotkey: the EQ off for now, to compare)
     AHEAD_MS = 1000     # (Make an EQ made ahead this long after the window shows: once it has drawn itself)
     TRIM_MS = 30000     # (the window's memory given back to Windows this long after it closes to the tray)
     QUIET_MS = 300      # (made ahead only after this long without a key or mouse input: a quiet moment)

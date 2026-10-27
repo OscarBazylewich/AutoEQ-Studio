@@ -130,6 +130,8 @@ class DevicesScreen:
     def _status(self, key):
         d, rec = self.sw.device(key), self.sw.record(key)
         where = "Playing now" if key == self.sw.playing_key else "Connected" if d and d.connected else "Not connected"
+        if self.sw.compare and self.sw.compare["key"] == key:
+            return where, "EQ off for now (comparing)"
         if self.sw.trial and self.sw.trial["key"] == key:
             return where, f"Trying: {self.sw.trial['name']}"
         name = self.sw.profile_name(rec["active"]) if rec else None
@@ -209,6 +211,17 @@ class DevicesScreen:
 
         box = QGroupBox("EQ for this device")
         bl = QVBoxLayout(box)
+        c = self.sw.compare if self.sw.compare and self.sw.compare["key"] == key else None
+        if c:  # (the on/off hotkey: its EQ off for now, to compare)
+            back = QPushButton("Switch it back on")
+            icons.put(back, "undo")
+            back.clicked.connect(lambda: self.sw.compare_toggle(key))
+            hk = self.sw.s.get("onoff_hotkey")
+            how = (f"level-matched: turned down {abs(c['db']):.1f} dB to the EQ's loudness" if c["matched"] and c["db"]
+                   else "level-matched" if c["matched"] else "truly off")
+            note, _ = warning_card(f"Its EQ is off for now, to compare ({how})" + (f": {hk} brings it back." if hk
+                                                                                    else "."), back)
+            bl.addWidget(note)
         group = QButtonGroup(box)
         off = QRadioButton("Off")
         off.setChecked(rec["active"] is None)
@@ -250,7 +263,7 @@ class DevicesScreen:
         bl.addWidget(add, 0, Qt.AlignLeft)
         lay.addWidget(box)
         self.check_label = None
-        if self.sw.apo.found and d:
+        if self.sw.apo.found and d and not c:  # (off for now, APO plays the flat file: asked again once it's back)
             row = QHBoxLayout()
             self.check_label = QLabel()
             self.check_label.setWordWrap(True)
@@ -267,9 +280,10 @@ class DevicesScreen:
             row.setContentsMargins(0, 0, 0, 0)
             lay.addWidget(holder)
             self._auto_check(key)
-        hk = self.sw.s.get("hotkey")
+        hk, onoff = self.sw.s.get("hotkey"), self.sw.s.get("onoff_hotkey")
         lay.addWidget(muted("Switch between them from the tray icon" + (f", or with {hk} while this device is playing."
-                                                                         if hk else ".")))
+                                                                         if hk else ".")
+                            + (f" {onoff} switches its EQ off for now and back, to compare." if onoff else "")))
         lay.addStretch(1)
 
     def rename_device(self, key):

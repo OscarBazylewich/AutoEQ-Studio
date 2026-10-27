@@ -1,9 +1,11 @@
 """The app itself: the tray icon and its menu, the window, the hotkey, watching the devices, Online / Offline.
 
-It lives in the tray: the icon's menu switches the playing device's EQ (its profiles, Off) and opens the window or
-quits; a click on the icon opens the window. Every 1.5 s it reads the devices again (plugged in or out, another one
-playing): the window, the menu and the icon follow, and a notice says the EQ of a device that starts playing. The
-hotkey switches the playing device's EQ. start.py makes one (one copy runs at a time).
+It lives in the tray: the icon's menu switches the playing device's EQ (its profiles, Off, "EQ off for now") and
+opens the window or quits; a click on the icon opens the window. Every 1.5 s it reads the devices again (plugged in
+or out, another one playing): the window, the menu and the icon follow, and a notice says the EQ of a device that
+starts playing. The hotkey goes through the playing device's EQs; the on/off hotkey (2026-10-26) switches its EQ off
+for now, to compare, and back (level-matched unless Settings says otherwise: switcher\\core.py's compare_toggle).
+start.py makes one (one copy runs at a time).
 The app lets its window make Make an EQ ahead while it's open, for someone who has used it (preload_worth_it), and
 give its memory back to Windows while it waits in the tray (ui\\window.py's allow_preload); AUTOEQSTUDIO_PRELOAD=0
 turns both off (the tests' copies of the app).
@@ -28,7 +30,7 @@ POLL_MS = 1500
 
 class App:
     def __init__(self, qapp, show):
-        self.qapp, self.hotkey_problem = qapp, ""
+        self.qapp, self.hotkey_problem, self.onoff_problem = qapp, "", ""
         first = not os.path.exists(paths.SETTINGS)
         self.sw = core.make(paths.SETTINGS)
         self.brought = 0
@@ -45,6 +47,7 @@ class App:
         from ui.window import Window
         self.win = Window(self.sw, self)
         self.win.hotkey_changed.connect(self.set_hotkey)
+        self.win.onoff_hotkey_changed.connect(self.set_onoff_hotkey)
         if os.environ.get("AUTOEQSTUDIO_PRELOAD") != "0":  # (the tests' copies of the app: 0, never ahead)
             self.win.allow_preload(self.preload_worth_it)
 
@@ -60,6 +63,8 @@ class App:
 
         self.hotkey = winsys.Hotkey(self.on_hotkey)
         self.set_hotkey(self.sw.s.get("hotkey") or "", save=False)
+        self.onoff_key = winsys.Hotkey(self.on_onoff)
+        self.set_onoff_hotkey(self.sw.s.get("onoff_hotkey") or "", save=False)
         self.sw.listeners.append(self.changed)
         if not self.sw.problem:  # (APO's file as the settings say, in case it was changed or removed; not when the
             self.sw.apply()      # settings couldn't be read: every EQ would go off)
@@ -100,6 +105,10 @@ class App:
         if self.hotkey_problem and saved and self.hotkey.current != saved and self.hotkey.set(saved):
             self.hotkey_problem = ""
             self.win.render_settings()
+        saved = self.sw.s.get("onoff_hotkey")
+        if self.onoff_problem and saved and self.onoff_key.current != saved and self.onoff_key.set(saved):
+            self.onoff_problem = ""
+            self.win.render_settings()
 
     def changed(self, what, info):
         self.show_state()
@@ -111,6 +120,9 @@ class App:
                 self.tray_message(shown(rec), self.eq_text(rec))
 
     def eq_text(self, rec):
+        c = self.sw.compare
+        if c and self.sw.record(c["key"]) is rec:
+            return "EQ off for now, to compare" + (" (level-matched)" if c["matched"] else "")
         t = self.sw.trial
         if t and self.sw.record(t["key"]) is rec:
             return f"Trying: {t['name']}"
@@ -138,7 +150,8 @@ class App:
         key, rec = self.sw.playing()
         name = self.sw.profile_name(rec["active"]) if rec else None
         trying = bool(rec and self.sw.trial and self.sw.trial["key"] == key)  # (a trial plays: blue too)
-        self.tray.setIcon(icons.app_icon(on=bool(name) or trying))
+        off = bool(rec and self.sw.compare and self.sw.compare["key"] == key)  # (off for now: grey)
+        self.tray.setIcon(icons.app_icon(on=(bool(name) or trying) and not off))
         self.tray.setToolTip("AutoEQ Studio\n" + (f"{shown(rec)}: {self.eq_text(rec)}" if rec else "No device playing"))
 
     def tray_message(self, title, text):
@@ -170,6 +183,14 @@ class App:
             if not rec["profiles"]:
                 a = m.addAction("Add a profile…")
                 a.triggered.connect(lambda: (self.win.show_page("devices"), self.win.show_front()))
+            comparing = bool(self.sw.compare and self.sw.compare["key"] == key)
+            if comparing or self.sw.eq_file(key):  # (the on/off hotkey's, from the menu too)
+                hk = self.sw.s.get("onoff_hotkey")
+                a = QAction("EQ off for now, to compare" + (f"\t{hk}" if hk else ""), m)
+                a.setCheckable(True)
+                a.setChecked(comparing)
+                a.triggered.connect(lambda _=False: self.on_onoff())
+                m.addAction(a)
         else:
             m.addAction("No device playing").setEnabled(False)
         m.addSeparator()
@@ -192,16 +213,52 @@ class App:
         if self.sw.s["notify"]:
             self.tray_message(shown(rec), self.eq_text(rec))
 
+    def on_onoff(self):
+        """The on/off hotkey (and the tray's "EQ off for now"): the playing device's EQ off for now, to compare, and
+        back; a notice says which (and how much quieter "off" plays, level-matched)."""
+        key, rec = self.sw.playing()
+        if not rec:
+            return
+        try:
+            got = self.sw.compare_toggle(key)
+        except OSError as e:
+            self.tray_message(shown(rec), f"Couldn't switch its EQ: {e}")
+            return
+        if got is None:
+            self.tray_message(shown(rec), "No EQ to switch off or on for this device yet: add a profile in AutoEQ Studio.")
+        elif self.sw.s["notify"]:
+            self.tray_message(shown(rec), self.compare_text(got))
+
+    def compare_text(self, got):
+        """The on/off hotkey's notice."""
+        if got[0] == "on":
+            return f"EQ back on: {got[1]}" if got[1] else "EQ back on"
+        c, hk = got[1], self.sw.s.get("onoff_hotkey") or "the on/off hotkey"
+        if not c["matched"]:
+            return f"EQ off for now. {hk} switches it back on."
+        how = f"turned down {abs(c['db']):.1f} dB to the EQ's loudness" if c["db"] else "as loud as the EQ"
+        extra = (" The EQ is louder than none: off can't be raised to match without clipping." if c["louder"] else "") \
+            + (" (About: parts of this EQ can't be measured.)" if not c["complete"] else "")
+        return f"EQ off for now, level-matched ({how}). {hk} switches it back on.{extra}"
+
     def set_hotkey(self, text, save=True):
-        ok = self.hotkey.set(text)
-        self.hotkey_problem = "" if ok else (
+        self._set_key("hotkey", self.hotkey, text, save)
+
+    def set_onoff_hotkey(self, text, save=True):
+        self._set_key("onoff_hotkey", self.onoff_key, text, save)
+
+    def _set_key(self, setting, hotkey, text, save):
+        """A hotkey registered with Windows (the setting "hotkey" or "onoff_hotkey"), its problem said in Settings."""
+        ok = hotkey.set(text)
+        problem = "" if ok else (
             f"{text} can't be a hotkey on its own: add Ctrl, Alt or Win (it would stop that key working everywhere)."
             if not winsys.to_windows(text) and winsys.to_windows("Ctrl+" + text) else
-            f"Windows didn't take {text} as a hotkey: another program may use it. Try another.")
+            f"Windows didn't take {text} as a hotkey: another program (or the other hotkey) may use it. Try another.")
+        setattr(self, "hotkey_problem" if setting == "hotkey" else "onoff_problem", problem)
         if save:
-            self.sw.set("hotkey", text if ok else self.sw.s.get("hotkey", ""))
+            self.sw.set(setting, text if ok else self.sw.s.get(setting, ""))
             if not ok:
-                self.hotkey.set(self.sw.s.get("hotkey") or "")
+                hotkey.set(self.sw.s.get(setting) or "")
         self.win.render_settings()
 
     # ---------------------------------------------------------------- starting with Windows, quitting
@@ -232,8 +289,10 @@ class App:
         self.quit()
 
     def quit(self):
+        self.sw.compare_end()  # (off for now ends with the app: its device's EQ back in APO's file)
         if self.sw.trial:  # (a trial ends with the app: its device's own EQ back)
             self.sw.end_trial(False)
         self.hotkey.set("")
+        self.onoff_key.set("")
         self.tray.hide()
         self.qapp.quit()

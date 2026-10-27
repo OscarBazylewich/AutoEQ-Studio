@@ -23,6 +23,8 @@ header, notes) are passed over.
 import math
 import re
 
+import apoline
+
 from . import settings
 
 FS = 48000  # (the sample rate a width in octaves is read at, when none is given)
@@ -35,114 +37,46 @@ COMMANDS = {"graphiceq": "a graphic EQ (GraphicEQ)", "convolution": "a convoluti
             "else": "conditions (If, Eval)", "endif": "conditions (If, Eval)", "eval": "conditions (If, Eval)",
             "vstplugin": "a VST plug-in (VSTPlugin)"}
 
-# a filter type's word (Equalizer APO's, or REW's own spelling), for what's left out
-_OTHER = {"LP": "low-pass", "LPQ": "low-pass", "HP": "high-pass", "HPQ": "high-pass", "BP": "band-pass",
-          "NO": "notch", "NOTCH": "notch", "AP": "all-pass", "ALL": "all-pass", "IIR": "IIR", "L": "Linkwitz transform"}
-_PEAK = {"PK", "PEQ", "MODAL"}
-_SHELF = {"LS": "LSQ", "LSC": "LSQ", "HS": "HSQ", "HSC": "HSQ"}
-
 _CMD = re.compile(r"^\s*([A-Za-z]+)(?:\s*\d+)?\s*:\s*(.*)$")
-_TYPE = re.compile(r"^\s*(ON|OFF)\s+([A-Za-z]+)(\d*)", re.I)
-_FREQ = re.compile(r"\s+Fc\s*([-+0-9.eE ]+)\s*H\s*z", re.I)
-_GAIN = re.compile(r"\s+Gain\s*([-+0-9.eE]+)\s*dB", re.I)
-_Q = re.compile(r"\s+Q\s*([-+0-9.eE]+)", re.I)
-_BW = re.compile(r"\s+BW\s+Oct\s*([-+0-9.eE]+)", re.I)
-_SLOPE = re.compile(r"^\s*([-+0-9.eE]+)\s*dB", re.I)
 _PREAMP = re.compile(r"^\s*([-+0-9.eE]+)\s*dB", re.I)
 _PLAIN_TYPES = {"PK": "PK", "PEQ": "PK", "LSQ": "LSQ", "LSC": "LSQ", "LS": "LSQ", "HSQ": "HSQ", "HSC": "HSQ", "HS": "HSQ"}
 
 
 def _number(text):
-    try:
-        v = float(text)
-    except (TypeError, ValueError):
-        return None
-    return v if math.isfinite(v) else None
-
-
-def _freq(text):
-    """A frequency as APO reads it: a non-breaking space dropped; "8.000" (a dot 4th from the end, no exponent) is
-    8000."""
-    s = text.replace(" ", "")
-    v = _number(s)
-    if v is not None and len(s) >= 5 and "e" not in s.lower() and s[-4] == ".":
-        v *= 1000
-    return v
+    return apoline.number(text)
 
 
 def filter_line(params, fs=FS):
-    """One "Filter:" line's text after the colon ("ON PK Fc 100 Hz Gain 3 dB Q 1"), read as Equalizer APO reads it:
-    ("filter", {"type", "freq", "gain", "q", "enabled"}) in the app's terms; ("none", None) for REW's empty slot;
-    ("other", what) for a type the app's EQs can't have (its plain name: "high-pass", ...); ("bad", why)."""
-    p = params.replace(",", ".")
-    m = _TYPE.match(p)
-    if not m:
-        return "bad", "it doesn't start with ON or OFF and a filter type"
-    on, word, digits = m[1].upper() == "ON", m[2].upper(), m[3]
-    rest = p[m.end():]
-    if word == "NONE" or (not on and word not in _PEAK and word not in _SHELF):
-        return "none", None  # (REW's empty slot; a switched-off filter of another type plays nothing)
-    if word in ("LP", "HP") and digits == "1":  # (REW's first-order filters: APO plays a second-order one instead)
-        return "other", f"first-order {_OTHER[word]}"
-    if word not in _PEAK and word not in _SHELF:
-        return "other", _OTHER.get(word, word)
-    rest = (digits + rest) if digits else rest  # ("LS12dB": the slope follows the type)
-    f = _FREQ.search(rest)
-    freq = _freq(f[1]) if f else None
-    if freq is None or freq <= 0:
-        return "bad", "no frequency (Fc … Hz)"
-    g = _GAIN.search(rest)
-    gain = _number(g[1]) if g else None
-    if gain is None:
-        return "bad", "no gain (Gain … dB)"
-    # the width: Q, else (APO's order) a width in octaves for a peaking filter, a slope for a shelf
-    value, by_width = 0.0, False
-    q = _Q.search(rest)
-    if q and _number(q[1]) is not None:
-        value = _number(q[1])
-    shelf = word in _SHELF
-    bw = None if shelf else _BW.search(rest)
-    if bw and _number(bw[1]) is not None:
-        value, by_width = _number(bw[1]), True
-    slope = _SLOPE.match(rest) if shelf else None
-    if slope and _number(slope[1]) is not None:
-        value, by_width = _number(slope[1]), True
-    if not shelf:
-        if value <= 0:
-            return "bad", "no Q or width"
-        if by_width:  # (a width in octaves: the Q of the same filter at this sample rate, as APO works it out)
+    """One "Filter:" line's text after the colon ("ON PK Fc 100 Hz Gain 3 dB Q 1"), read as Equalizer APO reads it
+    (apoline.parse): ("filter", {"type", "freq", "gain", "q", "enabled"}) in the app's terms; ("none", None) for REW's
+    empty slot; ("other", what) for a type the app's EQs can't have (its plain name: "high-pass", ...); ("bad", why)."""
+    kind, b = apoline.parse(params)
+    if kind != "biquad":
+        return kind, b
+    if b["kind"] not in ("PK", "LS", "HS"):
+        return "other", apoline.NAMES[b["kind"]]
+    freq, gain, on, value = b["freq"], b["gain"], b["on"], b["value"]
+    if b["kind"] == "PK":
+        if b["by_width"]:  # (a width in octaves: the Q of the same filter at this sample rate, as APO works it out)
             w = 2 * math.pi * freq / fs
             if not 0 < w < math.pi:
                 return "bad", "its frequency is above what the sample rate can hold"
             sn = math.sin(w)
-            alpha = sn * math.sinh(math.log(2) / 2 * value * w / sn)
-            value = sn / (2 * alpha)
+            value = sn / (2 * sn * math.sinh(math.log(2) / 2 * value * w / sn))
         return "filter", {"type": "PK", "freq": freq, "gain": gain, "q": value, "enabled": on}
-    # a shelf: the steepness S or a Q, and where its frequency is
+    # a shelf: the Q that draws the same curve at its gain, at its centre (a corner moved there)
     a = 10 ** (gain / 40)
-    corner = False
-    if value == 0:
-        s_value, by_width = 0.9, True  # (neither Q nor slope: APO's own steepness, at the centre)
-    else:
-        s_value = value / 12 if by_width else None
-        corner = not word.endswith("C")
-    if by_width:
-        inside = (a + 1 / a) * (1 / s_value - 1) + 2
-        if s_value <= 0 or inside <= 0:
+    if b["by_width"]:
+        inside = (a + 1 / a) * (1 / value - 1) + 2
+        if inside <= 0:
             return "bad", "a slope too steep for its gain"
-        qv = 1 / math.sqrt(inside)
-        s = s_value
+        q = 1 / math.sqrt(inside)
     else:
-        qv = value
-        if qv <= 0:
-            return "bad", "no Q"
-        s = 1 / ((1 / (qv * qv) - 2) / (a + 1 / a) + 1)
-        if corner and s <= 0:
+        q = value
+        if b["corner"] and apoline.shelf_s(b) <= 0:
             return "bad", "a Q too large for a shelf"
-    if corner:
-        factor = 10 ** (abs(gain) / 80 / s)
-        freq = freq * factor if _SHELF[word] == "LSQ" else freq / factor
-    return "filter", {"type": _SHELF[word], "freq": freq, "gain": gain, "q": qv, "enabled": on}
+    return "filter", {"type": "LSQ" if b["kind"] == "LS" else "HSQ", "freq": apoline.centre(b), "gain": gain, "q": q,
+                      "enabled": on}
 
 
 def plain_line(s):
