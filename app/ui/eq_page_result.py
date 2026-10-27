@@ -284,11 +284,7 @@ class EqResult:
             note = self.pick_note(run, r)
         self.pick_lab.setText(note)
         self.pick_lab.setVisible(bool(note))
-        self.chips["filters"].setText(f"Filters  {st['n']}")
-        self.chips["error"].setText(f"Error  {st['rms']:.2f} dB" if st["rms"] is not None else "Error  –")
-        self.chips["preamp"].setText(f"Pre-amp  {self.preamp_text(st['preamp_raw'])} dB")
-        self.chips["boost"].setText(f"Max boost  +{st['max_boost']:.1f} dB")
-        self.chips["maxq"].setText(f"Max Q  {st['max_q']:g}" if st["max_q"] else "Max Q  –")
+        self.show_numbers(st)
         site = run["mode"].startswith("site") and r.get("rows") is not None
         self.site_row.setVisible(site)
         if site:
@@ -301,13 +297,23 @@ class EqResult:
                 + (" <i>(you edited the filters, so the site won't produce these exact values)</i>" if ed else ""))
             self.site_use.setVisible(run["mode"] == "site_sweep")
         self.revert_btn.setVisible(ed)
-        self.editor.set_preamp_text(self.preamp_text(st["preamp_raw"]))
         if hasattr(self, "listen"):
             self.listen.refresh()
         if not self.name_edit.text().strip() or self.name_edit.property("auto") is not False:
             self.name_edit.setText(self.auto_name())
             self.name_edit.setProperty("auto", True)
         self.draw()
+        self.sync_trial()  # (the EQ shown being tried on a device: the change plays there too)
+
+    def show_numbers(self, st):
+        """The result's numbers (its chips) and the sliders' pre-amp, from stats(): after any edit, and while a handle
+        on the EQ graph is held (ui/eq_page_handles.py)."""
+        self.chips["filters"].setText(f"Filters  {st['n']}")
+        self.chips["error"].setText(f"Error  {st['rms']:.2f} dB" if st["rms"] is not None else "Error  –")
+        self.chips["preamp"].setText(f"Pre-amp  {self.preamp_text(st['preamp_raw'])} dB")
+        self.chips["boost"].setText(f"Max boost  +{st['max_boost']:.1f} dB")
+        self.chips["maxq"].setText(f"Max Q  {st['max_q']:g}" if st["max_q"] else "Max Q  –")
+        self.editor.set_preamp_text(self.preamp_text(st["preamp_raw"]))
 
     def set_view(self, view, remember=True):
         for k, b in self.view_btns.items():
@@ -487,7 +493,7 @@ class EqResult:
         """Under an EQ by hand's numbers: how to add a filter while it has none, and how it sounds next to the target."""
         parts = []
         if not self.EDIT:
-            parts.append("No filters yet: Add filter puts one in at 1 kHz; change it in the table or as sliders.")
+            parts.append("No filters yet: double-click the EQ graph (under the graph) where you want one, or Add filter.")
         if st["ear"] is not None:
             parts.append(f"Sounds within {st['ear']:.2f} dB of the target everywhere, as the ear hears it.")
         return " ".join(parts)
@@ -609,8 +615,10 @@ class EqResult:
         return res["apo"]
 
     def try_on(self, key, minutes=5):
-        """The EQ shown plays on a device for a few minutes, in every app (Devices' trial: switcher/core.py)."""
+        """The EQ shown plays on a device for a few minutes, in every app (Devices' trial: switcher/core.py); while it
+        does, your changes to it play there at once (ui/eq_page_handles.py's sync_trial)."""
         from switcher.core import shown
+        run, r = self.current()
         text = self._apo_text("Try on device")
         if text is None:
             return
@@ -620,10 +628,11 @@ class EqResult:
         except OSError as e:
             QMessageBox.warning(self, "Try on device", str(e))
             return
+        self._trying = {"key": key, "run": id(run), "rid": r["id"]}
         extra = "" if self.sw.apo.set_up() else " (Equalizer APO isn't using AutoEQ Studio yet: Set up… on Devices.)"
         self.window().render_all() if hasattr(self.window(), "render_trial") else None
-        self.status(f"Trying “{name}” on {shown(self.sw.record(key))} for {minutes} minutes: Keep it or Stop now in "
-                    f"the bar at the top, or the tray icon's menu.{extra}", 10000)
+        self.status(f"Trying “{name}” on {shown(self.sw.record(key))} for {minutes} minutes, and your changes to it "
+                    f"as you make them: Keep it or Stop now in the bar at the top, or the tray icon's menu.{extra}", 10000)
 
     def use_on(self, key):
         """The EQ shown becomes a profile of this device, switched on (APO applies it while the device plays)."""

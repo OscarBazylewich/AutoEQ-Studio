@@ -26,6 +26,8 @@ page's controls and data, joined here with QWidget last:
   are ui/theme_sheet.py's eq_screen part)
 - ui/eq_page_graph.py, EqGraph: the curves, the analysis and automatic settings, the graph, the curves shown from
   Find…, Listen's marker
+- ui/eq_page_handles.py, EqHandles: the EQ graph's handles (drag a filter, the wheel for its Q, right-click, a
+  double-click for a new one) and an EQ tried on a device following the edits
 - ui/eq_page_files.py, EqFiles: the files, Find…'s call-backs, a picture pasted, the tracer, Which measurement
 - ui/eq_page_result.py, EqResult: running, the result, this session's runs, editing, Save, Report, Use on device
 - ui/eq_page_history.py, EqHistory: History and presets
@@ -44,6 +46,7 @@ from ui import tasks, theme
 from ui.eq_page_cards import EqCards
 from ui.eq_page_files import EqFiles
 from ui.eq_page_graph import EqGraph
+from ui.eq_page_handles import EqHandles
 from ui.eq_page_history import EqHistory
 from ui.eq_page_parts import FORMAT_NAMES, MODE_HINT, Notices, label
 from ui.eq_page_result import EqResult
@@ -82,7 +85,7 @@ class _Held:
             preload.release()
 
 
-class EqPage(EqCards, EqGraph, EqFiles, EqResult, EqHistory, QWidget):
+class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, QWidget):
     def __init__(self, sw, status):
         super().__init__()
         self.sw, self._window_status = sw, status  # (the per-device part, for Use on device; the window's line)

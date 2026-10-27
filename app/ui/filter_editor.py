@@ -5,7 +5,8 @@ part's limits for edits: edit.freq, edit.gain, edit.q; red and not used when wro
 and ✕ to delete it. Sliders: one per filter (Poweramp's look): its gain by dragging, arrow keys or the wheel
 (0.1 dB steps), double-click for 0 dB; its frequency and Q under it; the pre-amp in its own column (set for you).
 changed() is called after every edit (the caller works out the error, pre-amp and graph again); rebuilt() after a
-filter is added or deleted. The editor is as tall as the view shown (a short table leaves no empty band under it).
+filter is added or deleted; show_values() puts the values back in the boxes and sliders without making anything again
+or saying it changed (a filter dragged on the EQ graph, ui/eq_page_handles.py). The editor is as tall as the view shown (a short table leaves no empty band under it).
 Its look is the theme's (ui\\theme_sheet.py's eq_windows, by the object names eqw…): the table's boxes a little apart
 without grid lines, Type's heading at the left over its drop-downs' words (the numbers' headings centred over them),
 ✕ as Windows 11's subtle buttons, the pre-amp's bar as a slider's empty track.
@@ -205,6 +206,7 @@ class FilterEditor(QWidget):
         note.setAlignment(Qt.AlignCenter)
         g.addWidget(note, 2, 1, 2, 1)
         self.slider_vals = []
+        self._slider_rows = []  # (per filter: its gain's words, its slider, its frequency and Q boxes: show_values)
         for i, f in enumerate(self.filters):
             col = i + 2
             val = QLabel(f"{f['gain']:+.1f}")
@@ -224,6 +226,7 @@ class FilterEditor(QWidget):
                                                              val.setText(f"{v / 10:+.1f}"), self._edited()))
             g.addWidget(s, 1, col, Qt.AlignHCenter)
             # (frequency, Q and type typed or chosen as in the table, with the same limits)
+            boxes = {}
             for row, key in ((2, "freq"), (3, "q")):
                 box = QLineEdit(_num(f[key]))
                 box.setAccessibleName(f"Filter {i + 1} " + ("frequency (Hz)" if key == "freq" else "Q"))
@@ -236,6 +239,8 @@ class FilterEditor(QWidget):
                 box.editingFinished.connect(lambda f=f, key=key, box=box: self._left(f, key, box))
                 box.setEnabled(f.get("enabled", True) is not False)
                 g.addWidget(box, row, col, Qt.AlignHCenter)
+                boxes[key] = box
+            self._slider_rows.append((val, s, boxes["freq"], boxes["q"]))
             typ = SearchCombo()
             for k, name in TYPES:
                 typ.addItem(name.replace("Low shelf", "Low sh.").replace("High shelf", "High sh."), k)
@@ -272,6 +277,27 @@ class FilterEditor(QWidget):
         g.setColumnStretch(len(self.filters) + 2, 1)
         self.sliders_scroll.setWidget(holder)
         self.stack.setFixedHeight(SLIDERS_HEIGHT)
+
+    def show_values(self):
+        """Every filter's values shown again where they are (a filter dragged on the EQ graph): nothing made again and
+        no edit said (a box being typed in is left as it is)."""
+        from PySide6.QtCore import QSignalBlocker
+        if self.view() == "sliders":
+            for f, (val, s, fbox, qbox) in zip(self.filters, getattr(self, "_slider_rows", [])):
+                with QSignalBlocker(s):
+                    if s.minimum() <= round(f["gain"] * 10) <= s.maximum():
+                        s.setValue(int(round(f["gain"] * 10)))
+                val.setText(f"{f['gain']:+.1f}")
+                for box, key in ((fbox, "freq"), (qbox, "q")):
+                    if box is not None and not box.hasFocus():
+                        box.setText(_num(f[key]))
+            return
+        t = self.table
+        for i, f in enumerate(self.filters[:t.rowCount()]):
+            for c, key in ((3, "freq"), (4, "gain"), (5, "q")):
+                box = t.cellWidget(i, c)
+                if box is not None and not box.hasFocus():
+                    box.setText(_num(f[key]))
 
     def set_preamp_text(self, text):
         self.preamp_text = text

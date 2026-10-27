@@ -346,6 +346,50 @@ def eq_steps(page):
         api.close(m)
         yield from api.note("Its EQ now, switched on. (Demo: nothing was changed.)", page.use_btn, 1500)
 
+    def drag_actions():
+        """The EQ graph's step: the first filter's handle dragged (right and up or down: its frequency and gain, the
+        table and the numbers following), then where a double-click adds one. Put back after."""
+        from PySide6.QtCore import QPointF
+        from ui.eq_page_handles import handle_y
+        if not page.EDIT or not getattr(page, "_handles", None):
+            return [{"at": lambda: page.eqplot, "say": "Each filter of the EQ shown has a handle on the EQ graph"}]
+        old = [dict(x) for x in page.EDIT]
+        import math
+        x0, y0 = math.log10(old[0]["freq"]), handle_y(old[0])
+        lo, hi = page.eqplot.getPlotItem().vb.viewRange()[1]
+        x1 = min(x0 + 0.3, math.log10(16000))
+        y1 = max(lo * 0.8, min(hi * 0.8, y0 + (3 if y0 < 1 else -3)))
+
+        def frac(x, y):
+            vb = page.eqplot.getPlotItem().vb
+            p = page.eqplot.viewport().mapTo(page.eqplot, page.eqplot.mapFromScene(vb.mapViewToScene(QPointF(x, y))))
+            return (p.x() / max(1, page.eqplot.width()), p.y() / max(1, page.eqplot.height()))
+
+        def put(p):
+            page.no_trial = True  # (a demo never reaches a device: an EQ tried there doesn't follow it)
+            hs = getattr(page, "_handles", [])
+            if hs:
+                hs[0].setPos(x0 + (x1 - x0) * p, y0 + (y1 - y0) * p)
+            if p >= 1:
+                page.handle_let_go()
+
+        def back():
+            page.EDIT[:] = [dict(x) for x in old]
+            page.editor.rebuild()
+            page.live_update()
+            page.no_trial = False
+
+        def words(p):
+            f = page.EDIT[0] if page.EDIT else old[0]
+            return f"{f['freq'] / 1000:.2f} kHz · {f['gain']:+.1f} dB" if f["freq"] >= 1000 else \
+                f"{f['freq']:g} Hz · {f['gain']:+.1f} dB"
+        return [{"drag": lambda: page.eqplot, "from": frac(x0, y0), "to": frac(x1, y1), "set": put, "undo": back,
+                 "label": words, "ms": 1300, "say": "Drag a handle: left and right its frequency, up and down its gain"},
+                {"at": lambda: page.editor, "x": 0.5, "y": 0.15, "say": "The table, the numbers and Listen follow"},
+                {"at": lambda: page.eqplot, "x": 0.9, "y": 0.2,
+                 "say": "The mouse wheel over a handle: its Q; right-click: its type, on or off, Delete"},
+                {"at": lambda: page.eqplot, "x": 0.12, "y": 0.8, "say": "Double-click where there's none: a new filter"}]
+
     def hand_demo(api):
         items = ["Start empty", "From an EQ file…", "Paste filters…", "From a device's profile ▸",
                  "A copy of the EQ shown"]
@@ -581,6 +625,13 @@ def eq_steps(page):
                          "the run's filters back; Retry from these filters runs Best fit again from yours." + example(),
          "demo": [{"run": edit_demo, "say": "Change any value: the numbers and the graph follow"},
                   {"at": lambda: page.retry_btn, "say": "Retry: Best fit again, from your filters"}]},
+        {"chapter": "3 · Run & review", "title": "Edit on the EQ graph", "target": lambda: page.eqplot,
+         "before": result_before, "after": result_after, "ready": has_curves,
+         "text": lambda: "Each filter has a handle on the EQ graph, under the graph, numbered as in the table. Drag it: "
+                         "left and right its frequency, up and down its gain; the mouse wheel over it: its Q; "
+                         "right-click: its type, on or off, Delete. Double-click where there's none for a new filter. "
+                         "An EQ you're trying on a device plays each change there too." + example(),
+         "demo": lambda: drag_actions()},
         {"chapter": "3 · Run & review", "title": "Save it, or use it on a device",
          "target": lambda: [page.name_edit, page.formats_line, button(page.result_box, "Save filters"), page.use_btn],
          "before": result_before, "after": result_after, "ready": has_curves,

@@ -125,6 +125,9 @@ HELP_EQ = {'slot:target': ['The curve you want your earphone to sound like.', 't
  '#target-save': 'Keeps the target as adjusted as a target of your own, in use; the adjustments go back to 0.',
  '#compare-results': 'Two EQs side by side: on the graph, their numbers and their filters.',
  '#queue': 'EQs for several IEMs or targets in one go, each saved and kept in History.',
+ '#eq-graph': ["The EQ itself: drag a filter's handle for its frequency and gain, the mouse wheel for its Q.",
+               'by-hand',
+               'q'],
  '#by-hand': ['Make the EQ yourself: empty, from an EQ file, pasted filters, a profile or a copy of the EQ shown.',
               'by-hand',
               'peaking-filter',
@@ -392,6 +395,18 @@ SETTINGS_EQ = [{'title': 'Choosing and running',
                            'body': ['Runs Best fit again from the filters shown, for this run only. Fine-tune them: '
                                     'each moves a little to match closer. Keep them, add filters: yours stay exactly '
                                     'and more are added.']},
+                          {'key': '#eq-graph',
+                           'title': 'The EQ graph: editing on the curve',
+                           'body': ["Under the graph: the EQ shown, with a handle for each of its filters, numbered "
+                                    "as in the table, on the filter's own curve at its frequency (a shelf's handle "
+                                    'half way up its shelf). Drag one: left and right moves its frequency, up and '
+                                    'down its gain. The mouse wheel over it: its Q (up: narrower). Right-click it: '
+                                    'Peak, Low shelf or High shelf, Switched on, Delete. Double-click where there is '
+                                    'no handle: a new filter there (with no EQ shown, an EQ by hand begins with it).',
+                                    'While you drag, the curves, the numbers, the table and what Listen plays follow; '
+                                    'the scale stays put until you let go. An EQ you are trying on a device (Use on '
+                                    'device › Try for 5 minutes on) plays each change there too, in every app. The '
+                                    'table and the sliders do the same by keyboard.']},
                           {'key': '#by-hand',
                            'title': 'By hand',
                            'body': ['Beside Run: an EQ you make yourself, shown on the result card as a run of its '

@@ -185,12 +185,15 @@ class EqGraph:
         self.eqplot.clear()
         self.legend.clear()
         c = self.curves
-        self._drawn = None
+        self._drawn = self._eq_drawn = None
         if not c:
             if self.current()[1]:  # (an EQ by hand with no measurement chosen: the EQ itself, under the empty graph)
                 from eq import engines
-                f = np.geomspace(20, 20000, 480)
-                self._draw_eq(f, engines.eq_gain(f, self.active(), self.S["site"]["sample_rate"]), col)
+                from ui.eq_page_handles import eq_grid
+                f = eq_grid()
+                item = self._draw_eq(f, engines.eq_gain(f, self.active(), self.S["site"]["sample_rate"]), col)
+                self._eq_drawn = {"f": f, "eq": item, "with": None}
+                self.draw_handles()
             return
         g = getattr(self, "_graph_demo", None) or self.sw.s.get("graph") or {}
         rel = g.get("view") == "rel"
@@ -249,9 +252,10 @@ class EqGraph:
         if r:
             from eq import engines
             gain = engines.eq_gain(f, self.active(), self.S["site"]["sample_rate"])
-            self.plot.plot(f, sub(meas + gain), pen=pg.mkPen(col["with_eq"], width=2.5), name="With the EQ")
+            with_eq = self.plot.plot(f, sub(meas + gain), pen=pg.mkPen(col["with_eq"], width=2.5), name="With the EQ")
             series.append(("With the EQ", sub(meas + gain)))
-            self._draw_eq(f, gain, col)
+            # (the curves a held handle moves: EqHandles.follow sets their data, nothing drawn again)
+            self._eq_drawn = {"f": f, "eq": self._draw_eq(f, gain, col), "with": with_eq, "meas": meas, "base": base}
         else:
             self.eqplot.setYRange(-12, 12, padding=0)  # (no EQ yet: a sensible scale, not a line's own)
             self.eqplot.addLine(y=0, pen=pg.mkPen(col["axis"], width=1))
@@ -271,13 +275,18 @@ class EqGraph:
         self.plot.setYRange(lo, hi, padding=0)
         self.plot.getAxis("left").setLabel("Δ dB" if rel else "dB")
         self._drawn = {"f": list(f), "rel": rel, "series": series}
+        self.draw_handles()
 
     def _draw_eq(self, f, gain, col):
-        """The EQ graph (under the graph): the EQ shown, filled from 0 dB, on a scale that fits it (±6 dB at least)."""
-        self.eqplot.plot(f, gain, pen=pg.mkPen(col["eq"], width=2), fillLevel=0, brush=pg.mkBrush(col["eq"] + "33"))
-        top = max(6.0, float(np.max(np.abs(gain))) * 1.15)
+        """The EQ graph (under the graph): the EQ shown, filled from 0 dB, on a scale that fits it (±6 dB at least, and
+        room for its handles: ui/eq_page_handles.py). Its curve."""
+        item = self.eqplot.plot(f, gain, pen=pg.mkPen(col["eq"], width=2), fillLevel=0, brush=pg.mkBrush(col["eq"] + "33"))
+        from ui.eq_page_handles import handle_y
+        tops = [abs(handle_y(x)) for x in self.EDIT if x.get("freq")] if self.current()[1] else []
+        top = max(6.0, float(np.max(np.abs(gain))) * 1.15, max(tops, default=0) * 1.25)
         self.eqplot.setYRange(-top, top, padding=0)
         self.eqplot.addLine(y=0, pen=pg.mkPen(col["axis"], width=1))
+        return item
 
     # ---------------------------------------------------------------- the curves shown from Find… (dotted: not in use)
     def preview_on(self, key):

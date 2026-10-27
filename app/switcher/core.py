@@ -328,6 +328,15 @@ class Switcher:
         self.apply()
         self._tell("active", key=key)
 
+    def trial_update(self, apo_text):
+        """The EQ being tried replaced by this one (Make an EQ's edits to it, as they're made): its file written
+        again, so Equalizer APO plays the change at once; the time left stays. False when nothing is being tried."""
+        if not self.trial:
+            return False
+        self._writable()
+        textfile.write_atomic(self.trial_path(), apo_text)
+        return True
+
     def end_trial(self, keep=False):
         """The trial over: kept as a profile of its device, switched on (keep), or the device's own EQ back. Returns
         the profile id kept, or None."""

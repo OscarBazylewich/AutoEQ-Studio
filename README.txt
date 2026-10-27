@@ -72,12 +72,12 @@ while the window isn't the active one, or with Transparency effects off).
 Every control can be reached with Tab (the top bar's screens with the arrow keys) and has a name a screen reader
 says.
 
-Guide: a tour of a whole EQ job on Make an EQ (29 steps: choose, the settings, run, review, save, listen, more), as
+Guide: a tour of a whole EQ job on Make an EQ (30 steps: choose, the settings, run, review, save, listen, more), as
 AutoEQ Local's was. Each step lights up a part of the screen, says what it does and shows it in a short demo: a
 pointer opens Find… and types a search, picks a row and shows it on the graph, opens a list and chooses, types the
 target adjustments while the target changes on the graph (kept in sight at the top while the page scrolls), shows a
 run's progress and the EQ'd curve; before a run the result steps show an example result worked out from your files.
-The card: "3 of 29" lists every step to go straight to one, Replay (R), Pause (P), Skip demo, the demo's speed,
+The card: "3 of 30" lists every step to go straight to one, Replay (R), Pause (P), Skip demo, the demo's speed,
 "Play all steps" (the whole tour by itself), Back / Next (the arrow keys), End tour (Esc), Start again. Scrolling
 while a demo plays pauses it; Resume scrolls back. What a demo shows is put back after it, and nothing is chosen, run,
 saved or downloaded. With Windows' animation effects off a demo is numbered markers instead. The tracer has its own
@@ -147,6 +147,11 @@ One column, top to bottom:
     Keep to compare    adds it to this IEM's EQs to compare (on the graph, dashed; and in Listen)
     Report             an HTML page with the graph and the filters (also written by Save when ticked in Advanced)
   A Website method's result also says what to type into squiglink's AutoEQ panel ("Use in single run" copies it).
+  The EQ graph (under the graph) edits the filters too: each has a handle there, numbered as in the table, on its
+  own curve at its frequency. Drag one (left and right: its frequency; up and down: its gain), turn the mouse wheel
+  over it (its Q), right-click it (Peak, Low shelf, High shelf, Switched on, Delete); double-click where there's
+  none for a new filter. The curves, numbers, table and Listen follow as you drag; the scale stays put until you let
+  go. An EQ you're trying on a device (Try for 5 minutes on) plays each change there as you make it, in every app.
 - Listen: hear the EQ through your own IEM or headphone. Start with the volume low. Play plays music (a short loop
   made by the app), pink or white noise, a sweep, a tone (its frequency shown on the graph) or your own file, through
   the version you pick: EQ off, the selected EQ (as edited) or one of your EQs to compare (keys 1-9 switch).

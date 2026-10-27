@@ -347,6 +347,12 @@ class Listen(QGroupBox):
         self.render_apo()
         self.add_sel_btn.setEnabled(has_sel)
 
+    def update_sound(self):
+        """Only what's heard (a filter dragged on the EQ graph: many changes a second): each version's filters into the
+        sound, the buttons left as they are (refresh draws them again)."""
+        if self.engine:
+            self.engine.set_versions([(k, label, f) for k, label, f, _ in self.versions()])
+
     def _apply(self):
         if self.engine:
             e = self.engine

@@ -156,6 +156,12 @@ class EqCards:
         self.legend = self.plot.addLegend(offset=(10, 10))
         self.plot.getAxis("left").setLabel("dB")
         self.eqplot.getAxis("left").setLabel("EQ dB")
+        # (the EQ graph is where the filters are dragged: ui/eq_page_handles.py; a double-click adds one)
+        self.eqplot.scene().sigMouseClicked.connect(self.eq_graph_clicked)
+        self.eqplot.setAccessibleName("EQ graph")
+        self.eqplot.setToolTip("Drag a filter's handle: frequency and gain; the mouse wheel over it: its Q; right-click "
+                               "it: its type, on or off, Delete. Double-click where there's none: a new filter there")
+        help_window.tag(self.eqplot, "#eq-graph")
         # (both graphs' value axes one width, room for three characters ("-12", "100") in the font pyqtgraph draws
         # them in: left to themselves, each took the width of the first numbers it drew, so a page made ahead, first
         # drawn with its curves, had a narrower one than the EQ graph under it (their edges 4 px apart), and each
