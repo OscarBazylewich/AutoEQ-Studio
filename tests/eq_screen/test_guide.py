@@ -807,7 +807,7 @@ def test_lists_a_demo_shows(s, check):
             and box.geometry().bottom() < m.rows[0].geometry().top() and mock_box == real_box \
             and real_box["line"] == tk["accent"]
         t.stop_demo()
-        items = [("No presets yet", False), "Save current settings as…", None, "Try for 5 minutes on ▸"]
+        items = [("No presets yet", False), "Save as a preset…", None, "Try for 5 minutes on ▸"]
         g = guide_demos.mock_menu(api, page.use_btn, items)  # (a menu, as the demos show Presets' and Use on device's)
         next(g)
         qt.pump(50)
@@ -822,7 +822,7 @@ def test_lists_a_demo_shows(s, check):
         t.end()
     real_m = QMenu(page)  # (a real menu in the app's look, the same rows, its item pointed at)
     real_m.addAction("No presets yet").setEnabled(False)
-    act = real_m.addAction("Save current settings as…")
+    act = real_m.addAction("Save as a preset…")
     real_m.addSeparator()
     sub = real_m.addMenu("Try for 5 minutes on")
     sub.addAction("Headphones")

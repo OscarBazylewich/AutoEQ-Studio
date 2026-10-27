@@ -53,3 +53,21 @@ def test_an_only_profile_put_back_stays_off(tmp_path, check):
     check("core: a device's only profile, taken off while its EQ was off and put back (Undo), leaves it off; added "
           "anew, a device's only profile is switched on when none is, as before",
           undone == (True, None) and added == pid, (undone, added))
+
+
+def test_the_eq_it_had_last_comes_back(tmp_path, check):
+    # (2026-10-27, the code's review: taking a profile off a device forgets it as the EQ the device had last, and Undo
+    # didn't bring that back: the on/off hotkey then switched another profile on)
+    top = str(tmp_path)
+    sw = _switcher(top)
+    a, b = (_profile(sw, top, n) for n in ("A", "B"))
+    sw.add_to_device(KEY, b, switch_on=False)
+    sw.add_to_device(KEY, a, switch_on=True)
+    sw.set_active(KEY, None)  # (off: A is the EQ it had last)
+    before = sw.record(KEY).get("last")
+    sw.remove_from_device(KEY, a)
+    sw.add_to_device(KEY, a, switch_on=False, at=1, last=True)
+    rec = sw.record(KEY)
+    check("core: put back (Undo), a profile is again the EQ the device had last (the on/off hotkey's way back), the "
+          "device still off", before == a and rec.get("last") == a and rec["active"] is None
+          and rec["profiles"] == [b, a], (before, rec.get("last"), rec["active"]))

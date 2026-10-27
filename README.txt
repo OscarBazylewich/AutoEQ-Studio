@@ -107,7 +107,7 @@ One column, top to bottom:
 - Target and Measurement: the files in the app, A to Z (numbers as numbers: "IEM 2" before "IEM 10"; a
   measurement is a set: left and right, or several seatings). Add…
   takes files from this PC; Find… (or the / key) searches the app, this PC and the online databases (Preview draws one
-  on the graph, dotted: "Hide shown curves" takes them off; Use takes it, and Undo at the bottom of the window puts back what you
+  on the graph, dotted: "Hide previews" takes them off; Use takes it, and Undo at the bottom of the window puts back what you
   had; Sources… chooses where it looks: this PC's folders, each online database on or off, another squig.link-style
   database added from squig.link's list or by its address; its results are A to Z in each part, and the Rig, Type
   and Source filters' lists are A to Z with a search box at the top: type part of a name to find it); "Other measurements of this model…" ranks every measurement of your IEM for the target (Which measurement to
@@ -151,7 +151,7 @@ One column, top to bottom:
   A Website method's result also says what to type into squiglink's AutoEQ panel ("Use in single run" copies it).
   The EQ graph (under the graph) edits the filters too: each has a handle there, numbered as in the table, on its
   own curve at its frequency. Drag one (left and right: its frequency; up and down: its gain), turn the mouse wheel
-  over it (its Q), right-click it (Peak, Low shelf, High shelf, Switched on, Delete); double-click where there's
+  over it (its Q), right-click it (Peak, Low shelf, High shelf, Switched on, Remove); double-click where there's
   none for a new filter. The curves, numbers, table and Listen follow as you drag; the scale stays put until you let
   go. An EQ you're trying on a device (Try for 5 minutes on) plays each change there as you make it, in every app.
 - Listen: hear the EQ through your own IEM or headphone. Start with the volume low. Play plays music (a short loop
@@ -227,10 +227,10 @@ one profile on once you choose it): "Edit in Make an EQ" opens the chosen one th
 filters, then Use on device › Update puts it back (its devices keep it, and hear the change at once); Rename…, Open
 the profiles folder; Delete… (last) deletes its file, asked first.
 
-Devices tab: your playback devices, as Windows names them ("Headset (EarPods)"), the one playing now first (green
-dot; connected: your Windows accent colour, blue by default; grey: not connected). Choose one to give it profiles
-("Add a profile") and choose the one on, or Off (a profile's ✕ takes it off the device, with Undo at the bottom of
-the window). Rename… gives it your own name ("Dongle – KZ"), shown everywhere.
+Devices tab: your playback devices, as Windows names them ("Headset (EarPods)"), connected ones first, A to Z (a
+green dot: playing now; your Windows accent colour, blue by default: connected; grey: not connected). Choose one to
+give it profiles ("Add a profile") and choose the one on, or Off (a profile's ✕ removes it from the device, with Undo
+at the bottom of the window). Rename… gives it your own name ("Dongle – KZ"), shown everywhere.
 The line under its EQ says whether the EQ really plays: AutoEQ Studio asks Equalizer APO itself (✓ or ✕; Check
 again says all it found).
 A device can have several profiles (e.g. a USB-C dongle used with different IEMs): switch between them from the

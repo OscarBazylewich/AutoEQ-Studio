@@ -76,3 +76,18 @@ def test_run_several_fits_a_small_screen(eq_screen, check, monkeypatch):
           "too), its parts not squeezed; on a big screen as before (900 x 720, its smallest 640 x 520)",
           all(seen[s]["fits"] for s in qt.SMALL_SCREENS) and big["fits"] and big["opens"] == (900, 720)
           and big["smallest"] == (640, 520), seen)
+
+
+def test_run_several_lists_a_to_z(eq_screen, check):
+    # (2026-10-27, the rules' review: its targets were in plain order, "IEM 10" before "IEM 2", UI-RULES 22)
+    page = eq_screen.page
+    kept = page.inputs.get("targets")
+    try:
+        page.inputs["targets"] = ["Target 10.csv", "target 2.csv", "Alpha.csv"]
+        q = QueueWindow(page)
+        names = [q.tgts.item(i).text() for i in range(q.tgts.count())]
+        qt.close(q)
+    finally:
+        page.inputs["targets"] = kept
+    check("queue: Run several's targets are A to Z, numbers as numbers (as every list)",
+          names == ["Alpha", "target 2", "Target 10"], names)

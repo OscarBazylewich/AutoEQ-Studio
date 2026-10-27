@@ -7,7 +7,7 @@ window, so they use the window's own things (sw, and the Settings part's open_fo
 import os
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QAbstractItemView, QFileDialog, QHBoxLayout, QHeaderView, QInputDialog, QMessageBox,
+from PySide6.QtWidgets import (QAbstractItemView, QFileDialog, QHBoxLayout, QHeaderView, QMessageBox,
                                QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
 import paths
@@ -26,8 +26,8 @@ class ProfilesScreen:
         w = QWidget()
         lay = QVBoxLayout(w)
         lay.setContentsMargins(0, 0, 0, 0)  # (lined up with the top bar, as every screen: UI-RULES 5)
-        lay.addWidget(muted("A profile is a copy of an EQ file (Equalizer APO's format: AutoEQ Local's \"Equalizer "
-                            "APO\" file, AutoEq's ParametricEQ.txt, squig.link's export). Double-click a name to "
+        lay.addWidget(muted("A profile is a copy of an EQ file (Equalizer APO's format: AutoEQ Local's “Equalizer "
+                            "APO” file, AutoEq's ParametricEQ.txt, squig.link's export). Double-click a name to "
                             "rename it."))
         # (the table's commands above it, near the rows they act on: under a table that fills the screen they were
         # 750 px from its one row)
@@ -125,7 +125,8 @@ class ProfilesScreen:
         pid = self._selected_profile()
         if not pid:
             return
-        name, ok = QInputDialog.getText(self, "Rename the profile", "Name", text=self.sw.profile_name(pid))
+        from ui.window_parts import ask_text  # (looked up here: the tests answer it)
+        name, ok = ask_text(self, "Rename the profile", "Its name", self.sw.profile_name(pid), "Rename")
         if ok:
             self.sw.rename_profile(pid, name)
 

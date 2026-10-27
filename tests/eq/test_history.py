@@ -96,6 +96,22 @@ def test_restore_puts_one_back_in_its_place(emptied, check):
           and [x["key"] for x in again] == ["r1", "r2", "r3"], ([x["key"] for x in back], put.get("when"), gone["when"]))
 
 
+def test_restore_keeps_to_the_limit(emptied, monkeypatch, check):
+    # (2026-10-27, the code's review: an entry put back after others were added could leave one over the limit until
+    # the next add)
+    monkeypatch.setattr(history, "MAX", 3)
+    e = entry()
+    for k in ("m1", "m2", "m3"):
+        history.add({**e, "key": k})
+    gone = next(x for x in history.entries() if x["key"] == "m3")
+    history.remove(["m3"])
+    history.add({**e, "key": "m4"})
+    back = [x["key"] for x in history.restore([gone])]
+    history.remove(None)
+    check("history: an entry put back keeps History to its limit (the oldest unsaved one goes)",
+          back == ["m2", "m3", "m4"], back)
+
+
 # ---------------------------------------------------------------- the second chain (lines 718-746)
 def test_damaged_file_kept_aside(emptied, check):
     import textfile

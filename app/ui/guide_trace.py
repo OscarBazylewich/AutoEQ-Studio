@@ -58,7 +58,7 @@ def trace_steps(tw):
         {"chapter": "3 · Trace", "title": "Several curves", "target": lambda: [tw.curves_box, tw.add_btn],
          "before": show_traces,
          "text": "Each traced curve with its name (L, R…); its coloured dot selects it, ✕ deletes it, and the tools "
-                 "change the selected one. Another curve starts a new one; saved together they become one device.",
+                 "change the selected one. Add a curve starts a new one; saved together they become one device.",
          "demo": [{"at": lambda: tw.curves_box, "say": "Each traced curve and its name"},
                   {"at": lambda: tw.add_btn, "say": "Start another one (the other channel)"}]},
         {"chapter": "3 · Trace", "title": "Dashed or dotted lines", "target": lambda: tw.dashed,

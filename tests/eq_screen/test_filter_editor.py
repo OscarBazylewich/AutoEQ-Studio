@@ -200,8 +200,9 @@ def test_own_filters_sliders_whole(eq_screen, check, monkeypatch):
     # wrapped second line counted as none, so the editor lost that line. Its bottom, the sideways scroll bar, was
     # under OK and Cancel, and the filters past the fifth couldn't be reached)
     from PySide6.QtCore import QPoint
-    from PySide6.QtWidgets import QDialog, QDialogButtonBox, QPushButton
+    from PySide6.QtWidgets import QDialog, QPushButton
     from ui.filter_editor import FilterEditor
+    from ui.window_parts import Footer
     page = eq_screen.page
     ten = "\n".join(f"Filter {i}: ON PK Fc {100 * i} Hz Gain 1 dB Q 1" for i in range(1, 11))
     seen = {}
@@ -214,7 +215,7 @@ def test_own_filters_sliders_whole(eq_screen, check, monkeypatch):
         top = bar.mapTo(dlg, QPoint(0, 0)).y()
         return {"window": (dlg.width(), dlg.height()), "bar": (top, top + bar.height(), bar.isVisible(), bar.maximum()),
                 "editor ends": ed.mapTo(dlg, QPoint(0, ed.height())).y(),
-                "buttons start": dlg.findChild(QDialogButtonBox).geometry().y()}
+                "buttons start": dlg.findChild(Footer).geometry().y()}
 
     def shown(dlg):  # (the window's exec: shown as it opens, its Sliders view chosen, then made as small as it goes)
         dlg.show()
@@ -239,3 +240,43 @@ def test_own_filters_sliders_whole(eq_screen, check, monkeypatch):
           "the window opens and at its smallest (the window's smallest height counted the note's second line as none: "
           "the bar was under the buttons, the filters past the fifth out of reach)",
           len(seen) == 2 and all(whole(s) for s in seen.values()), seen)
+
+
+def test_own_filters_window_ends_as_every_window(eq_screen, check, monkeypatch):
+    # (2026-10-27, the rules' review: Enter in one of its boxes pressed OK and closed the window, and what the editor
+    # changed ("Changed to …") was said in the main window's line, behind it)
+    from PySide6.QtCore import QEvent, Qt
+    from PySide6.QtGui import QKeyEvent
+    from PySide6.QtWidgets import QApplication, QDialog, QLineEdit, QPushButton
+    from ui.filter_editor import FilterEditor
+    from ui.window_parts import Footer
+    page = eq_screen.page
+    seen = {}
+
+    def shown(dlg):
+        dlg.show()
+        qt.pump(200)
+        box = next(b for b in dlg.findChild(FilterEditor).findChildren(QLineEdit) if b.isVisible())  # (a cell)
+        box.setFocus()
+        qt.pump(50)
+        QApplication.sendEvent(box, QKeyEvent(QEvent.KeyPress, Qt.Key_Return, Qt.NoModifier))
+        qt.pump(50)
+        seen["open after Enter in a box"] = dlg.isVisible()
+        dlg.findChild(FilterEditor).say("Changed to 20000 Hz.")
+        footer = dlg.findChild(Footer)
+        seen["said"] = (footer.line.text.text() if footer else None, page.window_status_said[-1:]
+                        if hasattr(page, "window_status_said") else [])
+        seen["buttons"] = [b.text() for b in footer.findChildren(QPushButton) if b.isVisible()] if footer else None
+        dlg.hide()
+        return QDialog.Rejected
+    kept = page.S["best_fit"]["start_filters"]
+    monkeypatch.setattr(QDialog, "exec", shown)
+    try:
+        page.S["best_fit"]["start_filters"] = "Filter 1: ON PK Fc 1000 Hz Gain 2 dB Q 1"
+        page.settings.edit_own_filters()
+    finally:
+        page.S["best_fit"]["start_filters"] = kept
+    check("filters: Your own filters ends as every window: Enter in one of its boxes stays the box's (the window stays "
+          "open), what the editor changed is said in its own line, then OK and Cancel",
+          seen.get("open after Enter in a box") is True and (seen.get("said") or (None,))[0] == "Changed to 20000 Hz."
+          and seen.get("buttons") == ["OK", "Cancel"], seen)

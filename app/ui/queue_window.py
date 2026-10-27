@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QDialog, QHBoxLayout, QHeaderV
                                QListWidgetItem, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout)
 
 from ui import icons, theme
+from ui.search_combo import natural_key
 from ui.theme_sheet import CARD
 from ui.window_parts import Footer, enter_presses, fit_to_screen
 
@@ -57,11 +58,12 @@ class QueueWindow(QDialog):
         now_tgt = page.S["files"].get("active_target")
         left, right = QVBoxLayout(), QVBoxLayout()
         left.addWidget(theme.mark(QLabel("IEMs and headphones"), role="section"))
-        self.devs = _checklist(list(page.groups), {now_dev})
+        # (both A to Z, numbers as numbers, as every list: "IEM 10" came before "IEM 2", UI-RULES 22)
+        self.devs = _checklist(sorted(page.groups, key=natural_key), {now_dev})
         self.devs.setAccessibleName("IEMs and headphones")
         left.addWidget(self.devs)
         right.addWidget(theme.mark(QLabel("Targets"), role="section"))
-        self.tgts = _checklist(list(page.inputs.get("targets") or []), {now_tgt})
+        self.tgts = _checklist(sorted(page.inputs.get("targets") or [], key=natural_key), {now_tgt})
         self.tgts.setAccessibleName("Targets")
         right.addWidget(self.tgts)
         cols.addLayout(left)
@@ -74,8 +76,8 @@ class QueueWindow(QDialog):
         theme.mark(self.start_btn, primary=True)
         icons.put(self.start_btn, "run")  # (Windows 11's symbol beside the words)
         self.start_btn.clicked.connect(self.start)
-        self.cancel_btn = QPushButton("Cancel")  # (beside Start, off until it runs: UI-RULES 13)
-        icons.put(self.cancel_btn, "cancel")  # (✕, as Run's Cancel)
+        self.cancel_btn = QPushButton("Cancel")  # (beside Start, off until it runs: UI-RULES 13; no symbol, as every
+        # footer's Cancel and Close: UI-RULES 9)
         self.cancel_btn.setEnabled(False)
         self.cancel_btn.clicked.connect(self.cancel)
         for b in (self.start_btn, self.cancel_btn):

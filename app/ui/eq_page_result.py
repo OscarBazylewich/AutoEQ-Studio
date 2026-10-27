@@ -199,8 +199,9 @@ class EqResult:
     def open_compare(self):
         """Two EQs side by side (ui/compare_results.py)."""
         from ui.compare_results import CompareResults, options
-        if len(options(self)) < 2:
-            self.status("Nothing else to compare with yet: another run, another filter count or History.", 6000)
+        if len(options(self)) < 2:  # (what's needed first: a box, as Run's, UI-RULES 25)
+            QMessageBox.information(self, "Compare", "Nothing else to compare with yet: another run, another filter "
+                                    "count or an EQ from History.")
             return
         modal(CompareResults(self))
 
@@ -263,17 +264,23 @@ class EqResult:
 
     def close_by_hand(self):
         """Close, on an EQ by hand: back to what was shown when it began (that run, else the last one left, else none:
-        the page as it was). Changed, it stays in Runs this session to come back to; empty or as it began, it goes
-        (nothing in it to lose)."""
+        the page as it was). Changed, it stays in Runs this session to come back to; empty, it goes (nothing in it to
+        lose); as it began (pasted, from a file, a profile or a copy), it goes with Undo in the window's line, as
+        Remove's (UI-RULES 20: pasted filters were gone for good)."""
         run, _r = self.current()
         if not run or run.get("mode") != "manual":
             return
-        if not self.EDIT or not self.edited():
+        at = next((i for i, x in enumerate(self.session_runs) if x is run), None)
+        dropped, had = not self.EDIT or not self.edited(), bool(self.EDIT)
+        if dropped:
             self.session_runs = [x for x in self.session_runs if x is not run]
         mine, before = getattr(self, "hand_before", None) or (None, None)
         others = [x for x in self.session_runs if x is not run]
         back = before if mine is run and any(x is before for x in others) else (others[-1] if others else None)
         self.show_run(back)
+        if dropped and had and at is not None:
+            self.status(f"Closed “Run {run.get('n', 1)} · {MODE_SHORT['manual']}”.",
+                        undo=lambda: self._put_run_back(run, at))
 
     # ---------------------------------------------------------------- the filters being edited
     def active(self):
@@ -318,7 +325,9 @@ class EqResult:
             return
         st, ed = self.stats(), self.edited()
         manual = run.get("mode") == "manual"
-        tag = "" if manual else "recommended" if r["id"] == run["pick"] else "lowest error" if r["id"] == run["best"] else ""
+        # (the pick's one name everywhere: "picked for you", as the filter counts' list says it; it was "recommended"
+        # here, "pick" and "(picked)" in the windows)
+        tag = "" if manual else "picked for you" if r["id"] == run["pick"] else "lowest error" if r["id"] == run["best"] else ""
         self.res_title.setText(MODE_SHORT.get(run["mode"], run["mode"]) + (f"  ·  {tag}" if tag else "")
                                + ("  ·  edited" if ed else ""))
         if manual:  # (its filters as they are now: kept when another run is shown, and on its lines in the lists)
@@ -417,7 +426,7 @@ class EqResult:
                     "preamp": self.stats()["preamp_raw"], "name": name}
             res = self.svc.call("/api/export", body)
             if res.get("exists"):
-                if not self._replace_ok(res["exists"]):
+                if not self._replace_ok(res["exists"], "Save filters"):
                     return
                 res = self.svc.call("/api/export", {**body, "replace": True})
             if res.get("error"):
@@ -438,9 +447,12 @@ class EqResult:
                     + (" The report of that name was kept: change the File name to save another beside it." if kept else ""),
                     10000)
 
-    def _replace_ok(self, names):
-        return QMessageBox.question(self, "Save filters", "Already in your Saved EQs folder:\n\n" + "\n".join(names)
-                                    + "\n\nReplace? (No keeps them: change the File name to save beside them.)") == QMessageBox.Yes
+    def _replace_ok(self, names, command):
+        """Replace files already in Saved EQs? Titled by the command asking (Save filters, Report); No the default, as a
+        file replaced can't be had back (.claude/notes/UI-RULES.md 17; the tracer's Save .txt asks the same way)."""
+        return QMessageBox.question(self, command, "Already in your Saved EQs folder:\n\n" + "\n".join(names)
+                                    + "\n\nReplace? (No keeps them: change the File name to save beside them.)",
+                                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No) == QMessageBox.Yes
 
     def report(self, open_it=True):
         """The HTML report of the result shown (and of up to two of your EQs to compare on the graph), as AutoEQ
@@ -464,7 +476,7 @@ class EqResult:
         made_for, here = run.get("device"), (self.curves or {}).get("name")
         other = (f" Made for the {made_for}: shown here on the {here}." if not own_files and made_for and here
                  and made_for != here else "")
-        cards = [{"title": title, "badge": "recommended" if r["id"] == run.get("pick") else "", "fields": fields,
+        cards = [{"title": title, "badge": "picked for you" if r["id"] == run.get("pick") else "", "fields": fields,
                   "text": self.run_label(run, r) + "." + other, "filters": self.active()}]
         for p in [p for p in self.listen.pins if p.get("shown", True)][:2]:
             cards.append({"title": p["name"], "text": "", "filters": [f for f in p["filters"] if f.get("enabled", True) is not False]})
@@ -477,7 +489,7 @@ class EqResult:
                                                              for x in run["results"]])
         res = self.svc.call("/api/report", body)
         if res.get("exists"):
-            if not self._replace_ok(res["exists"]):
+            if not self._replace_ok(res["exists"], "Report"):
                 return None
             res = self.svc.call("/api/report", {**body, "replace": True})
         if res.get("error"):
@@ -643,6 +655,7 @@ class EqResult:
             m.addSeparator()
         from switcher.core import shown
         keys = [d.key for d in self.sw.devices] + [k for k in self.sw.s["devices"] if not self.sw.device(k)]
+        keys.sort(key=self.sw.order)  # (as the Devices screen lists them)
         for key in keys:
             rec, d = self.sw.record(key), self.sw.device(key)
             where = "playing now" if key == self.sw.playing_key else "connected" if d and d.connected else "not connected"

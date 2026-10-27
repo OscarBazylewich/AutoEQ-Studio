@@ -627,8 +627,9 @@ class Api:
         v.addWidget(bar)
         return frame, v
 
-    def prompt(self, title, label, near=None, value=""):
-        """A question as the app would ask it (a name to type: a small window with its title), inside the tour: .edit,
+    def prompt(self, title, label, near=None, value="", verb="OK"):
+        """A question as the app would ask it (a name to type: a small window with its title, its buttons as
+        window_parts.ask_text's: `verb` first, in the accent, then Cancel, sharing the width), inside the tour: .edit,
         .ok; closed after."""
         f, outer = self._frame(title)
         f.setProperty("prompt", True)
@@ -640,11 +641,10 @@ class Api:
         f.edit = QLineEdit(value)
         v.addWidget(f.edit)
         row = QHBoxLayout()
-        row.addStretch(1)
-        f.ok = QPushButton("OK")
+        f.ok = QPushButton(verb)
         theme.mark(f.ok, primary=True)
-        row.addWidget(f.ok)
-        row.addWidget(QPushButton("Cancel"))
+        row.addWidget(f.ok, 1)
+        row.addWidget(QPushButton("Cancel"), 1)
         v.addLayout(row)
         for c in [f] + f.findChildren(QWidget):
             c.setFocusPolicy(Qt.NoFocus)

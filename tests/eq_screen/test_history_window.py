@@ -76,6 +76,25 @@ def test_history_window_lists_and_removes(eq_screen, chain, check):
     hw.close()
 
 
+def test_clear_off_with_nothing_to_clear(eq_screen, check):
+    # (2026-10-27, the code's review: pressed with History empty, "already empty" took the place of the Undo of the
+    # last ✕ in its line)
+    page = eq_screen.page
+    kept = page.history
+    try:
+        page.history = []
+        hw = HistoryWindow(page, False)
+        empty = hw.clear_btn.isEnabled()
+        hw.close()
+    finally:
+        page.history = kept
+    hw = HistoryWindow(page, False)
+    full = hw.clear_btn.isEnabled()
+    hw.close()
+    check("ui: History's Clear the history… is off with nothing in it (as Windows' commands with nothing to act on), "
+          "on with entries", empty is False and full == bool(kept), (empty, full, len(kept)))
+
+
 def test_long_history_in_batches(eq_screen, check):
     page = eq_screen.page
     # (lines 1596-1613: History swapped for 300 made-up entries, put back after)

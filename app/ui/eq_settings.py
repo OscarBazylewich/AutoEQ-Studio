@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (QCheckBox, QDialog, QFileDialog, QGridLayout, QHB
                                QPushButton, QToolButton, QVBoxLayout, QWidget)
 
 from ui import help_window, icons, theme
-from ui.forms import Field, Fold, Form, Limits, fmt_list
+from ui.forms import Field, Fold, Form, Limits, fmt_list, line_up_together
 
 ADJUST_GAINS = ("tilt", "bass_gain", "halftilt_gain", "ear_gain", "treble_gain", "air_gain")  # (eq.service's)
 CURVE_KEYS = ("target_adjust.","site.", "scoring.band_hz", "files.", "rig_convert.")  # (settings.js)
@@ -169,7 +169,7 @@ class EqSettings:
                 ("Q of each band", [("best_fit.bands.q", "num")], lambda: fixed() and S()["best_fit"]["layout"] == "bands"),
                 ("Sliders from (dB)", [("best_fit.bands.gain_min", "num"), ("best_fit.bands.gain_max", "num")], fixed),
                 ("Slider step (dB)", [("best_fit.bands.step", "choice", _opts(C["best_fit.bands.step"]))], fixed),
-                ("Low shelf Hz", [("best_fit.low_shelf_freq.0", "num"), ("best_fit.low_shelf_freq.1", "num")],
+                ("Low shelf (Hz)", [("best_fit.low_shelf_freq.0", "num"), ("best_fit.low_shelf_freq.1", "num")],
                  lambda: shelves() and S()["best_fit"]["low_shelf"]),
                 ("Filters from (Hz)", [("best_fit.freq_range.0", "num"), ("best_fit.freq_range.1", "num")], free),
                 ("Max cut (dB)", [("best_fit.gain_min", "num")], free),
@@ -210,6 +210,7 @@ class EqSettings:
             ("This PC", [("CPU cores (0 = all but one)", [("performance.cores", "num")])]),
         ]
         self.adv_form = Form(sections[:2], self.limits, get, changed, back, say)  # (Best fit, Website sweep)
+        line_up_together(self.form, self.adv_form)  # (one label column for Settings and Advanced, one above the other)
         self.adv.add(self.adv_form)
         col.addWidget(self.adv)
         yield "advanced, first half"
@@ -456,9 +457,12 @@ class EqSettings:
                 for i, x in enumerate([x for x in filters if x.get("enabled", True) is not False], 1)]
 
     def edit_own_filters(self):
-        """Your own filters in the filter editor (as AutoEQ Local's own-filters table and sliders): OK writes them back."""
-        from PySide6.QtWidgets import QDialogButtonBox
+        """Your own filters in the filter editor (as AutoEQ Local's own-filters table and sliders): OK writes them back.
+        It ends as every window does (.claude/notes/UI-RULES.md 1, 4, 6, 7): its own message line (what the editor
+        changed: it was said in the main window's, behind it), OK (Enter's, in the accent; Enter in a box being typed in
+        is the box's: it pressed OK and closed the window) and Cancel; it opens within the screen."""
         from ui.filter_editor import FilterEditor
+        from ui.window_parts import Footer, enter_presses, fit_to_screen
         text = self.page.S["best_fit"].get("start_filters", "")
         r = self.page.svc.call("/api/filters/parse", {"text": text}) if text.strip() else {"filters": []}
         if r.get("error"):  # (an empty table, and OK then wiped your text: review 2)
@@ -469,8 +473,8 @@ class EqSettings:
                    for x in r.get("filters") or []]
         dlg = OwnFiltersWindow(self.fold)
         dlg.setWindowTitle("Your own filters")
-        dlg.resize(820, 560)
-        dlg.setMinimumWidth(640)  # (it went down to 280: the table's boxes squeezed, one slider in sight)
+        # (at least 640 wide: it went down to 280, the table's boxes squeezed, one slider in sight)
+        fit_to_screen(dlg, (820, 560), (640, None))
         v = QVBoxLayout(dlg)
         v.setContentsMargins(16, 16, 16, 16)  # (a card's room around it, as Windows 11's own windows have)
         others = len([ln for ln in text.splitlines() if ln.strip()]) > len(filters)
@@ -481,7 +485,12 @@ class EqSettings:
         note.setWordWrap(True)
         theme.mark(note, role="muted")
         v.addWidget(note)
-        ed = FilterEditor(self.page.meta.get("limits", {}), lambda t: self.page.status(t, 5000))
+        ok_btn, cancel = QPushButton("OK"), QPushButton("Cancel")
+        theme.mark(ok_btn, primary=True)  # (the window's main action: the accent)
+        ok_btn.clicked.connect(dlg.accept)
+        cancel.clicked.connect(dlg.reject)
+        footer = Footer(dlg, close=False, main=[ok_btn, cancel])
+        ed = FilterEditor(self.page.meta.get("limits", {}), footer.say)
         ed.set_filters(filters)
         ed.set_view("table")
         row = QHBoxLayout()
@@ -507,11 +516,8 @@ class EqSettings:
         row.addStretch(1)
         v.addLayout(row)
         v.addWidget(ed, 1)
-        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        theme.mark(btns.button(QDialogButtonBox.Ok), primary=True)  # (the window's main action: the accent)
-        btns.accepted.connect(dlg.accept)
-        btns.rejected.connect(dlg.reject)
-        v.addWidget(btns)
+        v.addWidget(footer)
+        enter_presses(dlg, ok_btn)
         ok = dlg.exec()
         dlg.deleteLater()  # (each opening made a window of its own, kept hidden under the Settings fold)
         if ok:

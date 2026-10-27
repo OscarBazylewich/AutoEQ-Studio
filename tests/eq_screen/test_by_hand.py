@@ -207,3 +207,27 @@ def test_close_goes_back(eq_screen, check):
           shown == (True, True) and alone == ((False, (None, None), 0, 0, False), [], "")
           and back == (True, True, False, ["best_fit"]) and kept == (True, True, True) and again == (True, 1),
           (shown, alone, back, kept, again))
+
+
+def test_close_on_pasted_filters_offers_undo(eq_screen, check):
+    # (2026-10-27, the code's review: Close on an EQ by hand as it began took it off this session's runs for good,
+    # pasted filters too; an empty one has nothing to lose, so nothing is said)
+    page = eq_screen.page
+    page.session_runs = []
+    page.show_run(None)
+    n = len(eq_screen.said)
+    _menu_action(page, "Start empty").trigger()
+    page.hand_close.click()
+    empty = eq_screen.said[n:]
+    page.start_by_hand([{"type": "PK", "freq": 1000, "gain": 3, "q": 1}], "pasted", "Mine")
+    pasted = page.run_result
+    page.hand_close.click()
+    offered = (eq_screen.undo_offered(), (eq_screen.said or [""])[-1], pasted in page.session_runs)
+    eq_screen.undo()
+    back = (page.run_result is pasted, any(x is pasted for x in page.session_runs), len(page.EDIT))
+    page.session_runs = []
+    page.show_run(None)
+    check("by hand: Close on an EQ by hand as it began (pasted) takes it off this session's runs with Undo in the "
+          "window's line, and Undo brings it back as it was; an empty one goes without a word",
+          empty == [] and offered[0] and offered[1].startswith("Closed “Run") and not offered[2]
+          and back == (True, True, 1), (empty, offered, back))

@@ -241,7 +241,7 @@ for dark in (True, False):
     menu = QMenu(holder)
     note = menu.addAction("No presets yet: a preset keeps all your settings (not your files)")
     note.setEnabled(False)
-    menu.addAction("Save current settings as…")
+    menu.addAction("Save as a preset…")
     sub = menu.addMenu("Try for 5 minutes on")
     sub.addAction("Headphones")
     menu.resize(menu.sizeHint())
@@ -561,7 +561,7 @@ with theme.building(root):
     early = button(root, "Delete from the app.")
     early.ensurePolished()  # (as sizeHint() can, inside a step)
     in_step = early.accessibleName()
-    late = button(root, "Take it off this device")
+    late = button(root, "Remove it from this device")
     box = QLineEdit(root)
     box.setPlaceholderText("Search the help…")
     root.layout().addWidget(box)
@@ -593,7 +593,7 @@ def test_building_takes_the_filter_off_and_back(check):
           "is named all the same once the step is over (polished during it or after it); after a step that ends in an "
           "error the filter is back",
           d.get("in the step") == "" and d.get("after it") == "Delete from the app"
-          and d.get("polished after") == "Take it off this device" and d.get("box") == "Search the help"
+          and d.get("polished after") == "Remove it from this device" and d.get("box") == "Search the help"
           and d.get("after an error") == "Find axes again" and d.get("depth") == 0, d or out.stderr[-300:])
 
 

@@ -128,6 +128,22 @@ def test_history_listen_for_another_iem(card, check):
           and "won't sound" in told, told)
 
 
+def test_history_says_already_in_its_own_line(card, check):
+    # (2026-10-27, the rules' review: "That EQ is in the list already." was said in the main window's line, behind
+    # History)
+    page, lis, entry = card.page, card.lis, card.entry
+    hw = HistoryWindow(page, True)
+    same = dict(entry, device="Yet another IEM", filters=[dict(f, gain=f["gain"] - 2) for f in entry["filters"]])
+    hw.keep_to_compare(same)
+    n, added = len(lis.pins), lis.pins[-1]
+    hw.keep_to_compare(same)
+    told, kept_once = hw.footer.line.text.text(), len(lis.pins) == n
+    hw.close()
+    lis._remove(added)  # (the list as it was: the checks after this one count it)
+    check("listen: History's Keep to compare of an EQ that's in the list already says so in History's own line",
+          kept_once and "already" in told, told)
+
+
 def test_device_eq_said(card, check):
     lis = card.lis
     # was eq_checks.py:2973

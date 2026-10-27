@@ -1,5 +1,6 @@
 """Make an EQ's cards (a part of EqPage, ui/eq_page.py): the page laid out once the EQ part has opened, top to
-bottom: the graph (its title, Trace image, History, View, Y range, Channels), Target, then Measurement (Find…,
+bottom: the graph (its title, Trace a graph image…, History…, View, Y range, Channels, Hide previews), Target, then
+Measurement (Find…,
 Add…), Make the EQ (your EQ app, the method, the search, Run), the settings' folds
 (ui/eq_settings.py), Your result (its numbers, the filters, File name, Save filters, Use on device) and Listen
 (ui/listen.py). This is the file to restyle Make an EQ in.
@@ -27,6 +28,7 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFrame, QGrid
 
 from ui import help_window, icons, theme
 from ui.eq_page_parts import TICKS, Elided, NameCombo, PairTitle, hz, label
+from ui.forms import CHOICE_MOST
 from ui.search_combo import SearchCombo
 
 
@@ -129,9 +131,9 @@ class EqCards:
         help_window.tag(self.channels_chk, "#opt-ch")
         opts.addWidget(self.channels_chk)
         # (a view of the graph, with the others: it popped into the header between Trace and History, moving them)
-        self.clear_prev_btn = QPushButton("Hide shown curves")
+        self.clear_prev_btn = QPushButton("Hide previews")  # (Find…'s Preview and Hide, and the legend's words)
         icons.put(self.clear_prev_btn, "hide")
-        self.clear_prev_btn.setToolTip("Take the curves shown from Find… (dotted) off the graph")
+        self.clear_prev_btn.setToolTip("Take the previews from Find… (dotted) off the graph")
         self.clear_prev_btn.clicked.connect(self.clear_previews)
         self.clear_prev_btn.hide()
         opts.addWidget(self.clear_prev_btn)
@@ -243,7 +245,10 @@ class EqCards:
         self.app_combo.sort_items(pinned=2)  # ("Choose your EQ app" and "Not listed" on top: it was among the apps)
         self.app_combo.activated.connect(lambda _i: self.choose_app(self.app_combo.currentData()))
         help_window.tag(self.app_combo, "eq_app")
-        g.addWidget(self.app_combo, 0, 1, 1, 3)
+        # (as wide as its choices, capped as every drop-down of a form, and Method's under it: it took the card's
+        # whole width, UI-RULES 26)
+        self.app_combo.setMaximumWidth(CHOICE_MOST)
+        g.addWidget(self.app_combo, 0, 1, 1, 3, Qt.AlignLeft)
         self.app_note = label("", "muted")
         self.app_note.setTextFormat(Qt.RichText)
         self.app_note.linkActivated.connect(self.open_link)
@@ -395,8 +400,10 @@ class EqCards:
         self.cmp_btn.setToolTip("Two EQs side by side: this one, other filter counts or runs, or History's")
         self.cmp_btn.clicked.connect(self.open_compare)
         help_window.tag(self.cmp_btn, "#compare-results")
+        # (an EQ by hand, its filter counts' list hidden: Compare… at its own width and still at the row's right end,
+        # where a run's card has it; it sat alone at the left)
+        pick.addStretch(0)
         pick.addWidget(self.cmp_btn)
-        pick.addStretch(0)  # (an EQ by hand, its filter counts' list hidden: Compare… at its own width, not the row's)
         v.addLayout(pick)
         tools = QHBoxLayout()
         self.view_btns = {}

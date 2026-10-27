@@ -59,6 +59,7 @@ def restore(back):
             items.append(e)
             have.add(e["key"])
         items.sort(key=lambda x: x.get("when") or 0)  # (oldest first, as they're kept: each back in its place)
+        _trim(items)  # (entries added meanwhile: still MAX at most, as after an add)
         textfile.write_json(PATH, items, quiet=False)
         return items
 
@@ -93,10 +94,15 @@ def _add(e):
         e["saved"] = e["saved"] or bool(old.get("saved"))
         items.remove(old)
     items.append(e)
-    while len(items) > MAX:  # (the oldest unsaved one first, else the oldest)
-        items.remove(next((x for x in items if not x.get("saved")), items[0]))
+    _trim(items)
     textfile.write_json(PATH, items, quiet=False)
     return items
+
+
+def _trim(items):
+    """MAX entries at most: the oldest unsaved one goes first, else the oldest."""
+    while len(items) > MAX:
+        items.remove(next((x for x in items if not x.get("saved")), items[0]))
 
 
 def remove(keys):

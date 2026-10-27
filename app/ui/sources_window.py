@@ -145,7 +145,7 @@ class Sources(QDialog):
         self.dir_list.setAccessibleName("squig.link's databases")
         self.dir_list.setMinimumHeight(72)  # (130 high, less in a small window: the databases' tree comes first)
         self.dir_list.setMaximumHeight(130)
-        self.dir_list.itemDoubleClicked.connect(lambda it: it.data(Qt.UserRole) and self.add(it.data(Qt.UserRole)))
+        self.dir_list.itemDoubleClicked.connect(self._add_listed)
         # (one clicked: its address in the box, for the one Add under the list, UI-RULES 19; "+ Add" in its words
         # looked like a button, and a click on it did nothing)
         self.dir_list.itemClicked.connect(lambda it: it.data(Qt.UserRole) and self.url.setText(it.data(Qt.UserRole)))
@@ -311,8 +311,10 @@ class Sources(QDialog):
                 return
             on = state == Qt.Checked
             rows = [it.child(i).data(0, Qt.UserRole)[1] for i in range(it.childCount())]
+            # (titled by what's being done, No the default: the ones you added can't be had back here, UI-RULES 17)
             if not on and any(r["extra"] for r in rows) and QMessageBox.question(
-                    self, "Databases", "Switching these off removes the ones you added from the list. Continue?") != QMessageBox.Yes:
+                    self, "Switch them off", "Switching these off removes the ones you added from the list. Continue?",
+                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
                 # (not inside the item's own signal: render deletes it; the window its owner, so a window closed
                 # and deleted meanwhile drops it instead of reaching for its deleted tree)
                 QTimer.singleShot(0, self, self.render)
@@ -398,6 +400,13 @@ class Sources(QDialog):
     def _add_typed(self):
         if self.add(self.url.text()):  # (refused: kept in the box to correct)
             self.url.clear()
+
+    def _add_listed(self, it):
+        """A database double-clicked in the list: added as if typed (its first click put its address in the box, which
+        stayed there after: Add then said it was in the list already)."""
+        if it.data(Qt.UserRole):
+            self.url.setText(it.data(Qt.UserRole))
+            self._add_typed()
 
     def add(self, u):
         u = (u or "").strip()

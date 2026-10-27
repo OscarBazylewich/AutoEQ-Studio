@@ -8,14 +8,15 @@ import os
 
 
 def test_presets(eq_screen, monkeypatch, check):
-    from PySide6.QtWidgets import QInputDialog, QMenu
+    from PySide6.QtWidgets import QMenu
+    from ui import window_parts
     from eq import paths as eq_paths
     page = eq_screen.page
     S = page.S
     was_all = json.loads(json.dumps(S))
     was_mode, was_files = S["mode"], json.dumps(S["files"])
     with monkeypatch.context() as m:  # (the name asked for: "Check preset")
-        m.setattr(QInputDialog, "getText", staticmethod(lambda *a, **k: ("Check preset", True)))
+        m.setattr(window_parts, "ask_text", lambda *a, **k: ("Check preset", True))
         page.save_preset()
     saved = os.path.exists(os.path.join(eq_paths.PRESET_DIR, "Check preset.json"))
     menu = QMenu()
@@ -38,7 +39,7 @@ def test_presets(eq_screen, monkeypatch, check):
     # was eq_checks.py:2152
     check("presets: Presets ▾ saves the settings (not the files) under a name, lists it, loads it (Undo puts the ones "
           "before back), deletes it; Reset all settings, with its Undo",
-          saved and "Check preset" in listed and "Save current settings as…" in listed
+          saved and "Check preset" in listed and "Save as a preset…" in listed
           and loaded == (was_mode, was_files, was_mode) and undone != was_mode and gone and reset and reset_undone,
           (saved, listed, loaded, undone, gone, reset, reset_undone))
     page.S = was_all  # (the settings as they were)

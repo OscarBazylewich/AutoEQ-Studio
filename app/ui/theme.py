@@ -5,7 +5,8 @@ device screens match:
 
 - a card: a QGroupBox (its title the card's heading) or a QFrame with the property card=true
 - text roles (QLabel property "role"): "title" (a screen's big heading), "muted" (secondary text), "warn", "good"
-- buttons: the property primary=true for the one main action of a card (Run, Set up…: the accent); others plain
+- buttons: the property primary=true for the one main action of a card or window (Run, Set up's Set up: the
+  accent); others plain (.claude/notes/UI-RULES.md 8)
 - chips (QLabel role "chip"): a small value with its name ("Error 0.31 dB")
 - graph colours: graph_colours() (measurement, target, with EQ, the EQ itself) for pyqtgraph: fixed, never the accent
 - icons: ui\\icons.py's put(button, name), Windows 11's symbols beside a button's words

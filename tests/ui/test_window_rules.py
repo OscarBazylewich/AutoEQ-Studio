@@ -60,7 +60,7 @@ def test_a_profile_taken_off_a_device_comes_back_with_undo(devices_window, qapp,
 
         def cross(name):
             return next((b for b in win.dev_panel.findChildren(QToolButton)
-                         if b.accessibleName() == f"Take {name} off this device"), None)
+                         if b.accessibleName() == f"Remove {name} from this device"), None)
         cross("First").click()
         off = (first in sw.record(KEY)["profiles"], win.message.text.text(), win.message.undo_btn.isVisibleTo(win))
         win.message.undo_btn.click()
@@ -76,9 +76,9 @@ def test_a_profile_taken_off_a_device_comes_back_with_undo(devices_window, qapp,
         for pid in (first, second):
             sw.remove_profile(pid)
         win.render_all()
-    check("devices: a profile's ✕ takes it off the device and says so with Undo in the window's line; Undo puts it "
+    check("devices: a profile's ✕ removes it from the device and says so with Undo in the window's line; Undo puts it "
           "back in its place, the device's EQ as it was (Off stays off); deleted meanwhile, Undo says so",
-          off == (False, "Took “First” off this device.", True) and back == (True, None, "")
+          off == (False, "Removed “First” from this device.", True) and back == (True, None, "")
           and "deleted meanwhile" in gone, (off, back, before, gone))
 
 
@@ -158,3 +158,34 @@ def test_deleting_a_profile_asks_with_no_the_default(devices_window, monkeypatch
           "good); No keeps the profile",
           len(asked) == 1 and a[1] == "Delete" and "Its file goes" in a[2] and a[4] == QMessageBox.No and kept,
           (a[1:], kept))
+
+
+def test_dialogs_ask_with_windows_11s_band(devices_window, monkeypatch, check):
+    # (2026-10-27, the rules' review: the name boxes (Rename…, Save as…) were Qt's own, OK and Cancel at their right,
+    # while Paste filters and Set up had Windows 11's band; Set up's words were 18 px from its edges, the others' 24)
+    from PySide6.QtWidgets import QDialog, QFrame, QPushButton, QWidget
+    from ui import window_parts
+    from ui.setup_dialog import SetUpDialog
+    seen = {}
+
+    def look(dlg, *a, **k):
+        band = dlg.findChild(QFrame, "dialogFooter")
+        btns = band.findChildren(QPushButton) if band is not None else []
+        body = next(w for w in dlg.findChildren(QWidget) if w.parentWidget() is dlg and w is not band)
+        m = body.layout().contentsMargins()
+        seen[dlg.windowTitle()] = ([b.text() for b in btns], btns[0].property("primary") if btns else None,
+                                   (m.left(), m.top(), m.right()))
+        return QDialog.Rejected
+    monkeypatch.setattr(QDialog, "exec", look)
+    w = devices_window
+    w.win.rename_device(KEY)
+    window_parts.ask_text(w.win, "Save as a preset", "Name of the preset", "My settings", "Save")
+    d = SetUpDialog(w.sw, w.win)
+    m = next(x for x in d.findChildren(QWidget) if x.parentWidget() is d and x.objectName() != "dialogFooter")
+    setup = (m.layout().contentsMargins().left(), m.layout().contentsMargins().top())
+    d.deleteLater()
+    check("dialogs: a name asked for (Rename the device, Save as a preset) ends with Windows 11's band, its verb first "
+          "in the accent, then Cancel, its words 24 px from the edges, as Paste filters' and Set up's",
+          seen.get("Rename the device") == (["Rename", "Cancel"], "true", (24, 24, 24))
+          and seen.get("Save as a preset") == (["Save", "Cancel"], "true", (24, 24, 24)) and setup == (24, 24),
+          (seen, setup))

@@ -5,8 +5,8 @@
   tries and how long it takes), Run, and the run's progress
 - the result: its numbers, its filters (Fewer or more filters: the best result for each count), Save filters (the
   files your EQ app needs, under the File name), and Use on device: the EQ becomes a device's profile, switched on
-- by the graph's title: Trace image (ui/trace_window.py: a picture of a graph becomes a measurement or target) and
-  History; under the result, Listen (ui/listen.py)
+- by the graph's title: Trace a graph image… (ui/trace_window.py: a picture of a graph becomes a measurement or
+  target) and History…; under the result, Listen (ui/listen.py)
 
 Everything it does goes through eq.service (AutoEQ Local's page's requests, called directly); slow ones run off the
 window's thread (ui.tasks). The EQ part is loaded when this screen is first opened, or ahead of that while the window

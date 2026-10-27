@@ -59,10 +59,12 @@ class EqFiles:
             S["files"]["excluded"] = [m["name"] for m in self.inputs["measurements"] if m["name"] not in mine]
         self._save_files()
 
-    def _save_files(self, after=None):
+    def _save_files(self, after=None, say=None):
+        """The files in use saved, then shown again. say: where a window of its own (Find…) says a file couldn't be
+        used (the page's line by itself: UI-RULES 7)."""
         def done(res, err):
             if err or (res or {}).get("error"):
-                self.status(f"Couldn't use that file: {err or res['error']}", 8000)
+                (say or self.status)(f"Couldn't use that file: {err or res['error']}")
                 return
             if res.get("inputs"):
                 self.show_inputs(res["inputs"])
@@ -141,15 +143,15 @@ class EqFiles:
         from ui.picker import Picker
         modal(Picker(self, kind))
 
-    def save_files(self, after=None):
-        self._save_files(after)
+    def save_files(self, after=None, say=None):
+        self._save_files(after, say)
 
     def save_adjusted_target(self):
         """Target › Adjust › Save as a target…: the target as adjusted becomes a target of your own, in
         use, the adjustments back to 0 (eq.service /api/target/save); Undo puts it all back."""
-        from PySide6.QtWidgets import QInputDialog
+        from ui.window_parts import ask_text  # (looked up here: the tests answer it)
         base = os.path.splitext(self.S["files"].get("active_target") or "Target")[0]
-        name, ok = QInputDialog.getText(self, "Save as a target", "Name of your target", text=f"{base} (mine)")
+        name, ok = ask_text(self, "Save as a target", "Name of your target", f"{base} (mine)", "Save")
         if not ok or not name.strip():
             return
         res = self.svc.call("/api/target/save", {"settings": self.S, "name": name.strip()})
@@ -215,8 +217,9 @@ class EqFiles:
             self._save_files()
         return undo
 
-    def moved(self, kind, name, before):
-        """A file moved between Target and Measurement (Find…), said with Undo (it goes back, the choice too)."""
+    def moved(self, kind, name, before, say=None):
+        """A file moved between Target and Measurement (Find…), said with Undo (it goes back, the choice too); in Find…'s
+        own line when it passes `say` (said in the main window's, it was behind Find…: UI-RULES 7)."""
         def undo():
             r = self.svc.call("/api/files/move", {"kind": "measurement" if kind == "target" else "target", "name": name,
                                                   "settings": self.S})
@@ -225,7 +228,7 @@ class EqFiles:
                 return
             self.S["files"] = before
             self._save_files()
-        self.notify(f"Moved “{name}” to {'Measurement' if kind == 'target' else 'Target'}.", undo)
+        (say or self.notify)(f"Moved “{name}” to {'Measurement' if kind == 'target' else 'Target'}.", undo)
 
     def reload_state(self):
         st = self.svc.call("/api/state")

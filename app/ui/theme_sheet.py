@@ -162,15 +162,17 @@ def inputs(t, img):
 
 
 def lists_and_tables(t, img):
-    """Lists and tables, their rows (pointed at, chosen: a quiet fill, and in lists the accent's bar beside the chosen
-    row, as Windows 11's), and a table's column headings. A list whose rows hold controls of their own (setItemWidget:
+    """Lists and tables, their rows (pointed at, chosen: in lists a quiet fill and the accent's bar beside the chosen
+    row, as Windows 11's; in tables, which have no bar, File Explorer's accent-tinted fill: the quiet one was hard to
+    see in dark, 2026-10-27), and a table's column headings. A list whose rows hold controls of their own (setItemWidget:
     Find…'s) sets its rows' padding itself: Qt puts those controls inside this 7 px padding, which cuts them."""
     return f"""
     QListWidget, QTableWidget {{ background: {t['card']}; border: 1px solid {t['line']}; border-radius: 8px;
         alternate-background-color: {t['alt_row']}; gridline-color: {t['line']}; outline: none; }}
     QListWidget::item {{ padding: 7px 8px; border-radius: 4px; }}
     QListWidget::item:hover {{ background: {t['subtle_hover']}; }}
-    QListWidget::item:selected, QTableWidget::item:selected {{ background: {t['sel']}; color: {t['sel_ink']}; }}
+    QListWidget::item:selected {{ background: {t['sel']}; color: {t['sel_ink']}; }}
+    QTableWidget::item:selected {{ background: {t['accent_soft']}; color: {t['ink']}; }}
     QListWidget::item:selected {{ background-image: url({img['pill_v']}); background-position: center left;
         background-repeat: no-repeat; }}
     QHeaderView::section {{ background: {t['card']}; color: {t['ink2']}; border: none;
@@ -242,6 +244,7 @@ def settings_boxes(t, img):
         border-color: {t['accent_soft_line']}; }}
     QLabel[role="section"] {{ color: {t['ink']}; font-size: {FONT}pt; font-weight: 600; padding-top: 6px;
         qproperty-indent: 0; }}
+    QGroupBox QLabel[role="section"], QFrame[card] QLabel[role="section"] {{ font-weight: 600; }}
     QToolButton[fold="true"] {{ background: transparent; border: none; border-radius: 4px; font-size: {FONT + 0.5}pt;
         font-weight: 600; padding: 6px 8px 6px 0px; }}
     QToolButton[fold="true"]:hover {{ background: {t['subtle_hover']}; }}

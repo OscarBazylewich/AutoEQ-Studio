@@ -213,29 +213,30 @@ def test_nothing_cut_at_the_new_sizes(eq_screen, check):
     at_least = cut()
     qt.close(tw)
     check("tracer: nothing is cut or squeezed at Windows 11's sizes (10.5 pt text, symbols beside the words): every "
-          "button, tick box and label as wide as its words, the settings' side within its room, “the actual response "
+          "button, tick box and label as wide as its words, the settings' side within its room, “The actual response "
           "(not compensated)” whole in its drop-down, the colour tolerance slider at least 150 px; at the usual size "
           "and the window's smallest",
-          not at_default and not at_least and words[0].startswith("the actual response") and field >= words[1]
+          not at_default and not at_least and words[0].startswith("The actual response") and field >= words[1]
           and slider >= 150, (at_default, at_least, field, words, slider))
 
 
 def test_symbols_beside_the_words(eq_screen, check):
     tw = _new(eq_screen)
     _sample(eq_screen, tw, 0)  # (a picture: the zoom bar shows)
-    words = {"Open image…": tw.open_btn, "Remove image": tw.remove_btn, "Guide": tw.guide_btn,
-             "Choose an image file…": tw.stage.choose_btn, "Another curve": tw.add_btn, "Auto trace": tw.auto_btn,
-             "Add as measurement": tw.save_meas, "Add as target": tw.save_tgt,
-             "Save .txt…": tw.download_btn, "Fit": tw.stage.zoom_btns["fit"],
-             **{text: tw.tool_btns[key] for key, text, _tip in TOOLS}}
-    wrong = [w for w, b in words.items() if b.text() != w or b.icon().isNull()]
+    # (the header's Open image… and the empty page's: one act, one name, 2026-10-27)
+    words = [("Open image…", tw.open_btn), ("Remove image", tw.remove_btn), ("Guide", tw.guide_btn),
+             ("Open image…", tw.stage.choose_btn), ("Add a curve", tw.add_btn), ("Auto trace", tw.auto_btn),
+             ("Add as measurement", tw.save_meas), ("Add as target", tw.save_tgt),
+             ("Save .txt…", tw.download_btn), ("Fit", tw.stage.zoom_btns["fit"]),
+             *[(text, tw.tool_btns[key]) for key, text, _tip in TOOLS]]
+    wrong = [w for w, b in words if b.text() != w or b.icon().isNull()]
     # (2026-10-27, UI-RULES 9: in one row every button has its symbol or none does: Smooth and Clear had none, so the
     # edit row has none now; Add as target has Add as measurement's)
     wrong += [b.text() for b in tw.edit_btns.values() if not b.icon().isNull()]
     alone = {k: (b.text(), b.icon().isNull(), b.accessibleName()) for k, b in tw.stage.zoom_btns.items() if k != "fit"}
     qt.close(tw)
     check("tracer: Windows 11's symbols beside the main actions' and the tools' words (the words kept; Guide and "
-          "Another curve without their old “? ” and “+ ”), every button of a row alike (the edit row with none), zoom "
+          "Add a curve without their old “? ” and “+ ”), every button of a row alike (the edit row with none), zoom "
           "in and out as symbols alone, named for a screen reader",
           not wrong and alone == {"out": ("", False, "Zoom out (-)"), "in": ("", False, "Zoom in (+)")},
           (wrong, alone))
@@ -255,9 +256,9 @@ def test_curve_rows_named_for_a_screen_reader(eq_screen, check):
                    | {b.property("quiet") for b in tw.stage.zoom_btns.values()})
     qt.close(tw)
     check("tracer: each curve's dot and ✕ are named with the curve's name for a screen reader (“Select curve L”, "
-          "“Delete curve L”), again when it's renamed; they and the zoom bar's buttons are the shared quiet buttons",
-          names == [["Select curve L", "Delete curve L"], ["Select curve R", "Delete curve R"]]
-          and renamed == ["Select curve Right", "Delete curve Right"] and quiet == ["true"], (names, renamed, quiet))
+          "“Remove curve L”), again when it's renamed; they and the zoom bar's buttons are the shared quiet buttons",
+          names == [["Select curve L", "Remove curve L"], ["Select curve R", "Remove curve R"]]
+          and renamed == ["Select curve Right", "Remove curve Right"] and quiet == ["true"], (names, renamed, quiet))
 
 
 def test_notes_and_zoom_bar_take_no_room_when_empty(eq_screen, check):

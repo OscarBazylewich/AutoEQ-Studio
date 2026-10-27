@@ -1,4 +1,4 @@
-"""Make an EQ's graph (ui\\eq_page.py): curves shown from Find… taken off it with Hide shown curves; Best fit's own
+"""Make an EQ's graph (ui\\eq_page.py): curves shown from Find… taken off it with Hide previews; Best fit's own
 filters drawn as "With your filters"; the views (Relative to target, the Y range) and the values under the pointer,
 kept in the settings. Moved from eq_checks.py's review_checks, review_low_checks and rest_checks: one page for the
 file (the eq_screen fixture), each check on its own (any curves do: no run needed)."""
@@ -8,13 +8,13 @@ from PySide6.QtCore import QPoint
 
 def test_hide_shown_curves(eq_screen, check):
     page = eq_screen.page
-    # (lines 1698-1701: the measurement shown as a curve from Find… would be, then Hide shown curves)
+    # (lines 1698-1701: the measurement shown as a curve from Find… would be, then Hide previews)
     page.add_preview("check", "Check", list(page.curves["meas"]),
                      {"src": "app", "kind": "target", "names": [page.S["files"]["active_target"]]})
     shown = page.clear_prev_btn.isVisibleTo(page)
     page.clear_previews()
     # was eq_checks.py:1702
-    check("review: a curve shown from Find… can be hidden from the graph (Hide shown curves)",
+    check("review: a curve shown from Find… can be hidden from the graph (Hide previews)",
           shown and not page.previews and not page.clear_prev_btn.isVisibleTo(page))
 
 

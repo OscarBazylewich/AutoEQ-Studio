@@ -339,6 +339,15 @@ class Field(QWidget):
             self.tag.setEnabled(state == "yours")
 
 
+def line_up_together(*forms):
+    """Forms one above the other (Make an EQ's Settings and Advanced) with one label column: each one's boxes start
+    where the others' do, as within a form (they started 21 px apart: .claude/notes/UI-RULES.md 26). Sections added
+    later line them all up again."""
+    for f in forms:
+        f._together = forms
+    forms[0]._line_up()
+
+
 # ---------------------------------------------------------------- a form: sections of rows
 class Form(QWidget):
     """Rows of settings in sections. Each row: (label, [Field spec…], show) where a spec is (path, kind, options);
@@ -421,12 +430,15 @@ class Form(QWidget):
 
     def _line_up(self):
         """The label column as wide as the form's widest label, in every section (hidden rows' labels too, so nothing
-        moves when a row shows or hides)."""
-        for lab in self._labels:
+        moves when a row shows or hides); and the forms lined up with it (line_up_together) the same."""
+        forms = getattr(self, "_together", None) or (self,)
+        labels = [lab for f in forms for lab in f._labels]
+        for lab in labels:
             lab.ensurePolished()  # (in the theme's text size)
-        width = max((lab.sizeHint().width() for lab in self._labels), default=0)
-        for grid in self._grids:
-            grid.setColumnMinimumWidth(0, width)
+        width = max((lab.sizeHint().width() for lab in labels), default=0)
+        for f in forms:
+            for grid in f._grids:
+                grid.setColumnMinimumWidth(0, width)
 
     def changeEvent(self, e):
         super().changeEvent(e)

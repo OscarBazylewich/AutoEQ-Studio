@@ -263,7 +263,7 @@ class AllResults(QDialog):
         for r in sorted(rs, key=lambda x: x["rms"])[:500]:
             i = t.rowCount()
             t.insertRow(i)
-            err = _Num(f"{r['rms']:.3f}" + ("  pick" if r["id"] == run["pick"] else ""), r["rms"])
+            err = _Num(f"{r['rms']:.3f}" + ("  ✓ picked for you" if r["id"] == run["pick"] else ""), r["rms"])
             err.setData(Qt.UserRole, r["id"])
             pre = r.get("preamp")
             cells = [err, _Num(str(r["n_filters"]), r["n_filters"]), _Num(str(r.get("rows") or ""), r.get("rows")),

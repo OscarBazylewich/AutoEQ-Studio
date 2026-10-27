@@ -22,6 +22,7 @@ Listeners (on_change) are told after every change, with what changed: "devices" 
 playing), "profiles", "active" (an EQ switched), "settings", "apo".
 """
 import os
+import re
 import time
 import uuid
 
@@ -143,6 +144,14 @@ class Switcher:
 
     def device(self, key):
         return next((d for d in self.devices if d.key == key), None)
+
+    def order(self, key):
+        """A device's place in the lists of devices (the Devices screen, Use on device): connected ones first, then A to
+        Z by the name shown, your name for it or Windows' (numbers as numbers: .claude/notes/UI-RULES.md 22; it was by
+        Windows' name, so a device you'd renamed sat out of order)."""
+        d = self.device(key)
+        name = " ".join(shown(self.record(key) or {"label": key}).casefold().split())
+        return (not (d and d.connected), [float(t) if i % 2 else t for i, t in enumerate(re.split(r"(\d+)", name))])
 
     def record(self, key):
         return self.s["devices"].get(key)
@@ -276,10 +285,10 @@ class Switcher:
         return [shown(d) for d in self.s["devices"].values() if pid in d["profiles"]]
 
     # ---------------------------------------------------------------- a device's profiles
-    def add_to_device(self, key, pid, switch_on=True, at=None):
+    def add_to_device(self, key, pid, switch_on=True, at=None, last=False):
         """A profile on a device's list: at its end, switched on when switch_on (or when it's the device's only one and
-        none is on); at=n (Undo after taking it off): back in its place n, on only if it was (switch_on), so the
-        device's EQ is exactly as it was."""
+        none is on); at=n (Undo after taking it off): back in its place n, on only if it was (switch_on), and the EQ the
+        device had last again if it was (last: the on/off hotkey's way back), so the device is exactly as it was."""
         d = self.record(key)
         if not d or pid not in self.s["profiles"]:
             return
@@ -290,6 +299,8 @@ class Switcher:
                 d["profiles"].insert(min(max(0, at), len(d["profiles"])), pid)
         if switch_on or at is None and d["active"] is None and len(d["profiles"]) == 1:
             d["active"] = pid
+        if last:
+            d["last"] = pid
         self.save()
         self.apply()
         self._tell("active", key=key)

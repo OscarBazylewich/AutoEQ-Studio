@@ -53,7 +53,6 @@ def test_adjust_on_the_target_card(eq_screen, check):
 
 def test_save_as_a_target(eq_screen, monkeypatch, check):
     import numpy as np
-    from PySide6.QtWidgets import QInputDialog
     from eq import paths as eq_paths, rigs
     page, wait_for = eq_screen.page, eq_screen.wait_for
     S = page.S
@@ -78,8 +77,9 @@ def test_save_as_a_target(eq_screen, monkeypatch, check):
     page.svc.call("/api/settings", {"settings": S})
     adjusted = reload_curves()
     shown_before = np.asarray(page.curves["target"]).copy()  # (the target as adjusted, drawn)
+    from ui import window_parts
     with monkeypatch.context() as m:  # (the name asked for: "My bassy target")
-        m.setattr(QInputDialog, "getText", staticmethod(lambda *a, **k: ("My bassy target", True)))
+        m.setattr(window_parts, "ask_text", lambda *a, **k: ("My bassy target", True))
         page.save_adjusted_target()
     wait_for(lambda: page.curves is not None and page.S["files"]["active_target"] == "My bassy target.csv", 30)
     saved = reload_curves()  # (the saved target, drawn: its adjustments are in it now, and back to 0)

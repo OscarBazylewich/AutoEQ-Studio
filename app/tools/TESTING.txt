@@ -40,7 +40,7 @@ THINGS TO TRY (tick what you managed; note anything that didn't work or looked w
   [ ] Click "Online" (top right) to go offline, and try Find… again: it should say what it can't do offline.
 
   Devices (only with Equalizer APO installed)
-  [ ] Devices: does it list your playback devices, the one playing first? The banner offers to set up Equalizer
+  [ ] Devices: does it list your playback devices, connected ones first? The banner offers to set up Equalizer
       APO for AutoEQ Studio; set it up.
   [ ] Back on Make an EQ, "Use on device" with a result: the EQ should switch on for that device. Play some music:
       do you hear it? Switch it Off in Devices (or from the tray icon's menu) and on again.

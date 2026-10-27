@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QListWidget, QListWidgetI
 
 from ui import theme
 from ui.help_texts import HELP, WIKI
+from ui.theme_sheet import CARD
 from ui.window_parts import fit_to_screen
 
 _window = None
@@ -116,6 +117,7 @@ class HelpWindow(QWidget):
         self.sections = _entries()
         self.lit = None
         h = QHBoxLayout(self)
+        h.setContentsMargins(CARD, CARD, CARD, CARD)  # (as every window's: Qt's own 11 px, UI-RULES 5)
         side = QVBoxLayout()
         side.setContentsMargins(0, 0, 0, 0)  # (its column lined up with the page beside it: Qt's 9 px put it lower)
         self.q = QLineEdit()

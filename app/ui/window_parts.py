@@ -71,13 +71,15 @@ class MessageLine(QWidget):
         self._timer = QTimer(self, singleShot=True, timeout=lambda: self.say("", 0))
 
     def say(self, text, ms=None, undo=None):
-        """text for ms milliseconds (None: SAID_MS, or UNDO_MS with undo, or longer for longer words; 0: until the next
-        message); undo: what Undo does (none: no Undo)."""
+        """text for SAID_MS, or UNDO_MS with undo, or longer for longer words; ms: longer still (a time asked for never
+        makes it shorter: some said 4 or 5 s, and a long message's 10 s was less than its words need); 0: until the
+        next message. undo: what Undo does (none: no Undo)."""
         self.text.setText(text)
         self.text.setToolTip(text)
         self._undo_fn = undo if text else None
         self.undo_btn.setVisible(self._undo_fn is not None)
-        ms = max(UNDO_MS if undo else SAID_MS, READ_MS * len(text)) if ms is None else ms
+        if ms != 0:
+            ms = max(ms or 0, UNDO_MS if undo else SAID_MS, READ_MS * len(text))
         if ms and text:
             self._timer.start(ms)
         else:
@@ -133,12 +135,44 @@ def dialog_band(dialog, main_text, on_main, cancel_text="Cancel"):
     theme.mark(main, primary=True)
     main.setDefault(True)
     main.clicked.connect(on_main)
-    cancel = QPushButton(cancel_text)
-    cancel.setAutoDefault(False)
-    cancel.clicked.connect(dialog.reject)
+    cancel = QPushButton(cancel_text)  # (it takes Enter when it's focused, as in Windows: off, Enter on a focused
+    cancel.clicked.connect(dialog.reject)  # Cancel pressed the dialog's main button, Set up)
     fl.addWidget(main, 1)
     fl.addWidget(cancel, 1)
     return band, main
+
+
+def ask_text(parent, title, label, text="", verb="OK"):
+    """A name asked for in Windows 11's dialog, as Paste filters' and Set up's (UI-RULES 2): the words and the box on
+    the card's colour, the buttons on a band below, `verb` (Rename, Save) first, in the accent and Enter's, then Cancel.
+    Returns (text, True), or (text, False) when it's cancelled. (Rename… and Save as… were Qt's own boxes, OK and
+    Cancel at their right: a different look for the same kind of question.)"""
+    from PySide6.QtWidgets import QDialog, QLineEdit, QVBoxLayout
+    dlg = QDialog(parent)
+    dlg.setWindowTitle(title)
+    theme.mark(dlg, dialog=True)  # (the card's colour: theme_sheet's window_screens)
+    outer = QVBoxLayout(dlg)
+    outer.setContentsMargins(0, 0, 0, 0)
+    outer.setSpacing(0)
+    body = QWidget()
+    v = QVBoxLayout(body)
+    v.setContentsMargins(24, 24, 24, 20)  # (Windows 11's dialog padding)
+    v.setSpacing(8)
+    words = QLabel(label)
+    words.setWordWrap(True)
+    v.addWidget(words)
+    box = QLineEdit(text)
+    box.setAccessibleName(label)
+    box.selectAll()
+    v.addWidget(box)
+    outer.addWidget(body, 1)
+    band, _main = dialog_band(dlg, verb, dlg.accept)
+    outer.addWidget(band)
+    dlg.setMinimumWidth(420)
+    ok = dlg.exec() == QDialog.Accepted
+    out = box.text()
+    dlg.deleteLater()  # (asked once: not kept, hidden, under its parent)
+    return out, ok
 
 
 class _EnterOnly(QObject):
@@ -149,8 +183,14 @@ class _EnterOnly(QObject):
         self.button = button
 
     def eventFilter(self, obj, ev):
-        if ev.type() == QEvent.KeyPress and ev.key() in (Qt.Key_Return, Qt.Key_Enter) and not ev.modifiers():
+        # (the keypad's Enter comes with the keypad's modifier: it slipped past, and Qt pressed a button of its choosing)
+        if ev.type() == QEvent.KeyPress and ev.key() in (Qt.Key_Return, Qt.Key_Enter) \
+                and not ev.modifiers() & ~Qt.KeypadModifier:
             from PySide6.QtWidgets import QAbstractSpinBox, QKeySequenceEdit, QLineEdit, QPlainTextEdit
+            pressed = focused_button(obj)
+            if pressed is not None:  # (a focused button takes Enter, as in Windows: Cancel, Undo, Close; it pressed
+                pressed.click()      # the accent one: Close pressed Run several's Start)
+                return True
             # (the window's own focus, not the app's: the same whether or not it's the active window)
             typing = isinstance(obj.focusWidget(), (QLineEdit, QPlainTextEdit, QKeySequenceEdit, QAbstractSpinBox))
             b = self.button
@@ -162,11 +202,19 @@ class _EnterOnly(QObject):
         return False
 
 
+def focused_button(window):
+    """The window's focused push button when it can be pressed, else None: Enter presses it, as in Windows (a footer's
+    buttons don't take Enter by themselves, so that Qt never makes one the window's default: UI-RULES 4)."""
+    from PySide6.QtWidgets import QPushButton, QToolButton
+    f = window.focusWidget()
+    return f if isinstance(f, (QPushButton, QToolButton)) and f.isEnabled() and f.isVisible() else None
+
+
 def enter_presses(window, button=None):
     """What Enter does in a window (UI-RULES 4): presses `button` (its accent one), or nothing; never the first
-    button Qt finds by itself (Compare's Enter pressed "Show A"). A focused button still takes Enter itself, and in a
-    box being typed in Enter is only the box's (a search box searches: its returnPressed). Returns the watch: its
-    .button can change (a list's chosen row)."""
+    button Qt finds by itself (Compare's Enter pressed "Show A"). A focused button takes Enter itself (focused_button),
+    and in a box being typed in Enter is only the box's (a search box searches: its returnPressed). The keypad's Enter
+    the same. Returns the watch: its .button can change (a list's chosen row)."""
     watch = _EnterOnly(window, button)
     window.installEventFilter(watch)
     return watch

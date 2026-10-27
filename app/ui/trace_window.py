@@ -6,7 +6,7 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   pointer
 - the side: Automatic settings (switch, Why these settings), 1 Axes (the four values, Snap to
   gridlines, Follow every gridline, Find axes again, Read labels), 2 Trace (Click curve, Draw, Erase, Move; the curves
-  with their names; Another curve; Auto trace; colour tolerance; dashed lines; Smooth, Undo, Redo, Clear), 3 Save
+  with their names; Add a curve; Auto trace; colour tolerance; dashed lines; Smooth, Undo, Redo, Clear), 3 Save
   (name, points per octave, what the graph shows, the range; Add as measurement, Add as target, Save .txt…)
 - keys: T D E H tools, A Auto trace, S Smooth, F fit, + - zoom, Delete clears, Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y,
   arrows move a selected line (Shift: 10 px), Ctrl+V pastes a picture
@@ -95,11 +95,12 @@ def _dot(colour, size=16):
 
 
 def _curve_names(pick, delete, label, i):
-    """A curve's dot and ✕ named with the curve's name for a screen reader ("Select curve L", "Delete curve L"), again
-    when it's renamed: every row's were read alike ("Trace into this curve", "Delete this curve"), 2026-10-23."""
+    """A curve's dot and ✕ named with the curve's name for a screen reader ("Select curve L", "Remove curve L"), again
+    when it's renamed: every row's were read alike ("Trace into this curve", "Delete this curve"), 2026-10-23. (✕ is
+    Remove: Undo brings the curve back, .claude/notes/UI-RULES.md 10.)"""
     name = label or str(i + 1)
     pick.setAccessibleName(f"Select curve {name}")
-    delete.setAccessibleName(f"Delete curve {name}")
+    delete.setAccessibleName(f"Remove curve {name}")
 
 
 def _symbol_only(button, name):
@@ -238,7 +239,7 @@ class Stage(QWidget):
         row = QHBoxLayout()
         row.addStretch(1)
         row.addWidget(QLabel("or paste it with Ctrl+V, or"))
-        self.choose_btn = choose = QPushButton("Choose an image file…")
+        self.choose_btn = choose = QPushButton("Open image…")  # (the header's words for it: one act, one name)
         theme.mark(choose, primary=True)  # (the one thing to do here)
         icons.put(choose, "open")
         choose.clicked.connect(win.choose_image)
@@ -619,6 +620,7 @@ class TraceWindow(QWidget):
         opn.clicked.connect(self.choose_image)
         icons.put(opn, "open")
         head.addWidget(opn)
+        head.addSpacing(12)  # (Remove set apart, as every row's: UI-RULES 14)
         self.remove_btn = QPushButton("Remove image")
         self.remove_btn.setToolTip("Remove this picture (e.g. the wrong one) and the curves traced on it")
         self.remove_btn.clicked.connect(self.remove_image)
@@ -696,7 +698,7 @@ class TraceWindow(QWidget):
         self.auto_notes = _label("")
         self.auto_notes.setTextFormat(Qt.RichText)
         why.body_lay.addWidget(self.auto_notes)
-        why.body_lay.addWidget(_label("In effect:", "muted"))
+        why.body_lay.addWidget(_label("In effect", "muted"))  # (no label's colon: UI-RULES 15)
         self.auto_eff = _label("")
         self.auto_eff.setTextFormat(Qt.RichText)
         why.body_lay.addWidget(self.auto_eff)
@@ -780,7 +782,7 @@ class TraceWindow(QWidget):
         self.curves_lay.setSpacing(2)
         v.addWidget(self.curves_box)
         row = QHBoxLayout()
-        self.add_btn = QPushButton("Another curve")  # (Windows 11's + beside the words, where "+ " was)
+        self.add_btn = QPushButton("Add a curve")  # (verb first, UI-RULES 15: it was "Another curve"; Windows 11's +)
         self.add_btn.setToolTip("Trace another curve on the same graph, e.g. the other channel")
         self.add_btn.clicked.connect(self.add_curve)
         icons.put(self.add_btn, "add")
@@ -1008,7 +1010,7 @@ class TraceWindow(QWidget):
             n = int(np.isfinite(c["ys"]).sum())
             h.addWidget(_label(f"{n} px" if n else "empty", "muted", wrap=False))
             x = QPushButton("✕")
-            x.setToolTip("Delete this curve")
+            x.setToolTip("Remove this curve (Undo brings it back)")
             theme.mark(x, quiet=True, trCompact=True)
             x.clicked.connect(lambda _=False, i=i: self.delete_curve(i))
             h.addWidget(x)
@@ -1098,8 +1100,9 @@ class TraceWindow(QWidget):
         t = self.t
         if not t.has_image:
             return
-        if any(map(t.has_data, t.curves)) and QMessageBox.question(
-                self, "Remove image", "Remove this picture and the curves traced on it?") != QMessageBox.Yes:
+        if any(map(t.has_data, t.curves)) and QMessageBox.question(  # (No the default: the curves can't be had back)
+                self, "Remove image", "Remove this picture and the curves traced on it?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
             return
         t.unload()
         t.v.update(d1="", d2="", f1="", f2="", name="")
@@ -1310,9 +1313,9 @@ class TraceWindow(QWidget):
         """The targets a graph may have been drawn relative to."""
         was = self.comp.currentData()
         self.comp.clear()
-        self.comp.addItem("the actual response (not compensated)", "")
+        self.comp.addItem("The actual response (not compensated)", "")  # (sentence case, as every choice: 15)
         for n in (getattr(self.page, "inputs", None) or {}).get("targets", []):
-            self.comp.addItem(f"relative to {os.path.splitext(n)[0]}", n)
+            self.comp.addItem(f"Relative to {os.path.splitext(n)[0]}", n)
         self.comp.sort_items(pinned=1)  # ("the actual response" on top)
         self.comp.setCurrentIndex(max(0, self.comp.findData(was)))
 
@@ -1400,6 +1403,7 @@ class TraceWindow(QWidget):
                 return
         if paths:  # (said here, under the buttons, as Add as measurement's: never in the window behind, UI-RULES 7)
             self.save_note.setText(f"Saved {', '.join(os.path.basename(p) for p in paths)}.")
+            self.saved_note = True  # (kept until something changes, as "Saved as …": the next redraw wiped it at once)
             gaps = self.t.gaps_text(outs)
             if gaps:
                 QMessageBox.information(self, "Trace", gaps)

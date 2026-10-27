@@ -139,6 +139,7 @@ class Listen(QGroupBox):
         # the device's own EQ playing too: said first, as it changes what Play sounds like (Windows 11's warning bar,
         # at the top of what it's about, as Devices' are: UI-RULES 23)
         self.apo_off = QPushButton("Switch it off")
+        icons.put(self.apo_off, "power")  # (with its symbol, as the warning bars' actions in Devices and the banner)
         self.apo_off.clicked.connect(self.device_eq_off)
         self.apo_box, self.apo_text = window_parts.warning_card("", self.apo_off)
         v.addWidget(self.apo_box)
@@ -303,13 +304,13 @@ class Listen(QGroupBox):
         self.abx_row = QWidget()
         ar = QHBoxLayout(self.abx_row)
         ar.setContentsMargins(0, 0, 0, 0)
-        ar.addWidget(QLabel("ABX test:  A"))
+        ar.addWidget(QLabel("ABX test of A"))  # (words, no label's colon: UI-RULES 15)
         self.abx_a = SearchCombo()
-        self.abx_a.setAccessibleName("ABX test: version A")
+        self.abx_a.setAccessibleName("ABX test, version A")
         ar.addWidget(self.abx_a, 1)
-        ar.addWidget(QLabel("B"))
+        ar.addWidget(QLabel("and B"))
         self.abx_b = SearchCombo()
-        self.abx_b.setAccessibleName("ABX test: version B")
+        self.abx_b.setAccessibleName("ABX test, version B")
         ar.addWidget(self.abx_b, 1)
         self.abx_n = SearchCombo()
         for n in abx_mod.TRIALS:
@@ -352,8 +353,7 @@ class Listen(QGroupBox):
             self.abx_says[which] = b
             row.addWidget(b)
         row.addStretch(1)
-        stop = QPushButton("Stop the test")
-        icons.put(stop, "cancel")
+        stop = QPushButton("Stop the test")  # (no symbol: none of its row's buttons has one, UI-RULES 9)
         stop.clicked.connect(lambda: self.abx_end(finished=False))
         row.addWidget(stop)
         ab.addLayout(row)
@@ -374,23 +374,26 @@ class Listen(QGroupBox):
             box.clear()
             for k, label, *_ in vs:
                 box.addItem(label, k)
-            box.sort_items()
+            box.sort_items(pinned=sum(k in ("off", "sel") for k, *_ in vs))  # (EQ off, the selected EQ on top: 22)
             pick = now if box.findData(now) >= 0 else want
             if box is self.abx_b and (pick is None or pick == self.abx_a.currentData()):
                 pick = next((k for k, *_ in vs if k != self.abx_a.currentData()), pick)
             box.setCurrentIndex(max(0, box.findData(pick)))
             box.blockSignals(False)
-        self.abx_start.setEnabled(len(vs) >= 2 and self.abx is None)
-        # (off: why, beside it, UI-RULES 25)
+        # (on with one version too: pressed, a box says what it needs, as every "do this first" (UI-RULES 25); it was
+        # off, its reason only in a tooltip, out of the keyboard's reach)
+        self.abx_start.setEnabled(self.abx is None)
         self.abx_start.setToolTip("Each trial X is A or B at random: listen to all three, say which X is. At the end: "
-                                  "your score, and how often guessing alone does as well" + (
-                                      "" if len(vs) >= 2 else " (it needs two versions: an EQ on the result card, or "
-                                                              "one of your EQs to compare)"))
+                                  "your score, and how often guessing alone does as well")
 
     def abx_begin(self):
         """An ABX test of A and B: level-matched and both ears the same version while it runs (put back after), the
         version buttons hidden (one lit would give X away), X heard first."""
         from ui import abx as abx_mod
+        if len(self.versions()) < 2:
+            QMessageBox.information(self, "ABX test", "An ABX test needs two versions to tell apart: run, or make an EQ "
+                                    "by hand (the selected EQ), or add one of your EQs to compare.")
+            return
         a, b = self.abx_a.currentData(), self.abx_b.currentData()
         if a is None or b is None or a == b:
             QMessageBox.information(self, "ABX test", "Choose two different versions for A and B.")
@@ -544,8 +547,6 @@ class Listen(QGroupBox):
         self.render_ab()
         self.render_pins()
         self.render_apo()
-        self.add_sel_btn.setEnabled(has_sel)
-        self.add_sel_btn.setToolTip("" if has_sel else "No EQ on the result card yet: run, or make one by hand")
         self._abx_fill()
 
     def update_sound(self):
@@ -614,9 +615,10 @@ class Listen(QGroupBox):
         for box, key in ((self.left, self.left_key), (self.right, self.right_key)):
             box.blockSignals(True)
             box.clear()
-            for k, label, *_ in self.versions():
+            vs = self.versions()
+            for k, label, *_ in vs:
                 box.addItem(label, k)
-            box.sort_items()
+            box.sort_items(pinned=sum(k in ("off", "sel") for k, *_ in vs))  # (EQ off, the selected EQ on top: 22)
             box.setCurrentIndex(max(0, box.findData(key)))
             box.blockSignals(False)
         note = ""
@@ -867,8 +869,9 @@ class Listen(QGroupBox):
         self.page.draw()
         return True
 
-    def add(self, name, filters, note=""):
-        """An EQ into this IEM's list (the same filters twice: refused). Returns whether it went in."""
+    def add(self, name, filters, note="", say=None):
+        """An EQ into this IEM's list (the same filters twice: refused). Returns whether it went in. say: where a window
+        of its own says it's there already (History's line; the page's by itself: UI-RULES 7)."""
         if not self.pins_for:
             QMessageBox.information(self, "EQs to compare", "Choose a measurement first: each IEM or headphone has its "
                                     "own list of EQs to compare.")
@@ -880,7 +883,7 @@ class Listen(QGroupBox):
         sig = lambda fl: sorted((f.get("type", "PK"), float(f["freq"]), float(f["gain"]), float(f["q"])) for f in fl
                                 if f.get("enabled", True) is not False)
         if any(sig(p["filters"]) == sig(filters) for p in self.pins):
-            self.page.status("That EQ is in the list already.", 5000)
+            (say or self.page.status)("That EQ is in the list already.")
             return False
         if len(self.pins) >= getattr(self, "max_pins", 12):
             QMessageBox.information(self, "EQs to compare", "The list is full (12): remove one first.")
@@ -892,12 +895,15 @@ class Listen(QGroupBox):
                           "color": colour})
         if not self.save_pins():
             return False
-        self.page.status(f"“{name}” is in your EQs to compare for the {self.pins_for}: hear it in Listen.", 6000)
+        if say is None:  # (a window of its own says it in its line: History's; said behind it, it took the Undo there)
+            self.page.status(f"“{name}” is in your EQs to compare for the {self.pins_for}: hear it in Listen.")
         return True
 
     def add_selected(self):
         run, r = self.page.current()
-        if not r:
+        if not r:  # (on all along: what's needed said in a box, UI-RULES 25)
+            QMessageBox.information(self, "EQs to compare", "There's no EQ on the result card yet: run, or make one by "
+                                    "hand, then add it here.")
             return
         st = self.page.stats()
         from ui.eq_page import MODE_SHORT
@@ -936,8 +942,8 @@ class Listen(QGroupBox):
             QMessageBox.warning(self, "EQs to compare", r.get("error") or (
                 f"Nothing in it can be heard here: {'; '.join(left)}." if left else "No filters found in it."))
             return
-        self.add(name, [dict(f, enabled=f.get("enabled", True) is not False) for f in r["filters"]], note)
-        if left:
+        added = self.add(name, [dict(f, enabled=f.get("enabled", True) is not False) for f in r["filters"]], note)
+        if added and left:  # (refused, there or full: what was left out of an EQ never added isn't said)
             QMessageBox.information(self, "EQs to compare", f"Left out of “{name}” (an EQ here has peaking and shelf "
                                     f"filters only): {'; '.join(left)}.")
 

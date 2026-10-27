@@ -109,3 +109,40 @@ def test_result_card_lines_up(eq_screen, check):
     check("eq page: the result card's labelled rows (Runs this session, Fewer or more filters, File name) start their "
           "boxes in one column; an EQ by hand's Close is on the card's title line, away from Runs this session's "
           "Remove", len(widths) == 1 and min(widths) > 0 and on_title, (widths, title_y, close.y()))
+
+
+def test_settings_and_advanced_line_up_and_head_their_sections(eq_screen, check):
+    # (2026-10-27, the pictures' review: with both folds open, Advanced's boxes started 21 px right of Settings', and
+    # the folds' section headings ("Best fit", "Scoring" …) were drawn as plain as the labels under them: a card's
+    # plain words rule outranked the headings' semibold)
+    from PySide6.QtCore import QPoint
+    from PySide6.QtGui import QFont
+    from PySide6.QtWidgets import QLabel
+    page = eq_screen.page
+    s = page.settings
+    s.fold.btn.setChecked(True)
+    s.adv.btn.setChecked(True)
+    qt.pump(100)
+    try:
+        def first_box(form):
+            f = next(f for f in form.fields.values() if f.isVisibleTo(page))
+            return f.mapTo(page, QPoint(0, 0)).x()
+        xs = (first_box(s.form), first_box(s.adv_form))
+        heads = [lab for lab in s.adv_form.findChildren(QLabel) if lab.property("role") == "section"]
+        weights = sorted({lab.font().weight() for lab in heads})
+    finally:
+        s.fold.btn.setChecked(False)
+        s.adv.btn.setChecked(False)
+        qt.pump(50)
+    check("page: Settings' and Advanced's boxes start at one place (one label column for both folds), and their "
+          "sections' headings are semibold, as every section's heading",
+          xs[0] == xs[1] and heads and weights == [QFont.DemiBold], (xs, len(heads), weights))
+
+
+def test_eq_app_box_as_wide_as_a_forms(eq_screen, check):
+    # (2026-10-27, the rules' review: Your EQ app took the card's whole width; Method, under it, its own)
+    from ui.forms import CHOICE_MOST
+    page = eq_screen.page
+    check("page: Your EQ app's box is as wide as its choices, capped as every form's drop-down (not the card's width)",
+          page.app_combo.maximumWidth() == CHOICE_MOST and page.app_combo.width() <= CHOICE_MOST,
+          (page.app_combo.width(), page.app_combo.maximumWidth()))

@@ -45,7 +45,7 @@ class SetUpDialog(QDialog):
         # minimum, and the longest tick box's words were cut)
         body.setMinimumWidth(520)
         lay = QVBoxLayout(body)
-        lay.setContentsMargins(24, 18, 24, 18)
+        lay.setContentsMargins(24, 24, 24, 20)  # (Windows 11's dialog padding, as Paste filters': UI-RULES 5)
         lay.setSpacing(8)
         outer.addWidget(body, 1)
         text = sw.apo.read_config()

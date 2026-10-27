@@ -428,8 +428,9 @@ SETTINGS_EQ = [{'title': 'Choosing and running',
                                     'what was shown before you began it, the run you had, or none, the page as it '
                                     'was.',
                                     'An EQ by hand you changed stays in Runs this session, to come back to as you '
-                                    'left it (Remove there takes it off); one empty or as it began just goes, as there '
-                                    'is nothing in it to lose. Save filters keeps it for good.']},
+                                    'left it (Remove there takes it off); an empty one just goes, as there is nothing '
+                                    'in it to lose; one as it began (pasted, from a file, a profile or a copy) goes '
+                                    'with Undo at the bottom of the window. Save filters keeps it for good.']},
                           {'key': 'x_name',
                            'title': 'File name',
                            'body': ['The name of the saved files; each adds its own ending (“ - filters.txt”, “ - '
@@ -700,7 +701,7 @@ SETTINGS_EQ = [{'title': 'Choosing and running',
                                     'the automatic settings and your own values, the target adjustments, '
                                     'scoring, Advanced. Not your files: the target and measurement stay as they are. '
                                     'Keep one per use, e.g. one for the website and one for Equalizer APO.',
-                                    'Save current settings as… asks for a name (the same name again replaces that '
+                                    'Save as a preset… asks for a name (the same name again replaces that '
                                     'preset); click a preset to load all its settings, and Undo, beside the message at the bottom, puts the '
                                     'ones before back. Delete a preset removes one; Reset all settings… puts every '
                                     'setting back to its default (your files and presets are kept). Presets are files '

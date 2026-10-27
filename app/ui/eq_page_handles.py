@@ -101,7 +101,7 @@ class EqHandles:
         hz = f"{f['freq'] / 1000:.2f} kHz" if f["freq"] >= 1000 else f"{f['freq']:g} Hz"
         return (f"Filter {i + 1}: {KINDS.get(f.get('type', 'PK'), 'Peak')}, {hz}, {f['gain']:+.1f} dB, Q {f['q']:g}"
                 + (" (off)" if f.get("enabled", True) is False else "")
-                + "\nDrag: frequency and gain · mouse wheel: Q · right-click: its type, on or off, Delete")
+                + "\nDrag: frequency and gain · mouse wheel: Q · right-click: its type, on or off, Remove")
 
     def _limited(self, key, v):
         return self.editor.limits.clamp("edit." + key, v)

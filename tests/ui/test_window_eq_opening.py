@@ -216,7 +216,7 @@ def step():
 ok = pump(60, step)
 out["page opening"] = state.get("page opening")
 out["opened"] = [ok, win.page(), win.stack.currentWidget() is win.eq_page, list(tours)]
-out["presets once open"] = "Save current settings as…" in presets()
+out["presets once open"] = "Save as a preset…" in presets()
 page = win.eq_page
 page.ready = False
 out["half built: presets"] = presets()

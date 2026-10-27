@@ -198,3 +198,17 @@ def test_help_fits_a_small_screen(qapp, monkeypatch, check):
     check("help: its window opens within a laptop's screen at 150 % and 175 % (above the taskbar, its smallest size "
           "too), its parts not squeezed; on a big screen as before (1000 x 760)",
           all(seen[s]["fits"] for s in qt.SMALL_SCREENS) and big["fits"] and big["opens"] == (1000, 760), seen)
+
+
+def test_help_starts_a_cards_room_from_its_edges(qapp, check):
+    # (2026-10-27, the pictures' review: Help kept Qt's own 11 px, every other window CARD, UI-RULES 5)
+    from ui import help_window as hw
+    from ui.theme_sheet import CARD
+    w = hw.open_at()
+    try:
+        m = w.layout().contentsMargins()
+        edges = (m.left(), m.top(), m.right(), m.bottom())
+    finally:
+        w.close()
+    check("help: its words and lists start CARD (16 px) from the window's edges, as every window's", edges == (CARD,) * 4,
+          edges)

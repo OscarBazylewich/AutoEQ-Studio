@@ -27,6 +27,7 @@ class SettingsScreen:
         w = QWidget()
         lay = QVBoxLayout(w)
         lay.setContentsMargins(0, 0, 0, 0)  # (lined up with the top bar, as every screen: .claude/notes/UI-RULES.md 5)
+        lay.setSpacing(12)  # (its cards as far apart as Make an EQ's: Qt's 6 px)
         box = QGroupBox("AutoEQ Studio")
         bl = QVBoxLayout(box)
         self.chk_autostart = QCheckBox("Start with Windows (in the tray)")
@@ -44,7 +45,7 @@ class SettingsScreen:
         # note under its box (they were sentences ending in a colon, each box where its words ended)
         box = QGroupBox("Hotkeys")
         g = QGridLayout(box)
-        g.setHorizontalSpacing(12)
+        g.setHorizontalSpacing(10)  # (as forms.py's: UI-RULES 26)
         g.setVerticalSpacing(6)
         g.setColumnStretch(2, 1)
         g.addWidget(QLabel("Switch the playing device's EQ"), 0, 0)
@@ -258,7 +259,7 @@ class SettingsScreen:
         if not apo.found:
             state = "Not installed (or its config folder wasn't found)."
         else:
-            state = f"Config folder: {apo.config}\n" + ("AutoEQ Studio is set up: config.txt includes its file."
+            state = f"Its config folder is {apo.config}.\n" + ("AutoEQ Studio is set up: config.txt includes its file."
                                                        if apo.set_up() else "Not using AutoEQ Studio yet.")
         self.apo_state.setText(state)
         self.btn_setup.setVisible(apo.found and not apo.set_up())

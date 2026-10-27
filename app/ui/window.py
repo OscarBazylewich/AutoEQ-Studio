@@ -4,7 +4,7 @@
   it, ahead of the click while the window is open (made at the first quiet moment a second or more after the window
   shows, or as soon as its tab is pointed at, hidden behind the screen you're on, so the click shows it at once).
   Never while the app is only in the tray, which stays light.
-- Devices: your playback devices (the one playing first), and for the one chosen: its profiles, the one on (or Off),
+- Devices: your playback devices (connected ones first, A to Z), and for the one chosen: its profiles, the one on (or Off),
   adding and taking off profiles, whether Equalizer APO is installed on it, your name for it (Rename…), and a line
   saying whether its EQ really plays (Equalizer APO asked by itself, switcher\\check.py; again when something changes).
 A bar over every screen while an EQ is being tried on a device (Use on device › Try for 5 minutes): time left, Keep
@@ -236,7 +236,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
     def _padded(widget):
         w = QWidget()
         lay = QVBoxLayout(w)
-        lay.setContentsMargins(14, 12, 14, 14)
+        lay.setContentsMargins(14, 14, 14, 14)  # (as Make an EQ's page: its cards start 14 px under the top bar)
         lay.addWidget(widget)
         return w
 
@@ -585,7 +585,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         elif not apo.writable():
             text, btn, self._banner_do = ("AutoEQ Studio can't write in Equalizer APO's config folder "
                                           f"({apo.config}). Allow your Windows user to change it, then open "
-                                          "AutoEQ Studio again."), "Open the folder", "folder"
+                                          "AutoEQ Studio again."), "Open APO's config folder", "folder"
         elif not apo.set_up():
             text, btn, self._banner_do = ("Equalizer APO isn't using AutoEQ Studio yet: one line in its config.txt "
                                           "brings in the EQ chosen for each device."), "Set up…", "setup"

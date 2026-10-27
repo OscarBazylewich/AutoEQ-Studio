@@ -1,4 +1,5 @@
-"""The Devices screen of AutoEQ Studio's window (ui\\window.py): your playback devices (the one playing first), and
+"""The Devices screen of AutoEQ Studio's window (ui\\window.py): your playback devices (connected ones first, then A to
+Z by the name shown; the one playing has the green dot), and
 for the one chosen: its profiles, the one on (or Off), adding and taking off profiles, whether Equalizer APO is
 installed on it, your name for it (Rename…), and a line saying whether its EQ really plays (Equalizer APO asked by
 itself, switcher\\check.py; again when something changes; check_line() gives that line its words).
@@ -11,7 +12,7 @@ import subprocess
 
 from PySide6.QtCore import QRect, QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QIcon, QPainter
-from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QGroupBox, QHBoxLayout, QInputDialog, QLabel,
+from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QGroupBox, QHBoxLayout, QLabel,
                                QListWidget, QListWidgetItem, QMenu, QMessageBox, QPushButton, QRadioButton, QScrollArea,
                                QSplitter, QStyle, QStyledItemDelegate, QStyleOptionViewItem, QToolButton, QVBoxLayout,
                                QWidget)
@@ -145,6 +146,7 @@ class DevicesScreen:
         self.dev_list.clear()
         keys = [d.key for d in self.sw.devices]
         keys += [k for k in self.sw.s["devices"] if k not in keys and self.sw.record(k)["profiles"]]  # (gone, but set)
+        keys.sort(key=self.sw.order)  # (connected ones first, then A to Z by the name shown)
         for key in keys:
             rec, d = self.sw.record(key), self.sw.device(key)
             where, eq = self._status(key)
@@ -237,8 +239,8 @@ class DevicesScreen:
             x = QToolButton()
             theme.mark(x, quiet=True)  # (a row's ✕: every list's one look, UI-RULES 18)
             x.setText("✕")
-            x.setToolTip("Take it off this device (it stays in Profiles)")
-            x.setAccessibleName(f"Take {p['name']} off this device")
+            x.setToolTip("Remove it from this device (it stays in Profiles)")  # (✕ = Remove: UI-RULES 10, 16)
+            x.setAccessibleName(f"Remove {p['name']} from this device")
             x.clicked.connect(lambda _=False, pid=pid: self.take_off(key, pid))
             row.addWidget(x)
             holder = QWidget()
@@ -287,7 +289,7 @@ class DevicesScreen:
         rec = self.sw.record(key)
         if not rec or pid not in rec["profiles"]:  # (taken off already: a second click before the panel was redrawn)
             return
-        was_on, at = rec["active"] == pid, rec["profiles"].index(pid)
+        was_on, at, was_last = rec["active"] == pid, rec["profiles"].index(pid), rec.get("last") == pid
         name = self.sw.profile_name(pid)
         self.sw.remove_from_device(key, pid)
 
@@ -295,13 +297,14 @@ class DevicesScreen:
             if pid not in self.sw.profiles():  # (deleted in Profiles meanwhile)
                 self.status(f"“{name}” was deleted meanwhile: there's nothing to put back.")
                 return
-            self.sw.add_to_device(key, pid, switch_on=was_on, at=at)
-        self.status(f"Took “{name}” off this device.", undo=undo)
+            self.sw.add_to_device(key, pid, switch_on=was_on, at=at, last=was_last)
+        self.status(f"Removed “{name}” from this device.", undo=undo)
 
     def rename_device(self, key):
+        from ui.window_parts import ask_text  # (looked up here: the tests answer it)
         rec = self.sw.record(key)
-        name, ok = QInputDialog.getText(self, "Rename the device", f"Your name for it (empty: Windows' name, "
-                                        f"{rec['label']})", text=rec.get("nickname", ""))
+        name, ok = ask_text(self, "Rename the device", f"Your name for it (empty: Windows' name, {rec['label']})",
+                            rec.get("nickname", ""), "Rename")
         if ok:
             self.sw.set_nickname(key, name)
             self.render_all()

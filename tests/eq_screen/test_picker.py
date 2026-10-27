@@ -297,7 +297,7 @@ def test_lists_a_to_z(eq_screen, as_old, check):
     qt.close(small)
     # every drop-down A to Z, numbers as numbers (a first "Choose…" or "Automatic…" may stay on top, or the special
     # choices a list pins there: its sort_items' pinned, 2026-10-27); Find…'s filters keep their own order (any,
-    # "fits", in the app and this PC first, "not known" last)
+    # "fits", in the app and this PC, then "not known" and mixed: the special choices on top)
     unsorted = []
     for c in page.findChildren(SearchCombo):
         # (the Target and Measurement lists: A to Z by name, their own check above; the counts after a name aside)
@@ -346,6 +346,35 @@ def test_use_offers_undo(eq_screen, dialogs, check):
           and not any(n in names_now for n in res.get("created") or []),
           (offered, res.get("created"), sorted(set(page.S["files"]["excluded"]) ^ set(before)),
            [n for n in res.get("created") or [] if n in names_now], dialogs.asked[-2:]))
+
+
+def test_move_said_in_finds_own_line(eq_screen, check):
+    # (2026-10-27, the rules' review: "Moved … to Measurement." and its Undo were said in the main window's line,
+    # behind Find…, as a file that couldn't be used was)
+    import os
+    from eq import paths as eq_paths
+    from ui.picker import Picker
+    page = eq_screen.page
+    name = "Move me.csv"  # (a target of its own: the app's copy may have only the one in use)
+    with open(os.path.join(eq_paths.TARGET_DIR, name), "w", encoding="utf-8") as fh:
+        fh.write("".join(f"{20 * 1.1 ** i:.2f},{i % 3}\n" for i in range(80)))
+    page.reload_state()
+    n = len(eq_screen.said)
+    pk = Picker(page, "target")
+    try:
+        pk.move("target", name)
+        said = (pk.footer.line.text.text(), pk.footer.line.undo_btn.isVisibleTo(pk), eq_screen.said[n:])
+        pk.footer.line.undo_btn.click()
+        back = eq_screen.wait_for(lambda: name in page.inputs["targets"], 30)
+    finally:
+        qt.close(pk)
+        for where in (eq_paths.TARGET_DIR, eq_paths.MEAS_DIR):
+            if os.path.exists(os.path.join(where, name)):
+                os.remove(os.path.join(where, name))
+        page.reload_state()
+    check("find: a file moved to Measurement is said in Find…'s own line with Undo (nothing behind it, in the main "
+          "window's), and Undo moves it back", said[0].startswith(f"Moved “{name}” to Measurement") and said[1]
+          and said[2] == [] and back, (said, back))
 
 
 # ---------------------------------------------------------------- the Windows 11 look (the restyle, 2026-10-23)

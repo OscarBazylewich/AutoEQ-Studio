@@ -9,7 +9,7 @@ Filters (kept for the next search, for targets and measurements apart): Rig (or 
 its database has a conversion of its own for it), Type, Source, Stated rig (not the usual rig of a database, a "?"),
 Downloadable (not a list-only database's). Each choice says how many results it would leave.
 Each row's buttons at its right end, as every list's (.claude/notes/UI-RULES.md 18): Preview (its curve on the graph,
-dotted, without using it; Hide takes it off), the row's own (Files, → the other side), Use (the main one, last;
+dotted, without using it; Hide takes it off), the row's own (Files, Move to the other side), Use (the main one, last;
 double-click too), then the bin apart (your own files: deleted for good, asked first). A button a row hasn't got keeps
 its room, so every Use is in one column.
 
@@ -19,9 +19,9 @@ other online one says it needs the internet. A list-only database's entry opens 
 The look (Windows 11's, ui\\theme_sheet.py's find_windows part matches the names given here): a row's name in
 semibold (findRowName), ending in "…" when it's longer than its room (never cut mid-letter), the download mark as
 Windows 11's symbol (findMark, read as "Downloads when used"); only one Use has the accent, the one Enter presses (the
-chosen row's, or the first row's when none is chosen); a row's ✕ quiet (no fill until pointed at, as every ✕); Files
-with Windows 11's chevron after its word (findFiles: down while its files are hidden, up while they're shown); the
-chosen and pointed-at rows as every list, laid out again whenever the window changes size. Narrower than its filters
+chosen row's, or the first row's when none is chosen); a row's bin quiet (no fill until pointed at, as every row's ✕
+and bin); Files says Show files or Hide files (a chevron is a menu's: UI-RULES 12); the chosen and pointed-at rows as
+every list, laid out again whenever the window changes size. Narrower than its filters
 on one line (the Guide's frame for it), the filters take two lines, the ticks under the boxes (Lines); a box's choice
 too long for it ends in "…". How many there are where is said under the filters; the footer is every window's
 (window_parts.Footer: Sources… and Trace a graph image… at the left, the window's own message line, Close).
@@ -108,28 +108,27 @@ def _share(room, least, low):
 class Lines(QLayout):
     """A row of controls that takes two lines when there isn't room for it on one (Find…'s filters: the three boxes,
     then the ticks under them): on one line while each control has at least what it asks for (add's least: a box
-    what its choice needs, a tick or a button its words), else the `first` ones on a line and the others under them. The room a line has over goes to the
-    controls that stretch, in equal widths (none under what it asks for), else, with right, before them (a window's
-    buttons at its right). It says how tall it is at a width (height for width), so a window as narrow as the Guide's
-    frame for Find… (598 px wide at the app's own size and 523 at its smallest) gives both lines their room; words
-    that wrap, alone on their line, can keep room for more lines than they have now (add's rows). (The recheck,
-    2026-10-23: squeezed into that frame, Find…'s boxes read "Any sour", "Any ri", its tick "Downloadal", and its
-    status line stopped mid-sentence.)"""
+    what its choice needs, a tick or a button its words), else the `first` ones on a line and the others under them.
+    The room a line has over goes to the controls that stretch, in equal widths (none under what it asks for), else
+    it's left after them. It says how tall it is at a width (height for width), so a window as narrow as the Guide's
+    frame for Find… (598 px wide at the app's own size and 523 at its smallest) gives both lines their room. (The
+    recheck, 2026-10-23: squeezed into that frame, Find…'s boxes read "Any sour", "Any ri", its tick "Downloadal", and
+    its status line stopped mid-sentence.)"""
 
-    def __init__(self, right=False):
+    def __init__(self):
         super().__init__()
-        self.right, self._items, self._next = right, [], None
+        self._items, self._next = [], None
 
-    def add(self, w, first=False, stretch=False, least=None, rows=0):
+    def add(self, w, first=False, stretch=False, least=None):
         """w at the end of the row: on the first line when there are two (first), sharing the room over (stretch),
         asking for least px on one line (a number, or a function of w; else its own: a stretching control's smallest
-        size, another's whole size); words that wrap, alone on their line, given room for at least `rows` lines."""
-        self._next = (first, stretch, least, rows)
+        size, another's whole size)."""
+        self._next = (first, stretch, least)
         self.addWidget(w)  # (Qt makes its item and hands it to addItem)
 
     # ---------------------------------------------------------------- Qt's own: what's in it
     def addItem(self, item):
-        self._items.append((item, self._next or (False, False, None, 0)))
+        self._items.append((item, self._next or (False, False, None)))
         self._next = None
 
     def count(self):
@@ -174,15 +173,14 @@ class Lines(QLayout):
         return self.spacing() if self.spacing() >= 0 else 6  # (its window's spacing, once it's in its layout)
 
     def _shown(self):
-        """[(item, first, stretch, smallest, asked for, rows)] of the controls in sight (a hidden one takes no
-        room)."""
+        """[(item, first, stretch, smallest, asked for)] of the controls in sight (a hidden one takes no room)."""
         out = []
-        for item, (first, stretch, least, rows) in self._items:
+        for item, (first, stretch, least) in self._items:
             if item.isEmpty():
                 continue
             low = item.minimumSize().width() if stretch else item.sizeHint().width()
             want = least(item.widget()) if callable(least) else least if least is not None else low
-            out.append((item, first, stretch, low, max(low, want), rows))
+            out.append((item, first, stretch, low, max(low, want)))
         return out
 
     def _lines(self, shown, width):
@@ -204,12 +202,8 @@ class Lines(QLayout):
                 room = r.width() - sum(w for k, w in enumerate(widths) if k not in stretch) - gap * (len(line) - 1)
                 for k, w in zip(stretch, _share(room, [line[k][4] for k in stretch], [line[k][3] for k in stretch])):
                     widths[k] = w
-            own = []
-            for x, w in zip(line, widths):
-                h = x[0].heightForWidth(w) if x[0].hasHeightForWidth() else x[0].sizeHint().height()
-                if x[5] and len(line) == 1:  # (alone on its line: room for its rows of words)
-                    h = max(h, x[5] * x[0].widget().fontMetrics().lineSpacing())
-                own.append(h)
+            own = [x[0].heightForWidth(w) if x[0].hasHeightForWidth() else x[0].sizeHint().height()
+                   for x, w in zip(line, widths)]
             laid.append((line, widths, own, max(own)))
         need = sum(tall for *_, tall in laid) + gap * max(0, len(laid) - 1)
         if move:
@@ -220,8 +214,7 @@ class Lines(QLayout):
             for n, (line, widths, own, tall) in enumerate(laid):
                 if n == 0 and short > 0 and len(laid) > 1:
                     tall = max(0, tall - short)
-                left = r.width() - sum(widths) - gap * (len(line) - 1)
-                x0 = r.x() + (left if self.right and not any(x[2] for x in line) else 0)
+                x0 = r.x()
                 for x, w, h in zip(line, widths, own):
                     # (words that wrap: as tall as they are, in the line's middle; when the line is shorter, as many
                     # whole lines of them as it has room for)
@@ -275,8 +268,9 @@ class Picker(QDialog):
         self.page, self.kind = page, kind
         self.svc, self.meta = page.svc, page.meta
         self.setWindowTitle("Find a target" if kind == "target" else "Find a measurement")
-        # (its smallest: 680 wide, where its filters still fit on one line (narrower, as in the Guide's frame for it,
-        # they take two: Lines), and four rows or so of the list in sight; both within the screen's free room)
+        # (its smallest: 680 wide, and four rows or so of the list in sight; both within the screen's free room. Its
+        # filters are on one line from about 710 px for a target and 790 for a measurement (two ticks, Clear filters
+        # always there), so at the 900 it opens at; narrower, as in the Guide's frame for it, they take two: Lines)
         fit_to_screen(self, (900, 720), (680, 420))
         saved = page.sw.s.get("picker") or {}
         self.filters = {k: dict(ANY, **(saved.get(k) or {})) for k in ("target", "measurement")}
@@ -593,9 +587,10 @@ class Picker(QDialog):
             counts = tally[key]
             if f[key] and f[key] not in counts and f[key] != "fits":
                 counts[f[key]] = 0
-            # A to Z (numbers as numbers); "In the app" and "Your files on this PC" first, "not known" and mixed last
+            # A to Z (numbers as numbers), the special choices on top (UI-RULES 22, as Which measurement's "Don't
+            # know"): "In the app" and "Your files on this PC", then "not known" and "Mixed rigs" (they were last)
             first = {"app": 0, "pc": 1} if key == "site" else {}
-            values = sorted(counts.items(), key=lambda kv: (first.get(kv[0], 2), kv[0] in ("-", "mixed"),
+            values = sorted(counts.items(), key=lambda kv: (first.get(kv[0], 2), kv[0] not in ("-", "mixed"),
                                                              natural_key(name_of(kv[0]))))
             box.blockSignals(True)
             box.clear()
@@ -819,7 +814,7 @@ class Picker(QDialog):
                 x.setToolTip(f"Delete {r['device']['name']} from the app")
                 x.clicked.connect(lambda _=False, d=r["device"]: self.remove("measurement", [f["name"] for f in d["files"]], d["name"]))
             else:
-                mv = QPushButton("→ Measurement")
+                mv = QPushButton("Move to Measurement")  # (verb first, no arrow standing in for a symbol: 9, 15)
                 mv.setToolTip("It's a measurement: move it to Measurement")
                 mv.clicked.connect(lambda _=False, n=r["file"]: self.move("target", n))
                 h.addWidget(mv)
@@ -831,7 +826,7 @@ class Picker(QDialog):
         use.setEnabled(self.busy is None)
         use.clicked.connect(lambda _=False, r=r: self.choose(r))
         h.addWidget(use)
-        h.addSpacing(8)  # (the ✕ apart from Use, the main action: UI-RULES 14)
+        h.addSpacing(12)  # (the bin apart from Use, the main action, as History's ✕: UI-RULES 14)
         h.addWidget(_keeping_room(x))
         x.setVisible(r["src"] == "app")
         self._place(it, w)
@@ -857,11 +852,11 @@ class Picker(QDialog):
         cb.setToolTip("Include in the average")
         cb.toggled.connect(lambda on, n=fl["name"]: self.toggle_file(n, on))
         h.addWidget(cb, 1)
-        mv = QPushButton("→ Target")
+        mv = QPushButton("Move to Target")
         mv.setToolTip("It's a target: move it to Target")
         mv.clicked.connect(lambda _=False, n=fl["name"]: self.move("measurement", n))
         h.addWidget(mv)
-        h.addSpacing(8)  # (the bin apart, as every row's: UI-RULES 14)
+        h.addSpacing(12)  # (the bin apart, as every row's: UI-RULES 14)
         x = QPushButton()  # (deleted for good: the bin, UI-RULES 10)
         icons.put(x, "delete")
         theme.mark(x, quiet=True)
@@ -894,6 +889,11 @@ class Picker(QDialog):
         none is); Enter never presses a button Qt made the dialog's default."""
         k = e.key()
         if k in (Qt.Key_Return, Qt.Key_Enter):
+            from ui.window_parts import focused_button
+            pressed = focused_button(self)
+            if pressed is not None:  # (a focused button takes Enter, as in Windows: Close, Sources…; it did nothing)
+                pressed.click()
+                return
             if self._later.isActive():  # (typed faster than the list: the list for what's typed)
                 self._later.stop()
                 self.render()
@@ -983,7 +983,7 @@ class Picker(QDialog):
         ex = set(self.page.S["files"]["excluded"])
         ex.discard(name) if on else ex.add(name)
         self.page.S["files"]["excluded"] = sorted(ex)
-        self.page.save_files(after=self.render)
+        self.page.save_files(after=self.render, say=self.footer.say)
 
     def move(self, kind, name):
         import json
@@ -993,7 +993,7 @@ class Picker(QDialog):
             QMessageBox.warning(self, "Move", r["error"])
             return
         self.page.reload_state()
-        self.page.moved(kind, name, before)
+        self.page.moved(kind, name, before, say=lambda text, undo: self.footer.say(text, undo=undo))
         self.render()
 
     def remove(self, kind, names, label):

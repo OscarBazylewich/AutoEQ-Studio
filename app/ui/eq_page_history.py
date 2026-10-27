@@ -135,9 +135,9 @@ class EqHistory:
         elif self.curves:
             self.status(f"{'Its target isn’t' if have_m else 'Its measurement files aren’t'} in the app any more, so its "
                         "filters are shown on the graph you have now.", 10000)
-        if not self.curves:  # (nothing to show its filters on: said, not "shown on the graph")
-            self.status(f"{'Its target isn’t' if have_m else 'Its measurement files aren’t'} in the app any more: "
-                        "choose a measurement and a target first, then Show it again.", 10000)
+        if not self.curves:  # (nothing to show its filters on: what's needed first, in a box: UI-RULES 25)
+            QMessageBox.information(self, "Show", f"{'Its target isn’t' if have_m else 'Its measurement files aren’t'} "
+                                    "in the app any more: choose a measurement and a target first, then Show it again.")
             return
         band = e.get("band")
         if band and list(band) != list(S["scoring"]["band_hz"]):
@@ -169,7 +169,7 @@ class EqHistory:
             return []
 
     def fill_presets(self, menu):
-        """The top bar's Presets menu: each preset (click: load it), Save current settings as…, Delete a preset, and
+        """The top bar's Presets menu: each preset (click: load it), Save as a preset…, Delete a preset, and
         Reset all settings…. A preset keeps every setting, not your files."""
         menu.clear()
         names = self.preset_names()
@@ -179,7 +179,7 @@ class EqHistory:
         for n in names:
             menu.addAction(n, lambda n=n: self.load_preset(n))
         menu.addSeparator()
-        menu.addAction("Save current settings as…", self.save_preset)
+        menu.addAction("Save as a preset…", self.save_preset)  # (the window it opens says the same: UI-RULES 17)
         if names:
             d = menu.addMenu("Delete a preset")
             for n in names:
@@ -212,14 +212,15 @@ class EqHistory:
         self._use_settings(res["settings"], f"Loaded the preset “{name}”: all its settings (your files stay as they are).")
 
     def save_preset(self):
-        from PySide6.QtWidgets import QInputDialog
-        name, ok = QInputDialog.getText(self, "Save a preset", "Name of the preset (every setting, not your files)",
-                                        text="My settings")
+        from ui.window_parts import ask_text  # (looked up here: the tests answer it)
+        name, ok = ask_text(self, "Save as a preset", "Name of the preset (every setting, not your files)",
+                            "My settings", "Save")
         name = name.strip()
         if not ok or not name:
             return
-        if name in self.preset_names() and QMessageBox.question(
-                self, "Save a preset", f"There's a preset called “{name}” already. Replace it?") != QMessageBox.Yes:
+        if name in self.preset_names() and QMessageBox.question(  # (No the default: it can't be had back, UI-RULES 17)
+                self, "Save as a preset", f"There's a preset called “{name}” already. Replace it?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
             return
         res = self.svc.call("/api/presets/save", {"name": name, "settings": self.S})
         if res.get("error"):
@@ -229,7 +230,8 @@ class EqHistory:
                     "again.")
 
     def delete_preset(self, name):
-        if QMessageBox.question(self, "Presets", f"Delete the preset “{name}”?") != QMessageBox.Yes:
+        if QMessageBox.question(self, "Delete", f"Delete the preset “{name}”?", QMessageBox.Yes | QMessageBox.No,
+                                QMessageBox.No) != QMessageBox.Yes:  # (as every Delete asks: UI-RULES 17)
             return
         res = self.svc.call("/api/presets/delete", {"name": name})
         if res.get("error"):

@@ -456,7 +456,7 @@ def eq_steps(page):
 
     def abx_demo(api):
         L = page.listen
-        if not L.abx_start.isEnabled() or L.abx is not None:
+        if len(L.versions()) < 2 or L.abx is not None:  # (two versions to test: else nothing to show)
             yield 300
             return
         before = (L.active, L.picked)
@@ -489,16 +489,16 @@ def eq_steps(page):
     def preset_demo(api):
         b = win.presets_btn
         names = page.preset_names()
-        items = (names[:5] or [("No presets yet", False)]) + [None, "Save current settings as…", "Delete a preset ▸",
+        items = (names[:5] or [("No presets yet", False)]) + [None, "Save as a preset…", "Delete a preset ▸",
                                                               None, "Reset all settings…"]
         api.say("Click Presets")
         yield from api.click(b)
         m = yield from mock_menu(api, b, items)
         api.spot_on(m)
-        api.say("“Save current settings as…”")
-        yield from pick(api, m, items.index("Save current settings as…"))
+        api.say("“Save as a preset…”")
+        yield from pick(api, m, items.index("Save as a preset…"))
         api.close(m)
-        f = api.prompt("Save a preset", "Name of the preset (every setting, not your files)", near=b)
+        f = api.prompt("Save as a preset", "Name of the preset (every setting, not your files)", near=b, verb="Save")
         api.spot_on(f)
         api.say("…under a name")
         f.edit.setText("")

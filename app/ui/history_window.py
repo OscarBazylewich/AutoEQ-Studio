@@ -103,10 +103,11 @@ class HistoryWindow(QDialog):
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # (rows wrap their words instead)
         v.addWidget(self.scroll, 1)
-        clear = QPushButton("Clear the history…")  # ("…": it asks first, UI-RULES 11)
+        self.clear_btn = clear = QPushButton("Clear the history…")  # ("…": it asks first, UI-RULES 11)
         icons.put(clear, "delete")
         clear.setAutoDefault(False)
         clear.clicked.connect(self.clear_all)
+        clear.setEnabled(bool(self.page.history))  # (off with nothing to clear: _show_entries)
         self.footer = Footer(self, [clear])
         v.addWidget(self.footer)
         self._enter = enter_presses(self)  # (the first row's Show, set as the rows are made)
@@ -268,7 +269,8 @@ class HistoryWindow(QDialog):
         ok = page.listen.add(f"{MODE_SHORT.get(e.get('mode'), 'EQ')}, {e.get('n_filters')} filters "
                              f"({day_of(e['when']).lower()} {time_of(e['when'])})", [dict(f) for f in e["filters"]],
                              f"made for {e.get('device')}" if other else
-                             "from History" + (f" · error {e['rms']:.2f} dB" if e.get("rms") is not None else ""))
+                             "from History" + (f" · error {e['rms']:.2f} dB" if e.get("rms") is not None else ""),
+                             say=self.footer.say)
         if ok:
             self.footer.say(f"In your EQs to compare: that EQ was made for {e.get('device')}, so on the "
                             f"{page.curves['name']} it won't sound as intended." if other else
@@ -297,15 +299,18 @@ class HistoryWindow(QDialog):
         self.page.history = entries
         self.page.history_note()
         self.render(keep=keep)
+        # (off with nothing to clear, as Windows' commands with nothing to act on: UI-RULES 25; pressed, "already
+        # empty" took the place of the Undo of the last ✕)
+        self.clear_btn.setEnabled(bool(entries))
 
     def clear_all(self):
         n = len(self.page.history)
         if not n:
             self.footer.say("The history is already empty.")
             return
-        if QMessageBox.question(self, "Clear the history",
-                                f"Remove all {n} EQs from the history? Files you saved stay in your Saved EQs folder.",
-                                QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
+        if QMessageBox.question(self, "Clear the history",  # (its words the button's: clear, delete, never "remove")
+                                f"Clear the history: delete all {n} EQs in it? Files you saved stay in your Saved EQs "
+                                "folder.", QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
             return  # (No the default: it can't be undone, UI-RULES 17)
         r = self.page.svc.call("/api/history/remove", {"all": True})
         if r.get("error"):  # (history.json couldn't be written: nothing is said cleared)

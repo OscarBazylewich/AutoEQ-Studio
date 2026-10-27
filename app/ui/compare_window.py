@@ -1,8 +1,9 @@
-"""Which measurement to use? (AutoEQ Local's compare.js, natively): every measurement of a model from the online
+"""Other measurements of this model (Which measurement…; AutoEQ Local's compare.js, natively): every measurement of a
+model from the online
 databases, this PC and the app, ranked for the current target by eq\\compare.py (the rig's match first, then how they
 agree, the seal, averaging and the data), with the reasons for each.
 
-- the chart: every candidate levelled together; the recommended one (or the one under the mouse) in blue; grey ones
+- the chart: every candidate levelled together; the best one for your target (or the one under the mouse) in blue; grey ones
   are on your target's rig, dotted ones on others; while the mouse is over an average's box, that average (green)
 - Use: the measurement into the app and in use (downloaded first when it's online)
 - Average and use: measurements on one rig averaged into one (unit and fit differences even out); ticked by default,
@@ -12,7 +13,7 @@ Offline (net.py): what's on this PC and in the app is compared; online measureme
 are listed under "Couldn't load".
 
 The look (Windows 11's; theme_sheet's find_windows part matches the names given here): the chart on a card in the
-graph's own colours (blue the recommended one, green the average: never the accent, which is Windows' and may be any
+graph's own colours (blue the best one for your target, green the average: never the accent, which is Windows' and may be any
 colour), drawn again when the theme changes; a note to heed as a warning box (its symbol read as "Warning"); each
 measurement and each average a card (its words starting where every card's do), filled while the mouse is over it;
 the accent on one button only, the main action: the first average's when one is offered, else the first
@@ -126,7 +127,7 @@ class CompareWindow(QDialog):
         cc.setContentsMargins(6, 6, 6, 4)
         cc.addWidget(self.chart)
         v.addWidget(chart_card, 1)
-        legend = QLabel("Blue: recommended or under the mouse. Grey: your target's rig. Dotted: other rigs. "
+        legend = QLabel("Blue: best for your target, or under the mouse. Grey: your target's rig. Dotted: other rigs. "
                         "Green dashes: an average, while the mouse is over its box.")
         legend.setWordWrap(True)
         theme.mark(legend, role="muted")
@@ -177,6 +178,10 @@ class CompareWindow(QDialog):
 
     def keyPressEvent(self, e):
         if e.key() in (Qt.Key_Return, Qt.Key_Enter):  # (the search box runs it; never a Use button made the default)
+            from ui.window_parts import focused_button
+            pressed = focused_button(self)
+            if pressed is not None:  # (a focused button takes Enter, as in Windows: it did nothing)
+                pressed.click()
             return
         super().keyPressEvent(e)
 
@@ -247,6 +252,7 @@ class CompareWindow(QDialog):
         self.note_box.setVisible(bool(d.get("note")))
         body = QWidget()
         lay = QVBoxLayout(body)
+        lay.setContentsMargins(0, 0, 0, 0)  # (its cards' edges lined up with the chart's and the folds': Qt's 9 px)
         lay.setSpacing(8)
         averages = self._averages()  # (the first's button the main action, the accent: as Windows 11, only one)
         for w in averages:
@@ -436,7 +442,7 @@ class CompareWindow(QDialog):
 
     def draw(self):
         """The chart in the graph's own colours (theme.graph_colours(): never the accent, Windows' own colour): the
-        recommended one, or the one under the mouse, blue on top; the others grey (your target's rig) or dotted (other
+        best one for your target, or the one under the mouse, blue on top; the others grey (your target's rig) or dotted (other
         rigs); an average's box under the mouse: that average in green dashes. Drawn again when the theme changes."""
         ch = self.chart
         ch.clear()
