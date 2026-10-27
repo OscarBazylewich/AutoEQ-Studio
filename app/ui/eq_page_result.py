@@ -101,6 +101,7 @@ class EqResult:
                                  + f" · {self.run_label(run, r)}" + made_for)
         self.count_lab.setVisible(not manual)  # (one EQ: no other filter counts to choose from)
         self.count_combo.setVisible(not manual)
+        self.hand_close.setVisible(manual)
         self.revert_btn.setToolTip("Back to the filters you began with" if manual else
                                    "Back to the filters as the run made them")
         self.listen.show()  # (an EQ by hand can be heard without a measurement too)
@@ -213,20 +214,44 @@ class EqResult:
         run = next((x for x in self.session_runs if id(x) == key), None)
         if run is None or run is self.run_result:
             return
-        self.run_result = run
+        self.show_run(run)
+
+    def show_run(self, run):
+        """A run of this session on the result card again, or none (run None): the card hidden and the graph and Listen
+        without an EQ, as before any run (the card alone was hidden: its EQ stayed on the graph, handles and all, and in
+        Listen)."""
+        if run is not None:
+            self.run_result = run
+            self.name_edit.clear()
+            self.show_result(run["_sel"] if run.get("_sel") is not None else run["pick"])  # (result 0 is a result)
+            return
+        self.run_result, self.sel, self.EDIT, self.ORIG = None, None, [], []
         self.name_edit.clear()
-        self.show_result(run["_sel"] if run.get("_sel") is not None else run["pick"])  # (result 0 is a result)
+        self.result_box.hide()
+        self.render_runs()
+        if not self.curves:  # (an EQ by hand showed Listen without a measurement; with neither, as the page opened)
+            self.listen.stop()
+            self.listen.hide()
+        self.listen.refresh()
+        self.draw()
 
     def remove_run(self):
         self.session_runs = [x for x in self.session_runs if x is not self.run_result]
-        if self.session_runs:
-            last = self.session_runs[-1]
-            self.run_result = last
-            self.name_edit.clear()
-            self.show_result(last["_sel"] if last.get("_sel") is not None else last["pick"])
-        else:
-            self.run_result, self.sel = None, None
-            self.result_box.hide()
+        self.show_run(self.session_runs[-1] if self.session_runs else None)
+
+    def close_by_hand(self):
+        """Close, on an EQ by hand: back to what was shown when it began (that run, else the last one left, else none:
+        the page as it was). Changed, it stays in Runs this session to come back to; empty or as it began, it goes
+        (nothing in it to lose)."""
+        run, _r = self.current()
+        if not run or run.get("mode") != "manual":
+            return
+        if not self.EDIT or not self.edited():
+            self.session_runs = [x for x in self.session_runs if x is not run]
+        mine, before = getattr(self, "hand_before", None) or (None, None)
+        others = [x for x in self.session_runs if x is not run]
+        back = before if mine is run and any(x is before for x in others) else (others[-1] if others else None)
+        self.show_run(back)
 
     # ---------------------------------------------------------------- the filters being edited
     def active(self):
@@ -477,6 +502,7 @@ class EqResult:
         if c:
             run["target_file"] = self.inputs.get("active_target")
             run["meas_files"] = [m["name"] for m in self.inputs["measurements"] if m["included"]]
+        self.hand_before = (run, self.run_result)  # (what its Close goes back to)
         self.run_result = run
         self.keep_run(run)
         self.name_edit.clear()

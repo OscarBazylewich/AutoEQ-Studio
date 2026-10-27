@@ -416,6 +416,14 @@ class EqCards:
         help_window.tag(self.cmp_btn, "#compare-results")
         pick.addWidget(self.cmp_btn)
         pick.addStretch(0)  # (an EQ by hand, its filter counts' list hidden: Compare… at its own width, not the row's)
+        self.hand_close = QPushButton("Close")  # (an EQ by hand's: back to what was shown before it, at the row's end)
+        icons.put(self.hand_close, "close")
+        self.hand_close.setToolTip("Back to what was shown before this EQ by hand (changed, it stays in Runs this "
+                                   "session)")
+        help_window.tag(self.hand_close, "#hand-close")  # (a screen reader's name too: "Close (an EQ by hand)")
+        self.hand_close.clicked.connect(self.close_by_hand)
+        self.hand_close.hide()
+        pick.addWidget(self.hand_close)
         v.addLayout(pick)
         tools = QHBoxLayout()
         self.view_btns = {}

@@ -196,7 +196,7 @@ class EqGraph:
                 f = eq_grid()
                 item = self._draw_eq(f, engines.eq_gain(f, self.active(), self.S["site"]["sample_rate"]), col)
                 self._eq_drawn = {"f": f, "eq": item, "with": None}
-                self.draw_handles()
+            self.draw_handles()  # (with no EQ shown: none, the old ones gone)
             return
         g = getattr(self, "_graph_demo", None) or self.sw.s.get("graph") or {}
         rel = g.get("view") == "rel"

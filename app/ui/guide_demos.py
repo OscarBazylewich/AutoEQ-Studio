@@ -184,6 +184,37 @@ def stage_result(page):
     return undo
 
 
+def stage_hand(page):
+    """An EQ by hand on the result card, as By hand › Start empty makes it (the Guide's: nothing is kept), so its step
+    can show Close. The function it returns puts the page back as it was: the result shown (with edits not yet saved),
+    this session's runs, the file name. None while an ABX test runs (a new EQ shown would end it)."""
+    if getattr(page.listen, "abx", None) is not None:
+        return None
+    keep = (page.run_result, page.sel, page.EDIT, page.ORIG, page.name_edit.text(), page.name_edit.property("auto"),
+            list(page.session_runs), page.runs, page.listen.isVisible(), getattr(page, "hand_before", None))
+    page.start_by_hand([], "started empty")
+
+    def undo():
+        run, sel, edit, orig, name, auto, runs, n, heard, before = keep
+        page.session_runs, page.runs, page.hand_before = runs, n, before
+        if run is not None and sel is not None:
+            page.run_result = run
+            page.show_result(sel)  # (its card again, then your edits on it as they were)
+            page.EDIT, page.ORIG = edit, orig
+            page.set_view(page.sw.s.get("filters_view", "table"), remember=False)
+            page.live_update()
+        else:
+            page.run_result, page.sel, page.EDIT, page.ORIG = run, sel, edit, orig
+            page.result_box.hide()
+            page.render_runs()
+            page.listen.setVisible(heard)
+            page.listen.refresh()
+            page.draw()
+        page.name_edit.setText(name)
+        page.name_edit.setProperty("auto", auto)
+    return undo
+
+
 # ---------------------------------------------------------------- the app's own lists, shown by the demos
 def mock_combo(api, combo, to_index, say_rows=None, rows=9):
     """A drop-down's list as it opens under its box (the same rows, a part of a long one), the pointer down it to a

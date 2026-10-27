@@ -163,3 +163,47 @@ def test_edits_kept_when_another_run_is_shown(eq_screen, check):
           "session (Revert still goes back to how it began)",
           page.run_result is first and page.EDIT[0]["gain"] == 5 and page.ORIG[0]["gain"] == 1 and page.edited(),
           (page.EDIT, page.ORIG))
+
+
+def _nothing_shown(page):
+    """No result: the card hidden, no EQ on the EQ graph (its curve, its handles), none in Listen's versions."""
+    return (page.result_box.isVisible(), page.current(), len(page.eqplot.listDataItems()), len(page._handles),
+            "sel" in [k for k, *_ in page.listen.versions()])
+
+
+def test_remove_the_last_run(eq_screen, check):
+    page = eq_screen.page
+    page.start_by_hand([{"type": "PK", "freq": 1000, "gain": 3, "q": 1}], "pasted", "Last")
+    page.session_runs = [page.run_result]
+    page.remove_run()
+    check("by hand: Remove on this session's last run takes its EQ off the graph (its curve and handles) and out of "
+          "Listen too, not only the card", _nothing_shown(page) == (False, (None, None), 0, 0, False),
+          _nothing_shown(page))
+
+
+def test_close_goes_back(eq_screen, check):
+    page = eq_screen.page
+    page.session_runs = []  # (nothing shown before it: the page as it opens)
+    page.show_run(None)
+    _menu_action(page, "Start empty").trigger()
+    shown = (page.hand_close.isVisible(), page.result_box.isVisible())
+    page.hand_close.click()
+    alone = (_nothing_shown(page), page.session_runs, page.name_edit.text())
+    first = eqpage.quick_run(eq_screen)
+    _menu_action(page, "Start empty").trigger()
+    page.hand_close.click()
+    back = (page.run_result is first, page.res_title.text().startswith("Best fit"), page.hand_close.isVisible(),
+            [x["mode"] for x in page.session_runs])
+    _menu_action(page, "Start empty").trigger()
+    mine = page.run_result
+    page.add_filter()
+    page.hand_close.click()
+    kept = (page.run_result is first, any(x is mine for x in page.session_runs), page.runs_row.isVisible())
+    page.choose_run(id(mine))
+    again = (page.run_result is mine, len(page.EDIT))
+    check("by hand: Close (an EQ by hand's only) goes back to what was shown before it: with nothing before, the page "
+          "as it was (no card, no EQ on the graph or in Listen, nothing left in this session's runs); after a run, that "
+          "run (Close hidden again); one you changed stays in Runs this session, to come back to as you left it",
+          shown == (True, True) and alone == ((False, (None, None), 0, 0, False), [], "")
+          and back == (True, True, False, ["best_fit"]) and kept == (True, True, True) and again == (True, 1),
+          (shown, alone, back, kept, again))

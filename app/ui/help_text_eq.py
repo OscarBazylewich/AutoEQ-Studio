@@ -134,6 +134,7 @@ HELP_EQ = {'slot:target': ['The curve you want your earphone to sound like.', 't
               'by-hand',
               'peaking-filter',
               'shelf'],
+ '#hand-close': ['Back to what was shown before this EQ by hand: the run you had, or none.', 'by-hand'],
  '#use-try': ['Plays the EQ on a device for 5 minutes in every app, then Keep it or let its own EQ come back.',
               'q-try']}
 
@@ -420,7 +421,15 @@ SETTINGS_EQ = [{'title': 'Choosing and running',
                                     'left out without a word.',
                                     'A measurement and target are optional: chosen, the graph shows your IEM with the '
                                     'EQ and the error. Begun from a profile, Use on device › Update puts it back into '
-                                    'that profile.']},
+                                    'that profile. Close, on its result card, goes back to what was shown before.']},
+                          {'key': '#hand-close',
+                           'title': 'Close (an EQ by hand)',
+                           'body': ['On an EQ by hand\'s result card, at the end of the row with Compare…: back to '
+                                    'what was shown before you began it, the run you had, or none, the page as it '
+                                    'was.',
+                                    'An EQ by hand you changed stays in Runs this session, to come back to as you '
+                                    'left it (Remove there takes it off); one empty or as it began just goes, as there '
+                                    'is nothing in it to lose. Save filters keeps it for good.']},
                           {'key': 'x_name',
                            'title': 'File name',
                            'body': ['The name of the saved files; each adds its own ending (“ - filters.txt”, “ - '

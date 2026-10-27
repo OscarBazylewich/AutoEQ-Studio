@@ -8,8 +8,8 @@ from PySide6.QtWidgets import QLabel, QPushButton
 
 from ui import tasks, theme, tour
 from ui.guide_demos import (adjust_demo, bg, button, card, choose_row, demo_filters, eq_now, fold, mock_combo,
-                            mock_menu, open_picker, pick, picker_rows, plot_value, show_on_graph, stage_result,
-                            type_search)
+                            mock_menu, open_picker, pick, picker_rows, plot_value, show_on_graph, stage_hand,
+                            stage_result, type_search)
 
 # (A menu a demo draws is the Guide's own, guide_demos.mock_menu: as wide as its longest row and drawn as a real menu;
 # a row ending in " ▸" is a submenu's, Windows 11's chevron at its right, as the app's menus draw it.)
@@ -398,8 +398,16 @@ def eq_steps(page):
         api.say("Start empty, or from an EQ you have (a file, pasted lines, a profile)")
         yield from pick(api, m, 0)
         api.close(m)
-        yield from api.note("An EQ of your own, on the result card: add filters, then save it or use it on a "
-                            "device. (Demo: nothing was changed.)", page.hand_btn, 1700)
+        undo = stage_hand(page)  # (an EQ by hand on the result card, as Start empty makes it: put back after)
+        if undo is None:  # (an ABX test running: left as it is)
+            yield from api.note("An EQ of your own, on the result card: add filters, then save it or use it on a "
+                                "device. (Demo: nothing was changed.)", page.hand_btn, 1700)
+            return
+        api.undo(undo)
+        yield from api.at(page.res_title, 0.1, 0.5, 1500,
+                          say="An EQ of your own, on the result card: add filters, then save it or use it on a device")
+        yield from api.at(page.hand_close, 0.5, 0.5, 1500, say="Close: back to what was shown before")
+        yield from api.note("(Demo: nothing was changed.)", page.hand_close, 1200)
 
     def listen_demo(api):
         L = page.listen
@@ -613,7 +621,7 @@ def eq_steps(page):
          "text": "By hand makes an EQ yourself, shown as a result of its own: start empty, or from an EQ file "
                  "(Equalizer APO, AutoEq, Room EQ Wizard, Peace), pasted filters, a device's profile or a copy of the EQ "
                  "shown, then add and change its filters. Save, Use on device and Listen work as for a run; a "
-                 "measurement and target are optional.",
+                 "measurement and target are optional. Close goes back to what was shown before.",
          "demo": [{"click": lambda: page.hand_btn, "say": "Click By hand", "then": hand_demo}]},
         {"chapter": "3 · Run & review", "title": "Check it on the graph", "target": lambda: page.plot, "ready": has_curves,
          "text": "Orange: your IEM. Dashed: the target. Blue: with the EQ. Under it, pink: the EQ itself (above 0 "
