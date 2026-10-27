@@ -136,6 +136,12 @@ class Listen(QGroupBox):
         sub = QLabel("Hear the EQ through your own IEM or headphone. Start with the volume low.")
         theme.mark(sub, role="muted")
         v.addWidget(sub)
+        # the device's own EQ playing too: said first, as it changes what Play sounds like (Windows 11's warning bar,
+        # at the top of what it's about, as Devices' are: UI-RULES 23)
+        self.apo_off = QPushButton("Switch it off")
+        self.apo_off.clicked.connect(self.device_eq_off)
+        self.apo_box, self.apo_text = window_parts.warning_card("", self.apo_off)
+        v.addWidget(self.apo_box)
         row = QHBoxLayout()
         self.play_btn = _PlayButton()
         self.play_btn.clicked.connect(self.toggle)
@@ -207,25 +213,7 @@ class Listen(QGroupBox):
         theme.mark(self.file_lab, role="muted")
         fr.addWidget(self.file_lab, 1)
         v.addWidget(self.file_row)
-        # the versions
-        ears = QHBoxLayout()
-        self.ears = SearchCombo()
-        self.ears.addItem("Both ears hear the same version", "both")
-        self.ears.addItem("A different version in each ear", "split")
-        self.ears.sort_items()
-        self.ears.setCurrentIndex(max(0, self.ears.findData("split" if st.get("ears") == "split" else "both")))
-        self.ears.activated.connect(lambda _i: self.ears_changed())
-        ears.addWidget(self.ears)
-        self.blind = QCheckBox("Blind test")
-        self.blind.setToolTip("The versions as A, B, C … in a random order, until Reveal")
-        self.blind.toggled.connect(self.blind_changed)
-        ears.addWidget(self.blind)
-        self.reveal_btn = QPushButton("Reveal")
-        self.reveal_btn.clicked.connect(self.reveal)
-        ears.addWidget(self.reveal_btn)
-        ears.addStretch(1)
-        v.addLayout(ears)
-        self._abx_controls(v)
+        # the versions: right under Play, the most used control after it (keys 1-9); in each ear: Left and Right
         self.ab_box = QWidget()
         self.ab = _Rows(self.ab_box)  # (in as many rows as the card needs)
         self.version_group = QButtonGroup(self)  # (one of them chosen; the same group however often they're redrawn)
@@ -245,19 +233,33 @@ class Listen(QGroupBox):
         icons.put(swap, "swap")
         swap.clicked.connect(self.swap)
         sr.addWidget(swap)
+        v.addWidget(self.split_row)
+        # how they're heard: both ears the same version or one each, Blind test (under the versions it changes)
+        ears = QHBoxLayout()
+        self.ears = SearchCombo()
+        self.ears.addItem("Both ears hear the same version", "both")
+        self.ears.addItem("A different version in each ear", "split")
+        self.ears.sort_items()
+        self.ears.setCurrentIndex(max(0, self.ears.findData("split" if st.get("ears") == "split" else "both")))
+        self.ears.activated.connect(lambda _i: self.ears_changed())
+        ears.addWidget(self.ears)
+        self.blind = QCheckBox("Blind test")
+        self.blind.setToolTip("The versions as A, B, C … in a random order, until Reveal")
+        self.blind.toggled.connect(self.blind_changed)
+        ears.addWidget(self.blind)
+        self.reveal_btn = QPushButton("Reveal")
+        self.reveal_btn.clicked.connect(self.reveal)
+        ears.addWidget(self.reveal_btn)
+        ears.addStretch(1)
+        v.addLayout(ears)
         for w, key in ((self.ears, "#snd-ears"), (self.blind, "#snd-blind"), (self.left, "#snd-left"),
                        (self.right, "#snd-right")):
             help_window.tag(w, key)
-        v.addWidget(self.split_row)
         self.note = QLabel()
         self.note.setWordWrap(True)
         theme.mark(self.note, role="muted")
         v.addWidget(self.note)
-        self.apo_off = QPushButton("Switch it off")
-        self.apo_off.clicked.connect(self.device_eq_off)
-        # (Windows 11's warning card, as the banner's: the warning symbol, the words wrapping, the button at the right)
-        self.apo_box, self.apo_text = window_parts.warning_card("", self.apo_off)
-        v.addWidget(self.apo_box)
+        self._abx_controls(v)
         # your EQs to compare
         head = QLabel("Your EQs to compare")
         theme.mark(head, role="section")
@@ -270,8 +272,9 @@ class Listen(QGroupBox):
         add = QHBoxLayout()
         # (Windows 11's add symbol before their words, as every other Add: they began with a typed "+"; a screen reader
         # reads what each does, the symbol being read as nothing)
+        # (an EQ's sources named and ordered as By hand's: UI-RULES 16)
         for text, name, fn in (("The selected EQ", "Add the selected EQ", self.add_selected),
-                               ("An EQ file…", "Add an EQ file…", self.add_file),
+                               ("From an EQ file…", "Add from an EQ file…", self.add_file),
                                ("Paste filters…", "Add filters you paste…", self.add_paste)):
             b = QPushButton(text)
             icons.put(b, "add")
@@ -897,7 +900,10 @@ class Listen(QGroupBox):
                  f"error {st['rms']:.2f} dB" if st["rms"] is not None else "")
 
     def add_file(self):
-        f, _ = QFileDialog.getOpenFileName(self, "An EQ file", os.path.expanduser("~"), "EQ files (*.txt *.cfg *.csv);;All files (*)")
+        """From an EQ file…: as By hand's (its files, from your Saved EQs folder, read the same way)."""
+        import paths
+        start = paths.SAVED_EQS if os.path.isdir(paths.SAVED_EQS) else os.path.expanduser("~")
+        f, _ = QFileDialog.getOpenFileName(self, "An EQ file", start, "EQ files (*.txt *.peace *.cfg *.csv);;All files (*)")
         if not f:
             return
         try:
@@ -909,17 +915,25 @@ class Listen(QGroupBox):
 
     def add_paste(self):
         from ui.eq_page_parts import paste_dialog
-        got = paste_dialog(self, "Paste filters", "Name (e.g. Crinacle's EQ)",
-                           "Equalizer APO lines, or one filter per line as “frequency gain Q”:")
+        got = paste_dialog(self, "Paste filters", "Name (e.g. Crinacle's EQ)", "Equalizer APO lines, a Room EQ Wizard "
+                           "export, or one filter per line as “frequency gain Q”:")
         if got:
             self._add_text(got[1], got[0] or "Pasted EQ", "pasted")
 
     def _add_text(self, text, name, note):
-        r = self.page.svc.call("/api/filters/parse", {"text": text})
+        """An EQ file's or pasted text read as By hand reads it (Equalizer APO's lines, a Room EQ Wizard export, a Peace
+        preset, as Equalizer APO plays them: eq\\eqtext.py), what an EQ here can't have said; it read Equalizer APO's
+        lines only, so a Peace or Room EQ Wizard file worked in By hand but not here."""
+        r = self.page.svc.call("/api/filters/read", {"text": text, "settings": self.page.S})
+        left = r.get("left_out") or []
         if r.get("error") or not r.get("filters"):
-            QMessageBox.warning(self, "EQs to compare", r.get("error") or "No filters found in it.")
+            QMessageBox.warning(self, "EQs to compare", r.get("error") or (
+                f"Nothing in it can be heard here: {'; '.join(left)}." if left else "No filters found in it."))
             return
-        self.add(name, [dict(f, enabled=True) for f in r["filters"]], note)
+        self.add(name, [dict(f, enabled=f.get("enabled", True) is not False) for f in r["filters"]], note)
+        if left:
+            QMessageBox.information(self, "EQs to compare", f"Left out of “{name}” (an EQ here has peaking and shelf "
+                                    f"filters only): {'; '.join(left)}.")
 
     def render_pins(self):
         """Your EQs to compare as a table, a row each, in columns: its colour (its curve's on the graph), its name

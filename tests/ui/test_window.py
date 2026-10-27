@@ -239,6 +239,19 @@ def test_a_tab_click_draws_no_screen_again(devices_window, check, monkeypatch):
           (w.win.page(), saved, saved_after, drawn, told))
 
 
+def test_guide_with_presets_on_make_an_eq_only(devices_window, check):
+    # (2026-10-27, .claude/notes/UI-RULES.md 28: the top bar's right side has the shown screen's own commands, then the
+    # app's; Guide tours Make an EQ, so it shows there only, beside Presets: on Devices it took you to Make an EQ)
+    win = devices_window.win
+    seen = {}
+    for key in ("devices", "profiles", "settings"):
+        win.show_page(key, remember=False)
+        seen[key] = (win.guide_btn.isVisibleTo(win), win.presets_btn.isVisibleTo(win), win.help_btn.isVisibleTo(win))
+    win.show_page("devices", remember=False)
+    check("window: Guide shows with Presets on Make an EQ only (they're its own), Help on every screen",
+          all(v == (False, False, True) for v in seen.values()), seen)
+
+
 def test_closing_leaves_the_app_in_the_tray(devices_window, check):
     w = devices_window
     w.win.close()

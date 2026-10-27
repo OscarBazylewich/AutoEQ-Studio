@@ -238,7 +238,8 @@ def eq_steps(page):
 
     def run_demo(api):
         was = (page.run_btn.isEnabled(), not page.cancel_btn.isHidden(), not page.progress.isHidden(),
-               page.progress.maximum(), page.progress.value(), page.progress_text.text())
+               page.progress.maximum(), page.progress.value(), page.progress_text.text(),
+               not page.progress_text.isHidden())
 
         def back():
             page.run_btn.setEnabled(was[0])
@@ -247,13 +248,15 @@ def eq_steps(page):
             page.progress.setMaximum(was[3])
             page.progress.setValue(was[4])
             page.progress_text.setText(was[5])
+            page.progress_text.setVisible(was[6])
         api.undo(back)
         page.run_btn.setEnabled(False)
-        page.cancel_btn.show()
+        page.cancel_btn.show()  # (at the Run row's end, where nothing moves for it)
         page.progress.show()
         page.progress.setMaximum(100)
         page.progress.setValue(0)
         page.progress_text.setText("Starting…")
+        page.progress_text.show()  # (the line under Run shows only while it says something)
         api.spot_on(page.cancel_btn, page.progress, page.progress_text)
         yield 300
         yield from api.at(page.cancel_btn, 0.5, 0.5, 900, say="Cancel stops it at any time")
@@ -391,8 +394,8 @@ def eq_steps(page):
                 {"at": lambda: page.eqplot, "x": 0.12, "y": 0.8, "say": "Double-click where there's none: a new filter"}]
 
     def hand_demo(api):
-        items = ["Start empty", "From an EQ file…", "Paste filters…", "From a device's profile ▸",
-                 "A copy of the EQ shown"]
+        items = ["Start empty", "A copy of the selected EQ", "From an EQ file…", "Paste filters…",
+                 "From a device's profile ▸"]
         m = yield from mock_menu(api, page.hand_btn, items)
         api.spot_on(m)
         api.say("Start empty, or from an EQ you have (a file, pasted lines, a profile)")
@@ -515,7 +518,7 @@ def eq_steps(page):
         from PySide6.QtCore import QSize
         from ui.history_window import HistoryWindow
         w = HistoryWindow(page)
-        api.window(w, near=button(page, "History"), size=QSize(int(min(700, api.t.width() * 0.6)),
+        api.window(w, near=page.hist_btn, size=QSize(int(min(700, api.t.width() * 0.6)),
                                                              int(min(520, api.t.height() * 0.6))))
         api.spot_on(w.frame)
         yield from api.at(w.scroll, 0.4, 0.25, 1500, say="Your past EQs by day: Show brings one back with its files, "
@@ -690,7 +693,8 @@ def eq_steps(page):
                  "EQ file or pasted filters. Each IEM or headphone has its own list, kept between sessions; ticked "
                  "Graph: on the graph too.",
          "demo": [{"at": lambda: button(page.listen, "The selected EQ"), "say": "The EQ on the result card"},
-                  {"at": lambda: button(page.listen, "An EQ file…"), "say": "An EQ file (Equalizer APO, squiglink…)"},
+                  {"at": lambda: button(page.listen, "From an EQ file…"),
+                   "say": "An EQ file (Equalizer APO, Room EQ Wizard, Peace…)"},
                   {"at": lambda: button(page.listen, "Paste filters…"), "say": "Or filters pasted from anywhere"}]},
         {"chapter": "3 · Run & review", "title": "Compare by ear", "target": lambda: page.listen,
          "ready": lambda: page.listen.isVisible(),
@@ -704,16 +708,16 @@ def eq_steps(page):
          "text": "Save all settings under a name and load them later, e.g. one for the website and one for Equalizer "
                  "APO. A preset keeps settings, not your files.",
          "demo": [{"run": preset_demo, "say": "Save the settings as a preset, load it later"}]},
-        {"chapter": "More", "title": "History", "target": lambda: button(page, "History"),
+        {"chapter": "More", "title": "History", "target": lambda: page.hist_btn,
          "text": "Your past EQs, kept after you close the app: the ones you save or copy (or every run: Advanced › "
                  "History). Show one to bring it back with its files, or Keep to compare to add it to your EQs to compare.",
-         "demo": lambda: [{"click": lambda: button(page, "History"), "say": "History: your past EQs", "then": history_demo}]
-         + ([{"at": lambda: page.eqd_show, "say": "Under Measurement: when you've EQ'd it before; Show opens those"}]
+         "demo": lambda: [{"click": lambda: page.hist_btn, "say": "History: your past EQs", "then": history_demo}]
+         + ([{"at": lambda: page.eqd_show, "say": "Under Measurement: when you've EQ'd it before; Show in History… opens those"}]
             if page.eqd_show.isVisible() else [])},
-        {"chapter": "More", "title": "Only have a picture of a graph?", "target": lambda: button(page, "Trace image"),
-         "text": "Trace image turns a graph's picture into a measurement or a target. It has its own Guide. You can "
+        {"chapter": "More", "title": "Only have a picture of a graph?", "target": lambda: page.trace_btn,
+         "text": "Trace a graph image… turns a graph's picture into a measurement or a target. It has its own Guide. You can "
                  "also paste or drop a picture on the window.",
-         "demo": [{"at": lambda: button(page, "Trace image"), "say": "A picture of a graph becomes a curve"}]},
+         "demo": [{"at": lambda: page.trace_btn, "say": "A picture of a graph becomes a curve"}]},
         {"chapter": "More", "title": "Your devices", "target": lambda: win.nav["devices"], "top bar": True,
          "text": "Devices gives each playback device its own EQ through Equalizer APO, switched by itself when the "
                  "device plays, with a line saying whether it really plays; Profiles lists the EQs. Use on device puts "

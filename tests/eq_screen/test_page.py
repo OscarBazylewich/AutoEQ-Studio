@@ -125,8 +125,9 @@ def test_symbols_beside_the_main_actions(eq_screen, check):
         return next((b for b in root.findChildren(QPushButton) if b.text() == text), None)
     want = {"Run": page.run_btn, "Find… by Target": named(page.target_box, "Find…"),
             "Add… by Target": named(page.target_box, "Add…"), "Find… by Measurement": named(page.measurement_box, "Find…"),
-            "Add… by Measurement": named(page.measurement_box, "Add…"), "Trace image": named(page, "Trace image"),
-            "Hide shown curves": page.clear_prev_btn, "History": named(page, "History"),
+            "Add… by Measurement": named(page.measurement_box, "Add…"), "Trace a graph image…": page.trace_btn,
+            "Hide shown curves": page.clear_prev_btn, "History…": page.hist_btn, "Run several…": page.queue_btn, "Report": named(page.result_box, "Report"),
+            "Retry from these filters": page.retry_btn,
             "Save filters": named(page.result_box, "Save filters"),
             "Use on device": page.use_btn, "Copy": named(page.result_box, "Copy"),
             "Keep to compare": named(page.result_box, "Keep to compare"), "Add filter": named(page.result_box, "Add filter"),

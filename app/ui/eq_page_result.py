@@ -46,15 +46,23 @@ class EqResult:
         self.cancel_btn.show()
         self.progress.setValue(0)
         self.progress.show()
-        self.progress_text.setText("Starting…")
+        self.say_progress("Starting…")
+        if retry:  # (the page follows the job, UI-RULES 30: Retry is on the result card, its progress under Run)
+            self._scroll_to(self.progress)
+        self._run_view = self._scroll_value()  # (moved from here meanwhile: the result isn't scrolled to after)
         self._poll.start()
+
+    def say_progress(self, text):
+        """The line under Run: shown only while it says something (empty, it was a band of room under Run)."""
+        self.progress_text.setText(text)
+        self.progress_text.setVisible(bool(text))
 
     def _poll_job(self):
         j = self.svc.call("/api/job")
         total = j.get("total") or 0
         self.progress.setMaximum(max(1, total))
         self.progress.setValue(j.get("done") or 0)
-        self.progress_text.setText(f"{j.get('message') or ''}" + (f" · {round(j['elapsed'])} s" if j.get("elapsed") else ""))
+        self.say_progress(f"{j.get('message') or ''}" + (f" · {round(j['elapsed'])} s" if j.get("elapsed") else ""))
         if j.get("status") == "running":
             return
         self._poll.stop()
@@ -68,15 +76,17 @@ class EqResult:
             self.runs += 1
             self.run_result = dict(j["result"], n=self.runs)
             self.keep_run(self.run_result)
-            self.progress_text.setText(f"Done in {j['result'].get('seconds')} s.")
+            self.say_progress(f"Done in {j['result'].get('seconds')} s.")
             self.name_edit.clear()
             self.show_result(j["result"]["pick"])
             self.record(False)
+            if self._scroll_value() == getattr(self, "_run_view", None):  # (not if you scrolled meanwhile: a run
+                QTimer.singleShot(0, self, lambda: self._scroll_to(self.result_box))  # takes 7-20 s, UI-RULES 30)
         elif j.get("status") == "error":
-            self.progress_text.setText("")
-            QMessageBox.warning(self, "Run failed", j.get("message") or "The run failed.")
+            self.say_progress("")
+            QMessageBox.warning(self, "Run", j.get("message") or "The run failed.")
         elif j.get("status") == "cancelled":
-            self.progress_text.setText("Cancelled.")
+            self.say_progress("Cancelled.")
 
     # ---------------------------------------------------------------- the result
     def show_result(self, rid):
@@ -236,8 +246,20 @@ class EqResult:
         self.draw()
 
     def remove_run(self):
-        self.session_runs = [x for x in self.session_runs if x is not self.run_result]
+        """Remove: the run shown off this session's runs, with Undo in the window's line (UI-RULES 20: an EQ by hand
+        you'd changed went with it, for good)."""
+        run = self.run_result
+        at = next((i for i, x in enumerate(self.session_runs) if x is run), None)
+        self.session_runs = [x for x in self.session_runs if x is not run]
         self.show_run(self.session_runs[-1] if self.session_runs else None)
+        if run is not None and at is not None:
+            what = "From History" if run.get("history") else f"Run {run.get('n', 1)}"
+            self.status(f"Removed “{what} · {MODE_SHORT.get(run['mode'], run['mode'])}” from this session's runs.",
+                        undo=lambda: self._put_run_back(run, at))
+
+    def _put_run_back(self, run, at):
+        self.session_runs.insert(min(at, len(self.session_runs)), run)
+        self.show_run(run)
 
     def close_by_hand(self):
         """Close, on an EQ by hand: back to what was shown when it began (that run, else the last one left, else none:
@@ -467,11 +489,14 @@ class EqResult:
 
     # ---------------------------------------------------------------- an EQ made by hand
     def fill_hand_menu(self):
-        """By hand's menu, made as it opens: Start empty, From an EQ file…, Paste filters…, From a device's profile
-        (each profile, with the devices that have it), A copy of the EQ shown."""
+        """By hand's menu, made as it opens, in the order every list of an EQ's sources has (UI-RULES 16): Start empty,
+        A copy of the selected EQ, From an EQ file…, Paste filters…, From a device's profile (each profile, with the
+        devices that have it)."""
         m = self.hand_menu
         m.clear()
         m.addAction("Start empty", lambda: self.start_by_hand([], "started empty"))
+        a = m.addAction("A copy of the selected EQ", self.hand_from_shown)
+        a.setEnabled(bool(self.current()[1]))
         m.addAction("From an EQ file…", self.hand_from_file)
         m.addAction("Paste filters…", self.hand_from_paste)
         sub = m.addMenu("From a device's profile")
@@ -482,8 +507,6 @@ class EqResult:
             a.triggered.connect(lambda _=False, pid=pid: self.hand_from_profile(pid))
         if not profiles:
             sub.addAction("No profiles yet (Devices › Add a profile)").setEnabled(False)
-        a = m.addAction("A copy of the EQ shown", self.hand_from_shown)
-        a.setEnabled(bool(self.current()[1]))
 
     def start_by_hand(self, filters, source, name="", profile=None, left_out=()):
         """An EQ of your own on the result card, made by hand from these filters (none: start empty), as a run of its
@@ -514,6 +537,12 @@ class EqResult:
         area = next(iter(self.findChildren(QScrollArea)), None)
         if area is not None and w.isVisible():
             area.ensureWidgetVisible(w, 0, 40)
+
+    def _scroll_value(self):
+        """Where the page is scrolled to now (None before it's made)."""
+        from PySide6.QtWidgets import QScrollArea
+        area = next(iter(self.findChildren(QScrollArea)), None)
+        return area.verticalScrollBar().value() if area is not None else None
 
     def hand_note(self, st):
         """Under an EQ by hand's numbers: how to add a filter while it has none, and how it sounds next to the target."""

@@ -1,7 +1,7 @@
 """The Make an EQ screen's two folds of settings (AutoEQ Local's Settings fold and Settings › Advanced, natively):
 
 Settings (the ones used most):
-- Automatic settings: on or off, "Why these values" (each value and the fact about your files it comes from; "yours"
+- Automatic settings: on or off, "Why these settings" (the tracer's words; each value and the fact about your files it comes from; "yours"
   where you've set your own), "Set by you" (each one handed back with ↺, or all)
 - the method's own values: Website AutoEQ's six; the website sweep's summary; Best fit's filter counts, shelves and
   your own filters to start from
@@ -142,7 +142,7 @@ class EqSettings:
                                                   "Equalizer APO lines, e.g. Filter: ON PK Fc 1000 Hz Gain -3 dB Q 1")],
                  mode("best_fit")),
                 ("", [("best_fit.start_keep", "check")], lambda: S()["mode"] == "best_fit" and S()["best_fit"]["start_filters"].strip()),
-                (mine_row, [], mode("best_fit"))]),
+                (None, mine_row, mode("best_fit"))]),  # (in the boxes' column, under the box it fills)
             ("Scoring", [
                 ("Score from (Hz)", [("scoring.band_hz.0", "num"), ("scoring.band_hz.1", "num")]),
                 ("Pick", [("scoring.pick", "choice", [("audible", "Simplest that sounds the same as the target"),
@@ -370,7 +370,7 @@ class EqSettings:
         self.auto_on.toggled.connect(self.auto_switched)
         help_window.tag(self.auto_on, "#auto-on")
         v.addWidget(self.auto_on)
-        self.why_head = QLabel("Why these values")
+        self.why_head = QLabel("Why these settings")
         theme.mark(self.why_head, role="section")
         v.addWidget(self.why_head)
         self.why = QLabel()
@@ -538,7 +538,7 @@ class EqSettings:
                 items.append(f"<li>{text}</li>")
         self.why.setText("<ul style='margin-left:-20px'>" + "".join(items) + "</ul>" if items else
                          ("Choose a target and a measurement to fit the settings to." if on else "Automatic settings are off."))
-        self.why_head.setText(f"Why these values ({len(notes)})" if notes else "Why these values")
+        self.why_head.setText(f"Why these settings ({len(notes)})" if notes else "Why these settings")
         self.mine_box.setVisible(on and bool(mine))
         self.mine_text.setText("Set by you (kept as they are): " + ", ".join(LABELS.get(p, p) for p in mine)
                                + ".  Click a “yours ↺” tag to hand one back.")

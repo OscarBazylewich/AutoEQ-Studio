@@ -124,7 +124,7 @@ One column, top to bottom:
   plays them (a shelf at its corner frequency moved to its centre, a slope as its Q); an EQ here has peaking and
   shelf filters, so other filter types, a graphic EQ or a convolution are left out, and said. Begun from a
   profile, Use on device › Update puts it back into that profile (Profiles: "Edit in Make an EQ" does the same).
-  Close (beside Compare…) goes back to what was shown before it: your run, or none. Changed, it stays in
+  Close (at the right of its title) goes back to what was shown before it: your run, or none. Changed, it stays in
   "Runs this session" to come back to; empty or as it began, it just goes.
 - Settings and Advanced (folds): the automatic settings' values and why, or your own ("yours", ↺ hands one back).
   Every list is A to Z (numbers as numbers; a "Choose…" stays on top), and any list of more than 15 choices
@@ -169,7 +169,7 @@ One column, top to bottom:
   while it runs (editing the EQ, showing another result), which ends it. Results stay for the session.
 
 
-TRACING A GRAPH (Trace image, by the graph's title)
+TRACING A GRAPH (Trace a graph image…, by the graph's title)
 ---------------------------------------------------
 For an IEM or headphone whose measurement exists only as a picture (a maker's sheet, a review's screenshot): open,
 drop or paste (Ctrl+V) the picture, and it becomes a measurement or a target. Pasting or dropping a picture on Make an

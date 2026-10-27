@@ -425,6 +425,27 @@ def test_paste_ok_is_the_main_action(card, monkeypatch, check):
           and left == 0, (seen, len(lis.pins), n, left))
 
 
+def test_eq_file_read_as_by_hand_reads_it(card, dialogs, check):
+    # (2026-10-27, UI-RULES 16: one reader for an EQ's file: Listen's read Equalizer APO's lines only, so a Room EQ
+    # Wizard export or a Peace preset worked in By hand but not here)
+    lis = card.lis
+    n = len(lis.pins)
+    rew = ("Filter Settings file\n\nRoom EQ V5.31.3\nEqualiser: Generic\n"
+           "Filter  1: ON  PK       Fc   48.00 Hz  Gain  -7.50 dB  Q  4.200\n"
+           "Filter  2: ON  LS 12dB  Fc   150.0 Hz  Gain   3.00 dB\n"
+           "Filter  3: ON  LP       Fc   18000 Hz\n")
+    lis._add_text(rew, "REW check", "pasted")
+    added = lis.pins[-1] if len(lis.pins) > n else {}
+    told = [t for kind, t in dialogs.asked if kind == "information"]
+    if len(lis.pins) > n:  # (the list as it was, for the checks after this one)
+        lis.pins = lis.pins[:n]
+        lis.save_pins()
+    check("listen: an EQ file or pasted text is read as By hand reads it (a Room EQ Wizard export: its peak and its "
+          "shelf), and what an EQ here can't have (its low-pass) is said",
+          added.get("name") == "REW check" and len(added.get("filters", [])) == 2 and told and "Left out" in told[-1],
+          (added.get("filters"), told[-1:]))
+
+
 def test_add_buttons_symbol(card, check):
     # (the recheck, 2026-10-23: The selected EQ, An EQ file… and Paste filters… began with a typed "+", where every other
     # Add has Windows 11's add symbol; the Guide's step about your EQs to compare finds them by their words)
@@ -432,7 +453,7 @@ def test_add_buttons_symbol(card, check):
 
     from ui import guide, icons, theme
     page, lis = card.page, card.lis
-    words = ["The selected EQ", "An EQ file…", "Paste filters…"]
+    words = ["The selected EQ", "From an EQ file…", "Paste filters…"]
     adds = [next((b for b in lis.findChildren(QPushButton) if b.text().lstrip("+ ") == w), None) for w in words]
     t, size = theme.tokens(), QSize(22, 16)
     want = icons.glyph("add", t["ink"], on_colour=t["on_accent"], off_colour=t["disabled"]).pixmap(size).toImage()
@@ -440,9 +461,10 @@ def test_add_buttons_symbol(card, check):
             if b is not None else None for b in adds]
     step = next(s for s in guide.eq_steps(page) if s["title"] == "Your EQs to compare")
     pointed = [d["at"]() for d in step["demo"]]
-    check("listen: the three that add an EQ to compare (The selected EQ, An EQ file…, Paste filters…) show Windows 11's "
+    check("listen: the three that add an EQ to compare (The selected EQ, From an EQ file…, Paste filters…: By hand's "
+          "words and order) show Windows 11's "
           "add symbol beside their words, no typed “+”, and a screen reader reads what each adds; the Guide's step "
           "points at each of them",
-          seen == [("The selected EQ", "Add the selected EQ", True), ("An EQ file…", "Add an EQ file…", True),
+          seen == [("The selected EQ", "Add the selected EQ", True), ("From an EQ file…", "Add from an EQ file…", True),
                    ("Paste filters…", "Add filters you paste…", True)] and pointed == adds,
           (seen, [b.text() if b is not None else None for b in pointed]))

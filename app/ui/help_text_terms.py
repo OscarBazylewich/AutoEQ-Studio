@@ -254,7 +254,7 @@ TERMS = [{'title': 'Curves and sound',
                               'response again.'],
                      'see': ['tracer']},
                     {'id': 'tracer',
-                     'title': 'Trace image',
+                     'title': 'Trace a graph image',
                      'body': ['Turns a picture of a frequency response graph into curve files: it reads the axes, '
                               'follows a curve by its colour, and saves it as a measurement or target. Trace '
                               "image (by the graph's title) opens it: drop, paste or open a picture there. It has "
@@ -326,7 +326,7 @@ TERMS = [{'title': 'Curves and sound',
                      'title': 'Automatic settings, “yours” and ↺',
                      'body': ["With a target and a measurement chosen, the method's settings are fitted to them: "
                               'how far up the match is scored, how many filters, how much boost and cut, how '
-                              'narrow, whether to use a low shelf. “Why these values” lists the reason for each.',
+                              'narrow, whether to use a low shelf. “Why these settings” lists the reason for each.',
                               "Change a setting and it's marked “yours”: it keeps your value from then on. “yours "
                               '↺” hands it back. Untick Automatic settings to use every setting exactly as it '
                               'is.'],
@@ -531,7 +531,7 @@ QUESTIONS = [{'id': 'q-which-method',
               'see': ['automatic-settings']},
              {'id': 'q-auto-why',
               'q': 'Why do the automatic settings choose these values?',
-              'body': ['Each value under “Why these values” comes from your measurement and target, and from tests '
+              'body': ['Each value under “Why these settings” comes from your measurement and target, and from tests '
                        'on real measurements:',
                        ["Scored range: up to where your measurement's files (seatings, channels) still agree, "
                         'often about 10 kHz. Above that a measurement changes with fit and insertion depth, so '
@@ -564,7 +564,7 @@ QUESTIONS = [{'id': 'q-which-method',
               'see': ['eq-app', 'file-formats']},
              {'id': 'q-graph',
               'q': 'I only have a picture of a graph. Can I use it?',
-              'body': ["Yes: Trace image (by the graph's title), then drop, paste or open the picture there. It "
+              'body': ["Yes: Trace a graph image… (by the graph's title), then drop, paste or open the picture there. It "
                        'reads the axes, follows the curve and saves it as a measurement or target.'],
               'see': ['tracer']},
              {'id': 'q-listen',

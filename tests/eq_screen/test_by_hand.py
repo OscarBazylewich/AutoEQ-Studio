@@ -115,9 +115,9 @@ def test_a_copy_of_the_eq_shown(eq_screen, check):
     page.EDIT.append({"enabled": True, "type": "LSQ", "freq": 100, "gain": 3, "q": 0.7})
     page.live_update()
     before = len(page.session_runs)
-    _menu_action(page, "A copy of the EQ shown").trigger()
+    _menu_action(page, "A copy of the selected EQ").trigger()
     run, _ = page.current()
-    check("by hand: A copy of the EQ shown starts another EQ by hand with its filters as they are now, the one before "
+    check("by hand: A copy of the selected EQ starts another EQ by hand with its filters as they are now, the one before "
           "kept in this session's runs",
           len(page.session_runs) == before + 1 and run["source"] == "a copy of your EQ by hand" and len(page.EDIT) == 2
           and not page.edited(), (run.get("source"), page.EDIT))

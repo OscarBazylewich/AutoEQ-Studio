@@ -343,8 +343,7 @@ def find_windows(t, img):
     rows without padding (Qt puts a row's widgets inside it: the lists' 7 px cut its buttons and names; headings and
     notes keep a little at the sides), a result's name (semibold) and its download mark (Windows 11's symbol, from its
     icon font; Segoe MDL2 Assets on Windows 10); a row's ✕ is every quiet button (buttons(): its fill laid over the
-    row's, so it shows on a pointed-at row); Files' chevron (#findFiles: drawn as a menu button's, buttons()) turned
-    up while its files are shown.
+    row's, so it shows on a pointed-at row).
     Sources: its tree of databases as the lists (a card with rounded corners, whole rows filled when pointed at or
     chosen; their ticks say which are on). Which measurement: the rank, a measurement's name, its reasons (+ good,
     − not), its chart's card, and a box filled while the mouse is over it (its curve is the one on top); a note to
@@ -353,7 +352,6 @@ def find_windows(t, img):
     QListWidget#findList::item {{ padding: 0px; }}
     QListWidget#findList::item:disabled {{ padding: 0px 8px; }}
     QListWidget#findList::item:disabled:hover {{ background: transparent; }}
-    QPushButton#findFiles[open="true"]::menu-indicator {{ image: url({img['chevron_up']}); }}
     QLabel#findRowName {{ font-weight: 600; }}
     QLabel#findMark {{ font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets"; font-size: 12pt;
         color: {t['muted']}; padding: 0px 2px; }}

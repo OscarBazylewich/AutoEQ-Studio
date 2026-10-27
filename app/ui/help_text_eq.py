@@ -130,7 +130,7 @@ HELP_EQ = {'slot:target': ['The curve you want your earphone to sound like.', 't
  '#eq-graph': ["The EQ itself: drag a filter's handle for its frequency and gain, the mouse wheel for its Q.",
                'by-hand',
                'q'],
- '#by-hand': ['Make the EQ yourself: empty, from an EQ file, pasted filters, a profile or a copy of the EQ shown.',
+ '#by-hand': ['Make the EQ yourself: empty, a copy of the selected EQ, an EQ file, pasted filters or a profile.',
               'by-hand',
               'peaking-filter',
               'shelf'],
@@ -414,9 +414,9 @@ SETTINGS_EQ = [{'title': 'Choosing and running',
                            'title': 'By hand',
                            'body': ['Beside Run: an EQ you make yourself, shown on the result card as a run of its '
                                     'own, so Save filters, Copy, Use on device, Listen and the rest work as for any '
-                                    'result. Start empty, or from an EQ you have: an EQ file (Equalizer APO, AutoEq, '
-                                    "squig.link, Room EQ Wizard's export, a Peace preset), pasted filters, a device's "
-                                    'profile, or a copy of the EQ shown. Files are read as Equalizer APO plays them; '
+                                    'result. Start empty, as a copy of the selected EQ, or from an EQ you have: an EQ '
+                                    "file (Equalizer APO, AutoEq, squig.link, Room EQ Wizard's export, a Peace preset), "
+                                    "pasted filters or a device's profile. Files are read as Equalizer APO plays them; "
                                     "what an EQ here can't have (other filter types, a graphic EQ…) is said, never "
                                     'left out without a word.',
                                     'A measurement and target are optional: chosen, the graph shows your IEM with the '
@@ -424,7 +424,7 @@ SETTINGS_EQ = [{'title': 'Choosing and running',
                                     'that profile. Close, on its result card, goes back to what was shown before.']},
                           {'key': '#hand-close',
                            'title': 'Close (an EQ by hand)',
-                           'body': ['On an EQ by hand\'s result card, at the end of the row with Compare…: back to '
+                           'body': ['On an EQ by hand\'s result card, at the right of its title: back to '
                                     'what was shown before you began it, the run you had, or none, the page as it '
                                     'was.',
                                     'An EQ by hand you changed stays in Runs this session, to come back to as you '
@@ -557,7 +557,8 @@ SETTINGS_EQ = [{'title': 'Choosing and running',
                            'body': ['EQs to hear side by side on this IEM or headphone: each is a version above (keys '
                                     '1–9) and, while Graph is ticked, a curve on the graph. Add the EQ on the result '
                                     'card (Keep to compare, or “The selected EQ” under the list), one from History '
-                                    '(Keep to compare), an EQ file or pasted filters. Edit a name to rename it. Each '
+                                    '(Keep to compare), an EQ file (read as By hand reads it: Equalizer APO, Room EQ '
+                                    'Wizard, Peace) or pasted filters. Edit a name to rename it. Each '
                                     'measurement has its own list, kept between sessions (up to 12).']}]},
                {'title': 'Finding curves and History',
                 'items': [{'key': '#pk-anykind',

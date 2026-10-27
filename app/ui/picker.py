@@ -35,7 +35,7 @@ from PySide6.QtCore import QRect, QSize, Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QFont, QFontMetrics
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QHBoxLayout, QLabel, QLayout, QLineEdit,
                                QListWidget, QListWidgetItem, QMessageBox, QPushButton, QSizePolicy, QStyle,
-                               QStyleOptionButton, QStyleOptionComboBox, QStylePainter, QVBoxLayout, QWidget)
+                               QStyleOptionComboBox, QVBoxLayout, QWidget)
 
 import net
 from ui import help_window, icons, tasks, theme
@@ -249,36 +249,24 @@ class FoundList(QListWidget):
 
 
 class FilesButton(QPushButton):
-    """Files: a measurement's files shown under its row (to tick or untick one by one), or hidden again. Windows 11's
-    chevron after its word, as on a button with a menu (the theme's own picture, in the same place: theme_sheet's
-    buttons part), down while they're hidden and up while they're shown (find_windows: findFiles, open="true"): drawn
-    as Qt draws a menu button's, this one having no menu (it opens its files in the list). It was "Files ▾" / "Files
-    ▴", typed triangles, where the app uses Windows 11's chevrons (the recheck, 2026-10-23)."""
+    """Show files / Hide files: a measurement's files under its row (to tick or untick one by one), or hidden again.
+    In words, as wide either way: a chevron on a button opens a menu (.claude/notes/UI-RULES.md 12), and this one, drawn
+    as a menu button's (the recheck, 2026-10-23, from typed triangles), opened rows."""
+
+    WORDS = ("Show files", "Hide files")
 
     def __init__(self, shown):
-        super().__init__("Files")
+        super().__init__(self.WORDS[1] if shown else self.WORDS[0])
         self.setObjectName("findFiles")
-        self.setProperty("open", "true" if shown else "false")
-        self.setAccessibleDescription("Hides its files" if shown else "Shows its files under it")
-
-    def _option(self):
-        opt = QStyleOptionButton()
-        self.initStyleOption(opt)
-        opt.features |= QStyleOptionButton.ButtonFeature.HasMenu  # (the chevron at its right, its word before it)
-        return opt
 
     def sizeHint(self):
-        s = super().sizeHint()  # (and room for the chevron, as Qt gives a button with a menu)
-        return QSize(s.width() + self.style().pixelMetric(QStyle.PM_MenuButtonIndicator, self._option(), self),
-                     s.height())
+        # (room for the longer of its two words, in the font it's drawn in: the row doesn't move as it changes)
+        s, fm = super().sizeHint(), self.fontMetrics()
+        more = max(fm.horizontalAdvance(w) for w in self.WORDS) - fm.horizontalAdvance(self.text())
+        return QSize(s.width() + max(0, more), s.height())
 
     def minimumSizeHint(self):
         return self.sizeHint()
-
-    def paintEvent(self, _e):
-        p = QStylePainter(self)
-        p.drawControl(QStyle.CE_PushButton, self._option())
-        p.end()
 
 
 class Picker(QDialog):

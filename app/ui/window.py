@@ -14,7 +14,8 @@ it, Stop now.
   AutoEQ Studio, or taking AutoEQ Studio out of it), and Backup (everything of yours in one .zip, and back: backup.py).
 Online / Offline (top right, and in Settings): offline, the app never connects to the internet (net.py).
 Help (top right; F1 anywhere: at the entry of the setting under the pointer or being typed in): ui\\help_window.py.
-Guide (top right): a tour of Make an EQ (ui\\guide.py, shown by ui\\tour.py); the tracer has its own.
+Guide (top right, on Make an EQ, beside Presets: both are that screen's): a tour of Make an EQ (ui\\guide.py, shown by
+ui\\tour.py); the tracer has its own.
 A banner over the device screens says when APO isn't installed or isn't using AutoEQ Studio yet. Messages show in
 the line at the bottom. Closing the window leaves the app in the tray; Quit is in the tray icon's menu.
 Everything is drawn in the app's theme (ui\\theme.py: Windows 11's look, light or dark as Windows is, in Windows'
@@ -187,12 +188,15 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.presets_menu.aboutToShow.connect(self.fill_presets)
         self.presets_btn.setMenu(self.presets_menu)
         h.addWidget(self.presets_btn)
-        guide = QPushButton("Guide")
-        theme.mark(guide, nav=True)
-        icons.put(guide, "guide")
-        guide.setToolTip("A tour of Make an EQ: each part and what it does")
-        guide.clicked.connect(self.start_guide)
-        h.addWidget(guide)
+        # (Presets and Guide are Make an EQ's own: shown on that screen, then a gap, then the app's own, Help and
+        # Online; Guide showed everywhere and took you to Make an EQ, UI-RULES 28)
+        self.guide_btn = QPushButton("Guide")
+        theme.mark(self.guide_btn, nav=True)
+        icons.put(self.guide_btn, "guide")
+        self.guide_btn.setToolTip("A tour of Make an EQ: each part and what it does")
+        self.guide_btn.clicked.connect(self.start_guide)
+        h.addWidget(self.guide_btn)
+        h.addSpacing(16)
         self.help_btn = helpb = QPushButton("Help")  # (its symbol is the question mark it had in its words)
         theme.mark(helpb, nav=True)
         icons.put(helpb, "help")
@@ -257,6 +261,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.stack.setCurrentWidget(self.pages[key])
         self.nav[key].setChecked(True)
         self.presets_btn.setVisible(key == "eq")
+        self.guide_btn.setVisible(key == "eq")
         self.render_banner()
         if key == "settings":  # (your files' folder: it may have been chosen since, e.g. when Make an EQ opened)
             self.show_files_folder()

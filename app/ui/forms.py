@@ -135,6 +135,9 @@ class Limits:
         return sorted(set(map(c, v)))
 
 
+CHOICE_MOST, LIST_MOST = 360, 240  # (px: a drop-down's width at most, a list of numbers' (UI-RULES 26))
+
+
 def help_of(path):
     """A setting's tooltip line (a "to" box shares its "from" box's; a list's item, its list's: help_window.help_key)."""
     from ui.help_window import help_key
@@ -175,6 +178,11 @@ class Field(QWidget):
             self.box.editingFinished.connect(self._left)
             if kind == "num":
                 self.box.setMaximumWidth(110)
+        # (a drop-down or a list of numbers as wide as its choices, not the card: its tag right after it, where every
+        # number box's is; they zig-zagged, UI-RULES 26)
+        capped = {"choice": CHOICE_MOST}.get(kind, LIST_MOST if kind not in ("check", "num", "lines", "block") else None)
+        if capped:
+            self.box.setMaximumWidth(capped)
         lay.addWidget(self.box, 0 if kind == "check" else 1)
         self.step = (form.steps or {}).get(path) if kind == "num" else None
         if self.step:  # (− and +, and ↑ ↓ or the wheel in the box: a step down or up, as AutoEQ Local's number boxes)
@@ -194,7 +202,7 @@ class Field(QWidget):
         self.tag.clicked.connect(lambda: self.handed_back.emit(self.path))
         self.tag.hide()
         lay.addWidget(self.tag)
-        if kind == "check":  # (the tag right beside its checkbox)
+        if kind == "check" or capped:  # (the tag right beside its box)
             lay.addStretch(1)
         tip = help_of(path)
         allowed = form.limits.text(path)
@@ -375,6 +383,10 @@ class Form(QWidget):
                 if isinstance(label, QWidget):  # (a note or a widget of its own, across the row)
                     grid.addWidget(label, i, 0, 1, 2)
                     self.rows.append(([label], show))
+                    continue
+                if label is None and isinstance(specs, QWidget):  # (a widget in the boxes' column: a button that fills
+                    grid.addWidget(specs, i, 1)  # the box above it, under it: .claude/notes/UI-RULES.md 27)
+                    self.rows.append(([specs], show))
                     continue
                 lab = QLabel(label)
                 self._labels.append(lab)

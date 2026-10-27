@@ -18,7 +18,7 @@ HELP_TRACE = {'#tr-auto-on': ["Fits the tracer's settings to the image.", 'autom
  '#tr-dashed': 'Follows dashed or dotted curves across their gaps.',
  '#tr-comp': ['Adds a target back, for graphs drawn relative to one.', 'compensated']}
 
-SETTINGS_TRACE = [{'title': 'Trace image',
+SETTINGS_TRACE = [{'title': 'Trace a graph image',
                    'items': [{'key': '#tr-auto-on',
                               'title': 'Automatic settings (tracer)',
                               'body': ["Fits the tracer's settings to the image: colour tolerance, points per octave, "

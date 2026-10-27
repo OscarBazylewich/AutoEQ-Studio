@@ -94,7 +94,7 @@ class EqGraph:
         self.sa_what.setText((search[:1].upper() + search[1:] + ".") if search else "")
         self.estimate.setText(f"A run takes {a['time']}" if a.get("time") else "")
         if hasattr(self, "settings"):
-            self.settings.refresh()  # (the values filled in, "Why these values")
+            self.settings.refresh()  # (the values filled in, "Why these settings")
 
     def _recolour(self, draw=True):
         """The theme changed (light or dark, Windows' accent): what the page draws in its own colours, again."""

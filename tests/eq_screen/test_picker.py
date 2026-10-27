@@ -705,11 +705,11 @@ def test_whole_in_the_guides_frame(eq_screen, check):
           "line whole", len(seen) == 4 and not bad, bad)
 
 
-def test_files_with_windows_chevron(eq_screen, check):
-    # (the recheck, 2026-10-23: a measurement's Files was "Files ▾" / "Files ▴", typed triangles, where the app now
-    # draws Windows 11's chevron, as on every button with a menu: the theme's own picture, in the same place)
+def test_files_says_show_or_hide(eq_screen, check):
+    # (2026-10-27, UI-RULES 12: a chevron on a button opens a menu; a measurement's Files, drawn as a menu button's,
+    # opened rows in the list: it says what it does in words now, as wide either way, no chevron)
     from PySide6.QtCore import Qt
-    from PySide6.QtWidgets import QMenu, QPushButton
+    from PySide6.QtWidgets import QPushButton
     pk = _shown_picker(eq_screen.page, "")
     seen = {}
     try:
@@ -717,28 +717,16 @@ def test_files_with_windows_chevron(eq_screen, check):
                        if (pk.list.item(i).data(Qt.UserRole) or {}).get("device"))
 
         def files_button():
-            return next(b for b in pk.list.findChildren(QPushButton) if b.isVisible() and b.text().startswith("Files"))
+            return next(b for b in pk.list.findChildren(QPushButton) if b.isVisible() and b.objectName() == "findFiles")
         for state in ("hidden", "shown"):
             if state == "shown":
                 pk.toggle_expand(app_row["device"]["name"])
                 pk.finish_list()
                 qt.pump(200)
             b = files_button()
-            like = QPushButton(b.text(), b.parentWidget())  # (a button with a menu, beside it in its row)
-            like.setMenu(QMenu(like))
-            like.resize(b.size())
-            like.show()
-            qt.pump(50)
-            same = b.grab().toImage() == like.grab().toImage()
-            seen[state] = {"words": b.text(), "as wide": b.sizeHint() == like.sizeHint(), "drawn as it": same,
-                           "picture": b.grab().toImage()}
-            like.deleteLater()
+            seen[state] = (b.text(), b.menu() is None, b.width())
     finally:
         _close(pk)
-    pictures = [s.pop("picture") for s in seen.values()]
-    check("restyle: Find…'s Files shows Windows 11's chevron after its word, as a button with a menu draws it (the "
-          "theme's picture, its room, its place), down while the files are hidden and turned up while they're shown "
-          "(no typed ▾ or ▴)",
-          seen["hidden"] == {"words": "Files", "as wide": True, "drawn as it": True}
-          and seen["shown"]["words"] == "Files" and seen["shown"]["as wide"] and not seen["shown"]["drawn as it"]
-          and pictures[0] != pictures[1], seen)
+    check("ui: Find…'s Files says Show files / Hide files in words, as wide either way, and has no menu's chevron",
+          seen["hidden"][:2] == ("Show files", True) and seen["shown"][:2] == ("Hide files", True)
+          and seen["hidden"][2] == seen["shown"][2], seen)
