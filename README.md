@@ -64,7 +64,7 @@ More info, then Run anyway. Running a newer Setup later updates it and keeps you
 1. Download this repository (Code > Download ZIP, then extract it) or clone it.
 2. Double-click `AutoEQ Studio.bat`. The first start sets up its Python packages (Qt, numpy, scipy and the rest,
    about 150 MB) in a `.venv` folder; later starts open straight away.
-3. Click **Guide** (top right) for a tour, or **Help** for every setting.
+3. On Make an EQ, click **Guide** (top right) for a tour; **Help** has every setting.
 
 To use the per-device EQ, install Equalizer APO on your devices first, then click **Set up…** in the app.
 

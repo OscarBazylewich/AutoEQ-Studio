@@ -63,8 +63,21 @@ TRAY = ("import json, sys; sys.path.insert(0, sys.argv[1])\n"
         "darkest = min(min(img.pixelColor(x, y).getRgb()[:3]) for x in range(r.left(), r.right())\n"
         "              for y in range(r.top(), r.bottom()))\n"
         "t = theme.tokens()\n"
+        "def ink(menu, act):  # (how much of its row is dark: the words' weight)\n"
+        "    g = menu.actionGeometry(act)\n"
+        "    pic = menu.grab().toImage()\n"
+        "    return sum(1 for x in range(g.left(), g.right()) for y in range(g.top(), g.bottom())\n"
+        "               if min(pic.pixelColor(x, y).getRgb()[:3]) < 110)\n"
+        "from PySide6.QtWidgets import QMenu\n"
+        "dft = m.defaultAction()\n"
+        "plain = QMenu()\n"
+        "same = plain.addAction(dft.text() if dft else '')\n"
+        "plain.ensurePolished()\n"
+        "plain.resize(plain.sizeHint())\n"
         "print(json.dumps({'name': m.objectName(), 'head': head.text(), 'darkest': darkest,\n"
-        "                  'muted': int(t['muted'][1:3], 16), 'disabled': int(t['disabled'][1:3], 16)}))\n"
+        "                  'muted': int(t['muted'][1:3], 16), 'disabled': int(t['disabled'][1:3], 16),\n"
+        "                  'default': dft.text() if dft else None, 'first': m.actions()[0].text(),\n"
+        "                  'ink': ink(m, dft) if dft else 0, 'plain_ink': ink(plain, same)}))\n"
         "a.tray.hide(); a.win.close()\n")
 
 
@@ -79,3 +92,8 @@ def test_the_tray_menus_headings_readable(check, fake_apo, tmp_path):
     check("tray: the menu's headings (the device playing, the EQ being tried) in the readable secondary colour, not "
           "the grey of an item that can't be chosen", d.get("name") == "tray" and d.get("muted") is not None
           and abs(d.get("darkest", 999) - d["muted"]) <= 12, d or out.stderr[-400:])
+    # (2026-10-27, UI-RULES: Open first, as Windows' tray menus; the app's stylesheet drew it as plain as the rest)
+    check("tray: Open AutoEQ Studio first, the menu's default (the icon's own click), its words heavier than a plain "
+          "item's", d.get("first") == d.get("default") == "Open AutoEQ Studio"
+          and d.get("ink", 0) > 1.15 * d.get("plain_ink", 10 ** 6), d and (d.get("first"), d.get("default"),
+                                                                            d.get("ink"), d.get("plain_ink")))

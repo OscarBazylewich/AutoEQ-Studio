@@ -161,13 +161,17 @@ class App:
     def build_menu(self):
         m = self.menu
         m.clear()
+        # (Open first, the default (semibold: theme_sheet), as the icon's own click: as Windows' tray menus have it;
+        # Quit alone at the end)
+        m.setDefaultAction(m.addAction("Open AutoEQ Studio", self.win.show_front))
+        m.addSeparator()
         t = self.sw.trial
         if t:
             left = max(0, int(t["until"] - time.time()))
             m.addAction(f"Trying “{t['name']}” on {shown(self.sw.record(t['key']))} ({left // 60}:{left % 60:02d} left)"
                         ).setEnabled(False)
             m.addAction("Keep it", lambda: self.end_trial(True))
-            m.addAction("Stop trying", lambda: self.end_trial(False))
+            m.addAction("Stop now", lambda: self.end_trial(False))  # (the trial bar's words: one act, UI-RULES 16)
             m.addSeparator()
         key, rec = self.sw.playing()
         if rec:
@@ -194,7 +198,6 @@ class App:
         else:
             m.addAction("No device playing").setEnabled(False)
         m.addSeparator()
-        m.addAction("Open AutoEQ Studio", self.win.show_front)
         m.addAction("Quit", self.quit)
 
     def switch(self, key, pid):

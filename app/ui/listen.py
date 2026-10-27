@@ -381,6 +381,11 @@ class Listen(QGroupBox):
             box.setCurrentIndex(max(0, box.findData(pick)))
             box.blockSignals(False)
         self.abx_start.setEnabled(len(vs) >= 2 and self.abx is None)
+        # (off: why, beside it, UI-RULES 25)
+        self.abx_start.setToolTip("Each trial X is A or B at random: listen to all three, say which X is. At the end: "
+                                  "your score, and how often guessing alone does as well" + (
+                                      "" if len(vs) >= 2 else " (it needs two versions: an EQ on the result card, or "
+                                                              "one of your EQs to compare)"))
 
     def abx_begin(self):
         """An ABX test of A and B: level-matched and both ears the same version while it runs (put back after), the
@@ -540,6 +545,7 @@ class Listen(QGroupBox):
         self.render_pins()
         self.render_apo()
         self.add_sel_btn.setEnabled(has_sel)
+        self.add_sel_btn.setToolTip("" if has_sel else "No EQ on the result card yet: run, or make one by hand")
         self._abx_fill()
 
     def update_sound(self):
@@ -916,7 +922,7 @@ class Listen(QGroupBox):
     def add_paste(self):
         from ui.eq_page_parts import paste_dialog
         got = paste_dialog(self, "Paste filters", "Name (e.g. Crinacle's EQ)", "Equalizer APO lines, a Room EQ Wizard "
-                           "export, or one filter per line as “frequency gain Q”:")
+                           "export, or one filter per line as “frequency gain Q”", "Add")
         if got:
             self._add_text(got[1], got[0] or "Pasted EQ", "pasted")
 

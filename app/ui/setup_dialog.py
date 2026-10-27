@@ -5,13 +5,12 @@ uses offered as profiles (the one on now becomes the playing device's)."""
 import os
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QCheckBox, QDialog, QFrame, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
-                               QMessageBox, QPushButton, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QCheckBox, QDialog, QLabel, QListWidget, QListWidgetItem,
+                               QMessageBox, QVBoxLayout, QWidget)
 
 from switcher import eqfile
 from switcher.core import shown
-from ui import theme
-from ui.window_parts import muted
+from ui.window_parts import dialog_band, muted
 
 
 def _words(text):
@@ -103,19 +102,7 @@ class SetUpDialog(QDialog):
                                     "playing now."))
         # the buttons, as Windows 11's dialogs have them: on a band in the window's colour, the main one (Set up,
         # Enter's) in the accent, sharing the width
-        footer = QFrame()
-        footer.setObjectName("dialogFooter")
-        fl = QHBoxLayout(footer)
-        fl.setContentsMargins(24, 16, 24, 16)
-        fl.setSpacing(8)
-        self.go_btn = QPushButton("Set up")
-        theme.mark(self.go_btn, primary=True)
-        self.go_btn.setDefault(True)
-        self.go_btn.clicked.connect(self._go)
-        cancel = QPushButton("Cancel")
-        cancel.clicked.connect(self.reject)
-        fl.addWidget(self.go_btn, 1)
-        fl.addWidget(cancel, 1)
+        footer, self.go_btn = dialog_band(self, "Set up", self._go)  # (every such dialog's: window_parts)
         outer.addWidget(footer)
         # its size, fixed as Windows 11's dialogs are: as wide as its widest tick box's words (a tick box gives way
         # when there's less room: its words were cut), and as tall as its wrapping words need at that width (Windows
@@ -143,7 +130,7 @@ class SetUpDialog(QDialog):
         try:
             self.sw.set_up_apo(turn_off=self.chk_off is None or self.chk_off.isChecked())
         except OSError as e:
-            QMessageBox.warning(self, "Couldn't set up", f"Couldn't change config.txt: {e}")
+            QMessageBox.warning(self, "Set up", f"Couldn't change config.txt: {e}")
             return
         key, rec = self.sw.playing()
         if key and added_on and not rec["profiles"]:
@@ -159,5 +146,5 @@ class SetUpDialog(QDialog):
             problems.append("EQ Switcher is still running (this version can't be asked to quit): quit it from its "
                             "tray icon's menu.")
         if problems:
-            QMessageBox.warning(self, "Not done", "\n\n".join(problems))
+            QMessageBox.warning(self, "Set up", "\n\n".join(problems))
         self.accept()

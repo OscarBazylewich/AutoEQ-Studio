@@ -8,7 +8,8 @@
   adding and taking off profiles, whether Equalizer APO is installed on it, your name for it (Rename…), and a line
   saying whether its EQ really plays (Equalizer APO asked by itself, switcher\\check.py; again when something changes).
 A bar over every screen while an EQ is being tried on a device (Use on device › Try for 5 minutes): time left, Keep
-it, Stop now.
+it, Stop now; and one in the same look while a device's EQ is off for now, to compare (the on/off hotkey): Switch it
+back on (.claude/notes/UI-RULES.md 23).
 - Profiles: every profile (a copy of an EQ file): import, rename, remove, where each is used.
 - Settings: starting with Windows, notices, the hotkey, online or offline, Equalizer APO (setting it up for
   AutoEQ Studio, or taking AutoEQ Studio out of it), and Backup (everything of yours in one .zip, and back: backup.py).
@@ -84,8 +85,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         lay.setSpacing(0)
         lay.addWidget(self._top_bar())
         # the banner: Windows 11's warning bar (its sign, the words, the action)
-        self.banner_btn = QPushButton()
-        theme.mark(self.banner_btn, primary=True)
+        self.banner_btn = QPushButton()  # (plain, as every notice's action: Windows 11's info bar, UI-RULES 8)
         self.banner_btn.clicked.connect(self._banner_action)
         self.banner, self.banner_text = warning_card("", self.banner_btn)
         holder = QWidget()
@@ -104,8 +104,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         clock.setObjectName("trialGlyph")
         self.trial_text = QLabel()
         self.trial_text.setWordWrap(True)
-        keep = QPushButton("Keep it")
-        theme.mark(keep, primary=True)
+        keep = QPushButton("Keep it")  # (plain, as every notice's action: UI-RULES 8)
         icons.put(keep, "check")
         keep.setToolTip("Make it a profile of the device, switched on")
         keep.clicked.connect(lambda: self.app.end_trial(True))
@@ -122,6 +121,29 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         hl.setContentsMargins(14, 10, 14, 0)
         hl.addWidget(self.trial_bar)
         self.trial_holder = holder
+        holder.hide()
+        lay.addWidget(holder)
+        # a device's EQ off for now, to compare (the on/off hotkey): the trial's look, its way back beside it
+        self.compare_bar = QFrame()
+        theme.mark(self.compare_bar, card=True)
+        cl = QHBoxLayout(self.compare_bar)
+        cl.setContentsMargins(4, 0, 4, 0)
+        cl.setSpacing(12)
+        mark = glyph("eq", said="EQ off for now")
+        mark.setObjectName("trialGlyph")  # (the trial's clock's colour: the accent's text colour)
+        self.compare_text = QLabel()
+        self.compare_text.setWordWrap(True)
+        back = QPushButton("Switch it back on")
+        icons.put(back, "undo")
+        back.clicked.connect(lambda: self.sw.compare and self.sw.compare_toggle(self.sw.compare["key"]))
+        cl.addWidget(mark)
+        cl.addWidget(self.compare_text, 1)
+        cl.addWidget(back)
+        holder = QWidget()
+        hl = QVBoxLayout(holder)
+        hl.setContentsMargins(14, 10, 14, 0)
+        hl.addWidget(self.compare_bar)
+        self.compare_holder = holder
         holder.hide()
         lay.addWidget(holder)
         self._trial_timer = QTimer(self, interval=1000, timeout=self.render_trial)
@@ -470,6 +492,14 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
     def render_online(self):
         off = net.offline()
         self.online_btn.setChecked(not off)
+        # (as wide either way: Presets, Guide and Help beside it moved a few px as it was switched; the button's own
+        # size for each word, as the text's width alone was a pixel off one way)
+        self.online_btn.ensurePolished()
+        widths = []
+        for words in ("○ Offline", "● Online"):
+            self.online_btn.setText(words)
+            widths.append(self.online_btn.sizeHint().width())
+        self.online_btn.setMinimumWidth(max(widths))
         self.online_btn.setText("● Online" if not off else "○ Offline")
         self.online_btn.setToolTip("Online: the app may use the internet (the online databases). Click for offline: "
                                    "nothing goes to the internet." if not off else
@@ -508,6 +538,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
             self.eq_page.listen.render_apo()
 
     def render_trial(self):
+        self.render_compare()
         t = self.sw.trial
         if not t:
             if not self.trial_holder.isHidden():
@@ -517,6 +548,20 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.trial_text.setText(f"Trying “{t['name']}” on {shown(self.sw.record(t['key']))}, in every app: "
                                 f"{left // 60}:{left % 60:02d} left, then its own EQ comes back.")
         self.trial_holder.show()
+
+    def render_compare(self):
+        """The bar while a device's EQ is off for now, to compare: whose, how "off" plays, how to switch it back on."""
+        c = self.sw.compare
+        if not c:
+            if not self.compare_holder.isHidden():
+                self.compare_holder.hide()
+            return
+        hk = self.sw.s.get("onoff_hotkey")
+        how = (f"level-matched: turned down {abs(c['db']):.1f} dB to the EQ's loudness" if c.get("matched") and c.get("db")
+               else "level-matched" if c.get("matched") else "truly off")
+        self.compare_text.setText(f"The EQ of {shown(self.sw.record(c['key']))} is off for now, to compare ({how})"
+                                  + (f": {hk} brings it back." if hk else "."))
+        self.compare_holder.show()
 
     def render_all(self):
         self.render_trial()
@@ -533,8 +578,6 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
             self.banner_holder.hide()
             return
         self.banner_holder.show()
-        self.banner_btn.setEnabled(True)
-        self.banner_btn.setToolTip("")  # (the offline note, set below, doesn't stay once online)
         if not apo.found:
             text, btn, self._banner_do = ("Equalizer APO isn't installed. AutoEQ Studio works through it: install it, "
                                           "choose your devices in its Configurator, then restart Windows."), \
@@ -551,14 +594,16 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
             return
         self.banner_text.setText(text)
         self.banner_btn.setText(btn)
-        if self._banner_do == "download" and net.offline():  # (a website: not while offline)
-            self.banner_btn.setEnabled(False)
-            self.banner_btn.setToolTip("Offline: go online to open Equalizer APO's website.")
+        icons.put(self.banner_btn, {"download": "download", "folder": "folder"}.get(self._banner_do, "tools"))
         self.banner_holder.show()
         self.banner.show()
 
     def _banner_action(self):
         if self._banner_do == "download":
+            if net.offline():  # (a website: offline, said in the window's line as every "Offline: …"; it was a button
+                # greyed out, its reason only in a tooltip)
+                self.status("Offline: switch to Online (top right) to open websites.")
+                return
             QDesktopServices.openUrl(QUrl(paths.APO_DOWNLOAD))
         elif self._banner_do == "folder":
             self.open_folder(self.sw.apo.config)

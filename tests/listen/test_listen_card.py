@@ -407,12 +407,15 @@ def test_versions_in_rows_that_fit(card, check):
 
 def test_paste_ok_is_the_main_action(card, monkeypatch, check):
     from PySide6.QtCore import QCoreApplication, QEvent
-    from PySide6.QtWidgets import QDialog, QDialogButtonBox
+    from PySide6.QtWidgets import QDialog, QFrame, QPushButton
     lis = card.lis
     seen = {}
 
     def look(dlg, *a, **k):
-        seen.update(ok=dlg.findChild(QDialogButtonBox).button(QDialogButtonBox.Ok).property("primary"),
+        # (2026-10-27, UI-RULES 2: Set up's Windows 11 band, its main button named by its verb)
+        band = dlg.findChild(QFrame, "dialogFooter")
+        main = band.findChildren(QPushButton)[0] if band is not None else None
+        seen.update(ok=main.property("primary") if main else None, words=main.text() if main else None,
                     title=dlg.windowTitle())
         return QDialog.Rejected
     monkeypatch.setattr(QDialog, "exec", look)
@@ -420,9 +423,10 @@ def test_paste_ok_is_the_main_action(card, monkeypatch, check):
     lis.add_paste()
     QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
     left = len(lis.findChildren(QDialog))
-    check("listen: Paste filters… asks in a window whose OK is its main action (the accent); cancelled, nothing is "
-          "added and the window goes", seen == {"ok": "true", "title": "Paste filters"} and len(lis.pins) == n
-          and left == 0, (seen, len(lis.pins), n, left))
+    check("listen: Paste filters… asks in Windows 11's dialog, its main action named by its verb (Add, in the accent, "
+          "on the band below); cancelled, nothing is added and the window goes",
+          seen == {"ok": "true", "words": "Add", "title": "Paste filters"} and len(lis.pins) == n and left == 0,
+          (seen, len(lis.pins), n, left))
 
 
 def test_eq_file_read_as_by_hand_reads_it(card, dialogs, check):

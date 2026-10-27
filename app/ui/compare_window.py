@@ -227,6 +227,14 @@ class CompareWindow(QDialog):
             self.again = None
         tasks.background(lambda: self.svc.call("/api/compare", body), done, owner=self)
 
+    def _open_site(self, url):
+        if net.offline():
+            self.footer.say("Offline: switch to Online (top right) to open websites.")
+            return
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        QDesktopServices.openUrl(QUrl(url))
+
     # ---------------------------------------------------------------- showing
     def render(self):
         d = self.data
@@ -262,9 +270,7 @@ class CompareWindow(QDialog):
             lk = QLabel("Also measured by sites that don't allow downloads (open them to look, or trace their graph): " + links)
             lk.setWordWrap(True)
             lk.setTextFormat(Qt.RichText)
-            lk.setOpenExternalLinks(not net.offline())
-            if net.offline():
-                lk.setToolTip("Offline: go online to open these sites.")
+            lk.linkActivated.connect(self._open_site)  # (offline: said in the window's line, UI-RULES 25)
             lay.addWidget(lk)
         lay.addStretch(1)
         self.scroll.setWidget(body)

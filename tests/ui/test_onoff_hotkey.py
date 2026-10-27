@@ -25,7 +25,7 @@ def test_settings_row(devices_window, check):
     win.onoff_hotkey_changed.connect(emitted.append)
     try:
         none = next(b for b in win.pages["settings"].findChildren(QPushButton)
-                    if b.accessibleName() == "No hotkey to switch the EQ off and on")
+                    if b.accessibleName() == "Clear the hotkey to switch the EQ off and on")
         none.click()
         win.chk_matched.setChecked(False)
         saved = w.sw.s.get("onoff_matched")
@@ -78,16 +78,20 @@ def test_devices_while_off_for_now(on_device, qapp, check):
     w.sw.compare_toggle(KEY)
     win.render_all()
     qapp.processEvents()  # (the panel made again: shown once Qt has laid it out)
-    words = " ".join(lab.text() for lab in win.pages["devices"].findChildren(QLabel) if lab.isVisible())
-    back = next((b for b in win.pages["devices"].findChildren(QPushButton) if b.text() == "Switch it back on"), None)
+    # (2026-10-27, UI-RULES 23: a bar at the window's top, as a trial's, says it; a card inside Devices' EQ card did)
+    words = win.compare_text.text() if win.compare_holder.isVisibleTo(win) else ""
+    back = next((b for b in win.compare_bar.findChildren(QPushButton) if b.text() == "Switch it back on"), None)
+    card_gone = not any(lab.text().startswith("Its EQ is off for now") for lab in
+                        win.pages["devices"].findChildren(QLabel) if lab.isVisibleTo(win))  # (the old card's words)
     line = win._status(KEY)[1] if hasattr(win, "_status") else ""
     no_check = win.check_label is None
     back.click()
     win.render_all()
-    check("onoff: Devices says a device's EQ is off for now (its line, a note with how and the key, Switch it back on, "
-          "no APO check meanwhile); Switch it back on ends it",
+    check("onoff: a bar at the window's top says a device's EQ is off for now (how, the key, Switch it back on), as a "
+          "trial's does, and Devices its line, with no APO check meanwhile; Switch it back on ends it",
           "off for now" in words and "Ctrl+Alt+Space" in words and back is not None and line == "EQ off for now (comparing)"
-          and no_check and w.sw.compare is None, (line, words[:300], no_check))
+          and no_check and card_gone and w.sw.compare is None and not win.compare_holder.isVisibleTo(win),
+          (line, words[:300], no_check, card_gone))
 
 
 def test_the_apps_notices(check):

@@ -8,8 +8,8 @@ import os
 
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices, QKeySequence
-from PySide6.QtWidgets import (QCheckBox, QFileDialog, QGroupBox, QHBoxLayout, QKeySequenceEdit, QLabel, QMessageBox,
-                               QPushButton, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QCheckBox, QFileDialog, QGridLayout, QGroupBox, QHBoxLayout, QKeySequenceEdit, QLabel,
+                               QMessageBox, QPushButton, QVBoxLayout, QWidget)
 
 import paths
 from ui import help_window, icons, theme
@@ -26,6 +26,7 @@ class SettingsScreen:
     def _settings_tab(self):
         w = QWidget()
         lay = QVBoxLayout(w)
+        lay.setContentsMargins(0, 0, 0, 0)  # (lined up with the top bar, as every screen: .claude/notes/UI-RULES.md 5)
         box = QGroupBox("AutoEQ Studio")
         bl = QVBoxLayout(box)
         self.chk_autostart = QCheckBox("Start with Windows (in the tray)")
@@ -37,48 +38,48 @@ class SettingsScreen:
         bl.addWidget(self.chk_autostart)
         bl.addWidget(self.chk_notify)
         bl.addWidget(self.chk_offline)
-        row = QHBoxLayout()
-        row.addWidget(QLabel("Hotkey to switch the playing device's EQ:"))
+        lay.addWidget(box)
+
+        # the hotkeys, as a form (UI-RULES 26): their labels in one column, their boxes lined up in the next, each
+        # note under its box (they were sentences ending in a colon, each box where its words ended)
+        box = QGroupBox("Hotkeys")
+        g = QGridLayout(box)
+        g.setHorizontalSpacing(12)
+        g.setVerticalSpacing(6)
+        g.setColumnStretch(2, 1)
+        g.addWidget(QLabel("Switch the playing device's EQ"), 0, 0)
         self.hotkey_edit = QKeySequenceEdit()
         self.hotkey_edit.setMaximumSequenceLength(1)
+        self.hotkey_edit.setAccessibleName("Hotkey to switch the playing device's EQ")
         self.hotkey_edit.editingFinished.connect(lambda: self.hotkey_changed.emit(
             self.hotkey_edit.keySequence().toString(QKeySequence.PortableText)))
-        row.addWidget(self.hotkey_edit)
-        clear = QPushButton("None")
+        g.addWidget(self.hotkey_edit, 0, 1)
+        clear = QPushButton("Clear")  # (it was "None", a value's word on an action: UI-RULES 15)
+        clear.setAccessibleName("Clear the hotkey to switch the playing device's EQ")
         clear.clicked.connect(lambda: (self.hotkey_edit.clear(), self.hotkey_changed.emit("")))
-        row.addWidget(clear)
-        row.addStretch(1)
-        bl.addLayout(row)
+        g.addWidget(clear, 0, 2, Qt.AlignLeft)
         self.hotkey_note = muted()
-        bl.addWidget(self.hotkey_note)
+        g.addWidget(self.hotkey_note, 1, 1, 1, 2)
         help_window.tag(self.hotkey_edit, "#hotkey")
         # the on/off hotkey (2026-10-26): the playing device's EQ off for now, to compare, and back
-        row = QHBoxLayout()
-        row.addWidget(QLabel("Hotkey to switch the EQ off for now and back on, to compare:"))
+        g.addWidget(QLabel("Switch its EQ off for now, to compare"), 2, 0)
         self.onoff_edit = QKeySequenceEdit()
         self.onoff_edit.setMaximumSequenceLength(1)
         self.onoff_edit.setAccessibleName("Hotkey to switch the EQ off for now and back on")
         self.onoff_edit.editingFinished.connect(lambda: self.onoff_hotkey_changed.emit(
             self.onoff_edit.keySequence().toString(QKeySequence.PortableText)))
-        row.addWidget(self.onoff_edit)
-        clear = QPushButton("None")
-        clear.setAccessibleName("No hotkey to switch the EQ off and on")
+        g.addWidget(self.onoff_edit, 2, 1)
+        clear = QPushButton("Clear")
+        clear.setAccessibleName("Clear the hotkey to switch the EQ off and on")
         clear.clicked.connect(lambda: (self.onoff_edit.clear(), self.onoff_hotkey_changed.emit("")))
-        row.addWidget(clear)
-        row.addStretch(1)
-        bl.addLayout(row)
+        g.addWidget(clear, 2, 2, Qt.AlignLeft)
         help_window.tag(self.onoff_edit, "#onoff-hotkey")
         self.chk_matched = QCheckBox("Level-matched: “off” plays as loud as the EQ (turned down to its loudness)")
         self.chk_matched.toggled.connect(lambda on: self.sw.set("onoff_matched", bool(on)))
         help_window.tag(self.chk_matched, "#onoff-matched")
-        bl.addWidget(self.chk_matched)
+        g.addWidget(self.chk_matched, 3, 1, 1, 2)
         self.onoff_note = muted()
-        bl.addWidget(self.onoff_note)
-        about = muted(f"Version {paths.VERSION}" + (" · installed" if paths.INSTALLED
-                                                     else f" · run from its folder ({paths.PROGRAM})"))
-        about.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        about.setWordWrap(True)
-        bl.addWidget(about)
+        g.addWidget(self.onoff_note, 4, 1, 1, 2)
         lay.addWidget(box)
 
         box = QGroupBox("Equalizer APO")
@@ -89,9 +90,10 @@ class SettingsScreen:
         bl.addWidget(self.apo_state)
         row = QHBoxLayout()
         self.btn_setup = QPushButton("Set up…")
+        icons.put(self.btn_setup, "tools")  # (every button in the row with its symbol: UI-RULES 9)
         self.btn_setup.clicked.connect(self.set_up_dialog)
         self.btn_unset = QPushButton("Take AutoEQ Studio out of APO…")
-        icons.put(self.btn_unset, "cancel")
+        icons.put(self.btn_unset, "remove")
         self.btn_unset.clicked.connect(self.take_out)
         self.btn_conf = QPushButton("Open APO's Configurator")
         icons.put(self.btn_conf, "open_new")
@@ -99,9 +101,10 @@ class SettingsScreen:
         self.btn_folder = QPushButton("Open APO's config folder")
         icons.put(self.btn_folder, "folder")
         self.btn_folder.clicked.connect(lambda: self.open_folder(self.sw.apo.config))
-        for b in (self.btn_setup, self.btn_unset, self.btn_conf, self.btn_folder):
+        for b in (self.btn_setup, self.btn_conf, self.btn_folder):
             row.addWidget(b)
-        row.addStretch(1)
+        row.addStretch(1)  # (taking it out last and apart, never first beside Set up…: UI-RULES 14)
+        row.addWidget(self.btn_unset)
         bl.addLayout(row)
         lay.addWidget(box)
 
@@ -147,6 +150,16 @@ class SettingsScreen:
             row.addWidget(b)
         row.addStretch(1)
         bl.addLayout(row)
+        lay.addWidget(box)
+
+        # the version, last, in a card of its own, as Windows 11's apps' About (it read as the hotkeys' last note)
+        box = QGroupBox("About")
+        bl = QVBoxLayout(box)
+        about = muted(f"Version {paths.VERSION}" + (" · installed" if paths.INSTALLED
+                                                     else f" · run from its folder ({paths.PROGRAM})"))
+        about.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        about.setWordWrap(True)
+        bl.addWidget(about)
         lay.addWidget(box)
         lay.addStretch(1)
         return w
@@ -261,7 +274,7 @@ class SettingsScreen:
         if QMessageBox.question(
                 self, "Take AutoEQ Studio out of APO",
                 "config.txt's AutoEQ Studio line goes, and the lines it turned off are on again: APO works as it did "
-                "before. Your profiles stay (for setting up again).") == QMessageBox.Yes:
+                "before. Your profiles stay (for setting up again).") == QMessageBox.Yes:  # (Set up… puts it back)
             try:
                 self.sw.remove_from_apo()
             except OSError as e:
@@ -281,4 +294,4 @@ class SettingsScreen:
         if folder and os.path.isdir(folder):
             os.startfile(folder)
         elif folder:
-            QMessageBox.information(self, "Not there yet", f"{folder} isn't there yet.")
+            QMessageBox.information(self, "Open the folder", f"{folder} isn't there yet.")

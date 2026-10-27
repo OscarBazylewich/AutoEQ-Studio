@@ -54,15 +54,16 @@ SETTINGS_DEVICES = [{'title': 'Devices',
                                 'title': 'Hotkey (Settings)',
                                 'body': ["Works in any program: it goes through the playing device's profiles, "
                                          'then Off (Ctrl+Alt+E to start with). Click the box and press the keys you '
-                                         'want; None takes it off. Windows refuses keys another program has.']},
+                                         'want; Clear takes it off. Windows refuses keys another program has.']},
                                {'key': '#onoff-hotkey',
                                 'title': 'Hotkey to switch the EQ off for now and back on (Settings)',
                                 'body': ["Works in any program (Ctrl+Alt+Space to start with): the playing device's "
                                          'EQ off for now, to compare it with no EQ on whatever is playing, then back '
                                          "on. It isn't saved: choosing an EQ for the device, or starting AutoEQ "
                                          'Studio again, ends it. With no EQ on, it switches on the one the device had '
-                                         "last. The tray icon's menu has it too (EQ off for now, to compare); Devices "
-                                         "says when a device's EQ is off for now, with Switch it back on."]},
+                                         "last. The tray icon's menu has it too (EQ off for now, to compare); a bar at "
+                                         "the window's top, as a trial's, says when a device's EQ is off for now, with "
+                                         "Switch it back on."]},
                                {'key': '#onoff-matched',
                                 'title': 'Level-matched (the on/off hotkey)',
                                 'body': ['On (to start with), “off” is no EQ turned down to the EQ’s loudness (pink '

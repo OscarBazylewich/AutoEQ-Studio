@@ -1350,7 +1350,7 @@ class TraceWindow(QWidget):
         r = page.svc.call("/api/files/add", {"kind": kind, "files": [{"name": o["file"], "content": o["text"]}
                                                                      for o in outs], "settings": page.S})
         if r.get("error"):
-            QMessageBox.warning(self, "Not added", r["error"])
+            QMessageBox.warning(self, f"Add as {kind}", r["error"])
             return
         names, page.S, inputs = r["names"], r["settings"], r["inputs"]
         if kind == "measurement" and inputs:  # a traced graph is a device of its own: exactly its files in use

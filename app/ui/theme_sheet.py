@@ -200,7 +200,9 @@ def progress_and_sliders(t, img):
 def scroll_areas_and_menus(t, img):
     """Scroll areas and their thin scroll bars, splitters, the status bar and menus. A menu's item that can't be
     chosen is a note in this app ("No presets yet: …", "Run first", the tray's device playing): in the muted colour,
-    readable (4.5:1), not the unavailable grey. A submenu's arrow is Windows 11's chevron."""
+    readable (4.5:1), not the unavailable grey. A submenu's arrow is Windows 11's chevron. A menu's default item (the
+    tray's Open AutoEQ Studio: the icon's own click) in semibold, as Windows marks it (a stylesheet's menu item drops
+    Qt's own bold)."""
     return f"""
     QScrollArea {{ background: transparent; border: none; }}
     QScrollArea > QWidget > QWidget {{ background: transparent; }}
@@ -210,6 +212,7 @@ def scroll_areas_and_menus(t, img):
     QMenu::item {{ padding: 6px 28px 6px 12px; border-radius: 4px; }}
     QMenu::item:selected {{ background: {t['sel']}; color: {t['sel_ink']}; }}
     QMenu::item:disabled {{ color: {t['muted']}; }}
+    QMenu::item:default {{ font-weight: 600; }}
     QMenu::right-arrow {{ image: url({img['chevron_right']}); width: 12px; height: 12px; right: 8px; }}
     QMenu::separator {{ height: 1px; background: {t['stroke']}; margin: 4px 0; }}
     QScrollBar:vertical {{ background: transparent; width: 12px; margin: 0; }}
@@ -283,7 +286,8 @@ def window_screens(t, img):
     - Devices: a profile's ✕ is every row's (quiet=true, buttons()); Add a profile's chevron is every menu button's
       (buttons()), the tray menu's headings every menu's notes (scroll_areas_and_menus())
     - Profiles: the table's words under their headings (#profileTable)
-    - Set up (#setUp): the words on the card colour, the buttons on a band in the window's colour (#dialogFooter)
+    - Set up (#setUp) and every dialog asking for a decision (dialog=true: Paste filters): the words on the card
+      colour, the buttons on a band in the window's colour (#dialogFooter, window_parts.dialog_band)
     - message boxes' buttons made wider by their padding (a min-width is a fixed minimum in Qt: a message box then
       squeezed its long buttons below their words)"""
     default = (f"background: {t['accent']}; color: {t['on_accent']}; border: 1px solid {t['accent']}; "
@@ -294,7 +298,7 @@ def window_screens(t, img):
     QStatusBar#windowStatus::item {{ border: none; }}
     QStatusBar#windowStatus QLabel {{ color: {t['ink2']}; padding-left: 8px; }}
     QTableWidget#profileTable::item {{ padding: 0px 5px; }}
-    QDialog#setUp {{ background: {t['card']}; }}
+    QDialog#setUp, QDialog[dialog="true"] {{ background: {t['card']}; }}
     QDialog#setUp QListWidget::item {{ padding: 3px 8px; }}
     QFrame#dialogFooter {{ background: {t['bg']}; border: none; border-top: 1px solid {t['line']}; }}
     QMessageBox QPushButton, QInputDialog QPushButton {{ padding-left: 24px; padding-right: 24px; }}

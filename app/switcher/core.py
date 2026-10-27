@@ -276,13 +276,19 @@ class Switcher:
         return [shown(d) for d in self.s["devices"].values() if pid in d["profiles"]]
 
     # ---------------------------------------------------------------- a device's profiles
-    def add_to_device(self, key, pid, switch_on=True):
+    def add_to_device(self, key, pid, switch_on=True, at=None):
+        """A profile on a device's list: at its end, switched on when switch_on (or when it's the device's only one and
+        none is on); at=n (Undo after taking it off): back in its place n, on only if it was (switch_on), so the
+        device's EQ is exactly as it was."""
         d = self.record(key)
         if not d or pid not in self.s["profiles"]:
             return
         if pid not in d["profiles"]:
-            d["profiles"].append(pid)
-        if switch_on or d["active"] is None and len(d["profiles"]) == 1:
+            if at is None:
+                d["profiles"].append(pid)
+            else:
+                d["profiles"].insert(min(max(0, at), len(d["profiles"])), pid)
+        if switch_on or at is None and d["active"] is None and len(d["profiles"]) == 1:
             d["active"] = pid
         self.save()
         self.apply()

@@ -118,6 +118,9 @@ class DevicesScreen:
         split.addWidget(self.dev_list)
         self.dev_panel = QWidget()
         self.dev_lay = QVBoxLayout(self.dev_panel)
+        # (its title level with the list's top, as every screen's content: Qt's 9 px put it lower, .claude/notes/
+        # UI-RULES.md 5; a gap kept from the list beside it)
+        self.dev_lay.setContentsMargins(16, 0, 0, 0)
         scroll = QScrollArea()  # (many profiles on a device, or a small window: the panel scrolls, never squeezed)
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
@@ -211,17 +214,9 @@ class DevicesScreen:
 
         box = QGroupBox("EQ for this device")
         bl = QVBoxLayout(box)
+        # (its EQ off for now, to compare: a bar at the window's top, as a trial's, says so and brings it back,
+        # UI-RULES 23; a yellow card here pushed the choices down)
         c = self.sw.compare if self.sw.compare and self.sw.compare["key"] == key else None
-        if c:  # (the on/off hotkey: its EQ off for now, to compare)
-            back = QPushButton("Switch it back on")
-            icons.put(back, "undo")
-            back.clicked.connect(lambda: self.sw.compare_toggle(key))
-            hk = self.sw.s.get("onoff_hotkey")
-            how = (f"level-matched: turned down {abs(c['db']):.1f} dB to the EQ's loudness" if c["matched"] and c["db"]
-                   else "level-matched" if c["matched"] else "truly off")
-            note, _ = warning_card(f"Its EQ is off for now, to compare ({how})" + (f": {hk} brings it back." if hk
-                                                                                    else "."), back)
-            bl.addWidget(note)
         group = QButtonGroup(box)
         off = QRadioButton("Off")
         off.setChecked(rec["active"] is None)
@@ -244,7 +239,7 @@ class DevicesScreen:
             x.setText("✕")
             x.setToolTip("Take it off this device (it stays in Profiles)")
             x.setAccessibleName(f"Take {p['name']} off this device")
-            x.clicked.connect(lambda _=False, pid=pid: self.sw.remove_from_device(key, pid))
+            x.clicked.connect(lambda _=False, pid=pid: self.take_off(key, pid))
             row.addWidget(x)
             holder = QWidget()
             holder.setLayout(row)
@@ -258,7 +253,7 @@ class DevicesScreen:
             menu.addAction(p["name"], lambda pid=pid: self.sw.add_to_device(key, pid))
         if others:
             menu.addSeparator()
-        menu.addAction("Import an EQ file…", lambda: self.import_files(for_device=key))
+        menu.addAction("Import EQ files…", lambda: self.import_files(for_device=key))  # (Profiles' words: one act)
         add.setMenu(menu)
         bl.addWidget(add, 0, Qt.AlignLeft)
         lay.addWidget(box)
@@ -286,10 +281,27 @@ class DevicesScreen:
                             + (f" {onoff} switches its EQ off for now and back, to compare." if onoff else "")))
         lay.addStretch(1)
 
+    def take_off(self, key, pid):
+        """A profile's ✕: off this device (it stays in Profiles), with Undo in the window's line (UI-RULES 20): back in
+        its place in the device's list (the hotkey's order), on only if it was."""
+        rec = self.sw.record(key)
+        if not rec or pid not in rec["profiles"]:  # (taken off already: a second click before the panel was redrawn)
+            return
+        was_on, at = rec["active"] == pid, rec["profiles"].index(pid)
+        name = self.sw.profile_name(pid)
+        self.sw.remove_from_device(key, pid)
+
+        def undo():
+            if pid not in self.sw.profiles():  # (deleted in Profiles meanwhile)
+                self.status(f"“{name}” was deleted meanwhile: there's nothing to put back.")
+                return
+            self.sw.add_to_device(key, pid, switch_on=was_on, at=at)
+        self.status(f"Took “{name}” off this device.", undo=undo)
+
     def rename_device(self, key):
         rec = self.sw.record(key)
         name, ok = QInputDialog.getText(self, "Rename the device", f"Your name for it (empty: Windows' name, "
-                                        f"{rec['label']}):", text=rec.get("nickname", ""))
+                                        f"{rec['label']})", text=rec.get("nickname", ""))
         if ok:
             self.sw.set_nickname(key, name)
             self.render_all()

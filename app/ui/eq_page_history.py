@@ -213,7 +213,7 @@ class EqHistory:
 
     def save_preset(self):
         from PySide6.QtWidgets import QInputDialog
-        name, ok = QInputDialog.getText(self, "Save a preset", "Save the current settings as the preset:",
+        name, ok = QInputDialog.getText(self, "Save a preset", "Name of the preset (every setting, not your files)",
                                         text="My settings")
         name = name.strip()
         if not ok or not name:

@@ -93,7 +93,7 @@ class EqFiles:
             elif r.get("settings"):
                 self.S = r["settings"]
         if said:
-            QMessageBox.warning(self, "Not added", "\n\n".join(said))
+            QMessageBox.warning(self, "Add", "\n\n".join(said))  # (a question's title names its command: UI-RULES 17)
         st = self.svc.call("/api/state")
         if "inputs" in st:
             self.S = st["settings"]
@@ -149,7 +149,7 @@ class EqFiles:
         use, the adjustments back to 0 (eq.service /api/target/save); Undo puts it all back."""
         from PySide6.QtWidgets import QInputDialog
         base = os.path.splitext(self.S["files"].get("active_target") or "Target")[0]
-        name, ok = QInputDialog.getText(self, "Save as a target", "Name of your target:", text=f"{base} (mine)")
+        name, ok = QInputDialog.getText(self, "Save as a target", "Name of your target", text=f"{base} (mine)")
         if not ok or not name.strip():
             return
         res = self.svc.call("/api/target/save", {"settings": self.S, "name": name.strip()})

@@ -956,8 +956,9 @@ class Picker(QDialog):
             self.page.remove_preview(r["key"])
             self.render()
             return
-        if not self.page.curves:  # ("do this first", said in this window's line: UI-RULES 25)
-            self.footer.say("Choose a target and a measurement first: a preview is drawn beside them.")
+        if not self.page.curves:  # ("do this first": the button on, a box saying what's needed, UI-RULES 25)
+            QMessageBox.information(self, "Preview", "Choose a target and a measurement first: a preview is drawn "
+                                    "beside them.")
             return
         loading = self.__dict__.setdefault("_showing", set())
         if r["key"] in loading:  # (pressed again while it loads)

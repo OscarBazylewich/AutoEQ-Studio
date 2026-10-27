@@ -222,13 +222,15 @@ PROFILES AND DEVICES
 A profile is a copy of an EQ file in Equalizer APO's format: an "Equalizer APO" file saved by Make an EQ (Import
 starts in AutoEQ Studio's Saved EQs folder; or AutoEQ Local's), AutoEq's ParametricEQ.txt, squig.link's
 export, or one saved from APO's Editor. (Use on device does it in one step, from Make an EQ's result.) Profiles are kept in APO's config folder ("AutoEQ Studio\profiles"), so changing the
-original file later doesn't change the profile: import it again. Profiles › "Edit in Make an EQ" opens the chosen one
-there as an EQ by hand: change its filters, then Use on device › Update puts it back (its devices keep it, and hear
-the change at once).
+original file later doesn't change the profile: import it again. Profiles' commands are above its table (those for
+one profile on once you choose it): "Edit in Make an EQ" opens the chosen one there as an EQ by hand: change its
+filters, then Use on device › Update puts it back (its devices keep it, and hear the change at once); Rename…, Open
+the profiles folder; Delete… (last) deletes its file, asked first.
 
 Devices tab: your playback devices, as Windows names them ("Headset (EarPods)"), the one playing now first (green
 dot; connected: your Windows accent colour, blue by default; grey: not connected). Choose one to give it profiles
-("Add a profile") and choose the one on, or Off. Rename… gives it your own name ("Dongle – KZ"), shown everywhere.
+("Add a profile") and choose the one on, or Off (a profile's ✕ takes it off the device, with Undo at the bottom of
+the window). Rename… gives it your own name ("Dongle – KZ"), shown everywhere.
 The line under its EQ says whether the EQ really plays: AutoEQ Studio asks Equalizer APO itself (✓ or ✕; Check
 again says all it found).
 A device can have several profiles (e.g. a USB-C dongle used with different IEMs): switch between them from the
@@ -240,9 +242,9 @@ Windows twice (music, and "Hands-Free" for calls): AutoEQ Studio treats them as 
 
 THE TRAY ICON
 -------------
-Blue: an EQ is on for the device playing; grey: none. Hover for which. Right-click: the device playing, its profiles
-and Off (click one to switch), Open AutoEQ Studio, Quit. A notice says which EQ is on when another device starts
-playing or you switch (Settings: turn notices off).
+Blue: an EQ is on for the device playing; grey: none. Hover for which. Right-click: Open AutoEQ Studio (in bold:
+what a click on the icon does), the device playing, its profiles and Off (click one to switch), then Quit. A notice
+says which EQ is on when another device starts playing or you switch (Settings: turn notices off).
 
 Hotkey (Settings; Ctrl+Alt+E to start with): goes through the playing device's profiles, then Off, in any program.
 If Windows refuses a key (another program has it), Settings says so: choose another.
@@ -251,8 +253,8 @@ On/off hotkey (Settings; Ctrl+Alt+Space to start with): the playing device's EQ 
 on whatever is playing, then back on (also the tray icon's menu: "EQ off for now, to compare"). Level-matched (on to
 start with), "off" plays no EQ turned down to the EQ's loudness (Listen's measure: pink noise as the ear weighs it),
 so the louder one doesn't seem better for being louder; the notice says by how much. It isn't saved: choosing an EQ
-for the device, or starting AutoEQ Studio again, ends it; Devices says when it's on, with "Switch it back on". With
-no EQ on, the hotkey switches on the one the device had last.
+for the device, or starting AutoEQ Studio again, ends it; a bar at the window's top says when it's on, with "Switch
+it back on" (as a 5-minute trial's bar does). With no EQ on, the hotkey switches on the one the device had last.
 
 Start with Windows (Settings): starts in the tray when you sign in. Task Manager's Startup apps lists it as
 "AutoEQ Studio" (a copy of Python's pythonw.exe by that name, in the .venv\Scripts folder; an entry called

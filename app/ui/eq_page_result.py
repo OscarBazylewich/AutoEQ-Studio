@@ -439,7 +439,7 @@ class EqResult:
                     10000)
 
     def _replace_ok(self, names):
-        return QMessageBox.question(self, "Replace?", "Already in your Saved EQs folder:\n\n" + "\n".join(names)
+        return QMessageBox.question(self, "Save filters", "Already in your Saved EQs folder:\n\n" + "\n".join(names)
                                     + "\n\nReplace? (No keeps them: change the File name to save beside them.)") == QMessageBox.Yes
 
     def report(self, open_it=True):
@@ -569,7 +569,7 @@ class EqResult:
     def hand_from_paste(self):
         from ui.eq_page_parts import paste_dialog
         got = paste_dialog(self, "Paste filters", "Name (e.g. My EQ)", "Equalizer APO lines, a Room EQ Wizard export, "
-                           "or one filter per line as “frequency gain Q”:")
+                           "or one filter per line as “frequency gain Q”", "Start")
         if got:
             self._hand_from_text(got[1], "pasted", got[0] or "Pasted EQ")
 

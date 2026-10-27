@@ -498,7 +498,7 @@ def eq_steps(page):
         api.say("“Save current settings as…”")
         yield from pick(api, m, items.index("Save current settings as…"))
         api.close(m)
-        f = api.prompt("Save a preset", "Save the current settings as the preset:", near=b)
+        f = api.prompt("Save a preset", "Name of the preset (every setting, not your files)", near=b)
         api.spot_on(f)
         api.say("…under a name")
         f.edit.setText("")

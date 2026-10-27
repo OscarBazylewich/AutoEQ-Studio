@@ -135,13 +135,21 @@ def modal(dlg):
     dlg.deleteLater()
 
 
-def paste_dialog(parent, title, name_hint, words):
-    """A window to paste filters into, with a name: (name, text), or None when it's cancelled. Its OK is its main
-    action (the accent, as Windows 11's)."""
-    from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLineEdit, QPlainTextEdit, QVBoxLayout
+def paste_dialog(parent, title, name_hint, words, verb="OK"):
+    """A window to paste filters into, with a name: (name, text), or None when it's cancelled. Windows 11's dialog, as
+    Set up's (.claude/notes/UI-RULES.md 2): the words on the card's colour, its buttons on a band below
+    (window_parts.dialog_band): `verb` (what it does: Add, Start…) first, in the accent, then Cancel."""
+    from PySide6.QtWidgets import QDialog, QLineEdit, QPlainTextEdit, QVBoxLayout, QWidget
+    from ui.window_parts import dialog_band
     dlg = QDialog(parent)
     dlg.setWindowTitle(title)
-    v = QVBoxLayout(dlg)
+    theme.mark(dlg, dialog=True)  # (the card's colour: theme_sheet's window_screens)
+    outer = QVBoxLayout(dlg)
+    outer.setContentsMargins(0, 0, 0, 0)
+    outer.setSpacing(0)
+    body = QWidget()
+    v = QVBoxLayout(body)
+    v.setContentsMargins(24, 24, 24, 20)  # (Windows 11's dialog padding)
     name = QLineEdit()
     name.setPlaceholderText(name_hint)
     name.setAccessibleName("Name")
@@ -150,11 +158,9 @@ def paste_dialog(parent, title, name_hint, words):
     text = QPlainTextEdit()
     text.setAccessibleName("Filters")
     v.addWidget(text)
-    btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-    theme.mark(btns.button(QDialogButtonBox.Ok), primary=True)
-    btns.accepted.connect(dlg.accept)
-    btns.rejected.connect(dlg.reject)
-    v.addWidget(btns)
+    outer.addWidget(body, 1)
+    band, _main = dialog_band(dlg, verb, dlg.accept)
+    outer.addWidget(band)
     ok = dlg.exec()
     out = (name.text().strip(), text.toPlainText())
     dlg.deleteLater()  # (asked once: not kept, hidden, for as long as the page is there)
