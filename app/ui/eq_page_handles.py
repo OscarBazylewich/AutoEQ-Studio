@@ -1,19 +1,20 @@
 """Make an EQ's EQ graph (under the graph) as a place to edit the filters (a part of EqPage, ui/eq_page.py,
 2026-10-26): a handle for each filter of the EQ shown, on its own curve at its frequency (a peak's top, a shelf's
-middle: half its gain), with its number. Drag one: left and right its frequency, up and down its gain; the mouse
-wheel over it: its Q; right-click it: its type, on or off, Delete. Double-click the graph where there's no handle: a
-new peak there (with no EQ shown, it starts one by hand). While a handle is held only what follows it changes (the
-EQ's curves, the numbers, the table's values, Listen's sound) and the graph's scale stays as it was until it's let go:
-a scale that moved under the pointer made the handle run away from it. A full draw asked for meanwhile (curves loaded
-in the background, a timer) waits for the let-go too: it would take the handle away from under the pointer. An EQ being tried on a device (Try for 5
-minutes on) plays each change there too, in every app. The table and the sliders stay the way in by keyboard.
+middle: half its gain), with its number (over it; under it at the graph's top). Drag one: left and right its
+frequency, up and down its gain; the mouse wheel over it: its Q; right-click it: its type, on or off, Delete.
+Double-click the graph where there's no handle: a new peak there (with no EQ shown, it starts one by hand). While a
+handle is held only what follows it changes (the EQ's curves, the numbers, the table's values, Listen's sound) and the
+graph's scale stays as it was until it's let go: a scale that moved under the pointer made the handle run away from
+it. A full draw asked for meanwhile (curves loaded in the background, a timer) waits for the let-go too: it would take
+the handle away from under the pointer. An EQ being tried on a device (Try for 5 minutes on) plays each change there
+too, in every app. The table and the sliders stay the way in by keyboard.
 EqHandles is a plain class (no __init__, no signals); EqPage (ui/eq_page.py) joins it with the other parts.
 """
 import math
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QPoint, Qt, QTimer
+from PySide6.QtCore import QPoint, QPointF, Qt, QTimer
 from PySide6.QtWidgets import QMenu
 
 from ui import theme
@@ -22,6 +23,7 @@ LIGHT_MS = 30     # (the curves, numbers and sound follow a held handle at most 
 SETTLE_MS = 400   # (after the mouse wheel stops: the whole page again, its scales fitted)
 TRY_MS = 200      # (an EQ tried on a device: written for Equalizer APO at most this often while it changes)
 KINDS = {"PK": "Peak", "LSQ": "Low shelf", "HSQ": "High shelf"}
+NUMBER_GAP = 9    # (px between a handle's middle and its number)
 
 
 def handle_y(f):
@@ -31,7 +33,7 @@ def handle_y(f):
 
 class FilterHandle(pg.TargetItem):
     """One filter's handle on the EQ graph: a dot in the EQ's colour with a ring of the graph's (switched off:
-    hollow, in the axes' grey), its number over it."""
+    hollow, in the axes' grey), its number over it (under it when the graph's top would cut it off)."""
 
     def __init__(self, page, i, f, col):
         off = f.get("enabled", True) is False
@@ -39,11 +41,30 @@ class FilterHandle(pg.TargetItem):
         super().__init__(pos=(math.log10(f["freq"]), handle_y(f)), size=13, symbol="o", pen=ring,
                          brush=pg.mkBrush(col["bg"] if off else col["eq"]), hoverPen=pg.mkPen(col["axis"], width=2),
                          hoverBrush=pg.mkBrush(col["eq"]), movable=True, label=str(i + 1),
-                         # (its number over it: the offset is in the graph's own units, up being +)
-                         labelOpts={"offset": (0, 9), "anchor": (0.5, 1), "color": col["axis"]})
+                         # (its number over it: the offset is in pixels, up being +)
+                         labelOpts={"offset": (0, NUMBER_GAP), "anchor": (0.5, 1), "color": col["axis"]})
         self.page, self.i = page, i
+        self.sigPositionChanged.connect(lambda _h: self.place_number())
         self.sigPositionChanged.connect(lambda _h: page.handle_moved(self))
         self.sigPositionChangeFinished.connect(lambda _h: page.handle_let_go())
+
+    def viewTransformChanged(self):
+        super().viewTransformChanged()
+        self.place_number()
+
+    def place_number(self):
+        """Its number over it, or under it when there's no room over it: the EQ graph is short (130 px), and its
+        scale's room over the highest filter is for the handle, not always for its number too (it was cut off)."""
+        lab, vb = self.label(), self.getViewBox()
+        if lab is None or not isinstance(vb, pg.ViewBox):  # (while it's added: the plot widget, not yet its graph)
+            return
+        per_px = vb.viewPixelSize()[1]
+        room = (vb.viewRange()[1][1] - self.pos().y()) / per_px if per_px else 1e9  # (pixels over its middle)
+        text = lab.boundingRect().height() - lab.textItem.document().documentMargin()  # (the margin over it is empty)
+        over = room >= NUMBER_GAP + text
+        lab.offset = QPointF(0, NUMBER_GAP if over else -NUMBER_GAP)
+        lab.setAnchor((0.5, 1 if over else 0))
+        lab.viewTransformChanged()
 
     def wheelEvent(self, ev):
         ev.accept()

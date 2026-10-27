@@ -47,6 +47,37 @@ def test_handles_on_their_curves(eq_screen, check):
           got == [(3.0, 4.0, "1"), (2.0, 3.0, "2"), (round(math.log10(8000), 4), -1.5, "3")] and off, (got, off))
 
 
+def _number(h):
+    """Where a handle's number shows on the screen: its text, without the empty margin around it."""
+    lab = h.label()
+    m = lab.textItem.document().documentMargin()
+    return lab.textItem.mapRectToScene(lab.textItem.boundingRect().adjusted(m, m, -m, -m))
+
+
+def test_numbers_in_sight(eq_screen, check):
+    page = eq_screen.page
+    page.start_by_hand([{"type": "PK", "freq": 1000, "gain": 2, "q": 1.0},
+                        {"type": "PK", "freq": 9850, "gain": 8, "q": 5.0}], "pasted", "Numbers")
+    eq_screen.qapp.processEvents()
+    graph = page.eqplot.getPlotItem().vb.sceneBoundingRect()
+
+    def placed():
+        return [(graph.contains(_number(h)), _number(h).center().y() > h.sceneBoundingRect().center().y())
+                for h in page._handles]
+    drawn = placed()
+    low = page._handles[0]
+    low.setPos(low.pos().x(), 8.0)  # (dragged up as high as the other)
+    eq_screen.qapp.processEvents()
+    up = placed()
+    low.setPos(low.pos().x(), 2.0)
+    eq_screen.qapp.processEvents()
+    down = placed()
+    check("every handle's number in sight on the EQ graph (130 px high): over its handle, or under it when the "
+          "graph's top would cut it off (a filter at the top of the scale), as it's dragged up and back down too",
+          drawn == [(True, False), (True, True)] and up == [(True, True), (True, True)] and down == drawn,
+          (drawn, up, down))
+
+
 def test_dragging_a_handle(eq_screen, check):
     import pyqtgraph as pg
     from PySide6.QtCore import QEvent, QPoint, Qt
