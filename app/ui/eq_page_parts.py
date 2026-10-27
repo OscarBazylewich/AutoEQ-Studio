@@ -9,7 +9,7 @@ MODE_HINT, TICKS and file_base_name still import from ui/eq_page.py too.
   this session); PairTitle: "A  →  B" on one line, or B under A when the window is narrow (the graph's title)
 - file_base_name(...): a saved EQ's name, "<IEM> to <target> - <layout or method> <n>f"
 - Notices: a message from a worker thread, said on the window's thread; modal(dlg): a window over the page until it's
-  closed
+  closed; paste_dialog(...): a window to paste filters into, with a name (By hand, Listen's EQs to compare)
 """
 from PySide6.QtCore import QObject, QSize, Qt, Signal
 from PySide6.QtWidgets import QLabel, QStyle, QStyleOptionComboBox, QStylePainter
@@ -22,7 +22,7 @@ FORMAT_NAMES = {"apo": "Equalizer APO / squiglink (.txt)", "graphic": "GraphicEQ
                 "poweramp": "Poweramp (.json)", "uapp": "USB Audio Player PRO (.xml)", "soundsource": "SoundSource (.txt)",
                 "voicemeeter": "Voicemeeter (.xml)", "rockbox": "Rockbox (.cfg)", "convolution": "impulse response (.wav)",
                 "report": "a report (.html)"}  # (AutoEQ Local's export.js)
-MODE_SHORT = {"site_single": "Website AutoEQ", "site_sweep": "Website sweep", "best_fit": "Best fit"}
+MODE_SHORT = {"site_single": "Website AutoEQ", "site_sweep": "Website sweep", "best_fit": "Best fit", "manual": "By hand"}
 MODE_HINT = {"best_fit": "For EQ apps and devices: the closest match", "site_sweep": "For the squiglink / listener800 website",
              "site_single": "Checks one set of website values"}
 TICKS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
@@ -120,7 +120,7 @@ class NameCombo(SearchCombo):
 def file_base_name(device, target, layout_name, mode, n):
     """"<IEM> to <target> - <layout or method> <n>f" (AutoEQ Local's export.js fileBaseName)."""
     what = layout_name.replace(" / ", ", ") if layout_name else {"site_single": "site AutoEQ", "site_sweep": "site AutoEQ",
-                                                                 "best_fit": "best fit"}.get(mode, "EQ")
+                                                                 "best_fit": "best fit", "manual": "by hand"}.get(mode, "EQ")
     return f"{device} to {target} - {what} {n}f"
 
 
@@ -133,3 +133,29 @@ def modal(dlg):
     """A window over the page until it's closed, then let go (each kept all its rows for the rest of the session)."""
     dlg.exec()
     dlg.deleteLater()
+
+
+def paste_dialog(parent, title, name_hint, words):
+    """A window to paste filters into, with a name: (name, text), or None when it's cancelled. Its OK is its main
+    action (the accent, as Windows 11's)."""
+    from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLineEdit, QPlainTextEdit, QVBoxLayout
+    dlg = QDialog(parent)
+    dlg.setWindowTitle(title)
+    v = QVBoxLayout(dlg)
+    name = QLineEdit()
+    name.setPlaceholderText(name_hint)
+    name.setAccessibleName("Name")
+    v.addWidget(name)
+    v.addWidget(QLabel(words))  # (over its box)
+    text = QPlainTextEdit()
+    text.setAccessibleName("Filters")
+    v.addWidget(text)
+    btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+    theme.mark(btns.button(QDialogButtonBox.Ok), primary=True)
+    btns.accepted.connect(dlg.accept)
+    btns.rejected.connect(dlg.reject)
+    v.addWidget(btns)
+    ok = dlg.exec()
+    out = (name.text().strip(), text.toPlainText())
+    dlg.deleteLater()  # (asked once: not kept, hidden, for as long as the page is there)
+    return out if ok else None

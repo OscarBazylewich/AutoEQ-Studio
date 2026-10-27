@@ -190,6 +190,23 @@ class Switcher:
         self._tell("profiles")
         return pid
 
+    def update_profile(self, pid, path):
+        """A profile's EQ replaced by this file's (Make an EQ's EQ by hand, begun from it): its name, the devices that
+        have it and where it's switched on stay; Equalizer APO reads its file again, so they hear it at once. Raises
+        eqfile.NotAnEqFile (said as it is) or OSError."""
+        p = self.s["profiles"].get(pid)
+        if not p:
+            raise OSError("That profile isn't there any more.")
+        self._writable()
+        raw, info = eqfile.read_eq(path)
+        os.makedirs(self.apo.profiles, exist_ok=True)
+        textfile.write_atomic(os.path.join(self.apo.profiles, p["file"]), raw)
+        p.update(filters=info["filters"], preamp=info["preamp"], graphic=info["graphic"],
+                 changed=time.strftime("%Y-%m-%d %H:%M"))
+        self.save()
+        self.apply()
+        self._tell("profiles")
+
     def rename_profile(self, pid, name):
         name = (name or "").strip()[:80]
         if pid not in self.s["profiles"] or not name:

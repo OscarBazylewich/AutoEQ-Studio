@@ -72,12 +72,12 @@ while the window isn't the active one, or with Transparency effects off).
 Every control can be reached with Tab (the top bar's screens with the arrow keys) and has a name a screen reader
 says.
 
-Guide: a tour of a whole EQ job on Make an EQ (28 steps: choose, the settings, run, review, save, listen, more), as
+Guide: a tour of a whole EQ job on Make an EQ (29 steps: choose, the settings, run, review, save, listen, more), as
 AutoEQ Local's was. Each step lights up a part of the screen, says what it does and shows it in a short demo: a
 pointer opens Find… and types a search, picks a row and shows it on the graph, opens a list and chooses, types the
 target adjustments while the target changes on the graph (kept in sight at the top while the page scrolls), shows a
 run's progress and the EQ'd curve; before a run the result steps show an example result worked out from your files.
-The card: "3 of 28" lists every step to go straight to one, Replay (R), Pause (P), Skip demo, the demo's speed,
+The card: "3 of 29" lists every step to go straight to one, Replay (R), Pause (P), Skip demo, the demo's speed,
 "Play all steps" (the whole tour by itself), Back / Next (the arrow keys), End tour (Esc), Start again. Scrolling
 while a demo plays pauses it; Resume scrolls back. What a demo shows is put back after it, and nothing is chosen, run,
 saved or downloaded. With Windows' animation effects off a demo is numbered markers instead. The tracer has its own
@@ -117,6 +117,13 @@ One column, top to bottom:
   (within 0.25 dB everywhere, as the ear hears it); the line under the result's numbers says so, or how far off it is
   and where when your EQ app's limits can't get there.
   "Run several…" makes EQs for several IEMs or targets in one go (tick them; each is saved and kept in History).
+  "By hand" makes the EQ yourself: Start empty, From an EQ file… (Equalizer APO, AutoEq, squig.link, Room EQ
+  Wizard's "Export filter settings as text", a Peace preset), Paste filters…, From a device's profile, or A copy of
+  the EQ shown. It shows on the result card as a run of its own, so everything below works for it; a measurement
+  and target are optional (chosen, the graph shows your IEM with it and its error). Files are read as Equalizer APO
+  plays them (a shelf at its corner frequency moved to its centre, a slope as its Q); an EQ here has peaking and
+  shelf filters, so other filter types, a graphic EQ or a convolution are left out, and said. Begun from a
+  profile, Use on device › Update puts it back into that profile (Profiles: "Edit in Make an EQ" does the same).
 - Settings and Advanced (folds): the automatic settings' values and why, or your own ("yours", ↺ hands one back).
   Every list is A to Z (numbers as numbers; a "Choose…" stays on top), and any list of more than 15 choices
   (Advanced › Layout, Find…'s Source, …) opens with a search box at its top.
@@ -201,7 +208,9 @@ PROFILES AND DEVICES
 A profile is a copy of an EQ file in Equalizer APO's format: an "Equalizer APO" file saved by Make an EQ (Import
 starts in AutoEQ Studio's Saved EQs folder; or AutoEQ Local's), AutoEq's ParametricEQ.txt, squig.link's
 export, or one saved from APO's Editor. (Use on device does it in one step, from Make an EQ's result.) Profiles are kept in APO's config folder ("AutoEQ Studio\profiles"), so changing the
-original file later doesn't change the profile: import it again.
+original file later doesn't change the profile: import it again. Profiles › "Edit in Make an EQ" opens the chosen one
+there as an EQ by hand: change its filters, then Use on device › Update puts it back (its devices keep it, and hear
+the change at once).
 
 Devices tab: your playback devices, as Windows names them ("Headset (EarPods)"), the one playing now first (green
 dot; connected: your Windows accent colour, blue by default; grey: not connected). Choose one to give it profiles

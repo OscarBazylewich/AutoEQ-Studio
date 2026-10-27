@@ -23,9 +23,8 @@ import math
 import os
 
 from PySide6.QtCore import QPoint, QRect, QSize, Qt, QTimer
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QDialogButtonBox, QFileDialog, QGridLayout, QGroupBox,
-                               QHBoxLayout, QLabel, QLayout, QLineEdit, QMessageBox, QPlainTextEdit, QPushButton,
-                               QSlider, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFileDialog, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
+                               QLayout, QLineEdit, QMessageBox, QPushButton, QSlider, QVBoxLayout, QWidget)
 
 import textfile
 from ui import help_window, icons, tasks, theme, window_parts
@@ -318,7 +317,8 @@ class Listen(QGroupBox):
         out = [("off", "EQ off", [], "meas")]
         run, r = self.page.current()
         if r:
-            out.append(("sel", f"Selected EQ (run {run.get('n', 1)}{', edited' if self.page.edited() else ''})",
+            what = "by hand" if run.get("mode") == "manual" else f"run {run.get('n', 1)}"
+            out.append(("sel", f"Selected EQ ({what}{', edited' if self.page.edited() else ''})",
                         self.page.active(), "with_eq"))
         for i, p in enumerate(self.pins):
             out.append((p["key"], p["name"], [f for f in p["filters"] if f.get("enabled", True) is not False],
@@ -702,25 +702,11 @@ class Listen(QGroupBox):
         self._add_text(text, os.path.splitext(os.path.basename(f))[0], f"from {os.path.basename(f)}")
 
     def add_paste(self):
-        dlg = QDialog(self)
-        dlg.setWindowTitle("Paste filters")
-        v = QVBoxLayout(dlg)
-        name = QLineEdit()
-        name.setPlaceholderText("Name (e.g. Crinacle's EQ)")
-        v.addWidget(name)
-        v.addWidget(QLabel("Equalizer APO lines, or one filter per line as “frequency gain Q”:"))  # (over its box)
-        text = QPlainTextEdit()
-        v.addWidget(text)
-        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        theme.mark(btns.button(QDialogButtonBox.Ok), primary=True)  # (its main action: the accent, as Windows 11's)
-        btns.accepted.connect(dlg.accept)
-        btns.rejected.connect(dlg.reject)
-        v.addWidget(btns)
-        ok = dlg.exec()
-        pasted, named = text.toPlainText(), name.text().strip()
-        dlg.deleteLater()  # (asked once: not kept, hidden, for as long as the card is there)
-        if ok:
-            self._add_text(pasted, named or "Pasted EQ", "pasted")
+        from ui.eq_page_parts import paste_dialog
+        got = paste_dialog(self, "Paste filters", "Name (e.g. Crinacle's EQ)",
+                           "Equalizer APO lines, or one filter per line as “frequency gain Q”:")
+        if got:
+            self._add_text(got[1], got[0] or "Pasted EQ", "pasted")
 
     def _add_text(self, text, name, note):
         r = self.page.svc.call("/api/filters/parse", {"text": text})

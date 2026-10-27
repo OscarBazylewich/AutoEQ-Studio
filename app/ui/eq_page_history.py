@@ -19,6 +19,9 @@ class EqHistory:
     def run_label(self, run, r):
         """What a result is, in a line (results.js runLabel)."""
         lay = next((l for l in self.meta.get("layouts", []) if l["key"] == r.get("layout")), None)
+        if run.get("mode") == "manual":  # (an EQ made by hand: where it began, and its filters)
+            n = r.get("n_filters", len(r.get("filters") or []))
+            return f"By hand · {run.get('source') or 'your own filters'} · {n} filter{'' if n == 1 else 's'}"
         if r.get("engine") == "graphic":
             return (f"{lay['name'] if lay else 'Fixed bands'}: {r['n_filters']} bands, {r.get('gain_min')} to "
                     f"+{r.get('gain_max')} dB in {r.get('step')} dB steps")
@@ -46,7 +49,7 @@ class EqHistory:
         st, c = self.stats(), self.curves or {}
         filters = [dict(f) for f in self.EDIT if f["freq"] and f["q"]]
         base = run.get("history") or f"{self.session}-{run.get('n', 1)}-{r['id']}"
-        result = {k: v for k, v in r.items() if k != "filters"}
+        result = {k: v for k, v in r.items() if k not in ("filters", "start")}  # (by hand: shown again as saved)
         S = self.S
         return {"key": f"{base}-{self._print(filters)}", "base": base, "saved": saved,
                 "device": run.get("device") or c.get("name"), "target": run.get("target_name") or c.get("target_name"),

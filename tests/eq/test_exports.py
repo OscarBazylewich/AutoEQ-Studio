@@ -99,10 +99,11 @@ def test_small_preamp_by_hand_not_blamed(eq_cfg, check):
 def test_your_filters_read(check):
     got = exports.parse_filters("Preamp: -6 dB\nFilter 1: ON LSC Fc 105 Hz Gain 5,5 dB Q 0.70\nFilter 2: OFF PK Fc 2000 Hz "
                                 "Gain 3 dB Q 2\nFilter: ON HS Fc 8000 Hz Gain -3 dB\n# mine\n200 3 1\nLSQ 50 2 0.6")
-    # was eq_checks.py:192
+    # was eq_checks.py:192 (a shelf with no Q: Equalizer APO's own steepness, S 0.9, as its Q at that gain, 0.670, since
+    # 2026-10-26: it was read as Q 0.71; eqtext's tests check every form against APO's maths)
     check("formats: your filters read from Equalizer APO lines and frequency-gain-Q lines (off ones skipped)",
-          [(f["type"], f["freq"], f["gain"], f["q"]) for f in got]
-          == [("LSQ", 105, 5.5, 0.7), ("HSQ", 8000, -3, 0.71), ("PK", 200, 3, 1), ("LSQ", 50, 2, 0.6)], got)
+          [(f["type"], f["freq"], f["gain"], round(f["q"], 3)) for f in got]
+          == [("LSQ", 105, 5.5, 0.7), ("HSQ", 8000, -3, 0.67), ("PK", 200, 3, 1), ("LSQ", 50, 2, 0.6)], got)
 
 
 def test_rockbox_fills_ten_bands(check):
@@ -215,9 +216,10 @@ def test_apo_width_and_slopes_read(check):
     apo_lines = ("Filter 1: ON PK Fc 3000 Hz Gain -2 dB BW Oct 1\nFilter 2: ON LSC 12 dB Fc 100 Hz Gain 4 dB Q 0.7\n"
                  "Filter 3: OFF LP Fc 18000 Hz")
     read_apo = exports.parse_filters(apo_lines)
-    # was eq_checks.py:341
+    # was eq_checks.py:341 (since 2026-10-26 as Equalizer APO reads them: the width at 48 kHz, Q 1.377 at 3 kHz where
+    # the analog formula gave 1.414; the slope wins over the Q written after it, S 1 = Q 0.707)
     check("formats: APO's \"BW Oct\" and shelf slopes are read (an OFF line of another type is skipped)",
-          [(f["type"], f["freq"], round(f["q"], 3)) for f in read_apo] == [("PK", 3000, 1.414), ("LSQ", 100, 0.7)], read_apo)
+          [(f["type"], f["freq"], round(f["q"], 3)) for f in read_apo] == [("PK", 3000, 1.377), ("LSQ", 100, 0.707)], read_apo)
 
 
 def test_other_apo_type_named(check):

@@ -23,7 +23,8 @@ from ui.theme_sheet import CARD
 
 FIRST_ROWS, ROWS_AT_ONCE = 40, 15  # (rows made at once, then a batch at a time: as Find…)
 WORDS_ROOM = 240  # (the least a row's words get beside its buttons: with less, the buttons go on a line under them)
-MODE_SHORT = {"site_single": "Website AutoEQ", "site_sweep": "Website sweep", "best_fit": "Best fit", "autoeq": "AutoEq"}
+MODE_SHORT = {"site_single": "Website AutoEQ", "site_sweep": "Website sweep", "best_fit": "Best fit", "autoeq": "AutoEq",
+              "manual": "By hand"}
 NBSP, NBH = chr(0xA0), chr(0x2011)  # (a space and a hyphen that never end a line: the words they join stay together)
 
 

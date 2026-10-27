@@ -11,6 +11,7 @@ import os
 import re
 from xml.sax.saxutils import quoteattr
 
+from . import eqtext
 from . import paths
 from . import settings
 import textfile
@@ -52,54 +53,43 @@ def clean_filters(filters):
     return out
 
 
-# "Filter 1: ON PK Fc 100 Hz Gain 3.0 dB Q 1.41" (Equalizer APO, Peace, squiglink, AutoEq's ParametricEQ.txt, this
-# app's files); shelves as LSC/LS/LSQ and HSC/HS/HSQ, their Q may be left out
-# (Equalizer APO also gives a peak's width as "BW Oct 1.5", and a shelf a slope: "LSC 12 dB Fc …")
-_APO_LINE = re.compile(r"filter\s*\d*\s*:\s*(on|off)\s+(pk|peq|lsc|ls|lsq|hsc|hs|hsq)(?:\s+[\d.,]+\s*db)?\s+fc\s+([-+\d.,]+)\s*hz"
-                       r"\s+gain\s+([-+\d.,]+)\s*db(?:\s+(q|bw\s*oct)\s+([-+\d.,]+))?\s*$", re.I)
-_APO_OTHER = re.compile(r"filter\s*\d*\s*:\s*(on|off)\s+([a-z]+)\b", re.I)  # (any other type: LP, HP, NO, AP …)
-_TYPE_WORDS = {"pk": "PK", "peq": "PK", "lsc": "LSQ", "ls": "LSQ", "lsq": "LSQ", "hsc": "HSQ", "hs": "HSQ", "hsq": "HSQ"}
-SHELF_Q_DEFAULT = 0.71
+# "Filter 1: ON PK Fc 100 Hz Gain 3.0 dB Q 1.41" (Equalizer APO, Peace, squiglink, AutoEq's ParametricEQ.txt, Room
+# EQ Wizard, this app's files): read as Equalizer APO plays it (eqtext.filter_line: its shelves at a corner moved to
+# their centre, a slope or a width in octaves as the Q that draws the same curve)
+_FILTER_LINE = re.compile(r"^\s*filter\s*\d*\s*:\s*(.*)$", re.I)
+_TYPE_WORD = re.compile(r"^\s*(?:on|off)\s+([a-z]+)", re.I)
 
 
-def parse_filters(text):
+def parse_filters(text, fs=eqtext.FS):
     """Filters from text a person pastes: Equalizer APO lines, or one filter per line as "frequency gain Q" (with the
     type first if it isn't a peaking filter: "LSQ 105 4 0.7"). Pre-amp lines, comments and switched-off filters are
-    skipped. Raises ValueError naming the line it can't read, or the filter outside the filter table's limits."""
+    skipped. Raises ValueError naming the line it can't read, or the filter outside the filter table's limits.
+    (Make an EQ's "By hand" reads whole files with eqtext.read, which names what it leaves out instead.)"""
     out = []
     for i, line in enumerate(str(text or "").splitlines(), 1):
         s = line.strip()
         if not s or s.startswith(("#", ";", "//")) or s.lower().startswith("preamp"):
             continue
-        m = _APO_LINE.match(s)
-        other = _APO_OTHER.match(s) if not m else None
-        if other and other[2].lower() not in _TYPE_WORDS:
-            if other[1].lower() == "off":
-                continue
-            raise ValueError(f"Your filters, line {i}: Equalizer APO's “{other[2].upper()}” filters aren't supported (peaking, "
-                             f"low and high shelf are).")
+        m = _FILTER_LINE.match(s)
         if m:
-            if m[1].lower() == "off":
+            kind, value = eqtext.filter_line(m[1], fs)
+            if kind == "none" or (kind == "filter" and not value["enabled"]):
                 continue
-            ftype = _TYPE_WORDS[m[2].lower()]
-            q = m[6] or (str(SHELF_Q_DEFAULT) if ftype != "PK" else None)
-            if q and m[5] and m[5].lower() != "q":  # (a width in octaves: its Q)
-                n = float(q.replace(",", "."))
-                q = str(math.sqrt(2 ** n) / (2 ** n - 1)) if n > 0 else "0"
-            nums = [m[3], m[4], q]
-        else:
-            words = [w for w in re.split(r"[\s,;]+", s) if w]
-            ftype = _TYPE_WORDS.get(words[0].lower()) if words else None
-            nums = words[1:] if ftype else words
-            ftype = ftype or "PK"
-        try:
-            if len(nums) != 3 or nums[2] is None:
-                raise ValueError
-            freq, gain, q = (float(str(x).replace(",", ".")) for x in nums)
-        except ValueError:
+            if kind == "other":
+                word = _TYPE_WORD.match(m[1].replace(",", "."))
+                raise ValueError(f"Your filters, line {i}: Equalizer APO's “{(word[1] if word else value).upper()}” filters "
+                                 f"aren't supported (peaking, low and high shelf are).")
+            if kind == "bad":
+                raise ValueError(f"Your filters, line {i}: can't read “{s[:60]}” ({value}). Write Equalizer APO lines "
+                                 f"(Filter 1: ON PK Fc 100 Hz Gain 3 dB Q 1) or one filter per line as frequency, gain "
+                                 f"and Q (100 3 1).")
+            out.append({k: value[k] for k in ("type", "freq", "gain", "q")})
+            continue
+        f = eqtext.plain_line(s)
+        if f is None:
             raise ValueError(f"Your filters, line {i}: can't read “{s[:60]}”. Write Equalizer APO lines (Filter 1: ON PK "
-                             f"Fc 100 Hz Gain 3 dB Q 1) or one filter per line as frequency, gain and Q (100 3 1).") from None
-        out.append({"type": ftype, "freq": freq, "gain": gain, "q": q})
+                             f"Fc 100 Hz Gain 3 dB Q 1) or one filter per line as frequency, gain and Q (100 3 1).")
+        out.append(f)
     try:
         return clean_filters(out)
     except ValueError as e:

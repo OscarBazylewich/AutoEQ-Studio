@@ -187,6 +187,10 @@ class EqGraph:
         c = self.curves
         self._drawn = None
         if not c:
+            if self.current()[1]:  # (an EQ by hand with no measurement chosen: the EQ itself, under the empty graph)
+                from eq import engines
+                f = np.geomspace(20, 20000, 480)
+                self._draw_eq(f, engines.eq_gain(f, self.active(), self.S["site"]["sample_rate"]), col)
             return
         g = getattr(self, "_graph_demo", None) or self.sw.s.get("graph") or {}
         rel = g.get("view") == "rel"
@@ -247,13 +251,10 @@ class EqGraph:
             gain = engines.eq_gain(f, self.active(), self.S["site"]["sample_rate"])
             self.plot.plot(f, sub(meas + gain), pen=pg.mkPen(col["with_eq"], width=2.5), name="With the EQ")
             series.append(("With the EQ", sub(meas + gain)))
-            self.eqplot.plot(f, gain, pen=pg.mkPen(col["eq"], width=2), fillLevel=0,
-                             brush=pg.mkBrush(col["eq"] + "33"))
-            top = max(6.0, float(np.max(np.abs(gain))) * 1.15)
-            self.eqplot.setYRange(-top, top, padding=0)
+            self._draw_eq(f, gain, col)
         else:
             self.eqplot.setYRange(-12, 12, padding=0)  # (no EQ yet: a sensible scale, not a line's own)
-        self.eqplot.addLine(y=0, pen=pg.mkPen(col["axis"], width=1))
+            self.eqplot.addLine(y=0, pen=pg.mkPen(col["axis"], width=1))
         self.plot.setXRange(np.log10(20), np.log10(20000), padding=0)
         # the Y range (plot.js): auto from the curves (60 dB at most), or a span around the target's 100 Hz-10 kHz
         ys = g.get("y", "auto")
@@ -270,6 +271,13 @@ class EqGraph:
         self.plot.setYRange(lo, hi, padding=0)
         self.plot.getAxis("left").setLabel("Δ dB" if rel else "dB")
         self._drawn = {"f": list(f), "rel": rel, "series": series}
+
+    def _draw_eq(self, f, gain, col):
+        """The EQ graph (under the graph): the EQ shown, filled from 0 dB, on a scale that fits it (±6 dB at least)."""
+        self.eqplot.plot(f, gain, pen=pg.mkPen(col["eq"], width=2), fillLevel=0, brush=pg.mkBrush(col["eq"] + "33"))
+        top = max(6.0, float(np.max(np.abs(gain))) * 1.15)
+        self.eqplot.setYRange(-top, top, padding=0)
+        self.eqplot.addLine(y=0, pen=pg.mkPen(col["axis"], width=1))
 
     # ---------------------------------------------------------------- the curves shown from Find… (dotted: not in use)
     def preview_on(self, key):

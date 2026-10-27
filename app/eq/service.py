@@ -24,6 +24,7 @@ from . import autoset
 from . import compare
 from . import databases
 from . import engines
+from . import eqtext
 from . import exports
 from . import history
 from . import inputs
@@ -622,6 +623,17 @@ def make_report(body):
 @route("/api/filters/parse")
 def filters_parse(body):  # (an EQ file's filters, for Best fit's "Start from your own filters")
     return {"filters": exports.parse_filters(text_of(body, "text"))}
+
+
+@route("/api/filters/read")
+def filters_read(body):
+    """A whole EQ file's or pasted text's EQ for Make an EQ's "By hand" (eqtext.read: Equalizer APO's lines, Room EQ
+    Wizard's export, a Peace preset), read as Equalizer APO plays it at the settings' sample rate: {"filters",
+    "preamp", "left_out", "format"}. What it can't hold is named in left_out, never an error."""
+    fs = eqtext.FS
+    if isinstance(body.get("settings"), dict):
+        fs = cfg_from(body)["site"]["sample_rate"]
+    return eqtext.read(text_of(body, "text"), fs)
 
 
 # ---------------------------------------------------------------- history: past EQs (history.py)

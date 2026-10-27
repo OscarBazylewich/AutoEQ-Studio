@@ -372,7 +372,18 @@ TERMS = [{'title': 'Curves and sound',
                      'body': ['On the result card, after editing filters: runs Best fit again from the ones '
                               'shown, for this run only. “Fine-tune them” moves each a little to match closer; '
                               '“Keep them, add filters” keeps yours exactly and adds filters.'],
-                     'see': ['own-filters']}]},
+                     'see': ['own-filters']},
+                    {'id': 'by-hand',
+                     'title': 'An EQ by hand',
+                     'body': ['An EQ you make yourself (By hand, beside Run): you add the filters and set each '
+                              "one's frequency, gain and Q, in the table or as sliders. Begun from an EQ file, "
+                              'pasted lines or a profile, it reads them as Equalizer APO plays them: a shelf '
+                              'written at its corner frequency (“LS … Q”, Room EQ Wizard’s “LS 6dB”) is moved to '
+                              'its centre, a slope or a width in octaves becomes the Q that sounds the same.',
+                              "It keeps peaking filters and shelves (what every EQ app takes). Other filter types "
+                              '(high- and low-pass, notch…), a graphic EQ or a convolution are left out, and said. '
+                              'The pre-amp is worked out for you, so the EQ never clips.'],
+                     'see': ['peaking-filter', 'shelf', 'preamp']}]},
          {'title': 'Apps, files and listening',
           'terms': [{'id': 'eq-app',
                      'title': 'Your EQ app',

@@ -390,6 +390,22 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.show_page("eq")
         self._guide_when_ready()
 
+    def eq_then(self, fn, said):
+        """fn(page) once Make an EQ has opened (it's the screen shown: Profiles' Edit in Make an EQ); given up when you
+        go on to another screen meanwhile, or when Make an EQ couldn't open (it says why where it would be)."""
+        page = self.eq_page
+        if self.page() != "eq":
+            return
+        if page is None or not getattr(page, "ready", False):
+            failed = (preload.error() is not None or self._eq_error is not None) if page is None else \
+                page.loading.text().startswith("The EQ part couldn't")
+            if not failed:
+                if said:
+                    self.status(said, 4000)
+                QTimer.singleShot(300, self, lambda: self.eq_then(fn, ""))
+            return
+        fn(page)
+
     def _guide_when_ready(self):
         page = self.eq_page
         if self.page() != "eq":  # (you went on to another screen meanwhile: the Guide is left, ready or not)

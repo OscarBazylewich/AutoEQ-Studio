@@ -32,3 +32,25 @@ def test_the_profiles_table_as_windows_11(set_up_window, qapp, check):
     check("profiles: the table as Windows 11 draws one (headings at the left, no grid, rows of 36 px), no column's "
           "words cut, and Windows 11's symbols beside its buttons' words",
           look[0] is False and look[1] and look[2] >= 36 and not cut and not plain, (look, cut, plain))
+
+
+def test_edit_in_make_an_eq(set_up_window, qapp, check, monkeypatch):
+    # (2026-10-26: a profile's filters changed by hand in Make an EQ, then put back with Use on device › Update. The
+    # window here never opens Make an EQ: what it's asked to do there is recorded instead)
+    from helpers import dialogs
+    from ui import help_window
+    win = set_up_window.win
+    asked, shown = [], []
+    monkeypatch.setattr(win, "eq_then", lambda fn, said: asked.append(said))
+    monkeypatch.setattr(win, "show_page", lambda key, remember=True: shown.append(key))
+    win.render_all()
+    win.prof_table.setCurrentCell(-1, -1)
+    n = len(dialogs.DIALOGS.asked)
+    win.prof_edit_btn.click()
+    told = dialogs.DIALOGS.asked[n:]
+    win.prof_table.setCurrentCell(0, 0)
+    win.prof_edit_btn.click()
+    check("profiles: Edit in Make an EQ (with Windows 11's edit symbol and its Help entry) asks for a profile first; "
+          "with one chosen, it shows Make an EQ and opens the profile there once it has opened",
+          not win.prof_edit_btn.icon().isNull() and help_window.entry_of_widget(win.prof_edit_btn)
+          and told and "Choose a profile" in told[0][1] and shown == ["eq"] and len(asked) == 1, (told, shown, asked))

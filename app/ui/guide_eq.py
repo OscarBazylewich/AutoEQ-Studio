@@ -346,6 +346,17 @@ def eq_steps(page):
         api.close(m)
         yield from api.note("Its EQ now, switched on. (Demo: nothing was changed.)", page.use_btn, 1500)
 
+    def hand_demo(api):
+        items = ["Start empty", "From an EQ file…", "Paste filters…", "From a device's profile ▸",
+                 "A copy of the EQ shown"]
+        m = yield from mock_menu(api, page.hand_btn, items)
+        api.spot_on(m)
+        api.say("Start empty, or from an EQ you have (a file, pasted lines, a profile)")
+        yield from pick(api, m, 0)
+        api.close(m)
+        yield from api.note("An EQ of your own, on the result card: add filters, then save it or use it on a "
+                            "device. (Demo: nothing was changed.)", page.hand_btn, 1700)
+
     def listen_demo(api):
         L = page.listen
         api.undo(L.render_ab)  # (put back last: the version buttons as the choice is again)
@@ -522,6 +533,12 @@ def eq_steps(page):
                  "several IEMs or targets in one go (each saved and kept in History).",
          "demo": [{"click": lambda: page.run_btn, "say": "Click Run", "then": run_demo},
                   {"at": lambda: page.queue_btn, "say": "Run several…: several IEMs or targets in one go"}]},
+        {"chapter": "3 · Run & review", "title": "Or make it by hand", "target": lambda: page.hand_btn,
+         "text": "By hand makes an EQ yourself, shown as a result of its own: start empty, or from an EQ file "
+                 "(Equalizer APO, AutoEq, Room EQ Wizard, Peace), pasted filters, a device's profile or a copy of the EQ "
+                 "shown, then add and change its filters. Save, Use on device and Listen work as for a run; a "
+                 "measurement and target are optional.",
+         "demo": [{"click": lambda: page.hand_btn, "say": "Click By hand", "then": hand_demo}]},
         {"chapter": "3 · Run & review", "title": "Check it on the graph", "target": lambda: page.plot, "ready": has_curves,
          "text": "Orange: your IEM. Dashed: the target. Blue: with the EQ. Under it, pink: the EQ itself (above 0 "
                  "boosts, below cuts). Point at the graph for each curve's value; the shaded ends aren't scored.",

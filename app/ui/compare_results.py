@@ -56,6 +56,13 @@ def options(page):
     for rn in reversed(page.session_runs):
         if rn.get("device") not in (None, name):
             continue
+        if rn.get("mode") == "manual":  # (an EQ by hand: one EQ, its filters as you left them, no run's error)
+            x = rn["results"][0]
+            if rn is not run:
+                on = [f for f in x["filters"] if f.get("enabled", True) is not False]
+                out.append({"label": f"Run {rn.get('n', '?')} · by hand · {len(on)} filter{'' if len(on) == 1 else 's'}",
+                            "filters": _filters(x["filters"]), "run": rn, "rid": x["id"]})
+            continue
         by_n = {}
         for x in rn["results"]:
             had = by_n.get(x["n_filters"])

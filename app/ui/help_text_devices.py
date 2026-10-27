@@ -10,7 +10,8 @@ HELP_DEVICES = {'#dev-check': ["Whether this device's EQ really plays: Equalizer
  '#backup': 'Everything of yours in one .zip (Back up everything…), or put back from one (Restore…).',
  '#files-folder': ['Where your targets, measurements, saved EQs and presets are: Documents\\AutoEQ Studio unless you '
                    'chose another folder (Change…).', 'q-files'],
- '#dev-rename': 'Your own name for this device, shown everywhere instead of Windows\' name.'}
+ '#dev-rename': 'Your own name for this device, shown everywhere instead of Windows\' name.',
+ '#prof-edit': ["The chosen profile's filters, changed by hand in Make an EQ; Update puts them back.", 'by-hand']}
 
 SETTINGS_DEVICES = [{'title': 'Devices',
                      'items': [{'key': '#dev-check',
@@ -44,6 +45,14 @@ SETTINGS_DEVICES = [{'title': 'Devices',
                                          'backup… puts them back, on this PC or another, after keeping how things are now '
                                          '(data\\backups); files with the same name are replaced, nothing else is deleted. '
                                          'AutoEQ Studio starts again after it.']},
+                               {'key': '#prof-edit',
+                                'title': 'Edit in Make an EQ (Profiles)',
+                                'body': ['Opens the chosen profile in Make an EQ as an EQ by hand: change its filters '
+                                         'in the table, as sliders or on the graph, listen to it, then Use on device › '
+                                         'Update “its name” puts it back. The profile keeps its name and its devices, '
+                                         'and those that have it switched on hear the change at once. A profile with '
+                                         "parts an EQ here can't have (a graphic EQ, other filter types) can't be "
+                                         'updated that way: use the EQ as a new profile instead.']},
                                {'key': '#dev-rename',
                                 'title': 'Rename… (a device)',
                                 'body': ['Your own name for a device (e.g. “Dongle – KZ”), shown in the list, the tray '

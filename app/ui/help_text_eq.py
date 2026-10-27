@@ -125,6 +125,10 @@ HELP_EQ = {'slot:target': ['The curve you want your earphone to sound like.', 't
  '#target-save': 'Keeps the target as adjusted as a target of your own, in use; the adjustments go back to 0.',
  '#compare-results': 'Two EQs side by side: on the graph, their numbers and their filters.',
  '#queue': 'EQs for several IEMs or targets in one go, each saved and kept in History.',
+ '#by-hand': ['Make the EQ yourself: empty, from an EQ file, pasted filters, a profile or a copy of the EQ shown.',
+              'by-hand',
+              'peaking-filter',
+              'shelf'],
  '#use-try': ['Plays the EQ on a device for 5 minutes in every app, then Keep it or let its own EQ come back.',
               'q-try']}
 
@@ -388,6 +392,18 @@ SETTINGS_EQ = [{'title': 'Choosing and running',
                            'body': ['Runs Best fit again from the filters shown, for this run only. Fine-tune them: '
                                     'each moves a little to match closer. Keep them, add filters: yours stay exactly '
                                     'and more are added.']},
+                          {'key': '#by-hand',
+                           'title': 'By hand',
+                           'body': ['Beside Run: an EQ you make yourself, shown on the result card as a run of its '
+                                    'own, so Save filters, Copy, Use on device, Listen and the rest work as for any '
+                                    'result. Start empty, or from an EQ you have: an EQ file (Equalizer APO, AutoEq, '
+                                    "squig.link, Room EQ Wizard's export, a Peace preset), pasted filters, a device's "
+                                    'profile, or a copy of the EQ shown. Files are read as Equalizer APO plays them; '
+                                    "what an EQ here can't have (other filter types, a graphic EQ…) is said, never "
+                                    'left out without a word.',
+                                    'A measurement and target are optional: chosen, the graph shows your IEM with the '
+                                    'EQ and the error. Begun from a profile, Use on device › Update puts it back into '
+                                    'that profile.']},
                           {'key': 'x_name',
                            'title': 'File name',
                            'body': ['The name of the saved files; each adds its own ending (“ - filters.txt”, “ - '

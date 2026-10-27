@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QFileDialog, QHBoxLayout, QHea
 
 import paths
 from switcher import eqfile
-from ui import icons
+from ui import help_window, icons
 from ui.window_parts import muted, profile_line
 
 
@@ -50,12 +50,18 @@ class ProfilesScreen:
         lay.addWidget(self.prof_table, 1)
         row = QHBoxLayout()
         for text, fn, symbol in (("Import EQ files…", lambda: self.import_files(), "import"),
+                                 ("Edit in Make an EQ", self._edit_by_hand, "edit"),
                                  ("Rename", self._rename, "rename"), ("Remove", self._remove, "remove"),
                                  ("Show the files", lambda: self.open_folder(self.sw.apo.profiles), "folder")):
             b = QPushButton(text)
             icons.put(b, symbol)
             b.clicked.connect(fn)
             row.addWidget(b)
+            if symbol == "edit":
+                b.setToolTip("Change the chosen profile's filters by hand (on the graph, or as a table); Use on device › "
+                             "Update puts it back, its devices keeping it")
+                help_window.tag(b, "#prof-edit")
+                self.prof_edit_btn = b
         row.addStretch(1)
         lay.addLayout(row)
         return w
@@ -99,6 +105,16 @@ class ProfilesScreen:
         name, ok = QInputDialog.getText(self, "Rename profile", "Name:", text=self.sw.profile_name(pid))
         if ok:
             self.sw.rename_profile(pid, name)
+
+    def _edit_by_hand(self):
+        """The chosen profile in Make an EQ as an EQ by hand (once that has opened): change its filters, then Use on
+        device › Update puts it back."""
+        pid = self._selected_profile()
+        if not pid:
+            QMessageBox.information(self, "Edit in Make an EQ", "Choose a profile in the list first.")
+            return
+        self.show_page("eq")
+        self.eq_then(lambda page: page.hand_from_profile(pid), "The profile opens as soon as Make an EQ has opened…")
 
     def _remove(self):
         pid = self._selected_profile()
