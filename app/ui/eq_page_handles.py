@@ -4,7 +4,8 @@ middle: half its gain), with its number. Drag one: left and right its frequency,
 wheel over it: its Q; right-click it: its type, on or off, Delete. Double-click the graph where there's no handle: a
 new peak there (with no EQ shown, it starts one by hand). While a handle is held only what follows it changes (the
 EQ's curves, the numbers, the table's values, Listen's sound) and the graph's scale stays as it was until it's let go:
-a scale that moved under the pointer made the handle run away from it. An EQ being tried on a device (Try for 5
+a scale that moved under the pointer made the handle run away from it. A full draw asked for meanwhile (curves loaded
+in the background, a timer) waits for the let-go too: it would take the handle away from under the pointer. An EQ being tried on a device (Try for 5
 minutes on) plays each change there too, in every app. The table and the sliders stay the way in by keyboard.
 EqHandles is a plain class (no __init__, no signals); EqPage (ui/eq_page.py) joins it with the other parts.
 """
@@ -138,6 +139,29 @@ class EqHandles:
         if hasattr(self, "_light_timer"):
             self._light_timer.stop()
         self.live_update()
+
+    def holding_handle(self):
+        """A filter's handle in hand (dragged, not yet let go)."""
+        return any(h.moving for h in getattr(self, "_handles", ()))
+
+    def draw_after_drag(self):
+        """The graph asked to be drawn again while a handle is held (curves loaded in the background, a timer): it
+        waits, as drawing would take the handle away from under the pointer; letting go draws it (handle_let_go). In
+        case the let-go never comes (the button let go where the window didn't see it), it's drawn once no mouse
+        button is down."""
+        if not hasattr(self, "_drag_watch"):
+            self._drag_watch = QTimer(self, interval=500, timeout=self._drag_watched)
+        self._drag_watch.start()
+
+    def _drag_watched(self):
+        from PySide6.QtWidgets import QApplication
+        if self.holding_handle() and QApplication.mouseButtons() != Qt.NoButton:
+            return
+        self._drag_watch.stop()
+        if self.holding_handle():
+            for h in self._handles:
+                h.moving = False
+            self.live_update()
 
     def handle_wheel(self, i, delta):
         """The mouse wheel over a handle: its Q, 10 % a notch (up: narrower), within the limits."""

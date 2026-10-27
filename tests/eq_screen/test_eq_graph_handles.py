@@ -48,6 +48,7 @@ def test_handles_on_their_curves(eq_screen, check):
 
 
 def test_dragging_a_handle(eq_screen, check):
+    import pyqtgraph as pg
     from PySide6.QtCore import QEvent, QPoint, Qt
     page, qapp = eq_screen.page, eq_screen.qapp
     _fresh(page)
@@ -56,10 +57,16 @@ def test_dragging_a_handle(eq_screen, check):
     y_range = page.eqplot.getPlotItem().vb.viewRange()[1]
     p0, p1 = _px(page, 3.0, 4.0), _px(page, 3.2, 2.0)
     _mouse(page, QEvent.MouseButtonPress, p0, Qt.LeftButton, Qt.LeftButton)
+    # (spaced as a mouse's are: pyqtgraph passes on at most mouseRateLimit moves a second, 100, and drops the rest; sent
+    # back to back, all but the first were dropped when the process was quick, e.g. after the accessibility tests)
+    gap = 1000 / max(1, pg.getConfigOption("mouseRateLimit")) + 2
     for k in range(1, 13):
         _mouse(page, QEvent.MouseMove, QPoint(p0 + (p1 - p0) * (k / 12)), Qt.LeftButton)
-        qapp.processEvents()
-    eqpage.qt.wait_for(lambda: page.editor.table.cellWidget(0, 3).text() != "1000", 2)
+        eqpage.qt.pump(gap)
+        if k == 6:  # (as when curves loading in the background arrive mid-drag: their draw waits for the let-go)
+            page.draw()
+    # (the table follows at most every 30 ms: its value caught up with the last move)
+    eqpage.qt.wait_for(lambda: page.editor.table.cellWidget(0, 3).text() == str(page.EDIT[0]["freq"]), 2)
     held = (page._handles == before, page.eqplot.getPlotItem().vb.viewRange()[1] == y_range, dict(page.EDIT[0]),
             page.editor.table.cellWidget(0, 3).text(), page.editor.table.cellWidget(0, 4).text(),
             page.chips["boost"].text())
@@ -68,11 +75,26 @@ def test_dragging_a_handle(eq_screen, check):
     f = page.EDIT[0]
     want = 10 ** 3.2
     check("handles: dragged with the mouse, a filter's frequency and gain follow it (the table and numbers too) while "
-          "the same handle stays in hand and the scale stays put; let go, the graph is drawn again with it there",
+          "the same handle stays in hand and the scale stays put (a draw asked for meanwhile, e.g. curves loaded in "
+          "the background, waits); let go, the graph is drawn again with it there",
           held[0] and held[1] and abs(f["freq"] - want) / want < 0.03 and abs(f["gain"] - 2.0) < 0.3
           and held[3] == str(held[2]["freq"]) and float(held[4]) == held[2]["gain"]
           and page._handles != before and abs(page._handles[0].pos().x() - math.log10(f["freq"])) < 1e-6,
           (held, f))
+
+
+def test_a_drag_never_let_go(eq_screen, check):
+    page, qapp = eq_screen.page, eq_screen.qapp
+    _fresh(page)
+    qapp.processEvents()
+    before = list(page._handles)
+    before[0].moving = True  # (a drag whose let-go never came: the button let go where the window didn't see it)
+    page.draw()
+    waited = page._handles == before
+    eqpage.qt.wait_for(lambda: page._handles != before, 3)
+    check("handles: a drag whose let-go never comes doesn't stop the graph being drawn: once no mouse button is down "
+          "(half a second on), it's drawn", waited and page._handles != before and not page.holding_handle(),
+          (waited, page._handles == before, page.holding_handle()))
 
 
 def test_mouse_wheel_changes_q(eq_screen, check):

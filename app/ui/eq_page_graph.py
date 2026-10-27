@@ -180,6 +180,9 @@ class EqGraph:
         self.hover_lab.setText("  ·  ".join(parts) + " dB")
 
     def draw(self):
+        if self.holding_handle():  # (a filter's handle in hand: drawn when it's let go, or it would vanish mid-drag)
+            self.draw_after_drag()
+            return
         col = theme.graph_colours()
         self.plot.clear()
         self.eqplot.clear()
