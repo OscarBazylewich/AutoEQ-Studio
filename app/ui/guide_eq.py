@@ -318,14 +318,22 @@ def eq_steps(page):
         yield from api.type(box, f"{new:g}", keep=True, hold=200)
         page.EDIT[0]["gain"] = new
         page.live_update()
+        page.poke_live_graph()  # (as an edit by hand: the graph floats over the page while it's out of sight)
 
         def back():
             page.EDIT[:] = old
             page.editor.rebuild()
             page.live_update()
+            page.hide_live_graph()
         api.undo(back)
-        yield 1400
-        api.say("Or as sliders, like Poweramp's equalizer")
+        lg = getattr(page, "live_graph", None)
+        if lg is not None and lg.isVisible():
+            api.spot_on(lg)
+            api.keep_clear(lg)  # (the card off it: it sat over the floating graph)
+            yield from api.at(lg, 0.5, 0.4, 1600, say="With the graph out of sight, it floats over the page as you edit")
+        else:
+            yield 1400
+        api.say("Or as sliders: a graphic EQ, each filter's gain filled from 0 dB")
         yield from api.click(page.view_btns["sliders"])
         was = page.sw.s.get("filters_view", "table")
         page.set_view("sliders", remember=False)
@@ -686,10 +694,13 @@ def eq_steps(page):
                           {"at": lambda: page.chips["preamp"], "say": "Set this pre-amp in your EQ app"},
                           {"run": result_demo, "say": "The best result for each filter count"},
                           {"at": lambda: page.cmp_btn, "say": "Compare…: two EQs side by side"}]},
-        {"chapter": "3 · Run & review", "title": "Edit the filters", "target": lambda: [page.editor, page.retry_btn],
+        {"chapter": "3 · Run & review", "title": "Edit the filters",
+         "target": lambda: [page.editor, page.live_check, page.retry_btn],
          "before": result_before, "after": result_after, "ready": has_curves,
-         "text": lambda: "Change any filter in the table or as sliders: the numbers and the graph follow. Revert brings "
-                         "the run's filters back; Retry from these filters runs Best fit again from yours." + example(),
+         "text": lambda: "Change any filter in the table or as sliders: the numbers and the graph follow. While the graph "
+                         "is out of sight, a copy of it floats over the page as you edit (Show the graph while editing "
+                         "turns it off). Revert brings the run's filters back; Retry from these filters runs Best fit "
+                         "again from yours." + example(),
          "demo": [{"run": edit_demo, "say": "Change any value: the numbers and the graph follow"},
                   {"at": lambda: page.retry_btn, "say": "Retry: Best fit again, from your filters"}]},
         {"chapter": "3 · Run & review", "title": "Edit on the EQ graph", "target": lambda: page.eqplot,

@@ -108,6 +108,8 @@ class EqGraph:
                 p.getAxis(ax).setTextPen(pg.mkPen(col["axis"]))
             p.showGrid(x=True, y=True, alpha=0.25)
         self.legend.setLabelTextColor(col["axis"])  # (pyqtgraph's own grey was 2.9:1 on the light card: the axes')
+        if getattr(self, "live_graph", None) is not None:
+            self.live_graph.recolour()
         if draw:
             self.draw()
             if hasattr(self, "listen"):
@@ -186,7 +188,7 @@ class EqGraph:
         self.eqplot.clear()
         self.legend.clear()
         c = self.curves
-        self._drawn = self._eq_drawn = None
+        self._drawn = self._eq_drawn = self._live_series = None  # (the floating graph's curves: eq_page_live)
         if not c:
             if self.current()[1]:  # (an EQ by hand with no measurement chosen: the EQ itself, under the empty graph)
                 from eq import engines
@@ -195,6 +197,7 @@ class EqGraph:
                 item = self._draw_eq(f, engines.eq_gain(f, self.active(), self.S["site"]["sample_rate"]), col)
                 self._eq_drawn = {"f": f, "eq": item, "with": None}
             self.draw_handles()  # (with no EQ shown: none, the old ones gone)
+            self.hide_live_graph()  # (no graph to show while editing)
             return
         g = getattr(self, "_graph_demo", None) or self.sw.s.get("graph") or {}
         rel = g.get("view") == "rel"
@@ -257,6 +260,7 @@ class EqGraph:
             series.append(("With the EQ", sub(meas + gain)))
             # (the curves a held handle moves: EqHandles.follow sets their data, nothing drawn again)
             self._eq_drawn = {"f": f, "eq": self._draw_eq(f, gain, col), "with": with_eq, "meas": meas, "base": base}
+            self._live_series = {"f": f, "target": sub(tgt), "meas": sub(meas), "with": sub(meas + gain)}
         else:
             self.eqplot.setYRange(-12, 12, padding=0)  # (no EQ yet: a sensible scale, not a line's own)
             self.eqplot.addLine(y=0, pen=pg.mkPen(col["axis"], width=1))
@@ -277,6 +281,7 @@ class EqGraph:
         self.plot.getAxis("left").setLabel("Δ dB" if rel else "dB")
         self._drawn = {"f": list(f), "rel": rel, "series": series}
         self.draw_handles()
+        self.update_live_graph()  # (the floating graph, while it's shown: the curves and scale just drawn)
 
     def _draw_eq(self, f, gain, col):
         """The EQ graph (under the graph): the EQ shown, filled from 0 dB, on a scale that fits it (±6 dB at least, and

@@ -118,7 +118,6 @@ def test_editor_as_tall_as_its_view(own_editor, check):
 
 def test_editor_colours_are_the_themes(own_editor, eq_screen, check):
     from PySide6.QtCore import QPoint
-    from PySide6.QtWidgets import QFrame
     from ui import theme
     ed, qapp = own_editor, eq_screen.qapp
 
@@ -135,8 +134,8 @@ def test_editor_colours_are_the_themes(own_editor, eq_screen, check):
         ed.set_view("sliders")
         qt.pump(100)
         holder = ed.sliders_scroll.widget()
-        bar = next(f for f in holder.findChildren(QFrame) if type(f) is QFrame)  # (the pre-amp's: no words in it)
-        bar_colour = qt.picture(bar).pixelColor(bar.width() // 2, bar.height() // 2).name()
+        bar = ed.pre_meter  # (the pre-amp's: its track above 0 dB, where a pre-amp's cut never reaches)
+        bar_colour = qt.picture(bar).pixelColor(bar.width() // 2, bar.height() // 4).name()
         off = holder.findChildren(QSlider)[1]
         pic = qt.picture(off)
         run = best = 0
@@ -280,3 +279,71 @@ def test_own_filters_window_ends_as_every_window(eq_screen, check, monkeypatch):
           "open), what the editor changed is said in its own line, then OK and Cancel",
           seen.get("open after Enter in a box") is True and (seen.get("said") or (None,))[0] == "Changed to 20000 Hz."
           and seen.get("buttons") == ["OK", "Cancel"], seen)
+
+
+# ---------------------------------------------------------------- the Sliders view as a graphic EQ (2026-10-27)
+def _sliders(ed):
+    ed.set_view("sliders")
+    qt.pump(150)
+    return ed.sliders_scroll.widget().findChildren(QSlider)
+
+
+def test_sliders_drawn_as_a_graphic_eq(own_editor, check):
+    # (the user's ask: the sliders more polished. Each filled from 0 dB to its gain in the accent, its track in the
+    # theme's, the dB marked at the left with a line across at each, each filter's number as on the EQ graph, and the
+    # columns sharing the card's width when they fit)
+    from PySide6.QtWidgets import QLabel
+    from ui import filter_editor, theme
+    ed = own_editor
+    try:
+        sl = _sliders(ed)
+        t = theme.tokens()
+        s = sl[0]  # (+3.5 dB, on)
+        pic = qt.picture(s)
+        cx = s.width() // 2
+        y0, yv = s._y(0), s._y(s.value())
+        between = pic.pixelColor(cx, int((y0 + yv) / 2)).name()
+        above = pic.pixelColor(cx, int(filter_editor.TRACK_PAD + 2)).name()
+        numbers = [lab.text() for lab in ed.sliders_scroll.widget().findChildren(QLabel) if "&nbsp;" in lab.text()]
+        xs = [w.mapTo(ed, w.rect().center()).x() for w in sl]
+        even = max(xs[1] - xs[0], xs[2] - xs[1]) - min(xs[1] - xs[0], xs[2] - xs[1]) <= 2
+        wide = xs[-1] - xs[0] > ed.width() // 2
+    finally:
+        ed.set_view("table")
+    check("filters: the Sliders view is a graphic EQ's: a slider filled from 0 dB to its gain in the accent (its track "
+          "the theme's), the dB marked at the left (every 6 dB, 0 among them), each filter numbered as its handle on "
+          "the EQ graph, the columns sharing the width when they fit",
+          _near(between, t["accent"]) and _near(above, t["strong"]) and filter_editor.ticks(12) == [-12, -6, 0, 6, 12]
+          and filter_editor.ticks(30) == [-24, -12, 0, 12, 24] and len(numbers) == 3 and "1" in numbers[0]
+          and "○" in numbers[1] and even and wide, (between, above, numbers, xs))
+
+
+def test_slider_moves_where_it_is_clicked_and_dragged(own_editor, check):
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtTest import QTest
+    from ui import filter_editor
+    ed = own_editor
+    try:
+        s = _sliders(ed)[0]
+        cx = s.width() // 2
+        top, bot = filter_editor.TRACK_PAD, s.height() - filter_editor.TRACK_PAD
+        QTest.mouseClick(s, Qt.LeftButton, Qt.NoModifier, QPoint(cx, top))
+        at_top = s.value()
+        QTest.mouseClick(s, Qt.LeftButton, Qt.NoModifier, QPoint(cx, (top + bot) // 2))
+        at_middle = s.value()
+        y = round(s._y(s.value()))
+        QTest.mousePress(s, Qt.LeftButton, Qt.NoModifier, QPoint(cx, y + 3))  # (on the thumb, off its middle)
+        held = s.value()
+        QTest.mouseMove(s, QPoint(cx, y + 3 - 40))
+        QTest.mouseRelease(s, Qt.LeftButton, Qt.NoModifier, QPoint(cx, y + 3 - 40))
+        dragged = s.value()
+        QTest.mouseDClick(s, Qt.LeftButton, Qt.NoModifier, QPoint(cx, top + 5))
+        double = s.value()
+        gain = ed.filters[0]["gain"]
+    finally:
+        ed.set_view("table")
+    per_px = (s.maximum() - s.minimum()) / (bot - top)
+    check("filters: a click on a slider's track puts its thumb there (the top: its highest gain; the middle: 0 dB); "
+          "pressed on the thumb it stays under the pointer as it's dragged; double-click: 0 dB; the filter's gain follows",
+          at_top == s.maximum() and abs(at_middle) <= 1 and held == 0 and abs(dragged - 40 * per_px) <= 2
+          and double == 0 and gain == 0.0, (at_top, at_middle, held, dragged, double, gain))

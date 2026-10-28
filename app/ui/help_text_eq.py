@@ -127,6 +127,8 @@ HELP_EQ = {'slot:target': ['The curve you want your earphone to sound like.', 't
  '#target-save': 'Keeps the target as adjusted as a target of your own, in use; the adjustments go back to 0.',
  '#compare-results': 'Two EQs side by side: on the graph, their numbers and their filters.',
  '#queue': 'EQs for several IEMs or targets in one go, each saved and kept in History.',
+ '#live-graph': ['While the graph is out of sight, a copy of it floats over the page as you change the filters.',
+                 'by-hand'],
  '#eq-graph': ["The EQ itself: drag a filter's handle for its frequency and gain, the mouse wheel for its Q.",
                'by-hand',
                'q'],
@@ -411,6 +413,15 @@ SETTINGS_EQ = [{'title': 'Choosing and running',
                            'body': ['Runs Best fit again from the filters shown, for this run only. Fine-tune them: '
                                     'each moves a little to match closer. Keep them, add filters: yours stay exactly '
                                     'and more are added.']},
+                          {'key': '#live-graph',
+                           'title': 'Show the graph while editing',
+                           'body': ["Beside the filters' tools (on to start with): while the graph is out of sight, "
+                                    'scrolled up past it, a copy of it floats over the page as you change the filters '
+                                    '(the table, the sliders, Add filter, Sort, Revert): the target, your IEM and, in '
+                                    "blue, your IEM with the EQ, with the result's error and pre-amp. It stays out of "
+                                    "the way of what you're changing (at the top of the window, or at its bottom when "
+                                    'that is up there), follows every change, and goes when you scroll back to the '
+                                    'graph or away from the filters. Its ✕, or unticking this, turns it off.']},
                           {'key': '#eq-graph',
                            'title': 'The EQ graph: editing on the curve',
                            'body': ["Under the graph: the EQ shown, with a handle for each of its filters, numbered "

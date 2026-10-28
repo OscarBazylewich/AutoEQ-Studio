@@ -146,6 +146,9 @@ class EqHandles:
             d["eq"].setData(f, gain)
             if d.get("with") is not None:
                 d["with"].setData(f, d["meas"] + gain - d["base"])
+                if getattr(self, "_live_series", None):  # (the floating graph too, while it's shown)
+                    self._live_series["with"] = d["meas"] + gain - d["base"]
+                    self.update_live_graph()
         st = self.stats()
         self.show_numbers(st)
         self.editor.show_values()

@@ -48,6 +48,7 @@ from ui.eq_page_files import EqFiles
 from ui.eq_page_graph import EqGraph
 from ui.eq_page_handles import EqHandles
 from ui.eq_page_history import EqHistory
+from ui.eq_page_live import EqLive
 from ui.eq_page_parts import FORMAT_NAMES, MODE_HINT, Notices, label
 from ui.eq_page_result import EqResult
 
@@ -85,7 +86,7 @@ class _Held:
             preload.release()
 
 
-class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, QWidget):
+class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, QWidget):
     def __init__(self, sw, status):
         super().__init__()
         self.sw, self._window_status = sw, status  # (the per-device part, for Use on device; the window's line)

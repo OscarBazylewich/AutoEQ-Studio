@@ -141,8 +141,10 @@ One column, top to bottom:
 - Your result: its error, pre-amp, biggest boost and Max Q, "Runs this session" (an earlier run back), "Fewer or more
   filters" (the best result for each count; "All results…" lists every result the run tried, with a grid of the
   error by filter count and max Q; "Compare…" puts two EQs side by side: this one, another filter count or run, or
-  one from History), its filters (a table or sliders, to edit; Revert, Retry from these
-  filters), the File name, then:
+  one from History), its filters to edit (a table, or sliders as a graphic EQ: each filter's gain filled from 0 dB,
+  the dB marked across; Revert, Retry from these filters; while the graph is out of sight, a copy of it floats over
+  the page as you edit, out of the way of what you're changing: "Show the graph while editing" turns it off), the
+  File name, then:
     Save filters       writes the file(s) your EQ app needs into the Saved EQs folder
     Copy               the filters as Equalizer APO text, on the clipboard
     Use on device      makes this EQ a profile of a device and switches it on there (see Devices); or "Try for 5

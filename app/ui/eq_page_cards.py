@@ -47,6 +47,7 @@ class EqCards:
         col.setSpacing(12)
         col.setContentsMargins(14, 14, 14, 14)
         scroll.setWidget(body)
+        self.page_area = scroll  # (the page's own scroll area: what floats over the page goes on its view, eq_page_live)
         scroll.hide()  # ("Opening the EQ part…" until the page is whole)
         self.layout().addWidget(scroll)  # (in its place first: the cards then go straight into it, never moved)
         yield "the page's frame"
@@ -499,6 +500,15 @@ class EqCards:
             tools.addWidget(b)
             if text == "Revert":
                 self.revert_btn = b
+        tools.addSpacing(12)
+        # (the graph floating over the page as you edit, while it's out of sight: on to start with, kept: eq_page_live)
+        self.live_check = QCheckBox("Show the graph while editing")
+        self.live_check.setChecked(self.live_graph_on())
+        self.live_check.setToolTip("While the graph is out of sight, a copy of it floats over the page as you change the "
+                                   "filters")
+        self.live_check.toggled.connect(self.set_live_graph_on)
+        help_window.tag(self.live_check, "#live-graph")
+        tools.addWidget(self.live_check)
         tools.addStretch(1)
         self.retry_btn = QPushButton("Retry from these filters")
         icons.put(self.retry_btn, "refresh")  # (every button in the row with its symbol, UI-RULES 9)
@@ -513,6 +523,7 @@ class EqCards:
         from ui.filter_editor import FilterEditor
         self.editor = FilterEditor(self.meta.get("limits", {}), lambda t: self.status(t, 6000))
         self.editor.changed.connect(self.live_update)
+        self.editor.changed.connect(self.poke_live_graph)  # (after the page has drawn the change: its curves current)
         v.addWidget(self.editor)
         self.EDIT, self.ORIG = [], []
         name_row = QHBoxLayout()

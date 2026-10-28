@@ -394,16 +394,19 @@ class EqResult:
         self.EDIT.append({"enabled": True, "type": "PK", "freq": 1000, "gain": 0.0, "q": 1.0})
         self.editor.rebuild()
         self.live_update()
+        self.poke_live_graph()
 
     def sort_filters(self):
         self.EDIT.sort(key=lambda f: f["freq"])
         self.editor.rebuild()
         self.live_update()
+        self.poke_live_graph()
 
     def revert(self):
         self.EDIT[:] = [dict(f) for f in self.ORIG]
         self.editor.rebuild()
         self.live_update()
+        self.poke_live_graph()
 
     def auto_name(self):
         run, r = self.current()

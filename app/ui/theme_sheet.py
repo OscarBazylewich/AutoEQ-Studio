@@ -315,11 +315,15 @@ def window_screens(t, img):
 def eq_screen(t, img):
     """Make an EQ: its cards, settings folds, result card, notices. Its own properties: eqtitle (the graph's title,
     the result's name: a little bigger than a card's heading, in Windows 11's display type), eqsub (a fold inside a
-    card, the Target card's Adjust: body text, quieter than the card's title, as Windows 11's expanders).
+    card, the Target card's Adjust: body text, quieter than the card's title, as Windows 11's expanders); the graph
+    floating over the page as you edit (#liveGraph: a card with Windows 11's flyout border, eq_page_live).
     (The menus its Guide draws, a submenu's chevron too, are the Guide's own: guide_and_help's #tourMock.)"""
     return f"""
     QLabel[eqtitle="true"] {{ font-family: "Segoe UI Variable Display"; font-size: {FONT + 1.5}pt; font-weight: 600; }}
     QToolButton[eqsub="true"] {{ font-size: {FONT}pt; font-weight: 400; }}
+    QFrame#liveGraph {{ background: {t['card']}; border: 1px solid {t['stroke']}; border-radius: 8px; }}
+    QFrame#liveGraph QLabel {{ background: transparent; }}
+    QLabel#liveTitle {{ font-weight: 600; }}
 """
 
 
@@ -327,17 +331,14 @@ def eq_windows(t, img):
     """Make an EQ's own windows: the filter editor, All results, Compare, Run several, History. Their controls by
     object names of their own (eqw…): the filter table's boxes a little apart (the table has no grid lines) and its
     headings 3 px further in, so Type's (at the left) starts where its drop-downs' words do, inside their border and
-    padding (the centred ones stay centred over their values); a switched-off filter's slider with its thumb's ring
-    and a grey dot (Windows 11's), not a flat square; the pre-amp's bar as a slider's empty track; the error grid's
-    corner as its headings; room at the left of the tables' cells, so their words start under their headings (Run
+    padding (the centred ones stay centred over their values); the Sliders view's gains in semibold (its sliders,
+    scale and pre-amp draw themselves in the theme's colours: filter_editor.py); the error grid's corner as its
+    headings; room at the left of the tables' cells, so their words start under their headings (Run
     several's, All results' grid and table, Compare's numbers and filters: Windows 11's table look, no grid lines)."""
     return f"""
     QTableWidget#eqwFilters QLineEdit, QTableWidget#eqwFilters QComboBox {{ margin: 1px 2px; }}
     QTableWidget#eqwFilters QHeaderView::section {{ padding-left: 11px; padding-right: 11px; }}
-    QSlider#eqwGain::handle:vertical:disabled {{ border: 1px solid {t['stroke']}; background: qradialgradient(cx:0.5,
-        cy:0.5, radius:0.5, fx:0.5, fy:0.5, stop:0 {t['disabled']}, stop:0.48 {t['disabled']}, stop:0.56 {t['thumb']},
-        stop:1 {t['thumb']}); }}
-    QFrame#eqwPreamp {{ background: {t['track']}; border: none; border-radius: 2px; }}
+    QLabel#eqwGainValue {{ font-weight: 600; }}
     QTableWidget#eqwGrid QTableCornerButton::section {{ background: {t['card']}; border: none;
         border-bottom: 1px solid {t['line']}; }}
     QTableWidget#eqwQueue::item, QTableWidget#eqwNumbers::item, QTableWidget#eqwGrid::item,
