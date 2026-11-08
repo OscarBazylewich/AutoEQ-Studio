@@ -109,7 +109,7 @@ class AllResults(QDialog):
             v.addWidget(w)
         self.grid.cellClicked.connect(lambda i, j: self.grid.item(i, j) is not None
                                       and self.grid.item(i, j).data(Qt.UserRole) is not None
-                                      and self.pick(self.grid.item(i, j).data(Qt.UserRole)))
+                                      and self.select_result(self.grid.item(i, j).data(Qt.UserRole)))
         self.table = QTableWidget(0, len(HEAD))
         self.table.setObjectName("eqwResults")  # (its cells' room at the left: ui\theme_sheet.py's eq_windows)
         _table_look(self.table)
@@ -123,15 +123,15 @@ class AllResults(QDialog):
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         # (the error's column as wide as its words: "0.225  ✓ selected for you" ended in "…" in a shared width)
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        self.table.cellClicked.connect(lambda row, _c: self.pick(self.table.item(row, 0).data(Qt.UserRole)))
+        self.table.cellClicked.connect(lambda row, _c: self.select_result(self.table.item(row, 0).data(Qt.UserRole)))
         v.addWidget(self.table, 1)
         self.footer = Footer(self)
         v.addWidget(self.footer)
         enter_presses(self)
         self.render()
-        self._wide_enough()
+        self._widen_for_grid()
 
-    def _wide_enough(self):
+    def _widen_for_grid(self):
         """Opened wide enough for its whole grid when the screen has room (its rows' names and every column at its
         narrowest), at most 90 % of the screen's width: narrower, the grid scrolls sideways."""
         g = self.grid
@@ -144,7 +144,7 @@ class AllResults(QDialog):
         if need > self.width():  # (never narrower than it opens)
             self.resize(max(self.width(), min(need, int(room * 0.9))), self.height())
 
-    def pick(self, rid):
+    def select_result(self, rid):
         """A result shown on the result card (the window stays, its marks follow)."""
         self.page.show_result(rid)
         self.render()

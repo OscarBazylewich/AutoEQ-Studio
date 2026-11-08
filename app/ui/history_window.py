@@ -196,7 +196,7 @@ class HistoryWindow(QDialog):
             self._enter.button = show
         icons.put(show, "view")  # (after the accent: its symbol is drawn in the accent's text colour then)
         show.setToolTip("Show the EQ on the graph and the result card again, with its files if they are in the app")
-        show.clicked.connect(lambda: (self.page.bring_back(e), self.accept()))
+        show.clicked.connect(lambda: (self.page.show_history_entry(e), self.accept()))
         copy = QPushButton("Copy")
         icons.put(copy, "copy")  # (Windows 11's symbols beside the words of the common verbs)
         copy.setToolTip("Copy its filters (Equalizer APO / squiglink format)")

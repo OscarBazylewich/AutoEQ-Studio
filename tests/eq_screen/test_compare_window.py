@@ -30,7 +30,7 @@ def _shown_with(page, monkeypatch, items=2):
     (the B&K 5128), the target's, with a note to heed."""
     import numpy as np
     from ui import compare_window
-    monkeypatch.setattr(compare_window.CompareWindow, "run", lambda self, auto=False: None)
+    monkeypatch.setattr(compare_window.CompareWindow, "search_measurements", lambda self, auto=False: None)
     cw = compare_window.CompareWindow(page)
     f = np.geomspace(20, 20000, 60)
     made = [{"name": f"Model {k + 1}", "hash": f"h{k}", "rig": "5128", "rig_name": "B&K 5128", "sure": True,
@@ -59,7 +59,7 @@ def which(eq_screen):
 def test_ranks_the_measurements(eq_screen, which, check):
     cw = which["cw"]
     cw.q.setText("gate")
-    cw.run()
+    cw.search_measurements()
     compared = eq_screen.wait_for(lambda: cw.data is not None and not cw.busy, 240)
     items = (cw.data or {}).get("items") or []
     # was eq_checks.py:1481
@@ -183,7 +183,7 @@ def test_one_main_action(eq_screen, monkeypatch, check):
         try:
             seen[n] = [b.text() for b in cw.findChildren(QPushButton) if b.property("primary") in (True, "true")]
             if n == 1:  # (Enter in the model's box compares, the button plain)
-                monkeypatch.setattr(compare_window.CompareWindow, "run", lambda self, auto=False: ran.append(auto))
+                monkeypatch.setattr(compare_window.CompareWindow, "search_measurements", lambda self, auto=False: ran.append(auto))
                 cw.q.setFocus()
                 QTest.keyClick(cw.q, Qt.Key_Return)
                 seen["Compare"] = cw.go.property("primary") in (True, "true")

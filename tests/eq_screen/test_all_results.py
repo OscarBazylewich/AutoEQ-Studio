@@ -42,7 +42,7 @@ def test_all_results(eq_screen, history_eq, check):
     ar = AllResults(page)
     grid_cells = [ar.grid.item(i, j) for i in range(ar.grid.rowCount()) for j in range(ar.grid.columnCount())]
     ids = [c.data(Qt.UserRole) for c in grid_cells if c is not None and c.data(Qt.UserRole) is not None]
-    ar.pick("t4-6")
+    ar.select_result("t4-6")
     grid_cells = [ar.grid.item(i, j) for i in range(ar.grid.rowCount()) for j in range(ar.grid.columnCount())]
     bold = [c.data(Qt.UserRole) for c in grid_cells if c is not None and c.font().bold()]
     picked = page.sel

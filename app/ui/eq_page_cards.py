@@ -63,7 +63,7 @@ class EqCards:
         from ui.eq_settings import EqSettings
         settings = EqSettings(self)
         # (Adjust onto the Target card, under the target: AutoEQ Local's; the Settings fold; Advanced in two halves)
-        yield from settings.parts(col, self.target_box.layout())
+        yield from settings.build_parts(col, self.target_box.layout())
         self.settings = settings
         col.addWidget(self._result_card())
         # (the settings shown again now the result card is there: its line under File name, "Save filters writes: …",
@@ -114,7 +114,7 @@ class EqCards:
         self.view_combo.addItem("Difference from target", "rel")
         self.view_combo.sort_items()
         self.view_combo.setCurrentIndex(max(0, self.view_combo.findData(g.get("view", "abs"))))
-        self.view_combo.activated.connect(lambda _i: self.graph_option(view=self.view_combo.currentData()))
+        self.view_combo.activated.connect(lambda _i: self.set_graph_option(view=self.view_combo.currentData()))
         help_window.tag(self.view_combo, "#opt-view")
         opts.addWidget(self.view_combo)
         opts.addWidget(label("Y range", wrap=False))
@@ -123,12 +123,12 @@ class EqCards:
             self.yrange_combo.addItem(name, k)
         self.yrange_combo.sort_items(pinned=1)  # ("Auto" on top, the user's ask)
         self.yrange_combo.setCurrentIndex(max(0, self.yrange_combo.findData(g.get("y", "auto"))))
-        self.yrange_combo.activated.connect(lambda _i: self.graph_option(y=self.yrange_combo.currentData()))
+        self.yrange_combo.activated.connect(lambda _i: self.set_graph_option(y=self.yrange_combo.currentData()))
         help_window.tag(self.yrange_combo, "#opt-y")
         opts.addWidget(self.yrange_combo)
         self.channels_chk = QCheckBox("Channels")
         self.channels_chk.setChecked(bool(g.get("channels")))
-        self.channels_chk.toggled.connect(lambda on: self.graph_option(channels=on))
+        self.channels_chk.toggled.connect(lambda on: self.set_graph_option(channels=on))
         help_window.tag(self.channels_chk, "#opt-ch")
         opts.addWidget(self.channels_chk)
         # (a view of the graph, with the others: it popped into the header between Trace and History, moving them)
@@ -214,7 +214,7 @@ class EqCards:
         if kind == "measurement":
             other = QPushButton("Other measurements of this model…")
             other.setToolTip("Find all the measurements of this model and the best one for your target")
-            other.clicked.connect(self.compare)
+            other.clicked.connect(self.open_other_measurements)
             v.addWidget(other, 0, Qt.AlignLeft)
             row2 = QHBoxLayout()
             self.eqd_before = label("", wrap=False)
@@ -357,14 +357,14 @@ class EqCards:
         v.addWidget(self.auto_w)
 
         # By hand: an EQ of your own, from where it starts (an EQ's sources in their order, then each device's
-        # profile: fill_hand_sources), then Start, as Run (its words with "…" when it asks first: a file, pasted lines)
+        # profile: fill_manual_sources), then Start, as Run (its words with "…" when it asks first: a file, pasted lines)
         self.hand_w = QWidget()
         g = grid(self.hand_w)
         g.addWidget(name("Start from"), 0, 0)
         self.hand_source = SearchCombo()
         self.hand_source.setAccessibleName("Start from")
         self.hand_source.setMaximumWidth(CHOICE_MOST)  # (as Your EQ app's: UI-RULES 26)
-        self.hand_source.currentIndexChanged.connect(lambda _i: self.hand_source_changed())
+        self.hand_source.currentIndexChanged.connect(lambda _i: self.manual_source_changed())
         help_window.tag(self.hand_source, "#by-hand")
         g.addWidget(self.hand_source, 0, 1, 1, 3, Qt.AlignLeft)
         self.hand_src_note = label("", "muted")
@@ -384,7 +384,7 @@ class EqCards:
                           "muted"), 3, 1, 1, 3)
         v.addWidget(self.hand_w)
         self.show_settings()
-        self.fill_hand_sources()
+        self.fill_manual_sources()
         self.set_way((self.sw.s.get("make_way") if self.sw is not None else None) or "auto", remember=False)
         self._line_up_ways()
         return box
@@ -412,7 +412,7 @@ class EqCards:
         self.hand_close.setToolTip("Show the EQ from before this manual EQ again (a changed EQ stays in EQs that you "
                                    "made)")
         help_window.tag(self.hand_close, "#hand-close")  # (a screen reader's name too: "Close (an EQ by hand)")
-        self.hand_close.clicked.connect(self.close_by_hand)
+        self.hand_close.clicked.connect(self.close_manual)
         self.hand_close.hide()
         head.addWidget(self.hand_close, 0, Qt.AlignTop)
         v.addLayout(head)
@@ -438,7 +438,7 @@ class EqCards:
         sr.addWidget(self.site_text, 1)
         self.site_use = QPushButton("Use these settings")
         self.site_use.setToolTip("Copy these values into Website AutoEQ: one set (they become your values)")
-        self.site_use.clicked.connect(self.use_in_single_run)
+        self.site_use.clicked.connect(self.use_these_settings)
         sr.addWidget(self.site_use)
         self.site_row.hide()
         v.addWidget(self.site_row)
@@ -495,7 +495,7 @@ class EqCards:
         tools.addSpacing(12)
         for text, symbol, fn, tip in (("Add filter", "add", self.add_filter, "A new filter at 1 kHz, 0 dB"),
                                       ("Sort", "sort", self.sort_filters, "Sort the filters by frequency"),
-                                      ("Undo all", "undo", self.revert, "Use the initial filters again (as the app made them)")):
+                                      ("Undo all", "undo", self.undo_all, "Use the initial filters again (as the app made them)")):
             b = QPushButton(text)
             icons.put(b, symbol)
             b.setToolTip(tip)
@@ -518,15 +518,15 @@ class EqCards:
         help_window.tag(self.retry_btn, "f_retry")
         self.retry_btn.setToolTip("Best fit again, from these filters (only for this EQ: your settings do not change)")
         retry_menu = QMenu(self.retry_btn)
-        retry_menu.addAction("Adjust them", lambda: self.run(retry={"filters": self.active(), "add": False}))
-        retry_menu.addAction("Keep them and add filters", lambda: self.run(retry={"filters": self.active(), "add": True}))
+        retry_menu.addAction("Adjust them", lambda: self.run(retry={"filters": self.enabled_filters(), "add": False}))
+        retry_menu.addAction("Keep them and add filters", lambda: self.run(retry={"filters": self.enabled_filters(), "add": True}))
         self.retry_btn.setMenu(retry_menu)
         tools.addWidget(self.retry_btn)
         v.addLayout(tools)
         from ui.filter_editor import FilterEditor
         self.editor = FilterEditor(self.meta.get("limits", {}), lambda t: self.status(t, 6000))
         self.editor.changed.connect(self.live_update)
-        self.editor.changed.connect(self.poke_live_graph)  # (after the page has drawn the change: its curves current)
+        self.editor.changed.connect(self.request_live_graph)  # (after the page has drawn the change: its curves current)
         v.addWidget(self.editor)
         self.EDIT, self.ORIG = [], []
         name_row = QHBoxLayout()
@@ -551,7 +551,7 @@ class EqCards:
         save = QPushButton("Save filters")
         theme.mark(save, primary=True)
         icons.put(save, "save")
-        save.clicked.connect(self.save)
+        save.clicked.connect(self.save_filters)
         self.use_btn = QPushButton("Use on device")
         icons.put(self.use_btn, "devices")  # (the Devices screen's own symbol)
         self.use_menu = QMenu(self.use_btn)
@@ -573,7 +573,7 @@ class EqCards:
         copy = QPushButton("Copy")
         icons.put(copy, "copy")
         copy.setToolTip("Copy the filters as Equalizer APO / squiglink text")
-        copy.clicked.connect(lambda: self.copy_filters(self.active(), self.stats()["preamp_raw"]))
+        copy.clicked.connect(lambda: self.copy_filters(self.enabled_filters(), self.stats()["preamp_raw"]))
         for b in (save, copy, self.use_btn, keep, report, folder):
             btns.addWidget(b)
         btns.addStretch(1)

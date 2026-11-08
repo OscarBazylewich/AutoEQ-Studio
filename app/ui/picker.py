@@ -54,7 +54,7 @@ _DB_MADE = {}  # (kind, any kind) -> (the online list, the page's meta, its rows
 _DB_SORTED = {}  # "items" -> (the online list as it came, the same A to Z): sorted once, off the window's thread
 
 
-def _keeping_room(w):
+def _keep_room_when_hidden(w):
     """w, keeping its room when it's hidden (a row without that button: the next ones stay in their column)."""
     keep = w.sizePolicy()
     keep.setRetainSizeWhenHidden(True)
@@ -338,7 +338,7 @@ class Picker(QDialog):
         self.list.setObjectName("findList")  # (its rows' widgets get the whole row: theme_sheet's find_windows)
         self.list.setAccessibleName("Results")
         self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.list.itemDoubleClicked.connect(lambda it: it.data(Qt.UserRole) and self.choose(it.data(Qt.UserRole)))
+        self.list.itemDoubleClicked.connect(lambda it: it.data(Qt.UserRole) and self.use_row(it.data(Qt.UserRole)))
         self.list.currentItemChanged.connect(lambda *_: self._mark_use())
         v.addWidget(self.list, 1)
         # (every window's footer, window_parts.Footer: its other actions at the left, its own message line, Close)
@@ -521,7 +521,7 @@ class Picker(QDialog):
         tr = self.target_rig() if tr is None else tr
         return bool(tr) and (self.rig_of(r) == tr or any(c.get("from") == tr for c in r.get("convs") or []))
 
-    def failed(self, r, f):
+    def failed_filters(self, r, f):
         """The filters a row doesn't pass (their keys). Worked out once per row in a render (self._fails): each
         choice's count asks for every row again, and with 55,000 online entries that was half a million tests a key."""
         out = self._fails.get(id(r))
@@ -542,7 +542,7 @@ class Picker(QDialog):
         return out
 
     def passes(self, r, f, skip=None):
-        return all(k == skip for k in self.failed(r, f))
+        return all(k == skip for k in self.failed_filters(r, f))
 
     def set_filter(self, key, value):
         self.filters[self.kind][key] = value
@@ -576,7 +576,7 @@ class Picker(QDialog):
         want_fits = self.kind == "measurement" and bool(tr)
         tally, fits_n = {key: {} for _b, key, *_r in facets}, 0
         for r in rows:
-            fl = self.failed(r, f)
+            fl = self.failed_filters(r, f)
             if len(fl) > 1:
                 continue
             for _b, key, value_of, *_r in facets:
@@ -646,25 +646,25 @@ class Picker(QDialog):
                 continue
             if not self.src:
                 heading = f"{title}  ·  {len(rows):,}"
-                later.append(lambda t=heading: self._note(t, heading=True))
+                later.append(lambda t=heading: self._add_note(t, heading=True))
             for r in rows[:lim]:
-                later.append(lambda r=r: self._row(r))
+                later.append(lambda r=r: self._add_row(r))
                 if r.get("device") and r["device"]["name"] in self.expanded:
                     for fl in r["device"]["files"]:
-                        later.append(lambda r=r, fl=fl: self._file_row(r, fl))
+                        later.append(lambda r=r, fl=fl: self._add_file_row(r, fl))
             shown += min(len(rows), lim)
             if len(rows) > lim:
                 more = f"{len(rows) - lim:,} more. Type more text for a shorter list" +\
                     ("" if self.src else f", or show only {title.lower()} (above).")
-                later.append(lambda t=more: self._note(t))
+                later.append(lambda t=more: self._add_note(t))
             if not rows and s == "db" and self.db.get("loading"):
-                later.append(lambda: self._note("The database lists load…"))
+                later.append(lambda: self._add_note("The database lists load…"))
         if not shown:
-            later.append(lambda: self._note(("No results." if ws or hidden else "No items.")
+            later.append(lambda: self._add_note(("No results." if ws or hidden else "No items.")
                                             + (" (The app continues to load the online lists.)" if self.db.get("loading")
                                                else "")))
         if hidden:
-            later.append(lambda: self._note(f"The selections hide {hidden:,} more. “Clear the selections” (above) shows "
+            later.append(lambda: self._add_note(f"The selections hide {hidden:,} more. “Clear the selections” (above) shows "
                                             "them."))
         self._pending = later
         self._make_more(max(FIRST_ROWS, place[0]) if place else FIRST_ROWS)
@@ -702,7 +702,7 @@ class Picker(QDialog):
         while self._pending:
             self._make_more()
 
-    def _note(self, text, heading=False):
+    def _add_note(self, text, heading=False):
         it = QListWidgetItem(text)
         it.setFlags(Qt.NoItemFlags)
         if heading:  # (as Windows 11's group headings: the list's own text, semibold; only the weight is set here)
@@ -743,7 +743,8 @@ class Picker(QDialog):
                              "known") \
                 + (f": {r['how']}" if r.get("how") else "")
         guess = tag.endswith("?")
-        tip = f"{what}: {rigs[key]}" + (" (possibly: the usual rig for its source, which does not give the rig)" if guess else "") \
+        tip = f"{what}: {rigs[key]}" \
+            + (" (very possibly: the usual rig for its source, which does not give the rig)" if guess else "") \
             + (f": {r['how']}" if r.get("how") else "")
         convs = r.get("convs") or []
         label = key + ("?" if guess else "")
@@ -755,7 +756,7 @@ class Picker(QDialog):
                                f"with the change, {c['before']:.1f} dB without it)" for c in convs))
         return label, tip
 
-    def _row(self, r):
+    def _add_row(self, r):
         it = QListWidgetItem()
         it.setData(Qt.UserRole, r)
         w = QWidget()
@@ -798,12 +799,12 @@ class Picker(QDialog):
             h.addWidget(dl)
         # (the row's buttons at its right end as every list's, UI-RULES 18: Preview, the row's own, Use (the main one)
         # last, then the ✕ apart; a button a row hasn't got keeps its room, so every Use is in one column)
-        prev = self.page.preview_on(r["key"])
+        prev = self.page.has_preview(r["key"])
         eye = QPushButton("Hide" if prev else "Preview")  # ("Show" puts an EQ on the result card: UI-RULES 16)
         eye.setMinimumWidth(QFontMetrics(eye.font()).horizontalAdvance("Preview") + 2 * 12 + 2)
         eye.setToolTip("Remove it from the graph" if prev else "Show it on the graph as a dotted line, but do not use it")
         eye.clicked.connect(lambda _=False, r=r: self.preview(r))
-        h.addWidget(_keeping_room(eye))
+        h.addWidget(_keep_room_when_hidden(eye))
         # (only once it's in the row: shown before, a button with no parent is a window of its own, and every row
         # flashed one on the screen while the lists loaded: the user saw them, and each cost the window's time)
         eye.setVisible(not r.get("link"))
@@ -829,14 +830,14 @@ class Picker(QDialog):
         use = QPushButton("Use")
         use.setObjectName("findUse")  # (the accent only on the one Enter presses: _mark_use)
         use.setEnabled(self.busy is None)
-        use.clicked.connect(lambda _=False, r=r: self.choose(r))
+        use.clicked.connect(lambda _=False, r=r: self.use_row(r))
         h.addWidget(use)
         h.addSpacing(12)  # (the bin apart from Use, the main action, as History's ✕: UI-RULES 14)
-        h.addWidget(_keeping_room(x))
+        h.addWidget(_keep_room_when_hidden(x))
         x.setVisible(r["src"] == "app")
-        self._place(it, w)
+        self._add_row_widget(it, w)
 
-    def _place(self, it, w):
+    def _add_row_widget(self, it, w):
         """A row's widgets into the list, its height from them in the theme's text (worked out before the theme's
         10.5 pt reached them, it was too low). Qt puts them inside a row's padding, so Find…'s list has none
         (findList in theme_sheet's find_windows): the lists' 7 px took 14 px off each row, cutting its names'
@@ -846,7 +847,7 @@ class Picker(QDialog):
         w.ensurePolished()
         it.setSizeHint(w.sizeHint())
 
-    def _file_row(self, r, fl):
+    def _add_file_row(self, r, fl):
         it = QListWidgetItem()
         it.setFlags(Qt.NoItemFlags)
         w = QWidget()
@@ -869,10 +870,10 @@ class Picker(QDialog):
         x.setAccessibleName(f"Delete {fl['name']} from the app")
         x.clicked.connect(lambda _=False, n=fl["name"]: self.remove("measurement", [n], n))
         h.addWidget(x)
-        self._place(it, w)
+        self._add_row_widget(it, w)
 
     # ---------------------------------------------------------------- actions
-    def body(self, r):
+    def request_body(self, r):
         if r["src"] == "app":
             if r.get("device"):
                 return {"src": "app", "kind": "measurement", "names": [f["name"] for f in r["device"]["files"]], "name": r["name"]}
@@ -905,7 +906,7 @@ class Picker(QDialog):
             rows = [self.list.item(i) for i in range(self.list.count()) if self.list.item(i).data(Qt.UserRole)]
             it = self.list.currentItem() if self.list.currentItem() in rows else (rows[0] if rows else None)
             if it is not None and (self.q.hasFocus() or self.list.hasFocus()):
-                self.choose(it.data(Qt.UserRole))
+                self.use_row(it.data(Qt.UserRole))
             return
         if k in (Qt.Key_Up, Qt.Key_Down) and self.q.hasFocus():
             rows = [i for i in range(self.list.count()) if self.list.item(i).data(Qt.UserRole)]
@@ -917,7 +918,7 @@ class Picker(QDialog):
             return
         super().keyPressEvent(e)
 
-    def choose(self, r):
+    def use_row(self, r):
         if self.busy:
             return
         if r.get("link"):
@@ -938,7 +939,7 @@ class Picker(QDialog):
             return
         self.busy = r["key"]
         self.render()
-        body = dict(self.body(r), kind=self.kind, settings=self.page.S, **({"as": self.kind} if r.get("other") else {}))
+        body = dict(self.request_body(r), kind=self.kind, settings=self.page.S, **({"as": self.kind} if r.get("other") else {}))
 
         page = self.page
 
@@ -950,14 +951,14 @@ class Picker(QDialog):
                     QMessageBox.warning(self, "Use", str(err or res["error"]))
                     self.render()
                 return
-            page.used(res)
+            page.file_used(res)
             if here:
                 self.busy = None
                 self.accept()
         tasks.background(lambda: self.svc.call("/api/use", body), done)
 
     def preview(self, r):
-        if self.page.preview_on(r["key"]):
+        if self.page.has_preview(r["key"]):
             self.page.remove_preview(r["key"])
             self.render()
             return
@@ -969,14 +970,14 @@ class Picker(QDialog):
         if r["key"] in loading:  # (pressed again while it loads)
             return
         loading.add(r["key"])
-        body = dict(self.body(r), settings=self.page.S)
+        body = dict(self.request_body(r), settings=self.page.S)
 
         def done(res, err):
             loading.discard(r["key"])
             if err or (res or {}).get("error"):
                 QMessageBox.warning(self, "Preview", str(err or res["error"]))
             else:
-                self.page.add_preview(r["key"], res["name"], res["vals"], self.body(r))
+                self.page.add_preview(r["key"], res["name"], res["vals"], self.request_body(r))
             self.render()
         tasks.background(lambda: self.svc.call("/api/preview", body), done, owner=self)
 
@@ -998,7 +999,7 @@ class Picker(QDialog):
             QMessageBox.warning(self, "Move", r["error"])
             return
         self.page.reload_state()
-        self.page.moved(kind, name, before, say=lambda text, undo: self.footer.say(text, undo=undo))
+        self.page.file_moved(kind, name, before, say=lambda text, undo: self.footer.say(text, undo=undo))
         self.render()
 
     def remove(self, kind, names, label):

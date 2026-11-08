@@ -92,10 +92,10 @@ class SettingsScreen:
         row = QHBoxLayout()
         self.btn_setup = QPushButton("Add AutoEQ Studio to APO…")
         icons.put(self.btn_setup, "tools")  # (every button in the row with its symbol: UI-RULES 9)
-        self.btn_setup.clicked.connect(self.set_up_dialog)
+        self.btn_setup.clicked.connect(self.add_studio_to_apo)
         self.btn_unset = QPushButton("Remove AutoEQ Studio from APO…")
         icons.put(self.btn_unset, "remove")
-        self.btn_unset.clicked.connect(self.take_out)
+        self.btn_unset.clicked.connect(self.remove_studio_from_apo)
         self.btn_conf = QPushButton("Open APO's Configurator")
         icons.put(self.btn_conf, "open_new")
         self.btn_conf.clicked.connect(self.open_configurator)
@@ -132,7 +132,7 @@ class SettingsScreen:
         row.addStretch(1)
         bl.addLayout(row)
         lay.addWidget(box)
-        self.show_files_folder()
+        self.render_files_folder()
 
         box = QGroupBox("Backup")
         bl = QVBoxLayout(box)
@@ -145,7 +145,7 @@ class SettingsScreen:
         self.btn_backup.clicked.connect(self.make_backup)
         self.btn_restore = QPushButton("Load a backup…")
         icons.put(self.btn_restore, "restore")
-        self.btn_restore.clicked.connect(self.restore_backup)
+        self.btn_restore.clicked.connect(self.load_backup)
         for b in (self.btn_backup, self.btn_restore):
             help_window.tag(b, "#backup")
             row.addWidget(b)
@@ -166,7 +166,7 @@ class SettingsScreen:
         return w
 
     # ---------------------------------------------------------------- Your files (paths.py, userfiles.py)
-    def show_files_folder(self):
+    def render_files_folder(self):
         self.files_label.setText(paths.ROOT + ("   (the usual folder)" if os.path.normcase(paths.ROOT) ==
                                                os.path.normcase(paths.DEFAULT_FILES) else "   (your selection)"))
 
@@ -180,7 +180,7 @@ class SettingsScreen:
 
     def change_files_folder(self):
         from ui import your_files
-        your_files.change(self, self.sw.set, self.app.restart)
+        your_files.change_location(self, self.sw.set, self.app.restart)
 
     # ---------------------------------------------------------------- Backup (backup.py)
     def make_backup(self):
@@ -198,7 +198,7 @@ class SettingsScreen:
         self.status(f"AutoEQ Studio saved {info['files']} files ({info['profiles']} profiles) in the backup {dest}.",
                     10000)
 
-    def restore_backup(self):
+    def load_backup(self):
         import backup
         src, _ = QFileDialog.getOpenFileName(self, "Load a backup", os.path.dirname(paths.DEFAULT_FILES),
                                              "Backup (*.zip)")
@@ -262,19 +262,19 @@ class SettingsScreen:
             state = "Not installed (or AutoEQ Studio did not find its config folder)."
         else:
             state = f"Its config folder is {apo.config}.\n" + ("APO uses AutoEQ Studio: config.txt has a line for the "
-                                                       "AutoEQ Studio file." if apo.set_up()
+                                                       "AutoEQ Studio file." if apo.includes_studio()
                                                        else "APO does not use AutoEQ Studio.")
         self.apo_state.setText(state)
-        self.btn_setup.setVisible(apo.found and not apo.set_up())
-        self.btn_unset.setVisible(apo.found and apo.set_up())
+        self.btn_setup.setVisible(apo.found and not apo.includes_studio())
+        self.btn_unset.setVisible(apo.found and apo.includes_studio())
         self.btn_conf.setVisible(bool(apo.configurator))
         self.btn_folder.setVisible(apo.found)
 
     # ---------------------------------------------------------------- APO actions
-    def set_up_dialog(self):
+    def add_studio_to_apo(self):
         SetUpDialog(self.sw, self).exec()
 
-    def take_out(self):
+    def remove_studio_from_apo(self):
         if QMessageBox.question(
                 self, "Remove AutoEQ Studio from APO",
                 "AutoEQ Studio removes its line from config.txt and enables the lines that it disabled. Then APO "

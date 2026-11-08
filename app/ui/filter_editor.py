@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QGridLayout, QHBoxL
                                QWidget)
 
 from ui import theme
-from ui.forms import Limits, _num
+from ui.forms import Limits, _number_text
 from ui.search_combo import SearchCombo
 
 TYPES = [("PK", "Peak"), ("LSQ", "Low shelf"), ("HSQ", "High shelf")]
@@ -119,13 +119,13 @@ class FilterEditor(QWidget):
             typ.activated.connect(lambda _x, f=f, typ=typ: (f.__setitem__("type", typ.currentData()), self._edited()))
             t.setCellWidget(i, 2, typ)
             for c, key in ((3, "freq"), (4, "gain"), (5, "q")):
-                box = QLineEdit(_num(f[key]))
+                box = QLineEdit(_number_text(f[key]))
                 box.setAccessibleName(f"Filter {i + 1} " + {"freq": "frequency (Hz)", "gain": "gain (dB)", "q": "Q"}[key])
                 box.setAlignment(Qt.AlignCenter)
                 lim = self.limits.text("edit." + key)
                 box.setToolTip(f"Permitted: {lim}." if lim else "")
                 box.textEdited.connect(lambda text, f=f, key=key, box=box: self._typed(f, key, box))
-                box.editingFinished.connect(lambda f=f, key=key, box=box: self._left(f, key, box))
+                box.editingFinished.connect(lambda f=f, key=key, box=box: self._edit_finished(f, key, box))
                 t.setCellWidget(i, c, box)
             x = QToolButton()
             theme.mark(x, quiet=True)  # (a row's ✕: every list's one look, UI-RULES 18)
@@ -173,14 +173,14 @@ class FilterEditor(QWidget):
         f[key] = int(v) if key == "freq" and v == int(v) else v
         self._edited()
 
-    def _left(self, f, key, box):
+    def _edit_finished(self, f, key, box):
         v = self._read(box)
         if v is not None and self.limits.check("edit." + key, v, lambda p: None):
             c = self.limits.clamp("edit." + key, v)
             f[key] = c
-            self.say(f"The value changed to {_num(c)}. Permitted: {self.limits.text('edit.' + key)}.")
+            self.say(f"The value changed to {_number_text(c)}. Permitted: {self.limits.text('edit.' + key)}.")
             self._edited()
-        box.setText(_num(f[key]))
+        box.setText(_number_text(f[key]))
         self._mark(box, None)
 
     # ---------------------------------------------------------------- the sliders
@@ -254,7 +254,7 @@ class FilterEditor(QWidget):
             # (frequency, Q and type typed or chosen as in the table, with the same limits)
             boxes = {}
             for row, key in ((3, "freq"), (4, "q")):
-                box = QLineEdit(_num(f[key]))
+                box = QLineEdit(_number_text(f[key]))
                 box.setAccessibleName(f"Filter {i + 1} " + ("frequency (Hz)" if key == "freq" else "Q"))
                 box.setAlignment(Qt.AlignCenter)
                 box.setFixedWidth(64)
@@ -262,7 +262,7 @@ class FilterEditor(QWidget):
                 box.setToolTip(f"Filter {i + 1}'s {'frequency (Hz)' if key == 'freq' else 'Q'}"
                                + (f". Permitted: {lim_text}." if lim_text else ""))
                 box.textEdited.connect(lambda text, f=f, key=key, box=box: self._typed(f, key, box))
-                box.editingFinished.connect(lambda f=f, key=key, box=box: self._left(f, key, box))
+                box.editingFinished.connect(lambda f=f, key=key, box=box: self._edit_finished(f, key, box))
                 box.setEnabled(f.get("enabled", True) is not False)
                 g.addWidget(box, row, col, Qt.AlignHCenter)
                 boxes[key] = box
@@ -321,14 +321,14 @@ class FilterEditor(QWidget):
                 val.setText(f"{f['gain']:+.1f}")
                 for box, key in ((fbox, "freq"), (qbox, "q")):
                     if box is not None and not box.hasFocus():
-                        box.setText(_num(f[key]))
+                        box.setText(_number_text(f[key]))
             return
         t = self.table
         for i, f in enumerate(self.filters[:t.rowCount()]):
             for c, key in ((3, "freq"), (4, "gain"), (5, "q")):
                 box = t.cellWidget(i, c)
                 if box is not None and not box.hasFocus():
-                    box.setText(_num(f[key]))
+                    box.setText(_number_text(f[key]))
 
     def set_preamp_text(self, text):
         self.preamp_text = text
@@ -362,7 +362,7 @@ def ticks(top):
     return [k * step for k in range(-n, n + 1)]
 
 
-def _bar(p, cx, y0, y1, colour):
+def _draw_bar(p, cx, y0, y1, colour):
     """A track's or a fill's 4 px bar from y0 to y1 (rounded ends)."""
     p.setPen(Qt.NoPen)
     p.setBrush(QColor(colour))
@@ -398,10 +398,10 @@ class _Slider(QSlider):
         cx = self.width() / 2
         top, bot = _track(self.height())
         on = self.isEnabled()
-        _bar(p, cx, top, bot, t["strong"] if on else t["track"])
+        _draw_bar(p, cx, top, bot, t["strong"] if on else t["track"])
         y0, yv = self._y(0), self._y(self.value())
         if on and abs(yv - y0) >= 1:
-            _bar(p, cx, y0, yv, t["accent"])
+            _draw_bar(p, cx, y0, yv, t["accent"])
         p.setPen(QPen(QColor(t["stroke"]), 1))
         p.setBrush(QColor(t["thumb"]))
         p.drawEllipse(QPointF(cx, yv), THUMB_R, THUMB_R)
@@ -492,10 +492,10 @@ class _Meter(QWidget):
         p.setRenderHint(QPainter.Antialiasing)
         cx = self.width() / 2
         top, bot = _track(self.height())
-        _bar(p, cx, top, bot, t["track"])
+        _draw_bar(p, cx, top, bot, t["track"])
         y0, yv = (_y_of(v, -self.top, self.top, self.height()) for v in (0, self.value))
         if abs(yv - y0) >= 1:
-            _bar(p, cx, y0, yv, t["muted"])
+            _draw_bar(p, cx, y0, yv, t["muted"])
         p.end()
 
 

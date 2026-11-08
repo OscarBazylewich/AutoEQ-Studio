@@ -569,7 +569,7 @@ def export(body):
     filters, preamp_raw = exports.clean_filters(body.get("filters")), exports.clean_preamp(body.get("preamp"))
     name = text_of(body, "name")
     if not body.get("replace"):
-        there = exports.existing(cfg, name, body.get("formats"), filters=filters)
+        there = exports.files_to_replace(cfg, name, body.get("formats"), filters=filters)
         if there:
             return {"exists": there}
     written, preamp = exports.write(cfg, filters, preamp_raw, name, body.get("formats"), notes=notes)
@@ -604,7 +604,7 @@ def make_report(body):
     cards = []
     for card in body["cards"]:
         card["filters"] = exports.clean_filters(card.get("filters"))
-        r = engines.finish({"filters": card["filters"]}, c, band, fs)
+        r = engines.score_result({"filters": card["filters"]}, c, band, fs)
         cards.append({"title": card["title"], "badge": card.get("badge"), "fields": card.get("fields", []),
                       # (the page's words are text; the report's own markup is added here)
                       "text": html.escape(str(card.get("text", ""))) + f" RMS error <b>{r['rms']:.2f} dB</b>, pre-amp "

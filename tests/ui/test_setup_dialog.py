@@ -46,7 +46,7 @@ def test_setting_up_adds_the_eq_files(set_up_window, check):
     # was selftest.py:394
     check("window: setting up adds config.txt's EQ files, the one on now becoming the playing device's",
           len(sw.profiles()) == 2 and [sw.profile_name(i) for i in rec["profiles"]] == ["EarPods"]
-          and rec["active"] == rec["profiles"][0] and sw.apo.set_up() and not w.win.banner.isVisible(),
+          and rec["active"] == rec["profiles"][0] and sw.apo.includes_studio() and not w.win.banner.isVisible(),
           (sw.profiles(), rec, w.warnings))
 
 

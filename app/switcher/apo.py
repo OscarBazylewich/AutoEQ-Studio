@@ -81,7 +81,7 @@ class Apo:
     def read_config(self):
         return textfile.read(self.config_txt) if self.found else ""
 
-    def set_up(self):
+    def includes_studio(self):
         """Is config.txt including AutoEQ Studio's file (the line on)?"""
         return any(_OURS.match(line) for line in self.read_config().splitlines())
 

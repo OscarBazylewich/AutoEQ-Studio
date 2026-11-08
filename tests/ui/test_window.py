@@ -271,7 +271,7 @@ def test_starting_hidden_on_make_an_eq(check, fake_apo, tmp_path):
 
 
 # The window on Windows 11 (stood in: the tests draw off-screen, where Windows' Mica and rounded corners don't exist):
-# winsys.materials says yes, and winsys.mica / round_corners record what they're asked. argv as CHILD's.
+# winsys.supported_effects says yes, and winsys.mica / round_corners record what they're asked. argv as CHILD's.
 MICA = r'''
 import json, os, sys
 sys.path.insert(0, sys.argv[1])
@@ -281,7 +281,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QToolTip, QWidget
 qapp = QApplication.instance() or QApplication([])
 from ui import theme, theme_tokens, winsys
 asked = []
-winsys.materials = lambda platform, build=None: (True, True)
+winsys.supported_effects = lambda platform, build=None: (True, True)
 winsys.mica = lambda hwnd, dark: asked.append(("mica", dark)) or True
 winsys.round_corners = lambda hwnd: asked.append(("corners", hwnd)) or True
 theme.accent_palette = lambda: theme_tokens.DEFAULT_ACCENT

@@ -44,7 +44,7 @@ ISCC = [os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Inno Setup
 LEFT_OUT = {"AutoEQ Studio.bat", "README.txt", "TESTING.txt", "app/VERSION.txt"}
 
 
-def iscc():
+def find_iscc():
     found = next((p for p in ISCC if os.path.isfile(p)), None)
     if not found:
         raise SystemExit("Inno Setup 6 is not installed. To install it, type: winget install JRSoftware.InnoSetup "
@@ -79,13 +79,13 @@ def build(stage, out_dir):
                 fh.write(src)
         else:
             shutil.copy2(src, dest)
-    brand_exe.icon_file(os.path.join(stage, "AutoEQ Studio.ico"))
+    brand_exe.write_icon_file(os.path.join(stage, "AutoEQ Studio.ico"))
     print(f"{len(entries)} files are in the temporary folder. Python makes the .pyc files …", flush=True)
     subprocess.run([sys.executable, "-m", "compileall", "-q", "-j", "0", os.path.join(stage, "app"),
                     os.path.join(stage, "runtime", "Lib")], check=False, capture_output=True)
     print("Inno Setup makes the installer (some minutes) …", flush=True)
     test = ["/DTestBuild"] if "--test-build" in sys.argv else []
-    run = subprocess.run([iscc(), "/Qp", *test, f"/DAppVersion={paths.VERSION}", f"/DStage={stage}", f"/DOutDir={out_dir}",
+    run = subprocess.run([find_iscc(), "/Qp", *test, f"/DAppVersion={paths.VERSION}", f"/DStage={stage}", f"/DOutDir={out_dir}",
                           os.path.join(TOOLS, "installer.iss")], capture_output=True, text=True)
     if run.returncode:
         raise SystemExit("Inno Setup did not make the installer:\n" + (run.stdout + run.stderr)[-2000:])
@@ -93,7 +93,7 @@ def build(stage, out_dir):
     return os.path.join(out_dir, f"{name} Setup {paths.VERSION}.exe")
 
 
-def friends_zip(exe):
+def make_friends_zip(exe):
     """The zip for friends ("Make zip for friends.bat"): the installer and READ ME FIRST.txt (how to install it, from
     this folder, with the version filled in). Next to the installer: "AutoEQ Studio <version>.zip"."""
     import zipfile
@@ -115,11 +115,11 @@ def main():
         exe = os.path.join(out_dir, f"AutoEQ Studio Setup {paths.VERSION}.exe")
         if not os.path.isfile(exe):
             raise SystemExit(f"There is no {exe}. Make the installer first (Make installer.bat).")
-        z = friends_zip(exe)
+        z = make_friends_zip(exe)
         print(f"Result: {z} ({os.path.getsize(z) / 2**20:.0f} MB), with the installer and READ ME FIRST.txt, to send "
               "to other persons.")
         return 0
-    iscc()  # (said before the self-test's minute, not after)
+    find_iscc()  # (said before the self-test's minute, not after)
     if "--no-test" not in sys.argv:
         mz.selftest()
     os.makedirs(out_dir, exist_ok=True)
@@ -130,7 +130,7 @@ def main():
         shutil.rmtree(stage, ignore_errors=True)
     print(f"Result: {exe} ({os.path.getsize(exe) / 2**20:.0f} MB, version {paths.VERSION}).")
     if "--zip" in sys.argv and "--test-build" not in sys.argv:
-        z = friends_zip(exe)
+        z = make_friends_zip(exe)
         print(f"Result: {z}, with the installer and READ ME FIRST.txt, to send to other persons.")
     print("Send the installer to a person, or start it. It installs AutoEQ Studio for the person who starts it. An "
           "administrator is not necessary. If Windows shows \"Windows protected your PC\" (the installer has no "

@@ -41,8 +41,8 @@ def test_run_button_makes_a_result(eq_screen, chain, check):
 def test_retry_from_these_filters(eq_screen, chain, check):
     page, run = eq_screen.page, chain["run"]
     page.set_view("table")  # (lines 1562-1563: the Table view and the run's own filters, as the old checks left them)
-    page.revert()
-    page.run(retry={"filters": page.active(), "add": False})
+    page.undo_all()
+    page.run(retry={"filters": page.enabled_filters(), "add": False})
     retried = eq_screen.wait_for(lambda: page.run_btn.isEnabled() and page.run_result is not run, 180)
     # was eq_checks.py:1566
     check("ui: Retry from these filters: Best fit again from them (fine-tune)",
@@ -97,7 +97,7 @@ def test_website_method_line_and_use_in_single_run(eq_screen, chain, check):
     page.run_result = fake
     page.show_result(1)
     shown = (page.site_row.isVisibleTo(page), "Filter rows <b>5</b>" in page.site_text.text(), page.site_use.isVisibleTo(page))
-    page.use_in_single_run()
+    page.use_these_settings()
     copied = (page.S["mode"], page.S["site_single"]["rows"], "site_single.rows" in page.S["auto"]["manual"])
     page.S["mode"] = mode
     page.S["auto"]["manual"] = [m for m in page.S["auto"]["manual"] if not m.startswith("site_single.")]

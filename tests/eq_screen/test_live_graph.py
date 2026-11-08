@@ -57,7 +57,7 @@ def test_floats_over_the_page_while_the_graph_is_out_of_sight(eq_screen, check):
         gone = not lg.isVisible()
     finally:
         page.set_view("table", remember=False)
-        page.revert()
+        page.undo_all()
     check("live graph: an edit while the graph is in sight shows nothing more; with the graph scrolled away, the graph "
           "floats over the page clear of the slider in use, with the page's own curves, and follows the next edit; "
           "scrolled back to the graph, it goes",
@@ -80,7 +80,7 @@ def test_clear_of_the_filters_at_the_top(eq_screen, check):
         place = (lg.isVisible(), r.bottom() > vp.center().y(), r.intersects(_rect(page, page.editor).intersected(vp)))
     finally:
         page.set_view("table", remember=False)
-        page.revert()
+        page.undo_all()
         page.hide_live_graph()
     check("live graph: with the filters at the top of what's shown, it floats at the bottom, clear of them",
           place[0] and place[1] and not place[2], place)
@@ -106,7 +106,7 @@ def test_turned_off_and_kept(eq_screen, check):
     finally:
         page.set_live_graph_on(True)
         page.set_view("table", remember=False)
-        page.revert()
+        page.undo_all()
     check("live graph: unticked, an edit shows nothing and that's kept; ticked again it floats with the next edit; "
           "its ✕ hides it and turns it off (the tick box unticked, kept)",
           off == (True, False) and on and closed == (True, False, False), (off, on, closed))

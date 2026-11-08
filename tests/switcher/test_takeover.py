@@ -82,7 +82,7 @@ def test_file_like_a_profile(takeover, brought, check):
 
 def test_setting_up_turns_its_line_off(takeover, check):
     sw = takeover.sw
-    off = sw.set_up_apo()
+    off = sw.add_to_apo()
     # was selftest.py:278
     check("takeover: setting up turns EQ Switcher's line off, so the two never both apply an EQ",
-          off == ["Include: EQ Switcher\\switcher.txt"] and sw.apo.set_up(), off)
+          off == ["Include: EQ Switcher\\switcher.txt"] and sw.apo.includes_studio(), off)

@@ -70,7 +70,7 @@ class QueueWindow(QDialog):
         cols.addLayout(right)
         v.addLayout(cols, 1)
         for lst in (self.devs, self.tgts):
-            lst.itemChanged.connect(lambda _it: self.count())
+            lst.itemChanged.connect(lambda _it: self.update_count())
         self.count_lab = QLabel()
         self.start_btn = QPushButton("Start")
         theme.mark(self.start_btn, primary=True)
@@ -101,9 +101,9 @@ class QueueWindow(QDialog):
         v.addWidget(self.footer)
         enter_presses(self, self.start_btn)
         self.timer = QTimer(self, interval=400, timeout=self.poll)
-        self.count()
+        self.update_count()
 
-    def count(self):
+    def update_count(self):
         n = len(_ticked(self.devs)) * len(_ticked(self.tgts))
         self.count_lab.setText(f"{n} EQ{'s' if n != 1 else ''} to make" if n else "Select an IEM and a target.")
         self.start_btn.setEnabled(bool(n) and not self.running)
@@ -125,7 +125,7 @@ class QueueWindow(QDialog):
         self.cancel_btn.setEnabled(True)
         self.next_job()
 
-    def say(self, i, text):
+    def show_row_result(self, i, text):
         self.table.setItem(i, 2, QTableWidgetItem(text))
 
     def next_job(self):
@@ -140,9 +140,9 @@ class QueueWindow(QDialog):
         cfg["files"]["excluded"] = [m["name"] for m in page.inputs["measurements"] if m["name"] not in mine]
         r = page.svc.call("/api/run", {"settings": cfg, "mode": cfg["mode"]})
         if r.get("error"):
-            self.say(self.i, "Not started: " + r["error"])
+            self.show_row_result(self.i, "Not started: " + r["error"])
             return QTimer.singleShot(0, self.next_job)
-        self.say(self.i, "In progress…")
+        self.show_row_result(self.i, "In progress…")
         self.table.scrollToItem(self.table.item(self.i, 0))
         self.timer.start()
 
@@ -150,22 +150,23 @@ class QueueWindow(QDialog):
         page = self.page
         j = page.svc.call("/api/job")
         if j.get("status") == "running":
-            self.say(self.i, f"In progress: {j.get('message') or ''}" + (f" · {round(j['elapsed'])} s" if j.get("elapsed") else ""))
+            took = f" · {round(j['elapsed'])} s" if j.get("elapsed") else ""
+            self.show_row_result(self.i, f"In progress: {j.get('message') or ''}" + took)
             return
         self.timer.stop()
         page.svc.call("/api/job", {"ack": True})
         if j.get("status") == "done":
             try:
-                self.say(self.i, self.keep(j["result"]))
+                self.show_row_result(self.i, self.save_queued_result(j["result"]))
             except Exception as e:  # noqa: BLE001 - said in the row, the queue goes on
-                self.say(self.i, f"Made, but not saved: {e}")
+                self.show_row_result(self.i, f"Made, but not saved: {e}")
         elif j.get("status") == "cancelled":
-            self.say(self.i, "Canceled")
+            self.show_row_result(self.i, "Canceled")
         else:
-            self.say(self.i, ("Not made: " + j["message"]) if j.get("message") else "Not made")
+            self.show_row_result(self.i, ("Not made: " + j["message"]) if j.get("message") else "Not made")
         self.next_job()
 
-    def keep(self, payload):
+    def save_queued_result(self, payload):
         """The picked result: saved (EQ files under its automatic name, never over a file), in History and in Runs
         this session. Returns what to say."""
         from eq import engines
@@ -196,7 +197,7 @@ class QueueWindow(QDialog):
         page.keep_run(run)
         page.render_runs()
         base = f"{page.session}-{run['n']}-{r['id']}"
-        entry = {"key": f"{base}-{page._print(filters)}", "base": base, "saved": bool(written),
+        entry = {"key": f"{base}-{page._fingerprint(filters)}", "base": base, "saved": bool(written),
                  "device": payload.get("device"), "target": payload.get("target_name"),
                  "target_file": payload.get("target_file"), "meas_files": payload.get("meas_files"),
                  "adjust": cfg["target_adjust"], "mode": payload["mode"], "label": page.run_label(run, r),
@@ -223,14 +224,14 @@ class QueueWindow(QDialog):
         for w in (self.devs, self.tgts):
             w.setEnabled(True)
         self.cancel_btn.setEnabled(False)
-        self.count()
+        self.update_count()
         done = sum(1 for i in range(self.table.rowCount())
                    if (self.table.item(i, 2) or QTableWidgetItem("")).text().startswith("Done"))
         self.footer.say(f"The queue made {done} of {len(self.jobs)} EQs.", 0)  # (its own line, kept until the next)
         if page.run_result is None and page.session_runs:  # (the result card was hidden: Runs this session out of reach)
             page.choose_run(id(page.session_runs[-1]))
 
-    def _closing(self):
+    def _stop_if_running(self):
         if self.running:  # (closing while it runs: the run going on is cancelled and the queue stops)
             self.cancel()
             self.timer.stop()
@@ -238,9 +239,9 @@ class QueueWindow(QDialog):
             self.running = False
 
     def closeEvent(self, e):
-        self._closing()
+        self._stop_if_running()
         super().closeEvent(e)
 
     def reject(self):  # (Esc: Qt hides the window without a closeEvent; the queue went on out of sight)
-        self._closing()
+        self._stop_if_running()
         super().reject()

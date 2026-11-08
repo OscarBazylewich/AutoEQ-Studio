@@ -44,7 +44,7 @@ def test_hz_far_from_two_close_blue_lines(check):
     t.cal.update(x1=200.0, x2=203.0)
     k = t.calib()
     try:
-        far = k.f(0) if k else None
+        far = k.hz_at(0) if k else None
         ok = True
     except OverflowError:
         ok = False
@@ -155,17 +155,17 @@ def test_value_you_set_is_yours(sample, check):
     tw.update_ui()
     t.v["d1"] = "90"
     t.v["tol"] = 70
-    t.touched("tol")
+    t.mark_your_value("tol")
     t.load(t.px, "Again")  # (another picture: its own automatic values again)
     tw.fit_and_show()
     t.v["tol"] = 70
-    t.touched("tol")
+    t.mark_your_value("tol")
     t.fit_settings()
     kept_tol = t.v["tol"]
-    t.hand_back("tol")
+    t.make_auto("tol")
     # was eq_checks.py:2851
     check("trace: a value you set is yours (kept by the automatic settings) until handed back",
-          kept_tol == 70 and t.v["tol"] == 45 and not t.own("tol"), (kept_tol, t.v["tol"]))
+          kept_tol == 70 and t.v["tol"] == 45 and not t.is_your_value("tol"), (kept_tol, t.v["tol"]))
 
 
 def test_each_curve_its_own_file(sample, check):

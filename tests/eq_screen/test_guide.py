@@ -45,7 +45,7 @@ def _retry(s):
     for (180 s)."""
     page = s.page
     run = page.run_result
-    page.run(retry={"filters": page.active(), "add": False})
+    page.run(retry={"filters": page.enabled_filters(), "add": False})
     if not s.wait_for(lambda: page.run_btn.isEnabled() and page.run_result is not run, 180):
         raise RuntimeError(f"Retry made no result: {page.progress_text.text()!r}")
 
@@ -116,8 +116,8 @@ def test_demos(s, check):
         t.all_chk.setChecked(False)
         played, stuck = 0, []
         for i, st in enumerate(t.steps):
-            t.go(i)
-            if not tour._demo(st):
+            t.go_to_step(i)
+            if not tour._demo_actions(st):
                 continue
             t.speed = 40.0
             t.replay()
@@ -127,18 +127,18 @@ def test_demos(s, check):
                 stuck.append(st["title"])
         # with Windows' animation effects off: numbered markers on the controls and the list in the card, nothing moved
         t.glide = False
-        t.go(next(n for n, st in enumerate(t.steps) if st["title"] == "How to make an EQ"))
+        t.go_to_step(next(n for n, st in enumerate(t.steps) if st["title"] == "How to make an EQ"))
         t.replay()
         marked = (len(t.markers), "1." in t.acts_lab.text() and "5." in t.acts_lab.text(), t.demo_running)
         t.glide = True
         views = next(n for n, st in enumerate(t.steps) if st["title"] == "Graph views")
-        t.go(views)
+        t.go_to_step(views)
         t.speed = 40.0
         t.replay()
         wait_for(lambda: page.view_combo.currentData() == "rel" or not t.demo_running, 20)
         mid = page.view_combo.currentData()
         # the card's own controls: Pause and Resume; the wheel scrolls the page and pauses the demo, Resume scrolls back
-        t.go(next(n for n, st in enumerate(t.steps) if st["title"] == "Calculate"))
+        t.go_to_step(next(n for n, st in enumerate(t.steps) if st["title"] == "Calculate"))
         t.speed = 1.0
         t.replay()
         wait_for(lambda: t.demo_running, 5)
@@ -216,7 +216,7 @@ def test_find_demos_while_find_redraws(s, check):
     timer.start(100)
     try:
         for title in ("Select your IEM or headphone", "Many results?"):
-            t.go(next(n for n, st in enumerate(t.steps) if st["title"] == title))
+            t.go_to_step(next(n for n, st in enumerate(t.steps) if st["title"] == title))
             t.speed = 1.0
             t.replay()
             (played if wait_for(lambda: not t.demo_running, 90) else stuck).append(title)
@@ -245,14 +245,14 @@ def test_tracers_guide(s, check):
     t = guide.start_trace(tw)
     opened = tw.t.has_image and tw.sample_open
     probs = tour.problems(tw, guide.trace_steps(tw))
-    t.go(7)  # (Auto trace: the sample's curves traced for it)
+    t.go_to_step(7)  # (Auto trace: the sample's curves traced for it)
     traced = sum(map(tw.t.has_data, tw.t.curves))
     t.all_chk.setChecked(False)
     demos, play = 0, []
     for i, st in enumerate(t.steps):
-        t.go(i)
-        play.append((st["title"], bool(tour._demo(st)), t.replay_btn.isVisible(), t.all_chk.isVisible()))
-        if tour._demo(st):
+        t.go_to_step(i)
+        play.append((st["title"], bool(tour._demo_actions(st)), t.replay_btn.isVisible(), t.all_chk.isVisible()))
+        if tour._demo_actions(st):
             t.speed = 40.0
             t.replay()
             demos += wait_for(lambda: not t.demo_running, 20)
@@ -308,7 +308,7 @@ def _on_step(page, title):
     t = guide.start_eq(page)
     t.all_chk.setChecked(False)
     t.speed = 0.01  # (its demo waits 45 s before it starts by itself: the check has the step to itself)
-    t.go(next(n for n, st in enumerate(t.steps) if st["title"] == title))
+    t.go_to_step(next(n for n, st in enumerate(t.steps) if st["title"] == title))
     return t
 
 
@@ -460,7 +460,7 @@ def test_demo_windows_fit_their_frames(s, check, monkeypatch):
             t.all_chk.setChecked(False)
             try:
                 for title in WINDOW_DEMOS:
-                    t.go(next(n for n, st in enumerate(t.steps) if st["title"] == title))
+                    t.go_to_step(next(n for n, st in enumerate(t.steps) if st["title"] == title))
                     n = len(shown)
                     t.speed = 4.0
                     t.replay()
@@ -583,7 +583,7 @@ def test_every_step_in_sight_at_the_smallest_size(s, check):
             t.all_chk.setChecked(False)
             t.speed = 0.01
             for i in range(len(t.steps)):
-                t.go(i)
+                t.go_to_step(i)
                 t.stop_demo()
                 r = tour._rect(t.win, t.target or [])
                 if not t.win.rect().intersects(r) or r.width() < 4 or r.height() < 4 or not t.holes:

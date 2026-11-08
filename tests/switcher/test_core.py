@@ -124,14 +124,14 @@ def test_locked_settings(start, locked, check):
 
 def test_locked_refuses_apo(locked, check):
     refused = []
-    for act in (locked.set_up_apo, locked.remove_from_apo):
+    for act in (locked.add_to_apo, locked.remove_from_apo):
         try:
             act()
         except OSError:
             refused.append(act.__name__)
     # was selftest.py:190
     check("core: read-only, setting APO up or taking it out is refused too (review 2)",
-          refused == ["set_up_apo", "remove_from_apo"], refused)
+          refused == ["add_to_apo", "remove_from_apo"], refused)
 
 
 @pytest.fixture(scope="module")
@@ -243,9 +243,9 @@ def test_settings_read_back(start, on_devices, started_playing, check):
 
 def test_setting_up_apo(start, check):
     sw = start.sw
-    off = sw.set_up_apo()
+    off = sw.add_to_apo()
     # was selftest.py:231
-    check("core: setting up APO", off == ["Include: EarPods.txt"] and sw.apo.set_up())
+    check("core: setting up APO", off == ["Include: EarPods.txt"] and sw.apo.includes_studio())
 
 
 def test_without_apo(start, check):

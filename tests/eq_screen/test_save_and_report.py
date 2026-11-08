@@ -23,7 +23,7 @@ def test_save_writes_the_file(eq_screen, chain, check):
     page, said = eq_screen.page, eq_screen.said
     top = os.environ["AUTOEQSTUDIO_ROOT"]  # (the app's "your files" folder: the old checks' copy, here the session's)
     page.name_edit.setText("UI check")  # (lines 1573-1574)
-    page.save()
+    page.save_filters()
     chain["entry"] = next((e for e in page.history if e.get("saved")), None)
     # was eq_checks.py:1575
     check("ui: Save filters writes the file under the File name", os.path.isfile(os.path.join(top, "Saved EQs", "UI check - filters.txt"))
@@ -44,7 +44,7 @@ def test_save_with_no_file_ticked_and_report(eq_screen, chain, check, dialogs):
     n_hist = len(page.history)
     page.S["export"].update({k: False for k in exp if isinstance(exp[k], bool)})
     dialogs.asked.clear()  # (the message boxes said so far: the old BOXES)
-    page.save()
+    page.save_filters()
     nothing = (any("No file type is selected" in text for _kind, text in dialogs.asked), len(page.history) == n_hist)
     page.S["export"].update(exp)
     path = page.report(open_it=False)

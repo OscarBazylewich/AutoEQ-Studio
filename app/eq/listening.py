@@ -18,12 +18,12 @@ MAX_LISTS = 300
 _LOCK = threading.Lock()  # (the server answers requests in parallel: one change to the file at a time)
 
 
-def _all():
+def _read_lists():
     # (a file that can't be read is kept as listen.json.bad, never written over: textfile.read_json_kept)
     return textfile.read_json_kept(PATH, dict)
 
 
-def _device(name):
+def _clean_device_name(name):
     name = " ".join(str(name or "").split())[:300]
     if not name:
         raise ValueError("First, select a measurement: each IEM or headphone has a different list.")
@@ -34,9 +34,9 @@ def get(device):
     """The list for this IEM or headphone ([] if it has none), each EQ checked as put() checks it (one that isn't an
     EQ, e.g. from a hand edit, is left out). Looking at a list counts as using it (the 300-list limit drops the list
     used longest ago), noted at most once a day."""
-    device = _device(device)
+    device = _clean_device_name(device)
     with _LOCK:
-        data = _all()
+        data = _read_lists()
         lst = data.get(device)
         if isinstance(lst, dict) and time.time() - (lst.get("used") if isinstance(lst.get("used"), (int, float)) else 0) > 86400:
             lst["used"] = time.time()
@@ -69,7 +69,7 @@ def _clean(e, i):
 
 def put(device, eqs):
     """Replace this IEM's list (checked and cleaned). Returns it as kept."""
-    device = _device(device)
+    device = _clean_device_name(device)
     if not isinstance(eqs, list):
         raise ValueError("The list of EQs is missing.")
     if len(eqs) > MAX_EQS:
@@ -80,7 +80,7 @@ def put(device, eqs):
 
 
 def _put(device, eqs):
-    data = _all()
+    data = _read_lists()
     data.pop(device, None)
     if eqs:
         data[device] = {"used": time.time(), "eqs": eqs}

@@ -45,7 +45,7 @@ from ui.devices_screen import DevicesScreen, check_line  # noqa: F401 - (check_l
 from ui.profiles_screen import ProfilesScreen
 from ui.settings_screen import SettingsScreen
 from ui.setup_dialog import SetUpDialog  # noqa: F401 - (still taken from here, as before the screens had files)
-from ui.window_parts import MessageLine, fit_to_screen, glyph, warning_card
+from ui.window_parts import MessageLine, fit_to_screen, glyph_label, warning_card
 
 # (the start of the message that Make an EQ shows when its part cannot open: eq_page.py)
 NOT_OPENED = ("The EQ part cannot", "The EQ part did not")
@@ -76,7 +76,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self._trim_timer = QTimer(self, singleShot=True, interval=self.TRIM_MS, timeout=self._trim)
         # Windows 11's Mica: the window made see-through before Windows first draws it (it can't be later); turned on
         # when it first shows (_mica_on), followed when the theme changes
-        self._mica = winsys.materials(QGuiApplication.platformName())[0]
+        self._mica = winsys.supported_effects(QGuiApplication.platformName())[0]
         self._mica_hwnd = None
         if self._mica:
             self.setAttribute(Qt.WA_TranslucentBackground)
@@ -102,7 +102,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         tl = QHBoxLayout(self.trial_bar)
         tl.setContentsMargins(4, 0, 4, 0)
         tl.setSpacing(12)
-        clock = glyph("clock", said="EQ for 5 minutes")  # (Windows 11's clock, in the accent's text colour)
+        clock = glyph_label("clock", said="EQ for 5 minutes")  # (Windows 11's clock, in the accent's text colour)
         clock.setObjectName("trialGlyph")
         self.trial_text = QLabel()
         self.trial_text.setWordWrap(True)
@@ -131,7 +131,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         cl = QHBoxLayout(self.compare_bar)
         cl.setContentsMargins(4, 0, 4, 0)
         cl.setSpacing(12)
-        mark = glyph("eq", said="EQ off, to compare")
+        mark = glyph_label("eq", said="EQ off, to compare")
         mark.setObjectName("trialGlyph")  # (the trial's clock's colour: the accent's text colour)
         self.compare_text = QLabel()
         self.compare_text.setWordWrap(True)
@@ -288,7 +288,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.guide_btn.setVisible(key == "eq")
         self.render_banner()
         if key == "settings":  # (your files' folder: it may have been chosen since, e.g. when Make an EQ opened)
-            self.show_files_folder()
+            self.render_files_folder()
         if key == "eq" and self.isVisible() and self.eq_page is not None:
             self.eq_page.start()
         if remember and self.sw.s.get("page") != key:
@@ -419,7 +419,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.show_page("eq")
         self._guide_when_ready()
 
-    def eq_then(self, fn, said):
+    def when_eq_opens(self, fn, said):
         """fn(page) once Make an EQ has opened (it's the screen shown: Profiles' Edit in Make an EQ); given up when you
         go on to another screen meanwhile, or when Make an EQ couldn't open (it says why where it would be)."""
         page = self.eq_page
@@ -431,7 +431,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
             if not failed:
                 if said:
                     self.status(said, 4000)
-                QTimer.singleShot(300, self, lambda: self.eq_then(fn, ""))
+                QTimer.singleShot(300, self, lambda: self.when_eq_opens(fn, ""))
             return
         fn(page)
 
@@ -537,9 +537,9 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
             self.render_all()
         # (Listen's "own EQ on top" note; only once the page is ready: while it opens there's no Listen yet)
         if getattr(self.eq_page, "ready", False) and what in ("active", "devices", "apo", "profiles"):
-            self.eq_page.listen.render_apo()
+            self.eq_page.listen.render_device_eq()
             if what in ("devices", "profiles"):  # (By hand's Start from lists the profiles, with their devices)
-                self.eq_page.fill_hand_sources()
+                self.eq_page.fill_manual_sources()
 
     def render_trial(self):
         self.render_compare()
@@ -592,7 +592,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
                                           f"({apo.config}). Make sure that you can change this folder in "
                                           "Windows. Then open AutoEQ Studio again."), "Open APO's config folder", \
                 "folder"
-        elif not apo.set_up():
+        elif not apo.includes_studio():
             text, btn, self._banner_do = ("Equalizer APO does not use AutoEQ Studio. One line in its config.txt "
                                           "adds the EQ that you selected for each device."), \
                 "Add AutoEQ Studio to APO…", "setup"
@@ -615,4 +615,4 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         elif self._banner_do == "folder":
             self.open_folder(self.sw.apo.config)
         else:
-            self.set_up_dialog()
+            self.add_studio_to_apo()

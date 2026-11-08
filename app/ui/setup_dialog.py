@@ -106,7 +106,7 @@ class SetUpDialog(QDialog):
                                     "active device."))
         # the buttons, as Windows 11's dialogs have them: on a band in the window's colour, the main one (Set up,
         # Enter's) in the accent, sharing the width
-        footer, self.go_btn = dialog_band(self, "Add to APO", self._go)  # (every such dialog's: window_parts)
+        footer, self.go_btn = dialog_band(self, "Add to APO", self._add_to_apo)  # (every such dialog's: window_parts)
         outer.addWidget(footer)
         # its size, fixed as Windows 11's dialogs are: as wide as its widest tick box's words (a tick box gives way
         # when there's less room: its words were cut), and as tall as its wrapping words need at that width (Windows
@@ -116,7 +116,7 @@ class SetUpDialog(QDialog):
         height = outer.totalHeightForWidth(width) if outer.hasHeightForWidth() else self.sizeHint().height()
         self.setFixedSize(width, max(height, self.sizeHint().height()))
 
-    def _go(self):
+    def _add_to_apo(self):
         import re
         on_now = {os.path.normcase(os.path.join(self.sw.apo.config, m.group(1).strip().strip('"')))
                   for line in self.others for m in [re.match(r"^\s*Include\s*:\s*(.+?)\s*$", line, re.I)] if m}
@@ -132,7 +132,7 @@ class SetUpDialog(QDialog):
                 if os.path.normcase(f) in on_now:
                     added_on.append(pid)
         try:
-            self.sw.set_up_apo(turn_off=self.chk_off is None or self.chk_off.isChecked())
+            self.sw.add_to_apo(turn_off=self.chk_off is None or self.chk_off.isChecked())
         except OSError as e:
             QMessageBox.warning(self, "Add AutoEQ Studio to APO", f"AutoEQ Studio cannot change config.txt: {e}")
             return

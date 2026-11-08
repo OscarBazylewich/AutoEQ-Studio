@@ -7,9 +7,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QPushButton
 
 from ui import tasks, theme, tour
-from ui.guide_demos import (adjust_demo, bg, button, card, choose_row, demo_filters, eq_now, fold, mock_combo,
-                            mock_menu, open_picker, pick, picker_rows, plot_value, show_on_graph, stage_hand,
-                            stage_result, type_search, way)
+from ui.guide_demos import (adjust_demo, button, card, choose_row, point_at_menu_row, demo_filters, fold_before_after,
+                            meas_with_eq, mock_combo, mock_menu, open_picker, picker_rows, plot_value, show_on_graph,
+                            stage_manual, stage_result, type_search, wait_for_background, way_before_after)
 
 # (A menu a demo draws is the Guide's own, guide_demos.mock_menu: as wide as its longest row and drawn as a real menu;
 # a row ending in " ▸" is a submenu's, Windows 11's chevron at its right, as the app's menus draw it.)
@@ -22,12 +22,12 @@ def eq_steps(page):
     st = page.settings
     in_card = lambda w, text: (lambda: button(card(w), text))
     has_curves = lambda: bool(page.curves)
-    settings_open, settings_close = fold(st.fold.btn, None)
-    adjust_open, adjust_close = fold(st.adjust_btn, None)
+    settings_open, settings_close = fold_before_after(st.fold.btn, None)
+    adjust_open, adjust_close = fold_before_after(st.adjust_btn, None)
     # (Make the EQ shows one way's steps: a step about the other's shows its tab, then the one that was shown)
-    auto_on, auto_off = way(page, "auto")
-    auto_settings_open, auto_settings_close = way(page, "auto", (settings_open, settings_close))
-    hand_on, hand_off = way(page, "hand")
+    auto_on, auto_off = way_before_after(page, "auto")
+    auto_settings_open, auto_settings_close = way_before_after(page, "auto", (settings_open, settings_close))
+    hand_on, hand_off = way_before_after(page, "hand")
     staged = {}
 
     def result_before():
@@ -43,7 +43,7 @@ def eq_steps(page):
     # ------------------------------------------------ demos that open things
     norm = lambda s: "".join(ch for ch in s.lower() if ch.isalnum())
 
-    def choose_target(api):
+    def find_target_demo(api):
         pk = open_picker(page, api, "target")
         api.say("Type a part of a name")
         active = page.inputs.get("active_target") or ""
@@ -65,16 +65,16 @@ def eq_steps(page):
         return " ".join(w) if len(" ".join(w)) >= 3 else "Truthear Gate"
     same_model = lambda r: norm(r["name"]).startswith(norm(model()))
 
-    def choose_meas(api):
+    def find_meas_demo(api):
         pk = open_picker(page, api, "measurement")
-        api.say("Type the name of the model")
+        api.say("Type the name of the manufacturer or of the model")
         yield from type_search(api, pk, model().lower())
         api.say("Click the measurement that you want. The graph shows it")
         got = yield from choose_row(page, api, pk, same_model, page.measurement_combo)
         vals = got[1] if got else ((page.curves or {}).get("meas") if page.curves else None)
         yield from show_on_graph(page, api, "meas", vals, got[0] if got else model(), page.measurement_box)
 
-    def many_results(api):
+    def many_results_demo(api):
         pk = open_picker(page, api, "measurement")
         yield from type_search(api, pk, model().lower())
         rows = picker_rows(pk)
@@ -132,15 +132,15 @@ def eq_steps(page):
             yield 2200
             api.close(m)
 
-    def compare_window(api):
+    def compare_window_demo(api):
         """Which measurement to use?, shown (its search isn't run: that would download measurements)."""
         from ui import compare_window as cw
-        real = cw.CompareWindow.run
-        cw.CompareWindow.run = lambda self, auto=False: None
+        real = cw.CompareWindow.search_measurements
+        cw.CompareWindow.search_measurements = lambda self, auto=False: None
         try:
             w = cw.CompareWindow(page)
         finally:
-            cw.CompareWindow.run = real
+            cw.CompareWindow.search_measurements = real
         from PySide6.QtCore import QSize
         api.window(w, near=None, size=QSize(int(min(860, api.t.width() * 0.7)), int(min(680, api.t.height() * 0.7))))
         w.q.setCursorPosition(0)
@@ -176,7 +176,7 @@ def eq_steps(page):
             return
         s = copy.deepcopy(page.S)
         s["rig_convert"]["enabled"] = False
-        res = yield from bg(lambda: page.svc.call("/api/curves", {"settings": s}))
+        res = yield from wait_for_background(lambda: page.svc.call("/api/curves", {"settings": s}))
         if not res or "target" not in res:
             yield 400
             return
@@ -215,7 +215,7 @@ def eq_steps(page):
         api.stage(page.mode_hint.text, page.mode_hint.setText, MODE_HINT.get(to, ""))
         yield from api.at(page.mode_hint, 0.2, 0.5, 1300, say="Its function, in one line")
 
-    def your_value(api):
+    def your_value_demo(api):
         """A value of your own typed into the method's first box: it's marked “yours ↺” (shown, not kept)."""
         f = _first_box()
         if f is None:
@@ -276,7 +276,7 @@ def eq_steps(page):
             yield from api.pin_graph(page, page.run_btn)
             meas = page.curves["meas"]
             item = api.curve(page, meas, col["with_eq"], 2.6, name="With the EQ (demo)")
-            yield from api.morph(page, item, meas, eq_now(page), 1500)
+            yield from api.morph(page, item, meas, meas_with_eq(page), 1500)
             yield from api.note("With the EQ: near the target", api.t.pin or page.plot, 1500, below="inside")
 
     def graph_demo(api):
@@ -287,7 +287,7 @@ def eq_steps(page):
         api.spot_on(page.plot)
         meas = page.curves["meas"]
         item = api.curve(page, meas, col["with_eq"], 2.6, name="With the EQ (demo)")
-        yield from api.morph(page, item, meas, eq_now(page), 1500)
+        yield from api.morph(page, item, meas, meas_with_eq(page), 1500)
         yield 700
 
     def views_demo(api, view=None, y=None):
@@ -321,7 +321,7 @@ def eq_steps(page):
         yield from api.type(box, f"{new:g}", keep=True, hold=200)
         page.EDIT[0]["gain"] = new
         page.live_update()
-        page.poke_live_graph()  # (as an edit by hand: the graph floats over the page while it's out of sight)
+        page.request_live_graph()  # (as an edit by hand: the graph floats over the page while it's out of sight)
 
         def back():
             page.EDIT[:] = old
@@ -360,7 +360,7 @@ def eq_steps(page):
                                                        if d.connected else "not connected") for d in sw.devices][:5]
         m = yield from mock_menu(api, page.use_btn, (names or ["Headphones  ·  active"])
                                  + [None, "Use for 5 minutes on ▸"])
-        yield from pick(api, m, 0)
+        yield from point_at_menu_row(api, m, 0)
         api.close(m)
         yield from api.note("It is the EQ of the device, and it is on. (Demo: the device did not change.)",
                             page.use_btn, 1500)
@@ -422,13 +422,13 @@ def eq_steps(page):
             api.spot_on(page.hand_w if key == "hand" else page.auto_w)
             yield 1300
 
-    def hand_demo(api):
-        api.undo(page.hand_source_changed)  # (put back last: the note and Start's words for the choice as it is again)
+    def manual_demo(api):
+        api.undo(page.manual_source_changed)  # (put back last: the note and Start's words for the choice as it is again)
         api.say("Start from: an empty EQ, or an EQ that you have (a file, pasted lines, a profile, a copy)")
         yield from mock_combo(api, page.hand_source, 0)
-        page.hand_source_changed()
+        page.manual_source_changed()
         yield from api.click(page.hand_start)
-        undo = stage_hand(page)  # (an EQ by hand on the result card, as Start empty makes it: put back after)
+        undo = stage_manual(page)  # (an EQ by hand on the result card, as Start empty makes it: put back after)
         if undo is None:  # (an ABX test running: left as it is)
             yield from api.note("A manual EQ on the result card: you add filters, then you save it or use it on a "
                                 "device. (Demo: your work does not change.)", page.hand_start, 1700)
@@ -441,7 +441,7 @@ def eq_steps(page):
 
     def listen_demo(api):
         L = page.listen
-        api.undo(L.render_ab)  # (put back last: the version buttons as the choice is again)
+        api.undo(L.render_versions)  # (put back last: the version buttons as the choice is again)
         api.say("Music, noise, a sweep, a tone or your audio file")
         k = next((n for n in range(L.src.count()) if "pink" in L.src.itemText(n).lower()), min(1, L.src.count() - 1))
         yield from mock_combo(api, L.src, k)
@@ -464,20 +464,20 @@ def eq_steps(page):
     def compare_ear_demo(api):
         from PySide6.QtCore import QSignalBlocker
         L = page.listen
-        api.undo(L.render_ab)  # (put back last: the version buttons as the boxes are again)
+        api.undo(L.render_versions)  # (put back last: the version buttons as the boxes are again)
         api.say("Hide the names: the versions show as A, B, C… until you click Show the names")
         yield from api.click(L.blind, 0.1)
         api.stage_checked(L.blind, True)
-        L.render_ab()
+        L.render_versions()
         yield 1300
         with QSignalBlocker(L.blind):
             L.blind.setChecked(False)
-        L.render_ab()
+        L.render_versions()
         k = L.ears.findData("split")
         if k >= 0:
             api.say("Or a different version in each ear (also interchange them, because your ears are different)")
             yield from mock_combo(api, L.ears, k)
-            L.render_ab()
+            L.render_versions()
             api.spot_on(L.split_row)
             yield 1500
 
@@ -491,8 +491,8 @@ def eq_steps(page):
         def back():
             L.abx_end(finished=False, quiet=True)
             L.active, L.picked = before
-            L._apply()
-            L.render_ab()
+            L._apply_to_engine()
+            L.render_versions()
         api.undo(back)
         yield from api.at(L.abx_a, 0.3, 0.5, 800, say="An ABX test: select A and B (here, EQ off and the EQ)")
         yield from api.click(L.abx_start)
@@ -523,7 +523,7 @@ def eq_steps(page):
         m = yield from mock_menu(api, b, items)
         api.spot_on(m)
         api.say("“Save as a preset…”")
-        yield from pick(api, m, items.index("Save as a preset…"))
+        yield from point_at_menu_row(api, m, items.index("Save as a preset…"))
         api.close(m)
         f = api.prompt("Save as a preset", "Name of the preset (all settings, not your files)", near=b, verb="Save")
         api.spot_on(f)
@@ -537,7 +537,7 @@ def eq_steps(page):
         api.say("Then, click it in Presets to load all its settings")
         yield from api.click(b)
         m = yield from mock_menu(api, b, ["Equalizer APO"] + [x for x in items if x != ("No presets", False)])
-        yield from pick(api, m, 0)
+        yield from point_at_menu_row(api, m, 0)
         api.close(m)
         yield from api.note("The app loads all its settings again.", b, 1300)
 
@@ -570,7 +570,7 @@ def eq_steps(page):
          "text": "The target is the sound that you want (for example, Harman, or a diffuse-field curve). Find… searches "
                  "the app, this PC and the online databases for a part of a name. The list adjacent to it has the targets "
                  "of the app. Add… adds a file.",
-         "demo": [{"click": in_card(page.target_combo, "Find…"), "say": "Click Find… in Target", "then": choose_target}]},
+         "demo": [{"click": in_card(page.target_combo, "Find…"), "say": "Click Find… in Target", "then": find_target_demo}]},
         {"chapter": "1 · Select", "title": "Adjust the target (optional)",
          "target": lambda: [st.adjust_row, st.adjust_panel], "before": adjust_open, "after": adjust_close,
          "text": "Adjust (below Target) gives the target a tilt (Half-tilt: only above a frequency). It also increases "
@@ -579,22 +579,22 @@ def eq_steps(page):
                  "target.",
          "demo": lambda: adjust_demo(page)},
         {"chapter": "1 · Select", "title": "Select your IEM or headphone", "target": lambda: page.measurement_box,
-         "text": "Find… searches by the name of the model. When you click Use, the app downloads an online measurement "
-                 "and uses the average of its files (left, right, seatings). Add… adds your files from this PC (L and "
-                 "R, or more than one seating).",
+         "text": "Find… searches by the name of the manufacturer or of the model. When you click Use, the app "
+                 "downloads an online measurement and uses the average of its files (left, right, seatings). Add… adds "
+                 "your files from this PC (L and R, or more than one seating).",
          "demo": [{"click": in_card(page.measurement_combo, "Find…"), "say": "Click Find… in Measurement (or press /)",
-                   "then": choose_meas}]},
+                   "then": find_meas_demo}]},
         {"chapter": "1 · Select", "title": "Many results?", "target": lambda: page.measurement_box,
          "text": "The rig tag of each result shows the rig of the measurement. A ⇄ after it: a rig change by its "
                  "database. The lists above the results show only one rig, type or source (“Same rig as your target” "
                  "first). Their items are from A to Z, with a search box that finds a source from a part of its name.",
-         "demo": [{"click": in_card(page.measurement_combo, "Find…"), "say": "Search again", "then": many_results}]},
+         "demo": [{"click": in_card(page.measurement_combo, "Find…"), "say": "Search again", "then": many_results_demo}]},
         {"chapter": "1 · Select", "title": "More than one measurement of the same model?",
          "target": lambda: button(page, "Other measurements of this model…"),
          "text": "This window sorts all measurements of your model for your target: first the rig, then how much they "
                  "agree, the bass seal and the seatings. It can also use the average of some measurements on one rig.",
          "demo": [{"click": lambda: button(page, "Other measurements of this model…"),
-                   "say": "Click “Other measurements of this model…”", "then": compare_window}]},
+                   "say": "Click “Other measurements of this model…”", "then": compare_window_demo}]},
         {"chapter": "1 · Select", "title": "Measured on a different rig?",
          "target": lambda: page.graph_note if getattr(page, "rig_note", "") else page.measurement_note,
          "text": lambda: ("The line below the graph tells you: " + page.rig_note.rstrip(".") + ". The app then "
@@ -648,7 +648,7 @@ def eq_steps(page):
          "before": settings_open, "after": settings_close,
          "text": "If you change a setting, it shows “your value”, and new files do not change it. Click “your value ↺” "
                  "to make it automatic again, or disable Automatic settings.",
-         "demo": [{"run": your_value, "say": "Type your value. Press Enter"},
+         "demo": [{"run": your_value_demo, "say": "Type your value. Press Enter"},
                   {"at": lambda: st.auto_on, "x": 0.1, "say": "Or disable Automatic settings"}]},
         {"chapter": "2 · Settings", "title": "Start from your filters",
          "target": lambda: st.form.fields["best_fit.start_filters"] if st.form.fields["best_fit.start_filters"].isVisible() else None,
@@ -680,7 +680,7 @@ def eq_steps(page):
                  "Peace), pasted filters and profiles. After Start, you add and change its filters. "
                  "Save filters, Use on device and Listen operate as for a calculated EQ. A measurement and a target are "
                  "optional. Close shows the previous EQ again.",
-         "demo": [{"click": lambda: page.way_btns["hand"], "say": "Click Manually", "then": hand_demo}]},
+         "demo": [{"click": lambda: page.way_btns["hand"], "say": "Click Manually", "then": manual_demo}]},
         {"chapter": "3 · Calculate and examine", "title": "Examine it on the graph", "target": lambda: page.plot,
          "ready": has_curves,
          "text": "Orange: your IEM. Dashed: the target. Blue: with the EQ. Below it, pink: the EQ (above 0: more gain, "

@@ -63,7 +63,7 @@ def open_log():
     sys.stdout = sys.stderr = log
 
 
-def _serving_process(sock):
+def _server_pid(sock):
     """The id of the process serving the one-copy channel this socket is connected to (Windows says it, from the
     channel's pipe), or 0 when it can't be told."""
     try:
@@ -102,7 +102,7 @@ def ask_running(message, wait_gone=0.0):
     sock.connectToServer(SERVER)
     if not sock.waitForConnected(500):
         return None
-    serving = _serving_process(sock) if wait_gone else 0
+    serving = _server_pid(sock) if wait_gone else 0
     sock.write(message)
     sock.waitForBytesWritten(500)
     sock.disconnectFromServer()
@@ -129,7 +129,7 @@ def uninstall():
     from ui import winsys
     install, config = paths.apo_folders()
     apo = Apo(config, install)
-    if apo.found and apo.set_up():
+    if apo.found and apo.includes_studio():
         apo.remove_line()
         print("Uninstall: AutoEQ Studio taken out of Equalizer APO's config.txt")
     if winsys.autostart_on():

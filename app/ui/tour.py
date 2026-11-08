@@ -70,7 +70,7 @@ def _retheme():
             t.retheme()
 
 
-def _symbol(button, name):
+def _set_symbol(button, name):
     """Windows 11's symbol `name` (ui\\icons.py's GLYPHS) beside a card button's words, in the theme's text colour;
     None: no symbol. Kept on the button (its "symbol"), so it's drawn again in a new theme (Tour.retheme)."""
     button.setProperty("symbol", name or "")
@@ -92,7 +92,7 @@ def scroll_into_view(w, ymargin=60):
         p = p.parentWidget()
 
 
-def bring(ws):
+def scroll_all_into_view(ws):
     """The page scrolled so the widgets are in sight together, in its upper part when they fit (their top when they
     don't); widgets in no scrolling page: each brought into sight."""
     ws = [w for w in ws if w is not None and _alive(w) and w.isVisible()]
@@ -215,7 +215,7 @@ def _control(a):
     return w if isinstance(w, QWidget) and _alive(w) else None
 
 
-def _demo(st, alt=False):
+def _demo_actions(st, alt=False):
     d = st.get("alt_demo" if alt else "demo")
     return (d() if callable(d) else d) or []
 
@@ -224,7 +224,7 @@ def _val(x):
     return x() if callable(x) else x
 
 
-def _args(fn):
+def _arg_count(fn):
     """How many arguments a "then" takes (0: then(); 1: then(api))."""
     try:
         ps = inspect.signature(fn).parameters.values()
@@ -290,7 +290,7 @@ class _Grows(QObject):
         return False
 
 
-def _needs(w, width):
+def _needed_height(w, width):
     """The height a demo's window needs at its smallest, its words wrapped at its frame's width."""
     need = w.minimumSizeHint().height()
     lay = w.layout()
@@ -464,7 +464,7 @@ class Api:
         yield from self.move(self.pt(w, fx, fy), ms)
 
     def ripple(self):
-        yield from self.t._click()
+        yield from self.t._click_ripple()
 
     def tween(self, ms, fn):
         t = self.t
@@ -683,7 +683,7 @@ class Api:
         frame.ensurePolished()
         bar = frame.findChild(QFrame, "tourWinBar")
         extra = bar.sizeHint().height() + 8  # (the title bar, the frame's border and its room below)
-        need = _needs(w, width)  # (what its parts need at their smallest, their words wrapped at its width)
+        need = _needed_height(w, width)  # (what its parts need at their smallest, their words wrapped at its width)
         height = min(max(hint.height(), need) + extra, H - 16)
         if need + extra > height:  # (no room for it in the tour: it scrolls inside its frame)
             v.addWidget(_scroll_holder(w), 1)
@@ -703,7 +703,7 @@ class Api:
         if not (_alive(frame) and _alive(w)) or not frame.isVisible() or w.parentWidget() is not frame:
             return  # (gone, or scrolling in its frame already: its scroll area follows by itself)
         t = self.t
-        need = _needs(w, frame.width())
+        need = _needed_height(w, frame.width())
         if w.height() >= need:
             return
         around = frame.height() - w.height()  # (its title bar, the frame's border and its room below, as laid out)
@@ -867,7 +867,7 @@ class _Steps(QFrame):
             return
         self.close_list()
         self.tour.all_chk.setChecked(False)
-        self.tour.go(i)
+        self.tour.go_to_step(i)
 
     def keyPressEvent(self, e):
         if e.key() == Qt.Key_Escape:
@@ -928,7 +928,7 @@ class Tour(QWidget):
         from PySide6.QtWidgets import QApplication
         QApplication.instance().focusChanged.connect(self._keep_focus)
         self.follow_timer.start()
-        self.go(start)
+        self.go_to_step(start)
 
     def _build_card(self):
         self.bubble = QFrame(self)
@@ -969,12 +969,12 @@ class Tour(QWidget):
         self.steps_list = self.acts_lab  # (older name)
         demo_row = QHBoxLayout()
         self.replay_btn = QPushButton("Play demo")
-        _symbol(self.replay_btn, "play")
+        _set_symbol(self.replay_btn, "play")
         self.replay_btn.setToolTip("Play this step's demo again (R)")
         self.replay_btn.clicked.connect(self.replay)
         demo_row.addWidget(self.replay_btn)
         self.pause_btn = QPushButton("Wait")
-        _symbol(self.pause_btn, "pause")
+        _set_symbol(self.pause_btn, "pause")
         self.pause_btn.setToolTip("Wait or continue the demo (P)")
         self.pause_btn.clicked.connect(self.toggle_pause)
         demo_row.addWidget(self.pause_btn)
@@ -987,7 +987,7 @@ class Tour(QWidget):
         self.all_chk = QCheckBox("Play all steps")
         self.all_chk.setToolTip("The Guide plays the demo of each step and then goes to the next step automatically")
         self.all_chk.setChecked(_kept["all"])
-        self.all_chk.toggled.connect(self._set_all)
+        self.all_chk.toggled.connect(self._set_play_all)
         opts.addWidget(self.all_chk)
         opts.addStretch(1)
         sp = QLabel("Speed")
@@ -1024,13 +1024,13 @@ class Tour(QWidget):
         row.addWidget(self.end_btn)
         row.addStretch(1)
         self.again_btn = QPushButton("Start again")
-        self.again_btn.clicked.connect(lambda: self.go(0))
+        self.again_btn.clicked.connect(lambda: self.go_to_step(0))
         row.addWidget(self.again_btn)
         self.back_btn = QPushButton("Back")
-        self.back_btn.clicked.connect(lambda: self.go(self.i - 1))
+        self.back_btn.clicked.connect(lambda: self.go_to_step(self.i - 1))
         self.next_btn = QPushButton("Next")
         theme.mark(self.next_btn, primary=True)
-        self.next_btn.clicked.connect(lambda: self.go(self.i + 1) if self.i + 1 < len(self.steps) else self.end())
+        self.next_btn.clicked.connect(lambda: self.go_to_step(self.i + 1) if self.i + 1 < len(self.steps) else self.end())
         for w in (self.end_btn, self.back_btn, self.next_btn, self.replay_btn, self.pause_btn, self.skip_btn,
                   self.all_chk, self.speed_slider, self.again_btn, self.count_btn):
             w.setFocusPolicy(Qt.NoFocus)
@@ -1049,7 +1049,7 @@ class Tour(QWidget):
         symbols, the demo's actions, a window's close symbol; the rest follows the stylesheet or is drawn afresh)."""
         for btn in self.bubble.findChildren(QPushButton):
             if btn.property("symbol"):
-                _symbol(btn, btn.property("symbol"))
+                _set_symbol(btn, btn.property("symbol"))
         for x in self.findChildren(QLabel, "tourWinClose"):
             Tour.draw_close(x)
         self.step_list.close_list()
@@ -1066,7 +1066,7 @@ class Tour(QWidget):
                 return False
         return True
 
-    def _leave(self):
+    def _leave_step(self):
         self.stop_demo()
         self.next_timer.stop()
         self.step_list.close_list()
@@ -1093,11 +1093,11 @@ class Tour(QWidget):
             st["after"]()
         return False
 
-    def go(self, i):
+    def go_to_step(self, i):
         if not 0 <= i < len(self.steps):
             return
         d = 1 if i >= self.i else -1
-        self._leave()
+        self._leave_step()
         k = i
         while 0 <= k < len(self.steps) and not self._prepare(k):
             k += d
@@ -1111,7 +1111,7 @@ class Tour(QWidget):
         self.i = i = k
         st = self.steps[i]
         from PySide6.QtWidgets import QApplication
-        bring(self.target)
+        scroll_all_into_view(self.target)
         QApplication.processEvents()
         self.spots = list(self.target)
         self.avoid = []
@@ -1139,13 +1139,13 @@ class Tour(QWidget):
             self.extra.addWidget(b)
         if st.get("buttons"):
             self.extra.addStretch(1)
-        actions = _demo(st, self.alt)
+        actions = _demo_actions(st, self.alt)
         self.acts = [_val(a.get("say", "")) for a in actions if a.get("say")]
         self.act_now = -1
         has_demo = bool(actions)
         self.demo_box.setVisible(has_demo)
         self.badge.setVisible(has_demo)
-        self._labels(False)
+        self._show_demo_state(False)
         self.holes = self._holes()
         self.place(move_card=True)
         self.setFocus()
@@ -1155,10 +1155,10 @@ class Tour(QWidget):
         elif self.all_chk.isChecked():
             self._schedule_next()
 
-    def _labels(self, playing):
+    def _show_demo_state(self, playing):
         """The card's demo row and actions list as the demo is (playing: only the action playing now)."""
         self.replay_btn.setText("Show the steps" if not self.glide else "Play again" if playing else "Play demo")
-        _symbol(self.replay_btn, "list" if not self.glide else "refresh" if playing else "play")
+        _set_symbol(self.replay_btn, "list" if not self.glide else "refresh" if playing else "play")
         self.pause_btn.setVisible(playing and self.glide)
         self.skip_btn.setVisible(playing)
         if not playing:
@@ -1170,7 +1170,7 @@ class Tour(QWidget):
         """Pause, or Resume (paused): its words, symbol and tooltip."""
         self.pause_btn.setText(text)
         self.pause_btn.setToolTip(tip)
-        _symbol(self.pause_btn, "pause" if text == "Wait" else "play")
+        _set_symbol(self.pause_btn, "pause" if text == "Wait" else "play")
 
     def _show_acts(self):
         """The demo's actions, numbered, in the card (while it plays, only the one playing now: on a quiet fill with
@@ -1473,10 +1473,10 @@ class Tour(QWidget):
         self.speed = _kept["speed"] = SPEEDS[k]
         self._show_speed()
 
-    def _set_all(self, on):
+    def _set_play_all(self, on):
         _kept["all"] = on
         if on and not self.demo_running:
-            if _demo(self.steps[self.i], self.alt) if 0 <= self.i < len(self.steps) else False:
+            if _demo_actions(self.steps[self.i], self.alt) if 0 <= self.i < len(self.steps) else False:
                 self.replay()
             else:
                 self._schedule_next()
@@ -1491,21 +1491,21 @@ class Tour(QWidget):
 
     def _auto_next(self):
         if self.all_chk.isChecked() and self.isVisible() and self.i + 1 < len(self.steps):
-            self.go(self.i + 1)
+            self.go_to_step(self.i + 1)
 
     def replay(self):
         """The step's demo from its start (the last one's effects put back first)."""
         self.stop_demo()
         if not 0 <= self.i < len(self.steps):
             return
-        actions = _demo(self.steps[self.i], self.alt)
+        actions = _demo_actions(self.steps[self.i], self.alt)
         if not actions:
             return
         if not self.glide:  # (animation effects off: numbered markers, nothing moves)
             return self.show_markers(actions)
         self.demo_running = True
         self.act_now = -1
-        self._labels(True)
+        self._show_demo_state(True)
         if self.cur is None:
             self.cur = QPointF(self.bubble.geometry().center())
         self.gen = self._play(actions)
@@ -1552,7 +1552,7 @@ class Tour(QWidget):
         self.follow(force=True)
         self._tick()
 
-    def _pause_for_you(self):
+    def _pause_for_scroll(self):
         """You scrolled while the demo plays: it pauses there; Resume scrolls back and carries on."""
         if not self.demo_running or self.paused:
             return
@@ -1596,10 +1596,10 @@ class Tour(QWidget):
             self.avoid = []
             if hasattr(self, "acts_lab"):
                 self.act_now = -1
-                self._labels(False)
+                self._show_demo_state(False)
         self.follow(force=True)
 
-    def _finished(self):
+    def _finish_demo(self):
         self.gen = None
         self.demo_running = False
         self.hot_w = self.ripple = self.trail = self.file_chip = None
@@ -1619,7 +1619,7 @@ class Tour(QWidget):
         if ws:
             scroll_into_view(ws[0])
         self.act_now = -1
-        self._labels(False)
+        self._show_demo_state(False)
         self.follow(force=True)
         self.place_card(stay=True)
         if self.all_chk.isChecked():
@@ -1631,7 +1631,7 @@ class Tour(QWidget):
         try:
             ms = next(self.gen)
         except StopIteration:
-            self._finished()
+            self._finish_demo()
             return
         except (RuntimeError, AttributeError, KeyError, IndexError, TypeError, ValueError) as e:
             import traceback
@@ -1639,7 +1639,7 @@ class Tour(QWidget):
             steps, i = getattr(self, "steps", []), getattr(self, "i", -1)
             title = steps[i].get("title", "?") if 0 <= i < len(steps) else "?"
             self.demo_errors.append(f"{title}: {type(e).__name__}: {e}")
-            self._finished()
+            self._finish_demo()
             return
         self.timer.start(max(0, int((ms or 0) / self.speed)))
 
@@ -1682,7 +1682,7 @@ class Tour(QWidget):
             self.update()
             yield 16 * self.speed
 
-    def _click(self):
+    def _click_ripple(self):
         frames = max(1, round(420 / self.speed / 16)) if self.glide else 1
         for n in range(1, frames + 1):
             self.ripple = (self.cur.x(), self.cur.y(), n / frames)
@@ -1761,9 +1761,9 @@ class Tour(QWidget):
             yield from self._move(p, a.get("ms", 650))
             self.hot_w = w if a.get("hot", True) else None
             if kind == "click":
-                yield from self._click()
+                yield from self._click_ripple()
             elif kind == "type":
-                yield from self._click()
+                yield from self._click_ripple()
                 text = str(_val(a["text"]))
                 entry = [w, ""]
                 self.typed.append(entry)
@@ -1773,7 +1773,7 @@ class Tour(QWidget):
                     yield 75
             if a.get("then"):
                 fn = a["then"]
-                u = fn(api) if _args(fn) else fn()
+                u = fn(api) if _arg_count(fn) else fn()
                 if inspect.isgenerator(u):
                     self.hot_w = None
                     yield from u
@@ -1933,7 +1933,7 @@ class Tour(QWidget):
         if a is None:
             e.accept()
             return
-        self._pause_for_you()
+        self._pause_for_scroll()
         bar = a.verticalScrollBar()
         bar.setValue(bar.value() - int(e.angleDelta().y() / 120 * max(bar.singleStep() * 3, 60)))
         self.follow(force=True)
@@ -1970,7 +1970,7 @@ class Tour(QWidget):
             self.next_btn.click()
         elif k == Qt.Key_Left:
             if self.i > 0:
-                self.go(self.i - 1)
+                self.go_to_step(self.i - 1)
         elif k == Qt.Key_R and self.demo_box.isVisible():
             self.replay()
         elif k == Qt.Key_P and self.demo_running:
@@ -1978,7 +1978,7 @@ class Tour(QWidget):
         elif k in (Qt.Key_PageUp, Qt.Key_PageDown, Qt.Key_Up, Qt.Key_Down):
             a = self._scroll_area_at(self.holes[0].center()) if self.holes else None
             if a is not None:
-                self._pause_for_you()
+                self._pause_for_scroll()
                 bar = a.verticalScrollBar()
                 step = bar.pageStep() if k in (Qt.Key_PageUp, Qt.Key_PageDown) else 60
                 bar.setValue(bar.value() + (step if k in (Qt.Key_PageDown, Qt.Key_Down) else -step))
@@ -1989,7 +1989,7 @@ class Tour(QWidget):
     def end(self):
         if self.i >= len(self.steps):
             return
-        self._leave()
+        self._leave_step()
         self.i = len(self.steps)
         self.follow_timer.stop()
         self.win.removeEventFilter(self.follow_obj)
@@ -2044,7 +2044,7 @@ def problems(host, steps):
                     why = None if alt else f"{why} (and its stand-in: {why2})"
                 if why:
                     out.append((n, _val(st["title"]), why))
-            for k, a in enumerate(_demo(st, alt), 1):
+            for k, a in enumerate(_demo_actions(st, alt), 1):
                 if any(x in a for x in ACTIONS):
                     why = where(_control(a))
                     if why:

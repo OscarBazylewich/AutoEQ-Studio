@@ -10,7 +10,7 @@ a picture of a frequency-response graph becomes a curve file.
 3. The trace is resampled at so many points per octave and saved (a graph drawn relative to a target gets it added
    back).
 Automatic settings fit the colour tolerance, points per octave and the range to save to the picture; a value you
-change is yours until handed back. It always works carefully (care(): a speed-accuracy slider until 1.0.13).
+change is yours until handed back. It always works carefully (accuracy_settings(): a speed-accuracy slider until 1.0.13).
 The workflow follows UsyTrace (usyless.uk/trace); the code is AutoEQ Local's own.
 
 Everything is in picture pixels: x a column, y a row. A trace is a float per column (NaN: none there).
@@ -35,13 +35,13 @@ NAMES = {"tol": "Color tolerance", "ppo": "Points in each octave", "fmin": "Save
          "dashed": "Dashed line"}
 
 
-def _p3(v):
+def _round_3_digits(v):
     """JavaScript's +v.toPrecision(3)."""
     return float(f"{v:.3g}")
 
 
 def fmt_hz(f):
-    return f"{_p3(f / 1000):g} kHz" if f >= 1000 else f"{_p3(f):g} Hz"
+    return f"{_round_3_digits(f / 1000):g} kHz" if f >= 1000 else f"{_round_3_digits(f):g} Hz"
 
 
 def fmt_db(v):
@@ -177,7 +177,7 @@ def freq_values(xs):
         s = abs(known[0] + t - math.log10(20)) + abs(known[-1] + t - math.log10(20000))
         if s < score:
             score, e = s, t
-    return [None if v is None else _p3(10 ** (v + e)) for v in u]
+    return [None if v is None else _round_3_digits(10 ** (v + e)) for v in u]
 
 
 # ---------------------------------------------------------------- calibration
@@ -216,13 +216,13 @@ class Calib:
         self.fx, self.dy = fx, dy
         self.ax, self.ay = fx.a, dy.a
 
-    def f(self, p):
+    def hz_at(self, p):
         return self.fx.val(p)
 
-    def x(self, f):
+    def x_at(self, f):
         return self.fx.pos(f)
 
-    def db(self, p):
+    def db_at(self, p):
         return self.dy.val(p)
 
 
@@ -259,7 +259,7 @@ def hz_num(s):
     return float(m.group(1)) * (1000 if m.group(2) else 1) if m else None
 
 
-def straight(pairs):
+def pairs_on_one_line(pairs):
     """The largest set of (position, value) pairs on one straight line."""
     if len(pairs) < 2:
         return None
@@ -333,7 +333,7 @@ class Tracer:
         self.fit_settings()
         return note
 
-    def d2(self, ys, xs, c):
+    def squared_colour_distance(self, ys, xs, c):
         """Squared colour distance of pixels (arrays of rows and columns, or slices) from colour c."""
         p = self.px[ys, xs].astype(np.int32)
         return ((p - np.asarray(c, np.int32)) ** 2).sum(-1)
@@ -349,7 +349,7 @@ class Tracer:
         k = np.bincount(keys).argmax()
         return tuple(int(_js_round(v)) for v in s[keys == k].mean(0))
 
-    def lines(self, horizontal):
+    def find_lines(self, horizontal):
         """Rows (or columns) mostly covered by drawn pixels, grouped into lines; also pale ones that run unbroken
         across most of the picture (soft, blurred gridlines are too pale to count as drawn)."""
         ink, faint = self.dbg > INK * INK, self.dbg > FAINT * FAINT
@@ -374,9 +374,9 @@ class Tracer:
         """Gridlines, the plot's frame, the calibration lines on gridlines and the gridlines' frequencies."""
         W, H = self.W, self.H
         self.bg = self.background()
-        self.dbg = self.d2(slice(None), slice(None), self.bg)
+        self.dbg = self.squared_colour_distance(slice(None), slice(None), self.bg)
         self._match = {}
-        self.h_lines, self.v_lines = self.lines(True), self.lines(False)
+        self.h_lines, self.v_lines = self.find_lines(True), self.find_lines(False)
         hl, vl = self.h_lines, self.v_lines
         box = {"x0": math.ceil(vl[0]["b"] + 1), "x1": math.floor(vl[-1]["a"] - 1), "y0": math.ceil(hl[0]["b"] + 1),
                "y1": math.floor(hl[-1]["a"] - 1)} if len(hl) >= 2 and len(vl) >= 2 else {"x0": 0, "x1": W - 1, "y0": 0, "y1": H - 1}
@@ -511,7 +511,7 @@ class Tracer:
             grey = max(c) - min(c) < GREY + 25
             if grey:  # (a grey curve picked a little tinted from a JPEG: matched as the plain grey it is)
                 c = (round(sum(c) / 3),) * 3
-            ok = self.d2(ys, xs, c) <= tol2
+            ok = self.squared_colour_distance(ys, xs, c) <= tol2
             if grey:
                 # a grey curve (most targets): only greyish pixels are it. The soft edge of an orange or green curve,
                 # or a JPEG's smeared colour around one, is close to grey in levels and still tinted; where a curve
@@ -575,11 +575,11 @@ class Tracer:
         dc = math.sqrt(max(1, sum((bg[i] - c[i]) ** 2 for i in range(3))))
         lo, hi = max(self.box["y0"], r[0] - 1), min(self.box["y1"], r[1] + 1)
         yy = np.arange(lo, hi + 1)
-        k = np.maximum(0, 1 - np.sqrt(self.d2(slice(lo, hi + 1), x, c)) / dc)
+        k = np.maximum(0, 1 - np.sqrt(self.squared_colour_distance(slice(lo, hi + 1), x, c)) / dc)
         w = k.sum()
         return float((yy * k).sum() / w) if w else (r[0] + r[1]) / 2
 
-    def care(self):
+    def accuracy_settings(self):
         """How carefully it works: labels read at 4× size with a second try, the trace between pixels, a trace that
         stops early tried again as dashed and then with more colour tolerance; up to 48 points per octave (the app's
         own curves are on squiglink's 1/48-octave grid: more would add nothing once loaded). Until 1.0.13
@@ -591,7 +591,7 @@ class Tracer:
     def follow(self, x0, y0, c, dashed=None, subpixel=None, tol=None):
         """The curve of colour c through (x0, y0), followed both ways: {column: y}."""
         dashed = self.v["dashed"] if dashed is None else dashed
-        sub = self.care()["subpixel"] if subpixel is None else subpixel
+        sub = self.accuracy_settings()["subpixel"] if subpixel is None else subpixel
         tol2 = (self.v["tol"] if tol is None else tol) ** 2
         box = self.box
         box_h = box["y1"] - box["y0"]
@@ -610,7 +610,7 @@ class Tracer:
         step = max(1, width >> 6)
         gxs = np.arange(box["x0"], box["x1"] + 1, step)
         same = [l for l in self.h_lines
-                if int((self.d2(_js_round(l["pos"]), gxs, c) <= tol2).sum()) > 40]
+                if int((self.squared_colour_distance(_js_round(l["pos"]), gxs, c) <= tol2).sum()) > 40]
         grid_same = bool(same)
         on_v = np.zeros(self.W + 2, bool)
         for l in self.v_lines:
@@ -685,7 +685,7 @@ class Tracer:
                 xx, yy = x + dx, y + dy
                 if xx < box["x0"] or xx > box["x1"] or yy < box["y0"] or yy > box["y1"]:
                     continue
-                if int(self.d2(yy, xx, c)) > tol2:
+                if int(self.squared_colour_distance(yy, xx, c)) > tol2:
                     continue
                 if dx * dx + dy * dy < sd:
                     sd, sx, sy = dx * dx + dy * dy, xx, yy
@@ -699,11 +699,11 @@ class Tracer:
         ta = self.ta
         # a trace that stops early: tried again as a dashed line, then (accuracy) with more colour tolerance
         if ta["enabled"] and got and span(got) < full:
-            n, dashed_now, tries = self.care()["retries"], self.v["dashed"], []
-            if n >= 1 and not dashed_now and not self.own("dashed"):
+            n, dashed_now, tries = self.accuracy_settings()["retries"], self.v["dashed"], []
+            if n >= 1 and not dashed_now and not self.is_your_value("dashed"):
                 tries.append({"dashed": True, "why": "dashed"})
-            if n >= 2 and not self.own("tol"):
-                tries.append({"dashed": dashed_now or not self.own("dashed"),
+            if n >= 2 and not self.is_your_value("tol"):
+                tries.append({"dashed": dashed_now or not self.is_your_value("dashed"),
                               "tol": min(128, _js_round(self.v["tol"] * 1.4 / 5) * 5), "why": "tol"})
             for o in tries:
                 g = self.follow(x, y0, c, dashed=o["dashed"], tol=o.get("tol"))
@@ -724,7 +724,7 @@ class Tracer:
         if not got or len(got) < 3:
             return ("The app cannot follow a line from that position. Click the middle of the curve, or increase the "
                     "color tolerance.")
-        self.push()
+        self.push_undo()
         ys = self.ys
         for gx, gy in got.items():
             ys[gx] = gy
@@ -851,7 +851,7 @@ class Tracer:
         return bool(np.isfinite(c["ys"]).any())
 
     def add_curve(self):
-        self.push()
+        self.push_undo()
         used = {c["label"] for c in self.curves}
         c = self.new_curve(len(self.curves))
         c["label"] = next((l for l in LABELS if l not in used), str(len(self.curves) + 1))
@@ -859,8 +859,8 @@ class Tracer:
         self.cur = len(self.curves) - 1
         return f"New curve “{c['label']}”: click the curve on the picture, or click Trace automatically."
 
-    def delete_curve(self, i):
-        self.push()
+    def remove_curve(self, i):
+        self.push_undo()
         if len(self.curves) == 1:
             self.curves[0]["ys"][:] = np.nan
             self.curves[0]["colour"] = None
@@ -902,7 +902,7 @@ class Tracer:
                 pairs.append({"p": l["pos"], "v": c[0]["v"], "w": c[0]})
         else:
             pairs = [{"p": w["yc"], "v": w["v"], "w": w} for w in labs]
-        return straight(pairs)
+        return pairs_on_one_line(pairs)
 
     def hz_pairs(self, words):
         """The frequency labels under the plot, matched to vertical gridlines (by centre, or by an end for labels
@@ -938,7 +938,7 @@ class Tracer:
     def read_labels(self, ocr_words):
         """The axis labels read (blocking: run it off the window's thread). Returns {token, hz, db, seconds}; apply it
         with use_labels() on the window's thread."""
-        token, cr, box, W, H = self.label_token, self.care(), self.box, self.W, self.H
+        token, cr, box, W, H = self.label_token, self.accuracy_settings(), self.box, self.W, self.H
         t0 = time.perf_counter()
         pad = _js_round(min(W, H) * 0.03)
 
@@ -1005,7 +1005,7 @@ class Tracer:
             agree = sum(1 for x in ratios if abs(math.log10(x / r)) < 0.01)
             if agree >= max(2, len(ratios) * 0.6):
                 if abs(math.log10(r)) > 0.004:
-                    self.grid_x = [dict(a, v=_p3(a["v"] * r)) for a in self.grid_x]
+                    self.grid_x = [dict(a, v=_round_3_digits(a["v"] * r)) for a in self.grid_x]
                 a = next((g for g in self.grid_x if abs(g["p"] - self.cal["x1"]) < 1.5), None)
                 b = next((g for g in self.grid_x if abs(g["p"] - self.cal["x2"]) < 1.5), None)
                 if a:
@@ -1027,7 +1027,7 @@ class Tracer:
         self.curves = s["curves"]
         self.cur = min(s["cur"], len(self.curves) - 1)
 
-    def push(self):
+    def push_undo(self):
         self.undo_stack.append(self.snapshot())
         if len(self.undo_stack) > 80:
             self.undo_stack.pop(0)
@@ -1046,7 +1046,7 @@ class Tracer:
     def clear(self):
         if not self.curves or not self.has_data(self.curves[self.cur]):
             return ""
-        self.push()
+        self.push_undo()
         self.ys[:] = np.nan
         return "The app cleared this curve (you can undo this)."
 
@@ -1054,7 +1054,7 @@ class Tracer:
         """Pixel steps smoothed out (a small Gaussian over the traced columns)."""
         if self.ys is None:
             return
-        self.push()
+        self.push_undo()
         ys = self.ys
         w = np.exp(-(np.arange(-3, 4) ** 2) / (2 * 1.5 * 1.5))
         ok = np.isfinite(ys)
@@ -1081,7 +1081,7 @@ class Tracer:
         with np.errstate(invalid="ignore"):
             hit = np.flatnonzero((ys[a:b + 1] >= lo) & (ys[a:b + 1] <= hi)) + a
         if len(hit):
-            self.push()
+            self.push_undo()
             self.ys[hit] = np.nan
         return len(hit)
 
@@ -1095,7 +1095,7 @@ class Tracer:
         if len(valid) < 20:
             raise ValueError("Trace a curve first.")
         ppo = int(self.v["ppo"])
-        fa, fb = k.f(valid[0]), k.f(valid[-1])
+        fa, fb = k.hz_at(valid[0]), k.hz_at(valid[-1])
         lo = max(_num(self.v["fmin"]) or 20, min(fa, fb))
         hi = min(_num(self.v["fmax"]) or 20000, max(fa, fb))
         if not hi > lo:
@@ -1107,15 +1107,15 @@ class Tracer:
             f = 1000 * 2 ** (n / ppo)
             if f > hi * (1 + 1e-9):
                 break
-            x = k.x(f)
+            x = k.x_at(f)
             y = float(np.interp(x, vx, vy))  # (a straight line between the nearest traced columns)
-            out.append((f, k.db(y) + (comp(f) if comp else 0)))
+            out.append((f, k.db_at(y) + (comp(f) if comp else 0)))
             n += 1
         if len(out) < 32:
             raise ValueError(f"Only {len(out)} points: trace more of the curve, or increase the points in each octave.")
         gaps = []  # (the drawing shows a break there; the file can only bridge it with a straight line)
         for i in np.flatnonzero(np.diff(valid) > 40):
-            f1, f2 = k.f(valid[i]), k.f(valid[i + 1])
+            f1, f2 = k.hz_at(valid[i]), k.hz_at(valid[i + 1])
             if max(f1, f2) > lo and min(f1, f2) < hi:
                 gaps.append((min(f1, f2), max(f1, f2)))
         return out, gaps
@@ -1159,12 +1159,12 @@ class Tracer:
                 "or make a line.")
 
     # ---------------------------------------------------------------- automatic settings
-    def own(self, k):
+    def is_your_value(self, k):
         return k in self.ta["manual"]
 
-    def set_ctl(self, k, v, why):
+    def set_auto_value(self, k, v, why):
         self.ta["notes"][k] = why
-        if self.ta["enabled"] and not self.own(k):
+        if self.ta["enabled"] and not self.is_your_value(k):
             self.v[k] = v
 
     def colour_noise(self):
@@ -1181,34 +1181,34 @@ class Tracer:
             return
         ta = self.ta
         tol = max(40, min(110, _js_round((45 + 3 * ta["noise"] + (10 if ta["jpeg"] else 0)) / 5) * 5))
-        self.set_ctl("tol", tol, f"Color tolerance {tol}: pixels with that difference (or less) from the curve's color "
+        self.set_auto_value("tol", tol, f"Color tolerance {tol}: pixels with that difference (or less) from the curve's color "
                      "are part of the curve, because " + (
                          "the colors of the picture are clean." if ta["noise"] < 3 else
                          f"the picture has some color noise (average {ta['noise']:.1f}{', a JPEG' if ta['jpeg'] else ''})."))
         k = self.calib()
         if k:
-            ta["px_oct"] = abs(k.x(2000) - k.x(1000))
+            ta["px_oct"] = abs(k.x_at(2000) - k.x_at(1000))
             po = ta["px_oct"]
             ppo = 48 if po >= 48 else 24 if po >= 24 else 12
-            self.set_ctl("ppo", ppo, f"{ppo} points in each octave: the graph has {_js_round(po)} pixels in each octave"
+            self.set_auto_value("ppo", ppo, f"{ppo} points in each octave: the graph has {_js_round(po)} pixels in each octave"
                          + (", which is sufficient for squiglink." if ppo == 48 else
                             ". More points do not give more data."))
-            fa, fb = k.f(self.box["x0"]), k.f(self.box["x1"])
+            fa, fb = k.hz_at(self.box["x0"]), k.hz_at(self.box["x1"])
             lo, hi = min(fa, fb), max(fa, fb)
             # (a frame drawn a hair inside 20 Hz or 20 kHz still means the whole range)
             fmin = 20 if lo < 21.5 else _js_round(min(lo, 19000))
             fmax = 20000 if hi > 18500 else _js_round(max(hi, fmin + 100))
-            self.set_ctl("fmin", fmin, f"Save from {fmt_hz(fmin)} to {fmt_hz(fmax)}: " + (
+            self.set_auto_value("fmin", fmin, f"Save from {fmt_hz(fmin)} to {fmt_hz(fmax)}: " + (
                 "the part of the axis that the graph shows." if lo > 21 or hi < 19900 else
                 "the range that you can hear (the graph shows all of it)."))
-            self.set_ctl("fmax", fmax, None)
+            self.set_auto_value("fmax", fmax, None)
 
-    def touched(self, k):
+    def mark_your_value(self, k):
         """A control the user changed: theirs (with automatic settings on)."""
-        if self.ta["enabled"] and not self.own(k):
+        if self.ta["enabled"] and not self.is_your_value(k):
             self.ta["manual"].add(k)
 
-    def hand_back(self, k=None):
+    def make_auto(self, k=None):
         if k:
             self.ta["manual"].discard(k)
         else:

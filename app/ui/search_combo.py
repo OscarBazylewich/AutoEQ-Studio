@@ -154,18 +154,18 @@ class SearchCombo(QComboBox):
         finally:
             self.blockSignals(blocked)
 
-    def searches(self):
+    def has_search_box(self):
         """Does the list open with the search box (more than SEARCH_FROM choices)?"""
         return self.count() > SEARCH_FROM
 
     def showPopup(self):
-        if not self.searches():
+        if not self.has_search_box():
             pop = self.view().window()
             # (the list draws its look itself, the theme's: the frame Qt keeps it in has its own frame turned off,
             # each time, as Qt puts it back when the theme changes)
             pop.setFrameShape(QFrame.NoFrame)
             super().showPopup()
-            self._wide_enough(pop)
+            self._widen_list(pop)
             return
         if self._popup is None:
             self._popup = _Popup(self)
@@ -182,7 +182,7 @@ class SearchCombo(QComboBox):
         p.show()
         p.q.setFocus()
 
-    def _wide_enough(self, pop):
+    def _widen_list(self, pop):
         """The short list as wide as its longest choice, so every name shows whole, and kept on the screen (Qt's own
         list is only as wide as the drop-down; Fusion's menu-like one, before 2026-10-23, widened itself)."""
         view = self.view()

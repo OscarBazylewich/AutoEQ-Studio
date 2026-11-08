@@ -97,7 +97,7 @@ def test_blind_test(card, check):
     offered = lis.blind.isEnabled()  # (with both ears hearing the same version: test_versions_and_play chose it)
     lis.blind.setChecked(True)
     hidden = [b.text() for b in lis.ab_box.findChildren(QPushButton)]
-    lis.reveal()
+    lis.show_names()
     shown = [b.text() for b in lis.ab_box.findChildren(QPushButton) if not b.isHidden()]
     # was eq_checks.py:2958
     check("listen: Blind test names the versions A, B, C … until Reveal",
@@ -113,7 +113,7 @@ def test_version_in_each_ear_and_swap(card, check):
     # was eq_checks.py:2964
     check("listen: a different version in each ear (EQ off left, the EQ right; Swap)",
           (lis.engine.ears, lis.engine.left, lis.engine.right) == ("split", "off", "sel") and not lis.blind.isEnabled()
-          and (lis.swap() or (lis.engine.left, lis.engine.right) == ("sel", "off")), (lis.engine.left, lis.engine.right))
+          and (lis.interchange_sides() or (lis.engine.left, lis.engine.right) == ("sel", "off")), (lis.engine.left, lis.engine.right))
 
 
 def test_history_listen_for_another_iem(card, check):

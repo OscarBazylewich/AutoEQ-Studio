@@ -53,7 +53,7 @@ def test_the_tab_you_click_is_kept(eq_screen, check):
         clicked = sw.s.get("make_way")
         page.set_way("auto", remember=False)  # (as a run shows it)
         shown = sw.s.get("make_way")
-        page.start_by_hand([], "started empty")  # (as Profiles' Edit in Make an EQ begins one)
+        page.start_manual([], "from an empty EQ")  # (as Profiles' Edit in Make an EQ begins one)
         by_hand = page.way
     finally:
         page.session_runs = []

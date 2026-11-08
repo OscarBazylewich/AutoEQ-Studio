@@ -2,7 +2,7 @@
 MODE_HINT, TICKS and file_base_name still import from ui/eq_page.py too.
 - FORMAT_NAMES: the files Save filters can write, by key; MODE_SHORT: each method's short name; MODE_HINT: the line
   beside Method; TICKS: the graph's frequencies
-- label(text, role, wrap): a label, in one of the theme's text roles; note(lab, text): a note's words, the note
+- label(text, role, wrap): a label, in one of the theme's text roles; set_note(lab, text): a note's words, the note
   hidden while it has none (so an empty one takes no room); hz(v): a frequency in Hz or kHz
 - Elided: a one-line label that never makes its row wider than the window (the values under the pointer); NameCombo:
   a drop-down whose name, when longer than its room, ends in "…" as Windows 11's own do (Target, Measurement, Runs
@@ -37,7 +37,7 @@ def label(text="", role=None, wrap=True):
     return lab
 
 
-def note(lab, text):
+def set_note(lab, text):
     """A note's words; the note hidden while it has none, so an empty one leaves no gap."""
     lab.setText(text)
     lab.setVisible(bool(text))

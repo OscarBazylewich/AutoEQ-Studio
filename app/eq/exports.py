@@ -470,7 +470,7 @@ def file_names(cfg, base_name, formats=None):
             for k in _formats(cfg, formats)}
 
 
-def existing(cfg, base_name, formats=None, out_dir=OUTPUT_DIR, filters=None):
+def files_to_replace(cfg, base_name, formats=None, out_dir=OUTPUT_DIR, filters=None):
     """The files write() would replace (already in your Saved EQs folder), by name: with the filters, only the formats that
     can hold them (an app's file that can't isn't written, so there's nothing to ask about)."""
     names = file_names(cfg, base_name, formats)

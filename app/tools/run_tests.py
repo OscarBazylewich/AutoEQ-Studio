@@ -294,7 +294,7 @@ def duration(seconds) -> str:
     return f"{minutes} min {rest} s"
 
 
-def _code(code) -> str:
+def _exit_code_text(code) -> str:
     """An exit code, with Windows' own form for a crash's (3221225477 is 0xC0000005, an access violation)."""
     if code is None:
         return "none"
@@ -337,7 +337,7 @@ def _why_stopped(output):
     return lines[-1].strip(" !=") if lines else ""
 
 
-def _found(found):
+def _strays_text(found):
     """allowed_strays' list of [what showed, how many times], in words."""
     words = []
     for item in found or []:
@@ -435,7 +435,7 @@ def summarize(part, records, returncode, *, seconds=0.0, txt="", output="", time
             qt_errors[key] = qt_errors.get(key, 0) + 1
         elif event == "allowed_strays":
             res.notes.append(f"note {test}: shown as windows of their own, allowed by its allow_strays mark "
-                             f"({rec.get('reason', '')}): {_found(rec.get('found'))}")
+                             f"({rec.get('reason', '')}): {_strays_text(rec.get('found'))}")
         elif event == "guard":
             blocked = [str(b) for b in rec.get("blocked") or []] or ["(nothing said)"]
             more = f" (and {len(blocked) - 1} more)" if len(blocked) > 1 else ""
@@ -465,19 +465,19 @@ def summarize(part, records, returncode, *, seconds=0.0, txt="", output="", time
         why = ("a test ran past its time limit; " if _TIMEOUT_LINE.search(output or "")
                else f"a crash: {crash.group(1)}; " if crash else "")
         res.fails.append(f"FAIL {part}: the test process ended without finishing ({why}exit code "
-                         f"{_code(returncode)}; {last}; {see})")
+                         f"{_exit_code_text(returncode)}; {last}; {see})")
     elif returncode not in (0, 1, 5):
         if not started:
             reason = _why_stopped(output)
             res.fails.append(f"FAIL {part}: pytest stopped before running any test (exit code "
-                             f"{_code(returncode)}{': ' + reason if reason else ''}; {see})")
+                             f"{_exit_code_text(returncode)}{': ' + reason if reason else ''}; {see})")
         else:
             res.fails.append(f"FAIL {part}: the test process ended badly after its last test (exit code "
-                             f"{_code(returncode)}{'; ' + crash.group(1) if crash else ''}; {see})")
+                             f"{_exit_code_text(returncode)}{'; ' + crash.group(1) if crash else ''}; {see})")
     elif returncode != 0 and not res.fails:
         errors = collection_errors(output)
         found = f": {errors[0]}" if errors else ", but its check log shows no failure"
-        res.fails.append(f"FAIL {part}: pytest says something failed (exit code {_code(returncode)}){found}; {see}")
+        res.fails.append(f"FAIL {part}: pytest says something failed (exit code {_exit_code_text(returncode)}){found}; {see}")
     return res
 
 

@@ -190,8 +190,8 @@ TERMS = [{'title': 'Curves and sound',
                               'target, the rig that it is for). Its text shows how sure the app is:',
                               ['“5128”: the source gives it, or the app found it from the measurements and it is '
                                'almost sure.',
-                               '“711?”: possibly that rig (the app found it, but it is less sure, or it is the usual '
-                               'rig for that database).',
+                               '“711?”: it is very possible that it is that rig (the app found it, but it is less sure, or '
+                               'it is the usual rig for that database).',
                                '“rig ?”: not known.',
                                '“mixed”: its files come from different rigs.',
                                '“5128 ⇄”: that database has its rig change (put the cursor on the tag to see the '
@@ -251,8 +251,8 @@ TERMS = [{'title': 'Curves and sound',
                     {'id': 'seal',
                      'title': 'Seal and bass leak',
                      'body': ['An IEM without a seal in the ear (or on the rig) has less bass. If a measurement has '
-                              'much less bass than other measurements of the same model, possibly it had no seal. '
-                              'An EQ for that measurement gives too much bass.',
+                              'much less bass than other measurements of the same model, it is very possible that it had no '
+                              'seal. An EQ for that measurement gives too much bass.',
                               '“Other measurements of this model…” gives a value for this (Bass). In Listen, you '
                               'can examine it with your ears.'],
                      'see': ['compare-measurements', 'measurement']},

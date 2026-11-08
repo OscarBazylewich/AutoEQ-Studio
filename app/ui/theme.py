@@ -298,7 +298,7 @@ def apply(app, dark=None, contrast=None):
     app.setStyleSheet(_stylesheet(t))
     if "names" not in _state:  # (once: names for a screen reader, pop-ups' corners: _Names)
         from ui import winsys
-        _state["corners"] = winsys.materials(QGuiApplication.platformName())[1]
+        _state["corners"] = winsys.supported_effects(QGuiApplication.platformName())[1]
         _state["names"] = _Names(app)
         app.installEventFilter(_state["names"])
     for fn in list(_state["listeners"]):  # (what draws its own colours: the graph, Help's page, the icons)
@@ -332,7 +332,7 @@ def warm_symbols():
     return True
 
 
-def symbols_warm():
+def symbols_ready():
     return bool(_state.get("symbols"))
 
 

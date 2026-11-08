@@ -25,7 +25,7 @@ def card(w):
     return p or w
 
 
-def fold(btn, before):
+def fold_before_after(btn, before):
     """A step's before/after that open a fold (by its button: a Fold's btn, Adjust) for it and close it again if it
     was closed."""
     was = {}
@@ -41,7 +41,7 @@ def fold(btn, before):
     return b, a
 
 
-def way(page, which, also=None):
+def way_before_after(page, which, also=None):
     """A step's before/after that show Make the EQ's way `which` ("auto": Method, Search, Run; "hand": Start from,
     Start) for it, then the way that was shown (never kept as yours: remember=False). also: a (before, after) pair run
     with them (a fold the step opens too)."""
@@ -100,8 +100,8 @@ def plot_value(page, fx, fy):
     return then
 
 
-def bg(fn):
-    """A demo waits (up to a few seconds) for work done off the window's thread: r = yield from bg(fn)."""
+def wait_for_background(fn):
+    """A demo waits (up to a few seconds) for work done off the window's thread: r = yield from wait_for_background(fn)."""
     box = {}
     tasks.background(fn, lambda r, e: box.update(r=r, e=e))
     for _ in range(200):
@@ -151,12 +151,12 @@ def demo_filters(page):
     return sorted(out, key=lambda x: x["freq"])
 
 
-def eq_now(page):
+def meas_with_eq(page):
     """The measurement with the EQ: the result shown (as edited), or the example filters before a run."""
     import numpy as np
     from eq import engines
     c = page.curves
-    filters = page.active() if page.current()[1] else demo_filters(page)
+    filters = page.enabled_filters() if page.current()[1] else demo_filters(page)
     f = np.asarray(c["f"])
     return np.asarray(c["meas"], dtype=float) + engines.eq_gain(f, filters, page.S["site"]["sample_rate"])
 
@@ -204,7 +204,7 @@ def stage_result(page):
     return undo
 
 
-def stage_hand(page):
+def stage_manual(page):
     """An EQ by hand on the result card, as By hand's Start from an empty EQ makes it (the Guide's: nothing is kept),
     so its step can show Close. The function it returns puts the page back as it was: the result shown (with edits not
     yet saved), this session's runs, the file name, Make the EQ's way. None while an ABX test runs (a new EQ shown
@@ -214,7 +214,7 @@ def stage_hand(page):
     keep = (page.run_result, page.sel, page.EDIT, page.ORIG, page.name_edit.text(), page.name_edit.property("auto"),
             list(page.session_runs), page.runs, page.listen.isVisible(), getattr(page, "hand_before", None),
             getattr(page, "way", "auto"))
-    page.start_by_hand([], "started empty")
+    page.start_manual([], "from an empty EQ")
 
     def undo():
         run, sel, edit, orig, name, auto, runs, n, heard, before, was_way = keep
@@ -251,7 +251,7 @@ def mock_combo(api, combo, to_index, say_rows=None, rows=9):
     lo = max(0, min(to_index - rows // 2, n - rows))
     hi = min(n, lo + rows)
     items = [combo.itemText(k) for k in range(lo, hi)]
-    long = getattr(combo, "searches", lambda: False)()
+    long = getattr(combo, "has_search_box", lambda: False)()
     m = api.mock(combo, items, combo.currentIndex() - lo, search="Search…" if long else None)
     yield 250
     start = combo.currentIndex() - lo if lo <= combo.currentIndex() < hi else 0
@@ -275,7 +275,8 @@ def mock_menu(api, near, items):
     return m
 
 
-def pick(api, m, i, hold=350):
+def point_at_menu_row(api, m, i, hold=350):
+    """Points at row i of a mock menu and shows the click ripple; nothing is chosen. Yields."""
     m.hover(i)
     yield from api.move_to(m.row(i), 0.3, 0.5, ms=420)
     yield hold
@@ -373,7 +374,7 @@ def choose_row(page, api, pk, prefer, combo):
         yield from api.ripple()
         yield 250
         api.hot(None)
-    body = dict(pk.body(r), settings=page.S) if local(r) else None
+    body = dict(pk.request_body(r), settings=page.S) if local(r) else None
     api.close(pk)
     _stage_choice(api, combo, r["name"])
     api.spot_to(combo)
@@ -382,7 +383,7 @@ def choose_row(page, api, pk, prefer, combo):
     api.hot(None)
     if body is None:
         return None
-    res = yield from bg(lambda: page.svc.call("/api/preview", body))
+    res = yield from wait_for_background(lambda: page.svc.call("/api/preview", body))
     vals = (res or {}).get("vals")
     return (r["name"], vals) if vals and page.curves and len(vals) == len(page.curves["f"]) else None
 

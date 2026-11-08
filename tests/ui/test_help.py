@@ -46,7 +46,7 @@ def test_search_and_going_to_an_entry(qapp, check):
         w.q.setText("zzzz qqqq")
         none = "No results with all of these words" in w.view.toPlainText()
         w.q.setText("rig")
-        w.go("set-best-fit-filter-counts")
+        w.show_entry("set-best-fit-filter-counts")
         # was selftest.py:899
         check("help: the search keeps the entries with every word; going to an entry clears a search that hid it and "
               "lights it", 0 < found < 15 and none and w.q.text() == "" and w.lit == "set-best-fit-filter-counts",
@@ -86,7 +86,7 @@ for dark in (False, True):
     settle()
     img = w.view.grab().toImage()  # (the page's top: the room above its first words)
     k = img.devicePixelRatio()
-    w.go("rig-tags")
+    w.show_entry("rig-tags")
     settle()
     t = theme.tokens()
     page = w.view.document().toHtml()
@@ -108,7 +108,7 @@ for dark in (False, True):
         "lit": f'bgcolor="{t["accent"]}"' in page and chosen == ["rig-tags"],
         "page": img.pixelColor(int(w.view.width() * k / 2), int(5 * k)).name(), "card": t["card"],
         "wide": wide, "short": short, "rows": toc.count()}
-    w.go("set-best-fit-filter-counts")  # (an entry asked for, then a search typed that finds it half-way down)
+    w.show_entry("set-best-fit-filter-counts")  # (an entry asked for, then a search typed that finds it half-way down)
     settle()
     for text in ("f", "fi", "filter"):
         w.q.setText(text)
@@ -124,7 +124,7 @@ for dark in (False, True):
     while k < toc.count() and toc.item(k).data(Qt.UserRole) not in hw._by_id():
         k += 1
     anchor, before = toc.item(k).data(Qt.UserRole), bar.value()
-    w.go(anchor)  # (what a click on it does)
+    w.show_entry(anchor)  # (what a click on it does)
     settle()
     out["dark" if dark else "light"]["clicked"] = (before > 0 and bar.value() == before,
                                                    [it.data(Qt.UserRole) for it in toc.selectedItems()] == [anchor])

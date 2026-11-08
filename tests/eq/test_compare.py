@@ -14,12 +14,12 @@ COVERS_FILES = ("samples/**",)  # (the averaged file is made from the sample mea
 
 def test_rig_ranking(check):
     # (only the rigs' average conversion from rigdata.json is needed here: eq_checks.py made it at line 607)
-    avg = rigconv.expected("iem", "5128", "711", None)
+    avg = rigconv.expected_rig_error("iem", "5128", "711", None)
     base = {"sure": True, "dev": None, "bass": None, "n_files": 2, "fmin": 20, "fmax": 20000, "points": 300,
             "channels": ["L", "R"], "source": "X"}
     scores = {}
     for name, c in (("same", dict(base, rig="5128", conv={"how": "same"})), ("converted", dict(base, rig="711", conv=avg)),
-                    ("off", dict(base, rig="711", conv=rigconv.expected("iem", "5128", "711", None, enabled=False))),
+                    ("off", dict(base, rig="711", conv=rigconv.expected_rig_error("iem", "5128", "711", None, enabled=False))),
                     ("no data", dict(base, rig="711", conv={"how": "nodata"}))):
         compare.score(c, "5128")
         scores[name] = c["score"]

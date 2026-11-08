@@ -30,7 +30,7 @@ _UNMEASURED = {"convolution", "include", "copy", "delay", "stage", "if", "elseif
                "vstplugin"}
 
 
-def _graphic(rest):
+def _graphic_points(rest):
     """A GraphicEQ line's points [(Hz, dB)], A to Z by frequency."""
     pts = []
     for part in rest.replace(",", ".").split(";"):
@@ -88,7 +88,7 @@ def level(text, fs=48000):
             elif kind in ("other", "bad"):
                 complete = False
         elif cmd == "graphiceq":
-            pts = _graphic(rest)
+            pts = _graphic_points(rest)
             if pts:
                 gains = [g + _graphic_db(pts, f) for g, f in zip(gains, GRID)]
         elif cmd in _UNMEASURED:

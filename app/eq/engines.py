@@ -121,7 +121,7 @@ def ear_error(f, d, band):
     return float(s[i]), float(fi[i])
 
 
-def finish(result, curves, band, fs):
+def score_result(result, curves, band, fs):
     """Add EQ'd curve, pre-amp, error and simplicity stats to a result dict (ear: how far it sounds from the target,
     ear_at: where)."""
     filters = result["filters"]
@@ -199,7 +199,7 @@ _ctx = None  # a worker process's own V8 with the curves loaded (site_worker_ini
 _V8_LOCK = threading.Lock()
 
 
-def _racer():
+def _new_v8():
     from py_mini_racer import MiniRacer
     with _V8_LOCK:
         return MiniRacer()
@@ -213,7 +213,7 @@ def js_site_cfg(cfg):
 
 
 def js_context(cfg, meas_texts=None, target_text=None):
-    ctx = _racer()
+    ctx = _new_v8()
     for path in JS_FILES:
         with open(path, encoding="utf-8") as fh:
             ctx.eval(fh.read())
@@ -255,7 +255,7 @@ def _thread_ctx(key, make):
 
 
 def _points_ctx():
-    ctx = _racer()
+    ctx = _new_v8()
     with open(JS_FILES[1], encoding="utf-8") as fh:
         ctx.eval(fh.read())
     return ctx
@@ -294,7 +294,7 @@ def site_single(cfg, curves, meas_texts, target_text):
     s = cfg["site_single"]
     combo = (s["rows"], s["freq_low"], s["freq_high"], s["gain_min"], s["gain_max"], s["q_min"], s["q_max"])
     r = _site_result(*_site_worker_run(combo))
-    return [finish(r, curves, cfg["scoring"]["band_hz"], cfg["site"]["sample_rate"])]
+    return [score_result(r, curves, cfg["scoring"]["band_hz"], cfg["site"]["sample_rate"])]
 
 
 # The most runs one EQ job may ask for. The lists multiply, so a few long hand-typed lists could mean millions of
@@ -312,7 +312,7 @@ def fit_count(bf, n_mine=0):
     """How many fits a Best fit run makes, as bestfit() builds them: one per filter count × boost limit × Q limit, and
     with n_mine filters of your own one more of yours alone (kept as they are) or one per limit (adjusted); only
     those when nothing is added (start_add off)."""
-    limits = len(bf["gain_max"]) * len(bf["q_max"]) * len(fights(bf))
+    limits = len(bf["gain_max"]) * len(bf["q_max"]) * len(fight_penalties(bf))
     if grows(bf, n_mine):  # (growing: one task per limit makes every count; yours alone, kept, one more)
         return limits + (1 if n_mine else 0)
     added = len(bf["filter_counts"]) if not n_mine or bf.get("start_add", True) else 0
@@ -339,7 +339,7 @@ def site_sweep(pool, cfg, curves, progress=None, cancel=None):
     # slowest runs (most filters, widest ranges) first so no core sits idle at the end
     combos = sorted(site_combos(cfg["site_sweep"]), key=lambda c: (-c[0], -c[2], c[3] - c[4], -c[6]))
     out = run_tasks(pool, _site_worker_run, combos, progress, cancel)
-    return [finish(_site_result(*o), curves, band, fs) for o in out]
+    return [score_result(_site_result(*o), curves, band, fs) for o in out]
 
 
 # ---------------------------------------------------------------- best-fit engine
@@ -488,7 +488,7 @@ def _starting_points(t):
     return starts
 
 
-def _tidy(types, x, lb=None, ub=None):
+def _params_to_filters(types, x, lb=None, ub=None):
     """The fitted parameters as filters, by frequency: near-identical peaking filters merged (the optimizer sometimes
     splits one filter in two), values rounded, filters under 0.1 dB left out. lb/ub: the fit's bounds; a merge stays
     within both filters' gain limits (at a limit, two filters at one spot are how the fit got past it: kept as two)."""
@@ -584,7 +584,7 @@ def _bf_worker_run(task):
     finally:
         b["mb"], b["ga"] = saved
         b["last"] = None
-    filters = _tidy(types, best.x, lb, ub) if best is not None else []
+    filters = _params_to_filters(types, best.x, lb, ub) if best is not None else []
     return done, ([dict(f) for f in mine] + filters if mine and keep else filters)
 
 
@@ -615,7 +615,7 @@ def grows(bf, n_mine=None):
     return not n_mine or bf.get("start_keep", True)
 
 
-def fights(bf):
+def fight_penalties(bf):
     """The fighting-filter penalties a run tries (best_fit.fight_penalty: a list; one number in older settings)."""
     v = bf.get("fight_penalty", 0.01)
     return list(v) if isinstance(v, (list, tuple)) and v else [v if isinstance(v, (int, float)) else 0.01]
@@ -716,10 +716,10 @@ def _grow_run(task):
                 counted += 1
             if n not in keep:
                 continue
-            filters = _tidy(types, sol.x, lb, ub)
+            filters = _params_to_filters(types, sol.x, lb, ub)
             out[n] = [dict(f) for f in mine] + filters
             if stop_ear is not None:
-                # (as finish() will judge it: the filters as they're saved, on the scored range)
+                # (as score_result() will judge it: the filters as they're saved, on the scored range)
                 ear = ear_error(fb, b["mb"] + eq_gain(fb, filters, b["fs"]) - b["tb"], (fb[0], fb[-1]))[0]
                 if ear <= stop_ear:
                     if best_n is not None:
@@ -772,7 +772,7 @@ def bestfit(pool, cfg, curves, site_results=(), progress=None, cancel=None, shar
         for qmax in bf["q_max"]:
             seeds = _seeds_within(site_results, bf["gain_min"], gmax, qmax)
             added = list(bf["filter_counts"]) if not mine or bf.get("start_add", True) else []  # (else: yours only)
-            for fp in fights(bf):
+            for fp in fight_penalties(bf):
                 for n in ([0] if mine else []) + added:
                     tasks.append({"n": n, "freq_low": lo, "freq_high": hi, "gain_min": bf["gain_min"],
                                   "gain_max": gmax, "q_min": bf["q_min"], "q_max": qmax,
@@ -787,7 +787,7 @@ def bestfit(pool, cfg, curves, site_results=(), progress=None, cancel=None, shar
     out = run_tasks(pool, _bf_worker_run, tasks, progress, cancel)
     results = []
     for t, filters in out:
-        results.append(finish({"engine": "bestfit", "rows": t["n"], "freq_low": t["freq_low"], "freq_high": t["freq_high"],
+        results.append(score_result({"engine": "bestfit", "rows": t["n"], "freq_low": t["freq_low"], "freq_high": t["freq_high"],
                                "gain_min": t["gain_min"], "gain_max": t["gain_max"], "q_min": t["q_min"],
                                "q_max": t["q_max"], "low_shelf": t["shelves"]["low"], "high_shelf": t["shelves"]["high"],
                                "yours": len(mine), "keep": keep, "layout": cfg["best_fit"].get("layout", "any"),
@@ -806,7 +806,7 @@ def _bestfit_grown(pool, cfg, curves, mine, shelves, progress, cancel, shared):
     tasks = [{"counts": counts, "freq_low": lo, "freq_high": hi, "gain_min": bf["gain_min"], "gain_max": gmax,
               "q_min": bf["q_min"], "q_max": qmax, "shelves": shelves, "mine": mine, "stop_ear": stop, "fight": fp}
              for gmax in sorted(bf["gain_max"], reverse=True) for qmax in sorted(bf["q_max"], reverse=True)
-             for fp in fights(bf)]
+             for fp in fight_penalties(bf)]
     best_n, steps = shared or (None, None)
     say = None
     if progress:
@@ -819,7 +819,7 @@ def _bestfit_grown(pool, cfg, curves, mine, shelves, progress, cancel, shared):
     results = []
 
     def add(t, n, filters):
-        results.append(finish({"engine": "bestfit", "rows": n, "freq_low": lo, "freq_high": hi, "gain_min": bf["gain_min"],
+        results.append(score_result({"engine": "bestfit", "rows": n, "freq_low": lo, "freq_high": hi, "gain_min": bf["gain_min"],
                                "gain_max": t["gain_max"], "q_min": bf["q_min"], "q_max": t["q_max"],
                                "low_shelf": shelves["low"], "high_shelf": shelves["high"], "yours": len(mine),
                                "keep": True, "layout": bf.get("layout", "any"), "fight": t.get("fight"),
@@ -884,7 +884,7 @@ def graphic_run(cfg, curves):
             break
     filters = [{"type": "PK", "freq": float(x) if x != int(x) else int(x), "gain": round(float(v), 2) + 0.0, "q": q}
                for x, v in zip(freqs, gains)]
-    return [finish({"engine": "graphic", "layout": bf["layout"], "rows": len(freqs), "step": step, "gain_min": lo,
+    return [score_result({"engine": "graphic", "layout": bf["layout"], "rows": len(freqs), "step": step, "gain_min": lo,
                     "gain_max": hi, "q_min": q, "q_max": q, "filters": filters}, curves, band, fs)]
 
 

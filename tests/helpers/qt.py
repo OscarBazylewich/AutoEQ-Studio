@@ -119,7 +119,7 @@ def app():
         qapp = QApplication(["AutoEQ Studio (tests)"])
         qapp.setApplicationName("AutoEQ Studio")
     elif not isinstance(qapp, QApplication):
-        raise RuntimeError("A QGuiApplication was made before the tests' QApplication (e.g. by brand_exe.icon_file): "
+        raise RuntimeError("A QGuiApplication was made before the tests' QApplication (e.g. by brand_exe.write_icon_file): "
                            "ask for the qapp fixture first, so windows can be made in this process.")
     if not _made:
         watch = __getattr__("StrayWatch")()

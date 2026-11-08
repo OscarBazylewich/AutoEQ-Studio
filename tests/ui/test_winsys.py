@@ -140,8 +140,8 @@ def test_windows_11_materials(monkeypatch, check):
     refused = _Dwm(0x80070057)  # (E_INVALIDARG: a Windows without these)
     monkeypatch.setattr(ctypes.windll, "dwmapi", refused)
     not_taken = (winsys.mica(1, False), winsys.round_corners(2))
-    builds = {b: winsys.materials("windows", b) for b in (19045, 22000, 22621, 26300)}
-    off = winsys.materials("offscreen", 26300)
+    builds = {b: winsys.supported_effects("windows", b) for b in (19045, 22000, 22621, 26300)}
+    off = winsys.supported_effects("offscreen", 26300)
     check("winsys: Windows 11's materials asked of Windows as it takes them (Mica: the frame over the whole window, "
           "the title bar dark or light, the Mica backdrop; rounded pop-ups), refused by an older Windows, and only on "
           "Windows' own screen: Mica from Windows 11 22H2, rounded corners from 21H2",

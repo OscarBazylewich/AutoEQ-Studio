@@ -609,8 +609,8 @@ measured, weights = [], []  # (what warm_symbols measures, and the weights it se
 real_advance, real_weight = QFontMetrics.horizontalAdvance, QFont.setWeight
 QFontMetrics.horizontalAdvance = lambda self, text, *a: (measured.append(text), real_advance(self, text, *a))[1]
 QFont.setWeight = lambda self, w: (weights.append(int(w.value) if hasattr(w, "value") else int(w)), real_weight(self, w))[1]
-out = {"before": theme.symbols_warm(), "first": theme.warm_symbols()}
-out.update(measured=list(measured), weights=list(weights), again=theme.warm_symbols(), after=theme.symbols_warm(),
+out = {"before": theme.symbols_ready(), "first": theme.warm_symbols()}
+out.update(measured=list(measured), weights=list(weights), again=theme.warm_symbols(), after=theme.symbols_ready(),
            symbols=theme.SYMBOLS, normal=int(QFont.Normal.value), semibold=int(QFont.DemiBold.value))
 print(json.dumps(out))
 '''

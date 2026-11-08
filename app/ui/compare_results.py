@@ -53,7 +53,7 @@ def options(page):
     run, r = page.current()
     if r:
         out.append({"label": "Shown: " + page.run_label(run, r) + (" (edited)" if page.edited() else ""),
-                    "filters": page.active(), "run": run, "rid": r["id"]})
+                    "filters": page.enabled_filters(), "run": run, "rid": r["id"]})
     name = (page.curves or {}).get("name")
     for rn in reversed(page.session_runs):
         if rn.get("device") not in (None, name):

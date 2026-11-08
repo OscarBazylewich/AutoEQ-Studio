@@ -78,8 +78,9 @@ def test_uninstall_quits_and_takes_apos_line_out(copies, check):
     dated = bool(lines) and all(re.match(r"\d{4}-\d\d-\d\d \d\d:\d\d:\d\d  ", line) for line in lines)
     # was selftest.py:1193
     check("installer: --uninstall makes the running copy quit and takes AutoEQ Studio out of APO's config.txt; the "
-          "log's every line has its date and time", un.returncode == 0 and ended and not Apo(copies.conf).set_up() and dated,
-          (un.returncode, ended, Apo(copies.conf).set_up(), lines[-4:], un.stderr[-300:]))
+          "log's every line has its date and time",
+          un.returncode == 0 and ended and not Apo(copies.conf).includes_studio() and dated,
+          (un.returncode, ended, Apo(copies.conf).includes_studio(), lines[-4:], un.stderr[-300:]))
 
 
 def test_quit_with_nothing_running(copies, check):

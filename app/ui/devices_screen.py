@@ -131,7 +131,7 @@ class DevicesScreen:
         split.setSizes([316, 540])
         return split
 
-    def _status(self, key):
+    def _device_state(self, key):
         d, rec = self.sw.device(key), self.sw.record(key)
         where = "Active" if key == self.sw.playing_key else "Connected" if d and d.connected else "Not connected"
         if self.sw.compare and self.sw.compare["key"] == key:
@@ -146,10 +146,10 @@ class DevicesScreen:
         self.dev_list.clear()
         keys = [d.key for d in self.sw.devices]
         keys += [k for k in self.sw.s["devices"] if k not in keys and self.sw.record(k)["profiles"]]  # (gone, but set)
-        keys.sort(key=self.sw.order)  # (connected ones first, then A to Z by the name shown)
+        keys.sort(key=self.sw.device_sort_key)  # (connected ones first, then A to Z by the name shown)
         for key in keys:
             rec, d = self.sw.record(key), self.sw.device(key)
-            where, eq = self._status(key)
+            where, eq = self._device_state(key)
             item = QListWidgetItem(f"{shown(rec)}\n{where} · {eq}")
             kind = "playing" if key == self.sw.playing_key else "connected" if d and d.connected else "away"
             item.setIcon(icons.dot(kind))  # (its place in the row; DeviceRows draws it in the colours of the moment)
@@ -200,7 +200,7 @@ class DevicesScreen:
         help_window.tag(ren, "#dev-rename")
         hl.addWidget(ren, 0, Qt.AlignTop)
         lay.addWidget(head)
-        where, _ = self._status(key)
+        where, _ = self._device_state(key)
         lay.addWidget(muted(where + ("" if d else " (it is not in the Windows list)")
                             + (f" · Windows name: {rec['label']}" if rec.get("nickname") else "")))
 
@@ -241,7 +241,7 @@ class DevicesScreen:
             x.setText("✕")
             x.setToolTip("Remove it from this device (it stays in Profiles)")  # (✕ = Remove: UI-RULES 10, 16)
             x.setAccessibleName(f"Remove {p['name']} from this device")
-            x.clicked.connect(lambda _=False, pid=pid: self.take_off(key, pid))
+            x.clicked.connect(lambda _=False, pid=pid: self.remove_profile_from_device(key, pid))
             row.addWidget(x)
             holder = QWidget()
             holder.setLayout(row)
@@ -284,7 +284,7 @@ class DevicesScreen:
                             + (f" {onoff} disables its EQ and enables it again, to compare." if onoff else "")))
         lay.addStretch(1)
 
-    def take_off(self, key, pid):
+    def remove_profile_from_device(self, key, pid):
         """A profile's ✕: off this device (it stays in Profiles), with Undo in the window's line (UI-RULES 20): back in
         its place in the device's list (the hotkey's order), on only if it was."""
         rec = self.sw.record(key)

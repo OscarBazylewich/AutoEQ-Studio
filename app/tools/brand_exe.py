@@ -5,7 +5,7 @@ names a program by its description (Task Manager's Startup apps and Processes, t
 the copy's signature (the Python Software Foundation's) is taken off, as the rest of the unsigned installer.
 
     launcher_bytes(pythonw, ico, version)  the branded copy, as bytes (make_share_zip.runtime_entries uses it)
-    icon_file(dest)                        the app's icon (ui\\icons.app_icon) as a Windows .ico
+    write_icon_file(dest)                        the app's icon (ui\\icons.app_icon) as a Windows .ico
     describe(path)                         a program's {FileDescription, ProductName, …}, for checks
 """
 import ctypes
@@ -165,7 +165,7 @@ def launcher_bytes(pythonw, ico, version):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def icon_file(dest):
+def write_icon_file(dest):
     """The app's icon as a Windows .ico: each size a PNG (Windows Vista and later read them)."""
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtCore import QBuffer, QByteArray, QIODevice

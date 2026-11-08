@@ -394,7 +394,7 @@ class Project:
         code_app, code_helpers = self._split(_code_imports(tree))
         return app, helpers, code_app, code_helpers
 
-    def _helper(self, name):
+    def _helper_roots(self, name):
         """What a helper brings, with the helpers it imports in turn: ({module: helper that brings it}, [(COVERS_FILES
         pattern, helper)])."""
         if name not in self._helper_memo:
@@ -409,7 +409,7 @@ class Project:
                     continue
                 app, helpers, code_app, code_helpers = self._uses_of(
                     source, [n for n, _lazy in _import_nodes(source.tree)], source.tree)
-                self._unknown(source)
+                self._warn_unknown_covers(source)
                 for m in app + code_app + [c for c in source.covers if c in self.modules]:
                     roots.setdefault(m, h)
                 files += [(p, h) for p in source.covers_files]
@@ -417,7 +417,7 @@ class Project:
             self._helper_memo[name] = (roots, files)
         return self._helper_memo[name]
 
-    def _unknown(self, source):
+    def _warn_unknown_covers(self, source):
         """A warning for each name in a file's COVERS that isn't a module of the app or its tools (a typo chooses
         nothing, quietly otherwise)."""
         for m in source.covers:
@@ -439,7 +439,7 @@ class Project:
         plugins += [h for h in sorted(self.helpers) if h.startswith("helpers.fixtures_")]
         return found + [self.helpers[p] for p in dict.fromkeys(plugins)]
 
-    def reach(self, test):
+    def roots_of(self, test):
         """A test file's roots ({module: where from}, the test's own imports first) and its COVERS_FILES ([(pattern,
         where from)])."""
         if test in self._reach:
@@ -453,13 +453,13 @@ class Project:
                 roots.setdefault(m, "")
             for m in code_app:
                 roots.setdefault(m, "in a code string")
-            self._unknown(source)
+            self._warn_unknown_covers(source)
             for m in source.covers:
                 if m in self.modules:
                     roots.setdefault(m, "named in COVERS")
             files += [(p, "") for p in source.covers_files]
             for h in helpers + code_helpers:
-                h_roots, h_files = self._helper(h)
+                h_roots, h_files = self._helper_roots(h)
                 for m in h_roots:
                     roots.setdefault(m, f"from {h}")
                 files += [(p, f"{owner}") for p, owner in h_files]
@@ -482,7 +482,7 @@ class Project:
                 nodes = [n for n, _lazy in _import_nodes(fixture.node)]
                 if fixture.source is not root_conftest:  # (the root conftest's own imports add no roots)
                     nodes += [n for n in fixture.source.tree.body if isinstance(n, (ast.Import, ast.ImportFrom))]
-                    self._unknown(fixture.source)
+                    self._warn_unknown_covers(fixture.source)
                     for m in fixture.source.covers:
                         if m in self.modules:
                             roots.setdefault(m, origin)
@@ -491,7 +491,7 @@ class Project:
                 for m in app + code_app:
                     roots.setdefault(m, origin)
                 for h in helpers + code_helpers:
-                    h_roots, h_files = self._helper(h)
+                    h_roots, h_files = self._helper_roots(h)
                     for m in h_roots:
                         roots.setdefault(m, origin)
                     files += [(p, f"the {wanted} fixture ({owner})") for p, owner in h_files]
@@ -501,7 +501,7 @@ class Project:
     def reaches(self, test) -> set:
         """Every module of the app and its tools a test file reaches."""
         if test not in self._reaches:
-            roots, _files = self.reach(test)
+            roots, _files = self.roots_of(test)
             out = set()
             for m in roots:
                 out |= self.closure(m)
@@ -510,7 +510,7 @@ class Project:
 
     def why(self, test, module):
         """Why a test file reaches a module, in a few words (its first root that reaches it), or None."""
-        roots, _files = self.reach(test)
+        roots, _files = self.roots_of(test)
         for root, origin in roots.items():
             if module in self.closure(root):
                 bits = [module] + ([f"through {root}"] if root != module else [])
@@ -554,7 +554,7 @@ class Project:
                             chosen[t] = prefix + self.why(t, target)
             for t in all_tests:
                 if t not in chosen:
-                    _roots, files = self.reach(t)
+                    _roots, files = self.roots_of(t)
                     hit = next(((p, owner) for p, owner in files if matches(p, path)), None)
                     if hit:
                         chosen[t] = f"{path}: COVERS_FILES {hit[0]!r}" + (f" of {hit[1]}" if hit[1] else "")
@@ -658,7 +658,7 @@ def _show(choice, command):
         _say(f"To run them: {command} --run   (--quick leaves the slow ones out)")
 
 
-def _run_tests():
+def _run_tests_module():
     """app\\tools\\run_tests.py, beside this file."""
     try:
         import run_tests
@@ -724,7 +724,7 @@ def main(argv=None, root=None) -> int:
     project = Project(root)
     choice = project.choose(changed, deleted)
     for test in project.tests:  # (every test's declarations looked at, so a misspelt COVERS name is always said)
-        project.reach(test)
+        project.roots_of(test)
     for warning in dict.fromkeys(project.warnings):
         _say(f"note: {warning}", err=True)
     if args.list:
@@ -741,7 +741,7 @@ def main(argv=None, root=None) -> int:
         _say("Nothing to run.")
         return 0
     paths = [] if choice.everything else [os.path.join(root, *t.split("/")) for t in choice.files()]
-    return _run_tests().run(paths, quick=args.quick, jobs=args.jobs, extra=extra, root=root, say_left_out=True)
+    return _run_tests_module().run(paths, quick=args.quick, jobs=args.jobs, extra=extra, root=root, say_left_out=True)
 
 
 if __name__ == "__main__":

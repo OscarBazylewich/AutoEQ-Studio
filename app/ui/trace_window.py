@@ -95,7 +95,7 @@ def _dot(colour, size=16):
     return QIcon(pm)
 
 
-def _curve_names(pick, delete, label, i):
+def _name_curve_buttons(pick, delete, label, i):
     """A curve's dot and ✕ named with the curve's name for a screen reader ("Select curve L", "Remove curve L"), again
     when it's renamed: every row's were read alike ("Trace into this curve", "Delete this curve"), 2026-10-23. (✕ is
     Remove: Undo brings the curve back, .claude/notes/UI-RULES.md 10.)"""
@@ -473,7 +473,7 @@ class Stage(QWidget):
         # the Hz and dB under the pointer
         if self.mouse and k:
             mx, my = self.to_img(*self.mouse)
-            f, v = k.f(mx), k.db(my)
+            f, v = k.hz_at(mx), k.db_at(my)
             hz = f"{f / 1000:.{1 if f >= 10000 else 2}f} kHz" if f >= 1000 else f"{f:.{1 if f < 100 else 0}f} Hz"
             text = f"{hz} · {'+' if v >= 0 else ''}{v:.1f} dB"
             p.setFont(font)
@@ -510,7 +510,7 @@ class Stage(QWidget):
             win.say(t.trace_at(x, y))
             win.changed()
         elif win.tool == "draw":
-            t.push()
+            t.push_undo()
             t.draw_segment(x, y, x, y)
             self.drag = {"kind": "draw", "x": x, "y": y}
             win.changed()
@@ -664,14 +664,14 @@ class TraceWindow(QWidget):
             help_window.tag(w, key)
         self.set_tool("trace")
         self.show_values()
-        self.render_ta()
+        self.render_auto_settings()
         self.update_ui()
 
     # ---------------------------------------------------------------- the side
     def _tag(self, key):
         b = QToolButton()
         theme.mark(b, tag=True)
-        b.clicked.connect(lambda: self.hand_back(key))
+        b.clicked.connect(lambda: self.make_auto(key))
         self.tags[key] = b
         return b
 
@@ -705,7 +705,7 @@ class TraceWindow(QWidget):
         why.body_lay.addWidget(self.auto_eff)
         self.auto_manual = _label("")
         self.auto_manual.setTextFormat(Qt.RichText)
-        self.auto_manual.linkActivated.connect(lambda k: self.hand_back(None if k == "*" else k))
+        self.auto_manual.linkActivated.connect(lambda k: self.make_auto(None if k == "*" else k))
         why.body_lay.addWidget(self.auto_manual)
         why.body_lay.addWidget(_label("The settings follow the picture. If you change a setting, it shows “your value” and the "
                                        "app keeps it.", "muted"))
@@ -890,7 +890,7 @@ class TraceWindow(QWidget):
         self.save_tgt.clicked.connect(lambda: self.save("target"))
         icons.put(self.save_tgt, "add")  # (every button in the row with its symbol, UI-RULES 9)
         self.download_btn = QPushButton("Save .txt…")
-        self.download_btn.clicked.connect(self.download)
+        self.download_btn.clicked.connect(self.save_txt)
         icons.put(self.download_btn, "save")
         for b in (self.save_meas, self.save_tgt, self.download_btn):
             btns.addWidget(b)
@@ -921,7 +921,7 @@ class TraceWindow(QWidget):
             self.name.setText(tv["name"])
         self.axis_note.setText(getattr(self.t, "axis_note", "") if self.t.has_image else "")
 
-    def render_ta(self):
+    def render_auto_settings(self):
         t, ta = self.t, self.t.ta
         on = ta["enabled"]
         self.auto_on.blockSignals(True)
@@ -931,7 +931,7 @@ class TraceWindow(QWidget):
         esc = lambda s: s.replace("&", "&amp;").replace("<", "&lt;")
         notes = [(k, x) for k, x in ta["notes"].items() if x]
         if on:
-            items = "".join(f"<li><i>your value</i> Automatic: {esc(x)} The app uses your value.</li>" if t.own(k)
+            items = "".join(f"<li><i>your value</i> Automatic: {esc(x)} The app uses your value.</li>" if t.is_your_value(k)
                             else f"<li>{esc(x)}</li>" for k, x in notes) or "<li>Open a picture to adjust the settings for it.</li>"
         else:
             items = "<li>The automatic settings are off.</li>"
@@ -939,14 +939,15 @@ class TraceWindow(QWidget):
         tv = t.v
         eff = [("Color tolerance", tv["tol"], "tol"), ("Points in each octave", tv["ppo"], "ppo"),
                ("Save", f"{tv['fmin']}–{tv['fmax']} Hz", "fmin"), ("Dashed line", "yes" if tv["dashed"] else "no", "dashed")]
-        self.auto_eff.setText("<br>".join(f"{a}: <b>{esc(str(b))}</b>" + (f" <i>{'your value' if t.own(k) else 'automatic'}</i>" if on and k else "")
-                                          for a, b, k in eff))
+        def whose(k):
+            return f" <i>{'your value' if t.is_your_value(k) else 'automatic'}</i>" if on and k else ""
+        self.auto_eff.setText("<br>".join(f"{a}: <b>{esc(str(b))}</b>" + whose(k) for a, b, k in eff))
         mine = sorted(ta["manual"])
         self.auto_manual.setVisible(on and bool(mine))
         self.auto_manual.setText("Your values (not changed): " + ", ".join(
             f"{tc.NAMES[k]} <a href='{k}'>↺</a>" for k in mine) + " · <a href='*'>Make all automatic</a>")
         for k, b in self.tags.items():
-            yours = t.own(k)
+            yours = t.is_your_value(k)
             b.setVisible(on)
             b.setEnabled(yours)
             b.setText("your value ↺" if yours else "automatic")
@@ -1014,13 +1015,13 @@ class TraceWindow(QWidget):
             x = QPushButton("✕")
             x.setToolTip("Remove this curve (you can undo this)")
             theme.mark(x, quiet=True, trCompact=True)
-            x.clicked.connect(lambda _=False, i=i: self.delete_curve(i))
+            x.clicked.connect(lambda _=False, i=i: self.remove_curve(i))
             h.addWidget(x)
-            _curve_names(pick, x, c["label"], i)
+            _name_curve_buttons(pick, x, c["label"], i)
 
             def renamed(s, c=c, pick=pick, x=x, i=i):
                 c["label"] = s.strip()
-                _curve_names(pick, x, c["label"], i)
+                _name_curve_buttons(pick, x, c["label"], i)
             name.textEdited.connect(renamed)
             lay.addWidget(row)
         _no_focus(self.curves_box)
@@ -1043,13 +1044,13 @@ class TraceWindow(QWidget):
         self.saved_note = False
         self.render_curves()
         self.show_values()  # (a trace may have ticked Dashed or raised the tolerance)
-        self.render_ta()
+        self.render_auto_settings()
         self.update_ui()
 
     def fit_and_show(self):
         self.t.fit_settings()
         self.show_values()
-        self.render_ta()
+        self.render_auto_settings()
         self.update_ui()
 
     def say(self, text):
@@ -1111,7 +1112,7 @@ class TraceWindow(QWidget):
         t.v.update(d1="", d2="", f1="", f2="", name="")
         t.typed = {"d": False, "f": False}
         t.ta.update(notes={}, dashed_found=False, last_ocr=None, last_trace=None)
-        if t.ta["enabled"] and not t.own("dashed"):
+        if t.ta["enabled"] and not t.is_your_value("dashed"):
             t.v["dashed"] = False
         self.reading = False
         self.stage.clear_image()
@@ -1164,9 +1165,9 @@ class TraceWindow(QWidget):
             t.typed[key[0]] = True
             t.fit_settings()
         else:
-            t.touched(key)
+            t.mark_your_value(key)
         self.show_values()  # (points per octave and the range follow the axes' values; the box typed in is left be)
-        self.render_ta()
+        self.render_auto_settings()
         self.update_ui()
 
     def value_left(self, key, lim):
@@ -1231,7 +1232,7 @@ class TraceWindow(QWidget):
             else:
                 t.use_labels(res, before)
             self.show_values()
-            self.render_ta()
+            self.render_auto_settings()
             self.update_ui()
         token = t.label_token
         tasks.background(lambda: t.read_labels(ocr.words), done, owner=self)
@@ -1252,8 +1253,8 @@ class TraceWindow(QWidget):
             self.say(self.t.add_curve())
             self.changed()
 
-    def delete_curve(self, i):
-        self.t.delete_curve(i)
+    def remove_curve(self, i):
+        self.t.remove_curve(i)
         self.changed()
 
     def auto_trace(self):
@@ -1278,37 +1279,37 @@ class TraceWindow(QWidget):
 
     def tol_moved(self, v):
         self.t.v["tol"] = v
-        self.t.touched("tol")
-        self.render_ta()
+        self.t.mark_your_value("tol")
+        self.render_auto_settings()
 
     def dashed_changed(self, on):
         self.t.v["dashed"] = on
-        self.t.touched("dashed")
-        self.render_ta()
+        self.t.mark_your_value("dashed")
+        self.render_auto_settings()
 
     def ppo_changed(self, _i):
         self.t.v["ppo"] = self.ppo.currentData()
-        self.t.touched("ppo")
-        self.render_ta()
+        self.t.mark_your_value("ppo")
+        self.render_auto_settings()
 
     # ---------------------------------------------------------------- automatic settings
-    def _keep(self):
+    def _save_trace_settings(self):
         """The automatic settings' switch into the app's settings, written half a second after the last change,
         without redrawing the other screens (as Listen's)."""
         ta, sw = self.t.ta, self.page.sw
         sw.s["trace"] = {"enabled": ta["enabled"]}
-        if not hasattr(self, "_keep_timer"):
-            self._keep_timer = QTimer(self, singleShot=True, interval=500, timeout=sw.save)
+        if not hasattr(self, "_save_timer"):
+            self._save_timer = QTimer(self, singleShot=True, interval=500, timeout=sw.save)
             QApplication.instance().aboutToQuit.connect(sw.save)
-        self._keep_timer.start()
+        self._save_timer.start()
 
     def auto_switched(self, on):
         self.t.ta["enabled"] = on
-        self._keep()
-        self.fit_and_show() if on else self.render_ta()
+        self._save_trace_settings()
+        self.fit_and_show() if on else self.render_auto_settings()
 
-    def hand_back(self, k):
-        self.t.hand_back(k)
+    def make_auto(self, k):
+        self.t.make_auto(k)
         self.fit_and_show()
 
     # ---------------------------------------------------------------- save
@@ -1379,7 +1380,7 @@ class TraceWindow(QWidget):
         if gaps:
             QMessageBox.information(self, "Trace", gaps)
 
-    def download(self):
+    def save_txt(self):
         """The traced curves as .txt files wherever you choose."""
         try:
             outs = self.outputs(False)

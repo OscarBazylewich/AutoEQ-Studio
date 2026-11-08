@@ -160,7 +160,7 @@ def test_online_entry_offline(eq_screen, find, monkeypatch, check):
     said = []
     monkeypatch.setattr(page, "status", lambda text, ms=0: said.append(text))
     monkeypatch.setattr(QMessageBox, "warning", staticmethod(lambda *a, **k: said.append(a[2])))
-    pk.choose(db_row)
+    pk.use_row(db_row)
     eq_screen.wait_for(lambda: said or pk.busy is None and not pk.isVisible(), 60)
     eq_screen.wait_for(lambda: said, 30)
     # was eq_checks.py:1466
@@ -172,7 +172,7 @@ def test_use_from_this_pc(eq_screen, find, check):
     pc_row = next(iter(pk.pc_rows(["gate"])), None)
     used = False
     if pc_row is not None:
-        pk.choose(pc_row)
+        pk.use_row(pc_row)
         used = eq_screen.wait_for(lambda: not pk.isVisible() and page.curves is not None, 60)
     # was eq_checks.py:1471
     check("ui: Find…'s Use puts a file from this PC into the app and in use", used and any(
@@ -185,7 +185,7 @@ def _retry(s):
     for (180 s)."""
     page = s.page
     run = page.run_result
-    page.run(retry={"filters": page.active(), "add": False})
+    page.run(retry={"filters": page.enabled_filters(), "add": False})
     if not s.wait_for(lambda: page.run_btn.isEnabled() and page.run_result is not run, 180):
         raise RuntimeError(f"Retry made no result: {page.progress_text.text()!r}")
 
@@ -289,7 +289,7 @@ def test_lists_a_to_z(eq_screen, as_old, check):
     QApplication.sendEvent(pop.q, QKeyEvent(QEvent.KeyPress, Qt.Key_Return, Qt.NoModifier))
     chosen = (big.currentIndex() == big.count() - 1, pop.isVisible())
     lay = page.settings.adv_form.fields["best_fit.layout"].box
-    rule = (big.searches(), small.searches(), isinstance(lay, SearchCombo) and lay.searches(),
+    rule = (big.has_search_box(), small.has_search_box(), isinstance(lay, SearchCombo) and lay.has_search_box(),
             all(isinstance(b, SearchCombo) for b in page.findChildren(QComboBox)))
     # (deleted now, not left for Python's garbage collector: big and its pop-up hold each other, and on GitHub's run
     # of 2026-10-22 the collector deleted them in the next test, while Qt was handing the pop-up an event: a crash)
@@ -333,8 +333,8 @@ def test_use_offers_undo(eq_screen, dialogs, check):
     if not row:  # (as the old check, which said "skip" then)
         check.skipped("no sample measurement found on this PC", USE_UNDO)
     before = list(page.S["files"]["excluded"])
-    res = page.svc.call("/api/use", dict(pk.body(row), kind="measurement", settings=page.S))
-    page.used(res)
+    res = page.svc.call("/api/use", dict(pk.request_body(row), kind="measurement", settings=page.S))
+    page.file_used(res)
     offered = eq_screen.undo_offered()  # (Undo beside the message, in the window's line)
     eq_screen.undo()
     eq_screen.wait_for(lambda: not any(n in {m["name"] for m in page.inputs["measurements"]}

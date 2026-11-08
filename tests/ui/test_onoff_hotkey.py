@@ -83,7 +83,7 @@ def test_devices_while_off_for_now(on_device, qapp, check):
     back = next((b for b in win.compare_bar.findChildren(QPushButton) if b.text() == "Enable it again"), None)
     card_gone = not any(lab.text().startswith("Its EQ is off for now") for lab in
                         win.pages["devices"].findChildren(QLabel) if lab.isVisibleTo(win))  # (the old card's words)
-    line = win._status(KEY)[1] if hasattr(win, "_status") else ""
+    line = win._device_state(KEY)[1] if hasattr(win, "_device_state") else ""
     no_check = win.check_label is None
     back.click()
     win.render_all()

@@ -187,7 +187,7 @@ def site_on(s, cfg):
     return s["name"] in set(db.get("enabled") or [])
 
 
-def _web(items):
+def _web_only(items):
     """Only entries whose address is a web page (http or https): the list comes from another site, and its addresses
     become links and downloads."""
     return [d for d in items if isinstance(d, dict) and str(d.get("url", "")).lower().startswith(("http://", "https://"))]
@@ -199,16 +199,16 @@ def directory(refresh=False):
     if not isinstance(c, dict) or "items" not in c or "time" not in c:
         c = None
     elif not refresh and time.time() - c["time"] < MAX_AGE:
-        return _web(c["items"])
+        return _web_only(c["items"])
     if not refresh and time.time() - _dir_failed["at"] < RETRY_AFTER:  # (each call would wait up to 20 s again)
-        return _web(c["items"]) if c else []
+        return _web_only(c["items"]) if c else []
     try:
         sites = json.loads(_get(DIRECTORY_URL)[0])
     except net.Offline:  # (the app is offline: not a failed try, so going online asks again at once)
-        return _web(c["items"]) if c else []
+        return _web_only(c["items"]) if c else []
     except Exception:
         _dir_failed["at"] = time.time()
-        return _web(c["items"]) if c else []
+        return _web_only(c["items"]) if c else []
     items = []
     for s in sites:
         kind = s.get("urlType")
@@ -219,7 +219,7 @@ def directory(refresh=False):
             name = s.get("name", s.get("username", "?")) + (f" ({d.get('type')})" if len(dbs) > 1 else "")
             items.append({"name": name, "type": d.get("type", ""), "group": _TYPE_GROUP.get(d.get("type"), "added"),
                           "url": base.rstrip("/") + d.get("folder", "/")})
-    items = _web(items)
+    items = _web_only(items)
     textfile.write_json(DIRECTORY_PATH, {"time": time.time(), "items": items})
     return items
 
@@ -228,7 +228,7 @@ def saved_directory():
     """squig.link's list as last saved, never fetched: for lookups the window may wait on (fetching, up to 20 s, is
     left to the background refresh: review 2)."""
     c = textfile.read_json(DIRECTORY_PATH)
-    return _web(c["items"]) if isinstance(c, dict) and isinstance(c.get("items"), list) else []
+    return _web_only(c["items"]) if isinstance(c, dict) and isinstance(c.get("items"), list) else []
 
 
 _extra_sites = {}  # url -> site, for sites the user added (so their rig and name are known elsewhere)
@@ -345,7 +345,7 @@ def _index_autoeq(site):
     return items, {}
 
 
-def _page(url):
+def _fetch_page(url):
     """A page's HTML and its final address, also after a <meta http-equiv="refresh"> redirect (DHRME's headphones
     page moved to its own domain that way)."""
     html, final = _get(url)
@@ -383,7 +383,7 @@ def _modern_config(cfg_text, final):
 
 
 def _squig_config(site):
-    html, final = _page(site["url"])
+    html, final = _fetch_page(site["url"])
     scripts = re.findall(r'<script[^>]+src=["\']([^"\']+)["\']', html)
     cfgs = [s for s in scripts if re.search(r"config[^/]*\.js", s)]
     if not cfgs:
@@ -507,7 +507,7 @@ def load_cache():
 _SPACE = " \t\n\r"
 
 
-def _skip(text, i):
+def _skip_space(text, i):
     while text[i] in _SPACE:  # (IndexError at the end: not one whole object, read whole instead)
         i += 1
     return i
@@ -517,25 +517,25 @@ def _sites_one_at_a_time(text):
     """The lists file's object read one site's list after another (json.JSONDecoder.raw_decode), Python's lock let go
     after each (time.sleep(0): the window's thread, waiting for it, takes it then). ValueError when it isn't one."""
     dec, out = json.JSONDecoder(), {}
-    i = _skip(text, 0)
+    i = _skip_space(text, 0)
     if text[i] != "{":
         raise ValueError("the text is not a JSON object")
-    i = _skip(text, i + 1)
+    i = _skip_space(text, i + 1)
     if text[i] == "}":
         return out
     while True:
         key, i = dec.raw_decode(text, i)
-        i = _skip(text, i)
+        i = _skip_space(text, i)
         if not isinstance(key, str) or text[i] != ":":
             raise ValueError("the text is not the name of a website")
-        out[key], i = dec.raw_decode(text, _skip(text, i + 1))
+        out[key], i = dec.raw_decode(text, _skip_space(text, i + 1))
         time.sleep(0)
-        i = _skip(text, i)
+        i = _skip_space(text, i)
         if text[i] == "}":
             return out
         if text[i] != ",":
             raise ValueError("a comma is missing")
-        i = _skip(text, i + 1)
+        i = _skip_space(text, i + 1)
 
 
 def _save_cache(cache):

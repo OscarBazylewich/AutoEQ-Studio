@@ -104,7 +104,7 @@ def outside_limits(f):
     return ""
 
 
-def _tidy(f):
+def _round_filter(f):
     """Numbers kept to what matters (a shelf moved to its centre has a long tail of digits)."""
     out = dict(f)
     out["freq"] = round(out["freq"], 2)
@@ -115,7 +115,7 @@ def _tidy(f):
     return out
 
 
-def _say_left(counts):
+def _left_out_words(counts):
     """{reason: how many} as plain words: "2 high-pass filters", "a graphic EQ (GraphicEQ)"."""
     said = []
     for what, n in counts.items():
@@ -134,7 +134,7 @@ def read(text, fs=FS):
     (named) or passed over (a line that isn't Equalizer APO's)."""
     text = str(text or "")
     if re.search(r"^\s*\[(frequencies|gains|qualities)\]\s*$", text, re.I | re.M):
-        return _peace(text)
+        return _read_peace(text)
     fmt = "Room EQ Wizard" if re.search(r"room\s*eq|filter settings file", text, re.I) else "Equalizer APO"
     filters, preamp, left = [], None, {}
     scope_all = {"channel": True, "device": True}
@@ -171,7 +171,7 @@ def read(text, fs=FS):
                 if why:
                     leave(f"a filter: {why}")
                 else:
-                    filters.append(_tidy(value))
+                    filters.append(_round_filter(value))
             elif kind == "other":
                 leave(f"{value} filter")
             elif kind == "bad":
@@ -183,8 +183,8 @@ def read(text, fs=FS):
             if why:
                 leave(f"a filter: {why}")
             else:
-                filters.append(dict(_tidy(f), enabled=True))
-    return {"filters": filters, "preamp": None if preamp is None else round(preamp, 2), "left_out": _say_left(left),
+                filters.append(dict(_round_filter(f), enabled=True))
+    return {"filters": filters, "preamp": None if preamp is None else round(preamp, 2), "left_out": _left_out_words(left),
             "format": fmt}
 
 
@@ -192,7 +192,7 @@ def read(text, fs=FS):
 _PEACE_TYPES = {None: "PK", "14": "LSQ", "15": "HSQ"}  # (what Peace writes for them: PK, "LSC … Q", "HSC … Q")
 
 
-def _peace(text):
+def _read_peace(text):
     """A Peace preset: [Frequencies] FrequencyN, [Gains] GainN, [Qualities] QualityN, [Filters] FilterN (its type's
     code, for those that aren't peaking: 14 a low shelf, 15 a high shelf), [General] PreAmp. Numbered sections
     ([Gains1] …) are Peace's other speakers: filters there with a gain are left out (named)."""
@@ -226,10 +226,10 @@ def _peace(text):
         if why:
             left[f"a filter: {why}"] = left.get(f"a filter: {why}", 0) + 1
         else:
-            filters.append(_tidy(flt))
+            filters.append(_round_filter(flt))
     others = [s for s in sections if re.fullmatch(r"gains\d+", s)
               and any((num(v) or 0) != 0 for v in sections[s].values())]
     if others:
         left["filters for some speakers only (Peace's speakers)"] = len(others)
     pre = num(sections.get("general", {}).get("preamp")) if sections.get("general", {}).get("preamp") is not None else None
-    return {"filters": filters, "preamp": pre, "left_out": _say_left(left), "format": "Peace"}
+    return {"filters": filters, "preamp": pre, "left_out": _left_out_words(left), "format": "Peace"}

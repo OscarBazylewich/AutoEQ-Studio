@@ -51,7 +51,7 @@ def test_value_past_the_edit_limits(eq_screen, chain, check):
 
 def test_revert_and_sort(eq_screen, chain, check):
     page, before = eq_screen.page, chain["before"]
-    page.revert()  # (lines 1550-1551)
+    page.undo_all()  # (lines 1550-1551)
     page.sort_filters()
     # was eq_checks.py:1552
     check("ui: Revert gives the run's filters back; Sort alone isn't an edit",
@@ -63,7 +63,7 @@ def test_sliders_edit_the_same_filters(eq_screen, chain, check):
     page, r = eq_screen.page, chain["r"]
     # (lines 1555-1559: a new filter, then the Sliders view, the last slider dragged to +2.5 dB)
     page.add_filter()
-    n = len(page.active())
+    n = len(page.enabled_filters())
     page.set_view("sliders")
     sl = page.editor.sliders_scroll.widget().findChildren(QSlider)
     sl[-1].setValue(25)
@@ -71,7 +71,7 @@ def test_sliders_edit_the_same_filters(eq_screen, chain, check):
     check("ui: the sliders edit the same filters (a new one at 1 kHz, its gain dragged to +2.5 dB)",
           n == len(r["filters"]) + 1 and page.EDIT[-1]["freq"] == 1000 and page.EDIT[-1]["gain"] == 2.5, page.EDIT[-1])
     page.set_view("table")  # (lines 1562-1563: the Table view again, the run's own filters)
-    page.revert()
+    page.undo_all()
 
 
 # ---------------------------------------------------------------- the look (the restyle's stage 2, 2026-10-23)
@@ -231,7 +231,7 @@ def test_own_filters_sliders_whole(eq_screen, check, monkeypatch):
     monkeypatch.setattr(QDialog, "exec", shown)
     try:
         page.S["best_fit"]["start_filters"] = ten
-        page.settings.edit_own_filters()
+        page.settings.edit_your_filters()
     finally:
         page.S["best_fit"]["start_filters"] = kept
     whole = lambda s: s["bar"][2] and s["bar"][3] > 0 and s["bar"][1] <= s["editor ends"] <= s["buttons start"]
@@ -272,7 +272,7 @@ def test_own_filters_window_ends_as_every_window(eq_screen, check, monkeypatch):
     monkeypatch.setattr(QDialog, "exec", shown)
     try:
         page.S["best_fit"]["start_filters"] = "Filter 1: ON PK Fc 1000 Hz Gain 2 dB Q 1"
-        page.settings.edit_own_filters()
+        page.settings.edit_your_filters()
     finally:
         page.S["best_fit"]["start_filters"] = kept
     check("filters: Your own filters ends as every window: Enter in one of its boxes stays the box's (the window stays "

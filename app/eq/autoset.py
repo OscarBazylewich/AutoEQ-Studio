@@ -39,22 +39,22 @@ BAND_OPTS = (8000, 10000, 12000, 16000, 20000)
 SITE_FH_OPTS = (6000, 8000, 10000, 12000, 16000, 20000)
 
 
-def _lim(path):
+def _setting_range(path):
     lim = settings.LIMITS.get(path) or settings.LIMITS.get(path.rsplit(".", 1)[0]) or {}
     return lim.get("min", -math.inf), lim.get("max", math.inf)
 
 
-def _fit(path, v, step=1):
+def _round_within(path, v, step=1):
     """v rounded to a step (whole numbers by default) and kept within the setting's floor and ceiling."""
-    lo, hi = _lim(path)
+    lo, hi = _setting_range(path)
     r = min(max(round(v / step) * step, lo), hi)
     return int(r) if step == 1 else round(r, 3)
 
 
-def _past(path, a, up):
+def _round_beyond(path, a, up):
     """A round value just above (up) or below a, within the setting's floor and ceiling: frequencies a quarter
     further (in round hundreds or thousands), gains 1 dB, Q 0.5."""
-    lo, hi = _lim(path)
+    lo, hi = _setting_range(path)
     unit = (settings.LIMITS.get(path) or {}).get("unit")
     if unit == "Hz":
         step = 1000 if a >= 2000 else 100 if a >= 200 else 10
@@ -66,7 +66,7 @@ def _past(path, a, up):
     return min(max(x, lo), hi)
 
 
-def _consistent(cfg, v, notes):
+def _keep_pairs_in_order(cfg, v, notes):
     """An automatic value next to a "from" or "to" value the user set stays on its side of it (e.g. "Score from"
     set to 12 kHz while the automatic "to" would be 10 kHz: "to" moves up to 15 kHz), so every pair stays in order."""
     manual = set(cfg["auto"].get("manual") or [])
@@ -78,15 +78,15 @@ def _consistent(cfg, v, notes):
             continue
         ok = lambda x, y, strict=strict: x < y or (not strict and x == y)
         if auto(hi):
-            new = ([x for x in b if ok(a, x)] or [_past(hi, a, True)]) if isinstance(b, list) else \
-                b if ok(a, b) else _past(hi, a, True)
+            new = ([x for x in b if ok(a, x)] or [_round_beyond(hi, a, True)]) if isinstance(b, list) else \
+                b if ok(a, b) else _round_beyond(hi, a, True)
             if new != b and ok(a, min(new) if isinstance(new, list) else new):
                 v[hi] = new
                 notes.append((hi, f"Set above your “from” value ({a:g})."))
         else:
             bm = min(b) if isinstance(b, list) else b
-            if not ok(a, bm) and ok(_past(lo, bm, False), bm):
-                v[lo] = _past(lo, bm, False)
+            if not ok(a, bm) and ok(_round_beyond(lo, bm, False), bm):
+                v[lo] = _round_beyond(lo, bm, False)
                 notes.append((lo, f"Set below your “to” value ({bm:g})."))
 
 
@@ -156,7 +156,7 @@ def analyse(cfg, curves, meas_texts):
     if not auto.get("enabled", True) or "scoring.band_hz.1" in (auto.get("manual") or []):
         top = float(cfg["scoring"]["band_hz"][1])
     elif top <= lo:  # the user's "Score from" is above the automatic "to": plan() moves "to" up the same way
-        top = _past("scoring.band_hz.1", lo, True)
+        top = _round_beyond("scoring.band_hz.1", lo, True)
     out["score_top"] = int(top)
 
     # the correction: target minus measurement over the scored range (all of it if that range has no data)
@@ -195,7 +195,7 @@ def analyse(cfg, curves, meas_texts):
 
 
 # ---------------------------------------------------------------- settings from the analysis
-def _take(ladder, k, top):
+def _first_within(ladder, k, top):
     out = []
     for v in ladder:
         if v <= top + 1e-9 and v not in out:
@@ -205,7 +205,7 @@ def _take(ladder, k, top):
     return sorted(out)
 
 
-def _r(x):
+def _round_half_up(x):
     """Round halves up (Python's round() rounds halves to even)."""
     return int(math.floor(x + 0.5))
 
@@ -224,7 +224,7 @@ class _Plan:
         self.span = an.get("score_top", an["band_top"])  # the range actually scored (the user's own, if they set it)
         # How many filters the correction needs: calibrated on best fits of real measurements (the count that gets
         # within 0.1 dB of the best error was about 1.6 × the peaks and dips + 2, more when the curve is far off).
-        self.n_need = int(min(N_ACCURACY, max(6, _r(1.6 * an["features"] + 2 + an["no_eq_rms"] / 3))))
+        self.n_need = int(min(N_ACCURACY, max(6, _round_half_up(1.6 * an["features"] + 2 + an["no_eq_rms"] / 3))))
 
     def note(self, path, text):
         self.notes.append((path, text))
@@ -235,7 +235,7 @@ class _Plan:
         Thorough 1): up to the setting's ceiling (where fits stop improving, or the website's rows); every one from
         0.67, every one to 16 then every other to 24 from 0.34, else every other to 12 then every 4th (the fits with
         many filters take longest)."""
-        top = int(_lim(path)[1])
+        top = int(_setting_range(path)[1])
         # Best fit: every count where the audible pick lands (11-21 filters in the tests: a count skipped there made
         # it take a bigger one, once 32) at every level, and every count when the EQs are grown (each count is made on
         # the way to the next anyway); the website's rows as before
@@ -250,21 +250,21 @@ class _Plan:
         return sorted({n for n in c if n <= top} | {top})
 
     def gain_top(self, path):  # boost: what the target needs + 2 dB (at least 4)
-        return _fit(path, math.ceil(max(4.0, self.an["need_boost"] + 2)))
+        return _round_within(path, math.ceil(max(4.0, self.an["need_boost"] + 2)))
 
     def cut_floor(self, path):  # cut: what it needs + 2 dB (at least 6)
-        return _fit(path, -math.ceil(max(6.0, -self.an["need_cut"] + 2)))
+        return _round_within(path, -math.ceil(max(6.0, -self.an["need_cut"] + 2)))
 
     def q_top(self, path):  # Q: the narrowest peak or dip's, plus a quarter (at least 2)
-        return _fit(path, max(2.0, self.an["q_need"] * 1.25), 0.5)
+        return _round_within(path, max(2.0, self.an["q_need"] * 1.25), 0.5)
 
     def q_list(self, qt, Ls, path, k):
         """The Q limits to try. Tested on real measurements: with few filters Q 2 does best; with 8-16 filters
         Q 3-5 match closer (on other units and seatings too), while Q 8-16 do worse again. So the wider the search
         the ladder reaches Q 3 (from 0.34) and 5 (from 0.67) whatever the narrowest peak is."""
-        hi = qt if Ls < 0.34 else _fit(path, max(qt, 3.0 if Ls < 0.67 else 5.0), 0.5)
+        hi = qt if Ls < 0.34 else _round_within(path, max(qt, 3.0 if Ls < 0.67 else 5.0), 0.5)
         ladder = [qt, 2, 1, 3, 1.5] if Ls < 0.34 else [hi, qt, 2, 1, 1.5] if Ls < 0.67 else [hi, 3, 4, qt, 2]
-        return _take([_fit(path, q, 0.5) for q in ladder], k, hi), hi
+        return _first_within([_round_within(path, q, 0.5) for q in ladder], k, hi), hi
 
     # ---- the reasons
     def note_filters(self, n, path, single=False):
@@ -280,15 +280,17 @@ class _Plan:
 
     def note_q(self, qt, path, hi=None):
         an = self.an
-        # (a second limit that the app tries is in the list, as the penalties are: a note stays a line)
-        self.note(path, f"Maximum Q {qt:g}" + (f" and Q {hi:g}" if hi and hi > qt else "")
-                  + (f": the highest Q of a peak or dip is approximately Q {an['q_need']:.1f}"
-                     if an["q_at"] else ": no peaks or dips with a high Q") + ".")
+        # (a second limit that the app tries is in the list, as the penalties are: a note stays a line, 80
+        # characters at most, so with the second limit "approximately" gives its room to it)
+        also = hi and hi > qt
+        self.note(path, f"Maximum Q {qt:g}" + (f" (the app also tries Q {hi:g})" if also else "")
+                  + ((": the highest Q of a peak or dip is " + ("" if also else "approximately ")
+                      + f"Q {an['q_need']:.1f}") if an["q_at"] else ": no peaks or dips with a high Q") + ".")
 
     # ---- each part
     def scored_range(self):
         an, top, n_files = self.an, self.an["band_top"], self.an["n_files"]
-        self.values["scoring.band_hz.1"] = _fit("scoring.band_hz.1", top)
+        self.values["scoring.band_hz.1"] = _round_within("scoring.band_hz.1", top)
         why = an["band_why"]
         if why == "agree":
             text = f"Error to {_fmt_hz(top)}: your {n_files} files agree to this frequency."
@@ -307,23 +309,24 @@ class _Plan:
         fh_base = max([o for o in SITE_FH_OPTS if o <= self.span] or [6000])
         i = SITE_FH_OPTS.index(fh_base)
         fh_ladder = [fh_base] + [SITE_FH_OPTS[j] for j in (i - 1, i + 1, i - 2, i + 2) if 0 <= j < len(SITE_FH_OPTS)]
-        fh = sorted(fh_ladder[:1 + _r(3 * Ls)])
+        fh = sorted(fh_ladder[:1 + _round_half_up(3 * Ls)])
         gt, gf = self.gain_top("site_single.gain_max"), self.cut_floor("site_single.gain_min")
         gr = []
-        lo_g, hi_g = _lim("site_sweep.gain_ranges")
+        lo_g, hi_g = _setting_range("site_sweep.gain_ranges")
         for r in ([gf, gt], [-12, 6], [int(lo_g), int(hi_g)]):
             if r not in gr:
                 gr.append(r)
-        gr = gr[:1 + _r(2 * Ls)]
+        gr = gr[:1 + _round_half_up(2 * Ls)]
         qt = self.q_top("site_sweep.q_max")
-        qm, qhi = self.q_list(qt, Ls, "site_sweep.q_max", 2 + _r(2 * Ls))
+        qm, qhi = self.q_list(qt, Ls, "site_sweep.q_max", 2 + _round_half_up(2 * Ls))
         return {"site_sweep.filter_rows": sorted(set(rows)), "site_sweep.freq_high": fh, "site_sweep.gain_ranges": gr,
                 "site_sweep.q_max": qm}, gt, qt, rows_top, qhi
 
     def site_single(self):
-        rows = _fit("site_single.rows", self.n_need)  # (one run: the count the curve needs, found within 0.1 dB of the best)
+        # (one run: the count the curve needs, found within 0.1 dB of the best)
+        rows = _round_within("site_single.rows", self.n_need)
         gt, qt = self.gain_top("site_single.gain_max"), self.q_top("site_single.q_max")
-        self.values.update({"site_single.rows": rows, "site_single.freq_high": _fit("site_single.freq_high", self.span),
+        self.values.update({"site_single.rows": rows, "site_single.freq_high": _round_within("site_single.freq_high", self.span),
                             "site_single.gain_min": self.cut_floor("site_single.gain_min"), "site_single.gain_max": gt,
                             "site_single.q_max": qt})
         self.note_filters(rows, "site_single.rows", single=True)
@@ -358,10 +361,10 @@ class _Plan:
             q_std, _ = self.q_list(qt, 0.5, "best_fit.q_max", 4)
             q_tho, _ = self.q_list(qt, 1.0, "best_fit.q_max", 5)
             qm = sorted(set(q_std) | set(q_tho))
-            gains, fights = _take([gt, 6, 9, 3], 3, gt), [0.003, 0.01]
+            gains, fights = _first_within([gt, 6, 9, 3], 3, gt), [0.003, 0.01]
         else:  # (each count on its own, from random starts: as Standard, its tested middle)
-            qm, _ = self.q_list(qt, L, "best_fit.q_max", 2 + _r(3 * L))
-            gains, fights = _take([gt, 6, 9, 3], 1 + _r(2 * L), gt), [0.01]
+            qm, _ = self.q_list(qt, L, "best_fit.q_max", 2 + _round_half_up(3 * L))
+            gains, fights = _first_within([gt, 6, 9, 3], 1 + _round_half_up(2 * L), gt), [0.01]
         qhi = max(qm)
         self.values.update({
             "best_fit.filter_counts": counts, "best_fit.freq_range.1": 16000 if self.span <= 12000 else 20000,
@@ -416,7 +419,7 @@ def plan(cfg, an, mode=None):
         getattr(p, mode)()
     if mode == "site_sweep" or mode == "best_fit" and not layouts.is_fixed(cfg["best_fit"].get("layout", "any")):
         p.picking()
-    _consistent(cfg, p.values, p.notes)
+    _keep_pairs_in_order(cfg, p.values, p.notes)
     return {"values": p.values, "notes": [{"path": path, "text": t} for path, t in p.notes]}
 
 
@@ -439,7 +442,7 @@ def describe(cfg, mode=None):
                     f"+{hi:g} dB in {step:g} dB steps")
         bf = device_settings(bf)
         nfit = engines.fit_count(bf, _count_mine(bf))  # (with your own filters: theirs too)
-        fp = len(engines.fights(bf))
+        fp = len(engines.fight_penalties(bf))
         times = f" × {fp} penalties for opposite filters" if fp > 1 else ""
         n_mine = _count_mine(bf)
         if n_mine and bf.get("start_add") is False:  # (your filters fill the device: nothing is added)
@@ -491,7 +494,7 @@ def apply(cfg, values):
 # The work is counted in single-task seconds (measured one at a time on this PC: a website run ~0.5 s, a fit
 # ~0.02 s + 0.012 s per filter for each start, more above ~12 filters) and turned into wall time with a factor per
 # kind of work. Many tasks at once slow each other down (shared cores and memory), so the factors are well above 1,
-# and a little more so the bigger the run (_crowd(): fitted on 8 Best fit runs of 6 s to 3.7 min, three
+# and a little more so the bigger the run (_crowd_slowdown(): fitted on 8 Best fit runs of 6 s to 3.7 min, three
 # measurements; within about 20%, as other work on the PC changes run times too). They start from runs measured
 # here and follow this PC's real run times after every run (learn()). ("fit_k" replaced "fit" when the fits got faster: an old "fit" value is ignored.)
 TIMING_PATH = os.path.join(paths.CACHE, "timing.json")
@@ -502,19 +505,19 @@ DEFAULT_K = {"site": 2.1, "fit_k": 3.4, "grow_k": 1.5}
 GROW_C, GROW_STOP = 0.00113, 16
 
 
-def _factors():
+def _timing_factors():
     saved = textfile.read_json(TIMING_PATH, {})
     if not isinstance(saved, dict):
         return dict(DEFAULT_K)
     return {k: float(saved[k]) if isinstance(saved.get(k), (int, float)) else v for k, v in DEFAULT_K.items()}
 
 
-def _crowd(fit):
+def _crowd_slowdown(fit):
     """How much more a bigger Best fit run slows itself down (its fitting work in single-task seconds)."""
     return 1 + 0.1 * math.log(max(fit, 1.4) / 1.4)
 
 
-def _slower(fight):
+def _penalty_slowdown(fight):
     """How much longer a fit takes with this fighting-filter penalty than with 0.01 (measured: 0.003 1.2×, 0.001 1.5×,
     0 2.4×)."""
     return min(2.5, (0.01 / max(fight, 1e-4)) ** 0.17)
@@ -529,7 +532,7 @@ def _fit_key(cfg, mode):
     return "grow_k" if grown else "fit_k"
 
 
-def _parts(cfg, mode, cached=True):
+def _work_of_run(cfg, mode, cached=True):
     """(fixed seconds, website work, fitting work) of a run (cached: site runs done a moment ago are reused)."""
     from . import engines
     w = pipeline.workers(cfg)
@@ -537,9 +540,9 @@ def _parts(cfg, mode, cached=True):
         bf = device_settings(cfg["best_fit"])
         top = max(bf["filter_counts"]) + bool(bf.get("low_shelf")) + bool(bf.get("high_shelf"))
         stop = min(top, GROW_STOP) if cfg["scoring"].get("pick") == "audible" else top
-        fp = engines.fights(bf)
+        fp = engines.fight_penalties(bf)
         tasks = len(bf["gain_max"]) * len(bf["q_max"]) * len(fp)
-        slower = sum(_slower(x) for x in fp) / len(fp)
+        slower = sum(_penalty_slowdown(x) for x in fp) / len(fp)
         return 1.2, 0.0, math.ceil(tasks / w) * GROW_C * stop ** 3 * slower
     site_t = lambda rows: min(1.0, 0.05 + 0.06 * rows)
     if mode == "site_single":
@@ -569,7 +572,7 @@ def _parts(cfg, mode, cached=True):
         tasks = []
     if n_mine and not bf.get("start_keep", True):  # (yours alone, adjusted, once per limit: one start each)
         tasks += [0.02 + 0.012 * n_mine + 0.00003 * n_mine ** 3]  # (times the limits below)
-    fits = sum(tasks) * limits * sum(_slower(x) for x in engines.fights(bf))
+    fits = sum(tasks) * limits * sum(_penalty_slowdown(x) for x in engines.fight_penalties(bf))
     fit = max(fits / w * 1.15, max(tasks) if tasks else 0)
     return 1.2, 0.0, fit
 
@@ -577,21 +580,21 @@ def _parts(cfg, mode, cached=True):
 def estimate(cfg, mode=None):
     """Rough seconds for a run with these settings on this PC."""
     mode = mode or cfg["mode"]
-    fixed, site, fit = _parts(cfg, mode)
-    k = _factors()
-    return fixed + k["site"] * site + k[_fit_key(cfg, mode)] * _crowd(fit) * fit
+    fixed, site, fit = _work_of_run(cfg, mode)
+    k = _timing_factors()
+    return fixed + k["site"] * site + k[_fit_key(cfg, mode)] * _crowd_slowdown(fit) * fit
 
 
 def learn(cfg, mode, seconds):
     """After a real run: move the factors toward what this PC actually took."""
-    fixed, site, fit = _parts(cfg, mode, cached=False)  # (the run did all its work: service.py doesn't ask otherwise)
-    k = _factors()
+    fixed, site, fit = _work_of_run(cfg, mode, cached=False)  # (the run did all its work: service.py doesn't ask otherwise)
+    k = _timing_factors()
     clip = lambda x: min(max(x, 0.3), 60.0)
     if mode == "site_sweep" and site > 0.3:
         k["site"] = 0.6 * k["site"] + 0.4 * clip((seconds - fixed) / site)
     elif mode == "best_fit" and fit > 1.0:  # a short run is mostly start-up time: it says little about the fits
         key = _fit_key(cfg, mode)
-        k[key] = 0.6 * k[key] + 0.4 * clip((seconds - fixed - k["site"] * site) / (_crowd(fit) * fit))
+        k[key] = 0.6 * k[key] + 0.4 * clip((seconds - fixed - k["site"] * site) / (_crowd_slowdown(fit) * fit))
     else:
         return
     textfile.write_json(TIMING_PATH, {x: round(v, 3) for x, v in k.items()})

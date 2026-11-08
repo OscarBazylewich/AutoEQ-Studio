@@ -33,8 +33,8 @@ def _note(u):
     base = (f"calculated from {n} models that are also in sources with a known rig "
             f"(this rig agrees best with {round(w * 100)}% of them)")
     if u.get("loose"):
-        base += (". Its measurements agree less with this rig than two measurements on one rig agree (possibly a "
-                 "copy of the rig, or a different rig)")
+        base += (". Its measurements agree less with this rig than two measurements on one rig agree (very "
+                 "possibly a copy of the rig, or a different rig)")
     if u.get("mixed"):
         return base + (". Some of its measurements agree with a different rig (the person who measured changed "
                        "rigs): the app shows the rig of each of these measurements")

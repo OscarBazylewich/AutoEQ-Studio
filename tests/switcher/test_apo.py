@@ -63,7 +63,7 @@ def test_setting_up(set_up, check):
 
 def test_is_set_up(set_up, check):
     # was selftest.py:109
-    check("apo: set up", set_up.a.set_up())
+    check("apo: set up", set_up.a.includes_studio())
 
 
 def test_taken_out(set_up, check):
@@ -72,7 +72,7 @@ def test_taken_out(set_up, check):
     with open(a.config_txt, "rb") as fh:
         back = fh.read()
     # was selftest.py:113
-    check("apo: taking AutoEQ Studio out puts config.txt back as it was", back == stand_in.CONFIG and not a.set_up(), back)
+    check("apo: taking AutoEQ Studio out puts config.txt back as it was", back == stand_in.CONFIG and not a.includes_studio(), back)
 
 
 def test_one_section_per_device(check):

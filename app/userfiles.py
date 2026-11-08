@@ -15,7 +15,7 @@ import paths
 import textfile
 
 
-def kinds(root):
+def kind_folders(root):
     """Each kind of your files and its folder in root (as paths.locate() names them)."""
     return [(os.path.join(root, n)) for n in (paths.TARGETS_NAME, paths.MEASUREMENTS_NAME, paths.SAVED_EQS_NAME,
                                                paths.PRESETS_NAME)]
@@ -53,7 +53,7 @@ def old_places(bases=None):
         if os.path.normcase(os.path.abspath(base)) in seen:
             continue
         seen.add(os.path.normcase(os.path.abspath(base)))
-        for old, new in zip(_old_layout(base), kinds(paths.ROOT)):
+        for old, new in zip(_old_layout(base), kind_folders(paths.ROOT)):
             if os.path.isdir(old) and _has_files(old) and not same_folder(old, new):
                 pairs.append((old, new))
         rec = os.path.join(base, "inputs", "sources.json")
@@ -64,15 +64,15 @@ def old_places(bases=None):
 
 def change_pairs(new_root):
     """[(your folder now, the same kind's folder in new_root)] that hold files: what a change of folder moves."""
-    return [(old, new) for old, new in zip(kinds(paths.ROOT), kinds(new_root))
+    return [(old, new) for old, new in zip(kind_folders(paths.ROOT), kind_folders(new_root))
             if os.path.isdir(old) and _has_files(old) and not same_folder(old, new)]
 
 
-def count(pairs):
+def count_files(pairs):
     return sum(len(names) for old, _new in pairs for _d, _s, names in os.walk(old))
 
 
-def _free(path):
+def _unused_path(path):
     """path, or "name (2).ext", "(3)" … when that's taken."""
     stem, ext = os.path.splitext(path)
     n = 2
@@ -95,7 +95,7 @@ def move_tree(old, new):
                 if filecmp.cmp(src, dest, shallow=False):  # (already there: the old copy goes)
                     os.remove(src)
                     continue
-                dest, renamed = _free(dest), renamed + 1
+                dest, renamed = _unused_path(dest), renamed + 1
             os.makedirs(os.path.dirname(dest), exist_ok=True)
             shutil.move(src, dest)
             moved += 1
@@ -147,7 +147,7 @@ def problem_with(folder):
     if textfile.inside(folder, paths.PROGRAM):
         return ("That folder is in the AutoEQ Studio program folder. An update or a new installation can delete your "
                 "files there.")
-    for k in kinds(paths.ROOT):
+    for k in kind_folders(paths.ROOT):
         if textfile.inside(folder, k):
             return (f"That folder is in your {os.path.basename(k)} folder. Select the folder that contains your "
                     f"{os.path.basename(k)} folder, or a different folder.")

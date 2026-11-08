@@ -181,7 +181,8 @@ def test_split_filters_merged_within_the_gain_limit(check):
     # two filters at one spot are merged only while the sum keeps within the gain limits (a +3 dB device got +6)
     two = np.array([np.log10(3000), 3.0, np.log(2.0), np.log10(3010), 3.0, np.log(2.02)])
     lb, ub = np.array([1, -12, -3] * 2, float), np.array([5, 3, 3] * 2, float)
-    kept_two, merged = engines._tidy(("PK", "PK"), two, lb, ub), engines._tidy(("PK", "PK"), two, lb, ub + [0, 6, 0] * 2)
+    kept_two = engines._params_to_filters(("PK", "PK"), two, lb, ub)
+    merged = engines._params_to_filters(("PK", "PK"), two, lb, ub + [0, 6, 0] * 2)
     # was eq_checks.py:379
     check("fits: split filters merged only within the gain limit (two +3 dB stay two at a +3 dB limit)",
           [f["gain"] for f in kept_two] == [3.0, 3.0] and [f["gain"] for f in merged] == [6.0], (kept_two, merged))
@@ -251,8 +252,8 @@ def test_queue_errors_hidden_only_while_stopping(monkeypatch, check):
 def test_points_and_graphic_eq_one_v8_per_thread(sample_curves, eq_cfg, monkeypatch, check):
     # counting points and the GraphicEQ text: one V8 per thread, not one per call
     mt = sample_curves[1]
-    made, real_racer = [], engines._racer
-    monkeypatch.setattr(engines, "_racer", lambda: (made.append(1), real_racer())[1])
+    made, real_racer = [], engines._new_v8
+    monkeypatch.setattr(engines, "_new_v8", lambda: (made.append(1), real_racer())[1])
     engines._kept.__dict__.pop("ctxs", None)  # (this thread's V8s: none yet, so each one started is counted)
     counts = [engines.count_points(mt[0]) for _ in range(5)]
     texts = [engines.graphic_eq_text(eq_cfg, [{"type": "PK", "freq": 1000, "gain": 2, "q": 1}]) for _ in range(3)]
@@ -300,7 +301,9 @@ def test_your_filters_adjusted_when_asked(sample_curves, eq_cfg, check):
     alone = [r for r in out["results"] if not r["rows"]]
     # was eq_checks.py:471
     check("methods: Best fit may adjust your filters when asked (yours alone, adjusted, score better than as typed)",
-          alone and alone[0]["filters"] != KEPT and alone[0]["rms"] < engines.finish({"filters": KEPT}, curves, cfg["scoring"]["band_hz"], cfg["site"]["sample_rate"])["rms"],
+          alone and alone[0]["filters"] != KEPT
+          and alone[0]["rms"] < engines.score_result({"filters": KEPT}, curves, cfg["scoring"]["band_hz"],
+                                                     cfg["site"]["sample_rate"])["rms"],
           [(r["rows"], r["rms"]) for r in out["results"]])
 
 
@@ -314,8 +317,8 @@ def test_absurd_db_values_said(sample_curves, eq_cfg, check):
 def test_previews_one_v8_per_thread(sample_curves, eq_cfg, monkeypatch, check):
     # previews and comparisons: one V8 per thread, not one per curve
     mts = sample_curves[1]
-    made, real_racer = [], engines._racer
-    monkeypatch.setattr(engines, "_racer", lambda: (made.append(1), real_racer())[1])
+    made, real_racer = [], engines._new_v8
+    monkeypatch.setattr(engines, "_new_v8", lambda: (made.append(1), real_racer())[1])
     engines._kept.__dict__.pop("ctxs", None)  # (this thread's V8s: none yet, so each one started is counted)
     prev = [engines.preview_curve(eq_cfg, mts[:2]) for _ in range(3)]
     monkeypatch.undo()

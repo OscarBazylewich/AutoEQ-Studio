@@ -187,8 +187,8 @@ def compare(cfg, query, target, rig_override=None, progress=None):
             c["bass"] = float(np.mean(c["vals"][bass] - others[bass]))
     enabled = bool(cfg.get("rig_convert", {}).get("enabled", True))
     for c in items:  # how close each can get to the target's rig (converted for it, when it can be)
-        dev = rigconv.device(c["rig"], tgt_rig, os.path.basename(target or ""), c["site"])
-        c["conv"] = rigconv.expected(dev, tgt_rig, c["rig"], c.get("unit"), enabled) if tgt_rig else None
+        dev = rigconv.device_kind(c["rig"], tgt_rig, os.path.basename(target or ""), c["site"])
+        c["conv"] = rigconv.expected_rig_error(dev, tgt_rig, c["rig"], c.get("unit"), enabled) if tgt_rig else None
         score(c, tgt_rig)
     items.sort(key=lambda c: -c["score"])
     _LAST.clear()
@@ -282,7 +282,7 @@ def score(c, tgt_rig):
     else:
         pts += 15 * max(0.0, 1 - max(0.0, -c["bass"] - 0.5) / 4)
         if c["bass"] < -1.5:
-            r.append(("−", f"Bass {-c['bass']:.1f} dB below the others: possibly a bad seal"))
+            r.append(("−", f"Bass {-c['bass']:.1f} dB below the others: very possibly a bad seal"))
         elif c["bass"] > -0.5:
             r.append(("+", "Full bass (good seal)"))
     pts += 10 * min(1.0, np.log2(c["n_files"] + 1) / np.log2(11))

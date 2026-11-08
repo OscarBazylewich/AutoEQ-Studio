@@ -41,6 +41,18 @@ def test_device_notes_give_its_limits(check):
           and "Maximum gain +3 dB" in notes, notes[:200])
 
 
+def test_q_note_says_the_second_limit_is_tried_too(check):
+    # (2026-11-08: the STE rewrite made it "Maximum Q 3 and Q 6", which did not say that Q 6 is a second limit that
+    # the app also tries; Best fit tries two Q limits, a single run one)
+    def q_note(cfg):
+        return next(n["text"] for n in autoset.plan(settings.with_auto(cfg), dict(AN))["notes"]
+                    if n["text"].startswith("Maximum Q"))
+    two, one = q_note({"mode": "best_fit"}), q_note({"mode": "site_single"})
+    check("automatic settings: the Q note says the app also tries the second Q limit (and is a line)",
+          "(the app also tries Q " in two and len(two) <= 80 and "also tries" not in one and "approximately" in one,
+          (two, one))
+
+
 def test_each_note_a_line(check):
     # each note: the value and the fact about your curves behind it, in a line (why the app works so: Help)
     busy = dict(AN, treble_step=4, bass_step=-4, unstable_from=5600, band_why="unstable", n_files=10)

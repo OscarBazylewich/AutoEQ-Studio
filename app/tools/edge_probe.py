@@ -50,7 +50,7 @@ def fr(n=200, f0=20, f1=20000, fn=None):
 
 
 # ---------------------------------------------------------------- the EQ part's modules (inside the copy)
-def modules(top):
+def probe_modules(top):
     from eq import autoset, engines, exports, inputs, pipeline, settings
     cfg = settings.with_auto({})
     tgt_dir, meas_dir = inputs.TARGET_DIR, inputs.MEAS_DIR
@@ -161,7 +161,7 @@ def modules(top):
 
 
 # ---------------------------------------------------------------- eq.service: every request, malformed
-def requests():
+def probe_requests():
     from eq import service
 
     def call(path, body):
@@ -186,7 +186,7 @@ def requests():
 
 
 # ---------------------------------------------------------------- AutoEQ Studio's own parts
-def studio():
+def probe_studio_parts():
     import numpy as np
     os.environ["QT_QPA_PLATFORM"] = "offscreen"
     from PySide6.QtWidgets import QApplication
@@ -245,9 +245,9 @@ def inner(top):
     app_copy.use_copy(top)
     import net
     net.set_offline(True)  # (nothing fetched: a probe never downloads)
-    modules(top)
-    requests()
-    studio()
+    probe_modules(top)
+    probe_requests()
+    probe_studio_parts()
     return min(100, sum(1 for r in results if r[0] == "CRASH"))
 
 

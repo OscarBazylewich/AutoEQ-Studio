@@ -70,7 +70,7 @@ class App:
             self.sw.apply()      # settings couldn't be read: every EQ would go off)
         else:
             QTimer.singleShot(0, lambda: QMessageBox.warning(None, "AutoEQ Studio", self.sw.problem))
-        self.show_state()
+        self.update_tray_icon()
         self.timer = QTimer()
         self.timer.timeout.connect(self.poll)
         self.timer.start(POLL_MS)
@@ -111,7 +111,7 @@ class App:
             self.win.render_settings()
 
     def changed(self, what, info):
-        self.show_state()
+        self.update_tray_icon()
         if not self.sw.s["notify"]:
             return
         if what == "devices" and info.get("playing_changed"):
@@ -145,7 +145,7 @@ class App:
             self.tray_message(shown(rec), f"AutoEQ Studio kept “{t['name']}” as its EQ." if keep else
                               f"EQ for 5 minutes: “{t['name']}” stopped. {self.eq_text(rec)}.")
 
-    def show_state(self):
+    def update_tray_icon(self):
         """The tray icon and its tooltip: the device playing and its EQ (blue: an EQ on; grey: off)."""
         key, rec = self.sw.playing()
         name = self.sw.profile_name(rec["active"]) if rec else None
@@ -182,7 +182,7 @@ class App:
                 a = QAction(name, m)
                 a.setCheckable(True)
                 a.setChecked(rec["active"] == pid)
-                a.triggered.connect(lambda _=False, pid=pid, key=key: self.switch(key, pid))
+                a.triggered.connect(lambda _=False, pid=pid, key=key: self.set_active_profile(key, pid))
                 m.addAction(a)
             if not rec["profiles"]:
                 a = m.addAction("Add a profile…")
@@ -200,7 +200,7 @@ class App:
         m.addSeparator()
         m.addAction("Stop AutoEQ Studio", self.quit)
 
-    def switch(self, key, pid):
+    def set_active_profile(self, key, pid):
         if self.sw.set_active(key, pid) and self.sw.s["notify"]:
             rec = self.sw.record(key)
             self.tray_message(shown(rec), self.eq_text(rec))

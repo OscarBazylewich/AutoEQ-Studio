@@ -403,7 +403,7 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
             e.acceptProposedAction()
 
     def dropEvent(self, e):
-        if self.ready and self._picture_in(e.mimeData()):
+        if self.ready and self._picture_to_tracer(e.mimeData()):
             e.acceptProposedAction()
 
     # ---------------------------------------------------------------- Listen (ui/listen.py)

@@ -38,7 +38,7 @@ def chain(eq_screen):
 def test_history_keeps_a_saved_eq(eq_screen, chain, check):
     page, run = eq_screen.page, chain["run"]
     kept = [e for e in page.history if e.get("saved")]  # (line 1578)
-    page.copy_filters(page.active(), page.stats()["preamp_raw"])  # (the off-screen clipboard: Windows' isn't touched)
+    page.copy_filters(page.enabled_filters(), page.stats()["preamp_raw"])  # (the off-screen clipboard: Windows' isn't touched)
     chain["kept"] = kept
     # was eq_checks.py:1580
     check("ui: History keeps a saved EQ (copying the same one again doesn't add another)",
@@ -133,7 +133,7 @@ def test_show_loads_the_measurement(eq_screen, chain, check, dialogs):
     if page.curves is None or page.curves["name"] == entry["device"] or page.listen.pins_for != dev:
         raise RuntimeError(f"another measurement than the EQ's should be in use before Show: {page.graph_title.text()}"
                            f" (Listen's EQs to compare for {page.listen.pins_for})")
-    page.bring_back(entry)  # (lines 1692-1693)
+    page.show_history_entry(entry)  # (lines 1692-1693)
     eq_screen.wait_for(lambda: page.curves is not None, 30)
     # was eq_checks.py:1694
     check("review: History's Show loads the measurement as a choice does (Listen's EQs to compare, Error without EQ)",

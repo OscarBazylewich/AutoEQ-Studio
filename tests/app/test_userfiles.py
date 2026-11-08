@@ -63,7 +63,7 @@ def test_older_copy_moved_in(place, check):
     with open(paths.SOURCES, "w", encoding="utf-8") as fh:
         json.dump({"T.csv": {"site": "Ours"}}, fh)
     pairs, sources = userfiles.old_places([old])
-    n = userfiles.count(pairs)
+    n = userfiles.count_files(pairs)
     moved, renamed = userfiles.move_all(pairs, sources)
     place.moved = True
     have = sorted(os.path.relpath(os.path.join(d, f), paths.ROOT) for d, _s, fs in os.walk(paths.ROOT) for f in fs)

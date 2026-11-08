@@ -233,7 +233,7 @@ def _best_fit(cfg, curves, meas_texts, target_text, say, cancel, seeds):
     caller gives them; the "Seed with site results" setting went in 1.0.9: it changed nothing measurable)."""
     bf = cfg["best_fit"]
     # (each task sets its own fighting-filter penalty: the workers start with the first)
-    penalties = {"gain_penalty": bf["gain_penalty"], "fight_penalty": engines.fights(bf)[0],
+    penalties = {"gain_penalty": bf["gain_penalty"], "fight_penalty": engines.fight_penalties(bf)[0],
                  "treble_guard": bf["treble_guard"]}
     shared = engines.grow_shared() if engines.grows(bf) else None  # (growing fits stop where another reached the target)
     bf_args = (curves, cfg["scoring"]["band_hz"], cfg["site"]["sample_rate"], penalties, shared)

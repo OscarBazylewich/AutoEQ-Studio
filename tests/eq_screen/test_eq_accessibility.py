@@ -18,7 +18,7 @@ def _retry(s):
     for (180 s)."""
     page = s.page
     run = page.run_result
-    page.run(retry={"filters": page.active(), "add": False})
+    page.run(retry={"filters": page.enabled_filters(), "add": False})
     if not s.wait_for(lambda: page.run_btn.isEnabled() and page.run_result is not run, 180):
         raise RuntimeError(f"Retry made no result: {page.progress_text.text()!r}")
 

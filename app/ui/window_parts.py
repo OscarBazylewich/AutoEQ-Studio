@@ -237,7 +237,7 @@ def profile_line(p):
     return f"{what}, pre-amp {p.get('preamp', 0):g} dB"
 
 
-def glyph(name, role=None, said=""):
+def glyph_label(name, role=None, said=""):
     """Windows 11's symbol `name` (ui\\icons.py's GLYPHS: "warning", "clock" …) as a label in front of words, in the
     colour of its role ("warn" …) or of a rule for its objectName: the stylesheet colours it, so it follows light,
     dark and the accent by itself. said: what a screen reader reads for it ("Warning")."""
@@ -261,7 +261,7 @@ def warning_card(text, button=None):
     row = QHBoxLayout(card)
     row.setContentsMargins(8, 6, 8, 6)
     row.setSpacing(12)
-    row.addWidget(glyph("warning", role="warn"))
+    row.addWidget(glyph_label("warning", role="warn"))
     words = QLabel(text)
     words.setWordWrap(True)
     row.addWidget(words, 1)

@@ -22,7 +22,7 @@ def _start(page, what):
     """By hand (Make the EQ's tab), as you'd use it: `what` chosen in Start from (empty, copy, file or paste; else a
     profile's name), then Start."""
     page.set_way("hand", remember=False)
-    page.fill_hand_sources()
+    page.fill_manual_sources()
     c = page.hand_source
     i = c.findData(what) if what in ("empty", "copy", "file", "paste") else next(
         (k for k in range(c.count()) if c.itemText(k).startswith(f"Profile: {what}")), -1)
@@ -113,7 +113,7 @@ def test_from_a_profile_then_update_it(eq_screen, tmp_path, check):
 
 def test_a_copy_of_the_eq_shown(eq_screen, check):
     page = eq_screen.page
-    page.start_by_hand([{"type": "PK", "freq": 200, "gain": -2, "q": 1.2}], "pasted", "Base")
+    page.start_manual([{"type": "PK", "freq": 200, "gain": -2, "q": 1.2}], "pasted", "Base")
     page.EDIT.append({"enabled": True, "type": "LSQ", "freq": 100, "gain": 3, "q": 0.7})
     page.live_update()
     before = len(page.session_runs)
@@ -127,7 +127,7 @@ def test_a_copy_of_the_eq_shown(eq_screen, check):
 
 def test_saved_and_kept_as_a_result(eq_screen, check):
     page = eq_screen.page
-    page.start_by_hand([{"type": "PK", "freq": 1000, "gain": 2, "q": 1}], "pasted", "Kept")
+    page.start_manual([{"type": "PK", "freq": 1000, "gain": 2, "q": 1}], "pasted", "Kept")
     entry = eqpage.save_result(eq_screen, "By hand check")
     runs = [page.runs_combo.itemText(i) for i in range(page.runs_combo.count())]
     check("by hand: Save filters writes it and keeps it in History (By hand); this session's runs list it",
@@ -137,7 +137,7 @@ def test_saved_and_kept_as_a_result(eq_screen, check):
 
 def test_with_no_measurement(eq_screen, dialogs, check):
     page = eq_screen.page
-    page.start_by_hand([{"type": "PK", "freq": 1000, "gain": 4, "q": 1}], "pasted", "Alone")
+    page.start_manual([{"type": "PK", "freq": 1000, "gain": 4, "q": 1}], "pasted", "Alone")
     curves = page.curves
     try:
         page.curves = None
@@ -155,11 +155,11 @@ def test_with_no_measurement(eq_screen, dialogs, check):
 
 def test_edits_kept_when_another_run_is_shown(eq_screen, check):
     page = eq_screen.page
-    page.start_by_hand([{"type": "PK", "freq": 300, "gain": 1, "q": 1}], "pasted", "First")
+    page.start_manual([{"type": "PK", "freq": 300, "gain": 1, "q": 1}], "pasted", "First")
     first = page.run_result
     page.EDIT[0]["gain"] = 5
     page.live_update()
-    page.start_by_hand([], "started empty")
+    page.start_manual([], "from an empty EQ")
     page.choose_run(id(first))
     check("by hand: an EQ by hand keeps your changes when another run is shown and it's chosen again in Runs this "
           "session (Revert still goes back to how it began)",
@@ -175,7 +175,7 @@ def _nothing_shown(page):
 
 def test_remove_the_last_run(eq_screen, check):
     page = eq_screen.page
-    page.start_by_hand([{"type": "PK", "freq": 1000, "gain": 3, "q": 1}], "pasted", "Last")
+    page.start_manual([{"type": "PK", "freq": 1000, "gain": 3, "q": 1}], "pasted", "Last")
     page.session_runs = [page.run_result]
     page.remove_run()
     check("by hand: Remove on this session's last run takes its EQ off the graph (its curve and handles) and out of "
@@ -221,7 +221,7 @@ def test_close_on_pasted_filters_offers_undo(eq_screen, check):
     _start(page, "empty")
     page.hand_close.click()
     empty = eq_screen.said[n:]
-    page.start_by_hand([{"type": "PK", "freq": 1000, "gain": 3, "q": 1}], "pasted", "Mine")
+    page.start_manual([{"type": "PK", "freq": 1000, "gain": 3, "q": 1}], "pasted", "Mine")
     pasted = page.run_result
     page.hand_close.click()
     offered = (eq_screen.undo_offered(), (eq_screen.said or [""])[-1], pasted in page.session_runs)

@@ -34,7 +34,7 @@ def test_trials_and_the_verdict(check):
         half.answer(x if i < 9 else ("A" if x == "B" else "B"))  # (9 right)
     check("abx: each trial's X is A or B at random (both appear), heard as its version; 16 of 16 can't be guessing "
           "(you can tell them apart); 9 of 16 could be luck (said so)",
-          set(xs) == {"A", "B"} and heard == [("off" if x == "A" else "sel") for x in xs] and t.done and t.right() == 16
+          set(xs) == {"A", "B"} and heard == [("off" if x == "A" else "sel") for x in xs] and t.done and t.correct_count() == 16
           and "This result shows that you can hear a difference" in sure and "less than 0.1 %" in sure
           and "does not show that you can hear a difference" in half.verdict()
           and "40 %" in half.verdict(), (xs, sure, half.verdict()))
@@ -43,7 +43,7 @@ def test_trials_and_the_verdict(check):
 @pytest.fixture(scope="module")
 def lis(eq_screen):
     page = eq_screen.page
-    page.start_by_hand([{"type": "PK", "freq": 1000, "gain": 3, "q": 1}], "pasted", "ABX me")
+    page.start_manual([{"type": "PK", "freq": 1000, "gain": 3, "q": 1}], "pasted", "ABX me")
     page.listen.play()  # (nothing is heard: tests\listen\conftest.py)
     return page.listen
 

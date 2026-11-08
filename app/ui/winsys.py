@@ -259,7 +259,7 @@ def _dwm_set(hwnd, attribute, value):
         return False
 
 
-def materials(platform, build=None):
+def supported_effects(platform, build=None):
     """What this PC can draw: (Mica, rounded pop-ups). Only when Qt draws on Windows' own screen ("windows", not the
     tests' off-screen drawing), on Windows 11 (Mica from 22H2)."""
     build = sys.getwindowsversion().build if build is None else build

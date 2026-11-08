@@ -105,7 +105,7 @@ def open_at(entry_id=None):
     _window.raise_()
     _window.activateWindow()
     if entry_id:
-        _window.go(entry_id)
+        _window.show_entry(entry_id)
     return _window
 
 
@@ -130,7 +130,7 @@ class HelpWindow(QWidget):
         self.toc.setAccessibleName("Contents")
         self.toc.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.toc.setWordWrap(True)
-        self.toc.itemClicked.connect(lambda it: it.data(Qt.UserRole) and self.go(it.data(Qt.UserRole)))
+        self.toc.itemClicked.connect(lambda it: it.data(Qt.UserRole) and self.show_entry(it.data(Qt.UserRole)))
         side.addWidget(self.toc, 1)
         holder = QWidget()
         holder.setLayout(side)
@@ -141,7 +141,7 @@ class HelpWindow(QWidget):
         self.view.setAccessibleName("Help page")  # (a screen reader said nothing for it)
         self.view.document().setDocumentMargin(14)
         self.view.setOpenLinks(False)
-        self.view.anchorClicked.connect(lambda url: self.go(url.fragment() or url.toString().lstrip("#")))
+        self.view.anchorClicked.connect(lambda url: self.show_entry(url.fragment() or url.toString().lstrip("#")))
         h.addWidget(self.view, 1)
         theme.on_change(self._retheme)
         self.render()
@@ -216,13 +216,13 @@ class HelpWindow(QWidget):
             if head:
                 it.setFont(bold)
             self.toc.addItem(it)
-            if anchor == self.lit:  # (marked as chosen; the list isn't moved: go() brings it into sight)
+            if anchor == self.lit:  # (marked as chosen; the list isn't moved: show_entry() brings it into sight)
                 it.setSelected(True)
         self.toc.fit()
         self.toc.doItemsLayout()  # (laid out now: else the new list took the old one's place, a search part-way down)
         self.toc.verticalScrollBar().setValue(place if keep else 0)
 
-    def go(self, entry_id):
+    def show_entry(self, entry_id):
         """An entry shown (the search cleared if it hid it), brought into sight and lit (and in the contents, chosen
         and in sight)."""
         if entry_id in _by_id():

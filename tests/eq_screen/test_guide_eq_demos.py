@@ -29,7 +29,7 @@ def _play(s, title, speed=8.0):
     t = guide.start_eq(s.page)
     t.all_chk.setChecked(False)
     try:
-        t.go(next(n for n, st in enumerate(t.steps) if st["title"] == title))
+        t.go_to_step(next(n for n, st in enumerate(t.steps) if st["title"] == title))
         t.speed = speed
         t.replay()
         ended = s.wait_for(lambda: not t.demo_running, 60)
@@ -221,7 +221,7 @@ def test_menus_drawn_with_the_real_submenu_arrow(eq_screen, check, monkeypatch):
     # (a preset with a long name: the menu is as wide as its longest row, so none of its rows is cut, as the real one)
     monkeypatch.setattr(page, "preset_names", lambda: ["For the website, as listener800 and squig.link draw it"])
     seen, looks = [], []
-    real_pick = guide_eq.pick
+    real_pick = guide_eq.point_at_menu_row
 
     def pick(api, m, i, *a, **k):  # (each menu as the demo picks from it: shown for a while, laid out)
         if tasks.alive(m):
@@ -238,7 +238,7 @@ def test_menus_drawn_with_the_real_submenu_arrow(eq_screen, check, monkeypatch):
             looks.append({"kind": m.property("kind"), "corner": img.pixelColor(0, 0).name(),
                           "edge": img.pixelColor(r.left() + 1, r.center().y()).name(),
                           "fill": img.pixelColor(r.right() - 6, r.center().y()).name()})
-    monkeypatch.setattr(guide_eq, "pick", pick)
+    monkeypatch.setattr(guide_eq, "point_at_menu_row", pick)
     try:
         played = {title: _play(eq_screen, title) for title in ("Presets", "Save it, or use it on a device")}
     finally:

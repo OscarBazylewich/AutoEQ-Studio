@@ -64,7 +64,7 @@ def test_try_for_5_minutes(eq_screen, history_eq, check):
     page._fill_use_menu()
     sub = next((a.menu() for a in page.use_menu.actions() if a.menu() is not None), None)
     profiles = len(sw.profiles())
-    page.try_on(key)
+    page.start_trial(key)
     swt = os.path.join(sw.apo.config, "AutoEQ Studio", "switcher.txt")
     on = (sw.trial and sw.trial["key"], "_trying.txt" in _read(swt), len(sw.profiles()))
     sw.end_trial()

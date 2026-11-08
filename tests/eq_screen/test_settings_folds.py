@@ -40,7 +40,7 @@ def test_past_a_limit_and_to_below_from(eq_screen, fold, check):
     b = st.form.fields["scoring.band_hz.0"]
     b.box.setText("5")
     b._typed()
-    b._left()
+    b._edit_finished()
     hi = fold["hi"] = st.form.fields["scoring.band_hz.1"]
     hi.box.setText("10")
     hi._typed()
@@ -53,7 +53,7 @@ def test_past_a_limit_and_to_below_from(eq_screen, fold, check):
 def test_handing_a_value_back(eq_screen, fold, check):
     page, st, f, hi = eq_screen.page, fold["st"], fold["f"], fold["hi"]
     hi.show_value(page.S["scoring"]["band_hz"][1])
-    st.hand_back("best_fit.filter_counts")
+    st.make_auto("best_fit.filter_counts")
     # was eq_checks.py:1517
     check("ui: settings: handing a value back gives it to the automatic settings again (auto tag)",
           "best_fit.filter_counts" not in page.S["auto"]["manual"] and f.tag.text() == "automatic", page.S["auto"]["manual"])

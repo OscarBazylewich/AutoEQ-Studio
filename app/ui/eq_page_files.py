@@ -3,7 +3,7 @@ chosen, Add… (files from this PC), Find… (ui/picker.py) and what it calls ba
 Undo), a target saved as adjusted, a picture pasted or dropped (into the tracer, ui/trace_window.py) and Which
 measurement (ui/compare_window.py).
 EqFiles is a plain class (no __init__, no signals); EqPage (ui/eq_page.py) joins it with the other parts. (Qt's own
-handlers for a dropped picture stay in EqPage: they hand it to _picture_in here.)
+handlers for a dropped picture stay in EqPage: they hand it to _picture_to_tracer here.)
 """
 import json
 import os
@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 import textfile
 from ui import tasks
-from ui.eq_page_parts import modal, note
+from ui.eq_page_parts import modal, set_note
 
 
 class EqFiles:
@@ -27,7 +27,7 @@ class EqFiles:
         for n in sorted(inputs["targets"], key=lambda n: natural_key(os.path.splitext(n)[0])):  # (A to Z)
             t.addItem(os.path.splitext(n)[0], n)
         t.setCurrentIndex(max(0, t.findData(inputs["active_target"])))
-        note(self.target_note, "" if inputs["targets"] else "No targets: click Add… to add a target from this PC.")
+        set_note(self.target_note, "" if inputs["targets"] else "No targets: click Add… to add a target from this PC.")
         from eq import inputs as eq_inputs
         groups = {}
         for m in sorted(inputs["measurements"], key=lambda m: natural_key(m["name"])):
@@ -42,12 +42,12 @@ class EqFiles:
                 current = current or dev
         mc.setCurrentIndex(max(0, mc.findData(current)))
         if not groups:
-            note(self.measurement_note, "No measurements: click Add… to add a measurement from this PC (L and R, or more "
+            set_note(self.measurement_note, "No measurements: click Add… to add a measurement from this PC (L and R, or more "
                  "than one seating).")
         else:
             on = [f["name"] for f in groups.get(current, []) if f["included"]]
             rigs = {inputs.get("rigs", {}).get(n) for n in on} - {None, ""}
-            note(self.measurement_note, f"{len(on)} file{'s' if len(on) != 1 else ''} used"
+            set_note(self.measurement_note, f"{len(on)} file{'s' if len(on) != 1 else ''} used"
                  + (f" · measured on {', '.join(sorted(rigs))}" if rigs else ""))
 
     def _file_chosen(self, kind):
@@ -110,9 +110,9 @@ class EqFiles:
         paste anywhere)."""
         from PySide6.QtWidgets import QApplication
         md = QApplication.clipboard().mimeData()
-        self._picture_in(md)
+        self._picture_to_tracer(md)
 
-    def _picture_in(self, md):
+    def _picture_to_tracer(self, md):
         """A picture in dragged or pasted data: into the tracer. Returns whether there was one."""
         if self.svc is None or md is None:
             return False
@@ -187,7 +187,7 @@ class EqFiles:
         self.S["files"]["excluded"] = [m["name"] for m in self.inputs["measurements"] if m["name"] not in mine]
         self._save_files()
 
-    def used(self, res):
+    def file_used(self, res):
         """A file from this PC or the online databases (or an average) is in the app and in use (eq.service /api/use's
         answer), said with Undo."""
         if res.get("settings"):
@@ -218,7 +218,7 @@ class EqFiles:
             self._save_files()
         return undo
 
-    def moved(self, kind, name, before, say=None):
+    def file_moved(self, kind, name, before, say=None):
         """A file moved between Target and Measurement (Find…), said with Undo (it goes back, the choice too); in Find…'s
         own line when it passes `say` (said in the main window's, it was behind Find…: UI-RULES 7)."""
         def undo():
@@ -240,7 +240,7 @@ class EqFiles:
             self.load_curves()
 
     # ---------------------------------------------------------------- Which measurement (ui/compare_window.py)
-    def compare(self):
+    def open_other_measurements(self):
         """Which measurement to use? (ui/compare_window.py)"""
         from ui.compare_window import CompareWindow
         modal(CompareWindow(self))

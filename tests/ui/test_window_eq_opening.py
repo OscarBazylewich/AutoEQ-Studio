@@ -342,11 +342,11 @@ win = make_window("devices")
 pump(0.3)
 win.allow_preload(lambda: True)
 pump(1.2)
-out = {"while busy": len(calls), "warm while busy": theme.symbols_warm(),
+out = {"while busy": len(calls), "warm while busy": theme.symbols_ready(),
        "made while busy": win.eq_page is not None or "ui.eq_page" in sys.modules}
 quiet[0] = 5000
 made = pump(60, lambda: win.eq_page is not None and win.eq_page.ready)
-out.update({"once quiet": len(calls), "warm": theme.symbols_warm(), "made": made, "page": win.page()})
+out.update({"once quiet": len(calls), "warm": theme.symbols_ready(), "made": made, "page": win.page()})
 pump(0.6)
 out["later"] = len(calls)
 print(json.dumps(out))

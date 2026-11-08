@@ -13,13 +13,14 @@ COVERS = ("ui.forms", "ui.theme_sheet")  # (reached through another Python: its 
 def test_lists_read_and_shown_back(check):
     got = (forms.parse_list("4-7", True), forms.parse_list("6, 4 4", True), forms.parse_list("1-99", True),
            forms.parse_list("2.5, x", False), forms.parse_ranges("-12..6, -10 to 20"), forms.parse_ranges("6..-12"),
-           forms.fmt_list([4, 5, 6, 7]), forms.fmt_list([2, 3.5]), forms._num(5e-05))
+           forms.fmt_list([4, 5, 6, 7]), forms.fmt_list([2, 3.5]), forms._number_text(5e-05))
     # was selftest.py:304
     check("settings boxes: lists read as AutoEQ Local reads them (\"4-10\", \"4, 6, 8\", ranges), and shown back",
           forms.parse_list("4-7", True) == [4, 5, 6, 7] and forms.parse_list("6, 4 4", True) == [4, 6]
           and forms.parse_list("1-99", True) is None and forms.parse_list("2.5, x", False) is None
           and forms.parse_ranges("-12..6, -10 to 20") == [[-12, 6], [-10, 20]] and forms.parse_ranges("6..-12") is None
-          and forms.fmt_list([4, 5, 6, 7]) == "4-7" and forms.fmt_list([2, 3.5]) == "2, 3.5" and forms._num(5e-05) == "0.00005",
+          and forms.fmt_list([4, 5, 6, 7]) == "4-7" and forms.fmt_list([2, 3.5]) == "2, 3.5"
+          and forms._number_text(5e-05) == "0.00005",
           got)
 
 

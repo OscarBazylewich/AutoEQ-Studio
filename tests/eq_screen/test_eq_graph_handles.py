@@ -15,7 +15,7 @@ FILTERS = [{"type": "PK", "freq": 1000, "gain": 4, "q": 1.0}, {"type": "LSQ", "f
 
 
 def _fresh(page):
-    page.start_by_hand([dict(f) for f in FILTERS], "pasted", "Handles")
+    page.start_manual([dict(f) for f in FILTERS], "pasted", "Handles")
     page.set_view("table", remember=False)
 
 
@@ -56,7 +56,7 @@ def _number(h):
 
 def test_numbers_in_sight(eq_screen, check):
     page = eq_screen.page
-    page.start_by_hand([{"type": "PK", "freq": 1000, "gain": 2, "q": 1.0},
+    page.start_manual([{"type": "PK", "freq": 1000, "gain": 2, "q": 1.0},
                         {"type": "PK", "freq": 9850, "gain": 8, "q": 5.0}], "pasted", "Numbers")
     eq_screen.qapp.processEvents()
     graph = page.eqplot.getPlotItem().vb.sceneBoundingRect()
@@ -208,7 +208,7 @@ def test_double_click_with_no_eq_begins_one(eq_screen, check):
 def test_a_tried_eq_follows_the_edits(eq_screen, check):
     page, sw = eq_screen.page, eq_screen.sw
     _fresh(page)
-    page.try_on(eqpage.DEVICE)
+    page.start_trial(eqpage.DEVICE)
     path = sw.trial_path()
     try:
         page.EDIT[0]["gain"] = 7.5

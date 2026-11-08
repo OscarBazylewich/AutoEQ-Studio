@@ -46,7 +46,7 @@ def test_share_zip(tmp_path, check):
                   for n in ns if n.endswith(".py") and "__pycache__" not in d and os.path.join(app_dir, "tools") not in d}
     missing = sorted(f for f in code_files if f"{mz.TOP}/{f}" not in names)
     out = os.path.join(top, "share.zip")
-    mz.write(out, entries)
+    mz.write_zip(out, entries)
     with zipfile.ZipFile(out) as z:
         z.extractall(os.path.join(top, "unzipped"))
     app = os.path.join(top, "unzipped", mz.TOP, "app")
@@ -81,7 +81,7 @@ def test_ready_to_run_zip(qapp, check):
                                "libportaudio64bit.dll"))
           and not any("/site-packages/pip/" in a or "/PySide6/qml/" in a for a in rt)
           and bat.count(b"\n") == bat.count(b"\r\n") and b"goto :toolong" in bat
-          and "Nothing needs installing" in mz.ready_testing(testing),
+          and "Nothing needs installing" in mz.ready_testing_text(testing),
           len(rt))
     # (the consolidation, 2026-10-22: pytest is installed in .venv for the tests now; the runtime leaves it out,
     # with everything else only working on the app needs: make_share_zip.development_files)

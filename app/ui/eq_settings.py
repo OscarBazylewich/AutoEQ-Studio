@@ -2,7 +2,7 @@
 
 Settings (the ones used most):
 - Automatic settings: on or off, "Why these settings" (the tracer's words; each value and the fact about your files it comes from; "yours"
-  where you've set your own), "Set by you" (each one handed back with ↺, or all)
+  where you've set your own), "Set by you" (each one made automatic again with ↺, or all)
 - the method's own values: Website AutoEQ's six; the website sweep's summary; Best fit's filter counts, shelves and
   your own filters to start from
 - Scoring: the range the match is judged over, how a result is picked
@@ -13,10 +13,10 @@ Advanced: Best fit's layout, bands, shelves, limits and penalties; the website s
 matching and its code; saved files (the formats, pre-amp, Q decimals); History; CPU cores.
 
 A value the automatic settings fill in becomes "yours" once you change it (kept through new files
-until handed back); with them off nothing changes by itself. Settings that change the curves (target adjustments,
+until made automatic again); with them off nothing changes by itself. Settings that change the curves (target adjustments,
 the scored range, the website's levelling, the rig conversion) draw the graph again.
 
-EqSettings(page) keeps what the settings need; parts(col, target_layout) makes them in four parts, one per step of
+EqSettings(page) keeps what the settings need; build_parts(col, target_layout) makes them in four parts, one per step of
 the page's build (ui/eq_page_cards.py: each a few ms, so the window answers in between): Adjust (put on the Target
 card in the same step), the Settings fold, Advanced's first half, its second half (Form.add_sections). Each part goes
 into its place in the step that makes it.
@@ -76,7 +76,7 @@ class OwnFiltersWindow(QDialog):
 
 class EqSettings:
     def __init__(self, page):
-        """What the settings need (their limits, the paths the automatic settings fill in); parts() makes them."""
+        """What the settings need (their limits, the paths the automatic settings fill in); build_parts() makes them."""
         self.page = page
         m = page.meta
         self.limits = Limits(m.get("limits", {}), m.get("limit_pairs", []))
@@ -84,7 +84,7 @@ class EqSettings:
         from eq import settings as eq_settings
         self.eq_settings = eq_settings
 
-    def parts(self, col, target_lay):
+    def build_parts(self, col, target_lay):
         """The settings made in four parts, each put in its place in the same step (yield: the step ends there):
         Adjust onto the Target card (target_lay), the Settings fold into col, Advanced's first half into col, its
         second half into Advanced's form."""
@@ -98,11 +98,11 @@ class EqSettings:
         shelves = lambda: free() and lay().get("shelves", True)
         multi = mode("site_sweep", "best_fit")
         audible = lambda: multi() and S()["scoring"]["pick"] == "audible"
-        get, changed, back, say = self.get, self.changed, self.hand_back, lambda t: page.status(t, 6000)
+        get, changed, make_auto, say = self.get, self.changed, self.make_auto, lambda t: page.status(t, 6000)
 
         # ---------------------------------------------------------------- Adjust, on the Target card (first: Tab
         # reaches it after Make the EQ and before the Settings fold, as when the page was made in one go)
-        self._adjust_panel(C, get, changed, back, say, target_lay)
+        self._adjust_panel(C, get, changed, make_auto, say, target_lay)
         yield "adjust"
 
         # ---------------------------------------------------------------- Settings (the fold)
@@ -115,7 +115,7 @@ class EqSettings:
         self.fixed_note.setWordWrap(True)
         theme.mark(self.fixed_note, role="muted")
         load_mine = QPushButton("Load an EQ file…")
-        load_mine.clicked.connect(self.load_own_filters)
+        load_mine.clicked.connect(self.load_your_filters)
         self.mine_note = QLabel()
         theme.mark(self.mine_note, role="muted")
         mine_row = QWidget()
@@ -124,7 +124,7 @@ class EqSettings:
         mr.addWidget(load_mine)
         edit_mine = QPushButton("Edit as a table…")
         edit_mine.setToolTip("Your filters as a table or as sliders (the type, frequency, gain and Q of each filter)")
-        edit_mine.clicked.connect(self.edit_own_filters)
+        edit_mine.clicked.connect(self.edit_your_filters)
         mr.addWidget(edit_mine)
         mr.addWidget(self.mine_note, 1)
         self.method_title = QLabel()
@@ -153,7 +153,7 @@ class EqSettings:
 ]),
             ("Target", [
                 ("Rig change", [("rig_convert.enabled", "check")])]),
-        ], self.limits, get, changed, back, say)
+        ], self.limits, get, changed, make_auto, say)
         self.fold.add(self.form)
         self._label_checks()
         col.addWidget(self.fold)
@@ -211,7 +211,7 @@ class EqSettings:
                 ("", [("history.eqd_before", "check")])]),
             ("This PC", [("CPU cores (0 = all the cores minus 1)", [("performance.cores", "num")])]),
         ]
-        self.adv_form = Form(sections[:2], self.limits, get, changed, back, say)  # (Best fit, Website sweep)
+        self.adv_form = Form(sections[:2], self.limits, get, changed, make_auto, say)  # (Best fit, Website sweep)
         line_up_together(self.form, self.adv_form)  # (one label column for Settings and Advanced, one above the other)
         self.adv.add(self.adv_form)
         col.addWidget(self.adv)
@@ -221,7 +221,7 @@ class EqSettings:
         yield "advanced, second half"
 
     # ---------------------------------------------------------------- the Target card's Adjust (AutoEQ Local's)
-    def _adjust_panel(self, C, get, changed, back, say, target_lay):
+    def _adjust_panel(self, C, get, changed, make_auto, say, target_lay):
         """Adjust, on the Target card: the target's tilt, bass, half-tilt, ear gain, treble and air (listener800's
         Custom DF) as a table: Amount with − and +, Hz and Q (greyed while the amount is 0); Reset adjustments and
         Save as a target… (usable once adjusted).
@@ -234,7 +234,7 @@ class EqSettings:
         self.adjust_btn.setToolTip("Tilt, bass, half-tilt, ear gain, treble and air: give the target more or less bass "
                                    "or treble…")
         help_window.tag(self.adjust_btn, "#target-adjust")
-        self.adjust_btn.toggled.connect(self._adjust_open)
+        self.adjust_btn.toggled.connect(self._show_adjust_panel)
         self.adjust_summary = QLabel()
         theme.mark(self.adjust_summary, role="muted")
         self.adjust_row = QWidget()
@@ -245,7 +245,7 @@ class EqSettings:
         target_lay.addWidget(self.adjust_row)  # (under the target, AutoEQ Local's; the panel under it)
         # a table: one row each, Amount (with − and +), Hz and Q always in their columns (greyed while the amount is 0),
         # so nothing appears or moves as you type (a row of Hz and Q under the amount, popping up, was hard to follow)
-        self.adjust_form = form = Form([], self.limits, get, changed, back, say,
+        self.adjust_form = form = Form([], self.limits, get, changed, make_auto, say,
                                        steps={"target_adjust.tilt": 0.1,
                                               **{f"target_adjust.{k}": 0.5 for k in ADJUST_GAINS[1:]}})
         grid_w = QWidget()
@@ -264,7 +264,7 @@ class EqSettings:
         def field(path, kind, options=None, width=64):
             f = Field(form, path, kind, options)
             f.committed.connect(changed)
-            f.handed_back.connect(back)
+            f.make_auto_clicked.connect(make_auto)
             if kind == "num":
                 f.box.setFixedWidth(width)
             form.fields[path] = f
@@ -305,7 +305,7 @@ class EqSettings:
         theme.mark(hint, role="muted")
         self.reset_adjust_btn = QPushButton("Clear the adjustments")
         self.reset_adjust_btn.setToolTip("Set all adjustments to 0 (you can undo this)")
-        self.reset_adjust_btn.clicked.connect(self.reset_adjustments)
+        self.reset_adjust_btn.clicked.connect(self.clear_adjustments)
         self.save_target_btn = QPushButton("Save as a target…")
         self.save_target_btn.setToolTip("Save the adjusted target as a new target (then all adjustments become 0)")
         self.save_target_btn.clicked.connect(self.page.save_adjusted_target)
@@ -323,16 +323,16 @@ class EqSettings:
         v.addLayout(b)
         target_lay.addWidget(self.adjust_panel)
         self.adjust_btn.setChecked(self.adjusted())  # (open when the target is adjusted already)
-        self._adjust_open(self.adjust_btn.isChecked())
+        self._show_adjust_panel(self.adjust_btn.isChecked())
 
     def adjusted(self):
         return any(self.page.S["target_adjust"].get(k) for k in ADJUST_GAINS)
 
-    def _adjust_open(self, on):
+    def _show_adjust_panel(self, on):
         self.adjust_btn.setArrowType(Qt.DownArrow if on else Qt.RightArrow)
         self.adjust_panel.setVisible(on)
 
-    def reset_adjustments(self):
+    def clear_adjustments(self):
         """Reset adjustments: the target as it is (every adjustment's default); Undo puts them back."""
         before = dict(self.page.S["target_adjust"])
         self.page.S["target_adjust"] = dict(self.page.meta["defaults"]["target_adjust"])
@@ -387,7 +387,7 @@ class EqSettings:
         self.mine_text.setWordWrap(True)
         mb.addWidget(self.mine_text, 1)
         all_back = QPushButton("Make all automatic")
-        all_back.clicked.connect(lambda: self.hand_back(None))
+        all_back.clicked.connect(lambda: self.make_auto(None))
         mb.addWidget(all_back)
         v.addWidget(self.mine_box)
         return w
@@ -396,10 +396,10 @@ class EqSettings:
     def get(self, path):
         return self.eq_settings.get_path(self.page.S, path)
 
-    def controlled(self, path):
+    def is_auto_path(self, path):
         return path in self.auto_paths
 
-    def manual(self):
+    def your_values(self):
         return self.page.S["auto"].setdefault("manual", [])
 
     def changed(self, path, value):
@@ -409,8 +409,8 @@ class EqSettings:
         if self.get(path) == value:
             return
         self.eq_settings.set_path(S, path, value)
-        if self.controlled(path) and path not in self.manual():
-            self.manual().append(path)
+        if self.is_auto_path(path) and path not in self.your_values():
+            self.your_values().append(path)
         if path == "site.profile" and value in self.page.meta.get("profiles", {}):
             S["site"].update(self.page.meta["profiles"][value])
         elif path.startswith("site.") and path != "site.sample_rate":
@@ -424,9 +424,9 @@ class EqSettings:
         self.page.changed(curves=any(path.startswith(k) for k in CURVE_KEYS))
         self.refresh()
 
-    def hand_back(self, path):
+    def make_auto(self, path):
         S = self.page.S
-        S["auto"]["manual"] = [p for p in self.manual() if p != path] if path else []
+        S["auto"]["manual"] = [p for p in self.your_values() if p != path] if path else []
         self.page.changed()
         self.page.refresh_auto()
         self.refresh()
@@ -438,7 +438,7 @@ class EqSettings:
                          else "Automatic settings off: all settings stay as they are.", 5000)
         self.refresh()
 
-    def load_own_filters(self):
+    def load_your_filters(self):
         f, _ = QFileDialog.getOpenFileName(self.fold, "Load an EQ file", "", "EQ files (*.txt *.cfg *.csv);;All files (*)")
         if not f:
             return
@@ -458,7 +458,7 @@ class EqSettings:
                 f"Fc {x['freq']:g} Hz Gain {x['gain']:g} dB Q {x['q']:g}"
                 for i, x in enumerate([x for x in filters if x.get("enabled", True) is not False], 1)]
 
-    def edit_own_filters(self):
+    def edit_your_filters(self):
         """Your own filters in the filter editor (as AutoEQ Local's own-filters table and sliders): OK writes them back.
         It ends as every window does (.claude/notes/UI-RULES.md 1, 4, 6, 7): its own message line (what the editor
         changed: it was said in the main window's, behind it), OK (Enter's, in the accent; Enter in a box being typed in
@@ -534,7 +534,7 @@ class EqSettings:
         self.auto_on.blockSignals(True)
         self.auto_on.setChecked(on)
         self.auto_on.blockSignals(False)
-        mine = [p for p in self.manual() if self.controlled(p)]
+        mine = [p for p in self.your_values() if self.is_auto_path(p)]
         notes = (a.get("notes") or []) if on else []
         t = theme.tokens()
         items = []

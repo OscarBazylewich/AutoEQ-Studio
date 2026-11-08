@@ -162,7 +162,7 @@ def save_result(s, name="UI check") -> dict:
     """Save filters under this file name (lines 1573-1578): the saved EQ's History entry."""
     page = s.page
     page.name_edit.setText(name)
-    page.save()
+    page.save_filters()
     key = page.entry_now(True)["key"]
     entry = next((e for e in page.history if e.get("key") == key and e.get("saved")), None)
     if entry is None:
@@ -172,7 +172,7 @@ def save_result(s, name="UI check") -> dict:
 
 def show_from_history(s, entry):
     """History's Show (line 1585): the EQ back on the result card, as a result of its own."""
-    s.page.bring_back(entry)
+    s.page.show_history_entry(entry)
 
 
 def use_on_device(s, name="UI check"):

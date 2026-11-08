@@ -79,7 +79,7 @@ def test_filter_above_card_and_music_loop(check):
     # was eq_checks.py:2921
     check("listen: a filter above what the sound card can play is left out; the music loop at 44.1 and 48 kHz",
           len(audio.sos_of([{"freq": 30000, "gain": 3, "q": 1}], 48000)) == 0
-          and all(audio.groove(sr).shape == (int(np.ceil(sr * 9.6)), 2) for sr in (44100, 48000)))
+          and all(audio.music_loop(sr).shape == (int(np.ceil(sr * 9.6)), 2) for sr in (44100, 48000)))
 
 
 def test_changed_eq_crossfades(check):

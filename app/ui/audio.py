@@ -51,7 +51,7 @@ def sweep(sr):
     return np.column_stack([d, d]).astype(np.float32)
 
 
-def groove(sr, seed=2):
+def music_loop(sr, seed=2):
     """A four-bar loop at 100 bpm (Am F C G), made here (sound.js grooveBuffer's parts)."""
     rng = np.random.default_rng(seed)
     beat = 60 / 100
@@ -184,10 +184,10 @@ class Engine:
             # block, e.g. a slider dragged, would otherwise cut the version heard dead)
             still = [s for s in self.slots if s.get("fading") and any(s["now"])]
             self.slots = slots
-            self._gains()
+            self._update_gains()
             self.slots += still + fading
 
-    def _gains(self):
+    def _update_gains(self):
         live = [s for s in self.slots if not s.get("fading")]
         if not live:
             return
@@ -200,9 +200,9 @@ class Engine:
     def set_level_match(self, on):
         with self.lock:
             self.level_match = bool(on)
-            self._gains()
+            self._update_gains()
 
-    def target(self, s):
+    def target_gains(self, s):
         """[L, R] gain the version should have now (0: not heard)."""
         if s.get("fading"):
             return [0.0, 0.0]
@@ -239,7 +239,7 @@ class Engine:
             out = np.zeros((n, 2))
             ramp = np.linspace(0, 1, n)
             for s in self.slots:
-                want = self.target(s)
+                want = self.target_gains(s)
                 if len(s["sos"]):
                     y = np.empty_like(x)
                     for ch in range(2):

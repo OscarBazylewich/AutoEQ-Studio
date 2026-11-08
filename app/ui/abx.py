@@ -54,12 +54,12 @@ class Abx:
         if not self.done and says in ("A", "B"):
             self.answers.append(says)
 
-    def right(self):
+    def correct_count(self):
         return sum(1 for said, x in zip(self.answers, self.xs) if said == x)
 
     def verdict(self):
         """The score and what it means, in words."""
-        k, n = self.right(), len(self.answers)
+        k, n = self.correct_count(), len(self.answers)
         if not n:
             return "No trials are completed."
         p = chance(k, n)

@@ -83,13 +83,13 @@ class CompareWindow(QDialog):
         self.q = QLineEdit()
         self.q.setPlaceholderText("for example, Truthear Gate")
         self.q.setClearButtonEnabled(True)
-        self.q.returnPressed.connect(lambda: self.run())
+        self.q.returnPressed.connect(lambda: self.search_measurements())
         top.addWidget(self.q, 1)
         # (plain: the accent is the main action's, a measurement's or an average's. "Search", what it does: it was
         # "Compare", the result card's word for two EQs side by side)
         self.go = QPushButton("Search")
         icons.put(self.go, "find")
-        self.go.clicked.connect(lambda: self.run())
+        self.go.clicked.connect(lambda: self.search_measurements())
         top.addWidget(self.go)
         v.addLayout(top)
         # (the target's rig on a line of its own, its words at the left and its choice at the right as Windows 11's
@@ -102,7 +102,7 @@ class CompareWindow(QDialog):
         self.rig = SearchCombo()
         help_window.tag(self.q, "#cmp-q")
         help_window.tag(self.rig, "#cmp-rig")
-        self.rig.activated.connect(lambda _i: (self.data or self.busy) and self.run())
+        self.rig.activated.connect(lambda _i: (self.data or self.busy) and self.search_measurements())
         rig_row.addWidget(self.rig)
         v.addLayout(rig_row)
         self.status = QLabel()
@@ -150,10 +150,10 @@ class CompareWindow(QDialog):
         self.footer = Footer(self)
         v.addWidget(self.footer)
         _redraw_on_theme(self)
-        self.open_query()
+        self.load_query()
 
     # ---------------------------------------------------------------- asking compare.py
-    def open_query(self):
+    def load_query(self):
         db = self.svc.call("/api/db")
         if not db.get("count") and not db.get("loading"):  # (the online lists, from this PC's copy: once)
             self.svc.call("/api/db/refresh", {"settings": self.page.S})
@@ -172,7 +172,7 @@ class CompareWindow(QDialog):
         self.target_lab.setText(f"Target {(r.get('target') or 'not selected').rsplit('.', 1)[0]} is made for")
         self.q.setText(r.get("query") or "")
         if self.q.text().strip():
-            self.run(auto=True)
+            self.search_measurements(auto=True)
         else:
             self.status.setText("Type a model name, for example “Truthear Gate” or “HD 600”.")
             self.q.setFocus()
@@ -191,7 +191,7 @@ class CompareWindow(QDialog):
             self._retry.stop()
         super().done(r)
 
-    def run(self, auto=False):
+    def search_measurements(self, auto=False):
         if self.busy:
             self.again = auto
             return
@@ -216,7 +216,7 @@ class CompareWindow(QDialog):
                 self.again = None
                 if not hasattr(self, "_retry"):
                     self._retry = QTimer(self, singleShot=True, interval=800)
-                    self._retry.timeout.connect(lambda: self.run(self._retry_auto))
+                    self._retry.timeout.connect(lambda: self.search_measurements(self._retry_auto))
                 self._retry_auto = a
                 self._retry.start()
                 return
@@ -229,7 +229,7 @@ class CompareWindow(QDialog):
                 self.render()
             if self.again is not None and self.isVisible():  # (not once closed: nothing more downloaded)
                 a, self.again = self.again, None
-                self.run(a)
+                self.search_measurements(a)
             self.again = None
         tasks.background(lambda: self.svc.call("/api/compare", body), done, owner=self)
 
@@ -434,7 +434,7 @@ class CompareWindow(QDialog):
             go.addStretch(1)
             go.addWidget(btn)
             bv.addLayout(go)
-            btn.clicked.connect(lambda _=False, lst=lst, sel=sel, btn=btn: self.average(lst, sel, btn))
+            btn.clicked.connect(lambda _=False, lst=lst, sel=sel, btn=btn: self.use_average(lst, sel, btn))
             update()
             out.append(box)
         return out
@@ -499,12 +499,12 @@ class CompareWindow(QDialog):
                     btn.setEnabled(True)
                     QMessageBox.warning(self, "Use", str(err or res["error"]))
                 return
-            page.used(res)
+            page.file_used(res)
             if here:
                 self.accept()
         tasks.background(lambda: self.svc.call("/api/use", body), done)
 
-    def average(self, lst, sel, btn):
+    def use_average(self, lst, sel, btn):
         keys = [c["hash"] for c in lst if c["hash"] in sel]
         btn.setEnabled(False)
         btn.setText("In progress…")  # (a second click would save the average twice)
@@ -520,7 +520,7 @@ class CompareWindow(QDialog):
                     btn.setEnabled(True)
                     btn.setText(f"Use the average of {len(keys)}")
                 return
-            page.used(dict(res, kind="measurement", names=[]))
+            page.file_used(dict(res, kind="measurement", names=[]))
             if here:
                 self.accept()
         tasks.background(lambda: self.svc.call("/api/compare/average", body), done)

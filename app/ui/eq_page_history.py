@@ -37,7 +37,7 @@ class EqHistory:
                 f"{r.get('gain_max')} · Q {r.get('q_min')}–{r.get('q_max')}")
 
     @staticmethod
-    def _print(filters):
+    def _fingerprint(filters):
         """A short fingerprint of filters: the same result saved as it is and edited are two entries (in another
         order, e.g. sorted, one)."""
         rows = sorted(json.dumps([f.get("type", "PK"), float(f["freq"]), float(f["gain"]), float(f["q"]),
@@ -51,7 +51,7 @@ class EqHistory:
         base = run.get("history") or f"{self.session}-{run.get('n', 1)}-{r['id']}"
         result = {k: v for k, v in r.items() if k not in ("filters", "start")}  # (by hand: shown again as saved)
         S = self.S
-        return {"key": f"{base}-{self._print(filters)}", "base": base, "saved": saved,
+        return {"key": f"{base}-{self._fingerprint(filters)}", "base": base, "saved": saved,
                 "device": run.get("device") or c.get("name"), "target": run.get("target_name") or c.get("target_name"),
                 "target_file": run.get("target_file") or self.inputs.get("active_target"),
                 "meas_files": run.get("meas_files") or [m["name"] for m in self.inputs["measurements"] if m["included"]],
@@ -60,7 +60,7 @@ class EqHistory:
                 "filters": filters, "rms": st["rms"], "preamp": st["preamp_raw"], "n_filters": st["n"],
                 "site": S["site"], "rig_convert": S["rig_convert"]["enabled"], "band": S["scoring"]["band_hz"]}
 
-    def record(self, saved):
+    def add_to_history(self, saved):
         """Into History: after a run (saved False: only when Advanced › History keeps every run), or saved/copied."""
         run, r = self.current()
         if not r or not self.curves or (not saved and (self.S["history"]["keep"] != "all" or run.get("history"))):
@@ -105,9 +105,9 @@ class EqHistory:
         QGuiApplication.clipboard().setText(res["apo"])
         (say or self.status)("The app copied the filters (Equalizer APO / squiglink format).")
         if record:
-            self.record(True)
+            self.add_to_history(True)
 
-    def bring_back(self, e):
+    def show_history_entry(self, e):
         """Show: its files, target adjustments and curve settings back when they're still in the app, then the EQ as
         a run of its own on the result card."""
         from ui.history_window import day_of, time_of
@@ -186,7 +186,7 @@ class EqHistory:
             for n in names:
                 d.addAction(n, lambda n=n: self.delete_preset(n))
         menu.addSeparator()
-        menu.addAction("Use the initial settings…", self.reset_settings)
+        menu.addAction("Use the initial settings…", self.use_initial_settings)
 
     def _use_settings(self, s, said):
         """Settings from a preset (or the defaults) in use, your files as they are; Undo in the notice puts the ones
@@ -241,7 +241,7 @@ class EqHistory:
             return
         self.notify(f"The app deleted the preset “{name}”.")
 
-    def reset_settings(self):
+    def use_initial_settings(self):
         if QMessageBox.question(self, "Use the initial settings", "Change all settings to their initial values? Your "
                                 "files and presets do not change. With Undo, you get your settings again.") \
                 != QMessageBox.Yes:

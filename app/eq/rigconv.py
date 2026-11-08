@@ -80,7 +80,7 @@ _IEM = re.compile(r"\biem\b|in-?ear|\bie\b|harman ie|earphone|\b711\b", re.I)
 _HP = re.compile(r"over-?ear|\boe\b|headphone|on-?ear", re.I)
 
 
-def device(meas_rig, target_rig, target_name, meas_hint=""):
+def device_kind(meas_rig, target_rig, target_name, meas_hint=""):
     """"iem" or "headphone": from the rigs (a 711 coupler only takes IEMs, a 43AG is for headphones), the target's
     and measurement's names or sources, else whichever the data has for this pair (IEMs if both)."""
     if "711" in (meas_rig,) or (meas_rig != "43AG" and target_rig == "711" and not _HP.search(target_name)):
@@ -133,7 +133,7 @@ def status(cfg, target_path, meas_paths):
     if mrig == trig:
         out["state"] = "same"
         return out
-    dev = device(mrig, trig, tname, hint)
+    dev = device_kind(mrig, trig, tname, hint)
     conv = find(dev, trig, mrig)  # (the target, made for its rig, converted to the measurement's)
     out["device"] = dev
     if not conv:
@@ -164,7 +164,7 @@ def same_rig_spread(device):
     return _data["spread"].get(device, 2.0)
 
 
-def expected(device, target_rig, meas_rig, unit, enabled=True):
+def expected_rig_error(device, target_rig, meas_rig, unit, enabled=True):
     """How a measurement relates to a target's rig: {"how": "same" | "own" | "rigs" | "nodata" | "unknown", "error":
     the typical error left after converting (without, when converting is off), "rig_part": what the rig adds on top of
     the usual units-and-seating spread, "models"}. "own": its database's own conversion; "rigs": the rigs' average."""

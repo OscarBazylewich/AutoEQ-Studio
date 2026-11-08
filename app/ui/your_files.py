@@ -2,7 +2,7 @@
 - offer_move(): your targets, measurements, saved EQs and presets still where an older copy kept them (the program's
   folder): move them into your files' folder (Documents\\AutoEQ Studio), or choose another, or not now (asked again
   next time). Asked when Make an EQ first opens, before the EQ part loads (it takes the folders then)
-- change(): Settings > Your files > Change…: another folder; your files moved there if you like; the app starts again
+- change_location(): Settings > Your files > Change…: another folder; your files moved there if you like; the app starts again
 """
 import os
 
@@ -29,7 +29,7 @@ def _choose(parent, start):
         start = d
 
 
-def _said(parent, moved, renamed):
+def _tell_moved(parent, moved, renamed):
     if moved or renamed:
         QMessageBox.information(parent, TITLE, f"AutoEQ Studio moved {moved} file{'s' if moved != 1 else ''} into "
                                 f"{paths.ROOT}." + (f"\n\n{renamed} of them had the same name as a different file in "
@@ -42,7 +42,7 @@ def offer_move(parent, save):
     pairs, sources = userfiles.old_places()
     if not pairs and not sources:
         return False
-    n = userfiles.count(pairs)
+    n = userfiles.count_files(pairs)
     where = sorted({os.path.dirname(old) if os.path.basename(os.path.dirname(old)).lower() == "inputs"
                     else old for old, _new in pairs}) or [os.path.dirname(s) for s in sources]
     box = QMessageBox(parent)
@@ -73,17 +73,17 @@ def offer_move(parent, save):
         QMessageBox.warning(parent, TITLE, f"AutoEQ Studio did not move all the files ({e}). The next time that "
                                            "AutoEQ Studio starts, it shows this message again for the other files.")
         return True
-    _said(parent, moved, renamed)
+    _tell_moved(parent, moved, renamed)
     return True
 
 
-def change(parent, save, restart):
+def change_location(parent, save, restart):
     """Settings > Your files > Change…: save(key, value) keeps the choice; restart() starts the app again."""
     d = _choose(parent, paths.ROOT)
     if not d or userfiles.same_folder(d, paths.ROOT):
         return False
     pairs = userfiles.change_pairs(d)
-    n = userfiles.count(pairs)
+    n = userfiles.count_files(pairs)
     if n:
         box = QMessageBox(parent)
         box.setWindowTitle(TITLE)
@@ -107,7 +107,7 @@ def change(parent, save, restart):
                 return False
             save(paths.FILES_KEY, d)
             paths.locate()
-            _said(parent, moved, renamed)
+            _tell_moved(parent, moved, renamed)
             restart()
             return True
     elif QMessageBox.question(parent, TITLE, f"Use {d} for your files? Then AutoEQ Studio starts again and uses it.") \

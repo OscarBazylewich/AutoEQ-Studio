@@ -56,7 +56,7 @@ def test_enter_in_compare_presses_nothing(eq_screen, check):
     from ui.compare_results import CompareResults
     page = eq_screen.page
     if page.current()[1] is None:
-        page.start_by_hand([{"type": "PK", "freq": 1000, "gain": 2, "q": 1}], "pasted", "Footers")
+        page.start_manual([{"type": "PK", "freq": 1000, "gain": 2, "q": 1}], "pasted", "Footers")
     before = (page.run_result, page.sel)
     dlg = CompareResults(page)
     dlg.show()

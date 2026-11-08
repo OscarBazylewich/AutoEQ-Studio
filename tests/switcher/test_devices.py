@@ -44,7 +44,7 @@ def test_this_pc_read(this_pc, check):
 
 def test_playing_is_the_default(this_pc, check):
     eps = this_pc
-    playing = D.playing()  # (Windows' default playback device, through comtypes: read only)
+    playing = D.playing_guid()  # (Windows' default playback device, through comtypes: read only)
     # was selftest.py:87
     check("devices: the device playing is Windows' default one, one of this PC's (or none)",
           playing is None or (playing.startswith("{") and any(e.guid == playing for e in eps)), playing)

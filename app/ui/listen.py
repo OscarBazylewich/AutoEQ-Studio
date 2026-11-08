@@ -148,7 +148,7 @@ class Listen(QGroupBox):
         v.addWidget(self.apo_box)
         row = QHBoxLayout()
         self.play_btn = _PlayButton()
-        self.play_btn.clicked.connect(self.toggle)
+        self.play_btn.clicked.connect(self.toggle_play)
         row.addWidget(self.play_btn)
         self.src = SearchCombo()
         for k, name in SOUNDS:
@@ -170,7 +170,7 @@ class Listen(QGroupBox):
         self.lm = QCheckBox("Same level")
         self.lm.setToolTip("All versions have the same loudness. Thus, you compare the EQ and not the volume")
         self.lm.setChecked(st.get("lm", True))
-        self.lm.toggled.connect(self.lm_changed)
+        self.lm.toggled.connect(self.same_level_changed)
         row.addWidget(self.lm)
         for w, key in ((self.src, "#snd-src"), (self.vol, "#snd-vol"), (self.lm, "#snd-lm")):
             help_window.tag(w, key)
@@ -211,7 +211,7 @@ class Listen(QGroupBox):
         fr.setContentsMargins(0, 0, 0, 0)
         pick = QPushButton("Select a file…")
         icons.put(pick, "open")
-        pick.clicked.connect(self.choose_file)
+        pick.clicked.connect(self.select_file)
         fr.addWidget(pick)
         self.file_lab = QLabel("mp3, flac, wav, ogg …")
         theme.mark(self.file_lab, role="muted")
@@ -235,7 +235,7 @@ class Listen(QGroupBox):
         sr.addWidget(self.right, 1)
         swap = QPushButton("Interchange")
         icons.put(swap, "swap")
-        swap.clicked.connect(self.swap)
+        swap.clicked.connect(self.interchange_sides)
         sr.addWidget(swap)
         v.addWidget(self.split_row)
         # how they're heard: both ears the same version or one each, Blind test (under the versions it changes)
@@ -249,10 +249,10 @@ class Listen(QGroupBox):
         ears.addWidget(self.ears)
         self.blind = QCheckBox("Hide the names")
         self.blind.setToolTip("Shows the versions as A, B, C … in a random sequence, until you click “Show the names”")
-        self.blind.toggled.connect(self.blind_changed)
+        self.blind.toggled.connect(self.hide_names_changed)
         ears.addWidget(self.blind)
         self.reveal_btn = QPushButton("Show the names")
-        self.reveal_btn.clicked.connect(self.reveal)
+        self.reveal_btn.clicked.connect(self.show_names)
         ears.addWidget(self.reveal_btn)
         ears.addStretch(1)
         v.addLayout(ears)
@@ -401,9 +401,9 @@ class Listen(QGroupBox):
             return
         self.abx = abx_mod.Abx(a, b, self.abx_n.currentData())
         vs = self.versions()
-        self._abx_labels, self._abx_heard = {k: label for k, label, *_ in vs}, self._abx_sound(vs)
+        self._abx_labels, self._abx_heard = {k: label for k, label, *_ in vs}, self._abx_filters(vs)
         self._abx_was = {"lm": self.lm.isChecked(), "ears": self.ears.currentData(), "blind": self.blind.isChecked()}
-        self._abx_set(True, "both", False)
+        self._abx_set_options(True, "both", False)
         for w in (self.lm, self.ears, self.blind, self.abx_row):
             w.setEnabled(False)
         self.abx_said.hide()
@@ -427,7 +427,7 @@ class Listen(QGroupBox):
         else:
             self.abx_listen("X")
 
-    def _abx_set(self, lm, ears, blind):
+    def _abx_set_options(self, lm, ears, blind):
         """Level-matched, the ears and Blind test as an ABX test needs them, or back as they were: what's heard
         changes, your Listen settings don't (they're the test's for its while, not choices of yours to keep), and a
         blind test you had keeps its letters."""
@@ -438,18 +438,18 @@ class Listen(QGroupBox):
                 set_it()
         if self.engine:
             self.engine.set_level_match(lm)
-        self._apply()
+        self._apply_to_engine()
 
-    def _abx_sound(self, vs):
+    def _abx_filters(self, vs):
         """What A and B sound like: their filters that are on, in any order."""
         t = self.abx
         return {k: sorted((f.get("type", "PK"), float(f["freq"]), float(f["gain"]), float(f["q"])) for f in fl)
                 for k, _label, fl, _c in vs if k in (t.a, t.b)}
 
-    def _abx_stops(self, vs):
+    def _abx_stop_reason(self, vs):
         """Why an ABX test can't go on ("" if it can): a version it tests gone, or its filters changed (an edit,
         another result shown): the rest of its trials would be a test of something else."""
-        t, now = self.abx, self._abx_sound(vs)
+        t, now = self.abx, self._abx_filters(vs)
         for k in (t.a, t.b):
             if k not in now:
                 return f"{self._abx_labels.get(k, k)} is not available"
@@ -467,7 +467,7 @@ class Listen(QGroupBox):
                               "“X is B”."
                               + ("" if self.playing else " (Play first.)"))
         self.abx_box.show()
-        self.render_ab()
+        self.render_versions()
 
     def abx_end(self, finished, quiet=False, why=""):
         """The test over: its result said (and kept in this session's list) when it was finished or answered at all;
@@ -479,12 +479,12 @@ class Listen(QGroupBox):
         for w in (self.lm, self.ears, self.blind, self.abx_row):
             w.setEnabled(True)
         was, self._abx_was = self._abx_was or {}, None
-        self._abx_set(was.get("lm", True), was.get("ears") or "both", was.get("blind", False))
+        self._abx_set_options(was.get("lm", True), was.get("ears") or "both", was.get("blind", False))
         names = {**{k: label for k, label, *_ in self.versions()}, **self._abx_labels}  # (as they were when it began)
         because = f" ({why})" if why else ""
         if not quiet and t.answers:
             self.abx_results = (self.abx_results + [{"what": f"{names.get(t.a, t.a)} and {names.get(t.b, t.b)}",
-                                                     "score": f"{t.right()} of {len(t.answers)}",
+                                                     "score": f"{t.correct_count()} of {len(t.answers)}",
                                                      "verdict": t.verdict()}])[-5:]
             now, earlier = self.abx_results[-1], self.abx_results[:-1]
             head = "" if finished else f"The test stopped after {len(t.answers)} of {t.n} trials{because}. "
@@ -496,19 +496,19 @@ class Listen(QGroupBox):
             self.abx_said.setText(f"The ABX test stopped before you completed a trial: {why}.")
             self.abx_said.show()
         self._abx_fill()
-        self.render_ab()
+        self.render_versions()
 
     # ---------------------------------------------------------------- settings kept (the switcher's, app-wide)
-    def _keep(self, **kw):
+    def _save_listen_settings(self, **kw):
         """Listen's choices into the app's settings, written half a second after the last change (a slider moves
         through many values) and without redrawing the other screens (nothing else shows them)."""
         sw = self.page.sw
         sw.s["listen"] = dict(sw.s.get("listen") or {}, **kw)
-        if not hasattr(self, "_keep_timer"):
+        if not hasattr(self, "_save_timer"):
             from PySide6.QtWidgets import QApplication
-            self._keep_timer = QTimer(self, singleShot=True, interval=500, timeout=sw.save)
+            self._save_timer = QTimer(self, singleShot=True, interval=500, timeout=sw.save)
             QApplication.instance().aboutToQuit.connect(sw.save)
-        self._keep_timer.start()
+        self._save_timer.start()
 
     # ---------------------------------------------------------------- the versions
     def versions(self):
@@ -520,7 +520,7 @@ class Listen(QGroupBox):
         if r:
             what = "manual" if run.get("mode") == "manual" else f"#{run.get('n', 1)}"
             out.append(("sel", f"Selected EQ ({what}{', edited' if self.page.edited() else ''})",
-                        self.page.active(), "with_eq"))
+                        self.page.enabled_filters(), "with_eq"))
         for i, p in enumerate(self.pins):
             out.append((p["key"], p["name"], [f for f in p["filters"] if f.get("enabled", True) is not False],
                         COLOURS[p.get("color", i) % len(COLOURS)]))
@@ -541,14 +541,14 @@ class Listen(QGroupBox):
         self.left_key = self.left_key if self.left_key in keys else "off"
         self.right_key = self.right_key if self.right_key in keys else first_eq
         if self.blind_order and sorted(self.blind_order) != sorted(keys):
-            self.new_blind()
-        stops = self._abx_stops(vs) if self.abx is not None else ""
+            self.shuffle_blind_order()
+        stops = self._abx_stop_reason(vs) if self.abx is not None else ""
         if stops:
             self.abx_end(finished=False, why=stops)  # (what was answered is said, and why it stopped)
-        self._apply()
-        self.render_ab()
+        self._apply_to_engine()
+        self.render_versions()
         self.render_pins()
-        self.render_apo()
+        self.render_device_eq()
         self._abx_fill()
 
     def update_sound(self):
@@ -557,7 +557,7 @@ class Listen(QGroupBox):
         if self.engine:
             self.engine.set_versions([(k, label, f) for k, label, f, _ in self.versions()])
 
-    def _apply(self):
+    def _apply_to_engine(self):
         if self.engine:
             e = self.engine
             e.active, e.ears, e.left, e.right = self.active, self.ears.currentData(), self.left_key, self.right_key
@@ -565,8 +565,8 @@ class Listen(QGroupBox):
     def choose(self, key):
         if any(k == key for k, *_ in self.versions()):
             self.active, self.picked = key, True
-            self._apply()
-            self.render_ab()
+            self._apply_to_engine()
+            self.render_versions()
 
     def choose_number(self, n):
         """Keys 1-9: the nth version as the buttons show them (in a blind test, the nth letter); not during an ABX
@@ -584,7 +584,7 @@ class Listen(QGroupBox):
             return [by[k] for k in self.blind_order if k in by]
         return vs
 
-    def render_ab(self):
+    def render_versions(self):
         while self.ab.count():
             w = self.ab.takeAt(0).widget()
             if w:
@@ -634,38 +634,38 @@ class Listen(QGroupBox):
         self.note.setText(note + ("" if split or testing else "Keys 1-9 change the version. ") + "Start with a low volume.")
 
     def ears_changed(self):
-        self._keep(ears=self.ears.currentData())
+        self._save_listen_settings(ears=self.ears.currentData())
         if self.ears.currentData() == "split" and self.blind.isChecked():
             self.blind.setChecked(False)
-        self._apply()
-        self.render_ab()
+        self._apply_to_engine()
+        self.render_versions()
 
     def sides_changed(self):
         self.left_key, self.right_key, self.sides_picked = self.left.currentData(), self.right.currentData(), True
-        self._apply()
+        self._apply_to_engine()
 
-    def swap(self):
+    def interchange_sides(self):
         self.left_key, self.right_key, self.sides_picked = self.right_key, self.left_key, True
-        self._apply()
-        self.render_ab()
+        self._apply_to_engine()
+        self.render_versions()
 
-    def new_blind(self):
+    def shuffle_blind_order(self):
         import random
         keys = [k for k, *_ in self.versions()]
         random.shuffle(keys)
         self.blind_order, self.revealed = keys, False
 
-    def blind_changed(self, on):
+    def hide_names_changed(self, on):
         if on:
-            self.new_blind()
+            self.shuffle_blind_order()
             self.choose(self.blind_order[0])
         else:
             self.blind_order = None
-        self.render_ab()
+        self.render_versions()
 
-    def reveal(self):
+    def show_names(self):
         self.revealed = True
-        self.render_ab()
+        self.render_versions()
 
     # ---------------------------------------------------------------- playing
     def ensure_engine(self):
@@ -676,7 +676,7 @@ class Listen(QGroupBox):
             self.engine.level_match = self.lm.isChecked()
             self.refresh()
 
-    def toggle(self):
+    def toggle_play(self):
         self.stop() if self.playing else self.play()
 
     def play(self):
@@ -686,7 +686,7 @@ class Listen(QGroupBox):
         sr = self.engine.sr
         if kind == "file":
             if self.file_data is None:  # (chosen first, then played once it's read)
-                self.choose_file(play_after=True)
+                self.select_file(play_after=True)
                 return
             data = self.file_data
         elif kind == "tone":
@@ -697,7 +697,7 @@ class Listen(QGroupBox):
                 self.play_btn.repaint()
             cache = {"music": "_music", "pink": "_pink", "white": "_white", "sweep": "_sweep"}[kind]
             if not hasattr(self, cache):
-                setattr(self, cache, audio.groove(sr) if kind == "music" else audio.sweep(sr) if kind == "sweep"
+                setattr(self, cache, audio.music_loop(sr) if kind == "music" else audio.sweep(sr) if kind == "sweep"
                         else audio.noise(sr, kind == "pink"))
             data = getattr(self, cache)
         self.engine.set_source(kind, data)
@@ -736,7 +736,7 @@ class Listen(QGroupBox):
         self.tone_row.setVisible(kind == "tone")
         self.file_row.setVisible(kind == "file")
         if save:
-            self._keep(src=kind)
+            self._save_listen_settings(src=kind)
         if self.playing:
             self.play()
 
@@ -744,13 +744,13 @@ class Listen(QGroupBox):
         self.vol_lab.setText(f"{self.vol.value()} dB")
         if self.engine:
             self.engine.volume_db = self.vol.value()
-        self._keep(vol=self.vol.value())
+        self._save_listen_settings(vol=self.vol.value())
 
-    def lm_changed(self, on):
+    def same_level_changed(self, on):
         if self.engine:
             self.engine.set_level_match(on)
-        self._keep(lm=bool(on))
-        self.render_ab()
+        self._save_listen_settings(lm=bool(on))
+        self.render_versions()
 
     def tone_range(self):
         """The tone's From and To as used: numbers (not "nan"), within 20 Hz to 20 kHz and the sound card's top, To
@@ -774,7 +774,7 @@ class Listen(QGroupBox):
         lo, hi = self.tone_range()
         self.tone_from.setText(f"{round(lo)}")
         self.tone_to.setText(f"{round(hi)}")
-        self._keep(tone_from=round(lo), tone_to=round(hi))
+        self._save_listen_settings(tone_from=round(lo), tone_to=round(hi))
         self.tone_changed()
 
     @staticmethod
@@ -786,10 +786,10 @@ class Listen(QGroupBox):
         self.tone_lab.setText(self._tone_text(f))
         if self.engine:
             self.engine.tone_hz = f
-        self._keep(tone=self.tone.value() / 10000)
+        self._save_listen_settings(tone=self.tone.value() / 10000)
         self.page.draw_marker()
 
-    def choose_file(self, play_after=False):
+    def select_file(self, play_after=False):
         """Your own file, read (and converted to the sound card's rate) off the window's thread. (m4a/AAC isn't
         offered: the sound library can't read it.)"""
         f, _ = QFileDialog.getOpenFileName(self, "Your audio file", os.path.expanduser("~"),
@@ -821,7 +821,7 @@ class Listen(QGroupBox):
         tasks.background(lambda: audio.read_file(f, sr), done, owner=self)
 
     # ---------------------------------------------------------------- the device's own EQ (Devices)
-    def render_apo(self):
+    def render_device_eq(self):
         sw = self.page.sw
         key, rec = sw.playing()
         name = sw.profile_name(rec["active"]) if rec else None
@@ -829,7 +829,7 @@ class Listen(QGroupBox):
             name = sw.trial["name"]
         if rec and sw.compare and sw.compare["key"] == key:  # (its EQ off for now, the on/off hotkey: none on top)
             name = None
-        on = bool(name) and sw.apo.set_up()
+        on = bool(name) and sw.apo.includes_studio()
         self.apo_box.setVisible(on)
         if on:
             from switcher.core import shown
@@ -842,7 +842,7 @@ class Listen(QGroupBox):
             self.page.sw.set_active(key, None)
             from switcher.core import shown
             self.page.status(f"The EQ of {shown(rec)} is off (enable it again in Devices or in the tray).", 8000)
-        self.render_apo()
+        self.render_device_eq()
 
     # ---------------------------------------------------------------- your EQs to compare (one list per IEM)
     def load_pins(self, device):
@@ -910,7 +910,7 @@ class Listen(QGroupBox):
         st = self.page.stats()
         from ui.eq_page import MODE_SHORT
         self.add(f"#{run.get('n', 1)}: {MODE_SHORT.get(run['mode'], 'EQ')}, "
-                 f"{st['n']} filters{' (edited)' if self.page.edited() else ''}", [dict(f) for f in self.page.active()],
+                 f"{st['n']} filters{' (edited)' if self.page.edited() else ''}", [dict(f) for f in self.page.enabled_filters()],
                  f"error {st['rms']:.2f} dB" if st["rms"] is not None else "")
 
     def add_file(self):

@@ -178,7 +178,7 @@ def launcher():
     import brand_exe
     with tempfile.TemporaryDirectory(prefix="aeqs-ico-") as tmp:
         ico = os.path.join(tmp, "AutoEQ Studio.ico")
-        brand_exe.icon_file(ico)
+        brand_exe.write_icon_file(ico)
         return brand_exe.launcher_bytes(os.path.join(sys.base_prefix, "pythonw.exe"), ico, paths.VERSION)
 
 
@@ -234,7 +234,7 @@ READY_BAT = (b"@echo off\r\n"
              b"exit /b 1\r\n")
 
 
-def ready_testing(text):
+def ready_testing_text(text):
     """TESTING.txt for the ready-to-run zip: no Python to install, no first-start download."""
     a = text.index("GETTING IT RUNNING")
     b = text.index("THINGS TO TRY")
@@ -253,7 +253,7 @@ def ready_testing(text):
                      "folder too.)\r\n", ""))
 
 
-def write(out, entries):
+def write_zip(out, entries):
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         for arc, src in entries:
             if isinstance(src, bytes):
@@ -347,11 +347,11 @@ def main():
                    for a, s in entries]
     if ready:
         entries = [(a, READY_BAT if a == f"{TOP}/AutoEQ Studio.bat" else
-                    ready_testing(open(s, encoding="utf-8").read().replace("\r\n", "\n").replace("\n", "\r\n")).encode()
+                    ready_testing_text(open(s, encoding="utf-8").read().replace("\r\n", "\n").replace("\n", "\r\n")).encode()
                     if a == f"{TOP}/TESTING.txt" else s) for a, s in entries]
         entries = [(a, s) for a, s in entries if not a.endswith("/app/setup.bat") and not a.endswith("requirements.txt")]
         entries += runtime_entries()
-    write(out, entries)
+    write_zip(out, entries)
     size = os.path.getsize(out) / 2**20
     print(f"Made: {out}")
     print(f"  {len(entries)} files, {size:.1f} MB")

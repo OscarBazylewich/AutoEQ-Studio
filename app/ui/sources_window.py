@@ -102,7 +102,7 @@ class Sources(QDialog):
         row.addWidget(self.lib_status, 1)
         v.addLayout(row)
         v.addWidget(_head("Online databases"))
-        v.addWidget(_muted("The app updates the lists after some days. It downloads a curve when you use it."))
+        v.addWidget(_muted("The app updates the lists after some days. It downloads a curve for Use or Preview."))
         bar = QHBoxLayout()
         self.filter = QLineEdit()
         self.filter.setPlaceholderText("Search the databases…")
@@ -140,7 +140,7 @@ class Sources(QDialog):
         self.dir_q = QLineEdit()
         self.dir_q.setPlaceholderText("Search by person or type (IEMs, 5128, headphones)…")
         self.dir_q.setClearButtonEnabled(True)
-        self.dir_q.textChanged.connect(self.render_dir)
+        self.dir_q.textChanged.connect(self.render_squiglink_list)
         v.addWidget(self.dir_q)
         self.dir_list = QListWidget()
         self.dir_list.setAccessibleName("squig.link's databases")
@@ -181,7 +181,7 @@ class Sources(QDialog):
         self._lib_poll = QTimer(self, interval=600, timeout=self.poll_lib)
         self.poll()
         self.poll_lib()
-        self.load_dir()
+        self.load_squiglink_list()
 
     # ---------------------------------------------------------------- this PC
     def folders_changed(self):
@@ -342,7 +342,7 @@ class Sources(QDialog):
         self.set_on(d, False)
         self.changed()
         QTimer.singleShot(0, self, self.render)  # (not inside its own button's click: render deletes the button)
-        self.footer.say(f"The app removed “{d['name']}” from the list.", undo=lambda: self.add(d["url"]))
+        self.footer.say(f"The app removed “{d['name']}” from the list.", undo=lambda: self.add_database(d["url"]))
 
     def refresh(self, force=False):
         self.svc.call("/api/db/refresh", {"settings": self.page.S, "force": force})
@@ -358,7 +358,7 @@ class Sources(QDialog):
         self.render()
 
     # ---------------------------------------------------------------- adding one
-    def load_dir(self):
+    def load_squiglink_list(self):
         if net.offline():
             self.dir_note.setText("Offline: for squig.link's list, change to Online (top right). You can add the URL of "
                                   "a page.")
@@ -374,14 +374,14 @@ class Sources(QDialog):
             self.dir = items
             self.dir_note.setText(f"From squig.link's list ({len(items)} databases: click one, then click Add), or "
                                   "with the URL of a page.")
-            self.render_dir()
+            self.render_squiglink_list()
         tasks.background(lambda: self.svc.call("/api/db/directory"), done, owner=self)
 
     def listed(self):
         rows, _ = self.rows()
         return {url_key(r["url"]) for r in rows}
 
-    def render_dir(self):
+    def render_squiglink_list(self):
         self.dir_list.clear()
         if not self.dir:
             return
@@ -400,7 +400,7 @@ class Sources(QDialog):
             self.dir_list.addItem(f"{len(hits) - 60} more: type more text for a shorter list")
 
     def _add_typed(self):
-        if self.add(self.url.text()):  # (refused: kept in the box to correct)
+        if self.add_database(self.url.text()):  # (refused: kept in the box to correct)
             self.url.clear()
 
     def _add_listed(self, it):
@@ -410,7 +410,7 @@ class Sources(QDialog):
             self.url.setText(it.data(Qt.UserRole))
             self._add_typed()
 
-    def add(self, u):
+    def add_database(self, u):
         u = (u or "").strip()
         if not u.startswith(("http://", "https://")):
             QMessageBox.information(self, "Add a database", "Enter the URL of the page. It must start with https://")
@@ -422,7 +422,7 @@ class Sources(QDialog):
         self.changed()
         self.footer.say("The app added the database. Its list loads…")
         self.render()
-        self.render_dir()
+        self.render_squiglink_list()
         return True
 
     def done(self, r):

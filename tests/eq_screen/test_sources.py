@@ -58,9 +58,9 @@ def test_sources(eq_screen, monkeypatch, check):
         off = builtin["name"] in S["databases"]["disabled"]
         src.set_on(builtin, True)
         on = builtin["name"] not in S["databases"]["disabled"]
-        src.add("example.squig.link")
-        src.add("https://example.squig.link/")
-        src.add("https://example.squig.link")
+        src.add_database("example.squig.link")
+        src.add_database("https://example.squig.link/")
+        src.add_database("https://example.squig.link")
         added = S["databases"]["extra"] == kept_db.get("extra", []) + ["https://example.squig.link/"]
         # (review 2) the added one's group switched off, answered No: nothing changes (it asked after removing them)
         src.render()

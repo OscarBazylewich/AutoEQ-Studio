@@ -109,11 +109,11 @@ class TestFakeDatabase:
     def test_ranking_kinds_of_conversion(self, fake_db, check):
         # ranking measurements ("Other measurements of this model"): the rig counts by the error left after converting
         key = fake_db
-        own, avg = rigconv.expected("iem", "5128", None, key), rigconv.expected("iem", "5128", "711", None)
+        own, avg = rigconv.expected_rig_error("iem", "5128", None, key), rigconv.expected_rig_error("iem", "5128", "711", None)
         # was eq_checks.py:608
         check("rig ranking: own conversion, the rigs' average, same rig, unknown", own["how"] == "own" and avg["how"] == "rigs"
-              and 0 <= avg["rig_part"] < avg["error"] and rigconv.expected("iem", "5128", "5128", None)["how"] == "same"
-              and rigconv.expected("iem", "5128", None, None)["how"] == "unknown", (own.get("how"), avg))
+              and 0 <= avg["rig_part"] < avg["error"] and rigconv.expected_rig_error("iem", "5128", "5128", None)["how"] == "same"
+              and rigconv.expected_rig_error("iem", "5128", None, None)["how"] == "unknown", (own.get("how"), avg))
 
     def test_search_list_marks(self, fake_db, check):
         pu = rigconv.page_units()

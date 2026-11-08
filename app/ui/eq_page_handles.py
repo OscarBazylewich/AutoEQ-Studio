@@ -142,7 +142,7 @@ class EqHandles:
         d = getattr(self, "_eq_drawn", None)
         if d is not None:
             f = d["f"]
-            gain = engines.eq_gain(f, self.active(), self.S["site"]["sample_rate"])
+            gain = engines.eq_gain(f, self.enabled_filters(), self.S["site"]["sample_rate"])
             d["eq"].setData(f, gain)
             if d.get("with") is not None:
                 d["with"].setData(f, d["meas"] + gain - d["base"])
@@ -215,25 +215,25 @@ class EqHandles:
             a = m.addAction(name)
             a.setCheckable(True)
             a.setChecked(f.get("type", "PK") == k)
-            a.triggered.connect(lambda _=False, k=k: self._change(i, type=k))
+            a.triggered.connect(lambda _=False, k=k: self._change_filter(i, type=k))
         m.addSeparator()
         on = m.addAction("On")
         on.setCheckable(True)
         on.setChecked(f.get("enabled", True) is not False)
-        on.triggered.connect(lambda checked: self._change(i, enabled=bool(checked)))
+        on.triggered.connect(lambda checked: self._change_filter(i, enabled=bool(checked)))
         m.addSeparator()  # (set apart: UI-RULES 14; "Remove": the filter off the EQ, not a file gone, UI-RULES 16)
-        m.addAction("Remove", lambda: self._delete(i))
+        m.addAction("Remove", lambda: self._remove_filter(i))
         m.aboutToHide.connect(m.deleteLater)
         self.handle_menu_now = m
         m.popup(QPoint(int(screen_pos.x()), int(screen_pos.y())))
 
-    def _change(self, i, **kw):
+    def _change_filter(self, i, **kw):
         if i < len(self.EDIT):
             self.EDIT[i].update(kw)
             self.editor.rebuild()
             self.live_update()
 
-    def _delete(self, i):
+    def _remove_filter(self, i):
         if i < len(self.EDIT):
             del self.EDIT[i]
             self.editor.rebuild()
@@ -255,7 +255,7 @@ class EqHandles:
         f = {"enabled": True, "type": "PK", "freq": round(freq) if freq >= 100 else round(freq, 1),
              "gain": round(self._limited("gain", gain), 1), "q": 1.0}
         if not self.current()[1]:
-            self.start_by_hand([], "started on the EQ graph")
+            self.start_manual([], "started on the EQ graph")
         self.EDIT.append(f)
         self.editor.rebuild()
         self.live_update()
@@ -279,7 +279,7 @@ class EqHandles:
         t = getattr(self, "_trying", None)
         if not t or not self.sw.trial or self.sw.trial["key"] != t["key"]:
             return
-        res = self.svc.call("/api/text", {"settings": self.S, "filters": self.active(),
+        res = self.svc.call("/api/text", {"settings": self.S, "filters": self.enabled_filters(),
                                           "preamp": self.stats()["preamp_raw"]})
         if res.get("apo"):
             try:

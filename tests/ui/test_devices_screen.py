@@ -295,7 +295,7 @@ def test_trying_an_eq_for_5_minutes(set_up_window, check, qapp):
         sw.try_eq("Headset|EarPods", "Preamp: -3 dB\r\nFilter 1: ON PK Fc 1000 Hz Gain -3 dB Q 1\r\n", "Trial EQ", 5)
         win.render_trial()
         trying = (_read(swt).count("_trying.txt"), win.trial_holder.isVisible() or not win.isVisible(),
-                  "Trial EQ" in win.trial_text.text(), win._status("Headset|EarPods")[1])
+                  "Trial EQ" in win.trial_text.text(), win._device_state("Headset|EarPods")[1])
         leftover = w.switcher()  # (the next start, after a crash: the trial still in APO's file)
         after_crash = (os.path.exists(sw.trial_path()), "_trying" in _read(swt))
         sw.try_eq("Headset|EarPods", "Preamp: -3 dB\r\nFilter 1: ON PK Fc 1000 Hz Gain -3 dB Q 1\r\n", "Trial EQ", 5)

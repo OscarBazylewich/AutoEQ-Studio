@@ -12,7 +12,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QColor
 
 from ui import tasks, theme
-from ui.eq_page_parts import note
+from ui.eq_page_parts import set_note
 
 
 class EqGraph:
@@ -37,14 +37,14 @@ class EqGraph:
         if not c or c.get("error"):
             self.curves, self.rig_note = None, ""
             self.graph_title.setText("")
-            note(self.graph_note, str((c or {}).get("error") or "The app cannot calculate the curves."))
+            set_note(self.graph_note, str((c or {}).get("error") or "The app cannot calculate the curves."))
             self.chip_noeq.hide()
             self.draw()
             return
         self.curves = c
         self.graph_title.set_pair(c["name"], c["target_name"])  # ("A  →  B", or B under A on a narrow window)
         self.rig_note = ((c.get("rig") or {}).get("text") or "") if isinstance(c.get("rig"), dict) else ""
-        note(self.graph_note, self.rig_note)
+        set_note(self.graph_note, self.rig_note)
         self.chip_noeq.setVisible(c.get("no_eq_rms") is not None)
         if c.get("no_eq_rms") is not None:
             self.chip_noeq.setText(f"Error without EQ  {c['no_eq_rms']:.2f} dB")
@@ -119,7 +119,7 @@ class EqGraph:
             if hasattr(self, "settings"):
                 self.settings.refresh()
 
-    def own_filters(self):
+    def your_filters(self):
         """Best fit's “Start from your own filters”, read (for the graph's “With your filters”): [] when none."""
         if self.S["mode"] != "best_fit" or not self.S["best_fit"].get("start_filters", "").strip():
             return []
@@ -135,7 +135,7 @@ class EqGraph:
             return None, None
         return self.run_result, next((r for r in self.run_result["results"] if r["id"] == self.sel), None)
 
-    def graph_option(self, **kw):
+    def set_graph_option(self, **kw):
         """A view of the graph chosen (View, Y range, Channels): kept, without redrawing the other screens."""
         sw = self.sw
         sw.s["graph"] = dict(sw.s.get("graph") or {}, **kw)
@@ -194,7 +194,7 @@ class EqGraph:
                 from eq import engines
                 from ui.eq_page_handles import eq_grid
                 f = eq_grid()
-                item = self._draw_eq(f, engines.eq_gain(f, self.active(), self.S["site"]["sample_rate"]), col)
+                item = self._draw_eq(f, engines.eq_gain(f, self.enabled_filters(), self.S["site"]["sample_rate"]), col)
                 self._eq_drawn = {"f": f, "eq": item, "with": None}
             self.draw_handles()  # (with no EQ shown: none, the old ones gone)
             self.hide_live_graph()  # (no graph to show while editing)
@@ -244,7 +244,7 @@ class EqGraph:
                                           self.S["site"]["sample_rate"])
                     self.plot.plot(f, sub(meas + pg_), name=pin["name"],
                                    pen=pg.mkPen(t[COLOURS[pin.get("color", i) % len(COLOURS)]], width=1.6, style=Qt.DashLine))
-        mine = self.own_filters()
+        mine = self.your_filters()
         if mine:
             from eq import engines
             self.plot.plot(f, sub(meas + engines.eq_gain(f, mine, self.S["site"]["sample_rate"])), name="With your filters",
@@ -255,7 +255,7 @@ class EqGraph:
         _, r = self.current()
         if r:
             from eq import engines
-            gain = engines.eq_gain(f, self.active(), self.S["site"]["sample_rate"])
+            gain = engines.eq_gain(f, self.enabled_filters(), self.S["site"]["sample_rate"])
             with_eq = self.plot.plot(f, sub(meas + gain), pen=pg.mkPen(col["with_eq"], width=2.5), name="With the EQ")
             series.append(("With the EQ", sub(meas + gain)))
             # (the curves a held handle moves: EqHandles.follow sets their data, nothing drawn again)
@@ -295,7 +295,7 @@ class EqGraph:
         return item
 
     # ---------------------------------------------------------------- the curves shown from Find… (dotted: not in use)
-    def preview_on(self, key):
+    def has_preview(self, key):
         return any(k == key for k, _, _ in self.previews)
 
     def add_preview(self, key, name, vals, body=None):
@@ -303,7 +303,7 @@ class EqGraph:
         self.previews = self.previews[-4:]  # (a few at a time)
         if body is not None:
             self.preview_bodies[key] = body
-        self.preview_bodies = {k: b for k, b in self.preview_bodies.items() if self.preview_on(k)}
+        self.preview_bodies = {k: b for k, b in self.preview_bodies.items() if self.has_preview(k)}
         self.draw()
 
     def remove_preview(self, key):
@@ -321,7 +321,7 @@ class EqGraph:
             req = dict(body, settings=self.S)
 
             def done(res, err, key=key):
-                if err or (res or {}).get("error") or not self.preview_on(key):
+                if err or (res or {}).get("error") or not self.has_preview(key):
                     return
                 self.previews = [(k, n, res["vals"] if k == key else v) for k, n, v in self.previews]
                 self.draw()

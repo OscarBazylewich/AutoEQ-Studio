@@ -30,10 +30,10 @@ def fmt_list(a, dash="-"):
     if all(isinstance(v, int) and not isinstance(v, bool) for v in a) and len(a) > 2 \
             and all(a[i] == a[i - 1] + 1 for i in range(1, len(a))):
         return f"{a[0]}{dash}{a[-1]}"
-    return ", ".join(_num(v) for v in a)
+    return ", ".join(_number_text(v) for v in a)
 
 
-def _num(v):
+def _number_text(v):
     """A number as a box shows it: 0.5, 16000, 0.00005 (never 5e-05)."""
     if not isinstance(v, float):
         return str(v)
@@ -88,7 +88,7 @@ class Limits:
         lim = self.of(key)
         if not lim:
             return ""
-        s = f"{_num(lim['min'])} to {_num(lim['max'])}{(' ' + lim['unit']) if lim.get('unit') else ''}"
+        s = f"{_number_text(lim['min'])} to {_number_text(lim['max'])}{(' ' + lim['unit']) if lim.get('unit') else ''}"
         if lim.get("list"):
             s = "each value " + s
         if lim.get("empty"):
@@ -117,9 +117,9 @@ class Limits:
                 continue
             unit = (" " + lim["unit"]) if lim.get("unit") else ""
             return "pair", (f"The value must be {'less than' if strict else 'equal to or less than'} the “to” value "
-                            f"({_num(b)}{unit})" if key == lo
+                            f"({_number_text(b)}{unit})" if key == lo
                             else f"The value must be {'more than' if strict else 'equal to or more than'} the “from” "
-                            f"value ({_num(a)}{unit})")
+                            f"value ({_number_text(a)}{unit})")
         return None
 
     def clamp(self, key, v):
@@ -151,7 +151,7 @@ def help_of(path):
 class Field(QWidget):
     """One setting's box (and, when the automatic settings fill it, its tag)."""
     committed = Signal(str, object)   # (path, value): a valid value the user set
-    handed_back = Signal(str)         # (path): "yours ↺" clicked
+    make_auto_clicked = Signal(str)         # (path): "yours ↺" clicked
 
     def __init__(self, form, path, kind, options=None, placeholder=""):
         super().__init__()
@@ -177,7 +177,7 @@ class Field(QWidget):
             self.box = QLineEdit()
             self.box.setPlaceholderText(placeholder or (form.limits.of(path) or {}).get("empty", ""))
             self.box.textEdited.connect(self._typed)
-            self.box.editingFinished.connect(self._left)
+            self.box.editingFinished.connect(self._edit_finished)
             if kind == "num":
                 self.box.setMaximumWidth(110)
         # (a drop-down or a list of numbers as wide as its choices, not the card: its tag right after it, where every
@@ -201,7 +201,7 @@ class Field(QWidget):
             self.box.installEventFilter(self)
         self.tag = QToolButton()
         theme.mark(self.tag, tag=True)
-        self.tag.clicked.connect(lambda: self.handed_back.emit(self.path))
+        self.tag.clicked.connect(lambda: self.make_auto_clicked.emit(self.path))
         self.tag.hide()
         lay.addWidget(self.tag)
         if kind == "check" or capped:  # (the tag right beside its box)
@@ -234,9 +234,9 @@ class Field(QWidget):
         elif self.kind in ("intlist", "numlist"):
             self.box.setText(fmt_list(v))
         elif self.kind == "ranges":
-            self.box.setText(", ".join(f"{_num(r[0])}..{_num(r[1])}" for r in v or []))
+            self.box.setText(", ".join(f"{_number_text(r[0])}..{_number_text(r[1])}" for r in v or []))
         else:
-            self.box.setText("" if v is None else _num(v))
+            self.box.setText("" if v is None else _number_text(v))
         self.box.blockSignals(False)
         self._mark(None)
 
@@ -290,7 +290,7 @@ class Field(QWidget):
         self._mark(None)
         self._commit(v)
 
-    def _left(self):
+    def _edit_finished(self):
         """Leaving the box: a value past a limit moves to the limit (said); an emptied one shows the value in use."""
         v = self.read()
         msg, problem = self._checked(v)
@@ -299,7 +299,7 @@ class Field(QWidget):
             if not self.form.limits.check(self.path, c, self.form.get):
                 self._commit(c)
                 self.show_value(c)
-                self.form.say(f"The value changed to {fmt_list(c) if isinstance(c, list) else _num(c)}. "
+                self.form.say(f"The value changed to {fmt_list(c) if isinstance(c, list) else _number_text(c)}. "
                               f"Permitted: {self.form.limits.text(self.path)}.")
                 return
         if isinstance(v, tuple) and self.box.text().strip() == "":
@@ -313,7 +313,7 @@ class Field(QWidget):
         c = self.form.limits.clamp(self.path, _whole(round(v + n * self.step, 6)))
         if c == v or self.form.limits.check(self.path, c, self.form.get):
             return
-        self.box.setText(_num(c))
+        self.box.setText(_number_text(c))
         self._mark(None)
         self._commit(c)
 
@@ -354,15 +354,15 @@ def line_up_together(*forms):
 class Form(QWidget):
     """Rows of settings in sections. Each row: (label, [Field spec…], show) where a spec is (path, kind, options);
     two specs in a row are a "from … to …" pair. changed(path, value) is called with each valid value set;
-    hand_back(path) for "yours ↺"; steps {path: step} gives a number box − and + (and ↑ ↓). The labels are one column
+    make_auto(path) for "yours ↺"; steps {path: step} gives a number box − and + (and ↑ ↓). The labels are one column
     for every section, as wide as the widest of them (_line_up): each section's boxes start at the same place (a
     column per section made them zig-zag down Advanced). add_sections(sections) adds more sections under them later,
     exactly as if they'd been in the list (Make an EQ makes Advanced in two halves, one per step of its build)."""
 
-    def __init__(self, sections, limits, get, changed, hand_back, say, steps=None):
+    def __init__(self, sections, limits, get, changed, make_auto, say, steps=None):
         super().__init__()
         self.limits, self.get, self.say, self.steps = limits, get, say, steps
-        self._changed, self._hand_back = changed, hand_back
+        self._changed, self._make_auto = changed, make_auto
         self.fields, self.rows = {}, []
         self._labels, self._grids = [], []
         lay = QVBoxLayout(self)
@@ -373,7 +373,7 @@ class Form(QWidget):
     def add_sections(self, sections):
         """More sections under those there are (their rows and boxes as the form's own), the label column lined up
         again over all of them."""
-        lay, changed, hand_back = self.layout(), self._changed, self._hand_back
+        lay, changed, make_auto = self.layout(), self._changed, self._make_auto
         for title, rows in sections:
             sec = QWidget()
             sl = QVBoxLayout(sec)
@@ -412,7 +412,7 @@ class Form(QWidget):
                     f = Field(self, spec[0], spec[1], spec[2] if len(spec) > 2 else None,
                               spec[3] if len(spec) > 3 else "")
                     f.committed.connect(changed)
-                    f.handed_back.connect(hand_back)
+                    f.make_auto_clicked.connect(make_auto)
                     f.box.setAccessibleName(label.strip() + (" (to)" if j else ""))  # (what a screen reader says)
                     if f.step:
                         f.minus.setAccessibleName(label.strip() + " lower")
@@ -477,7 +477,7 @@ class Fold(QFrame):
         self.btn.setCheckable(True)
         self.btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         theme.mark(self.btn, fold=True)
-        self.btn.toggled.connect(self._set)
+        self.btn.toggled.connect(self._set_open)
         head.addWidget(self.btn)
         self.summary = QLabel("")
         theme.mark(self.summary, role="muted")
@@ -488,9 +488,9 @@ class Fold(QFrame):
         self.body_lay.setContentsMargins(0, 4, 0, 8)
         lay.addWidget(self.body)
         self.btn.setChecked(open_)
-        self._set(open_)
+        self._set_open(open_)
 
-    def _set(self, on):
+    def _set_open(self, on):
         self.btn.setArrowType(Qt.DownArrow if on else Qt.RightArrow)
         self.body.setVisible(on)
         self.toggled.emit(on)

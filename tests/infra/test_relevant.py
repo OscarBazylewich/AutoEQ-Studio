@@ -273,7 +273,7 @@ def test_graph(tmp_path, check):
           "loads, and no further",
           {"screens.page", "player.devices", "player.files", "textio"} <= main
           and not any(m.startswith("eq") for m in main), sorted(main))
-    roots, files = project.reach(PAGE)
+    roots, files = project.roots_of(PAGE)
     check("relevant tests: a fixture brings what it imports, followed through the fixtures it asks for (with the "
           "helpers those import), and the COVERS_FILES of its helpers",
           roots.get("eq.service") == "from the studio fixture" and "places" in roots

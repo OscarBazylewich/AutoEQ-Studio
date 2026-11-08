@@ -90,7 +90,7 @@ def test_remove_a_run_with_undo(eq_screen, check):
 
 def test_by_hand_sources_in_their_order(eq_screen, check):
     page = eq_screen.page
-    page.fill_hand_sources()
+    page.fill_manual_sources()
     c = page.hand_source
     words = [c.itemText(k) for k in range(c.count())]
     check("eq page: By hand's Start from lists an EQ's sources in the order every such list has (an empty EQ, a copy "
@@ -102,7 +102,7 @@ def test_by_hand_sources_in_their_order(eq_screen, check):
 
 def test_result_card_lines_up(eq_screen, check):
     page = eq_screen.page
-    page.start_by_hand([{"type": "PK", "freq": 1000, "gain": 2, "q": 1}], "pasted", "Lines up")
+    page.start_manual([{"type": "PK", "freq": 1000, "gain": 2, "q": 1}], "pasted", "Lines up")
     qt.pump(50)
     widths = {lab.minimumWidth() for lab in (page.runs_lab, page.count_lab, page.name_lab)}
     title_y = page.res_title.mapTo(page.result_box, page.res_title.rect().center()).y()

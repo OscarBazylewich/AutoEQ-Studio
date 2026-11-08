@@ -1,4 +1,4 @@
-"""Make an EQ's Presets (ui\\eq_page.py: save_preset, fill_presets, load_preset, delete_preset, reset_settings):
+"""Make an EQ's Presets (ui\\eq_page.py: save_preset, fill_presets, load_preset, delete_preset, use_initial_settings):
 the settings saved under a name (not your files), listed, loaded (Undo puts the ones before back), deleted; Reset
 all settings with its Undo. Moved from eq_checks.py's preset_checks (lines 2120-2159), on a page opened as the old
 checks opened it (the eq_screen fixture). Delete and Reset ask first: answered Yes by the tests' dialogs
@@ -32,7 +32,7 @@ def test_presets(eq_screen, monkeypatch, check):
     page.delete_preset("Check preset")
     gone = not os.path.exists(os.path.join(eq_paths.PRESET_DIR, "Check preset.json"))
     page.S["best_fit"]["q_min"] = 0.7
-    page.reset_settings()
+    page.use_initial_settings()
     reset = page.S["best_fit"]["q_min"] != 0.7 and json.dumps(page.S["files"]) == was_files
     eq_screen.undo()  # (the message line's Undo)
     reset_undone = page.S["best_fit"]["q_min"] == 0.7

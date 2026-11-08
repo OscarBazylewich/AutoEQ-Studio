@@ -113,7 +113,7 @@ class EqLive:
         if not on:
             self.hide_live_graph()
 
-    def _live(self):
+    def _live_graph_card(self):
         """The floating card, made the first time it's wanted (on the page's scroll area's view, over the page)."""
         lg = getattr(self, "live_graph", None)
         if lg is None:
@@ -124,7 +124,7 @@ class EqLive:
             area.viewport().installEventFilter(_Watch(self))
         return lg
 
-    def poke_live_graph(self):
+    def request_live_graph(self):
         """An edit of the filters: the floating graph shown (if it's on and the graph is out of sight), placed and
         drawn."""
         if not self.live_graph_on() or not getattr(self, "_live_series", None) or getattr(self, "page_area", None) is None:
@@ -164,7 +164,7 @@ class EqLive:
             if editor_seen <= 0.0:
                 self._live_wanted = False  # (the filters out of sight: shown again with the next edit)
             return
-        lg = self._live()
+        lg = self._live_graph_card()
         rect_of = lambda wd: QRect(wd.mapTo(vp, QPoint(0, 0)), wd.size()).intersected(r)
         focus = QApplication.focusWidget()
         held = rect_of(focus) if focus is not None and self.editor.isAncestorOf(focus) else None

@@ -34,10 +34,10 @@ class ProfilesScreen:
         row = QHBoxLayout()
         self.prof_needs_one = []
         for text, fn, symbol in (("Import EQ files…", lambda: self.import_files(), "import"),
-                                 ("Edit in Make an EQ", self._edit_by_hand, "edit"),
-                                 ("Rename…", self._rename, "rename"),
+                                 ("Edit in Make an EQ", self._edit_in_make_eq, "edit"),
+                                 ("Rename…", self._rename_profile, "rename"),
                                  ("Open the profiles folder", lambda: self.open_folder(self.sw.apo.profiles), "folder"),
-                                 ("Delete…", self._remove, "delete")):
+                                 ("Delete…", self._delete_profile, "delete")):
             b = QPushButton(text)
             icons.put(b, symbol)
             b.clicked.connect(fn)
@@ -74,12 +74,12 @@ class ProfilesScreen:
         for c in (1, 2):
             h.setSectionResizeMode(c, QHeaderView.ResizeToContents)
         self.prof_table.itemChanged.connect(self._renamed)
-        self.prof_table.itemSelectionChanged.connect(self._prof_chosen)
+        self.prof_table.itemSelectionChanged.connect(self._update_profile_commands)
         lay.addWidget(self.prof_table, 1)
-        self._prof_chosen()
+        self._update_profile_commands()
         return w
 
-    def _prof_chosen(self):
+    def _update_profile_commands(self):
         """The chosen profile's commands on with a profile chosen, off without."""
         one = self._selected_profile() is not None
         for b in self.prof_needs_one:
@@ -108,7 +108,7 @@ class ProfilesScreen:
             if pid == chosen:
                 t.selectRow(r)
         t.blockSignals(False)
-        self._prof_chosen()
+        self._update_profile_commands()
 
     def _selected_profile(self):
         rows = self.prof_table.selectionModel().selectedRows() if self.prof_table.selectionModel() else []
@@ -121,7 +121,7 @@ class ProfilesScreen:
             if not self.sw.rename_profile(pid, item.text()):
                 self.render_profiles()
 
-    def _rename(self):
+    def _rename_profile(self):
         pid = self._selected_profile()
         if not pid:
             return
@@ -130,16 +130,16 @@ class ProfilesScreen:
         if ok:
             self.sw.rename_profile(pid, name)
 
-    def _edit_by_hand(self):
+    def _edit_in_make_eq(self):
         """The chosen profile in Make an EQ as an EQ by hand (once that has opened): change its filters, then Use on
         device › Update puts it back."""
         pid = self._selected_profile()
         if not pid:  # (off then: UI-RULES 19)
             return
         self.show_page("eq")
-        self.eq_then(lambda page: page.hand_from_profile(pid), "The profile opens after Make an EQ opens…")
+        self.when_eq_opens(lambda page: page.manual_from_profile(pid), "The profile opens after Make an EQ opens…")
 
-    def _remove(self):
+    def _delete_profile(self):
         pid = self._selected_profile()
         if not pid:
             return

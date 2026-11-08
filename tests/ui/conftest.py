@@ -243,7 +243,7 @@ def set_up_window(devices_window, qapp):
         dlg = SetUpDialog(w.sw, w.win)
         w.offered = (dlg.chk_es_auto is not None and dlg.chk_es_auto.isChecked(),
                      dlg.chk_es_quit is not None and dlg.chk_es_quit.isChecked())
-        dlg._go()  # (its Set up button's action)
+        dlg._add_to_apo()  # (its Add to APO button's action)
     qapp.processEvents()
     w.done_es, w.warnings = done_es, warnings
     qt.wait_for(lambda: not w.win._checking, 30)  # (the device's line asked APO by itself: its answer is in)

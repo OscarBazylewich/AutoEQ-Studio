@@ -120,7 +120,7 @@ def group(eps):
 _enumerator = None
 
 
-def _com():
+def _device_enumerator():
     """Windows' audio device service (IMMDeviceEnumerator), made once."""
     global _enumerator
     if _enumerator is None:
@@ -150,11 +150,11 @@ def _com():
     return _enumerator
 
 
-def playing():
+def playing_guid():
     """The guid of the device playing now (Windows' default playback device, lower case), or None (none, or Windows'
     audio service didn't answer)."""
     try:
-        dev_id = _com().GetDefaultAudioEndpoint(0, 1)  # (render, multimedia: where music and videos play)
+        dev_id = _device_enumerator().GetDefaultAudioEndpoint(0, 1)  # (render, multimedia: where music and videos play)
         dev_id = dev_id.GetId()
     except (OSError, ctypes.ArgumentError, ValueError):
         return None

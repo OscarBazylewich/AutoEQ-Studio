@@ -268,6 +268,6 @@ def test_not_asked_about_a_file_it_wont_write(atomic, check):
     out_tmp, all_on = atomic.out_tmp, atomic.all_on
     shelf = [{"type": "LSQ", "freq": 100, "gain": 3, "q": 0.7}]
     open(os.path.join(out_tmp, "Atomic - UAPP.xml"), "a").close()
-    asked = exports.existing(all_on, "Atomic", ["apo", "uapp"], out_dir=out_tmp, filters=shelf)
+    asked = exports.files_to_replace(all_on, "Atomic", ["apo", "uapp"], out_dir=out_tmp, filters=shelf)
     # was eq_checks.py:364
     check("formats: saving doesn't ask about an app's file it won't write", asked == ["Atomic - filters.txt"], asked)

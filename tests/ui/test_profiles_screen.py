@@ -41,7 +41,7 @@ def test_edit_in_make_an_eq(set_up_window, qapp, check, monkeypatch):
     from ui import help_window
     win = set_up_window.win
     asked, shown = [], []
-    monkeypatch.setattr(win, "eq_then", lambda fn, said: asked.append(said))
+    monkeypatch.setattr(win, "when_eq_opens", lambda fn, said: asked.append(said))
     monkeypatch.setattr(win, "show_page", lambda key, remember=True: shown.append(key))
     win.render_all()
     win.prof_table.clearSelection()

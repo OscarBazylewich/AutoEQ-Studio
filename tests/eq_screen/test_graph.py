@@ -37,17 +37,17 @@ def test_graph_views_and_the_values_under_the_pointer(eq_screen, check):
     # (lines 2005-2017: the views chosen, the plot resized and the pointer at its centre, the views put back and the
     # timer that would save them stopped)
     keep = dict(page.sw.s.get("graph") or {})
-    page.graph_option(view="rel")
+    page.set_graph_option(view="rel")
     tgt = dict(page._drawn["series"])["Target"]
     rel_ok = page._drawn["rel"] and float(np.max(np.abs(tgt))) < 1e-9 and page.plot.getAxis("left").labelText == "Δ dB"
-    page.graph_option(y="30")
+    page.set_graph_option(y="30")
     lo, hi = page.plot.viewRange()[1]
-    page.graph_option(view="abs", y="auto")
+    page.set_graph_option(view="abs", y="auto")
     page.plot.resize(800, 300)
     pl = page.plot
     page._hover(pl.mapToScene(QPoint(int(pl.width() * 0.5), int(pl.height() * 0.5))))
     read = page.hover_lab.text()
-    page.graph_option(**keep)
+    page.set_graph_option(**keep)
     page._graph_timer.stop()
     # was eq_checks.py:2018
     check("graph views: Relative to target (the target at 0 dB, the axis Δ dB), a 30 dB Y range, the values under "

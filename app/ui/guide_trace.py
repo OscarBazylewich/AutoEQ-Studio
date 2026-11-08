@@ -1,6 +1,6 @@
 """Trace image's Guide (AutoEQ Local's tracer TOUR, told for AutoEQ Studio's window; ui/tour.py shows it):
 trace_steps(tw), every step in order, and start_trace(tw), the tour, on the sample graph when no picture is
-open. Keep the steps in their order: the checks find the Auto trace step by its place (t.go(7)).
+open. Keep the steps in their order: the checks find the Auto trace step by its place (t.go_to_step(7)).
 """
 from ui import tour
 

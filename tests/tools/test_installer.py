@@ -28,7 +28,7 @@ def test_installer_script_compiles(qapp, tmp_path, check):
     top = str(tmp_path)
     stage = os.path.join(top, "iss", "stage")
     os.makedirs(stage)
-    brand_exe.icon_file(os.path.join(stage, "AutoEQ Studio.ico"))
+    brand_exe.write_icon_file(os.path.join(stage, "AutoEQ Studio.ico"))
     with open(os.path.join(stage, "readme.txt"), "w") as fh:
         fh.write("stand-in")
     bad = []

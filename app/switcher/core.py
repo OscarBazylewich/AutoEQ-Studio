@@ -48,7 +48,7 @@ DEFAULTS = {"profiles": {}, "devices": {}, "notify": True, "hotkey": "Ctrl+Alt+E
 
 
 class Switcher:
-    def __init__(self, settings_path, apo, endpoints=devices_mod.endpoints, playing=devices_mod.playing):
+    def __init__(self, settings_path, apo, endpoints=devices_mod.endpoints, playing=devices_mod.playing_guid):
         self.path, self.apo = settings_path, apo
         self._endpoints, self._playing = endpoints, playing
         self.s = self._load()
@@ -147,7 +147,7 @@ class Switcher:
     def device(self, key):
         return next((d for d in self.devices if d.key == key), None)
 
-    def order(self, key):
+    def device_sort_key(self, key):
         """A device's place in the lists of devices (the Devices screen, Use on device): connected ones first, then A to
         Z by the name shown, your name for it or Windows' (numbers as numbers: .claude/notes/UI-RULES.md 22; it was by
         Windows' name, so a device you'd renamed sat out of order)."""
@@ -195,7 +195,7 @@ class Switcher:
         (said as it is) or OSError (couldn't read or write)."""
         if not self.apo.found:
             raise OSError("Equalizer APO is not installed. Thus, AutoEQ Studio cannot keep profiles.")
-        self._writable()
+        self._require_writable()
         raw, info = eqfile.read_eq(path)
         name = self._unique_name((name or eqfile.name_from_file(path)).strip() or "EQ")
         file = textfile.safe_name(name, "EQ", 80) + ".txt"
@@ -219,7 +219,7 @@ class Switcher:
         p = self.s["profiles"].get(pid)
         if not p:
             raise OSError("The profile is not there.")
-        self._writable()
+        self._require_writable()
         raw, info = eqfile.read_eq(path)
         os.makedirs(self.apo.profiles, exist_ok=True)
         textfile.write_atomic(os.path.join(self.apo.profiles, p["file"]), raw)
@@ -249,7 +249,7 @@ class Switcher:
                 d["profiles"].remove(pid)
             if d["active"] == pid:
                 d["active"] = None
-                self._end_compare(key)
+                self._clear_compare(key)
             if d.get("last") == pid:
                 d.pop("last")
         self.save()
@@ -314,7 +314,7 @@ class Switcher:
         d["profiles"].remove(pid)
         if d["active"] == pid:
             d["active"] = None
-            self._end_compare(key)
+            self._clear_compare(key)
         if d.get("last") == pid:
             d.pop("last")
         self.save()
@@ -326,7 +326,7 @@ class Switcher:
         d = self.record(key)
         if self.trial and self.trial["key"] == key:  # (an EQ chosen by hand ends a trial on that device)
             self.end_trial()
-        ended = self._end_compare(key)  # (and its "off for now")
+        ended = self._clear_compare(key)  # (and its "off for now")
         if not d or (pid is not None and pid not in d["profiles"]) or d["active"] == pid:
             if ended:
                 self.apply()
@@ -359,7 +359,7 @@ class Switcher:
     def try_eq(self, key, apo_text, name, minutes=5):
         """Play an EQ (Equalizer APO text) on a device for a few minutes, in every app, without making it a profile.
         Its own EQ comes back by itself (end_trial, from the app's clock). Raises OSError when it can't."""
-        self._writable()
+        self._require_writable()
         if not self.apo.found:
             raise OSError("Equalizer APO is not installed. Thus, the device cannot use the EQ.")
         if not self.record(key):
@@ -367,7 +367,7 @@ class Switcher:
         os.makedirs(self.apo.profiles, exist_ok=True)
         textfile.write_atomic(self.trial_path(), apo_text)
         self.trial = {"key": key, "name": name, "until": time.time() + minutes * 60}
-        self._end_compare(key)
+        self._clear_compare(key)
         self.apply()
         self._tell("active", key=key)
 
@@ -376,7 +376,7 @@ class Switcher:
         again, so Equalizer APO plays the change at once; the time left stays. False when nothing is being tried."""
         if not self.trial:
             return False
-        self._writable()
+        self._require_writable()
         textfile.write_atomic(self.trial_path(), apo_text)
         return True
 
@@ -386,7 +386,7 @@ class Switcher:
         t, pid = self.trial, None
         if not t:
             return None
-        self._end_compare(t["key"])
+        self._clear_compare(t["key"])
         if keep and self.record(t["key"]):
             pid = self.import_profile(self.trial_path(), t["name"])
             self.trial = None
@@ -440,7 +440,7 @@ class Switcher:
                 return None
             self.set_active(key, pid)
             return "on", self.profile_name(pid)
-        self._writable()
+        self._require_writable()
         matched = bool(self.s.get("onoff_matched", True))
         c = {"key": key, "matched": matched, "db": None, "louder": False, "complete": True}
         if matched:
@@ -464,7 +464,7 @@ class Switcher:
             self.apply()
             self._tell("active", key=key)
 
-    def _end_compare(self, key):
+    def _clear_compare(self, key):
         """Off for now ended for this device, quietly (another choice for it): True when it was."""
         if self.compare and self.compare["key"] == key:
             self.compare = None
@@ -495,21 +495,21 @@ class Switcher:
             self._tell("apo", error=str(e))
             return False
 
-    def _writable(self):
+    def _require_writable(self):
         """Read-only (the settings file held by another program): nothing of APO's is changed either (review 2: set-up
         and imports still wrote while the settings couldn't be)."""
         if self.read_only:
             raise OSError(self.problem or "AutoEQ Studio cannot read its settings. Thus, it makes no changes.")
 
-    def set_up_apo(self, turn_off=True):
-        self._writable()
+    def add_to_apo(self, turn_off=True):
+        self._require_writable()
         off = self.apo.install_line(turn_off)
         self.apply()
         self._tell("apo")
         return off
 
     def remove_from_apo(self):
-        self._writable()
+        self._require_writable()
         self.apo.remove_line()
         self._tell("apo")
 

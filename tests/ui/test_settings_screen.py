@@ -70,7 +70,7 @@ def test_after_a_restore_nothing_is_saved_before_the_restart(devices_window, che
     monkeypatch.setattr(backup, "read", lambda src: {"made": "today", "files": 1, "profiles": 0})
     monkeypatch.setattr(backup, "restore", lambda src, prof: {"files": 1, "kept": "kept.zip", "skipped": []})
     try:
-        w.win.restore_backup()
+        w.win.load_backup()
     finally:
         monkeypatch.undo()
         sw.read_only = False
