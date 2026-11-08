@@ -66,9 +66,9 @@ def test_the_set_up_dialog_as_windows_11(themed_window, check, fake_apo, tmp_pat
           "rows", 0 < (d.get("size") or [0])[0] <= 800 and (d.get("boxes") or 0) >= 3 and d.get("cut") == []
           and d.get("lists") == [[3, 0], [2, 0]], d or out.stderr[-300:])
     check("set up: Set up is its main action (in the accent, Enter's), on Windows 11's band of buttons below the words",
-          d.get("go") == ["Set up", "true", True] and d.get("band") is True, d and (d.get("go"), d.get("band"))
+          d.get("go") == ["Add to APO", "true", True] and d.get("band") is True, d and (d.get("go"), d.get("band"))
           or out.stderr[-300:])
     # (2026-10-23: a screen reader said only "list" for both)
     check("set up: its two lists have names a screen reader reads (the lines on in config.txt, the EQ files to add)",
-          d.get("names") == ["Lines on in config.txt", "EQ files to add as profiles"], d and d.get("names")
+          d.get("names") == ["Enabled lines in config.txt", "EQ files to add as profiles"], d and d.get("names")
           or out.stderr[-300:])

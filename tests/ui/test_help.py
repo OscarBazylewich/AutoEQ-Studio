@@ -41,10 +41,10 @@ def test_search_and_going_to_an_entry(qapp, check):
     from ui import help_window as hw
     w = hw.open_at()
     try:
-        w.q.setText("rig conversion")
+        w.q.setText("rig change database")  # ("rig change" alone is in 16 entries)
         found = w.toc.count()
         w.q.setText("zzzz qqqq")
-        none = "Nothing matches" in w.view.toPlainText()
+        none = "No results with all of these words" in w.view.toPlainText()
         w.q.setText("rig")
         w.go("set-best-fit-filter-counts")
         # was selftest.py:899

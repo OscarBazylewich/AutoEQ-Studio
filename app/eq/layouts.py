@@ -47,7 +47,7 @@ def is_fixed(key):
 
 
 def name(key):
-    return "Any filters" if key == "any" else "Your own bands" if key == OWN_BANDS else (
+    return "Parametric filters" if key == "any" else "Your bands" if key == OWN_BANDS else (
         FIXED[key][0] if key in FIXED else DEVICES[key]["name"] if key in DEVICES else key)
 
 
@@ -118,23 +118,23 @@ def device_settings(bf, n_mine=0):
 def summary(key):
     """A line on what the layout holds (the page shows it under the layout)."""
     if key == "any":
-        return "Filters anywhere, as many as the counts below: for EQ apps that take any filters."
+        return "Filters at all frequencies, with the filter counts that you set: for EQ apps with no limits on the filters."
     if key in FIXED:
         f, q = FIXED[key][1], FIXED[key][2]
-        return f"{len(f)} bands, {_hz(f[0])} to {_hz(f[-1])}, Q {q:g}: only their gains are fitted."
+        return f"{len(f)} bands, {_hz(f[0])} to {_hz(f[-1])}, Q {q:g}: Best fit adjusts only their gains."
     if key == OWN_BANDS:
-        return "The frequencies and Q below: only their gains are fitted."
+        return "The frequencies and Q that you set: Best fit adjusts only their gains."
     d = DEVICES[key]
-    parts = (["any number of filters"] if d.get("open") else
-             [f"up to {d['bands']} filters (peaking or shelves)"] if "bands" in d else
-             [f"up to {d['peaks']} peaking filters" + (" plus a low and a high shelf" if d["shelves"] else "")])
+    parts = (["no limit on the number of filters"] if d.get("open") else
+             [f"maximum {d['bands']} filters (peaking or shelf)"] if "bands" in d else
+             [f"maximum {d['peaks']} peaking filters" + (", and a low and a high shelf" if d["shelves"] else "")])
     if "gain" in d:
         parts.append(f"gain {d['gain'][0]:+g} to {d['gain'][1]:+g} dB")
     if "q" in d:
         parts.append(f"Q {d['q'][0]:g}–{d['q'][1]:g}")
     if "freq" in d:
         parts.append(f"{_hz(d['freq'][0])}–{_hz(d['freq'][1])}")
-    return f"{d['name']}: " + ", ".join(parts) + ". The settings below are kept within these."
+    return f"{d['name']}: " + ", ".join(parts) + ". The settings stay in these limits."
 
 
 def _hz(v):
@@ -143,6 +143,6 @@ def _hz(v):
 
 def listing():
     """For the page: [{key, name, group, summary}] in the layout list's order."""
-    group = lambda k: "Any" if k == "any" else "EQ apps (Your EQ app)" if k.startswith("app:") else "Fixed bands"
+    group = lambda k: "Any" if k == "any" else "EQ apps (Your EQ app)" if k.startswith("app:") else "Graphic EQ"
     return [{"key": k, "name": name(k), "group": group(k), "summary": summary(k), "fixed": is_fixed(k),
              "shelves": DEVICES[k]["shelves"] if k in DEVICES else not is_fixed(k)} for k in KEYS]

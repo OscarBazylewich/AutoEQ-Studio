@@ -40,16 +40,16 @@ class QueueWindow(QDialog):
     def __init__(self, page):
         super().__init__(page)
         self.page = page
-        self.setWindowTitle("Run several")
+        self.setWindowTitle("Queue")
         # (smaller than 640 x 520, the lists showed a row and the words ran over each other; both within the screen's
         # room: 720 high was under the taskbar of a laptop at 150 %)
         fit_to_screen(self, (900, 720), (640, 520))
         self.jobs, self.i, self.running, self.stop = [], -1, False, False
         v = QVBoxLayout(self)
         v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as a card's)
-        lead = QLabel("Make an EQ for each IEM ticked with each target ticked, one after another, with the settings "
-                      "and method you have now. Each picked result is saved into your Saved EQs folder and kept in "
-                      "History. Keep this window open while it runs: closing it stops them.")
+        lead = QLabel("The queue makes an EQ for each selected IEM with each selected target, one after the other, "
+                      "with your settings and method. The app saves each EQ in your Saved EQs folder and in History. "
+                      "Keep this window open: if you close it, the queue stops.")
         lead.setWordWrap(True)
         theme.mark(lead, role="muted")
         v.addWidget(lead)
@@ -84,8 +84,8 @@ class QueueWindow(QDialog):
             b.setAutoDefault(False)
         self.table = QTableWidget(0, 3)
         self.table.setObjectName("eqwQueue")  # (room at the left of its cells: ui\theme_sheet.py's eq_windows)
-        self.table.setAccessibleName("How each one went")
-        self.table.setHorizontalHeaderLabels(["IEM", "Target", "How it went"])
+        self.table.setAccessibleName("Result of each EQ")
+        self.table.setHorizontalHeaderLabels(["IEM", "Target", "Result"])
         self.table.verticalHeader().hide()
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.setShowGrid(False)  # (rows told apart by their shade, as Windows 11's lists)
@@ -105,7 +105,7 @@ class QueueWindow(QDialog):
 
     def count(self):
         n = len(_ticked(self.devs)) * len(_ticked(self.tgts))
-        self.count_lab.setText(f"{n} EQ{'s' if n != 1 else ''} to make" if n else "Tick at least one IEM and one target.")
+        self.count_lab.setText(f"{n} EQ{'s' if n != 1 else ''} to make" if n else "Select an IEM and a target.")
         self.start_btn.setEnabled(bool(n) and not self.running)
 
     # ---------------------------------------------------------------- running
@@ -116,7 +116,7 @@ class QueueWindow(QDialog):
             return
         self.table.setRowCount(len(self.jobs))
         for i, (d, t) in enumerate(self.jobs):
-            for j, text in enumerate((d, os.path.splitext(t)[0], "Waiting")):
+            for j, text in enumerate((d, os.path.splitext(t)[0], "In the queue")):
                 self.table.setItem(i, j, QTableWidgetItem(text))
         self.running, self.stop, self.i = True, False, -1
         self.before = copy.deepcopy(page.S)  # (your choice of files: put back at the end)
@@ -140,9 +140,9 @@ class QueueWindow(QDialog):
         cfg["files"]["excluded"] = [m["name"] for m in page.inputs["measurements"] if m["name"] not in mine]
         r = page.svc.call("/api/run", {"settings": cfg, "mode": cfg["mode"]})
         if r.get("error"):
-            self.say(self.i, "Couldn't start: " + r["error"])
+            self.say(self.i, "Not started: " + r["error"])
             return QTimer.singleShot(0, self.next_job)
-        self.say(self.i, "Running…")
+        self.say(self.i, "In progress…")
         self.table.scrollToItem(self.table.item(self.i, 0))
         self.timer.start()
 
@@ -150,7 +150,7 @@ class QueueWindow(QDialog):
         page = self.page
         j = page.svc.call("/api/job")
         if j.get("status") == "running":
-            self.say(self.i, f"Running: {j.get('message') or ''}" + (f" · {round(j['elapsed'])} s" if j.get("elapsed") else ""))
+            self.say(self.i, f"In progress: {j.get('message') or ''}" + (f" · {round(j['elapsed'])} s" if j.get("elapsed") else ""))
             return
         self.timer.stop()
         page.svc.call("/api/job", {"ack": True})
@@ -160,9 +160,9 @@ class QueueWindow(QDialog):
             except Exception as e:  # noqa: BLE001 - said in the row, the queue goes on
                 self.say(self.i, f"Made, but not saved: {e}")
         elif j.get("status") == "cancelled":
-            self.say(self.i, "Cancelled")
+            self.say(self.i, "Canceled")
         else:
-            self.say(self.i, "Failed: " + (j.get("message") or "the run failed"))
+            self.say(self.i, ("Not made: " + j["message"]) if j.get("message") else "Not made")
         self.next_job()
 
     def keep(self, payload):
@@ -207,7 +207,7 @@ class QueueWindow(QDialog):
         if not h.get("error"):
             page.history = [e for e in page.history if e.get("key") != h["entry"]["key"]] + [h["entry"]]
         return (f"Done: {r['n_filters']} filters · {r['rms']:.2f} dB · "
-                + (f"saved as {written[0]}" if written else "not saved (no file ticked in Advanced › Saved files)"))
+                + (f"saved as {written[0]}" if written else "not saved (no file type selected in More settings › Saved files)"))
 
     def cancel(self):
         self.stop = True
@@ -226,7 +226,7 @@ class QueueWindow(QDialog):
         self.count()
         done = sum(1 for i in range(self.table.rowCount())
                    if (self.table.item(i, 2) or QTableWidgetItem("")).text().startswith("Done"))
-        self.footer.say(f"{done} of {len(self.jobs)} EQs made.", 0)  # (its own line, kept until the next)
+        self.footer.say(f"The queue made {done} of {len(self.jobs)} EQs.", 0)  # (its own line, kept until the next)
         if page.run_result is None and page.session_runs:  # (the result card was hidden: Runs this session out of reach)
             page.choose_run(id(page.session_runs[-1]))
 

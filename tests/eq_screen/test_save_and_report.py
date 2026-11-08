@@ -45,7 +45,7 @@ def test_save_with_no_file_ticked_and_report(eq_screen, chain, check, dialogs):
     page.S["export"].update({k: False for k in exp if isinstance(exp[k], bool)})
     dialogs.asked.clear()  # (the message boxes said so far: the old BOXES)
     page.save()
-    nothing = (any("No file is ticked" in text for _kind, text in dialogs.asked), len(page.history) == n_hist)
+    nothing = (any("No file type is selected" in text for _kind, text in dialogs.asked), len(page.history) == n_hist)
     page.S["export"].update(exp)
     path = page.report(open_it=False)
     # was eq_checks.py:1681

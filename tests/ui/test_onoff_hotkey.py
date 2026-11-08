@@ -25,7 +25,7 @@ def test_settings_row(devices_window, check):
     win.onoff_hotkey_changed.connect(emitted.append)
     try:
         none = next(b for b in win.pages["settings"].findChildren(QPushButton)
-                    if b.accessibleName() == "Clear the hotkey to switch the EQ off and on")
+                    if b.accessibleName() == "Clear the hotkey to disable and enable the EQ")
         none.click()
         win.chk_matched.setChecked(False)
         saved = w.sw.s.get("onoff_matched")
@@ -80,7 +80,7 @@ def test_devices_while_off_for_now(on_device, qapp, check):
     qapp.processEvents()  # (the panel made again: shown once Qt has laid it out)
     # (2026-10-27, UI-RULES 23: a bar at the window's top, as a trial's, says it; a card inside Devices' EQ card did)
     words = win.compare_text.text() if win.compare_holder.isVisibleTo(win) else ""
-    back = next((b for b in win.compare_bar.findChildren(QPushButton) if b.text() == "Switch it back on"), None)
+    back = next((b for b in win.compare_bar.findChildren(QPushButton) if b.text() == "Enable it again"), None)
     card_gone = not any(lab.text().startswith("Its EQ is off for now") for lab in
                         win.pages["devices"].findChildren(QLabel) if lab.isVisibleTo(win))  # (the old card's words)
     line = win._status(KEY)[1] if hasattr(win, "_status") else ""
@@ -89,7 +89,7 @@ def test_devices_while_off_for_now(on_device, qapp, check):
     win.render_all()
     check("onoff: a bar at the window's top says a device's EQ is off for now (how, the key, Switch it back on), as a "
           "trial's does, and Devices its line, with no APO check meanwhile; Switch it back on ends it",
-          "off for now" in words and "Ctrl+Alt+Space" in words and back is not None and line == "EQ off for now (comparing)"
+          "is off, to compare" in words and "Ctrl+Alt+Space" in words and back is not None and line == "EQ off, to compare"
           and no_check and card_gone and w.sw.compare is None and not win.compare_holder.isVisibleTo(win),
           (line, words[:300], no_check, card_gone))
 
@@ -111,9 +111,9 @@ def test_the_apps_notices(check):
     check("onoff: the notices say what happened: off for now level-matched (by how much), truly off, an EQ louder than "
           "none (it can't be matched) and one that can't be fully measured, back on (its name); a device with nothing "
           "to switch says how to give it one",
-          "turned down 4.2 dB" in off and "Ctrl+Alt+Space switches it back on" in off and plain.startswith("EQ off for now.")
-          and "can't be raised to match" in louder and "can't be measured" in louder and on == "EQ back on: Daily"
-          and said and "add a profile" in said[-1][1], (off, plain, louder, on, said))
+          "4.2 dB lower" in off and "Ctrl+Alt+Space enables it again" in off and plain.startswith("EQ off, to compare.")
+          and "cannot have the same level" in louder and "cannot measure some parts" in louder and on == "EQ on again: Daily"
+          and said and "Add a profile" in said[-1][1], (off, plain, louder, on, said))
 
 
 def test_the_tray_menu_item(on_device, qapp, check):
@@ -124,11 +124,11 @@ def test_the_tray_menu_item(on_device, qapp, check):
                                  end_trial=lambda keep=False: None, switch=lambda key, pid: None, quit=lambda: None)
     try:
         App.build_menu(fake)
-        item = next(a for a in fake.menu.actions() if a.text().startswith("EQ off for now, to compare"))
+        item = next(a for a in fake.menu.actions() if a.text().startswith("EQ off, to compare"))
         before = (item.text(), item.isCheckable(), item.isChecked())
         item.trigger()
         App.build_menu(fake)
-        after = next(a for a in fake.menu.actions() if a.text().startswith("EQ off for now")).isChecked()
+        after = next(a for a in fake.menu.actions() if a.text().startswith("EQ off, to compare")).isChecked()
     finally:
         from PySide6.QtCore import QCoreApplication, QEvent
         w.sw.compare_end()
@@ -136,7 +136,7 @@ def test_the_tray_menu_item(on_device, qapp, check):
         QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
     check("onoff: the tray menu has “EQ off for now, to compare” with the key beside it; chosen, the device's EQ is off "
           "for now and the item ticked",
-          before == ("EQ off for now, to compare\tCtrl+Alt+Space", True, False) and after, (before, after))
+          before == ("EQ off, to compare\tCtrl+Alt+Space", True, False) and after, (before, after))
 
 
 def test_defaults(check):

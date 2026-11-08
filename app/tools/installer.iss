@@ -33,7 +33,7 @@ AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
 AppPublisher={#AppName}
-AppComments=Makes EQs for headphones and IEMs, and gives each playback device its own EQ through Equalizer APO
+AppComments=Makes EQs for headphones and IEMs, and gives each playback device an EQ with Equalizer APO
 VersionInfoVersion={#AppVersion}.0
 VersionInfoDescription={#AppName} Setup
 DefaultDirName={autopf}\{#AppName}
@@ -76,7 +76,7 @@ Source: "{#Stage}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs crea
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{#Exe}"; Parameters: "{#Start}"; WorkingDir: "{app}"; \
   IconFilename: "{app}\AutoEQ Studio.ico"; AppUserModelID: "AutoEQStudio.AutoEQStudio"; \
-  Comment: "Make EQs for headphones and IEMs; an EQ for each playback device"
+  Comment: "Makes EQs for headphones and IEMs, and gives each playback device an EQ"
 Name: "{autodesktop}\{#AppName}"; Filename: "{#Exe}"; Parameters: "{#Start}"; WorkingDir: "{app}"; \
   IconFilename: "{app}\AutoEQ Studio.ico"; AppUserModelID: "AutoEQStudio.AutoEQStudio"; Tasks: desktopicon
 
@@ -123,8 +123,8 @@ begin
   begin
     if Silent then
       QuitInstalled(Dir)
-    else if MsgBox('AutoEQ Studio is running. Close it and continue?' + #13#10#13#10 +
-                   '(If it doesn''t close, quit it from its icon by the clock: right-click it, Quit.)',
+    else if MsgBox('AutoEQ Studio is open. Close it and continue?' + #13#10#13#10 +
+                   '(If it does not close, right-click its icon in the tray. Then click "Stop AutoEQ Studio".)',
                    mbConfirmation, MB_OKCANCEL) = IDOK then
       QuitInstalled(Dir)
     else
@@ -144,7 +144,7 @@ function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   Result := '';
   if not CloseRunning(ExpandConstant('{app}'), WizardSilent) then
-    Result := 'AutoEQ Studio is still running: quit it from its icon by the clock, then run Setup again.';
+    Result := 'AutoEQ Studio is open. Stop it from its icon in the tray. Then start Setup again.';
 end;
 
 { Windows' 260-character limit on paths: the program's deepest file is 122 characters below its folder. }
@@ -153,8 +153,8 @@ begin
   Result := True;
   if (CurPageID = wpSelectDir) and (Length(WizardDirValue) > 130) then
   begin
-    MsgBox('This folder''s path is too long for AutoEQ Studio''s files (Windows allows 260 characters). ' +
-           'Choose a shorter one.', mbError, MB_OK);
+    MsgBox('This folder''s path is too long for AutoEQ Studio''s files (the maximum in Windows is 260 ' +
+           'characters). Select a shorter path.', mbError, MB_OK);
     Result := False;
   end;
 end;
@@ -177,7 +177,7 @@ procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if (CurUninstallStep = usPostUninstall) and not UninstallSilent then
     if MsgBox('Also delete your AutoEQ Studio settings, History and downloaded curves?' + #13#10#13#10 +
-              'Your targets, measurements and saved EQs in Documents\AutoEQ Studio are kept either way.',
+              'Your targets, measurements and saved EQs stay in Documents\AutoEQ Studio.',
               mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
     begin
       DelTree(EnvDir('APPDATA', '{userappdata}'), True, True, True);

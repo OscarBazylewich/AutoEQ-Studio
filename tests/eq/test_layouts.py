@@ -58,8 +58,8 @@ def test_graphic_eq_apps_keep_their_sliders(check):
 def test_shared_layout_band_count(check):
     # was eq_checks.py:327
     check("EQ apps: a shared layout's band count from the layout itself; no empty 'Devices' group",
-          eq_apps.summary("boom3d").startswith("31 fixed bands") and eq_apps.summary("spotify").startswith("6 fixed bands")
-          and {x["group"] for x in layouts.listing()} == {"Any", "Fixed bands", "EQ apps (Your EQ app)"},
+          eq_apps.summary("boom3d").startswith("31 graphic EQ bands") and eq_apps.summary("spotify").startswith("6 graphic EQ bands")
+          and {x["group"] for x in layouts.listing()} == {"Any", "Graphic EQ", "EQ apps (Your EQ app)"},
           (eq_apps.summary("boom3d"), {x["group"] for x in layouts.listing()}))
 
 

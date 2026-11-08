@@ -90,13 +90,13 @@ def test_says_when_nothing_could_be_loaded(eq_screen, monkeypatch, check):
         note = cw.note.text()
         # (said in the list, where they'd be: UI-RULES 21, 2026-10-27; it was the line over the chart)
         listed = [w.text() for w in cw.scroll.widget().findChildren(type(cw.status))]
-        status = " ".join(t for t in listed if "could be loaded" in t or "was found" in t)
-        reasons = [t for t in listed if t.startswith("Couldn't")]
+        status = " ".join(t for t in listed if "cannot load" in t or "No results" in t)
+        reasons = [t for t in listed if t.startswith("Not loaded")]
     finally:
         qt.close(cw)
     check("ui: Which measurement says, in its list, none of the model's measurements could be loaded, and why (not "
-          "that nothing was found)", "could be loaded" in status and "was found" not in status
-          and "could be loaded" in note and reasons and "no internet in the tests" in reasons[0], (status, note, reasons))
+          "that nothing was found)", "cannot load" in status and "No results" not in status
+          and "cannot load" in note and reasons and "no internet in the tests" in reasons[0], (status, note, reasons))
 
 
 def test_use_puts_the_top_one_in_use(eq_screen, which, check):
@@ -191,7 +191,7 @@ def test_one_main_action(eq_screen, monkeypatch, check):
             qt.close(cw)
     check("restyle: Which measurement has the accent on one button only, its main action: the average's when one is "
           "offered, else the first measurement's Use (Compare plain: Enter in the model's box runs it)",
-          seen == {2: ["Average 2 and use"], 1: ["Use"], "Compare": False} and ran == [False], (seen, ran))
+          seen == {2: ["Use the average of 2"], 1: ["Use"], "Compare": False} and ran == [False], (seen, ran))
 
 
 def test_warning_symbol_named(eq_screen, monkeypatch, check):
@@ -297,4 +297,4 @@ def test_no_average_of_copies(eq_screen, monkeypatch, check):
           "this PC: nothing to average), the first measurement's Use its main action then; two different ones on the "
           "rig are still offered their average",
           seen == {"copies": {"averages": 0, "accent on": ["Use"]},
-                   "two different ones": {"averages": 1, "accent on": ["Average 2 and use"]}}, seen)
+                   "two different ones": {"averages": 1, "accent on": ["Use the average of 2"]}}, seen)

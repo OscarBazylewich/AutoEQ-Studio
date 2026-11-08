@@ -829,7 +829,8 @@ class _Steps(QFrame):
             it.setData(Qt.UserRole, i)
             if not ok:
                 it.setForeground(QColor(t["muted"]))
-                it.setToolTip("Its control isn't on screen yet (e.g. no result yet): the next step that is opens instead")
+                it.setToolTip("Its control is not on the screen (for example, there is no result): the next available step "
+                              "opens")
             if i == tr.i:
                 f = QFont(base)
                 f.setBold(True)
@@ -940,12 +941,12 @@ class Tour(QWidget):
         top = QHBoxLayout()
         self.count_btn = _Count()
         self.count_btn.setObjectName("tourCount")
-        self.count_btn.setToolTip("Go to any step")
+        self.count_btn.setToolTip("Go to a step")
         self.count_btn.setAccessibleName("Steps")
         self.count_btn.clicked.connect(self._toggle_list)
         top.addWidget(self.count_btn)
         top.addStretch(1)
-        self.badge = QLabel("Demo · your work isn't changed")
+        self.badge = QLabel("Demo · your work does not change")
         self.badge.setObjectName("tourBadge")
         top.addWidget(self.badge)
         b.addLayout(top)
@@ -969,22 +970,22 @@ class Tour(QWidget):
         demo_row = QHBoxLayout()
         self.replay_btn = QPushButton("Play demo")
         _symbol(self.replay_btn, "play")
-        self.replay_btn.setToolTip("Play this step's demo (again): R")
+        self.replay_btn.setToolTip("Play this step's demo again (R)")
         self.replay_btn.clicked.connect(self.replay)
         demo_row.addWidget(self.replay_btn)
-        self.pause_btn = QPushButton("Pause")
+        self.pause_btn = QPushButton("Wait")
         _symbol(self.pause_btn, "pause")
-        self.pause_btn.setToolTip("Pause or resume the demo (P)")
+        self.pause_btn.setToolTip("Wait or continue the demo (P)")
         self.pause_btn.clicked.connect(self.toggle_pause)
         demo_row.addWidget(self.pause_btn)
-        self.skip_btn = QPushButton("Skip demo")
+        self.skip_btn = QPushButton("Complete the demo")
         theme.mark(self.skip_btn, link=True)
         self.skip_btn.clicked.connect(self.skip_demo)
         demo_row.addWidget(self.skip_btn)
         demo_row.addStretch(1)
         opts = QHBoxLayout()
         self.all_chk = QCheckBox("Play all steps")
-        self.all_chk.setToolTip("Play each step's demo and go on to the next by itself")
+        self.all_chk.setToolTip("The Guide plays the demo of each step and then goes to the next step automatically")
         self.all_chk.setChecked(_kept["all"])
         self.all_chk.toggled.connect(self._set_all)
         opts.addWidget(self.all_chk)
@@ -996,7 +997,7 @@ class Tour(QWidget):
         self.speed_slider.setRange(0, len(SPEEDS) - 1)
         self.speed_slider.setFixedWidth(90)
         self.speed_slider.setAccessibleName("Demo speed")
-        self.speed_slider.setToolTip("How fast the demos play")
+        self.speed_slider.setToolTip("The speed of the demos")
         self.speed_slider.setValue(min(range(len(SPEEDS)), key=lambda k: abs(SPEEDS[k] - self.speed)))
         self.speed_slider.valueChanged.connect(self._set_speed)
         opts.addWidget(self.speed_slider)
@@ -1017,7 +1018,7 @@ class Tour(QWidget):
         self.extra = QHBoxLayout()
         b.addLayout(self.extra)
         row = QHBoxLayout()
-        self.end_btn = QPushButton("End tour")
+        self.end_btn = QPushButton("Close the Guide")
         theme.mark(self.end_btn, link=True)
         self.end_btn.clicked.connect(self.end)
         row.addWidget(self.end_btn)
@@ -1117,8 +1118,8 @@ class Tour(QWidget):
         text = _val(st["alt_text"] if self.alt and st.get("alt_text") else st["text"])
         self.count_btn.setText(((f"{st['chapter']}  ·  " if st.get("chapter") else "") + f"{i + 1} of {len(self.steps)}")
                                .replace("&", "&&"))  # (a button's & marks its shortcut: shown as one; its chevron: _Count)
-        self.badge.setText("Demo · your work isn't changed")  # (shortened below when the card has no room for it)
-        self.badge.setToolTip("A demo: nothing of yours is changed")
+        self.badge.setText("Demo · your work does not change")  # (shortened below when the card has no room for it)
+        self.badge.setToolTip("A demo: it does not change your work")
         self.bar.frac = (i + 1) / len(self.steps)
         self.bar.update()
         self.title.setText(_val(st["title"]))
@@ -1156,20 +1157,20 @@ class Tour(QWidget):
 
     def _labels(self, playing):
         """The card's demo row and actions list as the demo is (playing: only the action playing now)."""
-        self.replay_btn.setText("Show the steps" if not self.glide else "Replay" if playing else "Play demo")
+        self.replay_btn.setText("Show the steps" if not self.glide else "Play again" if playing else "Play demo")
         _symbol(self.replay_btn, "list" if not self.glide else "refresh" if playing else "play")
         self.pause_btn.setVisible(playing and self.glide)
         self.skip_btn.setVisible(playing)
         if not playing:
             self.paused = self.paused_by_you = False
-            self._pause_label("Pause")
+            self._pause_label("Wait")
         self._show_acts()
 
-    def _pause_label(self, text, tip="Pause or resume the demo (P)"):
+    def _pause_label(self, text, tip="Wait or continue the demo (P)"):
         """Pause, or Resume (paused): its words, symbol and tooltip."""
         self.pause_btn.setText(text)
         self.pause_btn.setToolTip(tip)
-        _symbol(self.pause_btn, "pause" if text == "Pause" else "play")
+        _symbol(self.pause_btn, "pause" if text == "Wait" else "play")
 
     def _show_acts(self):
         """The demo's actions, numbered, in the card (while it plays, only the one playing now: on a quiet fill with
@@ -1534,7 +1535,7 @@ class Tour(QWidget):
         else:
             self.paused = True
             self.timer.stop()
-            self._pause_label("Resume")
+            self._pause_label("Continue")
             self._show_acts()
 
     def resume(self):
@@ -1546,7 +1547,7 @@ class Tour(QWidget):
                 pass
         self.scrolled = {}
         self.paused = self.paused_by_you = False
-        self._pause_label("Pause")
+        self._pause_label("Wait")
         self._show_acts()
         self.follow(force=True)
         self._tick()
@@ -1560,8 +1561,8 @@ class Tour(QWidget):
         self.paused = self.paused_by_you = True
         self.timer.stop()
         # (its tooltip says it scrolls back: "Resume (back to the demo)" was cut short at Windows 11's text size)
-        self._pause_label("Resume", "Paused while you scroll. Resume (P) scrolls back to where the demo was and carries "
-                                    "on.")
+        self._pause_label("Continue", "The demo waits while you scroll. Continue (P) scrolls the page to the demo, "
+                                      "and the demo continues.")
         self._show_acts()
         self._fit_card()
 

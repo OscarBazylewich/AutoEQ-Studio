@@ -92,8 +92,8 @@ def eq_gain(freqs, filters, fs):
 def rms_error(freqs, eq_curve, target, band):
     m = (freqs >= band[0]) & (freqs <= band[1])
     if not m.any():  # (else NaN: "nan dB" on a report, and pick() can't compare results)
-        raise ValueError(f"The scored range ({band[0]:g}–{band[1]:g} Hz) has no curve points: change “Score from” or "
-                         f"“Score to”.")
+        raise ValueError(f"The error range ({band[0]:g}–{band[1]:g} Hz) has no curve points: change “Error from” or "
+                         f"“Error to”.")
     return float(np.sqrt(np.mean((eq_curve[m] - target[m]) ** 2)))
 
 
@@ -229,8 +229,8 @@ def load_curves(cfg, meas_texts, target_text):
     _, c = js_context(cfg, meas_texts, target_text)
     for key, what in (("meas", "measurement"), ("target", "target")):
         if any(v is None for v in c[key]):  # (the site's levelling overflows: V8's Infinity/NaN arrive as null)
-            raise ValueError(f"The {what} has values the app can't use (dB values far outside ±250?). "
-                             f"Check the file: it should hold frequency and dB pairs.")
+            raise ValueError(f"The {what} has values that the app cannot use (dB values larger than ±250?). "
+                             f"Examine the file: it must have pairs of frequency and dB values.")
     return {"f": np.array(c["f"]), "meas": np.array(c["meas"]), "target": np.array(c["target"]),
             "channels": [np.array(ch) for ch in c["channels"]],
             "p_norm": c["pNorm"], "t_norm": c["tNorm"], "n_files": c["nch"]}

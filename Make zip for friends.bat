@@ -6,7 +6,7 @@ rem quick self-test, Inno Setup 6). The version is app\paths.py's VERSION.
 setlocal
 set "HERE=%~dp0"
 cd /d "%HERE%"
-title AutoEQ Studio - make a zip for friends
+title AutoEQ Studio - make a zip with the installer
 set "PY="
 if exist ".venv\Scripts\python.exe" set "PY=.venv\Scripts\python.exe"
 if not defined PY if exist "%LOCALAPPDATA%\AutoEQ Studio\venv\Scripts\python.exe" set "PY=%LOCALAPPDATA%\AutoEQ Studio\venv\Scripts\python.exe"

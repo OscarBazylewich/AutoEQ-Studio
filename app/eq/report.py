@@ -25,7 +25,7 @@ def grid_table(results, row_label, ear_db, sub):
         if k not in cells or r["rms"] < cells[k]["rms"]:
             cells[k] = r
     qs = sorted({r["q_max"] for r in results})
-    head = "".join(f"<th>Q max {q:g}</th>" for q in qs)
+    head = "".join(f"<th>Maximum Q {q:g}</th>" for q in qs)
     body = ""
     for rv in sorted({r["rows"] for r in results}):
         tds = ""
@@ -43,7 +43,7 @@ def grid_table(results, row_label, ear_db, sub):
 def write(path, *, title, subtitle, curves, band, cards, grids=(), notes=""):
     """cards: [{"title", "badge", "fields": [(k, v)], "text", "filters", "eq", "rms"}]; grids: [(title, html, note)]"""
     f = curves["f"]
-    series = [("m", "Measured", curves["meas"], "var(--meas)", True),
+    series = [("m", "Measurement", curves["meas"], "var(--meas)", True),
               ("t", "Target", curves["target"], "var(--tgt)", True)]
     for i, c in enumerate(cards[:3]):
         series.append((f"r{i}", f"{c['title']} ({c['rms']:.2f} dB)", c["eq"], COLORS[i], False))
@@ -67,7 +67,7 @@ def write(path, *, title, subtitle, curves, band, cards, grids=(), notes=""):
     if band[1] < 20000:
         shade = (f'<rect class="shade" x="{X(band[1]):.1f}" y="{MT}" width="{X(20000) - X(band[1]):.1f}" '
                  f'height="{H - MT - MB}"/><text class="tick" x="{(X(band[1]) + X(20000)) / 2:.1f}" y="{MT + 14}" '
-                 f'text-anchor="middle">not scored</text>')
+                 f'text-anchor="middle">not in the error range</text>')
     dash = ' stroke-dasharray="6 4"'  # (outside the f-string: Python before 3.12 allows no backslash in one)
     paths = "".join(f'<path class="s" id="p-{k}" d="{path_d(c)}" stroke="{col}"'
                     f'{dash if k == "t" else ""}/>' for k, _, c, col, _ in series)
@@ -142,7 +142,7 @@ path.s {{ fill:none; stroke-width:2; stroke-linejoin:round }}
   </svg>
   <div id="tip"></div>
   </div>
-  <p class="note">EQ'd curves shown before pre-amp.</p>
+  <p class="note">The curves with the EQ do not include the pre-amp.</p>
 </div>
 {grid_html}
 {f'<h2>Notes</h2><div class="card note">{notes}</div>' if notes else ""}
@@ -175,22 +175,23 @@ hit.addEventListener('mouseleave',()=>{{tip.style.display='none';cross.style.dis
 
 
 def site_fields(r):
-    return [("Filter rows", r["rows"]), ("Frequency Range", f"{r['freq_low']} to {r['freq_high']}"),
-            ("Gain Range", f"{r['gain_min']} to {r['gain_max']}"), ("Q Range", f"{r['q_min']:g} to {r['q_max']:g}")]
+    return [("Filter rows", r["rows"]), ("Frequency range", f"{r['freq_low']} to {r['freq_high']}"),
+            ("Gain range", f"{r['gain_min']} to {r['gain_max']}"), ("Q range", f"{r['q_min']:g} to {r['q_max']:g}")]
 
 
 def grids_for(mode, results, ear_db, best_rms):
     """The error grid for the report; shaded: the results that sound the same as the target (ear error within
     ear_db, the audible pick's rule)."""
-    same = (f"Shaded = sounds the same as the target (within {ear_db:g} dB, as the ear hears it); the best "
-            f"{best_rms:.2f} dB.")
+    same = (f"Cells with a color: the same sound as the target (a difference of {ear_db:g} dB or less for the ear). The "
+            f"lowest error: {best_rms:.2f} dB.")
     if mode == "site_sweep":
-        return [("Website AutoEQ: error by filter rows and max Q",
+        return [("Website AutoEQ: error by filter rows and maximum Q",
                  grid_table(results, "Rows", ear_db, lambda c: f"{c['freq_high'] // 1000}k · {c['n_filters']}f"),
-                 "Lowest error per cell across the frequency and gain ranges tried; small print = high end of the "
-                 "frequency range and filters produced. " + same)]
+                 "The lowest error in each cell, across the frequency ranges and gain ranges that the app tried. Small "
+                 "text: the high end of the frequency range, and the number of filters. " + same)]
     if mode == "best_fit":
-        return [("Best fit: error by filter count and max Q",
-                 grid_table(results, "Filters", ear_db, lambda c: f"max +{c['max_boost']:g} dB"),
-                 "Lowest error per cell across the max-boost limits tried; small print = largest boost used. " + same)]
+        return [("Best fit: error by filter count and maximum Q",
+                 grid_table(results, "Filters", ear_db, lambda c: f"maximum +{c['max_boost']:g} dB"),
+                 "The lowest error in each cell, across the maximum gain limits that the app tried. Small text: the "
+                 "largest gain in the EQ. " + same)]
     return []

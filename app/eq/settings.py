@@ -22,8 +22,8 @@ PRESET_DIR = paths.PRESET_DIR
 
 MODES = {  # (in the method list's order: by where the EQ goes, the most used first)
     "best_fit": "Best fit",
-    "site_sweep": "Website AutoEQ (find best settings)",
-    "site_single": "Website AutoEQ (one run)",
+    "site_sweep": "Website AutoEQ (find the best settings)",
+    "site_single": "Website AutoEQ (one set)",
 }
 
 DEFAULTS = {
@@ -180,10 +180,10 @@ LIMIT_PAIRS = [
 # What each pair is called, for the message when a run can't use it
 PAIR_NAMES = {"site_single.freq_low": "Frequency range", "site_single.gain_min": "Gain range",
               "site_single.q_min": "Q range", "site_sweep.freq_low": "Frequency range", "site_sweep.q_min": "Q range",
-              "best_fit.freq_range.0": "Filter frequency range", "best_fit.gain_min": "Max cut and max boost",
+              "best_fit.freq_range.0": "Filter frequency range", "best_fit.gain_min": "Minimum and maximum gain",
               "best_fit.q_min": "Q range", "best_fit.low_shelf_freq.0": "Low shelf frequencies",
               "best_fit.high_shelf_freq.0": "High shelf frequencies", "best_fit.bands.gain_min": "The sliders' range",
-              "scoring.band_hz.0": "Scored range"}
+              "scoring.band_hz.0": "Error range"}
 # Settings with a fixed set of values (the page's dropdowns): anything else goes back to the default
 CHOICES = {"mode": list(MODES), "eq_app": ["", eq_apps.OTHER, *eq_apps.APPS], "scoring.pick": ["audible", "lowest"], "site.normalization": ["Hz~", "Hz", "dB"],
            "site.phon_table": ["ISO 226:2023", "ISO 226:2003"], "site.sample_rate": [44100, 48000, 88200, 96000],
@@ -375,8 +375,8 @@ def load(path=PATH):
                     break
             except OSError as e:  # (locked, e.g. by an antivirus or backup program: never taken for a broken file)
                 if attempt == 39:
-                    raise OSError(f"{path} can't be read right now ({e.strerror or e}): another program has it open. "
-                                  "Close it, or wait a moment, and try again.") from None
+                    raise OSError(f"The app cannot read {path} at this time ({e.strerror or e}): a different program has it "
+                                  "open. Close it in that program, or wait some seconds. Then try again.") from None
             time.sleep(0.05)
         if not isinstance(user, dict):
             # unreadable (e.g. a hand edit gone wrong): kept as settings.json.bad (never over an earlier .bad), said
@@ -410,7 +410,7 @@ def preset_path(name):
 def save_preset(name, cfg):
     """A preset keeps every setting except the files."""
     if not isinstance(cfg, dict):
-        raise ValueError("The settings to save are missing.")
+        raise ValueError("There are no settings to save.")
     os.makedirs(PRESET_DIR, exist_ok=True)
     s = with_auto(cfg)
     s.pop("files", None)
@@ -421,7 +421,7 @@ def load_preset(name):
     """The preset's settings with the current files, saved as the settings in use."""
     p = textfile.read_json(preset_path(name))
     if not isinstance(p, dict):
-        raise ValueError(f"The preset “{name}” is missing or can't be read.")
+        raise ValueError(f"The preset “{name}” is missing, or the app cannot read it.")
     p["files"] = load()["files"]
     cfg = with_auto(p)
     save(cfg)

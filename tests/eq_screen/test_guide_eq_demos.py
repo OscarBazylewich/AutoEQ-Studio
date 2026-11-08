@@ -137,7 +137,7 @@ def test_which_measurement_demo_asks_for_room(eq_screen, check, monkeypatch):
     try:
         page.resize(1100, 1000)  # (tall enough that the demo's own limit applies, not 70 % of the window)
         qt.pump(200)
-        ended, errors = _play(eq_screen, "Several measurements of the same model?")
+        ended, errors = _play(eq_screen, "More than one measurement of the same model?")
     finally:
         page.resize(size)
         qt.pump(200)
@@ -252,7 +252,7 @@ def test_menus_drawn_with_the_real_submenu_arrow(eq_screen, check, monkeypatch):
           all(ended and not errors for ended, errors in played.values()) and len(seen) >= 3
           and not any("▸" in row for s in seen for row in s["rows"]) and not any(s["cut"] for s in seen)
           and any("listener800" in row for s in seen for row in s["rows"])
-          and all(s["arrow in"] in ("Delete a preset", "Try for 5 minutes on") and s["arrow"] for s in seen)
+          and all(s["arrow in"] in ("Delete a preset", "Use for 5 minutes on") and s["arrow"] for s in seen)
           and pictures[0] is not None and pictures[0] == pictures[1], (played, seen, pictures))
     # (2026-10-23, the restyle's last merge: these two demos drew their menus with the Guide's list, so they had a
     # drop-down's round corners and the accent's bar beside the row pointed at, where the real menus have neither;

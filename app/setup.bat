@@ -37,12 +37,12 @@ if errorlevel 1 goto :install
 goto :ready
 
 :rebuild
-echo The app's Python environment no longer works (was Python removed or upgraded?): setting it up again.
+echo AutoEQ Studio's Python environment does not operate (did you remove or upgrade Python?). AutoEQ Studio makes it again.
 >>"%LOG%" echo %date% %time% environment broken: rebuilding "%VENV%"
 rmdir /s /q "%VENV%" >nul 2>nul
 
 :install
-echo Setting up Python packages. This takes a minute or two and only happens once.
+echo AutoEQ Studio installs its Python packages (1 or 2 minutes, one time only).
 echo.
 >>"%LOG%" echo ==== %date% %time% setup in "%ROOT%" (environment "%VENV%")
 if exist "%VENV%\Scripts\python.exe" goto :packages
@@ -52,16 +52,16 @@ set "PY="
 for %%C in ("py -3-64" "py -3" "python" "python3") do if not defined PY call :try %%~C
 >>"%LOG%" echo Python found: %SEEN%   using: %PY% %PYVER%
 if not defined PY goto :nopython
-echo Using %PYVER%
-if not "%VENV%"=="%ROOT%.venv" echo Its packages go in "%VENV%" (this folder is in OneDrive, or its path is long).
+echo AutoEQ Studio uses %PYVER%
+if not "%VENV%"=="%ROOT%.venv" echo AutoEQ Studio puts the packages in "%VENV%" (this folder is in OneDrive, or its path is long).
 %PY% -m venv "%VENV%" >>"%LOG%" 2>&1
 if errorlevel 1 goto :failed
 
 :packages
-echo Downloading and installing Qt, numpy, scipy, mini-racer, sounddevice and the rest (about 150 MB)...
+echo AutoEQ Studio downloads and installs Qt, numpy, scipy, mini-racer, sounddevice and the other packages (approximately 150 MB)...
 "%VENV%\Scripts\python.exe" -m pip install --disable-pip-version-check -r requirements.txt >>"%LOG%" 2>&1
 if not errorlevel 1 goto :installed
-echo The exact package versions aren't available for this Python: installing the newest ones that are.
+echo The package versions in requirements.txt are not available for this Python. AutoEQ Studio installs the newest versions that this Python can use.
 >>"%LOG%" echo -- the pinned versions failed: trying requirements-any.txt
 "%VENV%\Scripts\python.exe" -m pip install --disable-pip-version-check -r requirements-any.txt >>"%LOG%" 2>&1
 if errorlevel 1 goto :failed
@@ -69,7 +69,7 @@ if errorlevel 1 goto :failed
 :installed
 copy /y "requirements.txt" "%VENV%\requirements.installed" >nul
 >>"%LOG%" echo setup done
-echo Done.
+echo AutoEQ Studio installed the packages.
 echo.
 
 :ready
@@ -90,21 +90,22 @@ exit /b 0
 
 :nopython
 echo.
-if defined SEEN echo Found Python %SEEN%, but AutoEQ Studio needs 64-bit Python 3.10 or newer.
-if not defined SEEN echo Python wasn't found.
-echo Install the latest Python from https://www.python.org/downloads/ (the Windows installer, 64-bit),
-echo or run: winget install Python.Python.3.13
-echo then run AutoEQ Studio again.
+if defined SEEN echo AutoEQ Studio found Python %SEEN%, but it must have 64-bit Python 3.10 or a newer version.
+if not defined SEEN echo AutoEQ Studio did not find Python.
+echo Install the newest version of Python (the Windows installer, 64-bit) from https://www.python.org/downloads/.
+echo You can also type: winget install Python.Python.3.13
+echo Then start AutoEQ Studio again.
 endlocal
 exit /b 1
 
 :failed
 echo.
-echo Setup failed. The last lines of data\setup.log:
+echo AutoEQ Studio did not install the packages. The last lines of data\setup.log:
 echo.
 powershell -NoProfile -Command "Get-Content -LiteralPath $env:AEQ_LOG -Tail 12" 2>nul
 echo.
-echo Check the internet connection (the packages are downloaded once) and try again. If it keeps failing,
-echo send data\setup.log to whoever gave you AutoEQ Studio.
+echo Make sure that the internet connection operates (AutoEQ Studio downloads the packages one time only).
+echo Then start AutoEQ Studio again. If the problem continues, send data\setup.log to the person who gave
+echo you AutoEQ Studio.
 endlocal
 exit /b 1

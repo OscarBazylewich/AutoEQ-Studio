@@ -34,13 +34,13 @@ def summary(text):
             continue
         cmd, rest = m.group(1).lower(), m.group(2)
         if cmd == "device":
-            raise NotAnEqFile(f"Line {n} chooses devices (\"Device:\"): AutoEQ Studio does that itself, so a profile "
-                              "can't have it.")
+            raise NotAnEqFile(f"Line {n} selects devices (\"Device:\"). A profile cannot have this line, because "
+                              "AutoEQ Studio selects the devices.")
         if cmd == "include":
-            raise NotAnEqFile(f"Line {n} brings in another file (\"Include:\"): add that file as the profile instead.")
+            raise NotAnEqFile(f"Line {n} includes a different file (\"Include:\"). Add the other file as the profile.")
         if cmd == "convolution" and not re.match(r"^\s*([A-Za-z]:\\|\\\\)", rest):
-            raise NotAnEqFile(f"Line {n} uses a convolution file by a short path: give its full path (C:\\…) in the "
-                              "file, or add it without that line.")
+            raise NotAnEqFile(f"Line {n} uses a convolution file with a short path. Write the full path (C:\\…) in "
+                              "the line, or remove the line.")
         if cmd == "filter":
             eq_lines += 1
             if re.match(r"^\s*ON\b", rest, re.I):
@@ -56,14 +56,14 @@ def summary(text):
         elif cmd in ("convolution", "channel", "copy", "stage", "delay", "loadplugin"):
             eq_lines += 1
     if not eq_lines:
-        raise NotAnEqFile("There's no EQ in it: no filters, pre-amp or GraphicEQ line in Equalizer APO's format.")
+        raise NotAnEqFile("This file has no EQ: no filters, pre-amp or GraphicEQ line in Equalizer APO's format.")
     return {"filters": filters, "preamp": round(preamp, 2), "graphic": graphic}
 
 
 def read_eq(path):
     """(the file's bytes, its summary). The bytes are copied as they are (APO read them like that already)."""
     if os.path.getsize(path) > 2_000_000:
-        raise NotAnEqFile("It's too big to be an EQ file (over 2 MB).")
+        raise NotAnEqFile("The file is too large for an EQ file (more than 2 MB).")
     with open(path, "rb") as fh:
         raw = fh.read()
     return raw, summary(read(path))

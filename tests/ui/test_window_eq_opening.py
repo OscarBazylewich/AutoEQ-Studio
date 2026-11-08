@@ -421,18 +421,18 @@ def test_clicked_before_its_code_is_in(clicked, check):
     d, err = clicked
     check("window: Make an EQ clicked before its code is in shows “Opening the EQ part…” at once, nothing imported on "
           "the window's thread; the page takes its place when its code is in",
-          d.get("at the click") == ["eq", True, ["Opening the EQ part…"], []]
+          d.get("at the click") == ["eq", True, ["The EQ part opens…"], []]
           and (d.get("opened") or [])[:3] == [True, "eq", True], d or err)
 
 
 @pytest.mark.slow
 def test_the_guide_and_presets_wait_for_ready(clicked, check):
     d, err = clicked
-    note = ["Presets are ready as soon as Make an EQ has opened"]
+    note = ["The presets are available after Make an EQ opens"]
     check("window: Presets and the Guide wait until Make an EQ is ready: while its code loads, while its page opens, "
           "and while a page built halfway (its controls there) isn't ready; then the Guide starts on the ready page",
           (d.get("code loading") or [None])[0] == note
-          and d.get("guide while its code loads") == [[], ["The Guide starts as soon as Make an EQ has opened…"]]
+          and d.get("guide while its code loads") == [[], ["The Guide starts after Make an EQ opens…"]]
           and (d.get("page opening") or [None, None, None])[0] == note and d["page opening"][2] == []
           and (d.get("opened") or [None] * 4)[3] == [True] and d.get("presets once open") is True
           and d.get("half built: presets") == note and d.get("half built: guide") == []
@@ -455,7 +455,7 @@ def test_opening_straight_onto_make_an_eq(check, tmp_path):
     d, err = _run(STRAIGHT, str(tmp_path), _studio(str(tmp_path)))
     check("window: shown straight onto Make an EQ (the app started on it), “Opening the EQ part…” at once, nothing "
           "imported on the window's thread as it shows; then the page",
-          d.get("hidden") == [True, False] and d.get("shown") == ["eq", True, ["Opening the EQ part…"], []]
+          d.get("hidden") == [True, False] and d.get("shown") == ["eq", True, ["The EQ part opens…"], []]
           and d.get("opened") == [True, "eq", True], d or err)
 
 
@@ -712,7 +712,7 @@ def test_code_that_cant_load_is_said(qapp, stub_app, tmp_path, monkeypatch, chec
         qt.close(win)
     check("window: Make an EQ's code that can't be loaded (a damaged copy) is said where Make an EQ shows (“The EQ "
           "part couldn't open: …”), not “Opening the EQ part…” for ever; nothing raises and the Guide doesn't wait",
-          seen == {"raised": None, "page": "eq", "made": False, "says": ["The EQ part couldn't open"],
+          seen == {"raised": None, "page": "eq", "made": False, "says": ["The EQ part cannot open"],
                    "guide waits": False, "tours": 0}, seen)
 
 
@@ -726,7 +726,7 @@ def test_the_guide_left_when_you_go_on(qapp, stub_app, tmp_path, monkeypatch, ch
     win = _window(stub_app, tmp_path)
     tours = []
     monkeypatch.setattr(guide, "start_eq", lambda page: tours.append(page))
-    loading = QLabel("Opening the EQ part…")
+    loading = QLabel("The EQ part opens…")
     try:
         win.show()
         qt.pump(30)

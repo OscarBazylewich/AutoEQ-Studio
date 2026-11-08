@@ -27,8 +27,8 @@ from ui.window_parts import Footer, enter_presses, fit_to_screen
 
 FIRST_ROWS, ROWS_AT_ONCE = 40, 15  # (rows made at once, then a batch at a time: as Find…)
 WORDS_ROOM = 240  # (the least a row's words get beside its buttons: with less, the buttons go on a line under them)
-MODE_SHORT = {"site_single": "Website AutoEQ", "site_sweep": "Website sweep", "best_fit": "Best fit", "autoeq": "AutoEq",
-              "manual": "By hand"}
+MODE_SHORT = {"site_single": "Website AutoEQ", "site_sweep": "Website best settings", "best_fit": "Best fit",
+              "autoeq": "AutoEq", "manual": "Manually"}
 NBSP, NBH = chr(0xA0), chr(0x2011)  # (a space and a hyphen that never end a line: the words they join stay together)
 
 
@@ -55,10 +55,6 @@ def day_of(t):
     d = datetime.datetime.fromtimestamp(t).date()
     today = datetime.date.today()
     days = (today - d).days
-    if days == 0:
-        return "Today"
-    if days == 1:
-        return "Yesterday"
     if days < 7:
         return d.strftime("%A")
     return f"{d.day} {d.strftime('%B')}" + ("" if d.year == today.year else f" {d.year}")
@@ -127,14 +123,15 @@ class HistoryWindow(QDialog):
                    if (not only or e.get("device") == name)
                    and all(w in f"{e.get('device')} {e.get('target')} {MODE_SHORT.get(e.get('mode'), '')} {e.get('label')}".lower()
                            for w in words)]
-        self.keep.setText(("Keeps every run's result, and the EQs you save or copy." if page.S["history"]["keep"] == "all"
-                           else "Keeps the EQs you save or copy.") + " Change it in Advanced › History.")
+        self.keep.setText(("History keeps all results, and the EQs that you save or copy." if page.S["history"]["keep"]
+                           == "all" else "History keeps the EQs that you save or copy.")
+                          + " You can change this in More settings › History.")
         body = QWidget()
         lay = QVBoxLayout(body)
         lay.setSpacing(6)
         if not entries:
-            lab = QLabel("Nothing matches: try other words, or untick “This IEM only”." if page.history else
-                         "No EQs yet. Save or copy one and it's kept here.")
+            lab = QLabel("No results. Type different text, or clear “This IEM only”." if page.history else
+                         "No EQs. If you save or copy an EQ, History keeps it here.")
             theme.mark(lab, role="muted")
             lay.addWidget(lab)
         todo, day = [], ""
@@ -198,7 +195,7 @@ class HistoryWindow(QDialog):
             theme.mark(show, primary=True)
             self._enter.button = show
         icons.put(show, "view")  # (after the accent: its symbol is drawn in the accent's text colour then)
-        show.setToolTip("The EQ back on the graph and the result card, with its files when they're still in the app")
+        show.setToolTip("Show the EQ on the graph and the result card again, with its files if they are in the app")
         show.clicked.connect(lambda: (self.page.bring_back(e), self.accept()))
         copy = QPushButton("Copy")
         icons.put(copy, "copy")  # (Windows 11's symbols beside the words of the common verbs)
@@ -207,7 +204,7 @@ class HistoryWindow(QDialog):
                                                             say=self.footer.say))
         keep = QPushButton("Keep to compare")  # (the result card's words for the same act, UI-RULES 16)
         icons.put(keep, "pin")
-        keep.setToolTip("Add it to your EQs to compare for the IEM on the graph: hear it in Listen")
+        keep.setToolTip("Add it to your EQs to compare for the IEM on the graph, to hear it in Listen")
         keep.clicked.connect(lambda: self.keep_to_compare(e))
         x = QPushButton("✕")
         theme.mark(x, quiet=True)  # (a row's ✕: every list's one look, UI-RULES 18)
@@ -262,19 +259,19 @@ class HistoryWindow(QDialog):
         with a note saying so). Said in this window's line."""
         page = self.page
         if not page.curves:
-            QMessageBox.information(self, "Keep to compare", "Choose a measurement first: each IEM or headphone has its "
-                                    "own list of EQs to compare.")
+            QMessageBox.information(self, "Keep to compare", "Select a measurement first. Each IEM or headphone has a "
+                                    "different list of EQs to compare.")
             return
         other = e.get("device") != page.curves["name"]
         ok = page.listen.add(f"{MODE_SHORT.get(e.get('mode'), 'EQ')}, {e.get('n_filters')} filters "
-                             f"({day_of(e['when']).lower()} {time_of(e['when'])})", [dict(f) for f in e["filters"]],
+                             f"({day_of(e['when'])} {time_of(e['when'])})", [dict(f) for f in e["filters"]],
                              f"made for {e.get('device')}" if other else
                              "from History" + (f" · error {e['rms']:.2f} dB" if e.get("rms") is not None else ""),
                              say=self.footer.say)
         if ok:
-            self.footer.say(f"In your EQs to compare: that EQ was made for {e.get('device')}, so on the "
-                            f"{page.curves['name']} it won't sound as intended." if other else
-                            "In your EQs to compare: hear it in Listen.", 10000 if other else None)
+            self.footer.say(f"It is in your EQs to compare. That EQ is for {e.get('device')}. Thus, its sound on the "
+                            f"{page.curves['name']} is not correct." if other else
+                            "It is in your EQs to compare. You can hear it in Listen.", 10000 if other else None)
 
     def remove(self, keys):
         """The ✕: out of the history, with Undo in this window's line (UI-RULES 20)."""
@@ -285,7 +282,7 @@ class HistoryWindow(QDialog):
             return
         self._show_entries(r.get("entries", []), keep=True)  # (the place in the list stays)
         if gone:
-            self.footer.say(f"Removed “{gone[0].get('device')} → {gone[0].get('target')}” from the history.",
+            self.footer.say(f"You removed “{gone[0].get('device')} → {gone[0].get('target')}” from the history.",
                             undo=lambda: self._put_back(gone))
 
     def _put_back(self, gone):
@@ -306,18 +303,18 @@ class HistoryWindow(QDialog):
     def clear_all(self):
         n = len(self.page.history)
         if not n:
-            self.footer.say("The history is already empty.")
+            self.footer.say("The history is empty.")
             return
         if QMessageBox.question(self, "Clear the history",  # (its words the button's: clear, delete, never "remove")
-                                f"Clear the history: delete all {n} EQs in it? Files you saved stay in your Saved EQs "
-                                "folder.", QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
+                                f"Clear the history: delete all {n} EQs in it? The files that you saved stay in your "
+                                "Saved EQs folder.", QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
             return  # (No the default: it can't be undone, UI-RULES 17)
         r = self.page.svc.call("/api/history/remove", {"all": True})
         if r.get("error"):  # (history.json couldn't be written: nothing is said cleared)
             QMessageBox.warning(self, "Clear the history", r["error"])
             return
         self._show_entries(r.get("entries", []))
-        self.footer.say("History cleared.")
+        self.footer.say("You cleared the history.")
 
 
 def _esc(s):

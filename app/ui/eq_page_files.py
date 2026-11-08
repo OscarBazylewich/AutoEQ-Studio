@@ -27,7 +27,7 @@ class EqFiles:
         for n in sorted(inputs["targets"], key=lambda n: natural_key(os.path.splitext(n)[0])):  # (A to Z)
             t.addItem(os.path.splitext(n)[0], n)
         t.setCurrentIndex(max(0, t.findData(inputs["active_target"])))
-        note(self.target_note, "" if inputs["targets"] else "No targets yet: Add… one from this PC.")
+        note(self.target_note, "" if inputs["targets"] else "No targets: click Add… to add a target from this PC.")
         from eq import inputs as eq_inputs
         groups = {}
         for m in sorted(inputs["measurements"], key=lambda m: natural_key(m["name"])):
@@ -42,7 +42,8 @@ class EqFiles:
                 current = current or dev
         mc.setCurrentIndex(max(0, mc.findData(current)))
         if not groups:
-            note(self.measurement_note, "No measurements yet: Add… one from this PC (L and R, or several seatings).")
+            note(self.measurement_note, "No measurements: click Add… to add a measurement from this PC (L and R, or more "
+                 "than one seating).")
         else:
             on = [f["name"] for f in groups.get(current, []) if f["included"]]
             rigs = {inputs.get("rigs", {}).get(n) for n in on} - {None, ""}
@@ -64,7 +65,7 @@ class EqFiles:
         used (the page's line by itself: UI-RULES 7)."""
         def done(res, err):
             if err or (res or {}).get("error"):
-                (say or self.status)(f"Couldn't use that file: {err or res['error']}")
+                (say or self.status)(f"The app cannot use that file: {err or res['error']}")
                 return
             if res.get("inputs"):
                 self.show_inputs(res["inputs"])
@@ -151,7 +152,7 @@ class EqFiles:
         use, the adjustments back to 0 (eq.service /api/target/save); Undo puts it all back."""
         from ui.window_parts import ask_text  # (looked up here: the tests answer it)
         base = os.path.splitext(self.S["files"].get("active_target") or "Target")[0]
-        name, ok = ask_text(self, "Save as a target", "Name of your target", f"{base} (mine)", "Save")
+        name, ok = ask_text(self, "Save as a target", "Name of your target", f"{base} (adjusted)", "Save")
         if not ok or not name.strip():
             return
         res = self.svc.call("/api/target/save", {"settings": self.S, "name": name.strip()})
@@ -172,8 +173,8 @@ class EqFiles:
                 self.show_inputs(r["inputs"])
             self.show_settings()
             self._save_files()
-        self.notify(f"Saved “{os.path.splitext(res['name'])[0]}” as a target, now in use (the adjustments are in it, "
-                    "so they're back to 0).", undo)
+        self.notify(f"The app saved “{os.path.splitext(res['name'])[0]}” as a target and uses it. The target has the "
+                    "adjustments in it. Thus, the adjustments are 0 again.", undo)
 
     # ---------------------------------------------------------------- what Find… calls back (ui/picker.py)
     def use_target(self, name):
@@ -196,8 +197,8 @@ class EqFiles:
         self.show_settings()
         self.load_curves()
         n = len(res.get("names") or [])
-        self.notify(f"“{res.get('name')}” is now the target." if res.get("kind") == "target" else
-                    f"Now measuring “{res.get('name')}”" + (f" ({n} file{'s' if n != 1 else ''})." if n else "."),
+        self.notify(f"“{res.get('name')}” is the target." if res.get("kind") == "target" else
+                    f"The measurement is “{res.get('name')}”" + (f" ({n} file{'s' if n != 1 else ''})." if n else "."),
                     self._undo_use(res) if res.get("before") and res.get("settings") else None)
 
     def _undo_use(self, res):
@@ -228,7 +229,7 @@ class EqFiles:
                 return
             self.S["files"] = before
             self._save_files()
-        (say or self.notify)(f"Moved “{name}” to {'Measurement' if kind == 'target' else 'Target'}.", undo)
+        (say or self.notify)(f"The app moved “{name}” to {'Measurement' if kind == 'target' else 'Target'}.", undo)
 
     def reload_state(self):
         st = self.svc.call("/api/state")

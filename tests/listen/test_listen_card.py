@@ -89,7 +89,7 @@ def test_keep_to_compare(card, check):
     check("listen: Keep to compare adds the result once (kept for this IEM, on the graph, a version to hear)",
           len(lis.pins) == n + 1 and len(saved) == n + 1 and lis.pins[-1]["name"] in names
           and lis.pins[-1]["key"] in [s["key"] for s in lis.engine.slots]
-          and any("already" in s for s in said), (len(lis.pins), names))
+          and any("That EQ is in the list." in s for s in said), (len(lis.pins), names))
 
 
 def test_blind_test(card, check):
@@ -125,7 +125,7 @@ def test_history_listen_for_another_iem(card, check):
     # was eq_checks.py:2971
     check("listen: History's Keep to compare adds an EQ made for another IEM, and says in History's own line that it "
           "won't sound as intended", len(lis.pins) == n + 2 and "made for Another IEM" in lis.pins[-1]["note"]
-          and "won't sound" in told, told)
+          and "is not correct" in told, told)
 
 
 def test_history_says_already_in_its_own_line(card, check):
@@ -141,7 +141,7 @@ def test_history_says_already_in_its_own_line(card, check):
     hw.close()
     lis._remove(added)  # (the list as it was: the checks after this one count it)
     check("listen: History's Keep to compare of an EQ that's in the list already says so in History's own line",
-          kept_once and "already" in told, told)
+          kept_once and "That EQ is in the list." in told, told)
 
 
 def test_device_eq_said(card, check):
@@ -389,7 +389,7 @@ def test_swap_symbol(card, check):
 
     from ui import icons, theme
     lis = card.lis
-    swap = next(b for b in lis.split_row.findChildren(QPushButton) if b.text() == "Swap")
+    swap = next(b for b in lis.split_row.findChildren(QPushButton) if b.text() == "Interchange")
     t, size = theme.tokens(), QSize(22, 16)
     want = icons.glyph("swap", t["ink"], on_colour=t["on_accent"], off_colour=t["disabled"]).pixmap(size).toImage()
     check("listen: Swap (a different version in each ear) shows Windows 11's swap symbol beside its word",
@@ -462,7 +462,7 @@ def test_eq_file_read_as_by_hand_reads_it(card, dialogs, check):
         lis.save_pins()
     check("listen: an EQ file or pasted text is read as By hand reads it (a Room EQ Wizard export: its peak and its "
           "shelf), and what an EQ here can't have (its low-pass) is said",
-          added.get("name") == "REW check" and len(added.get("filters", [])) == 2 and told and "Left out" in told[-1],
+          added.get("name") == "REW check" and len(added.get("filters", [])) == 2 and told and "These items are not in" in told[-1],
           (added.get("filters"), told[-1:]))
 
 
@@ -486,5 +486,5 @@ def test_add_buttons_symbol(card, check):
           "add symbol beside their words, no typed “+”, and a screen reader reads what each adds; the Guide's step "
           "points at each of them",
           seen == [("The selected EQ", "Add the selected EQ", True), ("From an EQ file…", "Add from an EQ file…", True),
-                   ("Paste filters…", "Add filters you paste…", True)] and pointed == adds,
+                   ("Paste filters…", "Add filters that you paste…", True)] and pointed == adds,
           (seen, [b.text() if b is not None else None for b in pointed]))

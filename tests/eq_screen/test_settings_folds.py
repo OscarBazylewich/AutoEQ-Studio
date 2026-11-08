@@ -32,7 +32,7 @@ def test_value_of_your_own_and_a_wrong_one(eq_screen, fold, check):
     wrong = (f.box.property("bad"), page.S["best_fit"]["filter_counts"])
     # was eq_checks.py:1503
     check("ui: settings: a value of your own is used and marked yours; a wrong one is red and not used",
-          yours == ([4, 5, 6, 7, 8], True, "yours ↺") and wrong == (True, [4, 5, 6, 7, 8]), (yours, wrong))
+          yours == ([4, 5, 6, 7, 8], True, "your value ↺") and wrong == (True, [4, 5, 6, 7, 8]), (yours, wrong))
 
 
 def test_past_a_limit_and_to_below_from(eq_screen, fold, check):
@@ -46,7 +46,7 @@ def test_past_a_limit_and_to_below_from(eq_screen, fold, check):
     hi._typed()
     # was eq_checks.py:1512
     check("ui: settings: past a limit it moves to the limit on leaving (said); a “to” below its “from” is red",
-          page.S["scoring"]["band_hz"][0] == 20 and any("Changed to 20" in s for s in said) and hi.box.property("bad"),
+          page.S["scoring"]["band_hz"][0] == 20 and any("The value changed to 20" in s for s in said) and hi.box.property("bad"),
           (page.S["scoring"]["band_hz"], said[-1:]))
 
 
@@ -56,7 +56,7 @@ def test_handing_a_value_back(eq_screen, fold, check):
     st.hand_back("best_fit.filter_counts")
     # was eq_checks.py:1517
     check("ui: settings: handing a value back gives it to the automatic settings again (auto tag)",
-          "best_fit.filter_counts" not in page.S["auto"]["manual"] and f.tag.text() == "auto", page.S["auto"]["manual"])
+          "best_fit.filter_counts" not in page.S["auto"]["manual"] and f.tag.text() == "automatic", page.S["auto"]["manual"])
 
 
 def test_website_profile(eq_screen, fold, check):
@@ -92,7 +92,7 @@ def test_one_search(eq_screen, check):
     # was eq_checks.py:2316
     check("search: one search, every limit with both fighting-filter penalties, said with its time; no buttons; an "
           "older copy's level dropped and its one penalty made a list",
-          bf["fight_penalty"] == [0.003, 0.01] and len(bf["q_max"]) >= 4 and "fighting-filter penalties" in what
-          and est.startswith("A run takes") and not hasattr(page, "sa_btns")
+          bf["fight_penalty"] == [0.003, 0.01] and len(bf["q_max"]) >= 4 and "penalties for opposite filters" in what
+          and est.startswith("Time to calculate") and not hasattr(page, "sa_btns")
           and "level" not in old["auto"] and old["best_fit"]["fight_penalty"] == [0.004],
           (bf["fight_penalty"], bf["q_max"], what, est, old["auto"], old["best_fit"]["fight_penalty"]))

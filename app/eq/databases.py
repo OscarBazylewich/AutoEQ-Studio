@@ -63,15 +63,15 @@ SITES = [
     {"group": "hp", "name": "Audio Discourse headphones", "short": "AD HP", "url": "https://headphones.audiodiscourse.com/"},
     {"group": "hp", "name": "Super* Review headphones", "short": "Super HP", "url": "https://squig.link/hp.html"},
 ]
-GROUPS = {"all": "Collections (many measurers)", "iem": "IEMs · 711-type coupler", "5128": "IEMs and headphones · B&K 5128",
+GROUPS = {"all": "Groups (many measurement sources)", "iem": "IEMs · 711-type coupler", "5128": "IEMs and headphones · B&K 5128",
           "hp": "Headphones", "earbuds": "Earbuds", "added": "Added by you"}
 DIRECTORY_URL = "https://squig.link/squigsites.json"   # the list behind squig.link's "More squiglinks" menu
 DIRECTORY_PATH = os.path.join(paths.CACHE, "squigsites.json")
 RETRY_AFTER = 600  # seconds before squig.link's list is asked for again after a try that failed (offline, slow network)
 _dir_failed = {"at": 0.0}
 _TYPE_GROUP = {"IEMs": "iem", "5128": "5128", "Headphones": "hp", "Earbuds": "earbuds"}
-BROWSE_NOTE = ("{site} doesn't let other programs download its measurement files, so the app can only list them. "
-               "It opens on the site instead.")
+BROWSE_NOTE = ("{site} does not let other programs download its measurement files. Thus, the app can only show "
+               "them in the list, and opens them on the website.")
 
 _lock = threading.Lock()
 _state = {"loading": False, "sites": [], "items": [], "updated": None}
@@ -80,12 +80,12 @@ _by_id = {}
 
 # ---------------------------------------------------------------- helpers
 def _get(url, timeout=20, limit=20_000_000):
-    net.check("Getting files from the online databases")  # (offline: nothing goes out; net.Offline is an OSError)
+    net.check("Files from the online databases")  # (offline: nothing goes out; net.Offline is an OSError)
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         data = r.read(limit + 1)
         if len(data) > limit:
-            raise ValueError("file too large")
+            raise ValueError("the file is too large")
         return data.decode("utf-8", "ignore"), r.geturl()
 
 
@@ -177,7 +177,7 @@ def _bracketed(src, i):
             if depth == 0:
                 return src[i:j + 1]
         j += 1
-    raise ValueError("unbalanced brackets")
+    raise ValueError("a bracket is missing")
 
 
 def site_on(s, cfg):
@@ -387,7 +387,7 @@ def _squig_config(site):
     scripts = re.findall(r'<script[^>]+src=["\']([^"\']+)["\']', html)
     cfgs = [s for s in scripts if re.search(r"config[^/]*\.js", s)]
     if not cfgs:
-        raise ValueError("no graph-tool config found on that page")
+        raise ValueError("the app found no graph-tool config on that page")
     cfg_text = _strip_comments(_get(urllib.parse.urljoin(final, cfgs[0]))[0])
     if re.search(r"\bCONFIG\s*=\s*\{", cfg_text) and not re.search(r"\bDIR\s*=", cfg_text):
         return _modern_config(cfg_text, final)
@@ -519,7 +519,7 @@ def _sites_one_at_a_time(text):
     dec, out = json.JSONDecoder(), {}
     i = _skip(text, 0)
     if text[i] != "{":
-        raise ValueError("not an object")
+        raise ValueError("the text is not a JSON object")
     i = _skip(text, i + 1)
     if text[i] == "}":
         return out
@@ -527,14 +527,14 @@ def _sites_one_at_a_time(text):
         key, i = dec.raw_decode(text, i)
         i = _skip(text, i)
         if not isinstance(key, str) or text[i] != ":":
-            raise ValueError("not a site's name")
+            raise ValueError("the text is not the name of a website")
         out[key], i = dec.raw_decode(text, _skip(text, i + 1))
         time.sleep(0)
         i = _skip(text, i)
         if text[i] == "}":
             return out
         if text[i] != ",":
-            raise ValueError("no comma")
+            raise ValueError("a comma is missing")
         i = _skip(text, i + 1)
 
 
@@ -734,7 +734,7 @@ def item(item_id):
     with _lock:
         it = _by_id.get(str(item_id))
     if not it:
-        raise ValueError("That database entry is gone - refresh the database lists and try again.")
+        raise ValueError("That database entry is not there. Update the database lists. Then try again.")
     return it
 
 
@@ -742,7 +742,7 @@ def item(item_id):
 def _conf_for(it):
     conf = _confs.get(it["site_url"])
     if not conf:
-        raise ValueError("Database details missing - refresh the database lists.")
+        raise ValueError("The data of the database is missing. Update the database lists.")
     return conf
 
 
@@ -784,7 +784,8 @@ def download(item_id, count_points):
         subs = sorted(("", "measurements/"), key=lambda sub: sub != _found_in.get(it["site_url"], ""))
         tries = [(sub, mk(sub, smp)) for sub in subs for smp in ([samples, [""]] if samples != [""] else [[""]])]
     if not all(textfile.inside(path, folder) for _, jobs in tries for _, path in jobs):
-        raise ValueError(f"{it['site']}'s settings name files outside its download folder: not downloaded.")
+        raise ValueError(f"The settings of {it['site']} have file names that are not in its download folder: the app "
+                         "did not download them.")
     missing = []
 
     def fetch(job):
@@ -814,10 +815,10 @@ def download(item_id, count_points):
                 break
     if not got:
         if net.offline():  # (no copy from before on this PC, and the app may not go online for it)
-            raise net.Offline(f"{it['name']} from {it['site']} hasn't been downloaded before, and AutoEQ Studio is "
-                              "offline. Switch to Online (top right) to download it.")
+            raise net.Offline(f"There is no downloaded copy of {it['name']} from {it['site']}, and AutoEQ Studio "
+                              "is offline. To download it, change to Online (top right).")
         if missing and all(missing):
-            raise ValueError(f"{it['site']} lists {it['name']}, but its file isn't on the site (its own graph can't "
-                             "show it either). Try another database's measurement of it.")
-        raise ValueError(f"Couldn't download {it['name']} from {it['site']}.")
+            raise ValueError(f"{it['name']} is in the list of {it['site']}, but its file is not on the website (the "
+                             "graph of the website also cannot show it). Use a measurement from a different database.")
+        raise ValueError(f"The app cannot download {it['name']} from {it['site']}.")
     return sorted(got), it

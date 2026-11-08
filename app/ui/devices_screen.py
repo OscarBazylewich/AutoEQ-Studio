@@ -133,11 +133,11 @@ class DevicesScreen:
 
     def _status(self, key):
         d, rec = self.sw.device(key), self.sw.record(key)
-        where = "Playing now" if key == self.sw.playing_key else "Connected" if d and d.connected else "Not connected"
+        where = "Active" if key == self.sw.playing_key else "Connected" if d and d.connected else "Not connected"
         if self.sw.compare and self.sw.compare["key"] == key:
-            return where, "EQ off for now (comparing)"
+            return where, "EQ off, to compare"
         if self.sw.trial and self.sw.trial["key"] == key:
-            return where, f"Trying: {self.sw.trial['name']}"
+            return where, f"For 5 minutes: {self.sw.trial['name']}"
         name = self.sw.profile_name(rec["active"]) if rec else None
         return where, f"EQ: {name}" if name else "EQ off"
 
@@ -155,7 +155,7 @@ class DevicesScreen:
             item.setIcon(icons.dot(kind))  # (its place in the row; DeviceRows draws it in the colours of the moment)
             item.setData(DOT, kind)
             item.setData(Qt.UserRole, key)
-            item.setToolTip(f"{shown(rec)}\n{where} · {eq}" + (f"\nWindows calls it {rec['label']}"
+            item.setToolTip(f"{shown(rec)}\n{where} · {eq}" + (f"\nWindows name: {rec['label']}"
                                                                      if rec.get("nickname") else ""))
             self.dev_list.addItem(item)
             if key == self.selected:
@@ -181,7 +181,7 @@ class DevicesScreen:
         key, lay = self.selected, self.dev_lay
         rec = self.sw.record(key) if key else None
         if not rec:
-            lay.addWidget(muted("No playback devices found."))
+            lay.addWidget(muted("No playback devices."))
             lay.addStretch(1)
             return
         d = self.sw.device(key)
@@ -194,15 +194,15 @@ class DevicesScreen:
         hl.addWidget(title, 1)
         ren = QPushButton("Rename…")
         icons.put(ren, "rename")
-        ren.setToolTip("Your own name for this device (e.g. the IEM you use on it)")
+        ren.setToolTip("Your name for this device (for example, the IEM that you use on it)")
         ren.clicked.connect(lambda: self.rename_device(key))
         from ui import help_window
         help_window.tag(ren, "#dev-rename")
         hl.addWidget(ren, 0, Qt.AlignTop)
         lay.addWidget(head)
         where, _ = self._status(key)
-        lay.addWidget(muted(where + ("" if d else " (Windows doesn't list it any more)")
-                            + (f" · Windows calls it {rec['label']}" if rec.get("nickname") else "")))
+        lay.addWidget(muted(where + ("" if d else " (it is not in the Windows list)")
+                            + (f" · Windows name: {rec['label']}" if rec.get("nickname") else "")))
 
         if d and not d.apo:
             b = None
@@ -210,8 +210,8 @@ class DevicesScreen:
                 b = QPushButton("Open APO's Configurator")
                 icons.put(b, "open_new")
                 b.clicked.connect(self.open_configurator)
-            warn, _ = warning_card("Equalizer APO isn't installed on this device, so no EQ plays on it. In APO's "
-                                   "Configurator, tick this device, then restart Windows.", b)
+            warn, _ = warning_card("Equalizer APO is not installed on this device. Thus, no EQ operates on it. "
+                                   "In APO's Configurator, select this device. Then restart Windows.", b)
             lay.addWidget(warn)
 
         box = QGroupBox("EQ for this device")
@@ -266,9 +266,10 @@ class DevicesScreen:
             self.check_label.setWordWrap(True)
             help_window.tag(self.check_label, "#dev-check")
             row.addWidget(self.check_label, 1)
-            chk = QPushButton("Check again")
+            chk = QPushButton("Examine again")
             icons.put(chk, "refresh")
-            chk.setToolTip("Ask Equalizer APO again (its Benchmark tool, read only), and see all it found")
+            chk.setToolTip("Examine again with the Benchmark tool of Equalizer APO (it only reads), and show all "
+                           "the results")
             chk.clicked.connect(lambda: self.check_device(key))
             help_window.tag(chk, "#dev-check")
             row.addWidget(chk, 0, Qt.AlignTop)
@@ -278,9 +279,9 @@ class DevicesScreen:
             lay.addWidget(holder)
             self._auto_check(key)
         hk, onoff = self.sw.s.get("hotkey"), self.sw.s.get("onoff_hotkey")
-        lay.addWidget(muted("Switch between them from the tray icon" + (f", or with {hk} while this device is playing."
+        lay.addWidget(muted("Select a profile in the tray icon menu" + (f", or with {hk} while this device is active."
                                                                          if hk else ".")
-                            + (f" {onoff} switches its EQ off for now and back, to compare." if onoff else "")))
+                            + (f" {onoff} disables its EQ and enables it again, to compare." if onoff else "")))
         lay.addStretch(1)
 
     def take_off(self, key, pid):
@@ -295,7 +296,7 @@ class DevicesScreen:
 
         def undo():
             if pid not in self.sw.profiles():  # (deleted in Profiles meanwhile)
-                self.status(f"“{name}” was deleted meanwhile: there's nothing to put back.")
+                self.status(f"You deleted “{name}” in Profiles: Undo is not possible.")
                 return
             self.sw.add_to_device(key, pid, switch_on=was_on, at=at, last=was_last)
         self.status(f"Removed “{name}” from this device.", undo=undo)
@@ -333,7 +334,7 @@ class DevicesScreen:
 
         def explain(found):
             if found.get("error"):
-                return None, f"Couldn't ask Equalizer APO: {found['error']}"
+                return None, f"AutoEQ Studio cannot get data from Equalizer APO: {found['error']}"
             return check.explain(apo, found, name, pfile, on_device)
         return work, explain
 
@@ -350,12 +351,12 @@ class DevicesScreen:
             return
         try:
             if key in self._checking and not got:
-                lab.setText("Asking Equalizer APO whether this EQ plays…")
+                lab.setText("Wait for Equalizer APO: does it use this EQ?")
                 lab.setToolTip("")
             elif got:
                 ok, text = got[1], got[2]
                 lab.setText(("✓ " if ok else "✕ " if ok is False else "") + check_line(ok, text))
-                lab.setToolTip(text + "\nF1: more in Help.")
+                lab.setToolTip(text + "\nF1 opens Help.")
                 theme.mark(lab, role="good" if ok else "warn" if ok is False else "muted")
                 lab.style().unpolish(lab)
                 lab.style().polish(lab)
@@ -375,7 +376,7 @@ class DevicesScreen:
             return
         job = self._check_job(key)
         if job is None:
-            self._checks[key] = (sig, None, "Not connected now: plug it in or connect it to check its EQ.")
+            self._checks[key] = (sig, None, "Not connected: connect the device to examine its EQ.")
             self._show_check(key)
             return
         if key in self._checking:  # (asked already: a forced ask goes again after it, with its answer said)
@@ -390,7 +391,7 @@ class DevicesScreen:
         def done(found, err):
             self._checking.discard(key)
             if err is not None:
-                self._checks[key] = (sig, None, f"Couldn't ask Equalizer APO: {err}")
+                self._checks[key] = (sig, None, f"AutoEQ Studio cannot get data from Equalizer APO: {err}")
             else:
                 ok, text = explain(found)
                 self._checks[key] = (sig, ok, text)
@@ -411,10 +412,10 @@ class DevicesScreen:
         """Check again: APO asked now, and all it found said (switcher\\check.py)."""
         rec = self.sw.record(key)
         if self._check_job(key) is None:
-            QMessageBox.information(self, "Check", "Windows doesn't list this device now: plug it in or connect it first.")
+            QMessageBox.information(self, "Examine", "This device is not in the Windows list: connect it first.")
             return
-        self.status("Asking Equalizer APO…", 4000)
+        self.status("Wait for Equalizer APO…", 4000)
 
         def said(got):
-            (QMessageBox.information if got[1] else QMessageBox.warning)(self, f"Check: {shown(rec)}", got[2])
+            (QMessageBox.information if got[1] else QMessageBox.warning)(self, f"Examine: {shown(rec)}", got[2])
         self._auto_check(key, force=True, then=said)

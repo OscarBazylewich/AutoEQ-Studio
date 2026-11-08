@@ -4,71 +4,77 @@ tooltip, with the ids of its "See also" entries in Help), and SETTINGS_TRACE, th
 """
 # flake8: noqa
 
-HELP_TRACE = {'#tr-auto-on': ["Fits the tracer's settings to the image.", 'automatic-settings'],
+HELP_TRACE = {'#tr-auto-on': ["The app adjusts the tracer's settings for the image.", 'automatic-settings'],
  '#tr-d1': 'The dB value at the top red line.',
  '#tr-d2': 'The dB value at the bottom red line.',
  '#tr-f1': 'The frequency at the left blue line.',
  '#tr-f2': 'The frequency at the right blue line.',
- '#tr-snap': 'Dragged lines jump onto the nearest gridline.',
- '#tr-every': 'Uses every gridline, for unevenly drawn axes.',
- '#tr-tol': 'How close a colour must be to count as the curve.',
- '#tr-ppo': 'How many points per octave are saved.',
+ '#tr-snap': 'The lines that you drag move to the nearest grid line.',
+ '#tr-every': 'The app uses all grid lines, for irregular axes.',
+ '#tr-tol': "How different a pixel's color can be from the curve's color.",
+ '#tr-ppo': 'The number of points in each octave that the app saves.',
  '#tr-fmin': 'The frequency range to save.',
  '#tr-name': "The saved file's name.",
- '#tr-dashed': 'Follows dashed or dotted curves across their gaps.',
- '#tr-comp': ['Adds a target back, for graphs drawn relative to one.', 'compensated']}
+ '#tr-dashed': 'The app follows dashed or dotted curves across their spaces.',
+ '#tr-comp': ['The app adds a target to the curve, for a graph that shows the difference from a target.',
+              'compensated']}
 
 SETTINGS_TRACE = [{'title': 'Trace a graph image',
                    'items': [{'key': '#tr-auto-on',
                               'title': 'Automatic settings (tracer)',
-                              'body': ["Fits the tracer's settings to the image: colour tolerance, points per octave, "
-                                       'the range to save, dashed lines. A setting you change is marked “yours” and kept '
-                                       'for the next trace too, until you hand it back with ↺.',
-                                       'It always works carefully: the labels read large with a second try, the trace '
-                                       'placed between pixels, a trace that stops early tried again as a dashed line and '
-                                       'with more colour tolerance. (A speed-accuracy slider chose until 1.0.13: every '
-                                       'way took about a second, and the quick one missed dashed lines.)']},
+                              'body': ["The app adjusts the tracer's settings for the image: color tolerance, points in "
+                                       'each octave, the range to save and dashed lines. If you change a setting, it '
+                                       'shows “your value”. The app also keeps your value for the next picture, until you '
+                                       'click ↺.',
+                                       'The app always works carefully. It makes the labels larger before it reads them, '
+                                       'and tries again if necessary. It puts the traced line between pixels. If a traced '
+                                       'line stops before the end of the curve, it tries again as a dashed line and with '
+                                       'more color tolerance. (Before version 1.0.13, a slider set the speed and the '
+                                       'precision. With each setting, the time was approximately 1 s, and the fast '
+                                       'setting did not find dashed lines.)']},
                              {'key': '#tr-d1',
                               'title': 'Top red line (dB)',
-                              'body': ['The dB label of the gridline under the top red line. Any two labelled lines far '
-                                       'apart work.']},
+                              'body': ['The dB label of the grid line at the top red line. You can use two grid lines '
+                                       'with labels, if they are far from each other.']},
                              {'key': '#tr-d2',
                               'title': 'Bottom red line (dB)',
-                              'body': ['The dB label of the gridline under the bottom red line.']},
+                              'body': ['The dB label of the grid line at the bottom red line.']},
                              {'key': '#tr-f1',
                               'title': 'Left blue line (Hz)',
-                              'body': ["The frequency of the gridline under the left blue line. Filled in when it's read "
-                                       'from the image: check it.']},
+                              'body': ['The frequency of the grid line at the left blue line. If the app reads it from '
+                                       'the image, the app writes it here. Examine it.']},
                              {'key': '#tr-f2',
                               'title': 'Right blue line (Hz)',
-                              'body': ['The frequency of the gridline under the right blue line.']},
+                              'body': ['The frequency of the grid line at the right blue line.']},
                              {'key': '#tr-snap',
-                              'title': 'Snap to gridlines',
-                              'body': ['Dragged lines jump onto the nearest gridline, so they sit exactly on it.']},
+                              'title': 'Align with grid lines',
+                              'body': ['The lines that you drag move to the nearest grid line, and stay on it.']},
                              {'key': '#tr-every',
-                              'title': 'Follow every gridline',
-                              'body': ['Uses every gridline in between, for graphs whose axes are drawn unevenly. '
-                                       'Harmless otherwise.']},
+                              'title': 'Follow all grid lines',
+                              'body': ['The app uses all the grid lines between the blue lines, for graphs with '
+                                       'irregular axes. For other graphs, it causes no problems.']},
                              {'key': '#tr-tol',
-                              'title': 'Colour tolerance',
-                              'body': ["How far a pixel's colour may be from the curve's and still count. Raise it for "
-                                       'faded or blurry curves; lower it if the trace jumps to another line.']},
+                              'title': 'Color tolerance',
+                              'body': ["How different a pixel's color can be from the curve's color, and be part of the "
+                                       'curve. For curves with a weak color or edges that are not sharp, increase it. If '
+                                       'the traced line goes to a different line, decrease it.']},
                              {'key': '#tr-ppo',
-                              'title': 'Points per octave',
-                              'body': ['How many points per octave are saved. 48 matches squiglink; more only makes the '
-                                       'file bigger.']},
+                              'title': 'Points in each octave',
+                              'body': ['The number of points in each octave that the app saves. squiglink uses 48. '
+                                       'More points only make the file larger.']},
                              {'key': '#tr-fmin',
                               'title': 'Save from … to (Hz)',
-                              'body': ['The frequency range to save (from … to), within what you traced. Auto: what the '
-                                       "graph's axis covers."]},
+                              'body': ['The frequency range to save (from … to), in the range that you traced. Automatic: '
+                                       "the range of the graph's axis."]},
                              {'key': '#tr-name',
                               'title': 'Name',
-                              'body': ["The saved file's name. With several curves, each gets its label added (e.g. L "
-                                       'and R).']},
+                              'body': ["The saved file's name. If there is more than one curve, the app adds the label of "
+                                       'each curve to its file name (for example, L and R).']},
                              {'key': '#tr-dashed',
                               'title': 'Dashed or dotted line',
-                              'body': ['For dashed or dotted curves: the trace carries on across the gaps.']},
+                              'body': ['For dashed or dotted curves: the traced line continues across the spaces.']},
                              {'key': '#tr-comp',
                               'title': 'The graph shows (compensated)',
-                              'body': ['If the graph shows the difference from a target (compensated), choose that '
-                                       "target: it's added back when saving. The target must be in the app."]}]}]
+                              'body': ['If the graph shows the difference from a target (compensated), select that '
+                                       'target. The app adds the target to the curve when you save it. The target must '
+                                       'be in the app.']}]}]

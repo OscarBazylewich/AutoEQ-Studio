@@ -31,18 +31,19 @@ from ui.forms import Field, Fold, Form, Limits, fmt_list, line_up_together
 ADJUST_GAINS = ("tilt", "bass_gain", "halftilt_gain", "ear_gain", "treble_gain", "air_gain")  # (eq.service's)
 CURVE_KEYS = ("target_adjust.","site.", "scoring.band_hz", "files.", "rig_convert.")  # (settings.js)
 LABELS = {  # (auto.js: what "Set by you" calls each one)
-    "scoring.band_hz.1": "Scored up to", "site_single.rows": "Filter rows", "site_single.freq_high": "Frequency to",
+    "scoring.band_hz.1": "Error to", "site_single.rows": "Filter rows", "site_single.freq_high": "Frequency to",
     "site_single.gain_min": "Gain from", "site_single.gain_max": "Gain to", "site_single.q_max": "Q to",
     "site_sweep.filter_rows": "Filter rows to try", "site_sweep.freq_high": "Frequency “to” values",
     "site_sweep.gain_ranges": "Gain ranges", "site_sweep.q_max": "Q “to” values", "best_fit.filter_counts": "Filter counts",
-    "best_fit.freq_range.1": "Filters up to", "best_fit.gain_min": "Max cut", "best_fit.gain_max": "Max boost values",
-    "best_fit.q_max": "Q max values", "best_fit.low_shelf": "Low shelf", "best_fit.high_shelf": "High shelf",
-    "scoring.pick": "Pick", "scoring.ear_db": "Audible limit", "best_fit.fight_penalty": "Fighting-filter penalties"}
+    "best_fit.freq_range.1": "Filters up to", "best_fit.gain_min": "Minimum gain", "best_fit.gain_max": "Maximum gain values",
+    "best_fit.q_max": "Maximum Q values", "best_fit.low_shelf": "Low shelf", "best_fit.high_shelf": "High shelf",
+    "scoring.pick": "Best result", "scoring.ear_db": "Same sound below",
+    "best_fit.fight_penalty": "Penalties for opposite filters"}
 FORMATS = [("apo", "Equalizer APO / squiglink filters (.txt)"), ("graphic", "GraphicEQ for Wavelet (.txt)"),
            ("poweramp", "Poweramp / Poweramp Equalizer preset (.json)"),
            ("uapp", "USB Audio Player PRO parametric EQ preset (.xml)"),
            ("soundsource", "SoundSource headphone EQ, macOS (.txt)"), ("voicemeeter", "Voicemeeter bus EQ, Windows (.xml)"),
-           ("rockbox", "Rockbox EQ preset, music players (.cfg)"),
+           ("rockbox", "Rockbox EQ preset, music devices (.cfg)"),
            ("convolution", "Convolution impulse response: Viper4Android, JamesDSP, EasyEffects, Roon… (.wav)"),
            ("report", "An HTML report")]
 
@@ -122,35 +123,36 @@ class EqSettings:
         mr.setContentsMargins(0, 0, 0, 0)
         mr.addWidget(load_mine)
         edit_mine = QPushButton("Edit as a table…")
-        edit_mine.setToolTip("Your own filters as a table or sliders (each one's type, frequency, gain and Q)")
+        edit_mine.setToolTip("Your filters as a table or as sliders (the type, frequency, gain and Q of each filter)")
         edit_mine.clicked.connect(self.edit_own_filters)
         mr.addWidget(edit_mine)
         mr.addWidget(self.mine_note, 1)
         self.method_title = QLabel()
         self.form = Form([
-            ("Website AutoEQ: one run", [
+            ("Website AutoEQ: one set", [
                 ("Filter rows", [("site_single.rows", "num")], mode("site_single")),
                 ("Frequency from", [("site_single.freq_low", "num"), ("site_single.freq_high", "num")], mode("site_single")),
                 ("Gain from (dB)", [("site_single.gain_min", "num"), ("site_single.gain_max", "num")], mode("site_single")),
                 ("Q from", [("site_single.q_min", "num"), ("site_single.q_max", "num")], mode("site_single"))]),
-            ("Website AutoEQ: find best settings", [(self.sweep_note, [], mode("site_sweep"))]),
+            ("Website AutoEQ: find the best settings", [(self.sweep_note, [], mode("site_sweep"))]),
             ("Best fit", [
-                ("Filter counts to try", [("best_fit.filter_counts", "intlist", None, "e.g. 1-10")], free),
+                ("Filter counts to try", [("best_fit.filter_counts", "intlist", None, "for example, 1-10")], free),
                 ("Shelf", [("best_fit.low_shelf", "check")], shelves),
                 (self.fixed_note, [], fixed),
-                ("Start from your own filters", [("best_fit.start_filters", "block", None,
-                                                  "Equalizer APO lines, e.g. Filter: ON PK Fc 1000 Hz Gain -3 dB Q 1")],
+                ("Start from your filters", [("best_fit.start_filters", "block", None,
+                                              "Equalizer APO lines, for example Filter: ON PK Fc 1000 Hz Gain -3 dB Q 1")],
                  mode("best_fit")),
                 ("", [("best_fit.start_keep", "check")], lambda: S()["mode"] == "best_fit" and S()["best_fit"]["start_filters"].strip()),
                 (None, mine_row, mode("best_fit"))]),  # (in the boxes' column, under the box it fills)
-            ("Scoring", [
-                ("Score from (Hz)", [("scoring.band_hz.0", "num"), ("scoring.band_hz.1", "num")]),
-                ("Pick", [("scoring.pick", "choice", [("audible", "Simplest that sounds the same as the target"),
-                                                      ("lowest", "Lowest error")])], multi),
-                ("Audible limit (dB)", [("scoring.ear_db", "num")], audible),
+            ("Error and selection", [
+                ("Error from (Hz)", [("scoring.band_hz.0", "num"), ("scoring.band_hz.1", "num")]),
+                ("Best result", [("scoring.pick", "choice",
+                                  [("audible", "Minimum number of filters for the same sound"),
+                                   ("lowest", "Lowest error")])], multi),
+                ("Same sound below (dB)", [("scoring.ear_db", "num")], audible),
 ]),
             ("Target", [
-                ("Rig conversion", [("rig_convert.enabled", "check")])]),
+                ("Rig change", [("rig_convert.enabled", "check")])]),
         ], self.limits, get, changed, back, say)
         self.fold.add(self.form)
         self._label_checks()
@@ -158,13 +160,13 @@ class EqSettings:
         yield "settings"
 
         # ---------------------------------------------------------------- Advanced (in two halves)
-        self.adv = Fold("Advanced")
+        self.adv = Fold("More settings")
         layouts = [(l["key"], f"{l['group']}: {l['name']}" if l["group"] not in ("Any",) else l["name"])
                    for l in m.get("layouts", [])]
         sections = [
             ("Best fit", [
                 ("Layout", [("best_fit.layout", "choice", layouts)], mode("best_fit")),
-                ("Band frequencies (Hz)", [("best_fit.bands.freqs", "numlist", None, "e.g. 31, 62, 125, 250…")],
+                ("Band frequencies (Hz)", [("best_fit.bands.freqs", "numlist", None, "for example, 31, 62, 125, 250…")],
                  lambda: fixed() and S()["best_fit"]["layout"] == "bands"),
                 ("Q of each band", [("best_fit.bands.q", "num")], lambda: fixed() and S()["best_fit"]["layout"] == "bands"),
                 ("Sliders from (dB)", [("best_fit.bands.gain_min", "num"), ("best_fit.bands.gain_max", "num")], fixed),
@@ -172,22 +174,22 @@ class EqSettings:
                 ("Low shelf (Hz)", [("best_fit.low_shelf_freq.0", "num"), ("best_fit.low_shelf_freq.1", "num")],
                  lambda: shelves() and S()["best_fit"]["low_shelf"]),
                 ("Filters from (Hz)", [("best_fit.freq_range.0", "num"), ("best_fit.freq_range.1", "num")], free),
-                ("Max cut (dB)", [("best_fit.gain_min", "num")], free),
-                ("Max boost values (dB)", [("best_fit.gain_max", "numlist")], free),
+                ("Minimum gain (dB)", [("best_fit.gain_min", "num")], free),
+                ("Maximum gain values (dB)", [("best_fit.gain_max", "numlist")], free),
                 ("Q from", [("best_fit.q_min", "num")], free),
-                ("Q max values", [("best_fit.q_max", "numlist")], free),
-                ("Fighting-filter penalties", [("best_fit.fight_penalty", "numlist")], free)]),
-            ("Website sweep", [
-                ("Filter rows to try", [("site_sweep.filter_rows", "intlist", None, "e.g. 4-10 or 4, 6, 8")]),
+                ("Maximum Q values", [("best_fit.q_max", "numlist")], free),
+                ("Penalties for opposite filters", [("best_fit.fight_penalty", "numlist")], free)]),
+            ("Website best settings", [
+                ("Filter rows to try", [("site_sweep.filter_rows", "intlist", None, "for example, 4-10 or 4, 6, 8")]),
                 ("Frequency from", [("site_sweep.freq_low", "num")]),
                 ("Frequency “to” values", [("site_sweep.freq_high", "numlist")]),
-                ("Gain ranges", [("site_sweep.gain_ranges", "ranges", None, "min..max, …")]),
+                ("Gain ranges", [("site_sweep.gain_ranges", "ranges", None, "low..high, …")]),
                 ("Q from", [("site_sweep.q_min", "num")]),
                 ("Q “to” values", [("site_sweep.q_max", "numlist")])]),
             ("Website", [
                 ("Which website to copy", [("site.profile", "choice", [("listener800", "listener800 (5128 databases)"),
-                                                                        ("squig.link lab", "squig.link"), ("custom", "Custom")])]),
-                ("Level matching", [("site.normalization", "choice", [("Hz~", "Hz~ (average over 4 octaves)"),
+                                                                        ("squig.link lab", "squig.link"), ("custom", "Other")])]),
+                ("Normalization", [("site.normalization", "choice", [("Hz~", "Hz~ (average across 4 octaves)"),
                                                                       ("Hz", "Hz (one frequency)"), ("dB", "dB (equal loudness, phon)")])]),
                 ("Around (Hz)", [("site.norm_hz", "num")], lambda: S()["site"]["normalization"] != "dB"),
                 ("Loudness (phon)", [("site.norm_db", "num")], lambda: S()["site"]["normalization"] == "dB"),
@@ -200,14 +202,14 @@ class EqSettings:
             ("Saved files", [("", [("export." + k, "check")]) for k, name in FORMATS] + [
                 ("Impulse response sample rate", [("export.convolution_rate", "choice", _opts(C["export.convolution_rate"]))],
                  lambda: S()["export"]["convolution"]),
-                ("Pre-amp rounding", [("export.preamp_rounding", "choice", [("safe", "Safe (round down)"), ("site", "Like squiglink")])]),
-                ("Extra headroom (dB)", [("export.extra_headroom", "num")]),
+                ("Pre-amp rounding", [("export.preamp_rounding", "choice", [("safe", "Safe (lower value)"), ("site", "Same as squiglink")])]),
+                ("More headroom (dB)", [("export.extra_headroom", "num")]),
                 ("Q decimals in saved files", [("export.q_decimals", "num")])]),
             ("History", [
-                ("History keeps", [("history.keep", "choice", [("saved", "EQs you save or copy"),
-                                                               ("all", "Every run's result, and the EQs you save")])]),
+                ("History keeps", [("history.keep", "choice", [("saved", "EQs that you save or copy"),
+                                                               ("all", "All results, and the EQs that you save")])]),
                 ("", [("history.eqd_before", "check")])]),
-            ("This PC", [("CPU cores (0 = all but one)", [("performance.cores", "num")])]),
+            ("This PC", [("CPU cores (0 = all the cores minus 1)", [("performance.cores", "num")])]),
         ]
         self.adv_form = Form(sections[:2], self.limits, get, changed, back, say)  # (Best fit, Website sweep)
         line_up_together(self.form, self.adv_form)  # (one label column for Settings and Advanced, one above the other)
@@ -229,7 +231,8 @@ class EqSettings:
         self.adjust_btn.setCheckable(True)
         self.adjust_btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         theme.mark(self.adjust_btn, fold=True, eqsub=True)  # (a part of the Target card: quieter than its title)
-        self.adjust_btn.setToolTip("Tilt, bass, half-tilt, ear gain, treble and air: the target made darker, brighter, bassier…")
+        self.adjust_btn.setToolTip("Tilt, bass, half-tilt, ear gain, treble and air: give the target more or less bass "
+                                   "or treble…")
         help_window.tag(self.adjust_btn, "#target-adjust")
         self.adjust_btn.toggled.connect(self._adjust_open)
         self.adjust_summary = QLabel()
@@ -250,9 +253,9 @@ class EqSettings:
         g.setContentsMargins(0, 0, 0, 0)
         g.setHorizontalSpacing(10)
         g.setVerticalSpacing(6)
-        for col, (text, tip) in enumerate((("Amount", "How much: + raises, − lowers (tilt: − darker, + brighter)"),
-                                           ("Hz", "Where it acts: a shelf from there on, ear gain around it"),
-                                           ("Q", "How steep (a shelf) or how wide (ear gain)")), 1):
+        for col, (text, tip) in enumerate((("Value", "+ increases it, − decreases it (tilt: − more bass, + more treble)"),
+                                           ("Hz", "The frequency: a shelf starts at it, ear gain is around it"),
+                                           ("Q", "How quickly a shelf changes, or the width of ear gain")), 1):
             h = QLabel(text)
             h.setToolTip(tip)
             theme.mark(h, role="muted")
@@ -276,7 +279,7 @@ class EqSettings:
             g.addWidget(lab, i, 0)
             a = field("target_adjust." + amount, "num")
             a.layout().addWidget(_muted_label(unit))
-            a.box.setAccessibleName(f"{name} amount ({unit})")
+            a.box.setAccessibleName(f"{name} value ({unit})")
             a.minus.setAccessibleName(f"{name} lower")
             a.plus.setAccessibleName(f"{name} higher")
             lab.setToolTip(a.base_tip)
@@ -288,7 +291,7 @@ class EqSettings:
                 g.addWidget(f, i, 2)
                 deps.append(f)
             else:
-                g.addWidget(_muted_label("whole range"), i, 2, 1, 2)
+                g.addWidget(_muted_label("full range"), i, 2, 1, 2)
             if q:
                 f = field("target_adjust." + q, "choice", _opts(C["target_adjust." + q]))
                 f.box.setAccessibleName(f"{name} Q")
@@ -296,16 +299,15 @@ class EqSettings:
                 deps.append(f)
             self.adjust_rows[amount] = deps
         g.setColumnStretch(4, 1)
-        hint = QLabel("+ raises, − lowers (tilt: − darker, + brighter); ↑ ↓ or the mouse wheel in a box work too. "
-                      "Hz and Q apply once the amount isn't 0.")
+        hint = QLabel("+ increases, − decreases (tilt: − more bass, + more treble). In a box, ↑ ↓ and the mouse wheel "
+                      "also change the value. Hz and Q change the target only when the value is not 0.")
         hint.setWordWrap(True)
         theme.mark(hint, role="muted")
-        self.reset_adjust_btn = QPushButton("Reset adjustments")
-        self.reset_adjust_btn.setToolTip("Every adjustment back to 0 (Undo puts them back)")
+        self.reset_adjust_btn = QPushButton("Clear the adjustments")
+        self.reset_adjust_btn.setToolTip("Set all adjustments to 0 (you can undo this)")
         self.reset_adjust_btn.clicked.connect(self.reset_adjustments)
         self.save_target_btn = QPushButton("Save as a target…")
-        self.save_target_btn.setToolTip("Keep the target as adjusted here as a target of your own (the adjustments go "
-                                        "back to 0)")
+        self.save_target_btn.setToolTip("Save the adjusted target as a new target (then all adjustments become 0)")
         self.save_target_btn.clicked.connect(self.page.save_adjusted_target)
         help_window.tag(self.save_target_btn, "#target-save")
         # (made on the Target card, its place: opened before it had a parent, it was a window of its own)
@@ -339,7 +341,7 @@ class EqSettings:
         def undo():
             self.page.S["target_adjust"] = before
             self.page.changed(curves=True)
-        self.page.notify("The target's adjustments are back to 0.", undo)
+        self.page.notify("All adjustments of the target are 0.", undo)
 
     def _adjust_summary_text(self):
         """Beside Adjust: what's adjusted (“tilt −1 dB/oct, bass +4 dB”), or nothing."""
@@ -353,10 +355,10 @@ class EqSettings:
 
     def _label_checks(self, form=None):
         """A checkbox's words beside it (the form's rows have them as the label: moved into the box)."""
-        names = {"best_fit.low_shelf": "Low shelf (a broad bass change)",
-                 "best_fit.start_keep": "Keep them exactly as they are (the fit adds filters around them)",
-                 "rig_convert.enabled": "Convert the target to the measurement's rig",
-                 "history.eqd_before": "Say under Measurement when you've EQ'd it before"}
+        names = {"best_fit.low_shelf": "Low shelf (a wide bass change)",
+                 "best_fit.start_keep": "Keep them as they are (Best fit adds filters around them)",
+                 "rig_convert.enabled": "Change the target for the measurement's rig",
+                 "history.eqd_before": "Show a message below Measurement if History has an EQ for it"}
         names.update({"export." + k: n for k, n in FORMATS})
         for path, f in (form or self.form).fields.items():
             if f.kind == "check" and path in names:
@@ -367,11 +369,11 @@ class EqSettings:
         w = QWidget()
         v = QVBoxLayout(w)
         v.setContentsMargins(0, 0, 0, 0)
-        self.auto_on = QCheckBox("Automatic settings: fitted to your measurement and target")
+        self.auto_on = QCheckBox("Automatic settings: adjusted for your measurement and target")
         self.auto_on.toggled.connect(self.auto_switched)
         help_window.tag(self.auto_on, "#auto-on")
         v.addWidget(self.auto_on)
-        self.why_head = QLabel("Why these settings")
+        self.why_head = QLabel("About these settings")
         theme.mark(self.why_head, role="section")
         v.addWidget(self.why_head)
         self.why = QLabel()
@@ -384,7 +386,7 @@ class EqSettings:
         self.mine_text = QLabel()
         self.mine_text.setWordWrap(True)
         mb.addWidget(self.mine_text, 1)
-        all_back = QPushButton("Hand all back")
+        all_back = QPushButton("Make all automatic")
         all_back.clicked.connect(lambda: self.hand_back(None))
         mb.addWidget(all_back)
         v.addWidget(self.mine_box)
@@ -432,8 +434,8 @@ class EqSettings:
     def auto_switched(self, on):
         self.page.S["auto"]["enabled"] = bool(on)
         self.page.changed()
-        self.page.status("Automatic settings on: fitted to the measurement and target." if on
-                         else "Automatic settings off: every setting stays as it is.", 5000)
+        self.page.status("Automatic settings on: adjusted for the measurement and target." if on
+                         else "Automatic settings off: all settings stay as they are.", 5000)
         self.refresh()
 
     def load_own_filters(self):
@@ -443,11 +445,11 @@ class EqSettings:
         import textfile
         r = self.page.svc.call("/api/filters/parse", {"text": textfile.read(f)})
         if r.get("error") or not r.get("filters"):
-            self.page.status(r.get("error") or f"No filters found in “{f}”.", 8000)
+            self.page.status(r.get("error") or f"There are no filters in “{f}”.", 8000)
             return
         lines = self._apo_lines(r["filters"])
         self.changed("best_fit.start_filters", "\n".join(lines))
-        self.page.status(f"Loaded {len(lines)} filters to start from.", 5000)
+        self.page.status(f"Best fit starts from the {len(lines)} filters in the file.", 5000)
 
     @staticmethod
     def _apo_lines(filters):
@@ -466,21 +468,21 @@ class EqSettings:
         text = self.page.S["best_fit"].get("start_filters", "")
         r = self.page.svc.call("/api/filters/parse", {"text": text}) if text.strip() else {"filters": []}
         if r.get("error"):  # (an empty table, and OK then wiped your text: review 2)
-            QMessageBox.warning(self.fold, "Your own filters", f"{r['error']}\n\nFix that line in the box first, then "
-                                "open the table again.")
+            QMessageBox.warning(self.fold, "Your filters", f"{r['error']}\n\nCorrect that line in the box. Then open the "
+                                "table again.")
             return
         filters = [{"enabled": True, "type": x.get("type", "PK"), "freq": x["freq"], "gain": x["gain"], "q": x["q"]}
                    for x in r.get("filters") or []]
         dlg = OwnFiltersWindow(self.fold)
-        dlg.setWindowTitle("Your own filters")
+        dlg.setWindowTitle("Your filters")
         # (at least 640 wide: it went down to 280, the table's boxes squeezed, one slider in sight)
         fit_to_screen(dlg, (820, 560), (640, None))
         v = QVBoxLayout(dlg)
         v.setContentsMargins(16, 16, 16, 16)  # (a card's room around it, as Windows 11's own windows have)
         others = len([ln for ln in text.splitlines() if ln.strip()]) > len(filters)
-        note = QLabel("Best fit starts from these (switched-off ones are left out): it adds filters to them, or adjusts "
-                      "them too unless “Keep them exactly as they are” is ticked."
-                      + (" The box's other lines (a Preamp, comments, switched-off filters) go when you press OK."
+        note = QLabel("Best fit starts from these filters (not from the filters that are off). It adds filters to them. "
+                      "If you do not select “Keep them as they are”, it also adjusts them."
+                      + (" OK removes the other lines in the box (a Preamp line, other text, and filters that are off)."
                          if others else ""))
         note.setWordWrap(True)
         theme.mark(note, role="muted")
@@ -522,7 +524,8 @@ class EqSettings:
         dlg.deleteLater()  # (each opening made a window of its own, kept hidden under the Settings fold)
         if ok:
             self.changed("best_fit.start_filters", "\n".join(self._apo_lines(filters)))
-            self.page.status(f"{sum(f.get('enabled', True) is not False for f in filters)} filters to start from.", 5000)
+            self.page.status(f"Best fit starts from {sum(f.get('enabled', True) is not False for f in filters)} filters.",
+                             5000)
 
     # ---------------------------------------------------------------- showing
     def refresh(self):
@@ -538,16 +541,17 @@ class EqSettings:
         for n in notes:
             text = n["text"].replace("&", "&amp;").replace("<", "&lt;")
             if n.get("path") in mine:  # ("yours" in the accent as text: 4.5:1 on the card, light or dark)
-                items.append(f"<li><span style='color:{t['accent_text']}'>yours</span> · Automatic: {text} Your value "
-                             "is used.</li>")
+                items.append(f"<li><span style='color:{t['accent_text']}'>your value</span> · Automatic: {text} The app "
+                             "uses your value.</li>")
             else:
                 items.append(f"<li>{text}</li>")
         self.why.setText("<ul style='margin-left:-20px'>" + "".join(items) + "</ul>" if items else
-                         ("Choose a target and a measurement to fit the settings to." if on else "Automatic settings are off."))
-        self.why_head.setText(f"Why these settings ({len(notes)})" if notes else "Why these settings")
+                         ("Select a target and a measurement for the automatic settings." if on
+                          else "Automatic settings are off."))
+        self.why_head.setText(f"About these settings ({len(notes)})" if notes else "About these settings")
         self.mine_box.setVisible(on and bool(mine))
-        self.mine_text.setText("Set by you (kept as they are): " + ", ".join(LABELS.get(p, p) for p in mine)
-                               + ".  Click a “yours ↺” tag to hand one back.")
+        self.mine_text.setText("Your values (not changed): " + ", ".join(LABELS.get(p, p) for p in mine)
+                               + ".  To make one automatic, click its “your value ↺” tag.")
         tags = {p: ("yours" if p in mine else "auto") for p in self.auto_paths} if on else {}
         self.form.refresh(tags)
         self.adv_form.refresh(tags)
@@ -560,18 +564,18 @@ class EqSettings:
         self.reset_adjust_btn.setEnabled(adj)  # (always there, so nothing moves; usable once adjusted)
         self.save_target_btn.setEnabled(adj)
         sw = S["site_sweep"]
-        self.sweep_note.setText(f"The website runs tried: rows {fmt_list(sw['filter_rows'])}; frequency to "
-                                f"{', '.join(f'{v / 1000:g}k' for v in sw['freq_high'])}; gain "
-                                f"{', '.join(f'{r[0]:g}..{r[1]:g}' for r in sw['gain_ranges'])}; Q to {fmt_list(sw['q_max'])}. "
-                                "Change them in Advanced › Website sweep.")
+        self.sweep_note.setText(f"The settings that the app tries: rows {fmt_list(sw['filter_rows'])} · frequency to "
+                                f"{', '.join(f'{v / 1000:g} kHz' for v in sw['freq_high'])} · gain "
+                                f"{', '.join(f'{r[0]:g}..{r[1]:g}' for r in sw['gain_ranges'])} · Q to {fmt_list(sw['q_max'])}. "
+                                "Change them in More settings › Website best settings.")
         lay = next((l for l in self.page.meta.get("layouts", []) if l["key"] == S["best_fit"]["layout"]), {})
-        self.fixed_note.setText(f"{lay.get('name', '')}: fixed bands, only their gains are fitted (their range and "
-                                "steps are in Advanced)." if lay.get("fixed") else "")
+        self.fixed_note.setText(f"{lay.get('name', '')}: a graphic EQ. Best fit adjusts only the gains of its bands "
+                                "(their range and step are in More settings)." if lay.get("fixed") else "")
         # (settings.js mineCount: the lines the run reads)
         n = len([s for s in (S["best_fit"].get("start_filters") or "").splitlines()
                  if s.strip() and not s.strip().lower().startswith(("#", ";", "//", "preamp")) and ": off" not in s.lower()])
         self.mine_note.setText(f"{n} filter{'s' if n != 1 else ''} to start from" if n else "")
         hz = lambda v: f"{v / 1000:g} kHz" if v >= 1000 else f"{v:g} Hz"
-        self.fold.summary.setText(f"· {'automatic' if on else 'automatic off: your values as they are'} · scored "
+        self.fold.summary.setText(f"· {'automatic' if on else 'automatic off: your values'} · error range "
                                   f"{hz(S['scoring']['band_hz'][0])}–{hz(S['scoring']['band_hz'][1])}")
-        self.adv.summary.setText("· the layout, limits and search, the website's values, saved files")
+        self.adv.summary.setText("· the layout, the limits and the settings to try, the website's values, saved files")

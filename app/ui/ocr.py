@@ -23,11 +23,11 @@ def _get_engine():
         try:
             from winrt.windows.media.ocr import OcrEngine
         except ImportError as e:  # (setup installs them; a copy without them still traces, by typed values)
-            raise Unavailable("Windows' text reader isn't installed with this copy (run setup again).") from e
+            raise Unavailable("this copy of the app does not have the parts for Windows OCR (install the app again)") from e
         eng = OcrEngine.try_create_from_user_profile_languages()
         if eng is None:
-            raise Unavailable("Windows has no text reader language installed (Settings > Time & language > "
-                              "Language: add English with its optical character recognition).")
+            raise Unavailable("Windows cannot do OCR (in Windows Settings, “Time & language > Language”, add English "
+                              "with its “Optical character recognition”)")
         _engine = eng
     return _engine
 

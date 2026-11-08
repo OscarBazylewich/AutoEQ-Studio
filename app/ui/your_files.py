@@ -18,7 +18,7 @@ KINDS_LINE = ", ".join((paths.TARGETS_NAME, paths.MEASUREMENTS_NAME, paths.SAVED
 def _choose(parent, start):
     """A folder chosen in Windows' folder picker, checked (None: cancelled, or said why it can't be used)."""
     while True:
-        d = QFileDialog.getExistingDirectory(parent, "Choose a folder for your AutoEQ Studio files", start)
+        d = QFileDialog.getExistingDirectory(parent, "Select a folder for your AutoEQ Studio files", start)
         if not d:
             return None
         d = os.path.normpath(d)
@@ -31,9 +31,10 @@ def _choose(parent, start):
 
 def _said(parent, moved, renamed):
     if moved or renamed:
-        QMessageBox.information(parent, TITLE, f"Moved {moved} file{'s' if moved != 1 else ''} into {paths.ROOT}."
-                                + (f"\n\n{renamed} had the name of a different file already there: each is kept beside "
-                                   "it, with (2) after its name." if renamed else ""))
+        QMessageBox.information(parent, TITLE, f"AutoEQ Studio moved {moved} file{'s' if moved != 1 else ''} into "
+                                f"{paths.ROOT}." + (f"\n\n{renamed} of them had the same name as a different file in "
+                                                    "that folder. AutoEQ Studio kept the two files and added (2) "
+                                                    "after the name of the moved file." if renamed else ""))
 
 
 def offer_move(parent, save):
@@ -47,13 +48,14 @@ def offer_move(parent, save):
     box = QMessageBox(parent)
     box.setWindowTitle(TITLE)
     box.setIcon(QMessageBox.Question)
-    box.setText("AutoEQ Studio now keeps your targets, measurements, saved EQs and presets where Windows apps keep "
-                "your files, each in a folder of its own:")
-    box.setInformativeText(f"{paths.ROOT}\n({KINDS_LINE})\n\n{n} of your files are still where an older AutoEQ Studio "
-                           f"kept them:\n" + "\n".join(where) + "\n\nMove them there now? A file is never replaced.")
+    box.setText("AutoEQ Studio keeps your targets, measurements, saved EQs and presets in the folder where Windows "
+                "apps keep your files, each in a different folder:")
+    box.setInformativeText(f"{paths.ROOT}\n({KINDS_LINE})\n\n{n} of your files are in the folders of a previous "
+                           f"version of AutoEQ Studio:\n" + "\n".join(where) + "\n\nMove them to the new folder? "
+                           "AutoEQ Studio does not replace a file.")
     move = box.addButton("Move them", QMessageBox.AcceptRole)
-    other = box.addButton("Choose another folder…", QMessageBox.ActionRole)
-    box.addButton("Not now", QMessageBox.RejectRole)
+    other = box.addButton("Select a different folder…", QMessageBox.ActionRole)
+    box.addButton("Not at this time", QMessageBox.RejectRole)
     box.setDefaultButton(move)
     box.exec()
     if box.clickedButton() is other:
@@ -68,8 +70,8 @@ def offer_move(parent, save):
     try:
         moved, renamed = userfiles.move_all(pairs, sources)
     except OSError as e:
-        QMessageBox.warning(parent, TITLE, f"Not everything could be moved ({e}). What's left is asked about again "
-                                           "next time.")
+        QMessageBox.warning(parent, TITLE, f"AutoEQ Studio did not move all the files ({e}). The next time that "
+                                           "AutoEQ Studio starts, it shows this message again for the other files.")
         return True
     _said(parent, moved, renamed)
     return True
@@ -87,10 +89,10 @@ def change(parent, save, restart):
         box.setWindowTitle(TITLE)
         box.setIcon(QMessageBox.Question)
         box.setText(f"Move your {n} file{'s' if n != 1 else ''} to {d}?")
-        box.setInformativeText(f"Into {KINDS_LINE} there. A file is never replaced. AutoEQ Studio then starts again to "
-                               "use the new folder.")
+        box.setInformativeText(f"They go into {KINDS_LINE} in that folder. AutoEQ Studio does not replace a file. Then "
+                               "AutoEQ Studio starts again and uses the new folder.")
         move = box.addButton("Move and start again", QMessageBox.AcceptRole)
-        keep = box.addButton("Use it without moving them", QMessageBox.ActionRole)
+        keep = box.addButton("Use it and do not move them", QMessageBox.ActionRole)
         box.addButton(QMessageBox.Cancel)
         box.setDefaultButton(move)
         box.exec()
@@ -100,15 +102,15 @@ def change(parent, save, restart):
             try:
                 moved, renamed = userfiles.move_all(pairs)
             except OSError as e:
-                QMessageBox.warning(parent, TITLE, f"Not everything could be moved ({e}). AutoEQ Studio keeps using "
-                                                   f"{paths.ROOT}; any files already moved are in {d}.")
+                QMessageBox.warning(parent, TITLE, f"AutoEQ Studio did not move all the files ({e}). It continues to "
+                                                   f"use {paths.ROOT}. The files that it moved are in {d}.")
                 return False
             save(paths.FILES_KEY, d)
             paths.locate()
             _said(parent, moved, renamed)
             restart()
             return True
-    elif QMessageBox.question(parent, TITLE, f"Use {d} for your files? AutoEQ Studio starts again to use it.") \
+    elif QMessageBox.question(parent, TITLE, f"Use {d} for your files? Then AutoEQ Studio starts again and uses it.") \
             != QMessageBox.Yes:
         return False
     save(paths.FILES_KEY, d)

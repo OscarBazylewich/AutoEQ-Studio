@@ -46,7 +46,7 @@ def restore(back):
     """Entries taken out a moment ago put back as they were (History's Undo): each kept as it was, its time too, and
     in its place by that time. One whose key is there again meanwhile stays as it is now. Returns all entries."""
     if not isinstance(back, list):
-        raise ValueError("There's nothing to put back.")
+        raise ValueError("There are no entries to add to the history again.")
     with _LOCK:
         items = entries()
         have = {x["key"] for x in items}
@@ -67,7 +67,7 @@ def restore(back):
 def _clean(entry):
     """An entry as it's kept: its words short, its numbers numbers, its parts plain; its time now."""
     if not isinstance(entry, dict) or not isinstance(entry.get("key"), str) or not entry["key"].strip():
-        raise ValueError("This EQ can't go into the history: it has no name.")
+        raise ValueError("The app cannot add this EQ to the history: it has no name.")
     e = {k: str(entry.get(k) or "")[:300] for k in TEXT}
     files = entry.get("meas_files")
     e.update({

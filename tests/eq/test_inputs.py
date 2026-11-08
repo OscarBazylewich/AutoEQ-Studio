@@ -133,5 +133,5 @@ def test_move_onto_a_different_file_refused(dups, check):
     moved_msg = raises(inputs.move_file, "measurement", "Dup L1.txt") or ""
     # was eq_checks.py:789
     check("files: moving onto a different file of that name is refused, both kept",
-          "already has a different" in moved_msg and os.path.exists(os.path.join(inputs.MEAS_DIR, "Dup L1.txt"))
+          "has a different" in moved_msg and os.path.exists(os.path.join(inputs.MEAS_DIR, "Dup L1.txt"))
           and os.path.exists(os.path.join(inputs.TARGET_DIR, "Dup L1.txt")), moved_msg)

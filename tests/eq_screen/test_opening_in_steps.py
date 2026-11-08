@@ -240,14 +240,14 @@ def test_each_part_placed_in_the_step_that_makes_it(ahead, check):
           "Make the EQ, Settings, Advanced, Your result, Listen), Adjust under the target, every section "
           "of both folds, Advanced's two halves one form (one label column, its boxes named for a screen reader)",
           seen["cards in order"] and seen["a stretch last"] and seen["Adjust's row and panel last on the Target card"]
-          and seen["Settings' sections"] == ["Website AutoEQ: one run", "Website AutoEQ: find best settings",
-                                             "Best fit", "Scoring", "Target"]
-          and seen["Advanced's sections"] == ["Best fit", "Website sweep", "Website", "Saved files", "History",
+          and seen["Settings' sections"] == ["Website AutoEQ: one set", "Website AutoEQ: find the best settings",
+                                             "Best fit", "Error and selection", "Target"]
+          and seen["Advanced's sections"] == ["Best fit", "Website best settings", "Website", "Saved files", "History",
                                               "This PC"]
           and seen["Advanced's label column one width"]
           and names == {"best_fit.layout": "Layout", "site.profile": "Which website to copy",
-                        "export.extra_headroom": "Extra headroom (dB)", "history.keep": "History keeps",
-                        "performance.cores": "CPU cores (0 = all but one)"}
+                        "export.extra_headroom": "More headroom (dB)", "history.keep": "History keeps",
+                        "performance.cores": "CPU cores (0 = all the cores minus 1)"}
           and seen["shown"] == [True] and seen["opening shown"] is False, seen)
 
 
@@ -259,7 +259,7 @@ def test_says_nothing_until_first_seen(ahead, check):
           before["opened"] and not before["asked"] and not before["said"] and before["current"], before)
     check("eq page: once first shown, what it kept is said: the files set aside (one box) and the status line "
           "(AutoEQ Local's files brought over)",
-          len(boxes) == 1 and any(t.startswith("Brought over 2 files from AutoEQ Local") for t in after["said"]),
+          len(boxes) == 1 and any(t.startswith("AutoEQ Studio copied 2 files from AutoEQ Local") for t in after["said"]),
           after)
 
 
@@ -275,7 +275,7 @@ def test_damaged_history_said(ahead, check):
     bad = _history_file() + ".bad"
     check("eq page: a damaged history.json at opening is said (kept as history.json.bad, a new one started): it was "
           "set aside without a word (its notice came with History's answer, which the opening dropped)",
-          any("history.json couldn't be read" in b and "history.json.bad" in b for b in boxes) and os.path.exists(bad),
+          any("cannot read history.json" in b and "history.json.bad" in b for b in boxes) and os.path.exists(bad),
           (boxes, os.path.exists(bad)))
 
 
@@ -309,7 +309,7 @@ def test_failed_opening_lets_go(tmp_path, monkeypatch, check):
     o = _open(str(tmp_path), monkeypatch, False)
     page = o.s.page
     try:
-        said = qt.wait_for(lambda: page.loading.text().startswith("The EQ part couldn't open"), 60)
+        said = qt.wait_for(lambda: page.loading.text().startswith("The EQ part cannot open"), 60)
         o.watch.stop()
         holds = list(o.holds)
     finally:

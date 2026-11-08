@@ -37,8 +37,8 @@ def test_device_notes_give_its_limits(check):
     notes = " ".join(n["text"] for n in autoset.plan(settings.with_auto({"mode": "best_fit", "best_fit": {
         "layout": "app:moondrop_free_dsp"}}), AN)["notes"])
     # was eq_checks.py:301
-    check("automatic settings: a device's notes give its limits (9 filters, +3 dB)", "Up to 9 filters" in notes
-          and "Boosts up to +3 dB" in notes, notes[:200])
+    check("automatic settings: a device's notes give its limits (9 filters, +3 dB)", "Maximum 9 filters" in notes
+          and "Maximum gain +3 dB" in notes, notes[:200])
 
 
 def test_each_note_a_line(check):
@@ -60,7 +60,7 @@ def test_huge_sweep_refused_and_estimated_quickly(sample_curves, check):
     est = autoset.estimate(big, "site_sweep")
     # was eq_checks.py:480
     check("methods: a huge sweep is refused, and its estimate stays quick",
-          "at most" in (raises(pipeline.check_run, "site_sweep", big, curves) or "") and time.time() - t0 < 1 and est > 3600)
+          "The maximum is" in (raises(pipeline.check_run, "site_sweep", big, curves) or "") and time.time() - t0 < 1 and est > 3600)
 
 
 # ---------------------------------------------------------------- every method and slider end

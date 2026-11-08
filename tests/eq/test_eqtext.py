@@ -199,8 +199,8 @@ def test_apo_lines(check):
                                                      ("PK", 1000, -2, 3, True)]
           and r["preamp"] == -4.5
           and r["left_out"] == ["filters for some channels or devices only (Channel:, Device:)",
-                                "a graphic EQ (GraphicEQ)", "another file it brings in (Include)",
-                                "a filter whose frequency (45000) is outside 20 to 20000 Hz"], r)
+                                "a graphic EQ (GraphicEQ)", "a different file that it includes (Include)",
+                                "a filter: its frequency (45000) is not in the range 20 to 20000 Hz"], r)
 
 
 def test_nothing_readable(check):
@@ -218,4 +218,4 @@ def test_pasted_filters_read_the_same_way(check):
           [(f["type"], round(f["freq"], 2)) for f in got] == [("PK", 92), ("LSQ", round(apo["freq"], 2))]
           and apo["freq"] > 200, got)
     check("eqtext: the strict reader still refuses a filter type an EQ here can't have, by its name",
-          "“HP” filters aren't supported" in (raises(exports.parse_filters, "Filter 1: ON HP Fc 30 Hz") or ""))
+          "the app cannot use “HP” filters" in (raises(exports.parse_filters, "Filter 1: ON HP Fc 30 Hz") or ""))

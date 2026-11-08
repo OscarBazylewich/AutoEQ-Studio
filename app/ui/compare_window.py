@@ -81,7 +81,7 @@ class CompareWindow(QDialog):
         top = QHBoxLayout()
         top.addWidget(QLabel("Model"))
         self.q = QLineEdit()
-        self.q.setPlaceholderText("e.g. Truthear Gate")
+        self.q.setPlaceholderText("for example, Truthear Gate")
         self.q.setClearButtonEnabled(True)
         self.q.returnPressed.connect(lambda: self.run())
         top.addWidget(self.q, 1)
@@ -127,8 +127,8 @@ class CompareWindow(QDialog):
         cc.setContentsMargins(6, 6, 6, 4)
         cc.addWidget(self.chart)
         v.addWidget(chart_card, 1)
-        legend = QLabel("Blue: best for your target, or under the mouse. Grey: your target's rig. Dotted: other rigs. "
-                        "Green dashes: an average, while the mouse is over its box.")
+        legend = QLabel("Blue: best for your target, or the row that the mouse is on. Gray: the rig of your target. Dotted line: "
+                        "other rigs. Green dashed line: an average, while the mouse is on its box.")
         legend.setWordWrap(True)
         theme.mark(legend, role="muted")
         v.addWidget(legend)
@@ -137,12 +137,13 @@ class CompareWindow(QDialog):
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.scroll.setMinimumHeight(list_min)  # (a measurement's card in sight however small the window)
         v.addWidget(self.scroll, 4)
-        how = Fold("How the ranking works")
-        text = QLabel("<b>Rig (40 points).</b> How well its rig matches your target's.<br>"
-                      "<b>Agreement (25).</b> How close it is to the others on the same rig.<br>"
-                      "<b>Bass (15).</b> Less bass than the others suggests a leaky seal.<br>"
-                      "<b>Averaging (10).</b> Several seatings and both channels.<br>"
-                      "<b>Data (10).</b> Range and number of points.<br>Units, fit and tips still vary.")
+        how = Fold("How the app sorts them")
+        text = QLabel("<b>Rig (maximum 40).</b> Is its rig the same as the rig of your target?<br>"
+                      "<b>Agrees with others (maximum 25).</b> Is it near the others on the same rig?<br>"
+                      "<b>Bass (maximum 15).</b> Less bass than the others can show a bass leak.<br>"
+                      "<b>Average (maximum 10).</b> More than one seating, and the two channels.<br>"
+                      "<b>Data (maximum 10).</b> The frequency range and the number of points.<br>"
+                      "The units, the fit and the ear tips also cause differences.")
         text.setWordWrap(True)
         how.add(text)
         v.addWidget(how)
@@ -164,16 +165,16 @@ class CompareWindow(QDialog):
         auto = f"{rigs.get(r['target_rig'], r['target_rig'])} ({r.get('how')})" if r.get("target_rig") else "not known"
         self.rig.clear()
         self.rig.addItem(f"Automatic: {auto}", "")
-        self.rig.addItem("Don't know / ignore the rig", "none")
+        self.rig.addItem("Not known / ignore the rig", "none")
         for k, name in rigs.items():
             self.rig.addItem(name, k)
         self.rig.sort_items(pinned=2)  # ("Automatic" and "Don't know" on top, the rigs A to Z under them: UI-RULES 22)
-        self.target_lab.setText(f"Target {(r.get('target') or 'not chosen').rsplit('.', 1)[0]} is made for")
+        self.target_lab.setText(f"Target {(r.get('target') or 'not selected').rsplit('.', 1)[0]} is made for")
         self.q.setText(r.get("query") or "")
         if self.q.text().strip():
             self.run(auto=True)
         else:
-            self.status.setText("Type a model name, e.g. “Truthear Gate” or “HD 600”.")
+            self.status.setText("Type a model name, for example “Truthear Gate” or “HD 600”.")
             self.q.setFocus()
 
     def keyPressEvent(self, e):
@@ -200,17 +201,17 @@ class CompareWindow(QDialog):
             return
         self.busy = True
         self.go.setEnabled(False)
-        self.status.setText(f"Looking for “{query}”" + (" (offline: what's on this PC)" if net.offline() else
-                                                        " and downloading the measurements") + "…")
+        self.status.setText(f"The app searches for “{query}”" + (" on this PC (offline)" if net.offline() else
+                                                                 " and downloads the measurements") + "…")
         body = {"query": query, "rig": self.rig.currentData() or "", "auto": auto is True, "settings": self.page.S}
 
         def done(res, err):
             self.busy = False
             self.go.setEnabled(True)
-            if (res or {}).get("error", "").startswith("The online database lists are still loading"):
+            if (res or {}).get("error", "").startswith("The online database lists are not available at this time"):
                 if not self.isVisible():  # (closed meanwhile: nothing more is compared or downloaded)
                     return
-                self.status.setText("Loading the online database lists first…")
+                self.status.setText("The app loads the online database lists first…")
                 a = auto if self.again is None else self.again
                 self.again = None
                 if not hasattr(self, "_retry"):
@@ -234,7 +235,7 @@ class CompareWindow(QDialog):
 
     def _open_site(self, url):
         if net.offline():
-            self.footer.say("Offline: switch to Online (top right) to open websites.")
+            self.footer.say("Offline: to open websites, change to Online (top right).")
             return
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QDesktopServices
@@ -246,7 +247,8 @@ class CompareWindow(QDialog):
         n = len(d["items"])
         st = f"{n} measurement{'s' if n != 1 else ''} of “{d['query']}”. " if n else ""
         st += (f"Your target is made for the {d['target_rig_name']}." if d.get("target_rig") else
-               "Your target's rig isn't known, so the rig isn't scored (choose it above if you know it).")
+               "The rig of your target is not known. Thus, the app does not compare the rigs (select the rig above "
+               "if you know it).")
         self.status.setText(st)
         self.note.setText(d.get("note") or "")
         self.note_box.setVisible(bool(d.get("note")))
@@ -260,20 +262,21 @@ class CompareWindow(QDialog):
         for i, c in enumerate(d["items"]):
             lay.addWidget(self._row(i, c, main_action=i == 0 and not averages))
         if not n:  # (said in the list, where they'd be: UI-RULES 21)
-            none = QLabel(f"None of the measurements of “{d['query']}” could be loaded." if d.get("errors") else
-                          f"Nothing called “{d['query']}” was found. Try fewer words (e.g. just the model).")
+            none = QLabel(f"The app cannot load the measurements of “{d['query']}”." if d.get("errors") else
+                          f"No results for “{d['query']}”. Type a shorter name (for example, only the model).")
             none.setWordWrap(True)
             theme.mark(none, role="muted")
             lay.addWidget(none)
         if d.get("errors"):
-            err = QLabel("Couldn't load: " + "; ".join(d["errors"]))
+            err = QLabel("Not loaded: " + " · ".join(d["errors"]))
             err.setWordWrap(True)
             theme.mark(err, role="muted")
             lay.addWidget(err)
         if d.get("links"):
             links = " · ".join(f"<a href='{l['link']}'>{_esc(l['name'])}</a> ({_esc(l['site'])}"
                                f"{', ' + _esc(l['rig']) if l.get('rig') else ''})" for l in d["links"])
-            lk = QLabel("Also measured by sites that don't allow downloads (open them to look, or trace their graph): " + links)
+            lk = QLabel("Other websites also have measurements, but you cannot download them (open the websites to look, or "
+                        "trace their graphs): " + links)
             lk.setWordWrap(True)
             lk.setTextFormat(Qt.RichText)
             lk.linkActivated.connect(self._open_site)  # (offline: said in the window's line, UI-RULES 25)
@@ -386,13 +389,14 @@ class CompareWindow(QDialog):
             bv = QVBoxLayout(box)
             bv.setContentsMargins(*CARD_MARGINS)
             head = QHBoxLayout()
-            title = QLabel(f"Average the {len(lst)} measurements on the {lst[0]['rig_name']}")
+            title = QLabel(f"The average of the {len(lst)} measurements on the {lst[0]['rig_name']}")
             title.setObjectName("whichName")  # (semibold)
             title.setTextFormat(Qt.PlainText)
             title.setWordWrap(True)
             words = QVBoxLayout()
             words.addWidget(title)
-            sub = QLabel("Same rig, so they differ only by unit and fit; averaging evens that out.")
+            sub = QLabel("The same rig. Thus, the differences are only from the unit and the fit. The average makes these "
+                         "differences smaller.")
             sub.setWordWrap(True)
             theme.mark(sub, role="muted")
             words.addWidget(sub)
@@ -408,13 +412,16 @@ class CompareWindow(QDialog):
             def update(lst=lst, sel=sel, btn=btn, note=note, names=names, copy_of=copy_of, rig=rig):
                 n = sum(1 for c in lst if c["hash"] in sel)
                 btn.setEnabled(n >= 2)
-                btn.setText(f"Average {n} and use" if n >= 2 else "Tick at least 2")
+                btn.setText(f"Use the average of {n}" if n >= 2 else "Select 2 or more")
                 far = [c["source"] for c in lst if c.get("dev") is not None and c["dev"] >= 2]
-                via = lambda c: c["source"] + (" via AutoEq" if str(c.get("site", "")).startswith("AutoEq") else "")
+                via = lambda c: c["source"] + (" through AutoEq" if str(c.get("site", "")).startswith("AutoEq") else "")
                 dup = [f"{via(c)} (the same data as {via(copy_of[c['hash']])})" for c in lst if c["hash"] in copy_of]
-                note.setText(("Not all are named the same (other tips or versions?): tick only one version. " if len(names) > 1 else "")
-                             + (f"Left out so they don't count twice: {', '.join(dup)}. " if dup else "")
-                             + (f"Left out by default: {', '.join(far)} (more than 2 dB from the others on this rig)." if far else ""))
+                note.setText(("The names are not all the same (different ear tips or versions?): select only one version. "
+                              if len(names) > 1 else "")
+                             + (f"Not used (the app does not count the same data two times): {', '.join(dup)}. " if dup
+                                else "")
+                             + (f"Not selected at the start: {', '.join(far)} (more than 2 dB from the others on this "
+                                "rig)." if far else ""))
                 if self.avg_hot == rig:
                     self.draw()
             for c in lst:
@@ -500,7 +507,7 @@ class CompareWindow(QDialog):
     def average(self, lst, sel, btn):
         keys = [c["hash"] for c in lst if c["hash"] in sel]
         btn.setEnabled(False)
-        btn.setText("Averaging…")  # (a second click would save the average twice)
+        btn.setText("In progress…")  # (a second click would save the average twice)
         body = {"keys": keys, "name": self.data["query"], "settings": self.page.S}
 
         page = self.page
@@ -509,9 +516,9 @@ class CompareWindow(QDialog):
             here = tasks.alive(self)
             if err or (res or {}).get("error"):
                 if here:
-                    QMessageBox.warning(self, "Average and use", str(err or res["error"]))
+                    QMessageBox.warning(self, "Use the average", str(err or res["error"]))
                     btn.setEnabled(True)
-                    btn.setText(f"Average {len(keys)} and use")
+                    btn.setText(f"Use the average of {len(keys)}")
                 return
             page.used(dict(res, kind="measurement", names=[]))
             if here:

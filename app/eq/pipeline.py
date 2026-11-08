@@ -102,8 +102,8 @@ def band_problem(curves, band):
     f = curves["f"]
     if ((f >= band[0]) & (f <= band[1])).sum() >= 2:
         return None
-    return (f"The scored range ({band[0]:g}–{band[1]:g} Hz) has no data: the curves run from 20 Hz to 20 kHz. "
-            f"Change “Score from” or “Score to”.")
+    return (f"The error range ({band[0]:g}–{band[1]:g} Hz) has no data: the curves go from 20 Hz to 20 kHz. "
+            f"Change “Error from” or “Error to”.")
 
 
 def check_run(mode, cfg, curves):
@@ -118,29 +118,30 @@ def check_run(mode, cfg, curves):
         if settings.pair_wrong(cfg, lo, hi, strict):
             a, b = settings.get_path(cfg, lo), settings.get_path(cfg, hi)
             b = min(b) if isinstance(b, list) else b
-            raise ValueError(f"{settings.PAIR_NAMES.get(lo, lo)}: “from” ({a:g}) must be {'below' if strict else 'at most'} "
+            raise ValueError(f"{settings.PAIR_NAMES.get(lo, lo)}: “from” ({a:g}) must be {'less than' if strict else 'equal to or less than'} "
                              f"“to” ({b:g}).")
     if "site_sweep" in used and engines.sweep_size(cfg["site_sweep"]) > engines.MAX_SITE_RUNS:
-        raise ValueError(f"These settings make {engines.sweep_size(cfg['site_sweep']):,} website runs (filter rows × "
-                         f"frequency “to” values × gain ranges × Q limits); at most {engines.MAX_SITE_RUNS:,}. "
-                         f"Use fewer values in those boxes.")
+        raise ValueError(f"With these settings, the app must calculate {engines.sweep_size(cfg['site_sweep']):,} website "
+                         f"EQs (filter rows × frequency “to” values × gain ranges × Q limits). The maximum is "
+                         f"{engines.MAX_SITE_RUNS:,}. Use a smaller number of values in those boxes.")
     fixed = mode == "best_fit" and layouts.is_fixed(cfg["best_fit"]["layout"])
     if fixed:
         freqs = layouts.bands(cfg["best_fit"])[0]
         if not freqs:
-            raise ValueError("Your own bands: enter at least one band frequency.")
+            raise ValueError("Your bands: enter one or more band frequencies.")
         return
     if mode != "best_fit":
         return
     bf = cfg["best_fit"]
     n_mine = len(exports.parse_filters(bf.get("start_filters", "")))  # (says which line it can't read)
     if engines.fit_count(bf, n_mine) > engines.MAX_FITS:
-        raise ValueError(f"These settings make {engines.fit_count(bf, n_mine):,} fits (filter counts × max boosts × "
-                         f"Q limits); at most {engines.MAX_FITS:,}. Use fewer values in those boxes.")
+        raise ValueError(f"With these settings, Best fit must calculate {engines.fit_count(bf, n_mine):,} EQs (filter counts "
+                         f"× maximum gains × maximum Q values). The maximum is {engines.MAX_FITS:,}. Use a smaller "
+                         f"number of values in those boxes.")
     room = layouts.capacity(bf["layout"])
     if room is not None and n_mine > room:  # (more than the device holds whatever is added)
-        raise ValueError(f"Your {n_mine} filters are more than {layouts.name(bf['layout'])} holds ({room}): remove some "
-                         f"in Best fit's “Start from your own filters”.")
+        raise ValueError(f"You have {n_mine} filters, and {layouts.name(bf['layout'])} has a maximum of {room}. Remove "
+                         f"some filters in “Start from your filters” (Best fit).")
 
 
 # The last few site sweeps' results, by their inputs and settings. The site's AutoEQ gives the same result for the
@@ -186,12 +187,12 @@ def run_mode(mode, cfg, curves, meas_texts, target_text, progress=None, cancel=N
     check_run(mode, cfg, curves)
     reused = False
     if mode == "site_single":
-        say(0, 1, "Running squiglink AutoEQ")
+        say(0, 1, "squiglink AutoEQ: in progress")
         results = engines.site_single(cfg, curves, meas_texts, target_text)
     elif mode == "site_sweep":
         results, reused = _site_sweep(cfg, curves, meas_texts, target_text, say, cancel)
     elif mode == "best_fit" and layouts.is_fixed(cfg["best_fit"]["layout"]):
-        say(0, 1, f"Fitting the gains of the {layouts.name(cfg['best_fit']['layout'])}")
+        say(0, 1, f"Best fit adjusts the gains of the {layouts.name(cfg['best_fit']['layout'])}")
         results = engines.graphic_run(cfg, curves)
     elif mode == "best_fit":
         cfg = copy.deepcopy(cfg)  # (a device layout: Best fit's settings within the device's)
@@ -200,7 +201,7 @@ def run_mode(mode, cfg, curves, meas_texts, target_text, progress=None, cancel=N
         cfg["best_fit"] = layouts.device_settings(bf, len(exports.parse_filters(bf.get("start_filters", ""))))
         results, reused = _best_fit(cfg, curves, meas_texts, target_text, say, cancel, seeds)
     else:
-        raise ValueError(f"Unknown mode {mode}")
+        raise ValueError(f"Unknown EQ method: {mode}")
     # parallel runs finish in any order: sort by settings so ids and ties are repeatable (the fighting-filter penalty
     # too: the two penalties' results swapped ids from run to run)
     results.sort(key=lambda r: tuple(r.get(k) or 0 for k in ("rows", "freq_high", "gain_min", "gain_max", "q_max",
@@ -216,13 +217,13 @@ def _site_sweep(cfg, curves, meas_texts, target_text, say, cancel):
     """(results, reused): the site's AutoEQ for every combination of the sweep's settings."""
     key = _sweep_key(cfg, meas_texts, target_text)
     if key in _SWEEPS:
-        say(1, 1, "The same squiglink AutoEQ runs as a moment ago: using their results")
+        say(1, 1, "squiglink AutoEQ: the app uses the last results (the settings are the same)")
         return copy.deepcopy(_SWEEPS[key]), True
     combos = engines.site_combos(cfg["site_sweep"])
-    say(0, len(combos), f"Starting {len(combos)} squiglink AutoEQ runs")
+    say(0, len(combos), f"squiglink AutoEQ: {len(combos)} EQs to calculate")
     with ProcessPoolExecutor(workers(cfg), initializer=engines.site_worker_init,
                              initargs=(cfg, meas_texts, target_text)) as pool:
-        results = engines.site_sweep(pool, cfg, curves, lambda d, t: say(d, t, f"squiglink AutoEQ runs: {d}/{t}"), cancel)
+        results = engines.site_sweep(pool, cfg, curves, lambda d, t: say(d, t, f"squiglink AutoEQ: {d}/{t} EQs"), cancel)
     _remember_sweep(key, results)
     return results, False
 
@@ -237,7 +238,7 @@ def _best_fit(cfg, curves, meas_texts, target_text, say, cancel, seeds):
     shared = engines.grow_shared() if engines.grows(bf) else None  # (growing fits stop where another reached the target)
     bf_args = (curves, cfg["scoring"]["band_hz"], cfg["site"]["sample_rate"], penalties, shared)
     with ProcessPoolExecutor(workers(cfg), initializer=engines.bestfit_worker_init, initargs=bf_args) as pool:
-        msg = "Adding filters one at a time" if shared else "Fits"
+        msg = "Best fit adds one filter at a time" if shared else "Calculated EQs"
         results = engines.bestfit(pool, cfg, curves, seeds, lambda d, t: say(d, t, f"{msg}: {d}/{t}"), cancel, shared)
     return results, False
 

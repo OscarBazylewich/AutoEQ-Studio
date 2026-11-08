@@ -48,16 +48,16 @@ class _Popup(QWidget):
         self.q.installEventFilter(self)
         v.addWidget(self.q)
         self.list = QListWidget()
-        self.list.setAccessibleName(combo.accessibleName() or "Choices")
+        self.list.setAccessibleName(combo.accessibleName() or "Items")
         self.list.itemClicked.connect(self.choose)
         self.list.itemActivated.connect(self.choose)
         v.addWidget(self.list)
-        self.none = QListWidgetItem("Nothing matches")
+        self.none = QListWidgetItem("No results")
         self.none.setFlags(Qt.NoItemFlags)
 
     def fill(self):
         self.list.clear()
-        self.none = QListWidgetItem("Nothing matches")
+        self.none = QListWidgetItem("No results")
         self.none.setFlags(Qt.NoItemFlags)
         c = self.combo
         for i in range(c.count()):

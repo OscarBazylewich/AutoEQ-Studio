@@ -61,10 +61,11 @@ class Abx:
         """The score and what it means, in words."""
         k, n = self.right(), len(self.answers)
         if not n:
-            return "No answers yet."
+            return "No trials are completed."
         p = chance(k, n)
         if p < ENOUGH:
-            return (f"{k} of {n} right. Guessing gets {k} or more right only {percent(p)} of the time: you can tell "
-                    "them apart.")
-        return (f"{k} of {n} right. Guessing gets {k} or more right {percent(p)} of the time, so that could be luck: "
-                "no sign you can tell them apart" + (" (a longer test can show a small difference)." if n < 16 else "."))
+            return (f"{k} of {n} correct. Random selections get {k} or more correct in only {percent(p)} of the tests. "
+                    "This result shows that you can hear a difference.")
+        return (f"{k} of {n} correct. Random selections get {k} or more correct in {percent(p)} of the tests. This "
+                "result does not show that you can hear a difference" + (" (a longer test can show a small difference)."
+                                                                          if n < 16 else "."))

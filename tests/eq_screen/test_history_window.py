@@ -65,7 +65,7 @@ def test_history_window_lists_and_removes(eq_screen, chain, check):
     gone = not any(e["key"] == kept[0]["key"] for e in page.history)
     # (2026-10-27, UI-RULES 20: Undo beside it, in History's own line; it puts the entry back as it was, its time too)
     line = hw.footer.line
-    offered = (line.text.text().startswith("Removed"), line.undo_btn.isVisibleTo(hw))
+    offered = (line.text.text().startswith("You removed"), line.undo_btn.isVisibleTo(hw))
     line.undo_btn.click()
     back = next((e for e in page.history if e["key"] == kept[0]["key"]), None)
     hw.remove([kept[0]["key"]])  # (taken out again: the checks after this one find it gone, as before)
@@ -298,7 +298,7 @@ def test_unreadable_history_is_said(eq_screen, check, dialogs, fresh_studio):
         eq_screen.wait_for(lambda: dialogs.asked, 5)
         boxes = [text for _kind, text in dialogs.asked]
         # was eq_checks.py:1889
-        check("review: a data file that can't be read (History's) is said, kept as .bad", any("couldn't be read" in b for b in boxes)
+        check("review: a data file that can't be read (History's) is said, kept as .bad", any("cannot read" in b for b in boxes)
               and os.path.exists(hist + ".bad"), boxes[-1:])
     finally:
         with contextlib.suppress(FileNotFoundError):  # (the file this test set aside: fresh_studio leaves .bad files)

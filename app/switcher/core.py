@@ -73,13 +73,15 @@ class Switcher:
             s = textfile.read_json_kept(self.path, dict)
         except OSError as e:
             s, self.read_only = {}, True
-            self.problem = (f"AutoEQ Studio's settings couldn't be read ({e}), so nothing is changed this time: your "
-                            "devices' EQs stay as they are. Close what has the file open and start AutoEQ Studio again.")
+            self.problem = (f"AutoEQ Studio cannot read its settings ({e}). Thus, it makes no changes, and the EQs of "
+                            "your devices stay the same. Close the program that has the file open. Then start AutoEQ "
+                            "Studio again.")
         aside = textfile.take_set_aside()
         if aside:  # (APO's file not written until you change a device's EQ: from empty settings every EQ would go off)
             self.hold = True
-            self.problem = (aside + " Your devices' EQs were left as they were; the profiles' EQ files are still in "
-                            "Equalizer APO's \"AutoEQ Studio\" folder (Import them again in Profiles).")
+            self.problem = (aside + " AutoEQ Studio did not change the EQs of your devices. The EQ files of the "
+                            "profiles are in the \"AutoEQ Studio\" folder of Equalizer APO (import them again in "
+                            "Profiles).")
         # (keys of other parts, e.g. Listen's and the tracer's choices, kept as they are)
         out = {k: v for k, v in s.items() if k not in DEFAULTS}
         out.update({k: s.get(k, v) if isinstance(s.get(k, v), type(v)) else v for k, v in DEFAULTS.items()})
@@ -192,7 +194,7 @@ class Switcher:
         """Copy an EQ file into APO's profiles folder as a new profile. Returns its id. Raises eqfile.NotAnEqFile
         (said as it is) or OSError (couldn't read or write)."""
         if not self.apo.found:
-            raise OSError("Equalizer APO isn't installed, so there's nowhere to keep profiles yet.")
+            raise OSError("Equalizer APO is not installed. Thus, AutoEQ Studio cannot keep profiles.")
         self._writable()
         raw, info = eqfile.read_eq(path)
         name = self._unique_name((name or eqfile.name_from_file(path)).strip() or "EQ")
@@ -216,7 +218,7 @@ class Switcher:
         eqfile.NotAnEqFile (said as it is) or OSError."""
         p = self.s["profiles"].get(pid)
         if not p:
-            raise OSError("That profile isn't there any more.")
+            raise OSError("The profile is not there.")
         self._writable()
         raw, info = eqfile.read_eq(path)
         os.makedirs(self.apo.profiles, exist_ok=True)
@@ -359,9 +361,9 @@ class Switcher:
         Its own EQ comes back by itself (end_trial, from the app's clock). Raises OSError when it can't."""
         self._writable()
         if not self.apo.found:
-            raise OSError("Equalizer APO isn't installed, so there's nothing to play it through.")
+            raise OSError("Equalizer APO is not installed. Thus, the device cannot use the EQ.")
         if not self.record(key):
-            raise OSError("That device isn't known any more.")
+            raise OSError("AutoEQ Studio does not know this device.")
         os.makedirs(self.apo.profiles, exist_ok=True)
         textfile.write_atomic(self.trial_path(), apo_text)
         self.trial = {"key": key, "name": name, "until": time.time() + minutes * 60}
@@ -497,7 +499,7 @@ class Switcher:
         """Read-only (the settings file held by another program): nothing of APO's is changed either (review 2: set-up
         and imports still wrote while the settings couldn't be)."""
         if self.read_only:
-            raise OSError(self.problem or "AutoEQ Studio's settings couldn't be read, so nothing is changed this time.")
+            raise OSError(self.problem or "AutoEQ Studio cannot read its settings. Thus, it makes no changes.")
 
     def set_up_apo(self, turn_off=True):
         self._writable()

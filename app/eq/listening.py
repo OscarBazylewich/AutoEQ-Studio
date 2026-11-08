@@ -26,7 +26,7 @@ def _all():
 def _device(name):
     name = " ".join(str(name or "").split())[:300]
     if not name:
-        raise ValueError("Choose a measurement first: each IEM or headphone has its own list.")
+        raise ValueError("First, select a measurement: each IEM or headphone has a different list.")
     return name
 
 
@@ -56,7 +56,7 @@ def get(device):
 
 def _clean(e, i):
     if not isinstance(e, dict):
-        raise ValueError(f"EQ {i + 1} in the list isn't an EQ.")
+        raise ValueError(f"EQ {i + 1} in the list is not an EQ.")
     filters = exports.clean_filters(e.get("filters"))
     if not filters:
         raise ValueError(f"“{str(e.get('name') or '')[:60]}” has no filters.")
@@ -73,7 +73,7 @@ def put(device, eqs):
     if not isinstance(eqs, list):
         raise ValueError("The list of EQs is missing.")
     if len(eqs) > MAX_EQS:
-        raise ValueError(f"At most {MAX_EQS} EQs per IEM or headphone: remove one first.")
+        raise ValueError(f"The maximum is {MAX_EQS} EQs for each IEM or headphone: first, remove one.")
     eqs = [_clean(e, i) for i, e in enumerate(eqs)]
     with _LOCK:
         return _put(device, eqs)

@@ -167,13 +167,13 @@ def test_convolution_refuses_too_high(check):
 def test_filters_not_numbers_named(check):
     # was eq_checks.py:216
     check("formats: filters that aren't numbers are named", raises(exports.clean_filters, [{"freq": 100, "gain": "x", "q": 1}])
-          == "Filter 1: its gain isn't a number.")
+          == "Filter 1: its gain is not a number.")
 
 
 def test_filters_outside_limits_named(check):
     # was eq_checks.py:218
     check("formats: filters outside the filter table's limits are named (Q 0 would break an EQ app)",
-          raises(exports.clean_filters, [{"freq": 100, "gain": 1, "q": 0}]) == "Filter 1: its Q (0) is outside 0.03 to 27.")
+          raises(exports.clean_filters, [{"freq": 100, "gain": 1, "q": 0}]) == "Filter 1: its Q (0) is not in the range 0.03 to 27.")
 
 
 def test_long_names_keep_the_method(check):
@@ -198,7 +198,7 @@ def test_uapp_preamp_too_low_said(check):
                      -24.0, "x", notes)
     # was eq_checks.py:2197
     check("files: USB Audio Player PRO's file says when its pre-amp can't go low enough (it can clip)",
-          any("can clip" in n for n in notes), notes)
+          any("Clipping can occur" in n for n in notes), notes)
 
 
 def test_tiny_q_written_as_smallest_step(check):
@@ -225,7 +225,7 @@ def test_apo_width_and_slopes_read(check):
 def test_other_apo_type_named(check):
     # was eq_checks.py:343
     check("formats: another APO filter type is named as not supported",
-          "“HP” filters aren't supported" in (raises(exports.parse_filters, "Filter 1: ON HP Fc 30 Hz") or ""))
+          "the app cannot use “HP” filters" in (raises(exports.parse_filters, "Filter 1: ON HP Fc 30 Hz") or ""))
 
 
 def test_unknown_format_refused(eq_cfg, check):

@@ -52,7 +52,7 @@ def options(page):
     out = []
     run, r = page.current()
     if r:
-        out.append({"label": "Shown now: " + page.run_label(run, r) + (" (edited)" if page.edited() else ""),
+        out.append({"label": "Shown: " + page.run_label(run, r) + (" (edited)" if page.edited() else ""),
                     "filters": page.active(), "run": run, "rid": r["id"]})
     name = (page.curves or {}).get("name")
     for rn in reversed(page.session_runs):
@@ -62,7 +62,7 @@ def options(page):
             x = rn["results"][0]
             if rn is not run:
                 on = [f for f in x["filters"] if f.get("enabled", True) is not False]
-                out.append({"label": f"Run {rn.get('n', '?')} · by hand · {len(on)} filter{'' if len(on) == 1 else 's'}",
+                out.append({"label": f"#{rn.get('n', '?')} · manual · {len(on)} filter{'' if len(on) == 1 else 's'}",
                             "filters": _filters(x["filters"]), "run": rn, "rid": x["id"]})
             continue
         by_n = {}
@@ -73,8 +73,8 @@ def options(page):
         for k, x in sorted(by_n.items()):
             if r and rn is run and x["id"] == r["id"] and not page.edited():
                 continue
-            out.append({"label": f"Run {rn.get('n', '?')} · {k} filters · {x['rms']:.2f} dB"
-                                 + ("  ✓ picked for you" if x["id"] == rn["pick"] else ""),
+            out.append({"label": f"#{rn.get('n', '?')} · {k} filters · {x['rms']:.2f} dB"
+                                 + ("  ✓ selected for you" if x["id"] == rn["pick"] else ""),
                         "filters": _filters(x["filters"]), "run": rn, "rid": x["id"]})
     from ui.history_window import day_of, time_of
     for e in sorted((e for e in page.history if e.get("device") == name), key=lambda e: e["when"], reverse=True):
@@ -104,8 +104,8 @@ class CompareResults(QDialog):
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # (only up and down: its parts fit its width)
         scroll.setWidget(page_w)
         outer.addWidget(scroll, 1)
-        lead = QLabel("Any two of: the result shown now, this session's runs and this IEM's History, on your "
-                      "measurement and target as they are now.")
+        lead = QLabel("Two of these: the result on the result card, the EQs that you made, and the History of this "
+                      "IEM. The graph shows them with your measurement and target.")
         lead.setWordWrap(True)
         theme.mark(lead, role="muted")
         v.addWidget(lead)
@@ -114,7 +114,7 @@ class CompareResults(QDialog):
         # (A to Z, as every list, the result shown now on top: UI-RULES 22; A and B start as the first two options
         # were: this EQ and the one beside it)
         first = self.opts[:2]
-        shown = [o for o in self.opts if o["run"] is not None and o["label"].startswith("Shown now")]
+        shown = [o for o in self.opts if o["run"] is not None and o["label"].startswith("Shown: ")]
         self.opts = shown + sorted((o for o in self.opts if o not in shown), key=lambda o: natural_key(o["label"]))
         for i, side in enumerate("AB"):
             pick.addWidget(QLabel(side), i, 0)
@@ -152,7 +152,7 @@ class CompareResults(QDialog):
         v.addWidget(card, 2)
         self.numbers = QTableWidget(0, 3)
         self.numbers.setObjectName("eqwNumbers")  # (room at the left of its cells: ui\theme_sheet.py)
-        self.numbers.setAccessibleName("Their numbers")
+        self.numbers.setAccessibleName("Values")
         self.numbers.setHorizontalHeaderLabels(["", "A", "B"])
         _table_look(self.numbers)
         self.numbers.verticalHeader().hide()
@@ -226,9 +226,9 @@ class CompareResults(QDialog):
             self.plot.plot(f, n["with"], pen=pg.mkPen(colour, width=width), name=f"{side}: with the EQ")
         self.plot.setXRange(np.log10(20), np.log10(20000), padding=0)
         apart = float(np.max(np.abs(nums[0]["with"] - nums[1]["with"])[nums[0]["inside"]])) if nums[0]["inside"].any() else 0
-        rows = [("Error in the scored range (dB)", lambda n: f"{n['rms']:.2f}" if n["rms"] is not None else "–"),
+        rows = [("Error in the range (dB)", lambda n: f"{n['rms']:.2f}" if n["rms"] is not None else "–"),
                 ("Filters", lambda n: str(n["n"])), ("Pre-amp (dB)", lambda n: page.preamp_text(n["preamp"])),
-                ("Biggest boost (dB)", lambda n: f"+{n['boost']:.1f}"), ("Biggest Q", lambda n: f"{n['q']:g}")]
+                ("Maximum gain (dB)", lambda n: f"+{n['boost']:.1f}"), ("Maximum Q", lambda n: f"{n['q']:g}")]
         self.numbers.setRowCount(len(rows) + 1)
         for i, (name, fn) in enumerate(rows):
             self.numbers.setItem(i, 0, QTableWidgetItem(name))
@@ -236,7 +236,7 @@ class CompareResults(QDialog):
                 it = QTableWidgetItem(fn(n))
                 it.setTextAlignment(LEFT)
                 self.numbers.setItem(i, j + 1, it)
-        self.numbers.setItem(len(rows), 0, QTableWidgetItem("How far apart, at most (scored range)"))
+        self.numbers.setItem(len(rows), 0, QTableWidgetItem("Maximum difference (error range)"))
         it = QTableWidgetItem(f"{apart:.1f} dB")
         it.setTextAlignment(LEFT)
         self.numbers.setItem(len(rows), 1, it)
@@ -256,11 +256,11 @@ class CompareResults(QDialog):
     def show_on_card(self, i):
         """A result of this session back on the result card (a History entry: History's Show does that)."""
         o = self.chosen()[i]
-        if o["label"].startswith("Shown now"):
-            self.footer.say("That one is on the result card already.")
+        if o["label"].startswith("Shown: "):
+            self.footer.say("That EQ is on the result card.")
             return
         if o["run"] is None:
-            self.footer.say("That one is from History: History's Show brings it back.")
+            self.footer.say("That EQ is from History: in the History window, click Show.")
             return
         if o["run"] is not self.page.run_result:
             self.page.run_result = o["run"]

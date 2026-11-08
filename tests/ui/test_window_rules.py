@@ -40,8 +40,8 @@ def test_the_tray_menu_open_first_quit_last(devices_window, check):
         QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
     check("tray: Open AutoEQ Studio first and in bold (the icon's own click, as Windows' tray menus), Quit alone at the "
           "end; a trial's items say Keep it and Stop now, as its bar does",
-          items[:1] == ["Open AutoEQ Studio"] and default == "Open AutoEQ Studio" and items[-1:] == ["Quit"]
-          and "Keep it" in trial and "Stop now" in trial and "Stop trying" not in trial, (items, default, trial))
+          items[:1] == ["Open AutoEQ Studio"] and default == "Open AutoEQ Studio" and items[-1:] == ["Stop AutoEQ Studio"]
+          and "Keep it" in trial and "Do not keep it" in trial and "Stop trying" not in trial, (items, default, trial))
 
 
 def test_a_profile_taken_off_a_device_comes_back_with_undo(devices_window, qapp, check):
@@ -79,7 +79,7 @@ def test_a_profile_taken_off_a_device_comes_back_with_undo(devices_window, qapp,
     check("devices: a profile's ✕ removes it from the device and says so with Undo in the window's line; Undo puts it "
           "back in its place, the device's EQ as it was (Off stays off); deleted meanwhile, Undo says so",
           off == (False, "Removed “First” from this device.", True) and back == (True, None, "")
-          and "deleted meanwhile" in gone, (off, back, before, gone))
+          and "Undo is not possible" in gone, (off, back, before, gone))
 
 
 def test_online_offline_one_width(devices_window, online, check):
@@ -115,7 +115,7 @@ def test_the_banners_website_offline_said_in_the_line(devices_window, monkeypatc
     check("window: the banner's Get Equalizer APO is plain, with its symbol (a notice's action), and stays on while "
           "offline: clicked, it says so in the window's line, nothing opened",
           net.offline() and look == ("Get Equalizer APO", True, False, None) and opened == []
-          and said == "Offline: switch to Online (top right) to open websites.", (look, said, opened))
+          and said == "Offline: to open websites, change to Online (top right).", (look, said, opened))
 
 
 def test_settings_hotkeys_lined_up_as_a_form(devices_window, check):
@@ -132,8 +132,8 @@ def test_settings_hotkeys_lined_up_as_a_form(devices_window, check):
         win.show_page("devices", remember=False)
     check("settings: the two hotkeys as a form, their boxes lined up in one column (Level-matched under them), each "
           "with a Clear named for its hotkey",
-          len(set(boxes)) == 1 and clears == ["Clear the hotkey to switch the EQ off and on",
-                                              "Clear the hotkey to switch the playing device's EQ"], (boxes, clears))
+          len(set(boxes)) == 1 and clears == ["Clear the hotkey to change the EQ of the active device",
+                                              "Clear the hotkey to disable and enable the EQ"], (boxes, clears))
 
 
 def test_deleting_a_profile_asks_with_no_the_default(devices_window, monkeypatch, check):
@@ -156,7 +156,7 @@ def test_deleting_a_profile_asks_with_no_the_default(devices_window, monkeypatch
     a = asked[0] if asked else (None,) * 5
     check("profiles: Delete… asks first, the question titled by its command and No its default (the file goes for "
           "good); No keeps the profile",
-          len(asked) == 1 and a[1] == "Delete" and "Its file goes" in a[2] and a[4] == QMessageBox.No and kept,
+          len(asked) == 1 and a[1] == "Delete" and "and its file?" in a[2] and a[4] == QMessageBox.No and kept,
           (a[1:], kept))
 
 

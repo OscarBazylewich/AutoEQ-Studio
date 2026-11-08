@@ -73,4 +73,4 @@ def test_update_refused_changes_nothing(sw, check):
     check("core: updating a profile with a file a profile can't hold (Device:) is refused with the reason and leaves "
           "the profile as it was; a profile that's gone says so",
           refused and "Device:" in refused and _read(os.path.join(sw.apo.profiles, "Mine.txt")) == before
-          and gone == "That profile isn't there any more.", (refused, gone))
+          and gone == "The profile is not there.", (refused, gone))

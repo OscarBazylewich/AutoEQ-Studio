@@ -123,7 +123,7 @@ class FilterEditor(QWidget):
                 box.setAccessibleName(f"Filter {i + 1} " + {"freq": "frequency (Hz)", "gain": "gain (dB)", "q": "Q"}[key])
                 box.setAlignment(Qt.AlignCenter)
                 lim = self.limits.text("edit." + key)
-                box.setToolTip(f"Allowed: {lim}." if lim else "")
+                box.setToolTip(f"Permitted: {lim}." if lim else "")
                 box.textEdited.connect(lambda text, f=f, key=key, box=box: self._typed(f, key, box))
                 box.editingFinished.connect(lambda f=f, key=key, box=box: self._left(f, key, box))
                 t.setCellWidget(i, c, box)
@@ -178,7 +178,7 @@ class FilterEditor(QWidget):
         if v is not None and self.limits.check("edit." + key, v, lambda p: None):
             c = self.limits.clamp("edit." + key, v)
             f[key] = c
-            self.say(f"Changed to {_num(c)}. Allowed: {self.limits.text('edit.' + key)}.")
+            self.say(f"The value changed to {_num(c)}. Permitted: {self.limits.text('edit.' + key)}.")
             self._edited()
         box.setText(_num(f[key]))
         self._mark(box, None)
@@ -215,7 +215,7 @@ class FilterEditor(QWidget):
         self.pre_meter = _Meter(top)
         self.pre_meter.set_value(self._read_db(self.preamp_text))
         g.addWidget(self.pre_meter, 2, 1, Qt.AlignHCenter)
-        note = QLabel("set for\nyou")
+        note = QLabel("automatic")
         theme.mark(note, role="muted")
         note.setAlignment(Qt.AlignCenter)
         g.addWidget(note, 3, 1, 2, 1)
@@ -246,7 +246,7 @@ class FilterEditor(QWidget):
             s.setSingleStep(1)
             s.setPageStep(10)
             s.setEnabled(on)
-            s.setToolTip(f"Filter {i + 1}: drag, or arrow keys (0.1 dB); double-click for 0 dB")
+            s.setToolTip(f"Filter {i + 1}: drag it, or use the arrow keys (0.1 dB). Double-click for 0 dB.")
             s.valueChanged.connect(lambda v, f=f, val=val: (f.__setitem__("gain", round(v / 10, 1)),
                                                              val.setText(f"{v / 10:+.1f}"), self._edited()))
             g.addWidget(s, 2, col, Qt.AlignHCenter)
@@ -260,16 +260,16 @@ class FilterEditor(QWidget):
                 box.setFixedWidth(64)
                 lim_text = self.limits.text("edit." + key)
                 box.setToolTip(f"Filter {i + 1}'s {'frequency (Hz)' if key == 'freq' else 'Q'}"
-                               + (f". Allowed: {lim_text}." if lim_text else ""))
+                               + (f". Permitted: {lim_text}." if lim_text else ""))
                 box.textEdited.connect(lambda text, f=f, key=key, box=box: self._typed(f, key, box))
                 box.editingFinished.connect(lambda f=f, key=key, box=box: self._left(f, key, box))
                 box.setEnabled(f.get("enabled", True) is not False)
                 g.addWidget(box, row, col, Qt.AlignHCenter)
                 boxes[key] = box
             self._slider_rows.append((val, s, boxes["freq"], boxes["q"]))
-            typ = SearchCombo()
+            typ = _TypeBox()
             for k, name in TYPES:
-                typ.addItem(name.replace("Low shelf", "Low sh.").replace("High shelf", "High sh."), k)
+                typ.addItem(name, k)
             typ.sort_items(pinned=1)  # ("Peak" on top)
             typ.setCurrentIndex(max(0, typ.findData(f.get("type", "PK"))))
             typ.setToolTip(f"Filter {i + 1}'s type")
@@ -454,6 +454,23 @@ class _Slider(QSlider):
 
     def mouseDoubleClickEvent(self, e):
         self.setValue(0)
+
+
+class _TypeBox(SearchCombo):
+    """A slider column's type: as wide as the type it shows, not the longest one ("High shelf"). With "Low shelf" and
+    "High shelf" in full, six columns as wide as the longest were wider than the card: a sideways scroll bar."""
+
+    def __init__(self):
+        super().__init__()
+        self.currentIndexChanged.connect(lambda _i: self.updateGeometry())
+
+    def sizeHint(self):
+        s, fm = super().sizeHint(), self.fontMetrics()
+        widest = max((fm.horizontalAdvance(self.itemText(i)) for i in range(self.count())), default=0)
+        return QSize(s.width() - widest + fm.horizontalAdvance(self.currentText()), s.height())
+
+    def minimumSizeHint(self):
+        return self.sizeHint()
 
 
 class _Meter(QWidget):

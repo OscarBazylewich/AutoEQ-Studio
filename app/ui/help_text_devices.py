@@ -5,89 +5,103 @@ screens'. Words only: nothing is imported here.
 """
 # flake8: noqa
 
-HELP_DEVICES = {'#dev-check': ["Whether this device's EQ really plays: Equalizer APO asked by itself.", 'q-applies'],
- '#presets': 'Every setting of Make an EQ saved under a name and loaded again in one go (not your files).',
- '#backup': 'Everything of yours in one .zip (Back up everything…), or put back from one (Restore…).',
- '#files-folder': ['Where your targets, measurements, saved EQs and presets are: Documents\\AutoEQ Studio unless you '
-                   'chose another folder (Change…).', 'q-files'],
- '#dev-rename': 'Your own name for this device, shown everywhere instead of Windows\' name.',
- '#prof-edit': ["The chosen profile's filters, changed by hand in Make an EQ; Update puts them back.", 'by-hand'],
- '#hotkey': "Goes through the playing device's EQs, then Off, in any program.",
- '#onoff-hotkey': ["Switches the playing device's EQ off for now and back on, to compare, in any program.",
-                   'match-loudness'],
- '#onoff-matched': ["“Off” plays as loud as the EQ, so the louder one doesn't seem better for that.",
+HELP_DEVICES = {'#dev-check': ['Does Equalizer APO use the EQ of this device? AutoEQ Studio examines this automatically, '
+                               'with APO.', 'q-applies'],
+ '#presets': 'A preset keeps all the settings of Make an EQ (not your files), with a name. You can load all these '
+             'settings again in one step.',
+ '#backup': 'Save a backup… saves all your data in one .zip file. Load a backup… loads your data from this .zip file.',
+ '#files-folder': ['The folder for your targets, measurements, saved EQs and presets: Documents\\AutoEQ Studio, unless '
+                   'you selected a different folder (Change…).', 'q-files'],
+ '#dev-rename': 'Your name for this device. AutoEQ Studio shows this name, not the Windows name.',
+ '#prof-edit': ['Make an EQ opens the filters of the selected profile, and you change them manually. Update saves them '
+                'in the profile.', 'by-hand'],
+ '#hotkey': 'This hotkey changes the EQ of the active device: each EQ in sequence, then Off. It operates in all apps.',
+ '#onoff-hotkey': ['This hotkey disables the EQ of the active device and enables it again, to compare. It operates in '
+                   'all apps.', 'match-loudness'],
+ '#onoff-matched': ['“Off” has the same loudness as the EQ. Thus, you compare the sound, not the volume.',
                     'match-loudness']}
 
 SETTINGS_DEVICES = [{'title': 'Devices',
                      'items': [{'key': '#dev-check',
-                                'title': 'Is the EQ playing? (Check again)',
-                                'body': ["The line under a device's EQ says whether it really plays (✓) or not (✕). "
-                                         "AutoEQ Studio asks Equalizer APO's own Benchmark tool (read only: nothing is "
-                                         'changed) by itself, and again whenever the EQ, config.txt or the device changes. '
-                                         'Check again asks now and says all it found: whether APO reads AutoEQ Studio\'s '
-                                         "file, finds this device's section and loads the EQ chosen for it, and what "
-                                         'config.txt loads for every device on top.']},
+                                'title': 'Does Equalizer APO use the EQ? (Examine again)',
+                                'body': ['The line below the EQ of a device shows if Equalizer APO uses the EQ (✓) or '
+                                         'not (✕). AutoEQ Studio gets this information automatically from the Benchmark '
+                                         'tool of Equalizer APO. This tool only reads, and it does not change a file. '
+                                         'AutoEQ Studio gets the information again each time the EQ, config.txt or the '
+                                         'device changes.',
+                                         'Examine again gets the information and shows all of it. It shows if APO reads '
+                                         'the file of AutoEQ Studio and finds the part for this device. It shows if APO '
+                                         'loads the EQ that you selected for this device, and the lines that config.txt '
+                                         'also loads for all devices.']},
                                {'key': '#files-folder',
                                 'title': 'Your files (Settings)',
-                                'body': ['Your targets and measurements (what Make an EQ uses), saved EQs and reports, and '
-                                         'presets are in one folder, each kind in a folder of its own: Targets, '
-                                         'Measurements, Saved EQs, Presets. It\'s Documents\\AutoEQ Studio, where Windows '
-                                         'apps keep the files you make, unless you choose another. You can put curve files '
-                                         'in Targets and Measurements yourself (Explorer, or Open the folder): Make an EQ '
-                                         'lists them.',
-                                         'Change… picks another folder (not inside AutoEQ Studio\'s own: an update would '
-                                         'lose them), offers to move your files there (a file with the same name is never '
-                                         'replaced: a different one is kept beside it, with (2) after its name), and starts '
-                                         'AutoEQ Studio again to use it. An older AutoEQ Studio kept them in its own '
-                                         'folder (inputs, output, presets): the first time Make an EQ opens, it offers to '
-                                         'move them.']},
+                                'body': ['Your targets and measurements (Make an EQ uses them), saved EQs and reports, '
+                                         'and presets are in one folder. Each type has a folder in it: Targets, '
+                                         'Measurements, Saved EQs, Presets. The usual folder is Documents\\AutoEQ '
+                                         'Studio, where Windows apps keep the files that you make. You can select a '
+                                         'different folder. You can put curve files in Targets and Measurements (with '
+                                         'Explorer, or with Open the folder). Make an EQ shows them in its lists.',
+                                         'Change… selects a different folder. This folder must not be in the folder of '
+                                         'AutoEQ Studio, because an update can delete it. With Move and start '
+                                         'again, AutoEQ Studio moves your files into the new folder. If a file with the same name is in it, '
+                                         'AutoEQ Studio does not replace that file. It keeps the new file in the same folder, '
+                                         'with (2) after its name. Then AutoEQ Studio starts again and uses the new '
+                                         'folder.',
+                                         'A previous version of AutoEQ Studio kept the files in its folder (inputs, '
+                                         'output, presets). When Make an EQ opens for the first time, you can move '
+                                         'them (Move them).']},
                                {'key': '#backup',
                                 'title': 'Backup (Settings)',
-                                'body': ['Back up everything… writes one .zip with all that is yours: the devices, their '
-                                         'profiles and their EQ files, Make an EQ\'s settings, History, your EQs to compare, '
-                                         'your targets and measurements, presets and saved EQs (not the curves downloaded '
-                                         'from the online databases: they download again when used). Restore from a '
-                                         'backup… puts them back, on this PC or another, after keeping how things are now '
-                                         '(data\\backups); files with the same name are replaced, nothing else is deleted. '
-                                         'AutoEQ Studio starts again after it.']},
+                                'body': ['Save a backup… writes all your data in one .zip file: devices, profiles, EQ '
+                                         'files, settings, History, EQs to compare, targets, measurements, presets and '
+                                         'saved EQs. It does not save the curves from the online databases: AutoEQ '
+                                         'Studio downloads them again when it uses them. Load a backup… loads the data '
+                                         'on this PC or on a different PC. First, it saves a backup of the data that you '
+                                         'have at this time (data\\backups). It replaces the files that have the same '
+                                         'names, and it does not delete other files. Then AutoEQ Studio starts again.']},
                                {'key': '#hotkey',
                                 'title': 'Hotkey (Settings)',
-                                'body': ["Works in any program: it goes through the playing device's profiles, "
-                                         'then Off (Ctrl+Alt+E to start with). Click the box and press the keys you '
-                                         'want; Clear takes it off. Windows refuses keys another program has.']},
+                                'body': ['This hotkey operates in all apps. It changes the EQ of the active device to '
+                                         'each of its profiles in sequence, then to Off. The initial hotkey is '
+                                         'Ctrl+Alt+E. You can click the box and press different keys. Clear removes the '
+                                         'hotkey. Windows does not accept keys that a different app uses.']},
                                {'key': '#onoff-hotkey',
-                                'title': 'Hotkey to switch the EQ off for now and back on (Settings)',
-                                'body': ["Works in any program (Ctrl+Alt+Space to start with): the playing device's "
-                                         'EQ off for now, to compare it with no EQ on whatever is playing, then back '
-                                         "on. It isn't saved: choosing an EQ for the device, or starting AutoEQ "
-                                         'Studio again, ends it. With no EQ on, it switches on the one the device had '
-                                         "last. The tray icon's menu has it too (EQ off for now, to compare); a bar at "
-                                         "the window's top, as a trial's, says when a device's EQ is off for now, with "
-                                         "Switch it back on."]},
+                                'title': 'Hotkey to disable the EQ and enable it again (Settings)',
+                                'body': ['This hotkey operates in all apps (the initial hotkey is Ctrl+Alt+Space). It '
+                                         'disables the EQ of the active device, to compare the sound with no EQ. Then it '
+                                         'enables the EQ again. AutoEQ Studio does not save this condition. If you '
+                                         'select an EQ for the device, or start AutoEQ Studio again, the EQ is on '
+                                         'again. If the device has no EQ on, the hotkey enables the last EQ of the '
+                                         'device.',
+                                         'The tray icon menu also has this item (EQ off, to compare). When the EQ of a '
+                                         'device is off, a bar at the top of the window shows it, with Enable it again. '
+                                         'This bar is the same as the bar of Use for 5 minutes on.']},
                                {'key': '#onoff-matched',
-                                'title': 'Level-matched (the on/off hotkey)',
-                                'body': ['On (to start with), “off” is no EQ turned down to the EQ’s loudness (pink '
-                                         'noise as the ear weighs it, as Listen matches), so you compare the sound, '
-                                         'not the volume: the louder one nearly always seems better. The notice says '
-                                         'by how much. An EQ louder than none (a boost with no pre-amp) can’t be '
-                                         'matched without clipping, and the notice says so. Off: “off” is no EQ at '
-                                         'all.']},
+                                'title': 'Same level (the on/off hotkey)',
+                                'body': ['On (the initial setting): “off” is no EQ, at a lower volume. It has the same '
+                                         'loudness as the EQ (pink noise as the ear hears it, as in Listen). Thus, you '
+                                         'compare the sound, not the volume: a sound with more loudness is almost '
+                                         'always better to the ear. The notification shows the difference. If an EQ with '
+                                         'no pre-amp has more loudness than no EQ, the same level is not possible '
+                                         'without clipping, and the notification shows this. Off: “off” is no '
+                                         'EQ, with no other change.']},
                                {'key': '#prof-edit',
                                 'title': 'Edit in Make an EQ (Profiles)',
-                                'body': ['Opens the chosen profile in Make an EQ as an EQ by hand: change its filters '
-                                         'in the table, as sliders or on the graph, listen to it, then Use on device › '
-                                         'Update “its name” puts it back. The profile keeps its name and its devices, '
-                                         'and those that have it switched on hear the change at once. A profile with '
-                                         "parts an EQ here can't have (a graphic EQ, other filter types) can't be "
-                                         'updated that way: use the EQ as a new profile instead.']},
+                                'body': ['Edit in Make an EQ opens the selected profile in Make an EQ as a manual EQ. You '
+                                         'can change its filters in the table, in the sliders or on the graph, and '
+                                         'listen to it. Then Use on device › Update “its name” saves it in the profile. '
+                                         'The profile keeps its name and its devices. A device that has this profile on '
+                                         'uses the change immediately. Make an EQ cannot edit some profiles (a graphic '
+                                         'EQ, or other filter types): for these, you can use the EQ as a new profile.']},
                                {'key': '#dev-rename',
                                 'title': 'Rename… (a device)',
-                                'body': ['Your own name for a device (e.g. “Dongle – KZ”), shown in the list, the tray '
-                                         'and the notices. Windows\' name stays under it. Empty: Windows\' name again.']},
+                                'body': ['Your name for a device (for example, “Dongle – KZ”). AutoEQ Studio shows it '
+                                         'in the list, the tray and the notifications. The Windows name stays below it. '
+                                         'If the name is empty, the device has the Windows name again.']},
                                {'key': '#use-try',
-                                'title': 'Try for 5 minutes on (Use on device)',
-                                'body': ['Plays the EQ on a device in every app (your music player, games…) for 5 '
-                                         'minutes, without making it a profile. A bar at the top (and the tray icon\'s '
-                                         'menu) says the time left, with Keep it (it becomes a profile, switched on) and '
-                                         'Stop now. When the time is up, or AutoEQ Studio quits, the device\'s own EQ '
-                                         'comes back.']}]}]
+                                'title': 'Use for 5 minutes on (Use on device)',
+                                'body': ['With this menu item, the device uses the EQ in all apps for 5 minutes, and '
+                                         'AutoEQ Studio does not make a profile of it. A bar at the top (and the tray '
+                                         'icon menu) shows the remaining time. The bar has Keep it (the EQ becomes a '
+                                         'profile, and it is on) and Do not keep it. After the 5 minutes, or if AutoEQ '
+                                         'Studio stops, the device has its EQ again.']}]}]

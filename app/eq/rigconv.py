@@ -203,7 +203,7 @@ def convert_text(text, conversion):
     beyond the data's 20 Hz–20 kHz, its end values)."""
     grid = np.log10(data()["grid"])
     conv = np.asarray(conversion, dtype=float)
-    out = ["* converted to the measurement's rig by AutoEQ Studio"]
+    out = ["* AutoEQ Studio changed this target for the rig of the measurement"]
     for ln in text.splitlines():
         parts = re.split(r"[\s,]+", ln.strip())
         try:

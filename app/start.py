@@ -206,6 +206,7 @@ if __name__ == "__main__":
         traceback.print_exc()
         if not os.environ.get("AUTOEQSTUDIO_NO_MESSAGE_BOX"):  # (the tests' copies: a box nobody clicks would hang them)
             import ctypes
-            ctypes.windll.user32.MessageBoxW(None, "AutoEQ Studio couldn't start:\n\n" + traceback.format_exc(limit=3)
-                                             + f"\n\nThe details are in {paths.LOG}.", "AutoEQ Studio", 0x10)
+            ctypes.windll.user32.MessageBoxW(None, "AutoEQ Studio did not start:\n\n" + traceback.format_exc(limit=3)
+                                             + f"\n\nFor more information, refer to {paths.LOG}.", "AutoEQ Studio",
+                                             0x10)
         sys.exit(1)

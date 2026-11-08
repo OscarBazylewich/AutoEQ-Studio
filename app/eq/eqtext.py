@@ -32,8 +32,9 @@ FS = 48000  # (the sample rate a width in octaves is read at, when none is given
 # APO's own commands ("Command: …"), named as they're left out; any other "Word:" (REW's "Dated:", "Notes:") is passed
 # over. Filter, Preamp, Channel and Device are read.
 COMMANDS = {"graphiceq": "a graphic EQ (GraphicEQ)", "convolution": "a convolution (impulse response)",
-            "include": "another file it brings in (Include)", "copy": "a channel copy (Copy)", "delay": "a delay (Delay)",
-            "stage": "a processing stage (Stage)", "if": "conditions (If, Eval)", "elseif": "conditions (If, Eval)",
+            "include": "a different file that it includes (Include)", "copy": "a copy of a channel (Copy)",
+            "delay": "a time interval in the audio (Delay)",
+            "stage": "a step of the audio process (Stage)", "if": "conditions (If, Eval)", "elseif": "conditions (If, Eval)",
             "else": "conditions (If, Eval)", "endif": "conditions (If, Eval)", "eval": "conditions (If, Eval)",
             "vstplugin": "a VST plug-in (VSTPlugin)"}
 
@@ -60,7 +61,7 @@ def filter_line(params, fs=FS):
         if b["by_width"]:  # (a width in octaves: the Q of the same filter at this sample rate, as APO works it out)
             w = 2 * math.pi * freq / fs
             if not 0 < w < math.pi:
-                return "bad", "its frequency is above what the sample rate can hold"
+                return "bad", "its frequency is too high for the sample rate"
             sn = math.sin(w)
             value = sn / (2 * sn * math.sinh(math.log(2) / 2 * value * w / sn))
         return "filter", {"type": "PK", "freq": freq, "gain": gain, "q": value, "enabled": on}
@@ -69,12 +70,12 @@ def filter_line(params, fs=FS):
     if b["by_width"]:
         inside = (a + 1 / a) * (1 / value - 1) + 2
         if inside <= 0:
-            return "bad", "a slope too steep for its gain"
+            return "bad", "a slope that is too large for its gain"
         q = 1 / math.sqrt(inside)
     else:
         q = value
         if b["corner"] and apoline.shelf_s(b) <= 0:
-            return "bad", "a Q too large for a shelf"
+            return "bad", "a Q that is too large for a shelf"
     return "filter", {"type": "LSQ" if b["kind"] == "LS" else "HSQ", "freq": apoline.centre(b), "gain": gain, "q": q,
                       "enabled": on}
 
@@ -99,7 +100,7 @@ def outside_limits(f):
         lim = settings.UI_LIMITS["edit." + key]
         if not lim["min"] <= f[key] <= lim["max"]:
             unit = f" {lim['unit']}" if lim.get("unit") else ""
-            return f"its {what} ({round(f[key], 3):g}) is outside {lim['min']:g} to {lim['max']:g}{unit}"
+            return f"its {what} ({round(f[key], 3):g}) is not in the range {lim['min']:g} to {lim['max']:g}{unit}"
     return ""
 
 
@@ -168,19 +169,19 @@ def read(text, fs=FS):
             if kind == "filter":
                 why = outside_limits(value)
                 if why:
-                    leave(f"a filter whose {why[4:]}" if why.startswith("its ") else why)
+                    leave(f"a filter: {why}")
                 else:
                     filters.append(_tidy(value))
             elif kind == "other":
                 leave(f"{value} filter")
             elif kind == "bad":
-                leave(f"a filter line it can't read ({value})")
+                leave(f"a filter line that it cannot read ({value})")
             continue
         f = plain_line(s)
         if f is not None:
             why = outside_limits(f)
             if why:
-                leave(f"a filter whose {why[4:]}")
+                leave(f"a filter: {why}")
             else:
                 filters.append(dict(_tidy(f), enabled=True))
     return {"filters": filters, "preamp": None if preamp is None else round(preamp, 2), "left_out": _say_left(left),
@@ -217,12 +218,13 @@ def _peace(text):
             left[f"a filter of Peace's type {code}"] = left.get(f"a filter of Peace's type {code}", 0) + 1
             continue
         if f is None or g is None or q is None or q <= 0:
-            left["a filter line it can't read (a number missing)"] = left.get("a filter line it can't read (a number missing)", 0) + 1
+            left["a filter line that it cannot read (a number is missing)"] = left.get(
+                "a filter line that it cannot read (a number is missing)", 0) + 1
             continue
         flt = {"type": kind, "freq": f, "gain": g, "q": q, "enabled": True}
         why = outside_limits(flt)
         if why:
-            left[f"a filter whose {why[4:]}"] = left.get(f"a filter whose {why[4:]}", 0) + 1
+            left[f"a filter: {why}"] = left.get(f"a filter: {why}", 0) + 1
         else:
             filters.append(_tidy(flt))
     others = [s for s in sections if re.fullmatch(r"gains\d+", s)

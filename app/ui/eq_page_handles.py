@@ -101,7 +101,7 @@ class EqHandles:
         hz = f"{f['freq'] / 1000:.2f} kHz" if f["freq"] >= 1000 else f"{f['freq']:g} Hz"
         return (f"Filter {i + 1}: {KINDS.get(f.get('type', 'PK'), 'Peak')}, {hz}, {f['gain']:+.1f} dB, Q {f['q']:g}"
                 + (" (off)" if f.get("enabled", True) is False else "")
-                + "\nDrag: frequency and gain · mouse wheel: Q · right-click: its type, on or off, Remove")
+                + "\nDrag: frequency and gain · mouse wheel: Q · right-click: type, On, Remove")
 
     def _limited(self, key, v):
         return self.editor.limits.clamp("edit." + key, v)
@@ -217,7 +217,7 @@ class EqHandles:
             a.setChecked(f.get("type", "PK") == k)
             a.triggered.connect(lambda _=False, k=k: self._change(i, type=k))
         m.addSeparator()
-        on = m.addAction("Switched on")
+        on = m.addAction("On")
         on.setCheckable(True)
         on.setChecked(f.get("enabled", True) is not False)
         on.triggered.connect(lambda checked: self._change(i, enabled=bool(checked)))
@@ -285,7 +285,7 @@ class EqHandles:
             try:
                 self.sw.trial_update(res["apo"])
             except OSError as e:
-                self.status(f"The device's trial couldn't follow the change: {e}", 6000)
+                self.status(f"The EQ for 5 minutes on the device did not change: {e}", 6000)
 
 
 def eq_grid():

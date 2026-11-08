@@ -82,12 +82,12 @@ def _consistent(cfg, v, notes):
                 b if ok(a, b) else _past(hi, a, True)
             if new != b and ok(a, min(new) if isinstance(new, list) else new):
                 v[hi] = new
-                notes.append((hi, f"Kept above your “from” value ({a:g})."))
+                notes.append((hi, f"Set above your “from” value ({a:g})."))
         else:
             bm = min(b) if isinstance(b, list) else b
             if not ok(a, bm) and ok(_past(lo, bm, False), bm):
                 v[lo] = _past(lo, bm, False)
-                notes.append((lo, f"Kept below your “to” value ({bm:g})."))
+                notes.append((lo, f"Set below your “to” value ({bm:g})."))
 
 
 # ---------------------------------------------------------------- looking at the curves
@@ -271,18 +271,19 @@ class _Plan:
         # (each note says the value and the fact about your curves it comes from; why the app works this way is
         # on the Help page: wiki.js "q-auto-why")
         an = self.an
-        need = f"{an['features']} peaks and dips to correct" if an["features"] else "no peaks or dips, only the overall shape"
-        self.note(path, f"{n} filters: {need}." if single else f"Up to {n} filters: {need}.")
+        need = f"{an['features']} peaks and dips to correct" if an["features"] else "no peaks or dips, only the general shape"
+        self.note(path, f"{n} filters: {need}." if single else f"Maximum {n} filters: {need}.")
 
     def note_boost(self, gt, path):
         boost = self.an["need_boost"]
-        self.note(path, f"Boosts up to +{gt} dB: the target needs up to +{boost:.1f} dB.")
+        self.note(path, f"Maximum gain +{gt} dB: the largest necessary gain is +{boost:.1f} dB.")
 
     def note_q(self, qt, path, hi=None):
         an = self.an
-        self.note(path, (f"Q up to {qt:g}: the narrowest peak or dip is about Q {an['q_need']:.1f}"
-                         if an["q_at"] else f"Q up to {qt:g}: no narrow peaks or dips")
-                  + (f" (Q {hi:g} is tried too)" if hi and hi > qt else "") + ".")
+        # (a second limit that the app tries is in the list, as the penalties are: a note stays a line)
+        self.note(path, f"Maximum Q {qt:g}" + (f" and Q {hi:g}" if hi and hi > qt else "")
+                  + (f": the highest Q of a peak or dip is approximately Q {an['q_need']:.1f}"
+                     if an["q_at"] else ": no peaks or dips with a high Q") + ".")
 
     # ---- each part
     def scored_range(self):
@@ -290,13 +291,13 @@ class _Plan:
         self.values["scoring.band_hz.1"] = _fit("scoring.band_hz.1", top)
         why = an["band_why"]
         if why == "agree":
-            text = f"Scored to {_fmt_hz(top)}: your {n_files} files agree up to there."
+            text = f"Error to {_fmt_hz(top)}: your {n_files} files agree to this frequency."
         elif why == "data":
-            text = f"Scored to {_fmt_hz(top)}: the measurement ends at {_fmt_hz(an['data_top'])}."
+            text = f"Error to {_fmt_hz(top)}: the measurement has no data above {_fmt_hz(an['data_top'])}."
         elif an["unstable_from"]:
-            text = f"Scored to {_fmt_hz(top)}: your {n_files} files differ above {_fmt_hz(an['unstable_from'])}."
+            text = f"Error to {_fmt_hz(top)}: your {n_files} files are different above {_fmt_hz(an['unstable_from'])}."
         else:
-            text = f"Scored to {_fmt_hz(top)}."
+            text = f"Error to {_fmt_hz(top)}."
         self.note("scoring.band_hz.1", text)
 
     def site_sweep_values(self, Ls):
@@ -340,7 +341,7 @@ class _Plan:
         an, L = self.an, self.L
         lay = self.cfg["best_fit"].get("layout", "any")
         if layouts.is_fixed(lay):  # (only the bands' gains: none of the settings below are used)
-            self.note("best_fit.layout", f"{layouts.name(lay)}: only the bands' gains are fitted.")
+            self.note("best_fit.layout", f"{layouts.name(lay)}: Best fit adjusts only the gains of the bands.")
             return
         from . import engines
         grows = engines.grows(self.cfg["best_fit"])
@@ -384,11 +385,11 @@ class _Plan:
         self.note_boost(gt, "best_fit.gain_max")
         self.note_q(qt, "best_fit.q_max", qhi)
         if len(fights) > 1:
-            self.note("best_fit.fight_penalty", "Fighting-filter penalties " + " and ".join(f"{x:g}" for x in fights)
-                      + ": every limit with each.")
+            self.note("best_fit.fight_penalty", "Penalties for opposite filters " + " and ".join(f"{x:g}" for x in fights)
+                      + ", with each limit.")
         if self.values["best_fit.low_shelf"]:
             self.note("best_fit.low_shelf", f"Low shelf on: the bass is {abs(an['bass_step']):.1f} dB "
-                                            f"{'under' if an['bass_step'] > 0 else 'over'} the target.")
+                                            f"{'below' if an['bass_step'] > 0 else 'above'} the target.")
         if lay in layouts.DEVICES:
             self.note("best_fit.layout", layouts.summary(lay))
 
@@ -402,7 +403,8 @@ class _Plan:
         noticed in pink noise (Toole and Olive 1988). BENCHMARKS.md has the tests."""
         self.values["scoring.pick"] = "audible"
         self.values["scoring.ear_db"] = EAR_DB
-        self.note("scoring.pick", f"Picks the simplest that sounds the same as the target (within {EAR_DB:g} dB).")
+        # (the selection's own name, as in its list: a note stays a line, 80 characters at most)
+        self.note("scoring.pick", f"Minimum number of filters for the same sound ({EAR_DB:g} dB or less).")
 
 
 def plan(cfg, an, mode=None):
@@ -423,11 +425,11 @@ def describe(cfg, mode=None):
     from . import engines
     mode = mode or cfg["mode"]
     if mode == "site_single":
-        return f"1 website run with {cfg['site_single']['rows']} filter rows"
+        return f"1 website EQ with {cfg['site_single']['rows']} filter rows"
     sw = cfg["site_sweep"]
     n_site = len(engines.site_combos(sw))
     if mode == "site_sweep":
-        return (f"{n_site} website runs: {len(sw['filter_rows'])} row counts × {len(sw['freq_high'])} frequency limits × "
+        return (f"{n_site} website EQs: {len(sw['filter_rows'])} row counts × {len(sw['freq_high'])} frequency limits × "
                 f"{len(sw['gain_ranges'])} gain ranges × {len(sw['q_max'])} Q limits")
     if mode == "best_fit":
         bf = cfg["best_fit"]
@@ -438,26 +440,27 @@ def describe(cfg, mode=None):
         bf = device_settings(bf)
         nfit = engines.fit_count(bf, _count_mine(bf))  # (with your own filters: theirs too)
         fp = len(engines.fights(bf))
-        times = f" × {fp} fighting-filter penalties" if fp > 1 else ""
+        times = f" × {fp} penalties for opposite filters" if fp > 1 else ""
         n_mine = _count_mine(bf)
         if n_mine and bf.get("start_add") is False:  # (your filters fill the device: nothing is added)
             if bf.get("start_keep", True):
-                return f"your {n_mine} filters only, as they are (they fill {layouts.name(bf['layout'])}), scored"
-            return (f"your {n_mine} filters only (they fill {layouts.name(bf['layout'])}), adjusted once per limit: "
-                    f"{len(bf['gain_max'])} boost limits × {len(bf['q_max'])} Q limits{times}")
+                return (f"only your {n_mine} filters, not changed (they use all the filters of {layouts.name(bf['layout'])}): "
+                        f"the app calculates their error")
+            return (f"only your {n_mine} filters (they use all the filters of {layouts.name(bf['layout'])}), adjusted one "
+                    f"time for each limit: {len(bf['gain_max'])} gain limits × {len(bf['q_max'])} Q limits{times}")
         if engines.grows(bf, n_mine):
             limits = len(bf["gain_max"]) * len(bf["q_max"]) * fp
             stops = cfg["scoring"].get("pick") == "audible"
-            return (f"{limits} fits adding filters one at a time, up to {max(bf['filter_counts'])} "
-                    f"({len(bf['gain_max'])} boost limits × {len(bf['q_max'])} Q limits{times})"
-                    + (", stopping at the first that sounds the same as the target" if stops else "")
-                    + (f"; added to your {n_mine} filters" if (n_mine := _count_mine(bf)) else "")
-                    + (f"; within {layouts.name(bf['layout'])}'s limits" if bf["layout"] in layouts.DEVICES else ""))
-        return (f"{nfit} fits ({len(bf['filter_counts'])} filter counts × {len(bf['gain_max'])} boost limits × "
-                f"{len(bf['q_max'])} Q limits{times}), {engines.RANDOM_STARTS} random starts each"
-                + (f"; added to your {n_mine} filters" + ("" if bf.get("start_keep", True) else ", which may be adjusted")
+            return (f"{limits} EQs that add one filter at a time, to a maximum of {max(bf['filter_counts'])} "
+                    f"({len(bf['gain_max'])} gain limits × {len(bf['q_max'])} Q limits{times})"
+                    + (", which stop at the first EQ with the same sound as the target" if stops else "")
+                    + (f", added to your {n_mine} filters" if (n_mine := _count_mine(bf)) else "")
+                    + (f", in the limits of {layouts.name(bf['layout'])}" if bf["layout"] in layouts.DEVICES else ""))
+        return (f"{nfit} EQs ({len(bf['filter_counts'])} filter counts × {len(bf['gain_max'])} gain limits × "
+                f"{len(bf['q_max'])} Q limits{times}), {engines.RANDOM_STARTS} random starts for each"
+                + (f", added to your {n_mine} filters" + ("" if bf.get("start_keep", True) else " (Best fit can adjust them)")
                    if (n_mine := _count_mine(bf)) else "")
-                + (f"; within {layouts.name(bf['layout'])}'s limits" if bf["layout"] in layouts.DEVICES else ""))
+                + (f", in the limits of {layouts.name(bf['layout'])}" if bf["layout"] in layouts.DEVICES else ""))
     return mode
 
 
@@ -595,8 +598,8 @@ def learn(cfg, mode, seconds):
 
 
 def fmt_time(s):
-    return ("about a second" if s < 1.5 else f"about {round(s)} s" if s < 90 else f"about {s / 60:.1f} min" if s < 5400
-            else f"about {s / 3600:.1f} h")
+    return ("approximately 1 s" if s < 1.5 else f"approximately {round(s)} s" if s < 90 else
+            f"approximately {s / 60:.1f} min" if s < 5400 else f"approximately {s / 3600:.1f} h")
 
 
 def auto_result(cfg, an):

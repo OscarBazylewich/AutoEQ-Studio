@@ -25,7 +25,7 @@ from ui.theme_sheet import CARD
 from ui.window_parts import Footer, enter_presses, fit_to_screen
 
 HEAD = [("Error (dB)", "rms"), ("Filters", "n_filters"), ("Rows", "rows"), ("Range", None), ("Gain", None),
-        ("Q max", "q_max"), ("Max boost", "max_boost"), ("Pre-amp", "preamp")]
+        ("Maximum Q", "q_max"), ("Maximum gain", "max_boost"), ("Pre-amp", "preamp")]
 SAME = Qt.UserRole + 1  # (a grid cell's mark: sounds the same as the target)
 LEFT = Qt.AlignLeft | Qt.AlignVCenter  # (Windows 11's tables: words at the left, under their heading)
 NBSP = chr(0xA0)  # (a space that never ends a line: the words it joins stay together)
@@ -87,13 +87,13 @@ class AllResults(QDialog):
         self.page = page
         run, _r = page.current()
         self.run = run
-        self.setWindowTitle(f"All {len(run['results'])} results of run {run.get('n', 1)}")
+        self.setWindowTitle(f"All {len(run['results'])} results of #{run.get('n', 1)}")
         # (940 wide: the note under the grid on one line at Windows 11's text size; smaller than 720 x 560, the grid's
         # numbers were cut and the note ran over it. Both within the screen's room: 720 high was under the taskbar)
         fit_to_screen(self, (940, 720), (720, 560))
         v = QVBoxLayout(self)
         v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as a card's)
-        lead = QLabel("Every result the run tried. Click one to show it.")
+        lead = QLabel("All the results that the app tried. Click a result to show it.")
         theme.mark(lead, role="muted")
         v.addWidget(lead)
         self.grid_title, self.grid, self.grid_note = QLabel(), QTableWidget(), QLabel()
@@ -114,13 +114,15 @@ class AllResults(QDialog):
         self.table.setObjectName("eqwResults")  # (its cells' room at the left: ui\theme_sheet.py's eq_windows)
         _table_look(self.table)
         self.table.setAlternatingRowColors(True)  # (rows told apart by their shade, as Run several's)
-        self.table.setAccessibleName("Every result")
-        self.grid.setAccessibleName("Error by filter count and max Q")
+        self.table.setAccessibleName("All results")
+        self.grid.setAccessibleName("Error by filter count and maximum Q")
         self.table.setHorizontalHeaderLabels([h for h, _k in HEAD])
         self.table.verticalHeader().hide()
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        # (the error's column as wide as its words: "0.225  ✓ selected for you" ended in "…" in a shared width)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.table.cellClicked.connect(lambda row, _c: self.pick(self.table.item(row, 0).data(Qt.UserRole)))
         v.addWidget(self.table, 1)
         self.footer = Footer(self)
@@ -208,7 +210,7 @@ class AllResults(QDialog):
             g.clear()
             g.setRowCount(len(rows))
             g.setColumnCount(len(qs))
-            g.setHorizontalHeaderLabels([f"Q max {q}" for q in qs])
+            g.setHorizontalHeaderLabels([f"Maximum Q {q}" for q in qs])
             labels = [self._row_words(rv, cells, site) for rv in rows]
             g.setVerticalHeaderLabels(labels)
             g.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -225,7 +227,7 @@ class AllResults(QDialog):
                         if own and fewer is None:
                             fewer = c["n_filters"]
                         sub = (f"{round((c.get('freq_high') or 0) / 1000)}k · {c['n_filters']}f" if site
-                               else f"max +{c['max_boost']:.1f}{own}")
+                               else f"maximum +{c['max_boost']:.1f}{own}")
                         it = QTableWidgetItem(f"{c['rms']:.2f}  ({sub})")
                         it.setData(Qt.UserRole, c["id"])
                         if c.get("ear") is not None and c["ear"] <= ear_db:
@@ -247,13 +249,14 @@ class AllResults(QDialog):
                                                                for i in range(len(rows)) for j in range(len(qs))))
             self._grid_height = min(320, g.horizontalHeader().height() + sum(g.rowHeight(i) for i in range(len(rows))) + 4)
             self._fit_grid()
-            self.grid_title.setText(f"Error by {'filter rows' if site else 'filter count'} and max Q (run {run.get('n', 1)})")
+            self.grid_title.setText(f"Error by {'filter rows' if site else 'filter count'} and maximum Q (#{run.get('n', 1)})")
             up = next((lab for lab in labels if lab.startswith("up to ")), None)  # (a row where a result kept fewer)
-            self.grid_note.setText(f"Lowest error (dB) per cell (the best: {best:.2f} dB); shaded = sounds the same "
-                                   f"as the target (within {ear_db:g} dB, as the ear hears it). Click a cell to view it."
-                                   + (f" “{up.replace(' ', NBSP)}”: the run tried that many; a cell whose result kept "
-                                      f"fewer says how many (“{fewer}f”: filters too small to matter are left out)."
-                                      if up and fewer else ""))
+            self.grid_note.setText(f"Each cell shows its lowest error in dB (the best: {best:.2f} dB). A highlighted "
+                                   f"cell has the same sound as the target (a difference of {ear_db:g} dB or less, as the "
+                                   "ear hears it). Click a cell to show it."
+                                   + (f" “{up.replace(' ', NBSP)}”: the app tried that number of filters. If a cell has "
+                                      f"a smaller number of filters, it shows that number (“{fewer}f”). The app removes "
+                                      "filters that are too small to change the sound." if up and fewer else ""))
         # the table (its Rows column for the website's methods only: there it's the filter rows typed into the site;
         # Best fit's own count of the filters it added said "1" for a 2-filter result and nothing for a Retry's)
         t = self.table
@@ -263,7 +266,7 @@ class AllResults(QDialog):
         for r in sorted(rs, key=lambda x: x["rms"])[:500]:
             i = t.rowCount()
             t.insertRow(i)
-            err = _Num(f"{r['rms']:.3f}" + ("  ✓ picked for you" if r["id"] == run["pick"] else ""), r["rms"])
+            err = _Num(f"{r['rms']:.3f}" + ("  ✓ selected for you" if r["id"] == run["pick"] else ""), r["rms"])
             err.setData(Qt.UserRole, r["id"])
             pre = r.get("preamp")
             cells = [err, _Num(str(r["n_filters"]), r["n_filters"]), _Num(str(r.get("rows") or ""), r.get("rows")),

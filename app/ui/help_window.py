@@ -74,7 +74,7 @@ def entry_for(key):
 
 def _entries():
     """[(section title, section id, [entry…])]; an entry: {id, title, body, see}."""
-    out = [("Questions", "questions", [dict(e, title=e["q"]) for e in WIKI["questions"]])]
+    out = [("Frequent problems", "questions", [dict(e, title=e["q"]) for e in WIKI["questions"]])]
     for g in WIKI["groups"]:
         out.append((g["title"], "g-" + re.sub(r"[^a-z]+", "-", g["title"].lower()), g["terms"]))
     for g in WIKI["settings"]:
@@ -121,7 +121,7 @@ class HelpWindow(QWidget):
         side = QVBoxLayout()
         side.setContentsMargins(0, 0, 0, 0)  # (its column lined up with the page beside it: Qt's 9 px put it lower)
         self.q = QLineEdit()
-        self.q.setPlaceholderText("Search the help…")
+        self.q.setPlaceholderText("Search Help…")
         self.q.setClearButtonEnabled(True)
         self.q.textChanged.connect(self.render)
         side.addWidget(self.q)
@@ -169,9 +169,9 @@ class HelpWindow(QWidget):
                f".lit {{ background: {t['sel']}; color: {t['sel_ink']}; }}")
         parts, toc = [f"<style>{css}</style>"], []
         if not words:
-            parts.append(f"<p class='muted'>{esc(WIKI['intro'])}</p><a name='start'></a><h2>How an EQ job goes</h2><ol>"
+            parts.append(f"<p class='muted'>{esc(WIKI['intro'])}</p><a name='start'></a><h2>How to make an EQ</h2><ol>"
                          + "".join(f"<li>{esc(s)}</li>" for s in WIKI["steps"]) + "</ol>")
-            toc.append(("How an EQ job goes", "start", True))
+            toc.append(("How to make an EQ", "start", True))
         any_shown = False
         for i, (title, sid, items) in enumerate(self.sections):
             shown = [e for e in items if self._matches(e, words)]
@@ -179,9 +179,10 @@ class HelpWindow(QWidget):
                 continue
             any_shown = True
             if i == len(WIKI["groups"]) + 1 and not words:  # (the first group of settings: the part's heading)
-                parts.append("<a name='settings'></a><h2>Every setting</h2><p class='muted'>What each setting does, in "
-                             "full. Pointing at a setting says it in a line; F1 on it opens it here.</p>")
-                toc.append(("Every setting", "settings", True))
+                parts.append("<a name='settings'></a><h2>All settings</h2><p class='muted'>The function of each setting, "
+                             "in full. The tooltip of a setting gives a short line about it, and F1 on a setting "
+                             "opens it here.</p>")
+                toc.append(("All settings", "settings", True))
             parts.append(f"<a name='{sid}'></a><h2>{esc(title)}</h2>")
             toc.append((title, sid, True))
             for e in shown:
@@ -189,7 +190,7 @@ class HelpWindow(QWidget):
                                else f"<p>{esc(b)}</p>" for b in e["body"])
                 see = [s for s in e.get("see") or [] if s in by_id]
                 if see:
-                    body += "<p class='muted'>See also: " + ", ".join(
+                    body += "<p class='muted'>Related: " + ", ".join(
                         f"<a href='#{s}'>{esc(by_id[s]['title'])}</a>" for s in see) + "</p>"
                 entry = f"<h3>{esc(e['title'])}</h3>{body}"
                 if e["id"] == self.lit:  # (the entry asked for: one quiet block, the accent's bar beside it)
@@ -200,7 +201,7 @@ class HelpWindow(QWidget):
                 if sid in ("questions",) or sid.startswith("g-") or words:
                     toc.append((e["title"], e["id"], False))
         if not any_shown:
-            parts.append("<p class='muted'>Nothing matches every word. Try fewer words.</p>")
+            parts.append("<p class='muted'>No results with all of these words. Type a smaller number of words.</p>")
         bar = self.view.verticalScrollBar().value()
         self.view.setHtml("".join(parts))
         self.view.verticalScrollBar().setValue(bar if keep else 0)
@@ -253,7 +254,7 @@ def tag(widget, key):
     if line and not widget.accessibleDescription():
         widget.setAccessibleDescription(line)
     if entry_for(key) and widget.toolTip() and "F1" not in widget.toolTip():
-        widget.setToolTip(widget.toolTip() + "\nF1: more in Help.")
+        widget.setToolTip(widget.toolTip() + "\nF1 opens Help.")
     return widget
 
 

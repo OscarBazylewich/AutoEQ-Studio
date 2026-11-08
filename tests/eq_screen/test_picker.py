@@ -373,7 +373,7 @@ def test_move_said_in_finds_own_line(eq_screen, check):
                 os.remove(os.path.join(where, name))
         page.reload_state()
     check("find: a file moved to Measurement is said in Find…'s own line with Undo (nothing behind it, in the main "
-          "window's), and Undo moves it back", said[0].startswith(f"Moved “{name}” to Measurement") and said[1]
+          "window's), and Undo moves it back", said[0].startswith(f"The app moved “{name}” to Measurement") and said[1]
           and said[2] == [] and back, (said, back))
 
 
@@ -566,7 +566,7 @@ def test_download_mark_named(eq_screen, monkeypatch, check):
     finally:
         _close(pk)
     check("access: Find…'s download mark (beside an online entry) is read as “Downloads when used” by a screen reader",
-          len(marks) == 3 and read == ["Downloads when used"], (len(marks), read))
+          len(marks) == 3 and read == ["Downloads when you use it"], (len(marks), read))
 
 
 def test_fits_a_small_screen(eq_screen, monkeypatch, check):

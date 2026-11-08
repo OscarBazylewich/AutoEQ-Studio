@@ -75,7 +75,7 @@ def test_nothing_could_be_loaded(monkeypatch, check):
     check("compare: when none of the model's measurements can be loaded (offline, nothing downloaded before), it says "
           "so, with each one's reason, instead of failing with \"list index out of range\"",
           err is None and res.get("target_rig") and res.get("items") == [] and len(res.get("errors") or []) == 2
-          and "could be loaded" in (res.get("note") or ""), (err, res.get("target_rig"), res.get("note"),
+          and "cannot load these measurements" in (res.get("note") or ""), (err, res.get("target_rig"), res.get("note"),
                                                               res.get("errors")))
 
 

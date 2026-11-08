@@ -86,7 +86,7 @@ def test_damaged_settings(start, check):
     apo_after = _read(own, encoding="utf-8") if os.path.isfile(own) else None
     # was selftest.py:164
     check("core: a damaged settings file is kept as .bad and said; the app starts fresh; APO's file isn't written "
-          "(every EQ would go off: review 2)", os.path.exists(bad + ".bad") and "couldn't be read" in broken.problem
+          "(every EQ would go off: review 2)", os.path.exists(bad + ".bad") and "cannot read" in broken.problem
           and not broken.read_only and broken.s["profiles"] == {} and apo_after == apo_before,
           (broken.problem, apo_before, apo_after))
 
@@ -258,4 +258,4 @@ def test_without_apo(start, check):
     except OSError as e:
         said = str(e)
     # was selftest.py:239
-    check("core: without APO, importing says so and nothing is written", "isn't installed" in said and not gone.apply(), said)
+    check("core: without APO, importing says so and nothing is written", "is not installed" in said and not gone.apply(), said)

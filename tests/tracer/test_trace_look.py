@@ -216,7 +216,7 @@ def test_nothing_cut_at_the_new_sizes(eq_screen, check):
           "button, tick box and label as wide as its words, the settings' side within its room, “The actual response "
           "(not compensated)” whole in its drop-down, the colour tolerance slider at least 150 px; at the usual size "
           "and the window's smallest",
-          not at_default and not at_least and words[0].startswith("The actual response") and field >= words[1]
+          not at_default and not at_least and words[0].startswith("Frequency response (not compensated)") and field >= words[1]
           and slider >= 150, (at_default, at_least, field, words, slider))
 
 
@@ -225,9 +225,9 @@ def test_symbols_beside_the_words(eq_screen, check):
     _sample(eq_screen, tw, 0)  # (a picture: the zoom bar shows)
     # (the header's Open image… and the empty page's: one act, one name, 2026-10-27)
     words = [("Open image…", tw.open_btn), ("Remove image", tw.remove_btn), ("Guide", tw.guide_btn),
-             ("Open image…", tw.stage.choose_btn), ("Add a curve", tw.add_btn), ("Auto trace", tw.auto_btn),
+             ("Open image…", tw.stage.choose_btn), ("Add a curve", tw.add_btn), ("Trace automatically", tw.auto_btn),
              ("Add as measurement", tw.save_meas), ("Add as target", tw.save_tgt),
-             ("Save .txt…", tw.download_btn), ("Fit", tw.stage.zoom_btns["fit"]),
+             ("Save .txt…", tw.download_btn), ("Show all", tw.stage.zoom_btns["fit"]),
              *[(text, tw.tool_btns[key]) for key, text, _tip in TOOLS]]
     wrong = [w for w, b in words if b.text() != w or b.icon().isNull()]
     # (2026-10-27, UI-RULES 9: in one row every button has its symbol or none does: Smooth and Clear had none, so the

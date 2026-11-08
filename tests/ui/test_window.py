@@ -96,10 +96,11 @@ theme.apply(qapp, dark=True, contrast=False)
 out = {"accent": theme.tokens()["accent"]}
 q = QMessageBox(QMessageBox.Question, "Remove profile", "Remove “X”?", QMessageBox.Yes | QMessageBox.No)
 q.setDefaultButton(QMessageBox.Yes)
-f = QMessageBox(QMessageBox.Question, "Your AutoEQ Studio files", "Move them there now? A file is never replaced.")
+f = QMessageBox(QMessageBox.Question, "Your AutoEQ Studio files",
+                "Move them to the new folder? AutoEQ Studio does not replace a file.")
 move = f.addButton("Move them", QMessageBox.AcceptRole)
-f.addButton("Choose another folder…", QMessageBox.ActionRole)
-f.addButton("Not now", QMessageBox.RejectRole)
+f.addButton("Select a different folder…", QMessageBox.ActionRole)
+f.addButton("Not at this time", QMessageBox.RejectRole)
 f.setDefaultButton(move)
 for name, box in (("question", q), ("files", f)):
     box.show()
@@ -168,7 +169,7 @@ def test_presets_chevron_and_its_menu(themed_window, shapes, check, fake_apo, tm
           "as it opens (before Make an EQ has opened, a note saying when presets are ready); Help names it as it reads",
           d.get("text") == "Presets" and d.get("menu") is True
           and all(m.get("chevron") is True and (m.get("gap") or 0) >= 4 and (m.get("after") or 0) >= 6 for m in seen)
-          and d.get("notes") == [["Presets are ready as soon as Make an EQ has opened", False]]
+          and d.get("notes") == [["The presets are available after Make an EQ opens", False]]
           and title.startswith(f"{d.get('text')} ") and "▾" not in title,
           dict(d, help=title) if d else out.stderr[-300:])
 
@@ -202,7 +203,7 @@ def test_the_banner_and_the_trial_bar_as_windows_11(devices_window, check):
     check("window: the banner is Windows 11's warning bar (the warning sign in the warning colour, the words, the "
           "action), and the trial bar has a clock and symbols beside Keep it and Stop now",
           signs(win.banner) == [("Warning", "warn", "")] and win.banner_btn.parentWidget() is win.banner
-          and signs(win.trial_bar) == [("Trying an EQ", None, "trialGlyph")] and plain == [],
+          and signs(win.trial_bar) == [("EQ for 5 minutes", None, "trialGlyph")] and plain == [],
           (signs(win.banner), signs(win.trial_bar), plain))
 
 

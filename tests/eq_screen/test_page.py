@@ -174,7 +174,7 @@ def test_yours_and_the_legend_read_well(eq_screen, check):
             grey = lambda c: c.name() if c is not None else "#969696"
             legend = grey(page.legend.opts.get("labelTextColor"))
             drawn = {grey(label.opts.get("color")) for _sample, label in page.legend.items}
-            found[mode] = {"yours": (t["accent_text"] in st.why.text(), "yours" in st.why.text(),
+            found[mode] = {"yours": (t["accent_text"] in st.why.text(), "your value" in st.why.text(),
                                      round(theme_tokens.contrast(t["accent_text"], t["card"]), 2)),
                            "legend": (legend, drawn == {legend}, round(theme_tokens.contrast(legend, g["bg"]), 2))}
     finally:

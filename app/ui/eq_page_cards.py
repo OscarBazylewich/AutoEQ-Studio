@@ -102,7 +102,7 @@ class EqCards:
         head.addWidget(self.trace_btn)
         self.hist_btn = QPushButton("History…")
         icons.put(self.hist_btn, "history")
-        self.hist_btn.setToolTip("Your past EQs, kept between sessions")
+        self.hist_btn.setToolTip("Your EQs in History (the app keeps them when you close it)")
         self.hist_btn.clicked.connect(lambda: self.open_history(False))
         head.addWidget(self.hist_btn)
         v.addLayout(head)
@@ -110,8 +110,8 @@ class EqCards:
         g = self.sw.s.get("graph") or {}
         opts.addWidget(label("View", wrap=False))
         self.view_combo = SearchCombo()
-        self.view_combo.addItem("Absolute", "abs")
-        self.view_combo.addItem("Relative to target", "rel")
+        self.view_combo.addItem("Frequency response", "abs")
+        self.view_combo.addItem("Difference from target", "rel")
         self.view_combo.sort_items()
         self.view_combo.setCurrentIndex(max(0, self.view_combo.findData(g.get("view", "abs"))))
         self.view_combo.activated.connect(lambda _i: self.graph_option(view=self.view_combo.currentData()))
@@ -119,7 +119,7 @@ class EqCards:
         opts.addWidget(self.view_combo)
         opts.addWidget(label("Y range", wrap=False))
         self.yrange_combo = SearchCombo()
-        for k, name in (("auto", "Auto"), ("30", "30 dB"), ("40", "40 dB"), ("50", "50 dB"), ("60", "60 dB")):
+        for k, name in (("auto", "Automatic"), ("30", "30 dB"), ("40", "40 dB"), ("50", "50 dB"), ("60", "60 dB")):
             self.yrange_combo.addItem(name, k)
         self.yrange_combo.sort_items(pinned=1)  # ("Auto" on top, the user's ask)
         self.yrange_combo.setCurrentIndex(max(0, self.yrange_combo.findData(g.get("y", "auto"))))
@@ -134,7 +134,7 @@ class EqCards:
         # (a view of the graph, with the others: it popped into the header between Trace and History, moving them)
         self.clear_prev_btn = QPushButton("Hide previews")  # (Find…'s Preview and Hide, and the legend's words)
         icons.put(self.clear_prev_btn, "hide")
-        self.clear_prev_btn.setToolTip("Take the previews from Find… (dotted) off the graph")
+        self.clear_prev_btn.setToolTip("Remove the previews (dotted lines from Find…) from the graph")
         self.clear_prev_btn.clicked.connect(self.clear_previews)
         self.clear_prev_btn.hide()
         opts.addWidget(self.clear_prev_btn)
@@ -162,8 +162,8 @@ class EqCards:
         # (the EQ graph is where the filters are dragged: ui/eq_page_handles.py; a double-click adds one)
         self.eqplot.scene().sigMouseClicked.connect(self.eq_graph_clicked)
         self.eqplot.setAccessibleName("EQ graph")
-        self.eqplot.setToolTip("Drag a filter's handle: frequency and gain; the mouse wheel over it: its Q; right-click "
-                               "it: its type, on or off, Remove. Double-click where there's none: a new filter there")
+        self.eqplot.setToolTip("Drag a handle: frequency and gain. Mouse wheel on a handle: Q. Right-click a handle: type, "
+                               "On, Remove. Double-click an empty area: a new filter.")
         help_window.tag(self.eqplot, "#eq-graph")
         # (both graphs' value axes one width, room for three characters ("-12", "100") in the font pyqtgraph draws
         # them in: left to themselves, each took the width of the first numbers it drew, so a page made ahead, first
@@ -213,14 +213,14 @@ class EqCards:
         v.addWidget(note)
         if kind == "measurement":
             other = QPushButton("Other measurements of this model…")
-            other.setToolTip("Find every measurement of this model and see which suits your target best")
+            other.setToolTip("Find all the measurements of this model and the best one for your target")
             other.clicked.connect(self.compare)
             v.addWidget(other, 0, Qt.AlignLeft)
             row2 = QHBoxLayout()
             self.eqd_before = label("", wrap=False)
             row2.addWidget(self.eqd_before)
             self.eqd_show = QPushButton("Show in History…")  # (it opens History, this IEM's: UI-RULES 11, 16)
-            self.eqd_show.setToolTip("History's window, showing the EQs made for this IEM")
+            self.eqd_show.setToolTip("History, with the EQs that you made for this IEM")
             self.eqd_show.clicked.connect(lambda: self.open_history(True))
             row2.addWidget(self.eqd_show)
             row2.addStretch(1)
@@ -245,10 +245,10 @@ class EqCards:
         tabs = QHBoxLayout()
         tabs.setSpacing(4)
         self.way_btns = {}
-        for key, words, tip in (("auto", "Automatically", "AutoEQ fits the filters to the target for your EQ app: "
-                                 "choose the method, then Run"),
-                                ("hand", "By hand", "You set the filters: start empty or from an EQ you have, then "
-                                 "change them on the EQ graph")):
+        for key, words, tip in (("auto", "Automatically", "AutoEQ adjusts the filters for the target and your EQ "
+                                 "app: you select the method, then click Calculate"),
+                                ("hand", "Manually", "You make the filters: start from an empty EQ or from an EQ "
+                                 "that you have. Then change them on the EQ graph.")):
             b = QPushButton(words)
             b.setCheckable(True)
             theme.mark(b, nav=True)
@@ -277,8 +277,8 @@ class EqCards:
         g = grid()
         g.addWidget(name("Your EQ app"), 0, 0)
         self.app_combo = SearchCombo()
-        self.app_combo.addItem("Choose your EQ app (its limits are kept)", "")
-        self.app_combo.addItem("Not listed, or not sure: any filters, an Equalizer APO file", "other")
+        self.app_combo.addItem("Select your EQ app (the EQ stays in its limits)", "")
+        self.app_combo.addItem("Not in the list, or not sure: no limits, an Equalizer APO file", "other")
         for a in sorted(self.meta.get("eq_apps", []), key=lambda a: a["name"].lower()):
             self.app_combo.addItem(f"{a['name']}  ·  {', '.join(a['platforms'])}", a["key"])
         self.app_combo.sort_items(pinned=2)  # ("Choose your EQ app" and "Not listed" on top: it was among the apps)
@@ -308,7 +308,7 @@ class EqCards:
         g.addWidget(self.mode_combo, 0, 1)
         self.mode_hint = label("", "muted")  # (under its box, as Your EQ app's note: UI-RULES 26)
         g.addWidget(self.mode_hint, 1, 1, 1, 3)
-        g.addWidget(name("Search"), 2, 0, Qt.AlignTop)  # (level with the first of its lines)
+        g.addWidget(name("Settings to try"), 2, 0, Qt.AlignTop)  # (level with the first of its lines)
         # what a run tries and how long it takes (one search since 1.0.8, the user's ask 2026-10-13: with the EQ grown
         # one filter at a time Quick, Standard and Thorough all took seconds, and one search trying every limit they
         # tried found the fewest filters for every IEM tested: the benchmarks in BENCHMARKS.md)
@@ -320,12 +320,12 @@ class EqCards:
         sa.addWidget(self.estimate)
         self.sa_what = label("", "muted")
         sa.addWidget(self.sa_what)
-        self.sa.setAccessibleName("Search")
+        self.sa.setAccessibleName("Settings to try")
         help_window.tag(self.sa, "sa")
         g.addWidget(self.sa, 2, 1, 1, 3)
         run_row = QHBoxLayout()
         run_row.setSpacing(10)
-        self.run_btn = QPushButton("Run")
+        self.run_btn = QPushButton("Calculate")
         theme.mark(self.run_btn, primary=True)
         icons.put(self.run_btn, "run")
         self.run_btn.setMinimumWidth(120)
@@ -336,9 +336,10 @@ class EqCards:
         icons.put(self.cancel_btn, "cancel")
         self.cancel_btn.clicked.connect(lambda: self.svc.call("/api/cancel"))
         self.cancel_btn.hide()
-        self.queue_btn = QPushButton("Run several…")
+        self.queue_btn = QPushButton("Queue…")
         icons.put(self.queue_btn, "list")  # (every button in the row with its symbol, UI-RULES 9)
-        self.queue_btn.setToolTip("EQs for several IEMs or targets in one go, each saved and kept in History")
+        self.queue_btn.setToolTip("EQs for more than one IEM or target, one after the other: each one saved and kept in "
+                                  "History")
         self.queue_btn.clicked.connect(self.open_queue)
         help_window.tag(self.queue_btn, "#queue")
         run_row.addWidget(self.run_btn)
@@ -379,7 +380,7 @@ class EqCards:
         start_row.addWidget(self.hand_start)
         start_row.addStretch(1)
         g.addLayout(start_row, 2, 1, 1, 3)
-        g.addWidget(label("Then change its filters on the EQ graph (drag a handle) or in the table under your result.",
+        g.addWidget(label("Then change its filters on the EQ graph (drag a handle) or in the table below Your result.",
                           "muted"), 3, 1, 1, 3)
         v.addWidget(self.hand_w)
         self.show_settings()
@@ -408,8 +409,8 @@ class EqCards:
         # Remove, at the same edge, the two read as one, UI-RULES 14)
         self.hand_close = QPushButton("Close")
         icons.put(self.hand_close, "close")
-        self.hand_close.setToolTip("Back to what was shown before this EQ by hand (changed, it stays in Runs this "
-                                   "session)")
+        self.hand_close.setToolTip("Show the EQ from before this manual EQ again (a changed EQ stays in EQs that you "
+                                   "made)")
         help_window.tag(self.hand_close, "#hand-close")  # (a screen reader's name too: "Close (an EQ by hand)")
         self.hand_close.clicked.connect(self.close_by_hand)
         self.hand_close.hide()
@@ -435,8 +436,8 @@ class EqCards:
         self.site_text = label("")
         self.site_text.setTextFormat(Qt.RichText)
         sr.addWidget(self.site_text, 1)
-        self.site_use = QPushButton("Use in single run")
-        self.site_use.setToolTip("Copy these values into Website AutoEQ: one run (they become yours)")
+        self.site_use = QPushButton("Use these settings")
+        self.site_use.setToolTip("Copy these values into Website AutoEQ: one set (they become your values)")
         self.site_use.clicked.connect(self.use_in_single_run)
         sr.addWidget(self.site_use)
         self.site_row.hide()
@@ -444,35 +445,37 @@ class EqCards:
         self.runs_row = QWidget()
         rr = QHBoxLayout(self.runs_row)
         rr.setContentsMargins(0, 0, 0, 0)
-        self.runs_lab = label("Runs this session", wrap=False)
+        self.runs_lab = label("EQs that you made", wrap=False)
         rr.addWidget(self.runs_lab)
         self.runs_combo = NameCombo()  # (as wide as its room, a long run's line ending in "…": it made the page wider)
         self.runs_combo.setMinimumContentsLength(20)
         self.runs_combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
-        self.runs_combo.setAccessibleName("Runs this session")
-        self.runs_combo.setToolTip("Every run of this session (and EQs shown from History): choose one to see it again")
+        self.runs_combo.setAccessibleName("EQs that you made")
+        self.runs_combo.setToolTip("The EQs that you made since you started the app, and EQs from History: select one to "
+                                   "show it again")
         self.runs_combo.activated.connect(lambda _i: self.choose_run(self.runs_combo.currentData()))
         rr.addWidget(self.runs_combo, 1)
         drop = QPushButton("Remove")
         icons.put(drop, "remove")
-        drop.setToolTip("Take the run shown off this list (Undo puts it back; History keeps what you saved)")
+        drop.setToolTip("Remove the shown EQ from this list. Undo adds it again, and History keeps the EQs that you saved.")
         drop.clicked.connect(self.remove_run)
         rr.addWidget(drop)
         self.runs_row.hide()
         v.addWidget(self.runs_row)
         pick = QHBoxLayout()
-        self.count_lab = label("Fewer or more filters", wrap=False)  # (hidden with its list for an EQ made by hand)
+        self.count_lab = label("Number of filters", wrap=False)  # (hidden with its list for an EQ made by hand)
         pick.addWidget(self.count_lab)
         self.count_combo = SearchCombo()
         help_window.tag(self.count_combo, "fcounts")
         self.count_combo.activated.connect(lambda _i: self.show_result(self.count_combo.currentData()))
         pick.addWidget(self.count_combo, 1)
         self.all_btn = QPushButton("All results…")
-        self.all_btn.setToolTip("Every result the run tried, and the error by filter count and max Q")
+        self.all_btn.setToolTip("All the results that the app tried, and the error for each filter count and maximum Q")
         self.all_btn.clicked.connect(self.open_all_results)
         pick.addWidget(self.all_btn)
         self.cmp_btn = QPushButton("Compare…")
-        self.cmp_btn.setToolTip("Two EQs side by side: this one, other filter counts or runs, or History's")
+        self.cmp_btn.setToolTip("Two EQs at the same time: this one, other filter counts, other EQs that you made, or EQs "
+                                "from History")
         self.cmp_btn.clicked.connect(self.open_compare)
         help_window.tag(self.cmp_btn, "#compare-results")
         # (an EQ by hand, its filter counts' list hidden: Compare… at its own width and still at the row's right end,
@@ -491,32 +494,32 @@ class EqCards:
             self.view_btns[key] = b
         tools.addSpacing(12)
         for text, symbol, fn, tip in (("Add filter", "add", self.add_filter, "A new filter at 1 kHz, 0 dB"),
-                                      ("Sort", "sort", self.sort_filters, "Put the filters in order of frequency"),
-                                      ("Revert", "undo", self.revert, "Back to the filters as the run made them")):
+                                      ("Sort", "sort", self.sort_filters, "Sort the filters by frequency"),
+                                      ("Undo all", "undo", self.revert, "Use the initial filters again (as the app made them)")):
             b = QPushButton(text)
             icons.put(b, symbol)
             b.setToolTip(tip)
             b.clicked.connect(fn)
             tools.addWidget(b)
-            if text == "Revert":
+            if text == "Undo all":
                 self.revert_btn = b
         tools.addSpacing(12)
         # (the graph floating over the page as you edit, while it's out of sight: on to start with, kept: eq_page_live)
-        self.live_check = QCheckBox("Show the graph while editing")
+        self.live_check = QCheckBox("Show the graph while you edit")
         self.live_check.setChecked(self.live_graph_on())
-        self.live_check.setToolTip("While the graph is out of sight, a copy of it floats over the page as you change the "
-                                   "filters")
+        self.live_check.setToolTip("If the graph is not in view, the app shows a copy of it on top of the page while you "
+                                   "change the filters")
         self.live_check.toggled.connect(self.set_live_graph_on)
         help_window.tag(self.live_check, "#live-graph")
         tools.addWidget(self.live_check)
         tools.addStretch(1)
-        self.retry_btn = QPushButton("Retry from these filters")
+        self.retry_btn = QPushButton("Calculate from these filters")
         icons.put(self.retry_btn, "refresh")  # (every button in the row with its symbol, UI-RULES 9)
         help_window.tag(self.retry_btn, "f_retry")
-        self.retry_btn.setToolTip("Best fit again, starting from these filters (this run only: your settings stay)")
+        self.retry_btn.setToolTip("Best fit again, from these filters (only for this EQ: your settings do not change)")
         retry_menu = QMenu(self.retry_btn)
-        retry_menu.addAction("Fine-tune them", lambda: self.run(retry={"filters": self.active(), "add": False}))
-        retry_menu.addAction("Keep them, add filters", lambda: self.run(retry={"filters": self.active(), "add": True}))
+        retry_menu.addAction("Adjust them", lambda: self.run(retry={"filters": self.active(), "add": False}))
+        retry_menu.addAction("Keep them and add filters", lambda: self.run(retry={"filters": self.active(), "add": True}))
         self.retry_btn.setMenu(retry_menu)
         tools.addWidget(self.retry_btn)
         v.addLayout(tools)
@@ -531,7 +534,7 @@ class EqCards:
         name_row.addWidget(self.name_lab)
         self.name_edit = QLineEdit()
         help_window.tag(self.name_edit, "x_name")
-        self.name_edit.setPlaceholderText("named for you")
+        self.name_edit.setPlaceholderText("automatic name")
         self.name_edit.textEdited.connect(lambda _t: self.name_edit.setProperty("auto", False))  # (yours from now)
         name_row.addWidget(self.name_edit, 1)
         v.addLayout(name_row)
@@ -557,14 +560,15 @@ class EqCards:
         help_window.tag(self.use_btn, "#use-try")
         report = QPushButton("Report")
         icons.put(report, "report")  # (every button in the row with its symbol, UI-RULES 9)
-        report.setToolTip("An HTML page with the graph and the filters, opened in your browser (saved in your Saved EQs folder)")
+        report.setToolTip("An HTML page with the graph and the filters, in your browser (also in your Saved EQs folder)")
         report.clicked.connect(lambda: self.report(open_it=True))
         folder = QPushButton("Open the Saved EQs folder")
         icons.put(folder, "folder")  # (Windows' folder symbol, as every button that opens a folder has)
         folder.clicked.connect(lambda: self.svc.call("/api/open", {"what": "output"}))
         keep = QPushButton("Keep to compare")
         icons.put(keep, "pin")  # (Windows 11's pin, where the words had 📌)
-        keep.setToolTip("Add this EQ to your EQs to compare for this IEM: on the graph, and in Listen to hear it")
+        keep.setToolTip("Add this EQ to Your EQs to compare for this IEM: on the graph, and in Listen, where you can hear "
+                         "it")
         keep.clicked.connect(lambda: self.listen.add_selected())
         copy = QPushButton("Copy")
         icons.put(copy, "copy")

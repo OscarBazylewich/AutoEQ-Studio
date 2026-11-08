@@ -41,7 +41,7 @@ def test_more_of_your_filters_than_the_device_holds(sample_curves, check):
     except ValueError as err:
         msg7 = str(err)
     # was eq_checks.py:289
-    check("devices: more filters of yours than the device holds is said before the run", "more than Voicemeeter" in msg7, msg7)
+    check("devices: more filters of yours than the device holds is said before the run", "and Voicemeeter (Banana, Potato) has a maximum of" in msg7, msg7)
 
 
 def test_sweep_cached_reads_no_files_again(fresh_studio, eq_cfg, monkeypatch, check):
@@ -79,7 +79,7 @@ def test_growing_every_count_a_result(sample_curves, check):
         "fight_penalty": [0.01]}})
     out = pipeline.run_mode("best_fit", cg, curves, mt, tt, progress=lambda dn, t, m="": said.append((dn, t, m)))
     rs = sorted(out["results"], key=lambda r: r["rows"])
-    grew = [m for _d, _t, m in said if m.startswith("Adding filters one at a time")]
+    grew = [m for _d, _t, m in said if m.startswith("Best fit adds one filter at a time")]
     # was eq_checks.py:2250
     check("Best fit, growing: every count is a result, each closer than the first; the progress counts the filters added",
           [r["rows"] for r in rs] == [1, 2, 3, 4, 5, 6] and all(len(r["filters"]) <= r["rows"] for r in rs)

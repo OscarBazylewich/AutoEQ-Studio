@@ -111,5 +111,5 @@ def test_change_moves_them_all(place, check):
     # was selftest.py:836
     check("your files: Change… moves them all into the new folder's same folders; not into the program's folder "
           "or one of your files' own", (moved, renamed) == (5, 0) and len(there) == 5
-          and "Targets" in {os.path.dirname(t) for t in there} and why[0] and "own folder" in why[0]
+          and "Targets" in {os.path.dirname(t) for t in there} and why[0] and "program folder" in why[0]
           and why[1] and "Targets" in why[1] and why[2] is None, (moved, renamed, there, why))

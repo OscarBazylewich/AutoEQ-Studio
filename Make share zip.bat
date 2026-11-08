@@ -6,7 +6,7 @@ rem (AutoEQ Local's "Make share zip.bat", for this app.)
 setlocal
 set "HERE=%~dp0"
 cd /d "%HERE%"
-title AutoEQ Studio - make a share zip
+title AutoEQ Studio - make a zip to send
 set "PY="
 if exist ".venv\Scripts\python.exe" set "PY=.venv\Scripts\python.exe"
 if not defined PY if exist "%LOCALAPPDATA%\AutoEQ Studio\venv\Scripts\python.exe" set "PY=%LOCALAPPDATA%\AutoEQ Studio\venv\Scripts\python.exe"

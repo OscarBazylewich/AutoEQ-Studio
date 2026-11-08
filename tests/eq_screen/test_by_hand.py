@@ -47,9 +47,9 @@ def test_start_empty_and_add_a_filter(eq_screen, check):
     page.add_filter()
     check("by hand: Start empty puts an EQ of your own on the result card (titled By hand, no filter counts to choose "
           "from, a line saying how to add one, Listen there); Add filter adds one, the numbers and the name following",
-          empty[0] == "manual" and empty[1] == "By hand" and not empty[2] and not empty[3] and "No filters yet" in empty[4]
+          empty[0] == "manual" and empty[1] == "Manually" and not empty[2] and not empty[3] and "No filters:" in empty[4]
           and empty[5] == [] and empty[6] and empty[7] and len(page.EDIT) == 1 and page.chips["filters"].text() == "Filters  1"
-          and page.name_edit.text().endswith(" - by hand 1f") and "edited" in page.res_title.text(),
+          and page.name_edit.text().endswith(" - manual 1f") and "edited" in page.res_title.text(),
           (empty, page.chips["filters"].text(), page.name_edit.text()))
 
 
@@ -98,7 +98,7 @@ def test_from_a_profile_then_update_it(eq_screen, tmp_path, check):
     check("by hand: a device's profile opens as an EQ by hand; Use on device › Update puts the edit back into it (its "
           "name and device kept, still on)",
           "Gain 4.5 dB" in text and p["name"] == "Daily" and rec["active"] == pid
-          and any("Updated “Daily”" in t for t in eq_screen.said[-2:]), (text, rec, eq_screen.said[-2:]))
+          and any("updated “Daily”" in t for t in eq_screen.said[-2:]), (text, rec, eq_screen.said[-2:]))
     graphic = sw.import_profile(_write(os.path.join(str(tmp_path), "Graphic.txt"),
                                        "Filter 1: ON PK Fc 500 Hz Gain 1 dB Q 1\nGraphicEQ: 20 0; 1000 2; 20000 0\n"),
                                 "Graphic one")
@@ -121,7 +121,7 @@ def test_a_copy_of_the_eq_shown(eq_screen, check):
     run, _ = page.current()
     check("by hand: A copy of the selected EQ starts another EQ by hand with its filters as they are now, the one before "
           "kept in this session's runs",
-          len(page.session_runs) == before + 1 and run["source"] == "a copy of your EQ by hand" and len(page.EDIT) == 2
+          len(page.session_runs) == before + 1 and run["source"] == "a copy of your manual EQ" and len(page.EDIT) == 2
           and not page.edited(), (run.get("source"), page.EDIT))
 
 
@@ -131,8 +131,8 @@ def test_saved_and_kept_as_a_result(eq_screen, check):
     entry = eqpage.save_result(eq_screen, "By hand check")
     runs = [page.runs_combo.itemText(i) for i in range(page.runs_combo.count())]
     check("by hand: Save filters writes it and keeps it in History (By hand); this session's runs list it",
-          entry["mode"] == "manual" and entry["label"].startswith("By hand · pasted") and any("By hand" in t for t in runs)
-          and "Saved" in eq_screen.said[-1], (entry.get("label"), runs, eq_screen.said[-1:]))
+          entry["mode"] == "manual" and entry["label"].startswith("Manually · pasted") and any("Manually" in t for t in runs)
+          and "saved" in eq_screen.said[-1], (entry.get("label"), runs, eq_screen.said[-1:]))
 
 
 def test_with_no_measurement(eq_screen, dialogs, check):
@@ -150,7 +150,7 @@ def test_with_no_measurement(eq_screen, dialogs, check):
         page.draw()
     check("by hand: with no measurement chosen, the EQ graph still shows the EQ (the graph above it is empty), and "
           "Report says it needs a measurement and a target",
-          eq_items == 1 and main_items == 0 and report is None and box and "choose" in box[-1], (eq_items, main_items, box))
+          eq_items == 1 and main_items == 0 and report is None and box and "select" in box[-1], (eq_items, main_items, box))
 
 
 def test_edits_kept_when_another_run_is_shown(eq_screen, check):
@@ -231,5 +231,5 @@ def test_close_on_pasted_filters_offers_undo(eq_screen, check):
     page.show_run(None)
     check("by hand: Close on an EQ by hand as it began (pasted) takes it off this session's runs with Undo in the "
           "window's line, and Undo brings it back as it was; an empty one goes without a word",
-          empty == [] and offered[0] and offered[1].startswith("Closed “Run") and not offered[2]
+          empty == [] and offered[0] and offered[1].startswith("You closed “#") and not offered[2]
           and back == (True, True, 1), (empty, offered, back))

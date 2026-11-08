@@ -395,7 +395,7 @@ for _ in range(3):  # (the device panel, made again on each change: its buttons 
         icons.put(b, "rename")
     for b in rows:
         shiboken6.delete(b)
-icons.put(QPushButton("Check again", holder), "refresh")
+icons.put(QPushButton("Examine again", holder), "refresh")
 listed = len(icons._shown)
 for ref, _ in list(icons._shown):  # (every button gone: the next theme change lets go of them all)
     if ref() is not None and shiboken6.isValid(ref()):

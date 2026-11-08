@@ -104,7 +104,7 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
         self._hold = None
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
-        self.loading = label("Opening the EQ part…", "muted")
+        self.loading = label("The EQ part opens…", "muted")
         self.loading.setAlignment(Qt.AlignCenter)
         lay.addWidget(self.loading)
         self._save_timer = QTimer(self, singleShot=True, interval=400, timeout=self._save_settings)
@@ -205,7 +205,7 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
 
         def loaded(res, err):
             if err:
-                self._not_opened(f"The EQ part couldn't open: {err}\nThe details are in data\\app.log.")
+                self._not_opened(f"The EQ part cannot open: {err}\nFor more information, refer to data\\app.log.")
                 return
             try:
                 brought, self.svc, st, hist = res
@@ -221,13 +221,13 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
                 if aside:
                     self._warn(aside)
                 if "error" in st:
-                    self._not_opened(f"The EQ part couldn't open: {st['error']}")
+                    self._not_opened(f"The EQ part cannot open: {st['error']}")
                     return
                 self.meta, self.S = st, st["settings"]
                 self._brought = brought
                 self._steps = self._build_steps()
             except Exception as e:
-                self._not_opened(f"The EQ part couldn't open: {e}\nThe details are in data\\app.log.")
+                self._not_opened(f"The EQ part cannot open: {e}\nFor more information, refer to data\\app.log.")
                 raise
             self._step()
         tasks.background(load, loaded, owner=self)
@@ -240,7 +240,7 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
             with theme.building(self):
                 more = next(self._steps, None) is not None
         except Exception as e:
-            self._not_opened(f"The EQ part couldn't open: {e}\nThe details are in data\\app.log.")
+            self._not_opened(f"The EQ part cannot open: {e}\nFor more information, refer to data\\app.log.")
             raise
         if more:
             QTimer.singleShot(0, self, self._step)
@@ -252,8 +252,8 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
         try:
             _freeze("built")  # (the page's controls too)
             if self._brought:
-                self.status(f"Brought over {len(self._brought)} files from AutoEQ Local (your settings, History, "
-                            "targets, measurements and saved EQs); AutoEQ Local keeps its own.", 12000)
+                self.status(f"AutoEQ Studio copied {len(self._brought)} files from AutoEQ Local (your settings, History, "
+                            "targets, measurements and saved EQs). AutoEQ Local keeps its files.", 12000)
             self.load_curves()
             # (the database lists, asked as the EQ part loaded: once they're in, the rig tags and the curves again)
             self._lists_timer = QTimer(self, interval=500, timeout=self._lists_loaded)
@@ -299,7 +299,7 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
     def _save_settings(self):
         def done(res, err):
             if err or (res or {}).get("error"):
-                self.status(f"Couldn't save the settings: {err or res['error']}", 8000)
+                self.status(f"AutoEQ Studio cannot save the settings: {err or res['error']}", 8000)
         s = self.S
         tasks.background(lambda: self.svc.call("/api/settings", {"settings": s}), done, owner=self)
 
@@ -326,8 +326,8 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
         on = [FORMAT_NAMES[k] for k in list(FORMAT_NAMES) if S["export"].get(k)]
         if hasattr(self, "formats_line"):
             self.formats_line.setText("Save filters writes: " + ", ".join(on) + "." if on else
-                                      "Save filters writes nothing yet: choose your EQ app, or tick a file in "
-                                      "Advanced › Saved files.")
+                                      "Save filters writes no files: select your EQ app, or select a file type in "
+                                      "More settings › Saved files.")
         if hasattr(self, "settings"):
             self.settings.refresh()
 
@@ -339,20 +339,22 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
             own = self.S["best_fit"].get("layout") == a.get("layout") or a.get("kind") == "site" \
                 or key != (self.S.get("eq_app") or "")  # (another app, as the Guide shows it: its own limits)
             text = html.escape(f"{a.get('note') or a.get('summary')}"
-                               + (" Its band shapes aren't stated, so the app's result can differ a little." if a.get("approx") else "")
+                               + (" Because the shapes of its bands are not known, the result can have small differences."
+                                  if a.get("approx") else "")
                                + f" {a.get('how', '')}"
-                               + ("" if own else " (You've changed Best fit's layout since, so its limits aren't the app's "
-                                  "any more.)")).strip()
+                               + ("" if own else " (Because you changed the layout of Best fit, its limits are not the limits "
+                                  "of this EQ app.)")).strip()
             return text + (f' <a href="{html.escape(a["source"])}">Source</a>' if a.get("source") else "")
-        return ("Any filters, as many as needed, saved as an Equalizer APO file, which many apps can read."
+        return ("No limits on the filters. Save filters writes an Equalizer APO file, which many apps can read."
                 if key == "other" else
-                "Which app or device will play the EQ? Its limits (bands, gain, Q) are kept, and Save writes its file.")
+                "Which app or device will use the EQ? The EQ stays in its limits (bands, gain, Q), and Save filters "
+                "writes its file.")
 
     def open_link(self, url):
         """A website link (online only: offline the app never connects, net.py)."""
         import net
         if net.offline():
-            self.status("Offline: switch to Online (top right) to open websites.", 6000)
+            self.status("Offline: to open websites, change to Online (top right).", 6000)
             return
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QDesktopServices

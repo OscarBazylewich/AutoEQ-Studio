@@ -26,9 +26,9 @@ class ProfilesScreen:
         w = QWidget()
         lay = QVBoxLayout(w)
         lay.setContentsMargins(0, 0, 0, 0)  # (lined up with the top bar, as every screen: UI-RULES 5)
-        lay.addWidget(muted("A profile is a copy of an EQ file (Equalizer APO's format: AutoEQ Local's “Equalizer "
-                            "APO” file, AutoEq's ParametricEQ.txt, squig.link's export). Double-click a name to "
-                            "rename it."))
+        lay.addWidget(muted("A profile is a copy of an EQ file in the Equalizer APO format (the “Equalizer APO” file "
+                            "of AutoEQ Local, ParametricEQ.txt of AutoEq, an EQ file that squig.link exports). To "
+                            "rename a profile, double-click its name."))
         # (the table's commands above it, near the rows they act on: under a table that fills the screen they were
         # 750 px from its one row)
         row = QHBoxLayout()
@@ -43,13 +43,13 @@ class ProfilesScreen:
             b.clicked.connect(fn)
             if text == "Delete…":
                 row.addStretch(1)  # (last and apart: UI-RULES 14)
-                b.setToolTip("Delete the chosen profile (its file goes; it's taken off its devices too)")
+                b.setToolTip("Delete the selected profile and its file, and remove it from its devices")
             row.addWidget(b)
             if symbol in ("edit", "rename", "delete"):  # (for the chosen profile: off until one is chosen)
                 self.prof_needs_one.append(b)
             if symbol == "edit":
-                b.setToolTip("Change the chosen profile's filters by hand (on the graph, or as a table); Use on device › "
-                             "Update puts it back, its devices keeping it")
+                b.setToolTip("Change the filters of the selected profile manually (on the graph, or in the table). Use "
+                             "on device › Update saves them in the profile, and its devices keep it.")
                 help_window.tag(b, "#prof-edit")
                 self.prof_edit_btn = b
         lay.addLayout(row)
@@ -137,15 +137,15 @@ class ProfilesScreen:
         if not pid:  # (off then: UI-RULES 19)
             return
         self.show_page("eq")
-        self.eq_then(lambda page: page.hand_from_profile(pid), "The profile opens as soon as Make an EQ has opened…")
+        self.eq_then(lambda page: page.hand_from_profile(pid), "The profile opens after Make an EQ opens…")
 
     def _remove(self):
         pid = self._selected_profile()
         if not pid:
             return
         used = self.sw.used_by(pid)
-        if QMessageBox.question(self, "Delete", f"Delete “{self.sw.profile_name(pid)}”? Its file goes."
-                                + (f"\n\nIt's taken off {', '.join(used)} too." if used else ""),
+        if QMessageBox.question(self, "Delete", f"Delete “{self.sw.profile_name(pid)}” and its file?"
+                                + (f"\n\nAutoEQ Studio also removes it from {', '.join(used)}." if used else ""),
                                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No) == QMessageBox.Yes:
             self.sw.remove_profile(pid)  # (No the default: it can't be undone, UI-RULES 17)
 

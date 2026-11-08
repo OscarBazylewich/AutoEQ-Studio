@@ -64,7 +64,7 @@ win.render_all()
 for _ in range(5):
     qapp.processEvents()
 ''' + "{shapes}" + r'''
-KINDS = {"Playing now": "playing", "Connected": "connected", "Not connected": "away"}
+KINDS = {"Active": "playing", "Connected": "connected", "Not connected": "away"}
 
 
 def dots(fills=False):  # (each row's dot, by its row's words: the colour in its middle; with fills, [that colour,
@@ -136,7 +136,7 @@ def _read(path):
 def test_banner_asks_to_set_apo_up(devices_window, check):
     win = devices_window.win
     # was selftest.py:373
-    check("window: the banner asks to set APO up", win.banner.isVisible() and "isn't using" in win.banner_text.text(),
+    check("window: the banner asks to set APO up", win.banner.isVisible() and "does not use AutoEQ Studio" in win.banner_text.text(),
           (win.banner.isVisible(), win.banner_text.text()))
 
 
@@ -145,7 +145,7 @@ def test_playing_device_chosen_and_apo_missing_said(devices_window, check):
     labels = [w.text() for w in win.dev_panel.findChildren(type(win.banner_text))]
     # was selftest.py:374
     check("window: the device playing is chosen, and APO missing on it is said",
-          win.selected == "Headset|EarPods" and any("isn't installed on this device" in t for t in labels),
+          win.selected == "Headset|EarPods" and any("is not installed on this device" in t for t in labels),
           (win.selected, labels))
 
 
@@ -158,7 +158,7 @@ def test_check_again(set_up_window, check, monkeypatch):
     win, sw = w.win, w.sw
     rec = sw.record(KEY)
     win._checks.clear()
-    chk = [b for b in win.dev_panel.findChildren(QPushButton) if b.text() == "Check again"]
+    chk = [b for b in win.dev_panel.findChildren(QPushButton) if b.text() == "Examine again"]
     pfile = os.path.join(sw.apo.profiles, sw.profiles()[rec["active"]]["file"])
     told = []
     monkeypatch.setattr(apo_check, "run", lambda apo, guid, timeout=60: (told.append(guid), {
@@ -174,9 +174,9 @@ def test_check_again(set_up_window, check, monkeypatch):
     # was selftest.py:424
     check("window: Check again asks APO for the device's endpoint and says all it found (its EQ applies, but APO "
           "isn't on the device); the device's line says it too",
-          len(chk) == 1 and "{5}" in told and any(isinstance(x, tuple) and x[0] == "not" and "applies on this device"
-                                                   in x[1] and "isn't installed on this device" in x[1] for x in told)
-          and line.startswith("✕ Equalizer APO isn't installed on this device"), (told, line))
+          len(chk) == 1 and "{5}" in told and any(isinstance(x, tuple) and x[0] == "not" and "on this device: APO finds the section"
+                                                   in x[1] and "is not installed on this device" in x[1] for x in told)
+          and line.startswith("✕ Equalizer APO is not installed on this device"), (told, line))
 
 
 def test_line_asked_once_per_change(set_up_window, check, monkeypatch, qapp):
@@ -197,24 +197,26 @@ def test_line_asked_once_per_change(set_up_window, check, monkeypatch, qapp):
     # was selftest.py:477
     check("window: the device's line isn't asked again while nothing changed; asked by itself after a change "
           "(✕: APO doesn't read AutoEQ Studio's file)", again == [] and asked == ["{5}"]
-          and "✕" in win.check_label.text() and "doesn't read" in win.check_label.text(), (again, asked,
+          and "✕" in win.check_label.text() and "does not read" in win.check_label.text(), (again, asked,
                                                                                          win.check_label.text()))
 
 
 def test_line_keeps_a_profiles_name_whole(check):
     # (the one-line answer kept a profile's name whole: "Truthear GATe (Diffuse field)" was cut at its bracket)
     from ui.window import check_line
-    lines = [check_line(True, "“Truthear GATe (Diffuse field)” applies on this device: APO finds its section and "
-                              "loads its file. config.txt also loads, on top: x.txt."),
-             check_line(False, "AutoEQ Studio chose “A. B (C)”, but APO doesn't load its file for this device (the "
+    lines = [check_line(True, "APO uses “Truthear GATe (Diffuse field)” on this device: APO finds the section of the "
+                              "device and loads the file of the EQ. config.txt also loads these files for this device: "
+                              "x.txt."),
+             check_line(False, "AutoEQ Studio selected “A. B (C)”, but APO does not load its file for this device (the "
                                "file is missing from APO's folder)."),
              check_line(True, "AutoEQ Studio's EQ is off for this device (APO finds its section, with no EQ in it)."),
-             check_line(None, "Couldn't ask Equalizer APO: Benchmark isn't there.")]
+             check_line(None, "AutoEQ Studio cannot get data from Equalizer APO: Benchmark is not there.")]
     # was selftest.py:489
     check("window: the device's line keeps a profile's name whole (brackets, a full stop) and drops the rest",
-          lines == ["“Truthear GATe (Diffuse field)” applies on this device.",
-                    "AutoEQ Studio chose “A. B (C)”, but APO doesn't load its file for this device.",
-                    "AutoEQ Studio's EQ is off for this device.", "Couldn't ask Equalizer APO"], lines)
+          lines == ["APO uses “Truthear GATe (Diffuse field)” on this device.",
+                    "AutoEQ Studio selected “A. B (C)”, but APO does not load its file for this device.",
+                    "AutoEQ Studio's EQ is off for this device.", "AutoEQ Studio cannot get data from Equalizer APO"],
+          lines)
 
 
 def test_eq_switched_while_apo_is_asked(set_up_window, check, monkeypatch, qapp):
@@ -312,7 +314,7 @@ def test_trying_an_eq_for_5_minutes(set_up_window, check, qapp):
         check("devices: Try for 5 minutes plays the EQ on that device only (APO's file, the bar, the status), Keep it "
               "makes it a profile switched on; a hand switch or the time up ends it; one left by a crash is gone at the "
               "next start",
-              trying == (1, True, True, "Trying: Trial EQ") and after_crash == (False, False) and leftover.trial is None
+              trying == (1, True, True, "For 5 minutes: Trial EQ") and after_crash == (False, False) and leftover.trial is None
               and kept_it == ("Trial EQ", True, None, False) and by_hand == (None, False, True) and sw.trial is None
               and "_trying" not in _read(swt), (trying, after_crash, kept_it, by_hand, sw.trial))
     finally:  # (as the old check left it, line 567: the profile it kept removed)
@@ -401,7 +403,7 @@ def test_symbols_beside_the_device_screens_words(set_up_window, check, qapp):
     win.render_device_panel()
     qapp.processEvents()  # (the panel's new parts are shown on Qt's next turn)
     buttons = {b.text(): b for b in win.dev_panel.findChildren(QPushButton) if b.isVisible()}
-    want = ("Rename…", "Add a profile", "Check again")
+    want = ("Rename…", "Add a profile", "Examine again")
     signs = [(lab.accessibleName(), lab.property("role")) for lab in win.dev_panel.findChildren(QLabel)
              if lab.property("glyph") == "true" and lab.isVisible()]
     # (the playing device has no APO on it: its card says so)

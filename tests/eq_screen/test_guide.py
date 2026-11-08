@@ -127,7 +127,7 @@ def test_demos(s, check):
                 stuck.append(st["title"])
         # with Windows' animation effects off: numbered markers on the controls and the list in the card, nothing moved
         t.glide = False
-        t.go(next(n for n, st in enumerate(t.steps) if st["title"] == "How an EQ job goes"))
+        t.go(next(n for n, st in enumerate(t.steps) if st["title"] == "How to make an EQ"))
         t.replay()
         marked = (len(t.markers), "1." in t.acts_lab.text() and "5." in t.acts_lab.text(), t.demo_running)
         t.glide = True
@@ -138,7 +138,7 @@ def test_demos(s, check):
         wait_for(lambda: page.view_combo.currentData() == "rel" or not t.demo_running, 20)
         mid = page.view_combo.currentData()
         # the card's own controls: Pause and Resume; the wheel scrolls the page and pauses the demo, Resume scrolls back
-        t.go(next(n for n, st in enumerate(t.steps) if st["title"] == "Run"))
+        t.go(next(n for n, st in enumerate(t.steps) if st["title"] == "Calculate"))
         t.speed = 1.0
         t.replay()
         wait_for(lambda: t.demo_running, 5)
@@ -151,7 +151,7 @@ def test_demos(s, check):
         pos = QPointF(area.viewport().mapTo(page.window(), QPoint(40, 40)))
         t.wheelEvent(QWheelEvent(pos, pos, QPoint(0, 0), QPoint(0, -240), Qt.NoButton, Qt.NoModifier, Qt.NoScrollPhase,
                                  False))
-        scrolled = (bar.value() != at, t.paused_by_you, "Resume" in t.pause_btn.text())
+        scrolled = (bar.value() != at, t.paused_by_you, "Continue" in t.pause_btn.text())
         t.toggle_pause()
         resumed = (bar.value() == at, t.paused)
         t.speed = 40.0
@@ -183,7 +183,7 @@ def test_demos(s, check):
     # (2026-10-23, the Windows 11 look: "Resume" with Windows 11's play symbol beside it, where it was "▶ Resume")
     check("guide: the card's Pause / Resume; the wheel scrolls the page and pauses the demo, Resume scrolls back; the "
           "step list (3 of 28 ▾) goes straight to a step",
-          paused == (True, "Resume") and scrolled == (True, True, True) and resumed == (True, False) and listed
+          paused == (True, "Continue") and scrolled == (True, True, True) and resumed == (True, False) and listed
           and jumped == (1, False), (paused, scrolled, resumed, listed, jumped))
 
 
@@ -215,7 +215,7 @@ def test_find_demos_while_find_redraws(s, check):
     t.all_chk.setChecked(False)
     timer.start(100)
     try:
-        for title in ("Choose your IEM or headphone", "Many results?"):
+        for title in ("Select your IEM or headphone", "Many results?"):
             t.go(next(n for n, st in enumerate(t.steps) if st["title"] == title))
             t.speed = 1.0
             t.replay()
@@ -340,7 +340,7 @@ def test_the_guides_look_follows_the_theme(s, check):
         for dark in (False, True):
             theme.apply(qapp, dark=dark)
             qapp.processEvents()
-            t = _on_step(page, "Run")
+            t = _on_step(page, "Calculate")
             try:
                 qapp.processEvents()
                 tok = theme.tokens()
@@ -363,7 +363,7 @@ def test_the_guides_look_follows_the_theme(s, check):
             finally:
                 t.hot_w = t.trail = None
                 t.end()
-        t = _on_step(page, "Run")  # (the theme changed while a tour is open: its symbols drawn again)
+        t = _on_step(page, "Calculate")  # (the theme changed while a tour is open: its symbols drawn again)
         try:
             symbols["dark"] = (_icon_colour(t.replay_btn), theme.tokens()["ink"], t.replay_btn.text())
             theme.apply(qapp, dark=False)
@@ -392,7 +392,7 @@ def test_messages_and_keys_fit(s, check):
     from PySide6.QtWidgets import QLabel
     from ui import tour
     page, qapp = s.page, s.qapp
-    t = _on_step(page, "Run")
+    t = _on_step(page, "Calculate")
     try:
         qapp.processEvents()
         n = t.note("Saved “My EQ”. (Demo: nothing was saved.) A message long enough to take two lines in the card.",
@@ -418,8 +418,8 @@ def test_messages_and_keys_fit(s, check):
 
 # The demos that show one of the app's windows inside the Guide (Find…, Which measurement, History), and the sizes
 # they're looked at in: the app's own (its window as it first opens) and its window's smallest
-WINDOW_DEMOS = ("Choose a target", "Choose your IEM or headphone", "Many results?",
-                "Several measurements of the same model?", "History")
+WINDOW_DEMOS = ("Select a target", "Select your IEM or headphone", "Many results?",
+                "More than one measurement of the same model?", "History")
 SIZES = {"the app's own size": (1040, 760), "the window's smallest": (965, 433)}
 
 
@@ -524,7 +524,7 @@ def test_demo_window_frame_grows(s, check):
     from PySide6.QtWidgets import QDialog, QLabel, QScrollArea, QVBoxLayout
     from helpers import qt
     from ui import tour
-    t = _on_step(s.page, "Pick an EQ method")
+    t = _on_step(s.page, "Select an EQ method")
     seen = {}
     try:
         api = tour.Api(t)
@@ -634,7 +634,7 @@ def test_step_list_headings(s, check):
     from PySide6.QtGui import QFont
     from ui import theme
     page = s.page
-    t = _on_step(page, "Run")
+    t = _on_step(page, "Calculate")
     try:
         t.count_btn.click()
         lst = t.step_list.list
@@ -700,7 +700,7 @@ def test_step_list_button_chevron(s, check):
         for dark in (True, False):
             theme.apply(qapp, dark=dark)
             qapp.processEvents()
-            t = _on_step(page, "Run")
+            t = _on_step(page, "Calculate")
             try:
                 qapp.processEvents()
                 b = t.count_btn  # (on its card: the button has no fill of its own)
@@ -781,7 +781,7 @@ def test_lists_a_demo_shows(s, check):
     q.setReadOnly(False)
     page.app_combo.hidePopup()
     qt.pump(50)
-    t = _on_step(page, "Pick an EQ method")
+    t = _on_step(page, "Select an EQ method")
     try:
         api = tour.Api(t)
         g = guide_demos.mock_combo(api, combo, combo.count() - 1)
@@ -807,7 +807,7 @@ def test_lists_a_demo_shows(s, check):
             and box.geometry().bottom() < m.rows[0].geometry().top() and mock_box == real_box \
             and real_box["line"] == tk["accent"]
         t.stop_demo()
-        items = [("No presets yet", False), "Save as a preset…", None, "Try for 5 minutes on ▸"]
+        items = [("No presets", False), "Save as a preset…", None, "Use for 5 minutes on ▸"]
         g = guide_demos.mock_menu(api, page.use_btn, items)  # (a menu, as the demos show Presets' and Use on device's)
         next(g)
         qt.pump(50)
@@ -821,10 +821,10 @@ def test_lists_a_demo_shows(s, check):
     finally:
         t.end()
     real_m = QMenu(page)  # (a real menu in the app's look, the same rows, its item pointed at)
-    real_m.addAction("No presets yet").setEnabled(False)
+    real_m.addAction("No presets").setEnabled(False)
     act = real_m.addAction("Save as a preset…")
     real_m.addSeparator()
-    sub = real_m.addMenu("Try for 5 minutes on")
+    sub = real_m.addMenu("Use for 5 minutes on")
     sub.addAction("Headphones")
     real_m.resize(real_m.sizeHint())
     real_m.setActiveAction(act)

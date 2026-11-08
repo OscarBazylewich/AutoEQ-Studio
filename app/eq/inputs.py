@@ -70,12 +70,12 @@ def selected(cfg, target=None, measurements=None):
         st = state(cfg)
         if target is None:
             if not st["active_target"]:
-                raise ValueError("No target file. Drop one onto the Target box.")
+                raise ValueError("No target file. Drag one onto the Target box.")
             target = os.path.join(TARGET_DIR, st["active_target"])
         if measurements is None:
             measurements = [os.path.join(MEAS_DIR, m["name"]) for m in st["measurements"] if m["included"]]
     if not measurements:
-        raise ValueError("No measurement files. Drop one or more onto the Measurement box.")
+        raise ValueError("No measurement files. Drag one or more onto the Measurement box.")
     return target, measurements
 
 
@@ -107,7 +107,7 @@ def add_files(kind, files):
         content = textfile.normalize_fr(content)
         n = engines.count_points(content)
         if n < 32:
-            raise ValueError(f"{name}: only {n} frequency/dB points found - is this a frequency response file?")
+            raise ValueError(f"{name}: the app found only {n} frequency/dB points. Is this a frequency response file?")
         ready.append((name, content))
     for k in range(1, 1000):
         names = [_numbered(name, k) for name, _ in ready]
@@ -144,7 +144,7 @@ def _plain_name(name):
     """A file's name without any folder part; never empty, "." or ".." (those would mean the folder itself)."""
     base = os.path.basename(name) if isinstance(name, str) else ""
     if base.strip(" .") == "":
-        raise ValueError("No file name was given.")
+        raise ValueError("There is no file name.")
     return base
 
 
@@ -172,10 +172,10 @@ def move_file(kind, name):
     name = _plain_name(name)
     src = os.path.join(src_dir, name)
     if not os.path.isfile(src):
-        raise ValueError(f"{name} isn't in the {kind} folder any more.")
+        raise ValueError(f"{name} is not in the {kind} folder.")
     os.makedirs(dst_dir, exist_ok=True)
     if not _free_or_same(os.path.join(dst_dir, name), textfile.read(src)):
         other = "Measurement" if kind == "target" else "Target"
-        raise ValueError(f"{other} already has a different “{name}”: remove or rename one of them first.")
+        raise ValueError(f"{other} has a different “{name}”: first, remove or rename one of them.")
     _in_use_retry(os.replace, src, os.path.join(dst_dir, name))
     return name

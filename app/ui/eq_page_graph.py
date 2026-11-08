@@ -37,7 +37,7 @@ class EqGraph:
         if not c or c.get("error"):
             self.curves, self.rig_note = None, ""
             self.graph_title.setText("")
-            note(self.graph_note, str((c or {}).get("error") or "The curves couldn't be worked out."))
+            note(self.graph_note, str((c or {}).get("error") or "The app cannot calculate the curves."))
             self.chip_noeq.hide()
             self.draw()
             return
@@ -92,7 +92,7 @@ class EqGraph:
                 self.load_curves()
         search = a.get("search") or ""
         self.sa_what.setText((search[:1].upper() + search[1:] + ".") if search else "")
-        self.estimate.setText(f"A run takes {a['time']}" if a.get("time") else "")
+        self.estimate.setText(f"Time to calculate: {a['time']}" if a.get("time") else "")
         if hasattr(self, "settings"):
             self.settings.refresh()  # (the values filled in, "Why these settings")
 

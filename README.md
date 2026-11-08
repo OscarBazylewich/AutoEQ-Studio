@@ -1,108 +1,121 @@
 # AutoEQ Studio
 
-A Windows app that makes EQs for headphones and IEMs, and gives each playback device on your PC its own EQ.
+AutoEQ Studio is a Windows app that makes EQs for headphones and IEMs. It also gives each playback device on your
+PC its EQ.
 
-- **Make an EQ.** Compares a measurement of your headphones or IEMs with a target curve (the sound you want) and
-  finds the filters that make one match the other. It saves them as the file your EQ app needs, or puts them
-  straight onto a device.
-- **Per-device EQ.** Each playback device gets its own EQ, switched automatically. Plug in your earphones' dongle and
-  their EQ is on; connect your Bluetooth earbuds and theirs is; your speakers can have none. This part works through
-  [Equalizer APO](https://sourceforge.net/projects/equalizerapo/), which does the actual sound processing.
+- **Make an EQ.** The app compares a measurement of your headphones or IEMs with a target curve (the sound that you
+  want). Then it finds the filters that make the measurement the same as the target. It saves the filters in the
+  file that is necessary for your EQ app, or it puts them directly on a device.
+- **EQ for each device.** Each playback device has its EQ, and the app changes the EQ automatically. When you
+  connect the dongle of your IEMs, their EQ is on. When you connect your Bluetooth earbuds, their EQ is on. Your
+  speakers can have no EQ. This part operates through [Equalizer APO](https://sourceforge.net/projects/equalizerapo/),
+  which applies the EQ to the sound.
 
-It's a native desktop app (Python and Qt), not a web page, and works offline.
+It is a Windows desktop app (Python and Qt), not a website. It also operates without the internet.
 
-![Making an EQ: a measurement against its target, Run, the result, then the view relative to the target](docs/demo.gif)
+![Make an EQ: a measurement and its target, Calculate, the result, and then the difference from the target](docs/demo.gif)
 
-## Features
+## Functions
 
-- **Best fit:** adds filters one at a time and keeps the simplest EQ that sounds the same as the target (within
-  0.25 dB everywhere, weighted as the ear hears it), within your EQ app's limits (filter count, Q, gain, frequency
-  range). The AutoEQ method used by squig.link sites is built in too.
-- **Measurements and targets:** use your own files, or search the online measurement databases (squig.link sites,
-  AutoEq) and the files on your PC. It compares several measurements of the same model, and converts targets
-  between measurement rigs (711 coupler, B&K 5128).
-- **Target adjustments:** tilt, bass, treble, ear gain and more, shown live on the graph.
-- **EQs by hand:** start empty, or from an EQ file (Equalizer APO, Room EQ Wizard, Peace), pasted filters or a
-  device's profile, read exactly as Equalizer APO plays them. Drag each filter on the EQ graph (frequency and gain;
-  Q with the mouse wheel); an EQ you're trying on a device plays each change there as you make it.
-- **Exports for 34 EQ apps and devices**, each within its own limits: Equalizer APO, Peace, foobar2000, Roon,
-  Wavelet, Poweramp, USB Audio Player PRO, Qudelix, FiiO, miniDSP, EasyEffects and more, plus an HTML report.
-- **Listen:** hear the EQ through your own headphones, level-matched, with a blind test option and an ABX test (each
-  trial X is A or B at random; at the end, your score and how often guessing alone does as well).
-- **Graph tracer:** turns a picture of a frequency-response graph (a manufacturer's sheet, a review's screenshot)
-  into a measurement, reading the axes with Windows' own text reader.
-- **Device switching:** profiles for each device, a tray icon, a hotkey, notices, and a check that asks Equalizer
-  APO whether the EQ really plays. A second hotkey turns the playing device's EQ off and on again to compare,
-  level-matched so the louder one doesn't win.
-- **Help built in:** a guided tour with demos, Help for every term and setting (F1 on any control), keyboard and
-  screen-reader support.
-- **Windows 11's look:** its colours, type and symbols, light or dark as Windows is, in your Windows accent colour,
-  with Mica behind the window (Windows 10 gets the same look on a plain background).
+- **Best fit:** this method adds filters one at a time. It keeps the minimum number of filters for the same sound as
+  the target. The same sound is a difference of 0.25 dB or less at all frequencies, as the ear hears it. The EQ
+  stays in the limits of your EQ app (number of filters, Q, gain, frequency range). The app also has Website AutoEQ,
+  the AutoEQ method of the squig.link websites.
+- **Measurements and targets:** you can use your files. You can also search the online measurement databases
+  (squig.link websites, AutoEq) and the files on your PC. The app compares more than one measurement of the same
+  model. It changes targets for a different measurement rig (711 coupler, B&K 5128).
+- **Target adjustments:** tilt, bass, treble, ear gain and other adjustments. The graph shows each change when you make
+  it.
+- **Manual EQs:** you can start with an empty EQ, an EQ file (Equalizer APO, Room EQ Wizard, Peace), pasted filters
+  or the profile of a device. The app reads them as Equalizer APO plays them. You can drag each filter on the EQ graph
+  (frequency and gain), and the mouse wheel changes its Q. When you use an EQ for 5 minutes on a device, the device
+  plays each change while you edit.
+- **Saved files for 34 EQ apps and devices**, each in the limits of that app: Equalizer APO, Peace, foobar2000, Roon,
+  Wavelet, Poweramp, USB Audio Player PRO, Qudelix, FiiO, miniDSP, EasyEffects and other apps. The app also makes an
+  HTML report.
+- **Listen:** you hear the EQ through your headphones, at the same level. You can hide the names, or do an ABX test.
+  In each trial, X is A or B at random. At the end, the app shows your result, and how frequently random selections get the same result or a better
+  result.
+- **Graph tracer:** this tool changes a picture of a frequency response graph (for example, a data sheet or a
+  screenshot from a website) into a measurement. It reads the axes with the text reader of Windows.
+- **Devices and the tray:** profiles for each device, a tray icon, a hotkey, notifications, and a test that shows if
+  Equalizer APO uses the EQ. The on/off hotkey disables the EQ of the active device and enables it again, to compare.
+  “Off” has the same loudness as the EQ: only the sound is different.
+- **Help in the app:** the Guide with demos, and Help for each setting and each name in the app (F1 on a
+  control). You can also use the app with a keyboard and with a screen reader.
+- **The colors, text and symbols of Windows 11:** light or dark, as in Windows, in your Windows accent color,
+  with Mica behind the window. On Windows 10, the app has the same colors, without Mica.
 
 ## Screenshots
 
 <p>
   <img src="docs/result.png" width="49%" alt="A result: its error, pre-amp and filters, with Save filters and Use on device">
-  <img src="docs/devices.png" width="49%" alt="Devices: a USB dongle with two EQ profiles made in the app, one on">
+  <img src="docs/devices.png" width="49%" alt="Devices: a USB dongle with two EQ profiles from the app, and one of them is on">
 </p>
 
-## Requirements
+## Necessary software
 
 - Windows 10 or 11, 64-bit
-- [Equalizer APO](https://sourceforge.net/projects/equalizerapo/) for the per-device EQ (Make an EQ works without it)
-- Running from source: 64-bit [Python](https://www.python.org/downloads/) 3.10 or newer
+- [Equalizer APO](https://sourceforge.net/projects/equalizerapo/) for the EQ of each device (Make an EQ operates
+  without it)
+- To start the app from the source code: 64-bit [Python](https://www.python.org/downloads/) 3.10 or a newer version
 
-## Installing it
+## Install the app
 
-Download `AutoEQ Studio Setup <version>.exe` from the [latest release](https://github.com/OscarBazylewich/AutoEQ-Studio/releases/latest)
-and run it. It installs for your Windows account only (no administrator password) and has its own Python inside,
-so nothing else is needed. The installer isn't signed, so Windows may say "Windows protected your PC": click
-More info, then Run anyway. Running a newer Setup later updates it and keeps your files and settings.
+1. Download `AutoEQ Studio Setup <version>.exe` from [the newest version on GitHub](https://github.com/OscarBazylewich/AutoEQ-Studio/releases/latest).
+2. Start the file.
 
-## Running it from source
+The installer installs the app for your Windows account only (an administrator password is not necessary). The app
+contains its Python. Other items are not necessary. The installer does not have a digital signature.
+Thus, Windows can show "Windows protected your PC". If Windows shows this message, click **More info**. Then
+click **Run anyway**.
 
-1. Download this repository (Code > Download ZIP, then extract it) or clone it.
-2. Double-click `AutoEQ Studio.bat`. The first start sets up its Python packages (Qt, numpy, scipy and the rest,
-   about 150 MB) in a `.venv` folder; later starts open straight away.
-3. On Make an EQ, click **Guide** (top right) for a tour; **Help** has every setting.
+To update the app, start the Setup file of a newer version. The installer keeps your files and settings.
 
-To use the per-device EQ, install Equalizer APO on your devices first, then click **Set up…** in the app.
+## Start the app from the source code
 
-**Building an installer:** `Make installer.bat` makes `releases\AutoEQ Studio Setup <version>.exe`, a normal Windows
-installer with its own Python inside. It needs [Inno Setup 6](https://jrsoftware.org/isinfo.php)
+1. Download this repository (**Code** > **Download ZIP**). Unzip the file. You can also clone the repository.
+2. Double-click `AutoEQ Studio.bat`. At the first start, the app installs its Python packages (Qt, numpy, scipy
+   and other packages, approximately 150 MB) in a `.venv` folder. After that, the app opens quickly.
+3. On Make an EQ, click **Guide** (at the top right) to start the Guide. **Help** has data about all settings.
+
+To use the EQ for each device, install Equalizer APO on your devices. Then click **Add AutoEQ Studio to APO…** in
+the app.
+
+**Make an installer:** `Make installer.bat` makes `releases\AutoEQ Studio Setup <version>.exe`, a usual Windows
+installer that contains its Python. You must install [Inno Setup 6](https://jrsoftware.org/isinfo.php)
 (`winget install JRSoftware.InnoSetup --scope user`).
 
-[README.txt](README.txt) is the full guide to every screen and setting.
+[README.txt](README.txt) has the full instructions for all screens and settings.
 
 ## Your files
 
-Your targets, measurements, saved EQs and presets go in `Documents\AutoEQ Studio` (Settings > Your files can choose
-another folder). Settings and history are kept in the app's `data` folder, or in AppData when installed. Nothing of
-yours is stored in this repository.
+The app keeps your targets, measurements, saved EQs and presets in `Documents\AutoEQ Studio`. You can select a
+different folder in Settings > Your files. The app keeps the settings and History in its `data` folder, or in
+AppData if you installed the app. This repository does not contain your data.
 
-## Development
+## Tests and code
 
-- The tests are in `tests\` ([pytest](https://pytest.org)), a folder per part of the app. Each runs on temporary
-  folders, a fake Equalizer APO folder and a temporary copy of the app: your own files and settings, Equalizer APO,
-  the registry and the internet are never touched. First install the development tools (pytest and
-  [Ruff](https://docs.astral.sh/ruff/), the linter the tests run):
+- The tests are in `tests\` ([pytest](https://pytest.org)), with a folder for each part of the app. Each test uses
+  temporary folders, a test Equalizer APO folder and a temporary copy of the app. The tests do not change your files
+  and settings, Equalizer APO or the registry, and they do not connect to the internet. First, install the
+  test tools (pytest, and [Ruff](https://docs.astral.sh/ruff/), the linter that the tests use):
   `.venv\Scripts\python.exe -m pip install -r app\requirements-dev.txt`
-- Every test, each part in its own process, with a short summary: `.venv\Scripts\python.exe app\tools\selftest.py`
-  (a few minutes; `--quick` leaves out Make an EQ's screen and long fitting runs).
-- Only the tests your changes need: `.venv\Scripts\python.exe app\tools\relevant_tests.py --run --quick`; one file:
-  `.venv\Scripts\python.exe -m pytest tests\ui\test_theme.py`.
-- GitHub runs the same tests on Windows for every push to main and every pull request
-  (`.github\workflows\tests.yml`).
-- Each module starts with a description of what it does.
+- All tests, each part in a different process, with a short report: `.venv\Scripts\python.exe app\tools\selftest.py`
+  (some minutes). With `--quick`, it does not do the tests of Make an EQ's screen and the long Best fit tests.
+- Only the tests that are necessary for your changes: `.venv\Scripts\python.exe app\tools\relevant_tests.py --run --quick`.
+  One file: `.venv\Scripts\python.exe -m pytest tests\ui\test_theme.py`.
+- GitHub does the same tests on Windows for each push to `main` and each pull request (`.github\workflows\tests.yml`).
+- Each module starts with a text about its function.
 
-## Credits
+## Code and data from other sources
 
-- [AutoEq](https://github.com/jaakkopasanen/AutoEq) by Jaakko Pasanen: the parametric EQ maths in `app/eq/vendor/autoeq`
-  (MIT) and targets in `samples`.
+- [AutoEq](https://github.com/jaakkopasanen/AutoEq) by Jaakko Pasanen: the parametric EQ code in `app/eq/vendor/autoeq`
+  (MIT) and the targets in `samples`.
 - [squig.link](https://squig.link) and its graph tool: the AutoEQ method in `app/eq/vendor/squiglink` (0BSD) and the
   measurement databases.
 - [Equalizer APO](https://sourceforge.net/projects/equalizerapo/), which applies the EQ to each device.
 
 ## License
 
-[MIT](LICENSE). The files in `app/eq/vendor` keep their own licences, beside them.
+[MIT](LICENSE). The files in `app/eq/vendor` have their licenses in the same folders.

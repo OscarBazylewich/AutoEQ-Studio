@@ -81,10 +81,10 @@ def call(path, body=None):
     try:
         return handle(path, body if isinstance(body, dict) else {})
     except UnknownApi as e:
-        return {"error": f"unknown {e}"}
+        return {"error": f"Unknown {e}"}
     except KeyError as e:
         traceback.print_exc()
-        return {"error": f"Missing {e} in the request."}
+        return {"error": f"The {e} is missing."}
     except net.Offline as e:  # (expected while offline: the message is enough, no traceback in the log)
         return {"error": str(e)}
     except Exception as e:  # noqa: BLE001 - shown to the user
@@ -103,7 +103,7 @@ def text_of(body, key):
     """A text field of the request (a clear message, not a Python error, when it's missing or isn't text)."""
     v = body.get(key)
     if not isinstance(v, str):
-        raise ValueError(f"Missing {key} in the request.")
+        raise ValueError(f"The {key} is missing.")
     return v
 
 
@@ -111,13 +111,13 @@ def names_of(body):
     """The file names a request is about: "names" (a list) or one "name"."""
     names = body.get("names") or [text_of(body, "name")]
     if not (isinstance(names, list) and all(isinstance(n, str) for n in names)):
-        raise ValueError("Missing names in the request.")
+        raise ValueError("The names are missing.")
     return names
 
 
 def kind_of(body):
     if body.get("kind") not in ("target", "measurement"):
-        raise ValueError("The request doesn't say target or measurement.")
+        raise ValueError("The type is missing: target or measurement.")
     return body["kind"]
 
 
@@ -225,7 +225,7 @@ def files_add(body):
     if isinstance(many, list) and many:
         if not all(isinstance(f, dict) and isinstance(f.get("name"), str) and isinstance(f.get("content"), str)
                    for f in many):
-            raise ValueError("Each file needs a name and its text.")
+            raise ValueError("Each file must have a name and a text.")
         files = [(f["name"], f["content"]) for f in many]
     else:
         files = [(text_of(body, "name"), text_of(body, "content"))]
@@ -257,7 +257,7 @@ def target_save(body):
         raise ValueError("Give the target a name.")
     target, meas = inputs.selected(cfg)
     if not any(cfg["target_adjust"].get(k) for k in ADJUST_GAINS):
-        raise ValueError("The target isn't adjusted: there's nothing to save.")
+        raise ValueError("The target has no adjustments to save.")
     plain = copy.deepcopy(cfg)
     plain["rig_convert"]["enabled"] = False
     c, _, _ = pipeline.load(plain, target, meas)
@@ -309,7 +309,7 @@ def _source_files(body):
         files = [os.path.join(where, os.path.basename(n)) for n in names_of(body)]
         missing = [p for p in files if not os.path.exists(p)]
         if missing:
-            raise ValueError(f"{os.path.basename(missing[0])} isn't in the app any more.")
+            raise ValueError(f"{os.path.basename(missing[0])} is not in the app.")
         return files, body.get("name") or os.path.splitext(os.path.basename(files[0]))[0], body["kind"]
     if src == "pc":
         g = library.item(body["id"])
@@ -318,7 +318,7 @@ def _source_files(body):
         # (no This PC search after it: the downloads folder isn't searched, these are the online entry's files)
         files, it = databases.download(body["id"], lambda text: (library.sniff_text(text) or {"points": 0})["points"])
         return files, it["name"], it["kind"]
-    raise ValueError("Unknown source")
+    raise ValueError("The source is unknown.")
 
 
 @route("/api/use")
@@ -414,9 +414,9 @@ def compare_run(body):
     q = body.get("query")  # (not text: as if none was typed)
     query = (q if isinstance(q, str) else "").strip() or compare.clean_query(st["device"] or "")
     if not query:
-        raise ValueError("Type the model to look for.")
+        raise ValueError("Type the name of the model.")
     if databases.status()["loading"]:
-        raise ValueError("The online database lists are still loading - try again in a moment.")
+        raise ValueError("The online database lists are not available at this time. Try again after some seconds.")
     target = st["active_target"]
     r = compare.compare(cfg, query, target, body.get("rig") if isinstance(body.get("rig"), str) and body.get("rig") else None)
     if body.get("auto"):
@@ -435,7 +435,7 @@ def compare_average(body):
     cfg = cfg_from(body)
     keys, name = body.get("keys"), body.get("name")
     if not isinstance(keys, list) or not all(isinstance(k, str) for k in keys):
-        raise ValueError("Choose the measurements to average.")
+        raise ValueError("Select the measurements for the average.")
     fname, text, rig, of = compare.average(keys, (name if isinstance(name, str) and name.strip() else "Average").strip())
     before = copy.deepcopy(cfg["files"])  # (a copy: called directly, nothing is serialised in between)
     there = set(os.listdir(inputs.MEAS_DIR)) if os.path.isdir(inputs.MEAS_DIR) else set()
@@ -461,7 +461,7 @@ def _run_job(job_id, mode, cfg, analysis=None):
                 JOB.update(done=done, total=total, message=msg)
     try:
         target, meas = inputs.selected(cfg)
-        progress(0, 1, "Loading files")
+        progress(0, 1, "The app loads the files")
         curves, meas_texts, target_text = pipeline.load(cfg, target, meas)
         if cfg["auto"]["enabled"]:  # the same automatic values the window showed (in case it hadn't caught up)
             key = autoset.analysis_key(cfg, meas_texts, target_text)
@@ -486,7 +486,7 @@ def _run_job(job_id, mode, cfg, analysis=None):
                 JOB.update(status="done", result=payload)
     except engines.Cancelled:
         with JOB_LOCK:
-            JOB.update(status="cancelled", message="Cancelled")
+            JOB.update(status="cancelled", message="Canceled")
     except Exception as e:  # noqa: BLE001 - shown to the user
         traceback.print_exc()
         with JOB_LOCK:
@@ -496,27 +496,27 @@ def _run_job(job_id, mode, cfg, analysis=None):
 @route("/api/run")
 def run(body):
     if body.get("mode") not in settings.MODES:
-        raise ValueError("The request doesn't name an EQ method.")
+        raise ValueError("The EQ method is missing.")
     cfg = cfg_from(body)
     settings.save(cfg)
     retry = body.get("retry")
     if retry is not None:  # this run only: Best fit from the filters on the result card (the saved settings stay)
         if body["mode"] != "best_fit" or not isinstance(retry, dict):
-            raise ValueError("Retry from these filters works with Best fit only.")
+            raise ValueError("You can use “Calculate from these filters” only with Best fit.")
         filters = [f for f in exports.clean_filters(retry.get("filters")) if f["enabled"]]
         if not filters:
-            raise ValueError("There are no filters to start from: add one, or switch one on.")
+            raise ValueError("There are no filters to start from: add a filter, or enable a filter.")
         add = bool(retry.get("add"))
         cfg = copy.deepcopy(cfg)
         # (as they are: kept ones must stay exactly the card's, not rounded like a saved file)
         cfg["best_fit"].update(start_filters=exports.filters_text(filters), start_keep=add, start_add=add)
     with JOB_LOCK:
         if JOB.get("status") == "running":
-            raise ValueError("A run is already in progress.")
+            raise ValueError("The app calculates a different EQ at this time.")
         CANCEL.clear()
         job_id = uuid.uuid4().hex
         JOB.clear()
-        JOB.update(id=job_id, status="running", mode=body["mode"], done=0, total=1, message="Starting",
+        JOB.update(id=job_id, status="running", mode=body["mode"], done=0, total=1, message="In progress…",
                    started=time.time())
     threading.Thread(target=_run_job, args=(job_id, body["mode"], cfg, body.get("analysis")), daemon=True).start()
     return {"id": job_id}
@@ -700,7 +700,7 @@ def open_folder(body):
     """Open one of the app's folders (by name) in Explorer. (Only these: opening any file would also start programs.)"""
     what = body.get("what")
     if not (isinstance(what, str) and what in OPENABLE):
-        raise ValueError("Nothing to open: the request names none of the app's folders.")
+        raise ValueError("The folder to open is not a folder of the app.")
     where = OPENABLE[what]
     os.makedirs(where, exist_ok=True)
     open_path(where)

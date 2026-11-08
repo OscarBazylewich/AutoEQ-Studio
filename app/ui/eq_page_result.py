@@ -21,12 +21,14 @@ from ui.eq_page_parts import MODE_SHORT, file_base_name, modal
 
 # By hand's Start from: an EQ's sources in the order every such list has (.claude/notes/UI-RULES.md 16), each with the
 # note under the box; then each device's profile ("profile:<id>"; "profile:" when there's none yet)
-HAND_SOURCES = (("empty", "An empty EQ", "Add filters on the EQ graph (double-click where you want one) or with Add filter."),
-                ("copy", "A copy of the selected EQ", "The EQ on the result card, to change without losing it."),
-                ("file", "An EQ file", "Equalizer APO, AutoEq, Room EQ Wizard or Peace: you choose the file when you "
-                 "press Start."),
-                ("paste", "Pasted filters", "Equalizer APO lines, a Room EQ Wizard export, or one filter per line: you "
-                 "paste them when you press Start."))
+HAND_SOURCES = (("empty", "An empty EQ", "Add filters on the EQ graph (double-click where you want a filter) or with "
+                 "Add filter."),
+                ("copy", "A copy of the selected EQ", "A copy of the EQ on the result card: you change the copy, not the "
+                 "EQ."),
+                ("file", "An EQ file", "Equalizer APO, AutoEq, Room EQ Wizard or Peace: you select the file when you "
+                 "click Start."),
+                ("paste", "Pasted filters", "Equalizer APO lines, Room EQ Wizard filters, or one filter on each line: "
+                 "you paste them when you click Start."))
 
 
 class EqResult:
@@ -36,10 +38,11 @@ class EqResult:
     def run(self, retry=None):
         """Run with the settings; retry: {"filters", "add"} (Best fit from the filters shown, this run only)."""
         if not self.curves:
-            QMessageBox.information(self, "Run", "Add a target and at least one measurement first.")
+            QMessageBox.information(self, "Calculate", "Add a target and one or more measurements first.")
             return
         if retry is not None and not retry["filters"]:
-            QMessageBox.information(self, "Retry", "There are no filters to start from: add one, or switch one on.")
+            QMessageBox.information(self, "Calculate again", "There are no filters to start from: add a filter, or enable a "
+                                    "filter.")
             return
         if self.S["auto"]["enabled"]:
             self.refresh_auto()  # (the values for exactly these settings)
@@ -49,7 +52,7 @@ class EqResult:
             body["retry"] = retry
         r = self.svc.call("/api/run", body)
         if r.get("error"):
-            QMessageBox.warning(self, "Run", r["error"])
+            QMessageBox.warning(self, "Calculate", r["error"])
             return
         self.run_btn.setEnabled(False)
         self.queue_btn.setEnabled(False)  # (a queue started now failed every pair: one run at a time)
@@ -57,7 +60,7 @@ class EqResult:
         self.cancel_btn.show()
         self.progress.setValue(0)
         self.progress.show()
-        self.say_progress("Starting…")
+        self.say_progress("In progress…")
         if retry:  # (the page follows the job, UI-RULES 30: Retry is on the result card, its progress under Run)
             self._scroll_to(self.progress)
         self._run_view = self._scroll_value()  # (moved from here meanwhile: the result isn't scrolled to after)
@@ -95,9 +98,9 @@ class EqResult:
                 QTimer.singleShot(0, self, lambda: self._scroll_to(self.result_box))  # takes 7-20 s, UI-RULES 30)
         elif j.get("status") == "error":
             self.say_progress("")
-            QMessageBox.warning(self, "Run", j.get("message") or "The run failed.")
+            QMessageBox.warning(self, "Calculate", j.get("message") or "The app did not make an EQ.")
         elif j.get("status") == "cancelled":
-            self.say_progress("Cancelled.")
+            self.say_progress("Canceled.")
 
     # ---------------------------------------------------------------- the result
     def show_result(self, rid):
@@ -118,21 +121,21 @@ class EqResult:
             self.res_sub.setText((f"From History ({run['when']}) · " if run.get("history") else "")
                                  + self.run_label(run, r) + (made_for if run.get("device") and run.get("target_name") else ""))
         else:
-            self.res_sub.setText((f"From History ({run['when']})" if run.get("history") else f"Run {run.get('n', 1)}")
+            self.res_sub.setText((f"From History ({run['when']})" if run.get("history") else f"#{run.get('n', 1)}")
                                  + f" · {self.run_label(run, r)}" + made_for)
         self.count_lab.setVisible(not manual)  # (one EQ: no other filter counts to choose from)
         self.count_combo.setVisible(not manual)
         self.hand_close.setVisible(manual)
-        self.revert_btn.setToolTip("Back to the filters you began with" if manual else
-                                   "Back to the filters as the run made them")
+        self.revert_btn.setToolTip("Use the initial filters again (the filters that you started with)" if manual else
+                                   "Use the initial filters again (as the app made them)")
         self.listen.show()  # (an EQ by hand can be heard without a measurement too)
         note = self.pick_note(run, r)
         self.pick_lab.setText(note)
         self.pick_lab.setVisible(bool(note))
-        self.chips["error"].setToolTip("How far the EQ'd measurement stays from the target, on average, in the scored "
-                                       "range (lower is closer)")
-        self.chips["preamp"].setToolTip("How much the whole EQ is turned down so its boosts never clip: the filters' "
-                                        "boosts added up where they overlap")
+        self.chips["error"].setToolTip("The average difference between the measurement with the EQ and the target, in "
+                                       "the error range (a lower value is better)")
+        self.chips["preamp"].setToolTip("To prevent clipping, the app decreases the gain of the full EQ by this value "
+                                        "(the sum of the filter gains where they overlap)")
         # the best result for each filter count (the pick for its own count), as AutoEQ Local's chips (an EQ by hand
         # has one result, and no error worked out by a run: none to list)
         by_n = {}
@@ -145,7 +148,7 @@ class EqResult:
             by_n[shown["n_filters"]] = shown
         self.count_combo.clear()
         for n, x in sorted(by_n.items()):
-            self.count_combo.addItem(f"{n} filters  ·  {x['rms']:.2f} dB" + ("  ✓ picked for you" if x["id"] == run["pick"] else ""),
+            self.count_combo.addItem(f"{n} filters  ·  {x['rms']:.2f} dB" + ("  ✓ selected for you" if x["id"] == run["pick"] else ""),
                                      x["id"])
         self.count_combo.setCurrentIndex(max(0, self.count_combo.findData(rid)))
         self.count_combo.sort_items()
@@ -165,16 +168,17 @@ class EqResult:
         if r.get("ear") is None or not case:
             return ""
         if r["id"] != run.get("pick"):
-            return f"Sounds within {r['ear']:.2f} dB of the target everywhere (as the ear hears it)" + (
-                f"; most off around {hz(r['ear_at'])}." if r.get("ear_at") and r["ear"] > lim else ".")
+            return f"The sound is {r['ear']:.2f} dB or less from the target at all frequencies (as the ear hears it)" + (
+                f". The largest difference is near {hz(r['ear_at'])}." if r.get("ear_at") and r["ear"] > lim else ".")
         if case == "target":
-            return (f"Sounds the same as the target: within {r['ear']:.2f} dB everywhere, as the ear hears it (the "
-                    f"limit: {lim:g} dB), with the fewest filters that do.")
+            return (f"The same sound as the target: {r['ear']:.2f} dB or less from it at all frequencies, as the ear hears "
+                    f"it (the limit: {lim:g} dB). This EQ has the minimum number of filters for this sound.")
         best = min((x for x in run["results"] if x.get("ear") is not None), key=lambda x: x["ear"], default=r)
-        return (f"The target is out of reach here (your EQ app's limits, or detail filters can't follow): even the "
-                f"closest EQ is {best['ear']:.2f} dB off around {hz(best.get('ear_at'))}. "
-                + ("This is that closest one." if best["id"] == r["id"] else
-                   "This one sounds the same as that closest one, with fewer filters."))
+        return (f"No EQ can be the same as the target here: your EQ app has limits, or the filters cannot follow small "
+                f"changes in the target. The nearest EQ is {best['ear']:.2f} dB from the target near "
+                f"{hz(best.get('ear_at'))}. "
+                + ("This EQ is the nearest one." if best["id"] == r["id"] else
+                   "This EQ has the same sound as the nearest one, with a smaller number of filters."))
 
     # ---------------------------------------------------------------- runs this session (results.js RUNS)
     def use_in_single_run(self):
@@ -191,7 +195,7 @@ class EqResult:
         self.S["mode"] = "site_single"
         self.changed()
         self.settings.refresh()
-        self.status("Copied into Website AutoEQ: one run.", 6000)
+        self.status("The app copied the values into Website AutoEQ: one set.", 6000)
 
     def open_all_results(self):
         """Every result of the run shown, and the error grid (ui/all_results.py)."""
@@ -203,7 +207,7 @@ class EqResult:
         """Several EQs in one go (ui/queue_window.py)."""
         from ui.queue_window import QueueWindow
         if not self.groups or not self.inputs.get("targets"):
-            QMessageBox.information(self, "Run several", "Add a target and at least one measurement first.")
+            QMessageBox.information(self, "Queue", "Add a target and one or more measurements first.")
             return
         modal(QueueWindow(self))
 
@@ -211,8 +215,8 @@ class EqResult:
         """Two EQs side by side (ui/compare_results.py)."""
         from ui.compare_results import CompareResults, options
         if len(options(self)) < 2:  # (what's needed first: a box, as Run's, UI-RULES 25)
-            QMessageBox.information(self, "Compare", "Nothing else to compare with yet: another run, another filter "
-                                    "count or an EQ from History.")
+            QMessageBox.information(self, "Compare", "There is no other EQ to compare with. Calculate again, or select a "
+                                    "different number of filters or an EQ from History.")
             return
         modal(CompareResults(self))
 
@@ -224,7 +228,7 @@ class EqResult:
         c.clear()
         for run in reversed(self.session_runs):
             best = min((x["rms"] for x in run["results"] if x.get("rms") is not None), default=None)
-            c.addItem((f"From History ({run['when']})" if run.get("history") else f"Run {run.get('n', 1)}")
+            c.addItem((f"From History ({run['when']})" if run.get("history") else f"#{run.get('n', 1)}")
                       + f"  ·  {MODE_SHORT.get(run['mode'], run['mode'])}"
                       + (f"  ·  {best:.2f} dB" if best is not None else "")
                       + f"  ·  {run.get('device')} → {run.get('target_name')}", id(run))
@@ -265,8 +269,8 @@ class EqResult:
         self.session_runs = [x for x in self.session_runs if x is not run]
         self.show_run(self.session_runs[-1] if self.session_runs else None)
         if run is not None and at is not None:
-            what = "From History" if run.get("history") else f"Run {run.get('n', 1)}"
-            self.status(f"Removed “{what} · {MODE_SHORT.get(run['mode'], run['mode'])}” from this session's runs.",
+            what = "From History" if run.get("history") else f"#{run.get('n', 1)}"
+            self.status(f"You removed “{what} · {MODE_SHORT.get(run['mode'], run['mode'])}” from EQs that you made.",
                         undo=lambda: self._put_run_back(run, at))
 
     def _put_run_back(self, run, at):
@@ -290,7 +294,7 @@ class EqResult:
         back = before if mine is run and any(x is before for x in others) else (others[-1] if others else None)
         self.show_run(back)
         if dropped and had and at is not None:
-            self.status(f"Closed “Run {run.get('n', 1)} · {MODE_SHORT['manual']}”.",
+            self.status(f"You closed “#{run.get('n', 1)} · {MODE_SHORT['manual']}”.",
                         undo=lambda: self._put_run_back(run, at))
 
     # ---------------------------------------------------------------- the filters being edited
@@ -338,15 +342,15 @@ class EqResult:
         manual = run.get("mode") == "manual"
         # (the pick's one name everywhere: "picked for you", as the filter counts' list says it; it was "recommended"
         # here, "pick" and "(picked)" in the windows)
-        tag = "" if manual else "picked for you" if r["id"] == run["pick"] else "lowest error" if r["id"] == run["best"] else ""
+        tag = "" if manual else "selected for you" if r["id"] == run["pick"] else "lowest error" if r["id"] == run["best"] else ""
         self.res_title.setText(MODE_SHORT.get(run["mode"], run["mode"]) + (f"  ·  {tag}" if tag else "")
                                + ("  ·  edited" if ed else ""))
         if manual:  # (its filters as they are now: kept when another run is shown, and on its lines in the lists)
             r["filters"], r["n_filters"] = [dict(f) for f in self.EDIT], st["n"]
             note = self.hand_note(st)
         elif ed:  # (the run's line was about the filters before the edit)
-            note = (f"As edited: sounds within {st['ear']:.2f} dB of the target everywhere, as the ear hears it (the "
-                    f"limit: {run.get('ear_db') or 0.25:g} dB)." if run.get("pick_case") and st["ear"] is not None else "")
+            note = (f"Edited: the sound is {st['ear']:.2f} dB or less from the target at all frequencies, as the ear "
+                    f"hears it (the limit: {run.get('ear_db') or 0.25:g} dB)." if run.get("pick_case") and st["ear"] is not None else "")
         else:
             note = self.pick_note(run, r)
         self.pick_lab.setText(note)
@@ -356,12 +360,12 @@ class EqResult:
         self.site_row.setVisible(site)
         if site:
             self.site_text.setText(
-                "Type into squiglink's AutoEQ panel: Filter rows <b>{rows}</b> · Frequency Range <b>{freq_low}</b> to "
+                "Type in the AutoEQ panel of squiglink: Filter rows <b>{rows}</b> · Frequency Range <b>{freq_low}</b> to "
                 "<b>{freq_high}</b> · Gain Range <b>{gain_min}</b> to <b>{gain_max}</b> · Q Range <b>{q_min}</b> to "
-                "<b>{q_max}</b> → the site shows Pre-amp <b>{pre:.1f} dB</b>".format(
+                "<b>{q_max}</b> → the website shows Pre-amp <b>{pre:.1f} dB</b>".format(
                     pre=float(r.get("preamp") or 0), **{k: r.get(k, "–") for k in ("rows", "freq_low", "freq_high",
                                                                                       "gain_min", "gain_max", "q_min", "q_max")})
-                + (" <i>(you edited the filters, so the site won't produce these exact values)</i>" if ed else ""))
+                + (" <i>(because you edited the filters, the website will not make these values)</i>" if ed else ""))
             self.site_use.setVisible(run["mode"] == "site_sweep")
         self.revert_btn.setVisible(ed)
         if hasattr(self, "listen"):
@@ -378,8 +382,8 @@ class EqResult:
         self.chips["filters"].setText(f"Filters  {st['n']}")
         self.chips["error"].setText(f"Error  {st['rms']:.2f} dB" if st["rms"] is not None else "Error  –")
         self.chips["preamp"].setText(f"Pre-amp  {self.preamp_text(st['preamp_raw'])} dB")
-        self.chips["boost"].setText(f"Max boost  +{st['max_boost']:.1f} dB")
-        self.chips["maxq"].setText(f"Max Q  {st['max_q']:g}" if st["max_q"] else "Max Q  –")
+        self.chips["boost"].setText(f"Maximum gain  +{st['max_boost']:.1f} dB")
+        self.chips["maxq"].setText(f"Maximum Q  {st['max_q']:g}" if st["max_q"] else "Maximum Q  –")
         self.editor.set_preamp_text(self.preamp_text(st["preamp_raw"]))
 
     def set_view(self, view, remember=True):
@@ -412,8 +416,8 @@ class EqResult:
         run, r = self.current()
         if run.get("mode") == "manual":  # ("<IEM> to <target> - by hand 5f", or what it began from: "KZ ZSN - by hand 5f")
             base = (f"{run['device']} to {run['target_name']}" if run.get("device") and run.get("target_name")
-                    else run.get("source_name") or "My EQ")
-            return f"{base} - by hand {len(self.active())}f"
+                    else run.get("source_name") or "New EQ")
+            return f"{base} - manual {len(self.active())}f"
         lay = next((l for l in self.meta.get("layouts", []) if l["key"] == r.get("layout") and l["key"] != "any"), None)
         return file_base_name(run.get("device") or "EQ", run.get("target_name") or "target", lay["name"] if lay else "",
                               run["mode"], len(self.active()) if self.EDIT else r["n_filters"]) + \
@@ -424,13 +428,13 @@ class EqResult:
         if not r:
             return
         if not self.active():
-            QMessageBox.information(self, "Save filters", "There are no filters switched on to save.")
+            QMessageBox.information(self, "Save filters", "There are no filters to save: all the filters are off.")
             return
         from eq import exports
         files = any(self.S["export"].get(k) for k in exports.FORMATS)
         if not files and not self.S["export"].get("report"):
-            QMessageBox.information(self, "Save filters", "No file is ticked to save: choose your EQ app, or tick the "
-                                    "files under Advanced › Saved files.")
+            QMessageBox.information(self, "Save filters", "No file type is selected: select your EQ app, or select the "
+                                    "file types in More settings › Saved files.")
             return
         name = self.name_edit.text().strip() or self.auto_name()
         written, notes, kept = [], "", False
@@ -457,15 +461,16 @@ class EqResult:
         if not written:
             return
         self.record(True)
-        self.status(f"Saved {', '.join(written)} in your Saved EQs folder." + (f" {notes}" if notes else "")
-                    + (" The report of that name was kept: change the File name to save another beside it." if kept else ""),
+        self.status(f"The app saved {', '.join(written)} in your Saved EQs folder." + (f" {notes}" if notes else "")
+                    + (" The report with that name did not change: change the File name to save a different report "
+                       "in the same folder." if kept else ""),
                     10000)
 
     def _replace_ok(self, names, command):
         """Replace files already in Saved EQs? Titled by the command asking (Save filters, Report); No the default, as a
         file replaced can't be had back (.claude/notes/UI-RULES.md 17; the tracer's Save .txt asks the same way)."""
-        return QMessageBox.question(self, command, "Already in your Saved EQs folder:\n\n" + "\n".join(names)
-                                    + "\n\nReplace? (No keeps them: change the File name to save beside them.)",
+        return QMessageBox.question(self, command, "These files are in your Saved EQs folder:\n\n" + "\n".join(names)
+                                    + "\n\nReplace them? (No keeps them. To save new files in the same folder, change the File name.)",
                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No) == QMessageBox.Yes
 
     def report(self, open_it=True):
@@ -475,22 +480,22 @@ class EqResult:
         if not r:
             return None
         if not self.curves:  # (an EQ by hand with no measurement chosen: nothing to draw it on)
-            QMessageBox.information(self, "Report", "A report shows the EQ on a measurement and its target: choose "
+            QMessageBox.information(self, "Report", "A report shows the EQ on a measurement and its target: select "
                                     "them first (Target and Measurement, above).")
             return None
         title = MODE_SHORT.get(run["mode"], "EQ") + (" (edited)" if self.edited() else "")
-        fields = [["Filter rows", r.get("rows")], ["Frequency Range", f"{r.get('freq_low')} to {r.get('freq_high')}"],
-                  ["Gain Range", f"{r.get('gain_min')} to {r.get('gain_max')}"],
-                  ["Q Range", f"{r.get('q_min')} to {r.get('q_max')}"]] if run["mode"].startswith("site") else []
+        fields = [["Filter rows", r.get("rows")], ["Frequency range", f"{r.get('freq_low')} to {r.get('freq_high')}"],
+                  ["Gain range", f"{r.get('gain_min')} to {r.get('gain_max')}"],
+                  ["Q range", f"{r.get('q_min')} to {r.get('q_max')}"]] if run["mode"].startswith("site") else []
         # (the report is drawn on the files the EQ was made for, while they're in the app; else on the measurement
         # chosen now, and it says so)
         mf, tf = run.get("meas_files"), run.get("target_file")
         names = {m["name"] for m in self.inputs["measurements"]}
         own_files = bool(mf) and all(n in names for n in mf) and tf in self.inputs["targets"]
         made_for, here = run.get("device"), (self.curves or {}).get("name")
-        other = (f" Made for the {made_for}: shown here on the {here}." if not own_files and made_for and here
+        other = (f" Made for the {made_for}. This report shows it on the {here}." if not own_files and made_for and here
                  and made_for != here else "")
-        cards = [{"title": title, "badge": "picked for you" if r["id"] == run.get("pick") else "", "fields": fields,
+        cards = [{"title": title, "badge": "selected for you" if r["id"] == run.get("pick") else "", "fields": fields,
                   "text": self.run_label(run, r) + "." + other, "filters": self.active()}]
         for p in [p for p in self.listen.pins if p.get("shown", True)][:2]:
             cards.append({"title": p["name"], "text": "", "filters": [f for f in p["filters"] if f.get("enabled", True) is not False]})
@@ -545,7 +550,7 @@ class EqResult:
                 used = self.sw.used_by(pid)
                 c.addItem(f"Profile: {p['name']}" + (f"  ·  {', '.join(used)}" if used else ""), f"profile:{pid}")
             if not profiles:
-                c.addItem("A device's profile (none yet)", "profile:")
+                c.addItem("A device's profile (none)", "profile:")
             # (the sources in their order on top, the profiles under them A to Z: as every list pins its special
             # choices, UI-RULES 22)
             c.sort_items(pinned=len(HAND_SOURCES))
@@ -561,9 +566,9 @@ class EqResult:
         key = self.hand_source.currentData() or "empty"
         note = next((n for k, _w, n in HAND_SOURCES if k == key), "")
         if key == "profile:":
-            note = "No profiles yet: add one in Devices (Add a profile), then start from it here."
+            note = "No profiles: add a profile in Devices (Add a profile). Then start from it here."
         elif key.startswith("profile:"):
-            note = "A device's profile: Use on device › Update puts your changes back into it."
+            note = "A device's profile: Use on device › Update writes your changes into it."
         self.hand_src_note.setText(note)
         self.hand_start.setText("Start…" if key in ("file", "paste") else "Start")
 
@@ -575,8 +580,8 @@ class EqResult:
             self.start_by_hand([], "started empty")
         elif key == "copy":
             if not self.current()[1]:
-                QMessageBox.information(self, "Start", "There's no EQ on the result card yet: run one, or start from "
-                                        "something else.")
+                QMessageBox.information(self, "Start", "There is no EQ on the result card: calculate an EQ, or start "
+                                        "from a different item.")
                 return
             self.hand_from_shown()
         elif key == "file":
@@ -584,7 +589,7 @@ class EqResult:
         elif key == "paste":
             self.hand_from_paste()
         elif key == "profile:":
-            QMessageBox.information(self, "Start", "No profiles yet: add one in Devices (Add a profile), then start "
+            QMessageBox.information(self, "Start", "No profiles: add a profile in Devices (Add a profile). Then start "
                                     "from it here.")
         else:
             self.hand_from_profile(key.split(":", 1)[1])
@@ -630,9 +635,11 @@ class EqResult:
         """Under an EQ by hand's numbers: how to add a filter while it has none, and how it sounds next to the target."""
         parts = []
         if not self.EDIT:
-            parts.append("No filters yet: double-click the EQ graph (under the graph) where you want one, or Add filter.")
+            parts.append("No filters: double-click the EQ graph (below the graph) where you want a filter, or click Add "
+                         "filter.")
         if st["ear"] is not None:
-            parts.append(f"Sounds within {st['ear']:.2f} dB of the target everywhere, as the ear hears it.")
+            parts.append(f"The sound is {st['ear']:.2f} dB or less from the target at all frequencies, as the ear hears "
+                         "it.")
         return " ".join(parts)
 
     def hand_from_file(self):
@@ -644,14 +651,14 @@ class EqResult:
         try:
             text = textfile.read(f)
         except OSError as e:  # (no rights, an offline OneDrive file, one another program holds)
-            QMessageBox.warning(self, "By hand", f"Couldn't read it: {e}")
+            QMessageBox.warning(self, "Manually", f"AutoEQ Studio cannot read the file: {e}")
             return
         self._hand_from_text(text, f"from {os.path.basename(f)}", os.path.splitext(os.path.basename(f))[0])
 
     def hand_from_paste(self):
         from ui.eq_page_parts import paste_dialog
-        got = paste_dialog(self, "Paste filters", "Name (e.g. My EQ)", "Equalizer APO lines, a Room EQ Wizard export, "
-                           "or one filter per line as “frequency gain Q”", "Start")
+        got = paste_dialog(self, "Paste filters", "Name (for example, New EQ)", "Equalizer APO lines, Room EQ Wizard "
+                           "filters, or one filter on each line as “frequency gain Q”", "Start")
         if got:
             self._hand_from_text(got[1], "pasted", got[0] or "Pasted EQ")
 
@@ -663,7 +670,7 @@ class EqResult:
         try:
             text = textfile.read(os.path.join(self.sw.apo.profiles, p["file"]))
         except OSError as e:
-            QMessageBox.warning(self, "By hand", f"The profile's file couldn't be read: {e}")
+            QMessageBox.warning(self, "Manually", f"AutoEQ Studio cannot read the profile's file: {e}")
             return
         self._hand_from_text(text, f"from the profile “{p['name']}”", p["name"], profile=pid)
 
@@ -671,8 +678,8 @@ class EqResult:
         run, r = self.current()
         if not r:
             return
-        what = "your EQ by hand" if run.get("mode") == "manual" else \
-            f"run {run.get('n', 1)} ({MODE_SHORT.get(run['mode'], 'EQ')})"
+        what = "your manual EQ" if run.get("mode") == "manual" else \
+            f"#{run.get('n', 1)} ({MODE_SHORT.get(run['mode'], 'EQ')})"
         own = self.name_edit.text().strip() if self.name_edit.property("auto") is False else ""
         self.start_by_hand([dict(f) for f in self.EDIT], f"a copy of {what}", own or (run.get("source_name") or ""))
 
@@ -681,23 +688,26 @@ class EqResult:
         an EQ here can't (other filter types, a graphic EQ …) is said, never dropped without a word."""
         r = self.svc.call("/api/filters/read", {"text": text, "settings": self.S})
         if r.get("error"):
-            QMessageBox.warning(self, "By hand", r["error"])
+            QMessageBox.warning(self, "Manually", r["error"])
             return
         left = r.get("left_out") or []
         if not r.get("filters"):
-            QMessageBox.information(self, "By hand", (f"Nothing in it can be edited here: {'; '.join(left)}." if left else
-                                    "No filters found in it. It takes Equalizer APO's lines (Filter 1: ON PK Fc 100 Hz "
-                                    "Gain 3 dB Q 1), a Room EQ Wizard export, a Peace preset, or one filter per line "
-                                    "as frequency, gain and Q.") + " An EQ here has peaking and shelf filters.")
+            QMessageBox.information(self, "Manually", (f"This EQ has no items that you can edit here: {' · '.join(left)}."
+                                    if left else
+                                    "It has no filters. AutoEQ Studio can read:\n"
+                                    "• Equalizer APO lines (Filter 1: ON PK Fc 100 Hz Gain 3 dB Q 1)\n"
+                                    "• Room EQ Wizard filters\n• a Peace preset\n"
+                                    "• one filter on each line as frequency, gain and Q.") + "\n\nAn EQ here has peaking "
+                                    "and shelf filters.")
             return
         self.start_by_hand(r["filters"], source, name, profile, left)
         if left:
-            QMessageBox.information(self, "By hand", f"Left out of “{name}” (an EQ here has peaking and shelf filters "
-                                    f"only): {'; '.join(left)}.")
+            QMessageBox.information(self, "Manually", f"These items are not in “{name}” (an EQ here has only peaking and "
+                                    f"shelf filters): {' · '.join(left)}.")
         else:
             n = len(r["filters"])
-            self.status(f"“{name}”: {n} filter{'' if n == 1 else 's'}, read as Equalizer APO plays "
-                        f"{'it' if n == 1 else 'them'}. The pre-amp is worked out for you.", 8000)
+            self.status(f"“{name}”: {n} filter{'' if n == 1 else 's'}, read as Equalizer APO reads "
+                        f"{'it' if n == 1 else 'them'}. The app calculates the pre-amp for you.", 8000)
 
     # ---------------------------------------------------------------- Use on device
     def _fill_use_menu(self):
@@ -705,10 +715,10 @@ class EqResult:
         m.clear()
         run, r = self.current()
         if not r:
-            m.addAction("Run first").setEnabled(False)
+            m.addAction("Calculate first").setEnabled(False)
             return
         if not self.sw.apo.found:
-            m.addAction("Equalizer APO isn't installed (see Devices)").setEnabled(False)
+            m.addAction("Equalizer APO is not installed (refer to Devices)").setEnabled(False)
             return
         m.setToolTipsVisible(True)
         pid = run.get("profile")
@@ -717,10 +727,10 @@ class EqResult:
             a = m.addAction(f"Update “{name}”" + ("" if run.get("left_out") else "  ·  its devices keep it"))
             if run.get("left_out"):
                 a.setEnabled(False)
-                a.setToolTip("Its file has parts this EQ can't show (" + "; ".join(run["left_out"]) + "): use it as a "
-                             "new profile below instead")
+                a.setToolTip("Its file has items that this EQ cannot show (" + " · ".join(run["left_out"]) + "): use this "
+                             "EQ as a new profile below")
             else:
-                a.setToolTip("The profile becomes this EQ: the devices that have it switched on hear it at once")
+                a.setToolTip("The profile changes to this EQ: you hear it immediately on the devices that have it on")
                 a.triggered.connect(lambda _=False, pid=pid: self.update_profile(pid))
             m.addSeparator()
         from switcher.core import shown
@@ -728,19 +738,20 @@ class EqResult:
         keys.sort(key=self.sw.order)  # (as the Devices screen lists them)
         for key in keys:
             rec, d = self.sw.record(key), self.sw.device(key)
-            where = "playing now" if key == self.sw.playing_key else "connected" if d and d.connected else "not connected"
+            where = "active" if key == self.sw.playing_key else "connected" if d and d.connected else "not connected"
             a = m.addAction(f"{shown(rec)}  ·  {where}")
             a.triggered.connect(lambda _=False, k=key: self.use_on(k))
         if not keys:
-            m.addAction("No playback devices found").setEnabled(False)
+            m.addAction("No playback devices").setEnabled(False)
         live = [d.key for d in self.sw.devices if d.connected]
         if live:  # (hear it in every app for a few minutes before keeping it)
             m.addSeparator()
-            t = m.addMenu("Try for 5 minutes on")
+            t = m.addMenu("Use for 5 minutes on")
             t.setToolTipsVisible(True)
             for key in live:
-                a = t.addAction(shown(self.sw.record(key)) + ("  ·  playing now" if key == self.sw.playing_key else ""))
-                a.setToolTip("Plays in every app for 5 minutes; then Keep it, or the device's own EQ comes back")
+                a = t.addAction(shown(self.sw.record(key)) + ("  ·  active" if key == self.sw.playing_key else ""))
+                a.setToolTip("The EQ plays in all apps for 5 minutes. Then, if you do not select Keep it, the device "
+                             "uses its usual EQ again.")
                 a.triggered.connect(lambda _=False, k=key: self.try_on(k))
 
     def _apo_text(self, title):
@@ -757,20 +768,22 @@ class EqResult:
         does, your changes to it play there at once (ui/eq_page_handles.py's sync_trial)."""
         from switcher.core import shown
         run, r = self.current()
-        text = self._apo_text("Try on device")
+        text = self._apo_text("Use for 5 minutes")
         if text is None:
             return
         name = (self.name_edit.text().strip() or self.auto_name())[:80]
         try:
             self.sw.try_eq(key, text, name, minutes)
         except OSError as e:
-            QMessageBox.warning(self, "Try on device", str(e))
+            QMessageBox.warning(self, "Use for 5 minutes", str(e))
             return
         self._trying = {"key": key, "run": id(run), "rid": r["id"]}
-        extra = "" if self.sw.apo.set_up() else " (Equalizer APO isn't using AutoEQ Studio yet: Set up… on Devices.)"
+        extra = "" if self.sw.apo.set_up() else (" (Equalizer APO does not use AutoEQ Studio: click Add AutoEQ Studio "
+                                                  "to APO… on Devices.)")
         self.window().render_all() if hasattr(self.window(), "render_trial") else None
-        self.status(f"Trying “{name}” on {shown(self.sw.record(key))} for {minutes} minutes, and your changes to it "
-                    f"as you make them: Keep it or Stop now in the bar at the top, or the tray icon's menu.{extra}", 10000)
+        self.status(f"“{name}” plays on {shown(self.sw.record(key))} for {minutes} minutes, with your changes while you "
+                    f"make them. Select Keep it or Do not keep it in the bar at the top, or in the menu of the tray "
+                    f"icon.{extra}", 10000)
 
     def use_on(self, key):
         """The EQ shown becomes a profile of this device, switched on (APO applies it while the device plays)."""
@@ -789,10 +802,10 @@ class EqResult:
         rec, d = self.sw.record(key), self.sw.device(key)
         extra = ""
         if not self.sw.apo.set_up():
-            extra = " Equalizer APO isn't using AutoEQ Studio yet: Set up… on the Devices screen."
+            extra = " Equalizer APO does not use AutoEQ Studio: click Add AutoEQ Studio to APO… on the Devices screen."
         elif d and not d.apo:
-            extra = " Equalizer APO isn't installed on this device yet (see Devices)."
-        self.status(f"“{self.sw.profile_name(pid)}” is now on for {shown(rec)}.{extra}", 10000)
+            extra = " Equalizer APO is not installed on this device (refer to Devices)."
+        self.status(f"“{self.sw.profile_name(pid)}” is on for {shown(rec)}.{extra}", 10000)
 
     def update_profile(self, pid):
         """The EQ shown (by hand, read from this profile) written back into it: its name and devices stay, and the
@@ -807,8 +820,8 @@ class EqResult:
             QMessageBox.warning(self, "Update the profile", str(e))
             return
         used = self.sw.used_by(pid)
-        self.status(f"Updated “{name}”" + (f": {', '.join(used)} hear{'s' if len(used) == 1 else ''} it now (where it's "
-                                           "switched on)." if used else "."), 10000)
+        self.status(f"The app updated “{name}”." + (f" You hear it immediately on {', '.join(used)} (where it is "
+                                                  "on)." if used else ""), 10000)
 
     @staticmethod
     def _through_file(text, name, fn):

@@ -93,7 +93,7 @@ def test_sources(eq_screen, monkeypatch, check):
     check("sources: a database switched off and on, one added by its address (a wrong or repeated address said), "
           "removed again, the folders one per line; offline, squig.link's list isn't fetched",
           off and on and added and removed and folders == ["C:\\Music", "D:\\Curves"] and offline_note
-          and len(said) == 2 and "https://" in said[0] and "already" in said[1], (off, on, added, removed, folders, said))
+          and len(said) == 2 and "https://" in said[0] and "is in the list" in said[1], (off, on, added, removed, folders, said))
 
 
 def test_smallest_size_fits(eq_screen, check):
@@ -160,7 +160,7 @@ def test_fits_a_small_screen(eq_screen, monkeypatch, check):
     from PySide6.QtGui import QScreen
     from PySide6.QtWidgets import QPushButton, QScrollArea
     from ui.sources_window import Sources
-    bottom_row = ("Refresh the lists now", "Open the downloads folder", "Close")
+    bottom_row = ("Update the lists", "Open the downloads folder", "Close")
     was_off = net.offline()
     net.set_offline(True)  # (its longest note on two lines)
     seen = {}

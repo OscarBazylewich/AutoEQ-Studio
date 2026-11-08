@@ -189,7 +189,8 @@ def stage_result(page):
                        "pick_case": "target" if ear is not None and ear <= limit else None,
                        "ear_db": limit}
     page.show_result("guide")
-    page.res_sub.setText("An example for the Guide, from your files (nothing was run): a run's result looks like this")
+    page.res_sub.setText("An example for the Guide, from your files (the app did not calculate it). A calculated "
+                         "result is almost the same")
 
     def undo():
         page.run_result, page.sel, page.EDIT, page.ORIG = keep[:4]
@@ -409,9 +410,9 @@ def show_on_graph(page, api, key, vals, label, keep):
 
 
 # ---------------------------------------------------------------- the target adjusted on the graph
-ADJ = [("tilt", "-0.5", lambda a: "Tilt −0.5 dB/oct: warmer overall (bass up, treble down, around 1 kHz)"),
-       ("bass_gain", "4", lambda a: f"Bass shelf +4 dB: more bass below about {_hz(a['bass_freq'])}"),
-       ("treble_gain", "-1.5", lambda a: f"Treble −1.5 dB: less brightness above about {_hz(a['treble_freq'])}")]
+ADJ = [("tilt", "-0.5", lambda a: "Tilt −0.5 dB/oct: more bass and less treble (around 1 kHz)"),
+       ("bass_gain", "4", lambda a: f"Bass shelf +4 dB: more bass below approximately {_hz(a['bass_freq'])}"),
+       ("treble_gain", "-1.5", lambda a: f"Treble −1.5 dB: less treble above approximately {_hz(a['treble_freq'])}")]
 
 
 def _hz(v):
@@ -434,7 +435,7 @@ def _adj_shape(page, key, v):
 def adjust_demo(page):
     st = page.settings
     if not page.curves:
-        return [{"at": lambda: st.adjust_btn, "say": "Adjust, under the target, holds these controls"}]
+        return [{"at": lambda: st.adjust_btn, "say": "Adjust, below the target, has these controls"}]
     col = theme.graph_colours()
     hold = {}
 
@@ -456,11 +457,11 @@ def adjust_demo(page):
         yield 1300
         api.t.typed = [e for e in api.t.typed if e[0] is not st.adjust_form.fields["target_adjust." + key].box]
         yield from api.morph(page, hold["item"], b + d, b, 450)
-    acts = [{"at": lambda: st.adjust_btn, "say": "Adjust (under Target) opens these; the graph shows the target as "
-             "you change them", "then": start}]
+    acts = [{"at": lambda: st.adjust_btn, "say": "Adjust (below Target) opens these controls. The graph shows the "
+             "target while you change them", "then": start}]
     for key, text, say in ADJ:
         acts += [{"type": (lambda k=key: st.adjust_form.fields["target_adjust." + k].box), "text": text, "keep": True,
                   "hold": 250, "say": say(page.S["target_adjust"])},
                  {"run": (lambda api, k=key, t=text: morph(api, k, t))}]
-    acts.append({"at": lambda: st.reset_adjust_btn, "say": "Reset adjustments sets them all back to 0"})
+    acts.append({"at": lambda: st.reset_adjust_btn, "say": "“Clear the adjustments” sets all the values to 0"})
     return acts

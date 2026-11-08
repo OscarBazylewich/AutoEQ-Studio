@@ -22,9 +22,10 @@ FORMAT_NAMES = {"apo": "Equalizer APO / squiglink (.txt)", "graphic": "GraphicEQ
                 "poweramp": "Poweramp (.json)", "uapp": "USB Audio Player PRO (.xml)", "soundsource": "SoundSource (.txt)",
                 "voicemeeter": "Voicemeeter (.xml)", "rockbox": "Rockbox (.cfg)", "convolution": "impulse response (.wav)",
                 "report": "a report (.html)"}  # (AutoEQ Local's export.js)
-MODE_SHORT = {"site_single": "Website AutoEQ", "site_sweep": "Website sweep", "best_fit": "Best fit", "manual": "By hand"}
-MODE_HINT = {"best_fit": "For EQ apps and devices: the closest match", "site_sweep": "For the squiglink / listener800 website",
-             "site_single": "Checks one set of website values"}
+MODE_SHORT = {"site_single": "Website AutoEQ", "site_sweep": "Website best settings", "best_fit": "Best fit",
+              "manual": "Manually"}
+MODE_HINT = {"best_fit": "For EQ apps and devices: the nearest EQ to the target",
+             "site_sweep": "For the squiglink / listener800 website", "site_single": "Uses one set of website values"}
 TICKS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
 
 
@@ -119,8 +120,9 @@ class NameCombo(SearchCombo):
 
 def file_base_name(device, target, layout_name, mode, n):
     """"<IEM> to <target> - <layout or method> <n>f" (AutoEQ Local's export.js fileBaseName)."""
-    what = layout_name.replace(" / ", ", ") if layout_name else {"site_single": "site AutoEQ", "site_sweep": "site AutoEQ",
-                                                                 "best_fit": "best fit", "manual": "by hand"}.get(mode, "EQ")
+    what = layout_name.replace(" / ", ", ") if layout_name else {"site_single": "website AutoEQ",
+                                                                 "site_sweep": "website AutoEQ", "best_fit": "best fit",
+                                                                 "manual": "manual"}.get(mode, "EQ")
     return f"{device} to {target} - {what} {n}f"
 
 

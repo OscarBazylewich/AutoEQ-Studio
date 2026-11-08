@@ -81,7 +81,7 @@ def test_max_q_and_the_sliders_view(eq_screen, chain, check):
     page.set_view("table")
     # was eq_checks.py:1831
     check("review: the result shows Max Q; the Sliders view edits each filter's frequency and Q",
-          page.chips["maxq"].text().startswith("Max Q") and len(boxes) >= 2 * len(page.EDIT), (page.chips["maxq"].text(), len(boxes)))
+          page.chips["maxq"].text().startswith("Maximum Q") and len(boxes) >= 2 * len(page.EDIT), (page.chips["maxq"].text(), len(boxes)))
 
 
 def test_website_method_line_and_use_in_single_run(eq_screen, chain, check):
@@ -124,6 +124,6 @@ def test_pick_note(eq_screen, check):
     # was eq_checks.py:2296
     check("result: says it sounds the same as the target, or how far off the closest is and where (none for an old run); "
           "the closest one itself isn't said to have fewer filters (review 2)",
-          same.startswith("Sounds the same as the target: within 0.18 dB") and "0.47 dB off around 6.2 kHz" in out
-          and "fewer filters" in out and "most off around 6.2 kHz" in other and none == ""
-          and alone.endswith("This is that closest one."), (same, out, other, none, alone))
+          same.startswith("The same sound as the target: 0.18 dB or less") and "0.47 dB from the target near 6.2 kHz" in out
+          and "a smaller number of filters" in out and "largest difference is near 6.2 kHz" in other and none == ""
+          and alone.endswith("This EQ is the nearest one."), (same, out, other, none, alone))

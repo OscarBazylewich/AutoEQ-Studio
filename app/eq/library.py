@@ -262,5 +262,5 @@ def item(item_id):
     with _lock:
         g = _by_id.get(str(item_id))
     if not g:
-        raise ValueError("That file is no longer in the index - rescan and try again.")
+        raise ValueError("That file is not in the index. Search the folders again. Then try again.")
     return g

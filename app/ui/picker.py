@@ -282,12 +282,12 @@ class Picker(QDialog):
         v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as every window's: UI-RULES 5)
         top = QHBoxLayout()
         self.q = QLineEdit()
-        self.q.setPlaceholderText("Search models, makers and databases…")
+        self.q.setPlaceholderText("Search names and databases…")
         self.q.setClearButtonEnabled(True)
         self.q.textChanged.connect(lambda _t: self._later.start())
         top.addWidget(self.q, 1)
         self.anykind = QCheckBox("Targets and measurements")
-        self.anykind.setToolTip("Also list the other kind (an entry may be filed as the other)")
+        self.anykind.setToolTip("Show targets and measurements (some entries are in the incorrect group)")
         self.anykind.toggled.connect(self.render)
         top.addWidget(self.anykind)
         v.addLayout(top)
@@ -313,16 +313,17 @@ class Picker(QDialog):
             box.setMinimumContentsLength(10)  # (at 10.5 pt, 14 kept the window wider than the Guide's room for it)
             box.activated.connect(lambda _i, box=box, key=key: self.set_filter(key, box.currentData()))
             fl.add(box, first=True, stretch=True, least=choice_room)
-        self.f_sure = QCheckBox("Stated rig")
-        self.f_sure.setToolTip("Only those whose source states the rig (not a database's usual rig: a “?”)")
+        self.f_sure = QCheckBox("Known rig")
+        self.f_sure.setToolTip("Only the entries with a rig that their source gives (not the usual rig of a database: a “?”)")
         self.f_sure.toggled.connect(lambda on: self.set_filter("sure", on))
-        self.f_dl = QCheckBox("Downloadable")
+        self.f_dl = QCheckBox("Available to download")
         for w, key in ((self.anykind, "#pk-anykind"), (self.f_rig, "pk_filters"), (self.f_form, "pk_filters"),
                        (self.f_site, "pk_filters"), (self.f_sure, "#pk-f-sure"), (self.f_dl, "#pk-f-dl")):
             help_window.tag(w, key)
-        self.f_dl.setToolTip("Leave out list-only databases (they don't let other programs download their files)")
+        self.f_dl.setToolTip("Do not show the databases that are only in the list (other programs cannot download their "
+                             "files)")
         self.f_dl.toggled.connect(lambda on: self.set_filter("dl", on))
-        self.f_clear = QPushButton("Clear filters")  # (always there, off with no filter on: it made the row jump)
+        self.f_clear = QPushButton("Clear the selections")  # (always there, off with no filter on: it made the row jump)
         self.f_clear.clicked.connect(self.clear_filters)
         for w in (self.f_sure, self.f_dl, self.f_clear):
             fl.add(w)
@@ -335,7 +336,7 @@ class Picker(QDialog):
         v.addWidget(self.status)
         self.list = FoundList()  # (its rows laid out again whenever it changes size)
         self.list.setObjectName("findList")  # (its rows' widgets get the whole row: theme_sheet's find_windows)
-        self.list.setAccessibleName("Found")
+        self.list.setAccessibleName("Results")
         self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.list.itemDoubleClicked.connect(lambda it: it.data(Qt.UserRole) and self.choose(it.data(Qt.UserRole)))
         self.list.currentItemChanged.connect(lambda *_: self._mark_use())
@@ -343,11 +344,12 @@ class Picker(QDialog):
         # (every window's footer, window_parts.Footer: its other actions at the left, its own message line, Close)
         sources = QPushButton("Sources…")
         icons.put(sources, "list")
-        sources.setToolTip("Which folders on this PC and which online databases Find… searches; add a database")
+        sources.setToolTip("The folders on this PC and the online databases that Find… searches. You can also add a "
+                           "database.")
         sources.clicked.connect(self.open_sources)
         trace = QPushButton("Trace a graph image…")
         icons.put(trace, "trace")
-        trace.setToolTip("Only a picture of the graph? Trace it into a curve (as picker.js's link)")
+        trace.setToolTip("Do you have only a picture of the graph? Trace it to make a curve.")
         trace.clicked.connect(lambda: (self.reject(), self.page.open_trace()))
         for b in (sources, trace):
             b.setAutoDefault(False)
@@ -453,7 +455,7 @@ class Picker(QDialog):
         inp = self.page.inputs
         if self.kind == "target":
             return sorted(({"src": "app", "key": "app:t:" + n, "name": os.path.splitext(n)[0], "file": n,
-                            "sub": "current target" if n == inp["active_target"] else "in the app",
+                            "sub": "your target" if n == inp["active_target"] else "in the app",
                             "current": n == inp["active_target"], "rig": self.app_rig(n), "form": name_form(n), "site": "app"}
                            for n in inp["targets"] if hit(n.lower())), key=lambda r: natural_key(r["name"]))
         out = []
@@ -461,7 +463,7 @@ class Picker(QDialog):
             if not hit(d["name"].lower() + " " + " ".join(f["name"].lower() for f in d["files"])):
                 continue
             n = len(d["files"])
-            on = f" · {'in use' if d['on'] == n else str(d['on']) + ' ticked'}" if d["on"] else ""
+            on = f" · {'all selected' if d['on'] == n else str(d['on']) + ' selected'}" if d["on"] else ""
             out.append({"src": "app", "key": "app:m:" + d["name"], "name": d["name"], "device": d,
                         "sub": f"{n} file{'s' if n > 1 else ''}{on}", "current": d["on"] > 0, "rig": self.device_rig(d),
                         "form": name_form(d["name"]), "site": "app"})
@@ -563,11 +565,11 @@ class Picker(QDialog):
         rigs = self.meta.get("rigs") or {}
         rig_name = lambda v: "Rig not known" if v == "-" else "Mixed rigs" if v == "mixed" else rigs.get(v, v).split(" (")[0]
         site_name = lambda v: "In the app" if v == "app" else "Your files on this PC" if v == "pc" else v
-        facets = [(self.f_rig, "rig", self.rig_of, rig_name, "Any rig"),
+        facets = [(self.f_rig, "rig", self.rig_of, rig_name, "All rigs"),
                   (self.f_form, "form", lambda r: r["form"] or "-",
                    lambda v: "Type not known" if v == "-" else FORMS.get(v, v),
-                   "Made for any type" if self.kind == "target" else "Any type"),
-                  (self.f_site, "site", lambda r: r["site"], site_name, "Any source")]
+                   "Made for all types" if self.kind == "target" else "All types"),
+                  (self.f_site, "site", lambda r: r["site"], site_name, "All sources")]
         # each box counts what the other filters leave, all three in one pass (a row failing two filters counts in
         # none; failing one, only in that one's box)
         tr = self._tr
@@ -600,8 +602,8 @@ class Picker(QDialog):
                 # leaves nothing)
                 n = fits_n
                 if n or f[key] == "fits":
-                    box.addItem(f"Fits your target's rig: {rig_name(self.target_rig())} or converted for it ({n:,})"
-                                if self.target_rig() else "Fits your target's rig (not known for this target: none)", "fits")
+                    box.addItem(f"Same rig as your target: {rig_name(self.target_rig())}, or changed for it ({n:,})"
+                                if self.target_rig() else "Same rig as your target (not known for this target: none)", "fits")
             for val, n in values:
                 box.addItem(f"{name_of(val)} ({n:,})", val)
             box.setCurrentIndex(max(0, box.findData(f[key])))
@@ -652,16 +654,18 @@ class Picker(QDialog):
                         later.append(lambda r=r, fl=fl: self._file_row(r, fl))
             shown += min(len(rows), lim)
             if len(rows) > lim:
-                more = f"{len(rows) - lim:,} more. Type to narrow the list" + \
+                more = f"{len(rows) - lim:,} more. Type more text for a shorter list" +\
                     ("" if self.src else f", or show only {title.lower()} (above).")
                 later.append(lambda t=more: self._note(t))
             if not rows and s == "db" and self.db.get("loading"):
-                later.append(lambda: self._note("Loading the database lists…"))
+                later.append(lambda: self._note("The database lists load…"))
         if not shown:
-            later.append(lambda: self._note(("Nothing matches." if ws or hidden else "Nothing here yet.")
-                                            + (" (Online lists are still loading.)" if self.db.get("loading") else "")))
+            later.append(lambda: self._note(("No results." if ws or hidden else "No items.")
+                                            + (" (The app continues to load the online lists.)" if self.db.get("loading")
+                                               else "")))
         if hidden:
-            later.append(lambda: self._note(f"{hidden:,} more hidden by the filters: Clear filters (above) shows them."))
+            later.append(lambda: self._note(f"The selections hide {hidden:,} more. “Clear the selections” (above) shows "
+                                            "them."))
         self._pending = later
         self._make_more(max(FIRST_ROWS, place[0]) if place else FIRST_ROWS)
         if place:
@@ -676,10 +680,10 @@ class Picker(QDialog):
         self._fails = {}  # (by id: only while these rows are alive)
         n_app = len(self.page.inputs["targets"]) if self.kind == "target" else len(self.devices())
         n_pc = len([g for g in self.lib.get("items") or [] if not g.get("in_app")])
-        off = "  ·  Offline: online entries you've downloaded before still work" if net.offline() else ""
-        self.status.setText(("Loading online lists…" if self.db.get("loading") else
+        off = "  ·  Offline: you can use the online entries that you downloaded" if net.offline() else ""
+        self.status.setText(("The online lists load…" if self.db.get("loading") else
                              f"{n_app} in the app · {n_pc} on this PC"
-                             + (" (still looking)" if self.lib.get("scanning") else "")
+                             + (" (the app continues to search)" if self.lib.get("scanning") else "")
                              + f" · {len(self.db.get('items') or []):,} online") + off)
 
     def _make_more(self, n=None):
@@ -733,21 +737,22 @@ class Picker(QDialog):
         made = r.get("is_target") or (r["src"] == "app" and not r.get("device"))
         what = "Made for" if made else "Measured on"
         if tag == "mixed":
-            return "mixed", "Its files come from different rigs"
+            return "mixed", "Its files are from different rigs"
         if key not in rigs:
-            return "rig ?", ("Which rig it is made for isn't known" if made else "Which rig it was measured on isn't known") \
+            return "rig ?", ("The rig that it is made for is not known" if made else "The rig that it was measured on is not "
+                             "known") \
                 + (f": {r['how']}" if r.get("how") else "")
         guess = tag.endswith("?")
-        tip = f"{what}: {rigs[key]}" + (" (probably: the usual rig for its source, not stated by it)" if guess else "") \
+        tip = f"{what}: {rigs[key]}" + (" (possibly: the usual rig for its source, which does not give the rig)" if guess else "") \
             + (f": {r['how']}" if r.get("how") else "")
         convs = r.get("convs") or []
         label = key + ("?" if guess else "")
         if convs:
             short = lambda x: rigs.get(x, x).split(" (")[0]
             label += " ⇄"
-            tip += ("\nIts database has a conversion of its own (errors 1–10 kHz): " +
-                    "; ".join(f"for {short(c['from'])} targets ({c['models']} models: about {c['error']:.1f} dB left, "
-                              f"{c['before']:.1f} without)" for c in convs))
+            tip += ("\nRig change by its database (the error from 1 to 10 kHz): " +
+                    " · ".join(f"for {short(c['from'])} targets ({c['models']} models: approximately {c['error']:.1f} dB "
+                               f"with the change, {c['before']:.1f} dB without it)" for c in convs))
         return label, tip
 
     def _row(self, r):
@@ -764,7 +769,7 @@ class Picker(QDialog):
         name.setToolTip(r["name"])
         name.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)  # (the room left for it, whatever its length)
         text.addWidget(name)
-        sub = Elided("Downloading…" if self.busy == r["key"] else r["sub"])
+        sub = Elided("Download in progress…" if self.busy == r["key"] else r["sub"])
         theme.mark(sub, role="muted")
         sub.setToolTip(r["sub"])
         sub.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
@@ -778,25 +783,25 @@ class Picker(QDialog):
         if r.get("other"):
             other = QLabel("measurement?" if self.kind == "target" else "target?")
             theme.mark(other, role="muted")
-            other.setToolTip(f"Filed as a {'measurement' if self.kind == 'target' else 'target'}")
+            other.setToolTip(f"Its group in the database: {'measurement' if self.kind == 'target' else 'target'}")
             h.addWidget(other)
         if r.get("link"):
-            ext = QLabel("open on site ↗")
+            ext = QLabel("open on the website ↗")
             theme.mark(ext, role="muted")
-            ext.setToolTip("This site doesn't let other programs download its files: Use opens it on the site")
+            ext.setToolTip("Other programs cannot download the files of this website. Use opens it on the website.")
             h.addWidget(ext)
         elif r["src"] == "db":
             dl = QLabel(chr(int(icons.GLYPHS["download"], 16)))  # (Windows 11's symbol, from its icon font: findMark)
             dl.setObjectName("findMark")
-            dl.setToolTip("Downloads when used")
-            dl.setAccessibleName("Downloads when used")  # (a screen reader read its symbol's character, as nothing)
+            dl.setToolTip("Downloads when you use it")
+            dl.setAccessibleName("Downloads when you use it")  # (a screen reader read its symbol's character, as nothing)
             h.addWidget(dl)
         # (the row's buttons at its right end as every list's, UI-RULES 18: Preview, the row's own, Use (the main one)
         # last, then the ✕ apart; a button a row hasn't got keeps its room, so every Use is in one column)
         prev = self.page.preview_on(r["key"])
         eye = QPushButton("Hide" if prev else "Preview")  # ("Show" puts an EQ on the result card: UI-RULES 16)
         eye.setMinimumWidth(QFontMetrics(eye.font()).horizontalAdvance("Preview") + 2 * 12 + 2)
-        eye.setToolTip("Take it off the graph" if prev else "Show it on the graph, dotted, without using it")
+        eye.setToolTip("Remove it from the graph" if prev else "Show it on the graph as a dotted line, but do not use it")
         eye.clicked.connect(lambda _=False, r=r: self.preview(r))
         h.addWidget(_keeping_room(eye))
         # (only once it's in the row: shown before, a button with no parent is a window of its own, and every row
@@ -808,14 +813,14 @@ class Picker(QDialog):
         if r["src"] == "app":
             if r.get("device"):
                 b = FilesButton(r["device"]["name"] in self.expanded)  # (Windows 11's chevron after "Files")
-                b.setToolTip("Tick or untick single files (seatings, left and right)")
+                b.setToolTip("Select or clear the files one by one (seatings, left and right)")
                 b.clicked.connect(lambda _=False, d=r["device"]["name"]: self.toggle_expand(d))
                 h.addWidget(b)
                 x.setToolTip(f"Delete {r['device']['name']} from the app")
                 x.clicked.connect(lambda _=False, d=r["device"]: self.remove("measurement", [f["name"] for f in d["files"]], d["name"]))
             else:
                 mv = QPushButton("Move to Measurement")  # (verb first, no arrow standing in for a symbol: 9, 15)
-                mv.setToolTip("It's a measurement: move it to Measurement")
+                mv.setToolTip("It is a measurement: move it to Measurement")
                 mv.clicked.connect(lambda _=False, n=r["file"]: self.move("target", n))
                 h.addWidget(mv)
                 x.setToolTip("Delete from the app")
@@ -849,11 +854,11 @@ class Picker(QDialog):
         h.setContentsMargins(46, 2, 6, 2)
         cb = QCheckBox(fl["name"])
         cb.setChecked(fl["included"])
-        cb.setToolTip("Include in the average")
+        cb.setToolTip("Include it in the average")
         cb.toggled.connect(lambda on, n=fl["name"]: self.toggle_file(n, on))
         h.addWidget(cb, 1)
         mv = QPushButton("Move to Target")
-        mv.setToolTip("It's a target: move it to Target")
+        mv.setToolTip("It is a target: move it to Target")
         mv.clicked.connect(lambda _=False, n=fl["name"]: self.move("measurement", n))
         h.addWidget(mv)
         h.addSpacing(12)  # (the bin apart, as every row's: UI-RULES 14)
@@ -917,12 +922,12 @@ class Picker(QDialog):
             return
         if r.get("link"):
             if net.offline():  # (said in this window's line, as every "Offline: …", UI-RULES 7)
-                self.footer.say("Offline: this database's entries open on its website. Switch to Online (top right) "
-                                "to open it.", 10000)
+                self.footer.say("Offline: the entries of this database open on its website. To open it, change to Online (top "
+                                "right).", 10000)
                 return
             QDesktopServices.openUrl(QUrl(r["link"]))
-            self.footer.say(f"{r['sub'].split(' · ')[-1]} doesn't let other programs download its files, so it opened "
-                            "on the site.", 10000)
+            self.footer.say(f"Other programs cannot download the files of {r['sub'].split(' · ')[-1]}. The entry opened "
+                            "on its website.", 10000)
             return
         if r["src"] == "app":
             if r.get("device"):
@@ -957,8 +962,8 @@ class Picker(QDialog):
             self.render()
             return
         if not self.page.curves:  # ("do this first": the button on, a box saying what's needed, UI-RULES 25)
-            QMessageBox.information(self, "Preview", "Choose a target and a measurement first: a preview is drawn "
-                                    "beside them.")
+            QMessageBox.information(self, "Preview", "Select a target and a measurement first. The graph shows a "
+                                    "preview with them.")
             return
         loading = self.__dict__.setdefault("_showing", set())
         if r["key"] in loading:  # (pressed again while it loads)
@@ -998,7 +1003,7 @@ class Picker(QDialog):
 
     def remove(self, kind, names, label):
         if QMessageBox.question(self, "Delete", f"Delete “{label}” ({len(names)} file{'s' if len(names) != 1 else ''}) "
-                                "from the app? (A copy you have elsewhere stays.)",
+                                "from the app? (A copy in a different folder does not change.)",
                                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
             return  # (No the default: it can't be undone, UI-RULES 17)
         r = self.svc.call("/api/files/remove", {"kind": kind, "names": names, "settings": self.page.S})

@@ -60,7 +60,7 @@ def parse(params):
     p = params.replace(",", ".")
     m = _TYPE.match(p)
     if not m:
-        return "bad", "it doesn't start with ON or OFF and a filter type"
+        return "bad", "it does not start with ON or OFF and a filter type"
     on, word, digits = m[1].upper() == "ON", m[2].upper(), m[3]
     rest = p[m.end():]
     kind = KINDS.get(word)

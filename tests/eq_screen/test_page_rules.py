@@ -97,7 +97,7 @@ def test_by_hand_sources_in_their_order(eq_screen, check):
           "of the selected EQ, an EQ file, pasted filters), then the devices' profiles",
           words[:4] == ["An empty EQ", "A copy of the selected EQ", "An EQ file", "Pasted filters"]
           and (bool(words[4:]) and all(w.startswith("Profile: ") for w in words[4:])
-               or words[4:] == ["A device's profile (none yet)"]), words)
+               or words[4:] == ["A device's profile (none)"]), words)
 
 
 def test_result_card_lines_up(eq_screen, check):

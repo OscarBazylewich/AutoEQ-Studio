@@ -115,4 +115,4 @@ def test_odd_backups(place, check):
           "from a newer AutoEQ Studio, is said", r["files"] == 1 and not os.path.exists(os.path.join(top, "..", "evil.txt"))
           and not os.path.exists(os.path.join(os.path.dirname(top), "evil2.txt"))
           and not os.path.exists(os.path.join(top, "data", "other.json")) and len(said) == 2
-          and "isn't one of" in said[0] and "newer" in said[1], (r, said))
+          and "is not an AutoEQ Studio backup" in said[0] and "newer" in said[1], (r, said))

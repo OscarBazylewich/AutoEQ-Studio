@@ -37,7 +37,7 @@ def test_editing_a_filter(eq_screen, chain, check):
     check("ui: editing a filter: the error, the title (edited), the file name (… edited) and the line on how it sounds "
           "follow at once",
           after[0] != before[0] and after[1].endswith("edited") and after[2] == before[1] + " edited"
-          and (after[3].startswith("As edited: sounds within") or not run.get("pick_case")), (before, after))
+          and (after[3].startswith("Edited: the sound is") or not run.get("pick_case")), (before, after))
 
 
 def test_value_past_the_edit_limits(eq_screen, chain, check):

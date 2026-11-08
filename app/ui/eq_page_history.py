@@ -21,18 +21,18 @@ class EqHistory:
         lay = next((l for l in self.meta.get("layouts", []) if l["key"] == r.get("layout")), None)
         if run.get("mode") == "manual":  # (an EQ made by hand: where it began, and its filters)
             n = r.get("n_filters", len(r.get("filters") or []))
-            return f"By hand · {run.get('source') or 'your own filters'} · {n} filter{'' if n == 1 else 's'}"
+            return f"Manually · {run.get('source') or 'your filters'} · {n} filter{'' if n == 1 else 's'}"
         if r.get("engine") == "graphic":
-            return (f"{lay['name'] if lay else 'Fixed bands'}: {r['n_filters']} bands, {r.get('gain_min')} to "
+            return (f"{lay['name'] if lay else 'Graphic EQ'}: {r['n_filters']} bands, {r.get('gain_min')} to "
                     f"+{r.get('gain_max')} dB in {r.get('step')} dB steps")
         if run["mode"] == "best_fit":
             yours, added = r.get("yours") or 0, max(0, r["n_filters"] - (r.get("yours") or 0))
             mine = ""
             if yours:
-                mine = (f"your {yours} + {added} added" if r.get("rows") else f"your {yours} alone" if r.get("keep")
-                        else f"your {yours}, fine-tuned") + ("" if r.get("keep") or not r.get("rows") else " (adjusted)") + " · "
+                mine = (f"your {yours} + {added} added" if r.get("rows") else f"only your {yours}" if r.get("keep")
+                        else f"your {yours}, adjusted") + ("" if r.get("keep") or not r.get("rows") else " (adjusted)") + " · "
             return (mine + (f"{lay['name']} · " if lay and lay["key"] != "any" else "")
-                    + f"{r['n_filters']} filters, Q ≤ {r.get('q_max')}, boost ≤ +{r.get('gain_max')}")
+                    + f"{r['n_filters']} filters, Q ≤ {r.get('q_max')}, gain ≤ +{r.get('gain_max')}")
         return (f"{r.get('rows')} rows · {r.get('freq_low')}–{r.get('freq_high')} · {r.get('gain_min')} to "
                 f"{r.get('gain_max')} · Q {r.get('q_min')}–{r.get('q_max')}")
 
@@ -67,7 +67,7 @@ class EqHistory:
             return
         res = self.svc.call("/api/history/add", {"entry": self.entry_now(saved)})
         if res.get("error"):
-            self.status(f"Couldn't add this EQ to the history: {res['error']}", 8000)
+            self.status(f"The app cannot add this EQ to History: {res['error']}", 8000)
             return
         by_key = {e["key"]: e for e in self.history}
         by_key[res["entry"]["key"]] = res["entry"]
@@ -83,8 +83,8 @@ class EqHistory:
         if on:
             from ui.history_window import day_of
             last = max(mine, key=lambda e: e["when"])
-            self.eqd_before.setText(f"You've EQ'd this {'once' if len(mine) == 1 else f'{len(mine)} times'} before · "
-                                    f"last {day_of(last['when']).lower()}")
+            self.eqd_before.setText(f"History has {'1 EQ' if len(mine) == 1 else f'{len(mine)} EQs'} for this IEM · "
+                                    f"the last EQ: {day_of(last['when'])}")
 
     def open_history(self, this_iem):
         from ui.history_window import HistoryWindow
@@ -103,7 +103,7 @@ class EqHistory:
             QMessageBox.warning(self, "Copy", res["error"])
             return
         QGuiApplication.clipboard().setText(res["apo"])
-        (say or self.status)("Copied the filters (Equalizer APO / squiglink format).")
+        (say or self.status)("The app copied the filters (Equalizer APO / squiglink format).")
         if record:
             self.record(True)
 
@@ -133,16 +133,17 @@ class EqHistory:
             self.curves_loaded(self.svc.call("/api/curves", {"settings": S}))
             self.show_settings()
         elif self.curves:
-            self.status(f"{'Its target isn’t' if have_m else 'Its measurement files aren’t'} in the app any more, so its "
-                        "filters are shown on the graph you have now.", 10000)
+            self.status(f"{'Its target is not' if have_m else 'Its measurement files are not'} in the app. Thus, the "
+                        "graph shows its filters with your measurement and target.", 10000)
         if not self.curves:  # (nothing to show its filters on: what's needed first, in a box: UI-RULES 25)
-            QMessageBox.information(self, "Show", f"{'Its target isn’t' if have_m else 'Its measurement files aren’t'} "
-                                    "in the app any more: choose a measurement and a target first, then Show it again.")
+            QMessageBox.information(self, "Show", f"{'Its target is not' if have_m else 'Its measurement files are not'} "
+                                    "in the app: select a measurement and a target first. Then click Show again.")
             return
         band = e.get("band")
         if band and list(band) != list(S["scoring"]["band_hz"]):
-            self.status(f"It was scored over {band[0]}–{band[1]} Hz and is now over {S['scoring']['band_hz'][0]}–"
-                        f"{S['scoring']['band_hz'][1]} Hz, so its error here differs from the one in History.", 10000)
+            self.status(f"Its error range was {band[0]}–{band[1]} Hz and is {S['scoring']['band_hz'][0]}–"
+                        f"{S['scoring']['band_hz'][1]} Hz at this time. Thus, its error here is different from the "
+                        "error in History.", 10000)
         res = dict(e.get("result") or {}, id=1, filters=[dict(f) for f in e["filters"]])
         res.setdefault("n_filters", e.get("n_filters", len(e["filters"])))
         res.setdefault("rms", e.get("rms") or 0)
@@ -157,7 +158,7 @@ class EqHistory:
         self.name_edit.clear()
         self.show_result(1)
         self.history_note()
-        self.status(f"From the history: {e.get('device')} → {e.get('target')}, {day_of(e['when']).lower()} "
+        self.status(f"From History: {e.get('device')} → {e.get('target')}, {day_of(e['when'])} "
                     f"{time_of(e['when'])}.", 8000)
 
     # ---------------------------------------------------------------- presets (AutoEQ Local's Presets menu)
@@ -174,7 +175,7 @@ class EqHistory:
         menu.clear()
         names = self.preset_names()
         if not names:
-            a = menu.addAction("No presets yet: a preset keeps all your settings (not your files)")
+            a = menu.addAction("No presets: a preset keeps all your settings (not your files)")
             a.setEnabled(False)
         for n in names:
             menu.addAction(n, lambda n=n: self.load_preset(n))
@@ -185,7 +186,7 @@ class EqHistory:
             for n in names:
                 d.addAction(n, lambda n=n: self.delete_preset(n))
         menu.addSeparator()
-        menu.addAction("Reset all settings…", self.reset_settings)
+        menu.addAction("Use the initial settings…", self.reset_settings)
 
     def _use_settings(self, s, said):
         """Settings from a preset (or the defaults) in use, your files as they are; Undo in the notice puts the ones
@@ -209,25 +210,26 @@ class EqHistory:
         if res.get("error"):
             QMessageBox.warning(self, "Presets", res["error"])
             return
-        self._use_settings(res["settings"], f"Loaded the preset “{name}”: all its settings (your files stay as they are).")
+        self._use_settings(res["settings"], f"The app loaded the preset “{name}”: all its settings (your files do not "
+                                            "change).")
 
     def save_preset(self):
         from ui.window_parts import ask_text  # (looked up here: the tests answer it)
-        name, ok = ask_text(self, "Save as a preset", "Name of the preset (every setting, not your files)",
-                            "My settings", "Save")
+        name, ok = ask_text(self, "Save as a preset", "Name of the preset (all settings, not your files)",
+                            "New preset", "Save")
         name = name.strip()
         if not ok or not name:
             return
         if name in self.preset_names() and QMessageBox.question(  # (No the default: it can't be had back, UI-RULES 17)
-                self, "Save as a preset", f"There's a preset called “{name}” already. Replace it?",
+                self, "Save as a preset", f"There is a preset with the name “{name}”. Replace it?",
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
             return
         res = self.svc.call("/api/presets/save", {"name": name, "settings": self.S})
         if res.get("error"):
             QMessageBox.warning(self, "Presets", res["error"])
             return
-        self.notify(f"Saved the preset “{name}”: every setting, not your files. Presets, in the top bar, loads it "
-                    "again.")
+        self.notify(f"The app saved the preset “{name}”: all settings, not your files. Presets (in the top bar) loads "
+                    "it again.")
 
     def delete_preset(self, name):
         if QMessageBox.question(self, "Delete", f"Delete the preset “{name}”?", QMessageBox.Yes | QMessageBox.No,
@@ -237,14 +239,15 @@ class EqHistory:
         if res.get("error"):
             QMessageBox.warning(self, "Presets", res["error"])
             return
-        self.notify(f"Deleted the preset “{name}”.")
+        self.notify(f"The app deleted the preset “{name}”.")
 
     def reset_settings(self):
-        if QMessageBox.question(self, "Reset all settings", "Every setting back to its default? Your files and your "
-                                "presets are kept, and Undo brings your settings back.") != QMessageBox.Yes:
+        if QMessageBox.question(self, "Use the initial settings", "Change all settings to their initial values? Your "
+                                "files and presets do not change. With Undo, you get your settings again.") \
+                != QMessageBox.Yes:
             return
         res = self.svc.call("/api/reset")
         if res.get("error"):
-            QMessageBox.warning(self, "Reset all settings", res["error"])
+            QMessageBox.warning(self, "Use the initial settings", res["error"])
             return
-        self._use_settings(res["settings"], "Every setting is back to its default (your files stay as they are).")
+        self._use_settings(res["settings"], "All settings have their initial values (your files do not change).")

@@ -37,14 +37,15 @@ from ui.window_parts import fit_to_screen
 
 RED, BLUE, GREEN = "#d93025", "#1a73e8", "#16a34a"
 STROKES = ["#ff00d4", "#00a8e8", "#ff8a00", "#8e44ff", "#00b35f", "#e6b800"]
-TOOLS = [("trace", "Click curve", "Click a curve to follow it (T)"), ("draw", "Draw", "Drag along the curve to draw it (D)"),
-         ("erase", "Erase", "Drag a box over the trace to remove it (E)"),
-         ("pan", "Move", "Drag to move the picture; or hold Space, or drag with the right mouse button (H)")]
+TOOLS = [("trace", "Click curve", "Click a curve to follow it (T)"),
+         ("draw", "Make a line", "Drag along the curve to make a line (D)"),
+         ("erase", "Erase", "Drag a box around the traced line to remove it (E)"),
+         ("pan", "Move", "Drag to move the picture, or hold Space, or drag with the right mouse button (H)")]
 TOOL_SYMBOLS = {"trace": "trace", "draw": "pen", "erase": "erase", "pan": "move"}  # (icons.GLYPHS' names)
 SIDE = 500  # (the settings' width: room for 10.5 pt text, "the actual response (not compensated)" whole, symbols)
 RADIUS = 8  # (the picture's card: a card's corners, as theme_sheet's)
-HINTS = {"trace": "Click a curve to follow it.", "draw": "Drag along the curve to draw it by hand.",
-         "erase": "Drag a box around the part of the trace to remove.", "pan": "Drag to move the picture."}
+HINTS = {"trace": "Click a curve to follow it.", "draw": "Drag along the curve to make a line manually.",
+         "erase": "Drag a box around a part of the traced line to remove it.", "pan": "Drag to move the picture."}
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".jfif", ".webp", ".bmp", ".gif", ".tif", ".tiff")
 IMAGES = "Images (*.png *.jpg *.jpeg *.jfif *.webp *.bmp *.gif *.tif *.tiff)"
 
@@ -232,7 +233,7 @@ class Stage(QWidget):
         ev = QVBoxLayout(self.empty)
         ev.setAlignment(Qt.AlignCenter)
         ev.setSpacing(10)
-        head = QLabel("Drop a frequency response graph here")
+        head = QLabel("Drag a frequency response graph here")
         head.setObjectName("trDropHead")
         head.setAlignment(Qt.AlignCenter)
         ev.addWidget(head)
@@ -246,7 +247,7 @@ class Stage(QWidget):
         row.addWidget(choose)
         row.addStretch(1)
         ev.addLayout(row)
-        sub = _label("Screenshots of maker or review graphs work (PNG, JPG, WebP).", "muted")
+        sub = _label("You can use screenshots of graphs from data sheets or websites (PNG, JPG, WebP).", "muted")
         sub.setAlignment(Qt.AlignCenter)
         ev.addWidget(sub)
         self._zoom_bar()
@@ -261,7 +262,7 @@ class Stage(QWidget):
         zl.setSpacing(2)
         self.zoom_btns = {}
         for key, text, tip, fn in (("out", "", "Zoom out (-)", lambda: self.zoom(0.8)),
-                                   ("fit", "Fit", "Fit the picture (F)", self.fit_now),
+                                   ("fit", "Show all", "Show all the picture (F)", self.fit_now),
                                    ("in", "", "Zoom in (+)", lambda: self.zoom(1.25))):
             b = QPushButton(text)
             b.setToolTip(tip)
@@ -616,19 +617,19 @@ class TraceWindow(QWidget):
         # (the picture's own actions together, Remove last; then Guide apart at the right end, as the top bar's: it sat
         # between them, UI-RULES 14 and 28)
         self.open_btn = opn = QPushButton("Open image…")
-        opn.setToolTip("Open another picture (or drop / paste one)")
+        opn.setToolTip("Open a different picture (or drag or paste it here)")
         opn.clicked.connect(self.choose_image)
         icons.put(opn, "open")
         head.addWidget(opn)
         head.addSpacing(12)  # (Remove set apart, as every row's: UI-RULES 14)
         self.remove_btn = QPushButton("Remove image")
-        self.remove_btn.setToolTip("Remove this picture (e.g. the wrong one) and the curves traced on it")
+        self.remove_btn.setToolTip("Remove this picture (for example, an incorrect picture) and the curves that you traced on it")
         self.remove_btn.clicked.connect(self.remove_image)
         icons.put(self.remove_btn, "remove")
         head.addWidget(self.remove_btn)
         head.addSpacing(16)
         self.guide_btn = QPushButton("Guide")  # (Windows 11's symbol where "? " was, as the top bar's Guide)
-        self.guide_btn.setToolTip("A tour of the tracer (on a sample graph when no picture is open)")
+        self.guide_btn.setToolTip("The Guide of the tracer (on a sample graph if no picture is open)")
         self.guide_btn.clicked.connect(self.start_guide)
         icons.put(self.guide_btn, "guide")
         head.addWidget(self.guide_btn)
@@ -691,14 +692,14 @@ class TraceWindow(QWidget):
         self.auto_state = _label("", "muted", wrap=False)
         top.addWidget(self.auto_state, 1)
         v.addLayout(top)
-        why = Fold("Why these settings")
+        why = Fold("About these settings")
         why.setObjectName("trWhy")  # (flat inside this card: no card in a card)
         why.layout().setContentsMargins(0, 0, 0, 0)
         self.why = why
         self.auto_notes = _label("")
         self.auto_notes.setTextFormat(Qt.RichText)
         why.body_lay.addWidget(self.auto_notes)
-        why.body_lay.addWidget(_label("In effect", "muted"))  # (no label's colon: UI-RULES 15)
+        why.body_lay.addWidget(_label("Active settings", "muted"))  # (no label's colon: UI-RULES 15)
         self.auto_eff = _label("")
         self.auto_eff.setTextFormat(Qt.RichText)
         why.body_lay.addWidget(self.auto_eff)
@@ -706,15 +707,16 @@ class TraceWindow(QWidget):
         self.auto_manual.setTextFormat(Qt.RichText)
         self.auto_manual.linkActivated.connect(lambda k: self.hand_back(None if k == "*" else k))
         why.body_lay.addWidget(self.auto_manual)
-        why.body_lay.addWidget(_label("Settings follow the picture; one you change is marked “yours” and kept.", "muted"))
+        why.body_lay.addWidget(_label("The settings follow the picture. If you change a setting, it shows “your value” and the "
+                                       "app keeps it.", "muted"))
         v.addWidget(why)
         return box
 
     def _axes_box(self):
         box = QGroupBox("1  Axes")
         v = QVBoxLayout(box)
-        v.addWidget(_label("Drag the red lines onto two dB gridlines and the blue ones onto two frequency gridlines; "
-                           "type their values.", "muted"))
+        v.addWidget(_label("Drag the red lines to two dB grid lines. Drag the blue lines to two frequency grid lines. "
+                           "Type their values.", "muted"))
         g = QGridLayout()
         self.boxes = {}
         for i, (key, text, lim) in enumerate((("d1", "Top red line (dB)", "trace.db"), ("d2", "Bottom red line (dB)", "trace.db"),
@@ -722,18 +724,18 @@ class TraceWindow(QWidget):
             g.addWidget(_label(text, wrap=False), i // 2 * 2, i % 2)
             b = QLineEdit()
             b.setAccessibleName(text)
-            b.setToolTip(help_of(f"#tr-{key}") + f"\nAllowed: {self.limits.text(lim)}.")
+            b.setToolTip(help_of(f"#tr-{key}") + f"\nPermitted: {self.limits.text(lim)}.")
             b.textEdited.connect(lambda _t, k=key, lim=lim: self.value_typed(k, lim))
             b.editingFinished.connect(lambda k=key, lim=lim: self.value_left(k, lim))
             g.addWidget(b, i // 2 * 2 + 1, i % 2)
             self.boxes[key] = b
         v.addLayout(g)
         checks = QHBoxLayout()
-        self.snap = QCheckBox("Snap to gridlines")
+        self.snap = QCheckBox("Align with grid lines")
         self.snap.setToolTip(help_of("#tr-snap"))
         self.snap.setChecked(True)
         self.snap.toggled.connect(lambda on: self.t.v.__setitem__("snap", on))
-        self.every = QCheckBox("Follow every gridline")
+        self.every = QCheckBox("Follow all grid lines")
         self.every.setToolTip(help_of("#tr-every"))
         self.every.setChecked(True)
         self.every.toggled.connect(self.every_changed)
@@ -743,10 +745,10 @@ class TraceWindow(QWidget):
         v.addLayout(checks)
         btns = QHBoxLayout()
         self.detect_btn = detect = QPushButton("Find axes again")
-        detect.setToolTip("Find the gridlines and place the lines again")
+        detect.setToolTip("Find the grid lines and put the lines on them again")
         detect.clicked.connect(self.detect_again)
         self.ocr_btn = QPushButton("Read labels")
-        self.ocr_btn.setToolTip("Read the numbers on the axes again and fill in the values")
+        self.ocr_btn.setToolTip("Read the numbers on the axes again and write the values in the boxes")
         self.ocr_btn.clicked.connect(self.read_again)
         btns.addWidget(detect)
         btns.addWidget(self.ocr_btn)
@@ -783,7 +785,7 @@ class TraceWindow(QWidget):
         v.addWidget(self.curves_box)
         row = QHBoxLayout()
         self.add_btn = QPushButton("Add a curve")  # (verb first, UI-RULES 15: it was "Another curve"; Windows 11's +)
-        self.add_btn.setToolTip("Trace another curve on the same graph, e.g. the other channel")
+        self.add_btn.setToolTip("Trace one more curve on the same graph (for example, the other channel)")
         self.add_btn.clicked.connect(self.add_curve)
         icons.put(self.add_btn, "add")
         row.addWidget(self.add_btn)
@@ -793,23 +795,23 @@ class TraceWindow(QWidget):
         # Auto trace with the colour it traced beside it; the tolerance on a row of its own (the slider's room at
         # 10.5 pt text)
         row = QHBoxLayout()
-        self.auto_btn = QPushButton("Auto trace")
+        self.auto_btn = QPushButton("Trace automatically")
         theme.mark(self.auto_btn, primary=True)
-        self.auto_btn.setToolTip("Find and follow a curve by itself; press again for the next curve (A)")
+        self.auto_btn.setToolTip("The app finds and follows a curve. Click again for the next curve (A)")
         self.auto_btn.clicked.connect(self.auto_trace)
         icons.put(self.auto_btn, "run")
         row.addWidget(self.auto_btn)
         self.swatch = QLabel()
         self.swatch.setObjectName("trSwatch")  # (its frame: theme_sheet's tracer part; its colour: the traced one)
         self.swatch.setFixedSize(18, 18)
-        self.swatch.setToolTip("Colour being traced")
+        self.swatch.setToolTip("Color that you trace")
         row.addWidget(self.swatch)
         row.addStretch(1)
         v.addLayout(row)
         row = QHBoxLayout()
-        row.addWidget(_label("Colour tolerance", wrap=False))
+        row.addWidget(_label("Color tolerance", wrap=False))
         self.tol = QSlider(Qt.Horizontal)
-        self.tol.setAccessibleName("Colour tolerance")
+        self.tol.setAccessibleName("Color tolerance")
         self.tol.setRange(8, 128)
         self.tol.setToolTip(help_of("#tr-tol"))
         self.tol.valueChanged.connect(self.tol_moved)
@@ -826,9 +828,9 @@ class TraceWindow(QWidget):
         v.addLayout(row)
         row = QHBoxLayout()
         self.edit_btns = {}
-        for key, text, tip, fn in (("smooth", "Smooth", "Smooth out pixel steps (S)", self.smooth),
+        for key, text, tip, fn in (("smooth", "Make smooth", "Make the pixel steps smooth (S)", self.smooth),
                                    ("undo", "Undo", "Undo (Ctrl+Z)", self.undo), ("redo", "Redo", "Redo (Ctrl+Shift+Z)", self.redo),
-                                   ("clear", "Clear", "Remove the whole trace (Delete)", self.clear)):
+                                   ("clear", "Clear", "Clear the selected curve (Delete)", self.clear)):
             b = QPushButton(text)  # (no symbols in this row: Smooth and Clear have none, UI-RULES 9)
             b.setToolTip(tip)
             b.clicked.connect(fn)
@@ -848,7 +850,7 @@ class TraceWindow(QWidget):
         self.name.setToolTip(help_of("#tr-name"))
         self.name.textEdited.connect(lambda s: self.t.v.__setitem__("name", s))
         g.addWidget(self.name, 0, 1, 1, 3)
-        g.addWidget(_label("Points per octave", wrap=False), 1, 0)
+        g.addWidget(_label("Points in each octave", wrap=False), 1, 0)
         self.ppo = SearchCombo()
         for n in (12, 24, 48, 96):
             self.ppo.addItem(str(n), n)
@@ -868,7 +870,7 @@ class TraceWindow(QWidget):
         self.fmin, self.fmax = QLineEdit(), QLineEdit()
         for key, b in (("fmin", self.fmin), ("fmax", self.fmax)):
             b.setMaximumWidth(80)
-            b.setToolTip(help_of("#tr-fmin") + f"\nAllowed: {self.limits.text('trace.save')}.")
+            b.setToolTip(help_of("#tr-fmin") + f"\nPermitted: {self.limits.text('trace.save')}.")
             b.textEdited.connect(lambda _t, k=key: self.value_typed(k, "trace.save"))
             b.editingFinished.connect(lambda k=key: self.value_left(k, "trace.save"))
             self.boxes[key] = b
@@ -925,31 +927,31 @@ class TraceWindow(QWidget):
         self.auto_on.blockSignals(True)
         self.auto_on.setChecked(on)
         self.auto_on.blockSignals(False)
-        self.auto_state.setText("off" if not on else "fitted to this picture" if t.has_image else "waiting for a picture")
+        self.auto_state.setText("off" if not on else "adjusted for this picture" if t.has_image else "no picture")
         esc = lambda s: s.replace("&", "&amp;").replace("<", "&lt;")
         notes = [(k, x) for k, x in ta["notes"].items() if x]
         if on:
-            items = "".join(f"<li><i>yours</i> Automatic: {esc(x)} Your value is used.</li>" if t.own(k) else f"<li>{esc(x)}</li>"
-                            for k, x in notes) or "<li>Open a picture to fit the settings to.</li>"
+            items = "".join(f"<li><i>your value</i> Automatic: {esc(x)} The app uses your value.</li>" if t.own(k)
+                            else f"<li>{esc(x)}</li>" for k, x in notes) or "<li>Open a picture to adjust the settings for it.</li>"
         else:
-            items = "<li>Automatic settings are off.</li>"
+            items = "<li>The automatic settings are off.</li>"
         self.auto_notes.setText(f"<ul style='margin-left: -24px'>{items}</ul>")
         tv = t.v
-        eff = [("Colour tolerance", tv["tol"], "tol"), ("Points per octave", tv["ppo"], "ppo"),
+        eff = [("Color tolerance", tv["tol"], "tol"), ("Points in each octave", tv["ppo"], "ppo"),
                ("Save", f"{tv['fmin']}–{tv['fmax']} Hz", "fmin"), ("Dashed line", "yes" if tv["dashed"] else "no", "dashed")]
-        self.auto_eff.setText("<br>".join(f"{a}: <b>{esc(str(b))}</b>" + (f" <i>{'yours' if t.own(k) else 'auto'}</i>" if on and k else "")
+        self.auto_eff.setText("<br>".join(f"{a}: <b>{esc(str(b))}</b>" + (f" <i>{'your value' if t.own(k) else 'automatic'}</i>" if on and k else "")
                                           for a, b, k in eff))
         mine = sorted(ta["manual"])
         self.auto_manual.setVisible(on and bool(mine))
-        self.auto_manual.setText("Set by you (kept as they are): " + ", ".join(
-            f"{tc.NAMES[k]} <a href='{k}'>↺</a>" for k in mine) + " · <a href='*'>Hand all back</a>")
+        self.auto_manual.setText("Your values (not changed): " + ", ".join(
+            f"{tc.NAMES[k]} <a href='{k}'>↺</a>" for k in mine) + " · <a href='*'>Make all automatic</a>")
         for k, b in self.tags.items():
             yours = t.own(k)
             b.setVisible(on)
             b.setEnabled(yours)
-            b.setText("yours ↺" if yours else "auto")
-            b.setToolTip("You set this. Click to hand it back to the automatic settings." if yours else
-                         "Set by the automatic settings. Change it to use your own value.")
+            b.setText("your value ↺" if yours else "automatic")
+            b.setToolTip("You set this value. Click to make it automatic." if yours else
+                         "The automatic settings set this value. Change it to use your value.")
 
     def update_ui(self):
         t = self.t
@@ -964,7 +966,7 @@ class TraceWindow(QWidget):
         for b in (self.add_btn, self.auto_btn, self.save_meas, self.save_tgt, self.download_btn, self.ocr_btn):
             b.setEnabled(img and (b is not self.ocr_btn or not getattr(self, "reading", False)))
         self.remove_btn.setVisible(img)
-        need = "" if not img else "Type the dB values of the red lines (and check the blue Hz values) to save." \
+        need = "" if not img else "Type the dB values of the red lines (and examine the blue Hz values) to save the curve." \
             if not t.calib() else "Trace a curve to save it." if not anything else None
         if need or not getattr(self, "saved_note", False):  # ("Saved as …" stays until something is needed)
             self.saved_note = False
@@ -1003,14 +1005,14 @@ class TraceWindow(QWidget):
             name = QLineEdit(c["label"])
             name.setAccessibleName(f"Curve {i + 1}'s name")
             name.setMaxLength(12)
-            name.setToolTip("Curve name (the files are named with it, e.g. L and R)")
+            name.setToolTip("Curve name (the app uses it in the file names, for example, L and R)")
             name.installEventFilter(self)
             name.setProperty("curve", i)
             h.addWidget(name, 1)
             n = int(np.isfinite(c["ys"]).sum())
             h.addWidget(_label(f"{n} px" if n else "empty", "muted", wrap=False))
             x = QPushButton("✕")
-            x.setToolTip("Remove this curve (Undo brings it back)")
+            x.setToolTip("Remove this curve (you can undo this)")
             theme.mark(x, quiet=True, trCompact=True)
             x.clicked.connect(lambda _=False, i=i: self.delete_curve(i))
             h.addWidget(x)
@@ -1022,7 +1024,8 @@ class TraceWindow(QWidget):
             name.textEdited.connect(renamed)
             lay.addWidget(row)
         _no_focus(self.curves_box)
-        self.curves_note.setText("Saved together as one device, one file per curve (named with the labels, e.g. L and R)."
+        self.curves_note.setText("The app saves the curves as one device: one file for each curve, with its label in the name "
+                                 "(for example, L and R)."
                                  if sum(map(t.has_data, t.curves)) > 1 else "")
 
     def eventFilter(self, obj, e):
@@ -1066,7 +1069,7 @@ class TraceWindow(QWidget):
     def open_file(self, path):
         img = QImage(path)
         if img.isNull():
-            QMessageBox.warning(self, "Trace", "That isn't a picture this app can read (PNG, JPG, WebP, BMP, GIF, TIFF).")
+            QMessageBox.warning(self, "Trace", "The app cannot read this file as a picture (PNG, JPG, WebP, BMP, GIF, TIFF).")
             return
         name = os.path.splitext(os.path.basename(path))[0]
         self.load_image(img, name, os.path.splitext(path)[1].lower() in (".jpg", ".jpeg", ".jfif"))
@@ -1083,8 +1086,8 @@ class TraceWindow(QWidget):
             self.stage.clear_image()
             self.file_lab.setText("")
             self.changed()
-            QMessageBox.warning(self, "Trace", f"Couldn't read the axes of this picture ({e}). Please send it with "
-                                "data\\app.log, so it can be fixed.")
+            QMessageBox.warning(self, "Trace", f"The app cannot read the axes of this picture ({e}). Send the picture "
+                                "and data\\app.log. Then we can correct the problem.")
             return
         h, w = rgb.shape[:2]
         self.file_lab.setText(f"{name} · {w}×{h}" if name != "Traced graph" else f"{w}×{h}")
@@ -1101,7 +1104,7 @@ class TraceWindow(QWidget):
         if not t.has_image:
             return
         if any(map(t.has_data, t.curves)) and QMessageBox.question(  # (No the default: the curves can't be had back)
-                self, "Remove image", "Remove this picture and the curves traced on it?",
+                self, "Remove image", "Remove this picture and the curves that you traced on it?",
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
             return
         t.unload()
@@ -1117,7 +1120,7 @@ class TraceWindow(QWidget):
         self.save_note.setText("")
         self.show_values()
         self.changed()
-        self.status.setText("Picture removed: open, drop or paste another one.")
+        self.status.setText("The app removed the picture. Open, drag or paste a different picture.")
 
     def dragEnterEvent(self, e):
         if e.mimeData().hasUrls() or e.mimeData().hasImage():
@@ -1135,7 +1138,7 @@ class TraceWindow(QWidget):
     def paste(self):
         img = QApplication.clipboard().image()
         if img.isNull():
-            self.say("No picture on the clipboard: copy a graph's picture first.")
+            self.say("There is no picture on the clipboard. First, copy a picture of a graph.")
             return
         self.load_image(img)
 
@@ -1153,7 +1156,7 @@ class TraceWindow(QWidget):
             except ValueError:
                 bad = ("bad", "Enter a number")
             theme.mark(b, bad=bool(bad))
-            b.setToolTip(bad[1] if bad else help_of(f"#tr-{key if key[0] in 'df' else 'fmin'}") + f"\nAllowed: {self.limits.text(lim)}.")
+            b.setToolTip(bad[1] if bad else help_of(f"#tr-{key if key[0] in 'df' else 'fmin'}") + f"\nPermitted: {self.limits.text(lim)}.")
             if bad:
                 return
             t.v[key] = text
@@ -1177,7 +1180,7 @@ class TraceWindow(QWidget):
         if y != x:
             b.setText(f"{y:g}")
             self.value_typed(key, lim)
-            self.say(f"Changed to {y:g}: allowed {self.limits.text(lim)}.")
+            self.say(f"The app changed the value to {y:g} (permitted: {self.limits.text(lim)}).")
 
     def lines_moved(self):
         self.show_values()
@@ -1196,7 +1199,7 @@ class TraceWindow(QWidget):
         except Exception as e:  # noqa: BLE001 - (as on loading)
             import traceback
             traceback.print_exc()
-            QMessageBox.warning(self, "Trace", f"Couldn't find the axes again ({e}).")
+            QMessageBox.warning(self, "Trace", f"The app cannot find the axes again ({e}).")
             return
         t.typed = {"d": False, "f": False}
         self.fit_and_show()
@@ -1213,7 +1216,7 @@ class TraceWindow(QWidget):
             return
         from ui import ocr
         before = getattr(t, "detect_note", t.axis_note)  # (not the last reading's note: it added up)
-        self.axis_note.setText(before + " Reading the axis labels…")
+        self.axis_note.setText(before + " The app reads the axis labels…")
         t.moved = {"d": False, "f": False}
         t.label_token += 1
         self.reading = True
@@ -1224,7 +1227,7 @@ class TraceWindow(QWidget):
                 return
             self.reading = False
             if err is not None:
-                t.axis_note = before + f" (Couldn't read the labels: {err}. Type the values instead.)"
+                t.axis_note = before + f" (The app cannot read the labels: {err}. Type the values.)"
             else:
                 t.use_labels(res, before)
             self.show_values()
@@ -1313,9 +1316,9 @@ class TraceWindow(QWidget):
         """The targets a graph may have been drawn relative to."""
         was = self.comp.currentData()
         self.comp.clear()
-        self.comp.addItem("The actual response (not compensated)", "")  # (sentence case, as every choice: 15)
+        self.comp.addItem("Frequency response (not compensated)", "")  # (sentence case, as every choice: 15)
         for n in (getattr(self.page, "inputs", None) or {}).get("targets", []):
-            self.comp.addItem(f"Relative to {os.path.splitext(n)[0]}", n)
+            self.comp.addItem(f"Difference from {os.path.splitext(n)[0]}", n)
         self.comp.sort_items(pinned=1)  # ("the actual response" on top)
         self.comp.setCurrentIndex(max(0, self.comp.findData(was)))
 
@@ -1335,7 +1338,7 @@ class TraceWindow(QWidget):
             f.append(f[-1] * 2 ** (1 / 48))  # (squiglink's grid)
         lf, vals = np.log(f), np.asarray(r["vals"], float)
         return (lambda x: float(np.interp(math.log(x), lf, vals))), \
-            f" (graph relative to {os.path.splitext(name)[0]}, added back)"
+            f" (the graph showed the difference from {os.path.splitext(name)[0]}: the app added this target)"
 
     def outputs(self, only_current=False):
         comp, note = self.compensation()
@@ -1368,8 +1371,9 @@ class TraceWindow(QWidget):
         what = "the target" if kind == "target" else f"{len(names)} files of one measurement" if len(names) > 1 else "the measurement"
         shown = "”, “".join(os.path.splitext(n)[0] for n in names)
         self.saved_note = True
-        self.save_note.setText(f"Saved as {what} “{shown}”. Close this window to see it on the graph, or trace more."
-                               + (" (A target is one curve, so only the selected one was saved.)"
+        self.save_note.setText(f"The app saved {what} “{shown}”. To see it on the graph, close this window. "
+                               "You can also trace more curves."
+                               + (" (The app saved only the selected curve, because a target is one curve.)"
                                   if kind == "target" and sum(map(self.t.has_data, self.t.curves)) > 1 else ""))
         gaps = self.t.gaps_text(outs)
         if gaps:
@@ -1391,7 +1395,7 @@ class TraceWindow(QWidget):
             folder = QFileDialog.getExistingDirectory(self, "A folder for the traced curves", start)
             paths = [os.path.join(folder, o["file"]) for o in outs] if folder else []
             there = [os.path.basename(p) for p in paths if os.path.exists(p)]
-            if there and QMessageBox.question(self, "Save .txt", "Already in that folder:\n\n" + "\n".join(there)
+            if there and QMessageBox.question(self, "Save .txt", "These files are in that folder:\n\n" + "\n".join(there)
                                               + "\n\nReplace them?", QMessageBox.Yes | QMessageBox.No,
                                               QMessageBox.No) != QMessageBox.Yes:
                 return
@@ -1399,10 +1403,10 @@ class TraceWindow(QWidget):
             try:
                 textfile.write_atomic(path, o["text"])
             except OSError as e:  # (a folder you can't write to, a file another program holds: said, not silent)
-                QMessageBox.warning(self, "Trace", f"Couldn't save {os.path.basename(path)}: {e}")
+                QMessageBox.warning(self, "Trace", f"The app cannot save {os.path.basename(path)}: {e}")
                 return
         if paths:  # (said here, under the buttons, as Add as measurement's: never in the window behind, UI-RULES 7)
-            self.save_note.setText(f"Saved {', '.join(os.path.basename(p) for p in paths)}.")
+            self.save_note.setText(f"The app saved {', '.join(os.path.basename(p) for p in paths)}.")
             self.saved_note = True  # (kept until something changes, as "Saved as …": the next redraw wiped it at once)
             gaps = self.t.gaps_text(outs)
             if gaps:

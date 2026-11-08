@@ -122,10 +122,10 @@ class App:
     def eq_text(self, rec):
         c = self.sw.compare
         if c and self.sw.record(c["key"]) is rec:
-            return "EQ off for now, to compare" + (" (level-matched)" if c["matched"] else "")
+            return "EQ off, to compare" + (" (same level)" if c["matched"] else "")
         t = self.sw.trial
         if t and self.sw.record(t["key"]) is rec:
-            return f"Trying: {t['name']}"
+            return f"For 5 minutes: {t['name']}"
         name = self.sw.profile_name(rec["active"])
         return f"EQ: {name}" if name else "EQ off"
 
@@ -137,13 +137,13 @@ class App:
         try:
             self.sw.end_trial(keep)
         except (OSError, ValueError) as e:
-            QMessageBox.warning(self.win, "Try on device", f"Couldn't keep it: {e}")
+            QMessageBox.warning(self.win, "Use for 5 minutes", f"AutoEQ Studio did not keep it: {e}")
             self.sw.end_trial(False)
             return
         rec = self.sw.record(t["key"])
         if rec:
-            self.tray_message(shown(rec), f"Kept “{t['name']}” as its EQ." if keep else
-                              f"The trial of “{t['name']}” is over: {self.eq_text(rec)}.")
+            self.tray_message(shown(rec), f"AutoEQ Studio kept “{t['name']}” as its EQ." if keep else
+                              f"EQ for 5 minutes: “{t['name']}” stopped. {self.eq_text(rec)}.")
 
     def show_state(self):
         """The tray icon and its tooltip: the device playing and its EQ (blue: an EQ on; grey: off)."""
@@ -152,7 +152,7 @@ class App:
         trying = bool(rec and self.sw.trial and self.sw.trial["key"] == key)  # (a trial plays: blue too)
         off = bool(rec and self.sw.compare and self.sw.compare["key"] == key)  # (off for now: grey)
         self.tray.setIcon(icons.app_icon(on=(bool(name) or trying) and not off))
-        self.tray.setToolTip("AutoEQ Studio\n" + (f"{shown(rec)}: {self.eq_text(rec)}" if rec else "No device playing"))
+        self.tray.setToolTip("AutoEQ Studio\n" + (f"{shown(rec)}: {self.eq_text(rec)}" if rec else "No active device"))
 
     def tray_message(self, title, text):
         self.tray.showMessage(title, text, icons.app_icon(), 4000)
@@ -168,10 +168,10 @@ class App:
         t = self.sw.trial
         if t:
             left = max(0, int(t["until"] - time.time()))
-            m.addAction(f"Trying “{t['name']}” on {shown(self.sw.record(t['key']))} ({left // 60}:{left % 60:02d} left)"
-                        ).setEnabled(False)
+            m.addAction(f"For 5 minutes: “{t['name']}” on {shown(self.sw.record(t['key']))} "
+                        f"({left // 60}:{left % 60:02d} until the end)").setEnabled(False)
             m.addAction("Keep it", lambda: self.end_trial(True))
-            m.addAction("Stop now", lambda: self.end_trial(False))  # (the trial bar's words: one act, UI-RULES 16)
+            m.addAction("Do not keep it", lambda: self.end_trial(False))  # (the trial bar's words: one act, UI-RULES 16)
             m.addSeparator()
         key, rec = self.sw.playing()
         if rec:
@@ -190,15 +190,15 @@ class App:
             comparing = bool(self.sw.compare and self.sw.compare["key"] == key)
             if comparing or self.sw.eq_file(key):  # (the on/off hotkey's, from the menu too)
                 hk = self.sw.s.get("onoff_hotkey")
-                a = QAction("EQ off for now, to compare" + (f"\t{hk}" if hk else ""), m)
+                a = QAction("EQ off, to compare" + (f"\t{hk}" if hk else ""), m)
                 a.setCheckable(True)
                 a.setChecked(comparing)
                 a.triggered.connect(lambda _=False: self.on_onoff())
                 m.addAction(a)
         else:
-            m.addAction("No device playing").setEnabled(False)
+            m.addAction("No active device").setEnabled(False)
         m.addSeparator()
-        m.addAction("Quit", self.quit)
+        m.addAction("Stop AutoEQ Studio", self.quit)
 
     def switch(self, key, pid):
         if self.sw.set_active(key, pid) and self.sw.s["notify"]:
@@ -210,7 +210,7 @@ class App:
         if not rec:
             return
         if not rec["profiles"]:
-            self.tray_message(shown(rec), "No profiles for this device yet: add one in AutoEQ Studio.")
+            self.tray_message(shown(rec), "This device has no profiles. Add a profile in AutoEQ Studio.")
             return
         self.sw.cycle(key)
         if self.sw.s["notify"]:
@@ -225,24 +225,25 @@ class App:
         try:
             got = self.sw.compare_toggle(key)
         except OSError as e:
-            self.tray_message(shown(rec), f"Couldn't switch its EQ: {e}")
+            self.tray_message(shown(rec), f"The EQ did not change: {e}")
             return
         if got is None:
-            self.tray_message(shown(rec), "No EQ to switch off or on for this device yet: add a profile in AutoEQ Studio.")
+            self.tray_message(shown(rec), "This device has no EQ to disable and enable. Add a profile in AutoEQ Studio.")
         elif self.sw.s["notify"]:
             self.tray_message(shown(rec), self.compare_text(got))
 
     def compare_text(self, got):
         """The on/off hotkey's notice."""
         if got[0] == "on":
-            return f"EQ back on: {got[1]}" if got[1] else "EQ back on"
+            return f"EQ on again: {got[1]}" if got[1] else "EQ on again"
         c, hk = got[1], self.sw.s.get("onoff_hotkey") or "the on/off hotkey"
         if not c["matched"]:
-            return f"EQ off for now. {hk} switches it back on."
-        how = f"turned down {abs(c['db']):.1f} dB to the EQ's loudness" if c["db"] else "as loud as the EQ"
-        extra = (" The EQ is louder than none: off can't be raised to match without clipping." if c["louder"] else "") \
-            + (" (About: parts of this EQ can't be measured.)" if not c["complete"] else "")
-        return f"EQ off for now, level-matched ({how}). {hk} switches it back on.{extra}"
+            return f"EQ off, to compare. {hk} enables it again."
+        how = f"{abs(c['db']):.1f} dB lower, for the same loudness as the EQ" if c["db"] else "the same loudness as the EQ"
+        extra = (" The EQ has more loudness than no EQ: “off” cannot have the same level without clipping."
+                 if c["louder"] else "") \
+            + (" (Approximate: AutoEQ Studio cannot measure some parts of this EQ.)" if not c["complete"] else "")
+        return f"EQ off, to compare, same level ({how}). {hk} enables it again.{extra}"
 
     def set_hotkey(self, text, save=True):
         self._set_key("hotkey", self.hotkey, text, save)
@@ -254,9 +255,10 @@ class App:
         """A hotkey registered with Windows (the setting "hotkey" or "onoff_hotkey"), its problem said in Settings."""
         ok = hotkey.set(text)
         problem = "" if ok else (
-            f"{text} can't be a hotkey on its own: add Ctrl, Alt or Win (it would stop that key working everywhere)."
+            f"Add Ctrl, Alt or Win to {text}. If {text} is a hotkey without them, it does not operate in other apps."
             if not winsys.to_windows(text) and winsys.to_windows("Ctrl+" + text) else
-            f"Windows didn't take {text} as a hotkey: another program (or the other hotkey) may use it. Try another.")
+            f"Windows did not accept {text} as a hotkey. It is possible that a different program (or the other hotkey) "
+            "uses it. Use a different hotkey.")
         setattr(self, "hotkey_problem" if setting == "hotkey" else "onoff_problem", problem)
         if save:
             self.sw.set(setting, text if ok else self.sw.s.get(setting, ""))
@@ -273,15 +275,15 @@ class App:
         try:
             winsys.set_autostart(on)
         except OSError as e:
-            QMessageBox.warning(self.win, "Start with Windows", f"Couldn't change it: {e}")
+            QMessageBox.warning(self.win, "Start with Windows", f"The setting did not change: {e}")
         self.sw.set("autostart", winsys.autostart_on())
 
     def set_offline(self, on):
         """Online / Offline (the top bar, Settings): saved, and the whole app follows (net.py)."""
         net.set_offline(on)
         self.sw.set("offline", bool(on))
-        self.win.status("Offline: AutoEQ Studio won't connect to the internet." if on else
-                        "Online: AutoEQ Studio may use the internet (the online databases).", 5000)
+        self.win.status("Offline: AutoEQ Studio does not connect to the internet." if on else
+                        "Online: AutoEQ Studio can use the internet (the online databases).", 5000)
 
     def restart(self):
         """Quit and start again (after a restore: everything loaded changed). The new copy waits for this one."""

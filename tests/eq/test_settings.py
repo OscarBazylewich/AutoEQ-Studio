@@ -120,7 +120,7 @@ def test_locked_file_said_and_kept(tmp_path, monkeypatch, check):
             msg = str(err)
     # was eq_checks.py:761
     check("settings: a locked settings.json says so and stays (not moved to .bad for the defaults)",
-          "another program has it open" in msg and os.path.exists(sp) and not os.path.exists(sp + ".bad")
+          "a different program has it open" in msg and os.path.exists(sp) and not os.path.exists(sp + ".bad")
           and settings.load(sp)["scoring"]["ear_db"] == 0.3, msg)
 
 

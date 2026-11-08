@@ -51,12 +51,12 @@ def test_said_plainly(bench, check):
     # was selftest.py:657
     check("check: said plainly: the EQ applies (and what config.txt adds on top), off, config.txt without AutoEQ "
           "Studio's line, no section for the device, the EQ's file missing, APO not on the device",
-          applies[0] and "“My IEM” applies" in applies[1] and "Loudness.txt" in applies[1]
+          applies[0] and "APO uses “My IEM”" in applies[1] and "Loudness.txt" in applies[1]
           and off[0] and "off for this device" in off[1]
-          and not not_ours[0] and "doesn't read AutoEQ Studio's file" in not_ours[1]
+          and not not_ours[0] and "does not read AutoEQ Studio's file" in not_ours[1]
           and not no_section[0] and "no section" in no_section[1]
           and not missing[0] and "missing" in missing[1]
-          and not no_apo[0] and "isn't installed" in no_apo[1], (applies, off, not_ours, no_section, missing, no_apo))
+          and not no_apo[0] and "is not installed" in no_apo[1], (applies, off, not_ours, no_section, missing, no_apo))
 
 
 def _never_run(*args, **kwargs):
@@ -74,4 +74,4 @@ def test_without_benchmark_tool(bench, monkeypatch, check):
     except OSError as e:
         raised = str(e)
     # was selftest.py:670
-    check("check: without APO's Benchmark tool, said (nothing run)", "Benchmark tool isn't there" in raised, raised)
+    check("check: without APO's Benchmark tool, said (nothing run)", "Benchmark tool is not there" in raised, raised)

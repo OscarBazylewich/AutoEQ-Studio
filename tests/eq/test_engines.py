@@ -148,7 +148,7 @@ def test_progress_counts_the_fits(sample_curves, check):
         "filter_counts": [2, 3], "gain_max": [6], "q_max": [2], "random_starts": 1, "seed_with_site": False,
         "start_filters": "1000 2 1", "start_keep": False, "fight_penalty": [0.01]}})
     rs = pipeline.run_mode("best_fit", cm, curves, mt, tt, progress=lambda d, t, m="": said.append((t, m)))["results"]
-    totals = {t for t, m in said if m.startswith(("Fits", "Starting"))}
+    totals = {t for t, m in said if m.startswith("Calculated EQs") or m.endswith("EQs to calculate")}
     # was eq_checks.py:262
     check("progress: the number of fits said is the number made", totals == {len(rs)} and len(rs) == 3, (totals, len(rs)))
 
@@ -308,7 +308,7 @@ def test_absurd_db_values_said(sample_curves, eq_cfg, check):
     tt = sample_curves[2]
     huge = "".join(f"{20 * 1.1 ** i:.2f}\t{900000 if i == 40 else 80}\n" for i in range(80))
     # was eq_checks.py:483
-    check("curves: absurd dB values give a clear message", "values the app can't use" in (raises(engines.load_curves, eq_cfg, [huge], tt) or ""))
+    check("curves: absurd dB values give a clear message", "values that the app cannot use" in (raises(engines.load_curves, eq_cfg, [huge], tt) or ""))
 
 
 def test_previews_one_v8_per_thread(sample_curves, eq_cfg, monkeypatch, check):
