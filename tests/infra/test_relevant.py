@@ -516,8 +516,9 @@ def test_this_project_expected_choices(check):
           (len(apo), sorted(apo & set(eq_maths)), sorted({*uses_apo, "tests/ui/test_window.py", *screen} - apo)))
     devices, every = picks("app/ui/devices_screen.py")
     check("relevant tests: on this project, a change to ui\\devices_screen.py chooses tests\\ui\\test_devices_screen.py "
-          "and fewer than 20 files (a small set: the window's tests, not everything)",
-          not every and "tests/ui/test_devices_screen.py" in devices and len(devices) < 20, sorted(devices))
+          "and fewer than 25 files (a small set: the window's tests, not everything; 20 since the title bar's own "
+          "tests, 2026-11-09)",
+          not every and "tests/ui/test_devices_screen.py" in devices and len(devices) < 25, sorted(devices))
     words, every = picks("app/ui/help_text_eq.py")
     readers = {"tests/ui/test_help.py", "tests/ui/test_forms.py", "tests/ui/test_devices_screen.py",
                "tests/listen/test_listen_card.py", "tests/tracer/test_trace_window.py", "tests/tools/test_files.py",

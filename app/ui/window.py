@@ -41,7 +41,7 @@ from PySide6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel, QMainW
 import net
 import paths
 from switcher.core import shown
-from ui import icons, preload, theme, winsys
+from ui import icons, preload, theme, titlebar, winsys
 from ui.devices_screen import DevicesScreen, check_line  # noqa: F401 - (check_line: still taken from here)
 from ui.profiles_screen import ProfilesScreen
 from ui.settings_screen import SettingsScreen
@@ -102,11 +102,13 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self._mica_hwnd = None
         if self._mica:
             self.setAttribute(Qt.WA_TranslucentBackground)
-        # the top bar is the title bar (ui\titlebar.py): frameless for Qt, Windows' frame styles put back when the
-        # window first shows (its shadow, Snap and Mica stay); off the screen (the tests, the pictures) no native part
+        # the top bar is the title bar (ui\titlebar.py): see-through (Mica), a resize frame and no title bar (never
+        # frameless: Qt makes that layered, and clicks on its transparent pixels went to the window below); else
+        # frameless with Windows' frame styles put back; off the screen (the tests, the pictures) no native part
         self._native = None
-        if QGuiApplication.platformName() == "windows":
-            self.setWindowFlag(Qt.FramelessWindowHint, True)
+        self._title_mode = titlebar.title_mode(QGuiApplication.platformName(), self._mica)
+        if self._title_mode:
+            self.setWindowFlags(titlebar.flags_for(self._title_mode))
 
         central = QWidget()
         lay = QVBoxLayout(central)
@@ -212,7 +214,6 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         """The top bar, in the title bar (ui\\titlebar.py): the name, the screens, Make an EQ's Presets and Guide
         (between two lines), Help, Online, then Minimize, Maximize and Close. When it has less room than the names
         need, the screens, Presets and Guide show only their symbols."""
-        from ui import titlebar
         bar = self.topbar = titlebar.TopBar()
         theme.mark(bar, topbar=True)
         outer = QHBoxLayout(bar)
@@ -552,7 +553,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         """The title bar's native part (ui\\titlebar.py): Windows asks where its frame and its title bar are."""
         n = self._native
         if n is not None:
-            done, result = n.event(message)
+            done, result = n.handle(message)
             if done:
                 return True, result
         return super().nativeEvent(kind, message)
@@ -560,17 +561,16 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
     def changeEvent(self, e):
         super().changeEvent(e)
         if e.type() == QEvent.WindowStateChange:  # (Maximize becomes Restore)
-            from ui import titlebar
             titlebar.follow_state(self)
 
     def showEvent(self, e):
         self.render_all()  # (devices plugged in, EQs switched from the tray while it was hidden)
         super().showEvent(e)
-        if self.windowFlags() & Qt.FramelessWindowHint and self._native is None:
-            from ui import titlebar
-            self._native = titlebar.install(self, self.topbar)
+        if self._title_mode and self._native is None:
+            self._native = titlebar.install(self, self.topbar, framed=self._title_mode == "frame")
             if self._native is None:  # (Windows refused: its own title bar, and no buttons of ours)
-                self.setWindowFlag(Qt.FramelessWindowHint, False)
+                self._title_mode = None
+                self.setWindowFlags(titlebar.flags_for(None))
                 for b in self.caption.values():
                     b.hide()
                 self.show()
