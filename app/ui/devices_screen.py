@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QGroupBox, QH
                                QWidget)
 
 from switcher.core import shown
-from ui import icons, theme, theme_tokens
+from ui import bubble, icons, theme, theme_tokens
 from ui.window_parts import muted, profile_line, warning_card
 
 
@@ -412,7 +412,7 @@ class DevicesScreen:
         """Check again: APO asked now, and all it found said (switcher\\check.py)."""
         rec = self.sw.record(key)
         if self._check_job(key) is None:
-            QMessageBox.information(self, "Examine", "This device is not in the Windows list: connect it first.")
+            bubble.tell(None, "This device is not in the Windows list: connect it first.", near=self)
             return
         self.status("Wait for Equalizer APO…", 4000)
 

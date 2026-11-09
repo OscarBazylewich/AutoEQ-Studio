@@ -79,7 +79,7 @@ def test_devices_while_off_for_now(on_device, qapp, check):
     win.render_all()
     qapp.processEvents()  # (the panel made again: shown once Qt has laid it out)
     # (2026-10-27, UI-RULES 23: a bar at the window's top, as a trial's, says it; a card inside Devices' EQ card did)
-    words = win.compare_text.text() if win.compare_holder.isVisibleTo(win) else ""
+    words = f"{win.compare_title.text()}: {win.compare_text.text()}" if win.compare_holder.isVisibleTo(win) else ""
     back = next((b for b in win.compare_bar.findChildren(QPushButton) if b.text() == "Enable it again"), None)
     card_gone = not any(lab.text().startswith("Its EQ is off for now") for lab in
                         win.pages["devices"].findChildren(QLabel) if lab.isVisibleTo(win))  # (the old card's words)
@@ -89,7 +89,7 @@ def test_devices_while_off_for_now(on_device, qapp, check):
     win.render_all()
     check("onoff: a bar at the window's top says a device's EQ is off for now (how, the key, Switch it back on), as a "
           "trial's does, and Devices its line, with no APO check meanwhile; Switch it back on ends it",
-          "is off, to compare" in words and "Ctrl+Alt+Space" in words and back is not None and line == "EQ off, to compare"
+          words.startswith("EQ off, to compare") and "Ctrl+Alt+Space" in words and back is not None and line == "EQ off, to compare"
           and no_check and card_gone and w.sw.compare is None and not win.compare_holder.isVisibleTo(win),
           (line, words[:300], no_check, card_gone))
 

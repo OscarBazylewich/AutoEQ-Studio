@@ -58,6 +58,7 @@ sw = core.Switcher(os.path.join(top, "s.json"), Apo(conf), endpoints=lambda: eps
 from ui.window import Window
 sw.s["page"] = page
 win = Window(sw, Stub())
+win.resize(1040, 760)  # (its size on a PC: the off-screen screen is 800 px wide, with only the screens' symbols)
 if page == "devices":
     win.show()
     end = time.monotonic() + 1.5
@@ -117,16 +118,28 @@ print(json.dumps(out))
 '''
 
 # (after tests\ui\conftest.py's THEMED_WINDOW: a message in the line at the bottom, read back from its picture)
-STATUS = r'''
-win.status("Saved.", 0)
+MESSAGES = r'''
+from PySide6.QtCore import QPoint
+from PySide6.QtWidgets import QStatusBar
+from ui import winsys
+winsys.idle_ms = lambda: 0  # (you used the window just now)
+b = win.nav["settings"]
+b.setFocus()
 for _ in range(5):
     qapp.processEvents()
-bar = win.statusBar()
-img = bar.grab().toImage()
-first = next((x for x in range(img.width()) if any(max(img.pixelColor(x, y).getRgb()[:3]) > 0x70
-                                                    for y in range(img.height()))), None)
-print(json.dumps({"first": first, "grip": bar.isSizeGripEnabled(),
-                  "screens": win.pages["devices"].layout().contentsMargins().left()}))
+win.status("Saved.")
+for _ in range(5):
+    qapp.processEvents()
+bub = win.message.bubble
+g, at = bub.geometry(), b.mapTo(win, QPoint(0, 0))
+near = {"visible": bub.isVisible(), "text": win.message.text.text(), "under": g.top() - (at.y() + b.height()),
+        "x": abs(g.center().x() - (at.x() + b.width() // 2)) <= g.width() // 2}
+win.pages["devices"].setFocus()  # (no control has the focus: the bottom of the window)
+win.status("Done.")
+for _ in range(5):
+    qapp.processEvents()
+print(json.dumps({"bars": len(win.findChildren(QStatusBar)), "near": near,
+                  "from_bottom": win.height() - bub.geometry().bottom(), "text2": win.message.text.text()}))
 '''
 
 
@@ -184,12 +197,15 @@ def test_message_boxes_as_windows_11(check):
               for b in boxes), d or out.stderr[-300:])
 
 
-def test_the_status_line_lined_up(themed_window, check, fake_apo, tmp_path):
-    out = subproc.run_python(themed_window + STATUS, session.SESSION.app, str(tmp_path))
+def test_messages_in_a_bubble(themed_window, check, fake_apo, tmp_path):
+    out = subproc.run_python(themed_window + MESSAGES, session.SESSION.app, str(tmp_path))
     d = out.data or {}
-    check("window: the line at the bottom starts where the screens do (its words lined up with theirs), with no size "
-          "grip (Windows 11's)", d.get("first") is not None and abs(d["first"] - d.get("screens", 0)) <= 3
-          and d.get("grip") is False, d or out.stderr[-300:])
+    n = d.get("near") or {}
+    # (the UI audit, 2026-11-08: the line at the bottom was far from the button, and kept an empty band there)
+    check("window: a message shows in a bubble under the control that you used last, and at the bottom of the window "
+          "when no control has the focus; the window has no line at its bottom",
+          d.get("bars") == 0 and n.get("visible") and n.get("text") == "Saved." and 0 <= n.get("under", -1) <= 12
+          and n.get("x") and d.get("text2") == "Done." and 0 < d.get("from_bottom", 0) <= 40, d or out.stderr[-300:])
 
 
 def test_the_banner_and_the_trial_bar_as_windows_11(devices_window, check):
@@ -214,8 +230,10 @@ def test_online_offline(devices_window, online, check):
     off = (net.offline(), win.online_btn.text(), win.chk_offline.isChecked())
     win.online_btn.click()
     # was selftest.py:371
+    # (the UI audit, 2026-11-08: the mark is a small picture, not "○" or "●": "○ Offline" read as "O Offline")
     check("window: Online / Offline at the top switches the whole app, and Settings shows it",
-          off == (True, "○ Offline", True) and not net.offline() and win.online_btn.text() == "● Online", off)
+          off == (True, "Offline", True) and not net.offline() and win.online_btn.text() == "Online"
+          and not win.online_btn.icon().isNull(), off)
 
 
 def test_a_tab_click_draws_no_screen_again(devices_window, check, monkeypatch):
@@ -391,3 +409,39 @@ def test_fits_a_small_screen(qapp, stub_app, tmp_path, monkeypatch, check):
     check("window: opens within a laptop's screen at 150 % and 175 % (above the taskbar, its smallest size too), its "
           "parts not squeezed; on a big screen as before (1040 x 760)",
           all(seen[s]["fits"] for s in qt.SMALL_SCREENS) and big["fits"] and big["opens"] == (1040, 760), seen)
+
+
+def test_the_top_bar_in_the_title_bar_and_narrow(devices_window, check):
+    from helpers import qt
+    win = devices_window.win
+    win.show()  # (an earlier test closed it to the tray: a hidden window has no resize events)
+    caption = [(b.accessibleName(), b.isVisibleTo(win)) for b in (win.caption["min"], win.caption["max"],
+                                                                   win.caption["close"])]
+    win.show_page("eq", remember=False)
+    qt.pump(10)
+    lines = [f.isVisibleTo(win) for f in win.cmd_lines]
+    win.resize(1300, 700)
+    qt.pump(10)
+    wide = [b.text() for b in win.nav.values()] + [win.presets_btn.text(), win.guide_btn.text()]
+    for _ in range(2):  # (as a drag: the window narrower again once the names have gone)
+        win.resize(500, 700)
+        qt.pump(20)
+    narrow = ([b.text() for b in win.nav.values()] + [win.presets_btn.text(), win.guide_btn.text()],
+              [b.toolTip() for b in win.nav.values()], [b.accessibleName() for b in win.nav.values()], win.width())
+    win.show_page("devices", remember=False)
+    qt.pump(10)
+    gone = [f.isVisibleTo(win) for f in win.cmd_lines]
+    win.resize(500, 700)
+    qt.pump(20)
+    small = win.width()
+    win.resize(1040, 760)
+    qt.pump(10)
+    names = ["Make an EQ", "Devices", "Profiles", "Settings"]
+    # (the UI audit, 2026-11-08: one row has the name, the screens, Help, Online and the window's 3 buttons; lines
+    # make 3 groups; below about 1,000 px the screens, Presets and Guide show only their symbols)
+    check("window: the top bar has Minimize, Maximize and Close at its end, lines around Presets and Guide on Make an "
+          "EQ only; on a narrow window the screens, Presets and Guide show only their symbols (their names in the "
+          "tooltips and for a screen reader), and the window can be narrower than 700 px",
+          caption == [("Minimize", True), ("Maximize", True), ("Close", True)] and lines == [True, True]
+          and gone == [False, False] and wide == names + ["Presets", "Guide"] and narrow[0] == [""] * 6
+          and narrow[1] == names and narrow[2] == names and small < 700, (caption, lines, gone, wide, narrow, small))

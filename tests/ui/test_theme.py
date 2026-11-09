@@ -340,7 +340,7 @@ for dark in (True, False):
     ink = ink_box(img, at.x(), at.y(), at.x() + words.width(), at.y() + words.height(), bg)
     f = QFont(box.font())
     sizes = {}
-    for pt in (10.5, 11):
+    for pt in (10.5, 12):
         f.setPointSizeF(pt)
         sizes[str(pt)] = QFontMetrics(f).horizontalAdvance("Make the EQ")
     out["dark" if dark else "light"] = {
@@ -360,11 +360,11 @@ def test_cards_titles_and_insets(check, shapes):
     d = out.data or {}
     seen = [d.get(m) or {} for m in ("dark", "light")]
     # (2026-10-23: Qt ignores a size on QGroupBox::title, which takes the box's own font: Make the EQ's title was
-    # drawn at 10.5 pt beside Settings' 11 pt)
-    check("cards: a card's title in a fold's title size (11 pt: Qt draws it in the card's own size), what's on the "
-          "card still in 10.5 pt; light and dark",
-          len(seen) == 2 and all(m.get("box_pt") == 11 and m.get("words_pt") == m.get("run_pt") == 10.5
-                                 and abs((m.get("title_width") or 0) - m["widths"]["11"]) <= 2
+    # drawn at 10.5 pt beside Settings' 11 pt; the UI audit, 2026-11-08: one height for each type of title, 16 px)
+    check("cards: a card's title in a fold's title size (12 pt, 16 px: Qt draws it in the card's own size), what's on "
+          "the card still in 10.5 pt; light and dark",
+          len(seen) == 2 and all(m.get("box_pt") == 12 and m.get("words_pt") == m.get("run_pt") == 10.5
+                                 and abs((m.get("title_width") or 0) - m["widths"]["12"]) <= 2
                                  < abs((m.get("title_width") or 0) - m["widths"]["10.5"]) for m in seen),
           d or out.stderr[-300:])
     inset = d.get("card", 0) + 1  # (inside its 1 px border)

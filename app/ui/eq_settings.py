@@ -351,7 +351,7 @@ class EqSettings:
         parts += [f"{name} {n(a[k + '_gain'])} dB" for k, name in (("bass", "bass"), ("halftilt", "half-tilt"),
                                                                   ("ear", "ear gain"), ("treble", "treble"), ("air", "air"))
                   if a.get(k + "_gain")]
-        return "· " + ", ".join(parts) if parts else ""
+        return ", ".join(parts) if parts else ""
 
     def _label_checks(self, form=None):
         """A checkbox's words beside it (the form's rows have them as the label: moved into the box)."""
@@ -576,6 +576,6 @@ class EqSettings:
                  if s.strip() and not s.strip().lower().startswith(("#", ";", "//", "preamp")) and ": off" not in s.lower()])
         self.mine_note.setText(f"{n} filter{'s' if n != 1 else ''} to start from" if n else "")
         hz = lambda v: f"{v / 1000:g} kHz" if v >= 1000 else f"{v:g} Hz"
-        self.fold.summary.setText(f"· {'automatic' if on else 'automatic off: your values'} · error range "
+        self.fold.summary.setText(f"{'automatic' if on else 'automatic off: your values'} · error range "
                                   f"{hz(S['scoring']['band_hz'][0])}–{hz(S['scoring']['band_hz'][1])}")
-        self.adv.summary.setText("· the layout, the limits and the settings to try, the website's values, saved files")
+        self.adv.summary.setText("the layout, the limits and the settings to try, the website's values, saved files")

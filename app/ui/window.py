@@ -17,11 +17,12 @@ Online / Offline (top right, and in Settings): offline, the app never connects t
 Help (top right; F1 anywhere: at the entry of the setting under the pointer or being typed in): ui\\help_window.py.
 Guide (top right, on Make an EQ, beside Presets: both are that screen's): a tour of Make an EQ (ui\\guide.py, shown by
 ui\\tour.py); the tracer has its own.
-A banner over the device screens says when APO isn't installed or isn't using AutoEQ Studio yet. Messages show in
-the line at the bottom. Closing the window leaves the app in the tray; Quit is in the tray icon's menu.
+A banner over the device screens says when APO isn't installed or isn't using AutoEQ Studio yet. Messages show in a
+bubble near the control that you used (ui\\bubble.py). Closing the window leaves the app in the tray; Quit is in the
+tray icon's menu.
 Everything is drawn in the app's theme (ui\\theme.py: Windows 11's look, light or dark as Windows is, in Windows'
 accent colour); what only this window and its screens have is styled in ui\\theme_sheet.py's window_screens(), by the
-objectNames and properties set here (the banner's warning sign, the trial's clock, the status line…). On Windows 11
+objectNames and properties set here (the banner's warning sign, the trial's clock…). On Windows 11
 (22H2 or later) the window's own background is Windows' Mica (ui\\winsys.mica: tinted by your desktop picture, as
 Windows' own apps; the user's choice from real pictures, 2026-10-23): the window is see-through where nothing is
 drawn, and property mica=true tells the stylesheet to leave its background clear; never in a contrast theme.
@@ -45,7 +46,26 @@ from ui.devices_screen import DevicesScreen, check_line  # noqa: F401 - (check_l
 from ui.profiles_screen import ProfilesScreen
 from ui.settings_screen import SettingsScreen
 from ui.setup_dialog import SetUpDialog  # noqa: F401 - (still taken from here, as before the screens had files)
-from ui.window_parts import MessageLine, fit_to_screen, glyph_label, warning_card
+from ui.window_parts import fit_to_screen, glyph_label, warning_card
+
+def online_mark(on):
+    """Online's mark as a small picture (the UI audit, 2026-11-08: "○ Offline" read as "O Offline"): a full circle in
+    the good colour (green) when online, an empty gray one when offline; in the theme's colours of the moment."""
+    from PySide6.QtCore import QRectF
+    from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
+    t = theme.tokens()
+    pm = QPixmap(32, 32)
+    pm.setDevicePixelRatio(2)
+    pm.fill(Qt.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    colour = QColor(t["good"] if on else t["muted"])
+    p.setPen(QPen(colour, 1.6))
+    p.setBrush(colour if on else Qt.NoBrush)
+    p.drawEllipse(QRectF(4, 4, 8, 8))
+    p.end()
+    return QIcon(pm)
+
 
 # (the start of the message that Make an EQ shows when its part cannot open: eq_page.py)
 NOT_OPENED = ("The EQ part cannot", "The EQ part did not")
@@ -80,6 +100,11 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self._mica_hwnd = None
         if self._mica:
             self.setAttribute(Qt.WA_TranslucentBackground)
+        # the top bar is the title bar (ui\titlebar.py): frameless for Qt, Windows' frame styles put back when the
+        # window first shows (its shadow, Snap and Mica stay); off the screen (the tests, the pictures) no native part
+        self._native = None
+        if QGuiApplication.platformName() == "windows":
+            self.setWindowFlag(Qt.FramelessWindowHint, True)
 
         central = QWidget()
         lay = QVBoxLayout(central)
@@ -96,7 +121,9 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         hl.addWidget(self.banner)
         self.banner_holder = holder
         lay.addWidget(holder)
-        # an EQ being tried on a device: how long is left, Keep it, Stop now
+        # an EQ being tried on a device: the time that is left first (large), then a bold title and, below it in
+        # gray, the EQ and the device; Keep it, Do not keep it (the UI audit, 2026-11-08: the time was in the middle of
+        # a long text); what occurs after the 5 minutes is in the bar's tooltip
         self.trial_bar = QFrame()
         theme.mark(self.trial_bar, card=True)
         tl = QHBoxLayout(self.trial_bar)
@@ -104,8 +131,10 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         tl.setSpacing(12)
         clock = glyph_label("clock", said="EQ for 5 minutes")  # (Windows 11's clock, in the accent's text colour)
         clock.setObjectName("trialGlyph")
-        self.trial_text = QLabel()
-        self.trial_text.setWordWrap(True)
+        self.trial_time = QLabel()
+        self.trial_time.setObjectName("trialTime")
+        self.trial_title, self.trial_text = QLabel("EQ for 5 minutes"), QLabel()
+        words = self._bar_words(self.trial_title, self.trial_text)
         keep = QPushButton("Keep it")  # (plain, as every notice's action: UI-RULES 8)
         icons.put(keep, "check")
         keep.setToolTip("Make it the active profile of the device")
@@ -115,7 +144,8 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         stop.setToolTip("Use the usual EQ of the device again")
         stop.clicked.connect(lambda: self.app.end_trial(False))
         tl.addWidget(clock)
-        tl.addWidget(self.trial_text, 1)
+        tl.addWidget(self.trial_time)
+        tl.addWidget(words, 1)
         tl.addWidget(keep)
         tl.addWidget(stop)
         holder = QWidget()
@@ -133,13 +163,13 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         cl.setSpacing(12)
         mark = glyph_label("eq", said="EQ off, to compare")
         mark.setObjectName("trialGlyph")  # (the trial's clock's colour: the accent's text colour)
-        self.compare_text = QLabel()
-        self.compare_text.setWordWrap(True)
+        self.compare_title, self.compare_text = QLabel("EQ off, to compare"), QLabel()
+        words = self._bar_words(self.compare_title, self.compare_text)
         back = QPushButton("Enable it again")
         icons.put(back, "undo")
         back.clicked.connect(lambda: self.sw.compare and self.sw.compare_toggle(self.sw.compare["key"]))
         cl.addWidget(mark)
-        cl.addWidget(self.compare_text, 1)
+        cl.addWidget(words, 1)
         cl.addWidget(back)
         holder = QWidget()
         hl = QVBoxLayout(holder)
@@ -162,14 +192,11 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.stack.setMinimumHeight(360)
         lay.addWidget(self.stack, 1)
         self.setCentralWidget(central)
-        # the line at the bottom for messages: its words lined up with the screens', no size grip (Windows 11's)
-        bar = self.statusBar()
-        bar.setObjectName("windowStatus")
-        bar.setSizeGripEnabled(False)
-        # (what was just done, with Undo beside it when it can be undone: every window's line is this one part)
-        self.message = MessageLine(role=None)
+        # the messages: in a bubble near the control that you used, with Undo in it when it can be undone (the UI
+        # audit, 2026-11-08: the line at the bottom was far from the button, and kept an empty band there)
+        from ui.bubble import Messages
+        self.message = Messages(self)
         self.status_text = self.message.text
-        bar.addWidget(self.message, 1)
 
         sw.listeners.append(self._changed)
         # F1 in any of the app's windows: Help, at the setting under the pointer (or the one being typed in)
@@ -180,10 +207,18 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
 
     # ---------------------------------------------------------------- the top bar and the screens
     def _top_bar(self):
-        bar = QFrame()
+        """The top bar, in the title bar (ui\\titlebar.py): the name, the screens, Make an EQ's Presets and Guide
+        (between two lines), Help, Online, then Minimize, Maximize and Close. When it has less room than the names
+        need, the screens, Presets and Guide show only their symbols."""
+        from ui import titlebar
+        bar = self.topbar = titlebar.TopBar()
         theme.mark(bar, topbar=True)
-        h = QHBoxLayout(bar)
-        h.setContentsMargins(14, 8, 14, 8)
+        outer = QHBoxLayout(bar)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+        inner = QWidget()
+        h = QHBoxLayout(inner)
+        h.setContentsMargins(14, 8, 12, 8)
         brand = QLabel("AutoEQ Studio")
         theme.mark(brand, role="brand")
         h.addWidget(brand)
@@ -200,6 +235,18 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
             h.addWidget(b)
             self.nav[key] = b
         h.addStretch(1)
+
+        def line():  # (a thin vertical line between groups of commands, as Windows 11's command bars have)
+            f = QFrame()
+            theme.mark(f, vline=True)
+            f.setFixedWidth(1)
+            f.setFixedHeight(20)
+            return f
+        # (Presets and Guide are Make an EQ's own: shown on that screen, between two lines; then the app's own, Help
+        # and Online: three groups (the UI audit, 2026-11-08: they looked as two more screens), UI-RULES 28)
+        self.cmd_lines = (line(), line())
+        h.addWidget(self.cmd_lines[0])
+        h.addSpacing(4)
         self.presets_btn = QPushButton("Presets")  # (Make an EQ's settings: shown on that screen)
         theme.mark(self.presets_btn, nav=True)
         icons.put(self.presets_btn, "presets")
@@ -212,15 +259,15 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.presets_menu.aboutToShow.connect(self.fill_presets)
         self.presets_btn.setMenu(self.presets_menu)
         h.addWidget(self.presets_btn)
-        # (Presets and Guide are Make an EQ's own: shown on that screen, then a gap, then the app's own, Help and
-        # Online; Guide showed everywhere and took you to Make an EQ, UI-RULES 28)
         self.guide_btn = QPushButton("Guide")
         theme.mark(self.guide_btn, nav=True)
         icons.put(self.guide_btn, "guide")
         self.guide_btn.setToolTip("The Guide to Make an EQ: each part and its function")
         self.guide_btn.clicked.connect(self.start_guide)
         h.addWidget(self.guide_btn)
-        h.addSpacing(16)
+        h.addSpacing(4)
+        h.addWidget(self.cmd_lines[1])
+        h.addSpacing(4)
         self.help_btn = helpb = QPushButton("Help")  # (its symbol is the question mark it had in its words)
         theme.mark(helpb, nav=True)
         icons.put(helpb, "help")
@@ -231,8 +278,28 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.online_btn.setCheckable(True)
         theme.mark(self.online_btn, online=True)
         self.online_btn.clicked.connect(lambda on: self.app.set_offline(not on))
+        theme.on_change(self.render_online)  # (its mark is a small picture in the theme's colours)
         h.addWidget(self.online_btn)
+        outer.addWidget(inner, 1)
+        outer.addWidget(titlebar.caption_buttons(self))
+        bar.compact([*self.nav.values(), self.presets_btn, self.guide_btn])
         return bar
+
+    @staticmethod
+    def _bar_words(title, text):
+        """A bar's words: its title in bold, and below it its text in gray (Windows 11's InfoBar: a title, then the
+        message)."""
+        w = QWidget()
+        v = QVBoxLayout(w)
+        v.setContentsMargins(0, 6, 0, 6)
+        v.setSpacing(0)
+        theme.mark(title, role="section")
+        title.setWordWrap(True)
+        theme.mark(text, role="muted")
+        text.setWordWrap(True)
+        v.addWidget(title)
+        v.addWidget(text)
+        return w
 
     @staticmethod
     def _padded(widget):
@@ -248,7 +315,10 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         area = QScrollArea()
         area.setWidgetResizable(True)
         area.setFrameShape(QFrame.NoFrame)
-        area.setWidget(self._padded(widget))
+        inner = self._padded(widget)
+        area.setWidget(inner)
+        from ui.window_parts import scroll_bar_in_margin
+        scroll_bar_in_margin(area, inner.layout())
         return area
 
     @staticmethod
@@ -284,8 +354,9 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
             QTimer.singleShot(50, self, self._warm_while_opening)
         self.stack.setCurrentWidget(self.pages[key])
         self.nav[key].setChecked(True)
-        self.presets_btn.setVisible(key == "eq")
-        self.guide_btn.setVisible(key == "eq")
+        for w in (self.presets_btn, self.guide_btn, *self.cmd_lines):
+            w.setVisible(key == "eq")
+        self.topbar.refit()
         self.render_banner()
         if key == "settings":  # (your files' folder: it may have been chosen since, e.g. when Make an EQ opened)
             self.render_files_folder()
@@ -464,13 +535,36 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         return next(k for k, w in self.pages.items() if w is self.stack.currentWidget())
 
     def status(self, text, ms=None, undo=None):
-        """A message in the line at the bottom (window_parts.MessageLine): for ms milliseconds (None: 6 s, or 20 s with
-        Undo; 0: until the next one); undo: what Undo beside it does."""
+        """A message in a bubble near the control that you used (ui\\bubble.Messages): for ms milliseconds (None: 6 s,
+        or 20 s with Undo; 0: until the next one); undo: what Undo in it does."""
         self.message.say(text, ms, undo)
+
+    def nativeEvent(self, kind, message):
+        """The title bar's native part (ui\\titlebar.py): Windows asks where its frame and its title bar are."""
+        n = self._native
+        if n is not None:
+            done, result = n.event(message)
+            if done:
+                return True, result
+        return super().nativeEvent(kind, message)
+
+    def changeEvent(self, e):
+        super().changeEvent(e)
+        if e.type() == QEvent.WindowStateChange:  # (Maximize becomes Restore)
+            from ui import titlebar
+            titlebar.follow_state(self)
 
     def showEvent(self, e):
         self.render_all()  # (devices plugged in, EQs switched from the tray while it was hidden)
         super().showEvent(e)
+        if self.windowFlags() & Qt.FramelessWindowHint and self._native is None:
+            from ui import titlebar
+            self._native = titlebar.install(self, self.topbar)
+            if self._native is None:  # (Windows refused: its own title bar, and no buttons of ours)
+                self.setWindowFlag(Qt.FramelessWindowHint, False)
+                for b in self.caption.values():
+                    b.hide()
+                self.show()
         if self._mica and self._mica_hwnd is None:
             self._mica_hwnd = int(self.winId())
             theme.on_change(self._mica_on)
@@ -497,12 +591,13 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         # (as wide either way: Presets, Guide and Help beside it moved a few px as it was switched; the button's own
         # size for each word, as the text's width alone was a pixel off one way)
         self.online_btn.ensurePolished()
+        self.online_btn.setIcon(online_mark(not off))
         widths = []
-        for words in ("○ Offline", "● Online"):
+        for words in ("Offline", "Online"):
             self.online_btn.setText(words)
             widths.append(self.online_btn.sizeHint().width())
         self.online_btn.setMinimumWidth(max(widths))
-        self.online_btn.setText("● Online" if not off else "○ Offline")
+        self.online_btn.setText("Online" if not off else "Offline")
         self.online_btn.setToolTip("Online: the app can use the internet (the online databases). Click for Offline: "
                                    "no data goes to the internet." if not off else
                                    "Offline: the app does not connect to the internet. It uses only the data on this "
@@ -549,8 +644,10 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
                 self.trial_holder.hide()
             return
         left = max(0, int(t["until"] - time.time()))
-        self.trial_text.setText(f"EQ for 5 minutes: “{t['name']}” on {shown(self.sw.record(t['key']))}, in all apps, "
-                                f"{left // 60}:{left % 60:02d} until the end. Then the device uses its usual EQ again.")
+        self.trial_time.setText(f"{left // 60}:{left % 60:02d}")
+        self.trial_time.setAccessibleName(f"{left // 60}:{left % 60:02d} until the end")
+        self.trial_text.setText(f"“{t['name']}” on {shown(self.sw.record(t['key']))}, in all apps")
+        self.trial_bar.setToolTip("After the 5 minutes, the device uses its usual EQ again, if you do not keep this EQ.")
         self.trial_holder.show()
 
     def render_compare(self):
@@ -563,8 +660,8 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         hk = self.sw.s.get("onoff_hotkey")
         how = (f"same level: {abs(c['db']):.1f} dB lower, for the same loudness as the EQ" if c.get("matched")
                and c.get("db") else "same level" if c.get("matched") else "fully off")
-        self.compare_text.setText(f"The EQ of {shown(self.sw.record(c['key']))} is off, to compare ({how})"
-                                  + (f". {hk} enables it again." if hk else "."))
+        self.compare_text.setText(f"{shown(self.sw.record(c['key']))}: {how}" + (f". {hk} enables it again." if hk
+                                                                                 else "."))
         self.compare_holder.show()
 
     def render_all(self):

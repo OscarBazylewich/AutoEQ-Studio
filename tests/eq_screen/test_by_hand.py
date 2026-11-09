@@ -144,7 +144,7 @@ def test_with_no_measurement(eq_screen, dialogs, check):
         page.draw()
         eq_items, main_items = len(page.eqplot.listDataItems()), len(page.plot.listDataItems())
         report = page.report(open_it=True)
-        box = [t for kind, t in dialogs.asked if kind == "information"]
+        box = [t for kind, t in dialogs.asked if kind == "bubble"]
     finally:
         page.curves = curves
         page.draw()

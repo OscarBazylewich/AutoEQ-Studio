@@ -49,7 +49,9 @@ def test_sources(eq_screen, monkeypatch, check):
     was_off = net.offline()
     net.set_offline(True)
     said = []
-    monkeypatch.setattr(QMessageBox, "information", staticmethod(lambda *a, **k: said.append(a[2])))
+    from ui import bubble
+    told = bubble.tell
+    monkeypatch.setattr(bubble, "tell", lambda anchor, text, *a, **k: (said.append(text), told(anchor, text, *a, **k))[1])
     try:
         src = Sources(page)
         rows, _ = src.rows()

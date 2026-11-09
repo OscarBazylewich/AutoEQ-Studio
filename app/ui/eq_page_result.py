@@ -17,6 +17,7 @@ from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 import textfile
+from ui import bubble
 from ui.eq_page_parts import MODE_SHORT, file_base_name, modal
 
 # By hand's Start from: an EQ's sources in the order every such list has (.claude/notes/UI-RULES.md 16), each with the
@@ -38,11 +39,11 @@ class EqResult:
     def run(self, retry=None):
         """Run with the settings; retry: {"filters", "add"} (Best fit from the filters shown, this run only)."""
         if not self.curves:
-            QMessageBox.information(self, "Calculate", "Add a target and one or more measurements first.")
+            bubble.tell(None, "Add a target and one or more measurements first.", near=self.run_btn)
             return
         if retry is not None and not retry["filters"]:
-            QMessageBox.information(self, "Calculate again", "There are no filters to start from: add a filter, or enable a "
-                                    "filter.")
+            bubble.tell(None, "There are no filters to start from: add a filter, or enable a filter.",
+                        near=self.retry_btn)
             return
         if self.S["auto"]["enabled"]:
             self.refresh_auto()  # (the values for exactly these settings)
@@ -207,16 +208,16 @@ class EqResult:
         """Several EQs in one go (ui/queue_window.py)."""
         from ui.queue_window import QueueWindow
         if not self.groups or not self.inputs.get("targets"):
-            QMessageBox.information(self, "Queue", "Add a target and one or more measurements first.")
+            bubble.tell(None, "Add a target and one or more measurements first.", near=self.queue_btn)
             return
         modal(QueueWindow(self))
 
     def open_compare(self):
         """Two EQs side by side (ui/compare_results.py)."""
         from ui.compare_results import CompareResults, options
-        if len(options(self)) < 2:  # (what's needed first: a box, as Run's, UI-RULES 25)
-            QMessageBox.information(self, "Compare", "There is no other EQ to compare with. Calculate again, or select a "
-                                    "different number of filters or an EQ from History.")
+        if len(options(self)) < 2:  # (what's needed first: a bubble at the button, as Calculate's, UI-RULES 25)
+            bubble.tell(None, "There is no other EQ to compare with. Calculate again, or select a different number of "
+                        "filters or an EQ from History.", near=self.cmp_btn)
             return
         modal(CompareResults(self))
 
@@ -428,13 +429,13 @@ class EqResult:
         if not r:
             return
         if not self.enabled_filters():
-            QMessageBox.information(self, "Save filters", "There are no filters to save: all the filters are off.")
+            bubble.tell(None, "There are no filters to save: all the filters are off.", near=self.save_btn)
             return
         from eq import exports
         files = any(self.S["export"].get(k) for k in exports.FORMATS)
         if not files and not self.S["export"].get("report"):
-            QMessageBox.information(self, "Save filters", "No file type is selected: select your EQ app, or select the "
-                                    "file types in More settings › Saved files.")
+            bubble.tell(None, "No file type is selected: select your EQ app, or select the file types in More settings "
+                        "› Saved files.", near=self.save_btn)
             return
         name = self.name_edit.text().strip() or self.auto_name()
         written, notes, kept = [], "", False
@@ -480,8 +481,8 @@ class EqResult:
         if not r:
             return None
         if not self.curves:  # (an EQ by hand with no measurement chosen: nothing to draw it on)
-            QMessageBox.information(self, "Report", "A report shows the EQ on a measurement and its target: select "
-                                    "them first (Target and Measurement, above).")
+            bubble.tell(None, "A report shows the EQ on a measurement and its target: select them first (Target and "
+                        "Measurement, above).", near=self.report_btn)
             return None
         title = MODE_SHORT.get(run["mode"], "EQ") + (" (edited)" if self.edited() else "")
         fields = [["Filter rows", r.get("rows")], ["Frequency range", f"{r.get('freq_low')} to {r.get('freq_high')}"],
@@ -580,8 +581,8 @@ class EqResult:
             self.start_manual([], "from an empty EQ")
         elif key == "copy":
             if not self.current()[1]:
-                QMessageBox.information(self, "Start", "There is no EQ on the result card: calculate an EQ, or start "
-                                        "from a different item.")
+                bubble.tell(None, "There is no EQ on the result card: calculate an EQ, or start from a different item.",
+                            near=self.hand_start)
                 return
             self.manual_from_shown()
         elif key == "file":
@@ -589,8 +590,8 @@ class EqResult:
         elif key == "paste":
             self.manual_from_paste()
         elif key == "profile:":
-            QMessageBox.information(self, "Start", "No profiles: add a profile in Devices (Add a profile). Then start "
-                                    "from it here.")
+            bubble.tell(None, "No profiles: add a profile in Devices (Add a profile). Then start from it here.",
+                        near=self.hand_start)
         else:
             self.manual_from_profile(key.split(":", 1)[1])
 

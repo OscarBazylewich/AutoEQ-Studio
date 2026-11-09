@@ -217,6 +217,9 @@ def devices_window(qapp, tmp_path_factory):
     w = DevicesWindow(Window(sw, stub), sw, stub, top, conf, settings, eps)
     try:
         w.win.show()
+        # (the size it opens at on a PC: the off-screen screen is 800 px wide, and the window took that, with only the
+        # screens' symbols in its top bar)
+        w.win.resize(1040, 760)
         qapp.processEvents()
         yield w
     finally:

@@ -7,7 +7,8 @@ install() (called by helpers.qt.app(), once per process) replaces, for the whole
 - QInputDialog.getText, getItem, getInt, getDouble, getMultiLineText: recorded, cancelled;
 - QFileDialog.getOpenFileName, getOpenFileNames, getSaveFileName, getExistingDirectory: recorded, cancelled;
 - QDialog.exec, QMessageBox.exec, QMenu.exec: recorded with the window's kind and title, closed at once (Rejected;
-  a menu: nothing chosen).
+  a menu: nothing chosen);
+- ui.bubble.tell (a "do this first" text in a bubble at its button): recorded as "bubble", and shown.
 What can't be answered (Qt runs it inside its own code, or PySide6 looks it up past the class): a menu's own exec()
 (menu.exec(), as opposed to QMenu.exec(actions, place)) and the menu a button opens when it's clicked. The app opens
 its menus with popup() or from their buttons, so a test triggers the menu's action instead of clicking the button.
@@ -81,4 +82,44 @@ def install():
     QDialog.exec = dialog_exec
     QMessageBox.exec = dialog_exec
     QMenu.exec = menu_exec
+    _when_loaded("ui.bubble", _record_bubbles)
     _installed.append(True)
+
+
+def _record_bubbles(bubble):
+    """A "do this first" text in a bubble at its button (ui/bubble.py's tell): recorded as "bubble", and shown."""
+    told = bubble.tell
+
+    def tell(anchor, text, *a, **k):
+        DIALOGS.asked.append(("bubble", str(text)))
+        print(f"(bubble: {text})")
+        return told(anchor, text, *a, **k)
+    bubble.tell = tell
+
+
+def _when_loaded(name, fn):
+    """fn(module) once the app imports the module `name` (at once if it has): this helper never imports it itself,
+    as the helpers every test loads stay away from the app's modules (tests/infra/test_isolation.py)."""
+    import importlib.abc
+    import importlib.util
+    import sys
+    if name in sys.modules:
+        fn(sys.modules[name])
+        return
+
+    class Finder(importlib.abc.MetaPathFinder):
+        def find_spec(self, fullname, path, target=None):
+            if fullname != name:
+                return None
+            sys.meta_path.remove(self)
+            spec = importlib.util.find_spec(fullname)  # (the usual finders: this one is out of the list now)
+            if spec is None or spec.loader is None:
+                return spec
+            run = spec.loader.exec_module
+
+            def exec_module(module):
+                run(module)
+                fn(module)
+            spec.loader.exec_module = exec_module
+            return spec
+    sys.meta_path.insert(0, Finder())

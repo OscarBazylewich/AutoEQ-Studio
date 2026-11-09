@@ -41,13 +41,14 @@ def cards_and_group_boxes(t, img):
     """Cards: a QGroupBox (its title the card's heading) or a frame with card=true; a warning card (card="warn");
     the labels on them. A QGroupBox's title and content start CARD inside its border (its padding is CARD less the
     margin Qt's layout adds; Qt centres the title in a place a space wider than its words: half a space less); its
-    title is drawn in the box's own font (Qt doesn't size ::title), 11 pt as a fold's title, while what's on it keeps
-    10.5 pt (the QWidget rule). A card frame's padding leaves 4 px for its code's own layout margin (the trial bar's, a
+    title is drawn in the box's own font (Qt doesn't size ::title), 12 pt (16 px) as a fold's title and the graph's,
+    while what's on it keeps 10.5 pt (the QWidget rule): one height for each type of title (the UI audit, 2026-11-08:
+    a card's title, then the titles in a card, 14 px bold). A card frame's padding leaves 4 px for its code's own layout margin (the trial bar's, a
     fold's)."""
     return f"""
     QGroupBox, QFrame[card="true"] {{ background: {t['card']}; border: 1px solid {t['line']}; border-radius: 8px; }}
-    QGroupBox {{ margin-top: 0px; padding: {CARD + 24}px {CARD - LAYOUT}px {CARD}px {CARD - LAYOUT}px;
-        font-size: {FONT + 0.5}pt; font-weight: 600; }}
+    QGroupBox {{ margin-top: 0px; padding: {CARD + 26}px {CARD - LAYOUT}px {CARD}px {CARD - LAYOUT}px;
+        font-size: {FONT + 1.5}pt; font-weight: 600; }}
     QGroupBox::title {{ subcontrol-origin: padding; subcontrol-position: top left; left: {CARD - 2}px;
         top: {CARD - 3}px; color: {t['ink']}; }}
     QFrame[card="true"] {{ padding: {CARD - 4}px; }}
@@ -68,6 +69,8 @@ def text_roles(t, img):
     QLabel[role="chip"] {{ background: {t['subtle']}; border: 1px solid {t['stroke']}; border-radius: 4px;
         padding: 2px 8px; qproperty-indent: 0; }}
     QLabel[role="brand"] {{ font-family: "Segoe UI Variable Display"; font-size: 12pt; font-weight: 600; }}
+    QFrame#bubble QLabel {{ background: transparent; }}
+    QToolButton#infoMark {{ padding: 2px; border-radius: 4px; }}
 """
 
 
@@ -109,7 +112,10 @@ def buttons(t, img):
 
 def top_bar(t, img):
     """The top bar: its screens' buttons (nav=true: the one shown has the accent's bar under it), Online / Offline
-    (online=true), the bar itself (clear, on the window's background or its Mica, as Windows 11's own)."""
+    (online=true), the bar itself (clear, on the window's background or its Mica, as Windows 11's own), the lines
+    between its groups (vline=true), and Minimize, Maximize and Close at its right end (it is the title bar:
+    ui\\titlebar.py; Close red when the pointer is on it, as Windows 11's; Maximize's look set by the native part
+    while the pointer is on it, nc="hover" / "down", as Windows then sends the window no mouse events)."""
     return f"""
     QPushButton[nav="true"] {{ background-color: transparent; border: none; border-radius: 4px;
         padding: 6px 12px 8px 12px; color: {t['ink2']}; }}
@@ -121,6 +127,15 @@ def top_bar(t, img):
     QPushButton[online="true"] {{ border-radius: 14px; padding: 4px 12px; }}
     QPushButton[online="true"]:checked {{ background: {t['pill']}; color: {t['good']}; border-color: {t['good']}; }}
     QFrame[topbar="true"] {{ background: transparent; border: none; }}
+    QFrame[vline="true"] {{ background: {t['stroke']}; border: none; }}
+    QToolButton#caption_min, QToolButton#caption_max, QToolButton#caption_close {{ background: transparent;
+        border: none; border-radius: 0px; padding: 0px; color: {t['ink']}; }}
+    QToolButton#caption_min:hover, QToolButton#caption_max:hover, QToolButton#caption_max[nc="hover"] {{
+        background: {t['subtle_hover']}; }}
+    QToolButton#caption_min:pressed, QToolButton#caption_max:pressed, QToolButton#caption_max[nc="down"] {{
+        background: {t['subtle_press']}; }}
+    QToolButton#caption_close:hover {{ background: #c42b1c; color: #ffffff; }}
+    QToolButton#caption_close:pressed {{ background: #c83c31; color: #ffffff; }}
 """
 
 
@@ -228,8 +243,8 @@ def scroll_areas_and_menus(t, img):
 
 
 def settings_boxes(t, img):
-    """Settings boxes: a value that isn't one (bad=true), the many-line text box, a setting's “auto” / “yours ↺” tag
-    (tag=true), section headings (in line with the labels under them: no indent of Qt's own), folds (fold=true:
+    """Settings boxes: a value that isn't one (bad=true), the many-line text box, a setting's “automatic” / “your value
+    ↺” tag (tag=true: “automatic” is gray words with no edge, as it can't be clicked; “your value ↺” a button), section headings (in line with the labels under them: no indent of Qt's own), folds (fold=true:
     ui\\forms.py's Fold, the Target card's Adjust; Windows 11's chevron, right when closed and down when open, its
     place starting where the button does, so in line with the card's content, and a fill when pointed at, as Windows
     11's expanders)."""
@@ -238,14 +253,14 @@ def settings_boxes(t, img):
         background: {t['field']}; }}
     QPlainTextEdit {{ background: {t['field']}; border: 1px solid {t['stroke']}; border-bottom: 1px solid {t['strong']};
         border-radius: 4px; padding: 4px; }}
-    QToolButton[tag="true"] {{ background: {t['subtle']}; color: {t['muted']}; border: 1px solid {t['stroke']};
+    QToolButton[tag="true"] {{ background: transparent; color: {t['muted']}; border: 1px solid transparent;
         border-radius: 10px; padding: 1px 8px; font-size: {FONT - 1.5}pt; }}
     QToolButton[tag="true"]:enabled {{ background: {t['accent_soft']}; color: {t['accent_text']};
         border-color: {t['accent_soft_line']}; }}
     QLabel[role="section"] {{ color: {t['ink']}; font-size: {FONT}pt; font-weight: 600; padding-top: 6px;
         qproperty-indent: 0; }}
     QGroupBox QLabel[role="section"], QFrame[card] QLabel[role="section"] {{ font-weight: 600; }}
-    QToolButton[fold="true"] {{ background: transparent; border: none; border-radius: 4px; font-size: {FONT + 0.5}pt;
+    QToolButton[fold="true"] {{ background: transparent; border: none; border-radius: 4px; font-size: {FONT + 1.5}pt;
         font-weight: 600; padding: 6px 8px 6px 0px; }}
     QToolButton[fold="true"]:hover {{ background: {t['subtle_hover']}; }}
     QToolButton[fold="true"]:pressed {{ background: {t['subtle_press']}; }}
@@ -255,7 +270,8 @@ def settings_boxes(t, img):
 
 
 def check_boxes(t, img):
-    """Check boxes and round choice buttons (the accent when ticked), and the tick boxes in lists and trees."""
+    """Check boxes and round choice buttons (the accent when ticked; gray when they are off, ticked or not, as Windows
+    11's: an off tick box in the accent looked as one you can use), and the tick boxes in lists and trees."""
     return f"""
     QCheckBox, QRadioButton {{ background: transparent; spacing: 8px; }}
     QCheckBox::indicator, QRadioButton::indicator {{ width: 18px; height: 18px; background: {t['check_fill']};
@@ -274,6 +290,13 @@ def check_boxes(t, img):
         image: url({img['tick']}); }}
     QTreeView::indicator:indeterminate {{ background: {t['accent']}; border-color: {t['accent']}; }}
     QRadioButton:disabled, QCheckBox:disabled {{ color: {t['disabled']}; }}
+    QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {{ background: {t['field_disabled']};
+        border-color: {t['disabled']}; }}
+    QCheckBox::indicator:checked:disabled {{ background: {t['disabled']}; border-color: {t['disabled']};
+        image: url({img['tick']}); }}
+    QRadioButton::indicator:checked:disabled {{ border: 1px solid {t['disabled']}; background: qradialgradient(cx:0.5,
+        cy:0.5, radius:0.5, fx:0.5, fy:0.5, stop:0 {t['field_disabled']}, stop:0.36 {t['field_disabled']},
+        stop:0.46 {t['disabled']}, stop:1 {t['disabled']}); }}
 """
 
 
@@ -285,7 +308,6 @@ def window_screens(t, img):
     Settings, Set up, the tray menu, and the app's message boxes and input boxes (Windows 11's dialogs: the answer
     Enter gives in the accent).
     - a symbol in front of words (glyph=true: the warning sign on the banner, the trial's clock), in its role's colour
-    - the status line, its words lined up with the screens'
     - Devices: a profile's ✕ is every row's (quiet=true, buttons()); Add a profile's chevron is every menu button's
       (buttons()), the tray menu's headings every menu's notes (scroll_areas_and_menus())
     - Profiles: the table's words under their headings (#profileTable)
@@ -298,8 +320,7 @@ def window_screens(t, img):
     return f"""
     QLabel[glyph="true"] {{ font-size: 12pt; }}
     QLabel#trialGlyph {{ color: {t['accent_text']}; }}
-    QStatusBar#windowStatus::item {{ border: none; }}
-    QStatusBar#windowStatus QLabel {{ color: {t['ink2']}; padding-left: 8px; }}
+    QLabel#trialTime {{ font-family: "Segoe UI Variable Display"; font-size: {FONT + 4.5}pt; font-weight: 600; }}
     QTableWidget#profileTable::item {{ padding: 0px 5px; }}
     QDialog#setUp, QDialog[dialog="true"] {{ background: {t['card']}; }}
     QDialog#setUp QListWidget::item {{ padding: 3px 8px; }}
@@ -313,13 +334,14 @@ def window_screens(t, img):
 
 
 def eq_screen(t, img):
-    """Make an EQ: its cards, settings folds, result card, notices. Its own properties: eqtitle (the graph's title,
-    the result's name: a little bigger than a card's heading, in Windows 11's display type), eqsub (a fold inside a
-    card, the Target card's Adjust: body text, quieter than the card's title, as Windows 11's expanders); the graph
+    """Make an EQ: its cards, settings folds, result card, notices. Its own properties: eqtitle (the graph's title: a
+    card's title, 16 px, in Windows 11's display type), eqname (the result's name: a title in a card, 14 px bold),
+    eqsub (a fold inside a card: body text, quieter than the card's title, as Windows 11's expanders); the graph
     floating over the page as you edit (#liveGraph: a card with Windows 11's flyout border, eq_page_live).
     (The menus its Guide draws, a submenu's chevron too, are the Guide's own: guide_and_help's #tourMock.)"""
     return f"""
     QLabel[eqtitle="true"] {{ font-family: "Segoe UI Variable Display"; font-size: {FONT + 1.5}pt; font-weight: 600; }}
+    QLabel[eqname="true"] {{ font-size: {FONT}pt; font-weight: 600; }}
     QToolButton[eqsub="true"] {{ font-size: {FONT}pt; font-weight: 400; }}
     QFrame#liveGraph {{ background: {t['card']}; border: 1px solid {t['stroke']}; border-radius: 8px; }}
     QFrame#liveGraph QLabel {{ background: transparent; }}

@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (QDialog, QFrame, QHBoxLayout, QHeaderView, QLabel
                                QTreeWidgetItem, QVBoxLayout, QWidget)
 
 import net
-from ui import help_window, icons, tasks, theme
+from ui import bubble, help_window, icons, tasks, theme
 from ui.search_combo import SearchCombo
 from ui.theme_sheet import CARD
 from ui.window_parts import Footer, enter_presses, fit_to_screen
@@ -413,10 +413,10 @@ class Sources(QDialog):
     def add_database(self, u):
         u = (u or "").strip()
         if not u.startswith(("http://", "https://")):
-            QMessageBox.information(self, "Add a database", "Enter the URL of the page. It must start with https://")
+            bubble.tell(None, "Enter the URL of the page. It must start with https://", near=self)
             return False
         if url_key(u) in self.listed():
-            QMessageBox.information(self, "Add a database", "That database is in the list.")
+            bubble.tell(None, "That database is in the list.", near=self)
             return False
         self.page.S["databases"]["extra"].append(u)
         self.changed()

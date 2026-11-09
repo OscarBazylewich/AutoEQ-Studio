@@ -76,7 +76,7 @@ def test_a_profile_taken_off_a_device_comes_back_with_undo(devices_window, qapp,
         for pid in (first, second):
             sw.remove_profile(pid)
         win.render_all()
-    check("devices: a profile's ✕ removes it from the device and says so with Undo in the window's line; Undo puts it "
+    check("devices: a profile's ✕ removes it from the device and says so with Undo in a bubble; Undo puts it "
           "back in its place, the device's EQ as it was (Off stays off); deleted meanwhile, Undo says so",
           off == (False, "Removed “First” from this device.", True) and back == (True, None, "")
           and "Undo is not possible" in gone, (off, back, before, gone))
@@ -113,7 +113,7 @@ def test_the_banners_website_offline_said_in_the_line(devices_window, monkeypatc
     monkeypatch.undo()
     win.render_all()
     check("window: the banner's Get Equalizer APO is plain, with its symbol (a notice's action), and stays on while "
-          "offline: clicked, it says so in the window's line, nothing opened",
+          "offline: clicked, it says so in a bubble, nothing opened",
           net.offline() and look == ("Get Equalizer APO", True, False, None) and opened == []
           and said == "Offline: to open websites, change to Online (top right).", (look, said, opened))
 

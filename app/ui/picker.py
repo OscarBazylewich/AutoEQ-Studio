@@ -38,7 +38,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QHBoxLayout, QL
                                QStyleOptionComboBox, QVBoxLayout, QWidget)
 
 import net
-from ui import help_window, icons, tasks, theme
+from ui import bubble, help_window, icons, tasks, theme
 from ui.eq_page_parts import Elided, NameCombo
 from ui.search_combo import natural_key
 from ui.theme_sheet import CARD
@@ -962,9 +962,8 @@ class Picker(QDialog):
             self.page.remove_preview(r["key"])
             self.render()
             return
-        if not self.page.curves:  # ("do this first": the button on, a box saying what's needed, UI-RULES 25)
-            QMessageBox.information(self, "Preview", "Select a target and a measurement first. The graph shows a "
-                                    "preview with them.")
+        if not self.page.curves:  # ("do this first": the button on, a bubble at it saying what's needed, UI-RULES 25)
+            bubble.tell(None, "Select a target and a measurement first. The graph shows a preview with them.", near=self)
             return
         loading = self.__dict__.setdefault("_showing", set())
         if r["key"] in loading:  # (pressed again while it loads)

@@ -15,7 +15,7 @@ import time
 import traceback
 
 from PySide6.QtCore import QTimer
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QActionGroup
 from PySide6.QtWidgets import QMenu, QMessageBox, QSystemTrayIcon
 
 import net
@@ -27,6 +27,15 @@ from ui import icons, theme, winsys
 
 POLL_MS = 1500
 
+
+
+def trial_words(sw, key):
+    """The tray menu's line for a 5-minute EQ: short, its time first (the UI audit, 2026-11-08: it was 740 px wide);
+    the device's name when it isn't the active one (key), whose EQs the menu lists."""
+    t = sw.trial
+    left = max(0, int(t["until"] - time.time()))
+    where = "" if t["key"] == key else f" on {shown(sw.record(t['key']))}"
+    return f"EQ for 5 minutes{where}: {left // 60}:{left % 60:02d} until the end"
 
 class App:
     def __init__(self, qapp, show):
@@ -57,6 +66,11 @@ class App:
         # that can't be chosen: theme_sheet's menus rule, for every menu's notes; the name only tells it apart)
         self.menu.setObjectName("tray")
         self.menu.aboutToShow.connect(self.build_menu)
+        # (the 5-minute EQ's time changes each second while the menu is open)
+        self._menu_timer = QTimer(self.menu, interval=1000, timeout=self._menu_time)
+        self.menu.aboutToShow.connect(self._menu_timer.start)
+        self.menu.aboutToHide.connect(self._menu_timer.stop)
+        self._trial_line = None
         self.tray.setContextMenu(self.menu)
         self.tray.activated.connect(lambda why: why == QSystemTrayIcon.Trigger and self.win.show_front())
         self.tray.show()
@@ -166,23 +180,37 @@ class App:
         m.setDefaultAction(m.addAction("Open AutoEQ Studio", self.win.show_front))
         m.addSeparator()
         t = self.sw.trial
-        if t:
-            left = max(0, int(t["until"] - time.time()))
-            m.addAction(f"For 5 minutes: “{t['name']}” on {shown(self.sw.record(t['key']))} "
-                        f"({left // 60}:{left % 60:02d} until the end)").setEnabled(False)
+        key, rec = self.sw.playing()
+        self._trial_line = None
+        if t:  # (a short line, its time changing each second: _menu_time; the device's name when it isn't the
+            # active one, as the list below is the active device's)
+            self._trial_line = m.addAction(trial_words(self.sw, key))
+            self._trial_line.setEnabled(False)
             m.addAction("Keep it", lambda: self.end_trial(True))
             m.addAction("Do not keep it", lambda: self.end_trial(False))  # (the trial bar's words: one act, UI-RULES 16)
             m.addSeparator()
-        key, rec = self.sw.playing()
         if rec:
             head = m.addAction(shown(rec))
             head.setEnabled(False)
+            # (one EQ at a time: a group, its selected item with a dot, as File Explorer's Sort by; EQ off, to compare
+            # keeps its check mark: the UI audit, 2026-11-08. During a 5-minute EQ on this device, it has the dot)
+            trying = bool(t and t["key"] == key)
+            group = QActionGroup(m)
+            group.setExclusive(True)
             choices = [(None, "Off")] + [(pid, self.sw.profile_name(pid)) for pid in rec["profiles"]]
             for pid, name in choices:
                 a = QAction(name, m)
                 a.setCheckable(True)
-                a.setChecked(rec["active"] == pid)
+                a.setActionGroup(group)
+                a.setChecked(rec["active"] == pid and not trying)
                 a.triggered.connect(lambda _=False, pid=pid, key=key: self.set_active_profile(key, pid))
+                m.addAction(a)
+            if trying:
+                a = QAction(f"For 5 minutes: {t['name']}", m)
+                a.setCheckable(True)
+                a.setActionGroup(group)
+                a.setChecked(True)
+                a.setToolTip("The EQ for 5 minutes. Keep it makes it a profile of the device.")
                 m.addAction(a)
             if not rec["profiles"]:
                 a = m.addAction("Add a profile…")
@@ -199,6 +227,15 @@ class App:
             m.addAction("No active device").setEnabled(False)
         m.addSeparator()
         m.addAction("Stop AutoEQ Studio", self.quit)
+
+    def _menu_time(self):
+        a = self._trial_line
+        if a is None or not self.sw.trial:
+            return
+        try:
+            a.setText(trial_words(self.sw, self.sw.playing()[0]))
+        except RuntimeError:  # (the menu was made again meanwhile)
+            self._trial_line = None
 
     def set_active_profile(self, key, pid):
         if self.sw.set_active(key, pid) and self.sw.s["notify"]:

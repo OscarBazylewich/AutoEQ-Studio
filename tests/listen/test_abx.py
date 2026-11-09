@@ -190,7 +190,7 @@ def test_buttons_named_by_their_words(lis, check):
 def test_same_version_twice_refused(lis, dialogs, check):
     lis.abx_b.setCurrentIndex(lis.abx_b.findData(lis.abx_a.currentData()))
     lis.abx_begin()
-    asked = [t for kind, t in dialogs.asked if kind == "information"]
+    asked = [t for kind, t in dialogs.asked if kind == "bubble"]
     lis.refresh()
     check("abx: the same version as A and B is refused, said", lis.abx is None and asked and "two different" in asked[-1],
           asked)

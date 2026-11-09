@@ -76,9 +76,11 @@ near the clock (the tray). If you cannot see the icon, click the ^ arrow near th
 When you close the window, the app continues in the tray. Stop AutoEQ Studio is in the right-click menu of the icon.
 If you start the app again while it operates, it only shows its window.
 
-The top bar has the screens (Make an EQ, Devices, Profiles, Settings). On the right side, it has Presets (on Make an
-EQ), Guide, Help and Online / Offline. The window is light or dark, the same as Windows (Settings > Personalization >
-Colors), and it changes when Windows changes. With a Windows contrast theme (Settings > Accessibility > Contrast
+The top bar is also the title bar of the window. It has the screens (Make an EQ, Devices, Profiles, Settings). On the
+right side, it has Presets and Guide (on Make an EQ), Help, Online / Offline, and the buttons Minimize, Maximize and
+Close. If the window has a small width, the screens, Presets and Guide show only their symbols (their names are in
+their tooltips). The window is light or dark, the same as Windows (Settings > Personalization > Colors), and it
+changes when Windows changes. With a Windows contrast theme (Settings > Accessibility > Contrast
 themes), the window uses the colors of that theme.
 The window looks almost the same as the apps of Windows 11. The primary buttons, the tick boxes and the selected
 items have your Windows accent color (on the same Colors page). On Windows 11, the background of the window is Mica,
@@ -163,7 +165,7 @@ One column, from the top to the bottom:
   Profiles does the same.
   Close (on the right side of its title) shows the result that was there before the manual EQ, or no result. If you
   changed the EQ, it stays in "EQs that you made", and you can open it again. If it is empty, it closes. If it has no
-  changes, it closes, and Undo at the bottom of the window can open it again.
+  changes, it closes, and Undo in the message can open it again.
 - Settings and More settings (click to open or close them): the values of the automatic settings and information about
   them, or your values. A value that you change shows "your value", and ↺ makes it automatic again. All lists are from
   A to Z (numbers in their sequence, and a "Select…" item stays at the top). A list with more than 15 items (More
@@ -302,7 +304,7 @@ Rename…, Open the profiles folder and Delete… (the last button: it deletes i
 Devices: your playback devices, with their Windows names ("Headset (EarPods)"), connected devices first, from A to Z.
 A green dot: active. Your Windows accent color (blue at first): connected. Gray: not connected.
 Select a device to give it profiles ("Add a profile"), and select the profile that is on, or Off. The ✕ of a profile
-removes it from the device (Undo is at the bottom of the window). Rename… gives the device your name for it ("Dongle
+removes it from the device (Undo is in the message near the ✕). Rename… gives the device your name for it ("Dongle
 – KZ"), and all screens show this name.
 The line below its EQ tells you if Equalizer APO uses the EQ (✓ or ✕): AutoEQ Studio gets this information from
 Equalizer APO. Examine again shows all that it found.

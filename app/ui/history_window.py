@@ -21,7 +21,7 @@ from PySide6.QtCore import QEvent, Qt, QTimer
 from PySide6.QtWidgets import (QBoxLayout, QCheckBox, QDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
                                QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
-from ui import help_window, icons, theme
+from ui import bubble, help_window, icons, theme
 from ui.theme_sheet import CARD
 from ui.window_parts import Footer, enter_presses, fit_to_screen
 
@@ -259,8 +259,8 @@ class HistoryWindow(QDialog):
         with a note saying so). Said in this window's line."""
         page = self.page
         if not page.curves:
-            QMessageBox.information(self, "Keep to compare", "Select a measurement first. Each IEM or headphone has a "
-                                    "different list of EQs to compare.")
+            bubble.tell(None, "Select a measurement first. Each IEM or headphone has a different list of EQs to "
+                        "compare.", near=self)
             return
         other = e.get("device") != page.curves["name"]
         ok = page.listen.add(f"{MODE_SHORT.get(e.get('mode'), 'EQ')}, {e.get('n_filters')} filters "

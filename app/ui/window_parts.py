@@ -268,3 +268,64 @@ def warning_card(text, button=None):
     if button is not None:
         row.addWidget(button, 0, Qt.AlignVCenter)
     return card, words
+
+
+class EmptyText(QObject):
+    """One gray line in the middle of an empty list or table (the UI audit, 2026-11-08: every empty list the same, and
+    it tells the next step: "No filters. Click Add filter."). view: a QAbstractItemView (its model's rows are counted)
+    or any widget with count() (rows), then refresh() after each change; text: the words, set_text() to change them.
+    The line is drawn on the view's area (a child of it, never a window of its own)."""
+
+    def __init__(self, view, text, count=None):
+        super().__init__(view)
+        self.view, self._count = view, count
+        area = view.viewport() if hasattr(view, "viewport") else view
+        self.label = QLabel(text, area)
+        self.label.setAlignment(Qt.AlignCenter)
+        self.label.setWordWrap(True)
+        self.label.setAttribute(Qt.WA_TransparentForMouseEvents)
+        theme.mark(self.label, role="muted")
+        area.installEventFilter(self)
+        model = view.model() if hasattr(view, "model") else None
+        if model is not None:
+            for sig in (model.rowsInserted, model.rowsRemoved, model.modelReset, model.layoutChanged):
+                sig.connect(self.refresh)
+        self.refresh()
+
+    def set_text(self, text):
+        self.label.setText(text)
+        self.refresh()
+
+    def rows(self):
+        if self._count is not None:
+            return self._count()
+        model = self.view.model() if hasattr(self.view, "model") else None
+        return model.rowCount() if model is not None else 0
+
+    def refresh(self, *_a):
+        area = self.label.parentWidget()
+        if area is None:
+            return
+        self.label.setGeometry(16, 0, max(0, area.width() - 32), min(area.height(), 120) or area.height())
+        self.label.setVisible(self.rows() == 0 and bool(self.label.text()))
+
+    def eventFilter(self, obj, e):
+        if e.type() in (QEvent.Resize, QEvent.Show):
+            self.refresh()
+        return False
+
+
+def scroll_bar_in_margin(area, layout, side=14):
+    """A screen that scrolls keeps its cards' right edge where it is when its scroll bar shows: the 12 px bar goes in
+    the screen's right space, and 2 px stay between it and the cards (the UI audit, 2026-11-08: the cards stopped 12
+    px farther from the window's edge than on the other screens, and the bars above them). area: the QScrollArea;
+    layout: the layout of its content (its right margin follows the bar)."""
+    bar = area.verticalScrollBar()
+
+    def follow(*_a):
+        m = layout.contentsMargins()
+        right = 2 if bar.maximum() > 0 else side  # (the theme's scroll bar is 12 px wide)
+        if m.right() != right:
+            layout.setContentsMargins(m.left(), m.top(), right, m.bottom())
+    bar.rangeChanged.connect(follow)
+    follow()

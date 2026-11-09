@@ -31,7 +31,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFileDialog, QGridLayout
                                QLayout, QLineEdit, QMessageBox, QPushButton, QSlider, QVBoxLayout, QWidget)
 
 import textfile
-from ui import help_window, icons, tasks, theme, window_parts
+from ui import bubble, help_window, icons, tasks, theme, window_parts
 from ui.search_combo import SearchCombo
 
 SOUNDS = [("music", "Music (short, it starts again at the end)"), ("pink", "Pink noise"), ("white", "White noise"),
@@ -392,12 +392,12 @@ class Listen(QGroupBox):
         version buttons hidden (one lit would give X away), X heard first."""
         from ui import abx as abx_mod
         if len(self.versions()) < 2:
-            QMessageBox.information(self, "ABX test", "An ABX test must have two versions. Calculate an EQ, make a manual "
-                                    "EQ, or add one of your EQs to compare.")
+            bubble.tell(None, "An ABX test must have two versions. Calculate an EQ, make a manual EQ, or add one of your "
+                        "EQs to compare.", near=self)
             return
         a, b = self.abx_a.currentData(), self.abx_b.currentData()
         if a is None or b is None or a == b:
-            QMessageBox.information(self, "ABX test", "Select two different versions for A and B.")
+            bubble.tell(None, "Select two different versions for A and B.", near=self)
             return
         self.abx = abx_mod.Abx(a, b, self.abx_n.currentData())
         vs = self.versions()
@@ -875,12 +875,12 @@ class Listen(QGroupBox):
         """An EQ into this IEM's list (the same filters twice: refused). Returns whether it went in. say: where a window
         of its own says it's there already (History's line; the page's by itself: UI-RULES 7)."""
         if not self.pins_for:
-            QMessageBox.information(self, "EQs to compare", "Select a measurement first. Each IEM or headphone has a "
-                                    "different list of EQs to compare.")
+            bubble.tell(None, "Select a measurement first. Each IEM or headphone has a different list of EQs to "
+                        "compare.", near=self)
             return False
         filters = [dict(f) for f in filters if f.get("enabled", True) is not False and f.get("freq") and f.get("q")]
         if not filters:
-            QMessageBox.information(self, "EQs to compare", "That EQ has no filters to compare.")
+            bubble.tell(None, "That EQ has no filters to compare.", near=self)
             return False
         sig = lambda fl: sorted((f.get("type", "PK"), float(f["freq"]), float(f["gain"]), float(f["q"])) for f in fl
                                 if f.get("enabled", True) is not False)
@@ -888,7 +888,7 @@ class Listen(QGroupBox):
             (say or self.page.status)("That EQ is in the list.")
             return False
         if len(self.pins) >= getattr(self, "max_pins", 12):
-            QMessageBox.information(self, "EQs to compare", "The list is full (12). Remove an EQ first.")
+            bubble.tell(None, "The list is full (12). Remove an EQ first.", near=self)
             return False
         import uuid
         used = {p.get("color", i) % len(COLOURS) for i, p in enumerate(self.pins)}  # (a colour not in use, as eqlist.js)
@@ -903,9 +903,8 @@ class Listen(QGroupBox):
 
     def add_selected(self):
         run, r = self.page.current()
-        if not r:  # (on all along: what's needed said in a box, UI-RULES 25)
-            QMessageBox.information(self, "EQs to compare", "There is no EQ on the result card. Calculate an EQ or make a "
-                                    "manual EQ first.")
+        if not r:  # (on all along: what's needed said in a bubble at the button, UI-RULES 25)
+            bubble.tell(None, "There is no EQ on the result card. Calculate an EQ or make a manual EQ first.", near=self)
             return
         st = self.page.stats()
         from ui.eq_page import MODE_SHORT
