@@ -407,6 +407,13 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
             e.acceptProposedAction()
 
     # ---------------------------------------------------------------- Listen (ui/listen.py)
+    def eventFilter(self, obj, e):
+        """The EQ graph's words (with no EQ) as large as it, in its middle."""
+        from PySide6.QtCore import QEvent
+        if obj is getattr(self, "eqplot", None) and e.type() in (QEvent.Resize, QEvent.Show):
+            self.eq_empty.setGeometry(obj.rect().adjusted(40, 0, 0, -24))  # (clear of its value axis and its labels)
+        return super().eventFilter(obj, e)
+
     def keyPressEvent(self, e):
         """1-9: Listen's versions (not while typing in a box)."""
         from PySide6.QtWidgets import QLineEdit, QPlainTextEdit

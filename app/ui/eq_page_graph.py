@@ -181,6 +181,10 @@ class EqGraph:
             parts.append(f"{name} {vals[i]:+.1f}" if c["rel"] else f"{name} {vals[i]:.1f}")
         self.hover_lab.setText("  ·  ".join(parts) + " dB")
 
+    def _after_draw(self):
+        self.curve_names.from_legend(self.legend)
+        self.eq_empty.setVisible(not self.current()[1])
+
     def draw(self):
         if self.holding_handle():  # (a filter's handle in hand: drawn when it's let go, or it would vanish mid-drag)
             self.draw_after_drag()
@@ -192,6 +196,8 @@ class EqGraph:
         c = self.curves
         if hasattr(self, "settings"):  # (Adjust's window has a graph of the target too)
             self.settings.redraw_adjust()
+        # (the curves' names in their line, and the EQ graph's words, once this drawing is done)
+        QTimer.singleShot(0, self, self._after_draw)
         self._drawn = self._eq_drawn = self._live_series = None  # (the floating graph's curves: eq_page_live)
         if not c:
             if self.current()[1]:  # (an EQ by hand with no measurement chosen: the EQ itself, under the empty graph)

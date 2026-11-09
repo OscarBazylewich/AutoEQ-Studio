@@ -368,7 +368,7 @@ class EqResult:
                                                                                       "gain_min", "gain_max", "q_min", "q_max")})
                 + (" <i>(because you edited the filters, the website will not make these values)</i>" if ed else ""))
             self.site_use.setVisible(run["mode"] == "site_sweep")
-        self.revert_btn.setVisible(ed)
+        self.revert_btn.setEnabled(ed)  # (always there, off until an edit: nothing moves when you edit, UI-RULES 25)
         if hasattr(self, "listen"):
             self.listen.refresh()
         if not self.name_edit.text().strip() or self.name_edit.property("auto") is not False:
@@ -380,8 +380,9 @@ class EqResult:
     def show_numbers(self, st):
         """The result's numbers (its chips) and the sliders' pre-amp, from stats(): after any edit, and while a handle
         on the EQ graph is held (ui/eq_page_handles.py)."""
-        self.chips["filters"].setText(f"Filters  {st['n']}")
         self.chips["error"].setText(f"Error  {st['rms']:.2f} dB" if st["rms"] is not None else "Error  –")
+        c = self.curves or {}
+        self.err_noeq.setText(f"Without EQ: {c['no_eq_rms']:.2f} dB" if c.get("no_eq_rms") is not None else "")
         self.chips["preamp"].setText(f"Pre-amp  {self.preamp_text(st['preamp_raw'])} dB")
         self.chips["boost"].setText(f"Maximum gain  +{st['max_boost']:.1f} dB")
         self.chips["maxq"].setText(f"Maximum Q  {st['max_q']:g}" if st["max_q"] else "Maximum Q  –")
@@ -659,7 +660,7 @@ class EqResult:
 
     def manual_from_paste(self):
         from ui.eq_page_parts import paste_dialog
-        got = paste_dialog(self, "Paste filters", "Name (for example, New EQ)", "Equalizer APO lines, Room EQ Wizard "
+        got = paste_dialog(self, "Paste filters", "For example, New EQ", "Equalizer APO lines, Room EQ Wizard "
                            "filters, or one filter on each line as “frequency gain Q”", "Start")
         if got:
             self._manual_from_text(got[1], "pasted", got[0] or "Pasted EQ")
@@ -741,7 +742,8 @@ class EqResult:
         for key in keys:
             rec, d = self.sw.record(key), self.sw.device(key)
             where = "active" if key == self.sw.playing_key else "connected" if d and d.connected else "not connected"
-            a = m.addAction(f"{shown(rec)}  ·  {where}")
+            # (the condition in a column at the right, as a menu's keys: the UI audit, 2026-11-08)
+            a = m.addAction(f"{shown(rec)}\t{where}")
             a.triggered.connect(lambda _=False, k=key: self.use_on(k))
         if not keys:
             m.addAction("No playback devices").setEnabled(False)
@@ -751,7 +753,7 @@ class EqResult:
             t = m.addMenu("Use for 5 minutes on")
             t.setToolTipsVisible(True)
             for key in live:
-                a = t.addAction(shown(self.sw.record(key)) + ("  ·  active" if key == self.sw.playing_key else ""))
+                a = t.addAction(shown(self.sw.record(key)) + ("\tactive" if key == self.sw.playing_key else ""))
                 a.setToolTip("The EQ plays in all apps for 5 minutes. Then, if you do not select Keep it, the device "
                              "uses its usual EQ again.")
                 a.triggered.connect(lambda _=False, k=key: self.start_trial(k))

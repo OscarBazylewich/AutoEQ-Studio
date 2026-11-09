@@ -928,7 +928,7 @@ class Listen(QGroupBox):
 
     def add_paste(self):
         from ui.eq_page_parts import paste_dialog
-        got = paste_dialog(self, "Paste filters", "Name (for example, Crinacle's EQ)", "Equalizer APO lines, Room EQ Wizard "
+        got = paste_dialog(self, "Paste filters", "For example, Crinacle's EQ", "Equalizer APO lines, Room EQ Wizard "
                            "filters, or one filter on each line as “frequency gain Q”", "Add")
         if got:
             self._add_text(got[1], got[0] or "Pasted EQ", "pasted")

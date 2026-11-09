@@ -703,7 +703,8 @@ def eq_steps(page):
          "target": lambda: [page.view_combo, page.yrange_combo] + ([page.channels_chk] if page.channels_chk.isVisible() else []),
          "avoid": lambda: [page.plot],
          "text": "View › “Difference from target” shows only the difference that the EQ must correct (0 dB = on the "
-                 "target). Y range zooms in. Channels also shows the curve of each file.",
+                 "target). Y range zooms in. Channels also shows the curve of each file. The line below them gives the "
+                 "name of each curve, in its color.",
          "demo": lambda: [{"click": lambda: page.view_combo, "say": "Difference from target: the difference to correct",
                            "then": lambda api: views_demo(api, view="rel")},
                           {"click": lambda: page.yrange_combo, "say": "Y range: zoom in (for example, 30 dB)",
@@ -732,7 +733,7 @@ def eq_steps(page):
          "before": result_before, "after": result_after, "ready": has_curves,
          "text": lambda: "Change a filter in the table or with the sliders: the numbers and the graph change with it. "
                          "If you cannot see the graph, a copy of it shows on the page while you edit (“Show the graph "
-                         "while you edit” disables it). Undo all shows the calculated filters again. Calculate from "
+                         "while you edit” disables it). Undo all (enabled after you edit) shows the calculated filters again. Calculate from "
                          "these filters starts Best fit again from your filters." + example(),
          "demo": [{"run": edit_demo, "say": "Change a value: the numbers and the graph change with it"},
                   {"at": lambda: page.retry_btn, "say": "Calculate from these filters: Best fit again, from your filters"}]},
@@ -740,17 +741,19 @@ def eq_steps(page):
          "before": result_before, "after": result_after, "ready": has_curves,
          "text": lambda: "Each filter has a handle on the EQ graph, below the graph, with the number from the table. "
                          "Drag it left or right for its frequency, and up or down for its gain. The mouse wheel on a "
-                         "handle changes its Q, and a right-click shows its type, on or off, and Remove. Double-click "
+                         "handle changes its Q, and a right-click shows its type and Remove (the On tick box of the table turns a "
+                         "filter off). Double-click "
                          "where there is no handle to add a filter. If you use the EQ on a device for 5 minutes, the device also plays each change."
                          + example(),
          "demo": lambda: drag_actions()},
         {"chapter": "3 · Calculate and examine", "title": "Save it, or use it on a device",
          "target": lambda: [page.name_edit, page.formats_line, button(page.result_box, "Save filters"), page.use_btn],
          "before": result_before, "after": result_after, "ready": has_curves,
-         "text": lambda: "Save filters saves the file for your EQ app with the File name. Copy copies the filters to "
-                         "the clipboard. Use on device makes the EQ the profile of a device and enables it (or uses it "
-                         "there for 5 minutes). Keep to compare adds it to your EQs to compare. Report makes an HTML "
-                         "page." + example(),
+         "text": lambda: "Two rows of buttons, below File name. The files: Save filters saves the file for your EQ app "
+                         "with the File name, Copy copies the filters to the clipboard, and the folder opens. Then: Use "
+                         "on device makes the EQ the profile of a device and enables it (or uses it there for 5 "
+                         "minutes). Keep to compare adds it to your EQs to compare. Report makes an HTML page."
+                         + example(),
          "demo": [{"run": save_demo, "say": "Give it a name, save it, or use it on a device"}]},
         {"chapter": "3 · Calculate and examine", "title": "Listen", "target": lambda: page.listen,
          "ready": lambda: page.listen.isVisible(),

@@ -48,9 +48,9 @@ def test_start_empty_and_add_a_filter(eq_screen, check):
     check("by hand: Start empty puts an EQ of your own on the result card (titled By hand, no filter counts to choose "
           "from, a line saying how to add one, Listen there); Add filter adds one, the numbers and the name following",
           empty[0] == "manual" and empty[1] == "Manually" and not empty[2] and not empty[3] and "No filters:" in empty[4]
-          and empty[5] == [] and empty[6] and empty[7] and len(page.EDIT) == 1 and page.chips["filters"].text() == "Filters  1"
+          and empty[5] == [] and empty[6] and empty[7] and len(page.EDIT) == 1 and page.chips["error"].text().startswith("Error")
           and page.name_edit.text().endswith(" - manual 1f") and "edited" in page.res_title.text(),
-          (empty, page.chips["filters"].text(), page.name_edit.text()))
+          (empty, page.chips["error"].text(), page.name_edit.text()))
 
 
 def test_from_a_room_eq_wizard_file(eq_screen, tmp_path, dialogs, check):

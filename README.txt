@@ -206,7 +206,7 @@ One column, from the top to the bottom:
     - Drag a handle left or right to change its frequency.
     - Drag it up or down to change its gain.
     - Turn the mouse wheel on it to change its Q.
-    - Right-click it for Peak, Low shelf, High shelf, On and Remove.
+    - Right-click it for Peak, Low shelf, High shelf and Remove (the On tick box of the table turns a filter off).
     - Double-click where there is no handle to add a filter.
   The curves, the numbers, the table and Listen change while you drag. The scale does not change until you release
   the handle. If you use an EQ on a device for 5 minutes (Use for 5 minutes on), each change goes to that device

@@ -12,7 +12,7 @@ MODE_HINT, TICKS and file_base_name still import from ui/eq_page.py too.
   closed; paste_dialog(...): a window to paste filters into, with a name (By hand, Listen's EQs to compare)
 """
 from PySide6.QtCore import QObject, QSize, Qt, Signal
-from PySide6.QtWidgets import QLabel, QStyle, QStyleOptionComboBox, QStylePainter
+from PySide6.QtWidgets import QLabel, QStyle, QStyleOptionComboBox, QStylePainter, QWidget
 
 from ui import theme
 from ui.search_combo import SearchCombo
@@ -152,6 +152,7 @@ def paste_dialog(parent, title, name_hint, words, verb="OK"):
     body = QWidget()
     v = QVBoxLayout(body)
     v.setContentsMargins(24, 24, 24, 20)  # (Windows 11's dialog padding)
+    v.addWidget(QLabel("Name"))  # (its label, as Save as a preset's: the gray example goes as you type, the UI audit)
     name = QLineEdit()
     name.setPlaceholderText(name_hint)
     name.setAccessibleName("Name")
@@ -167,3 +168,76 @@ def paste_dialog(parent, title, name_hint, words, verb="OK"):
     out = (name.text().strip(), text.toPlainText())
     dlg.deleteLater()  # (asked once: not kept, hidden, for as long as the page is there)
     return out if ok else None
+
+
+class CurveNames(QWidget):
+    """The names of a graph's curves in a line next to it, each after a short line in its colour and style (the UI
+    audit, 2026-11-08: pyqtgraph's names were in the graph, on the curves at its top left); more lines when they
+    need them. set_items([(name, pen)]); from_legend(legend): the names a pyqtgraph legend has (kept hidden)."""
+    SAMPLE, GAP, SPACE = 20, 6, 18  # (px: the line, from it to the name, between two names)
+
+    def __init__(self):
+        super().__init__()
+        self.items = []
+        from PySide6.QtWidgets import QSizePolicy
+        sp = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        sp.setHeightForWidth(True)
+        self.setSizePolicy(sp)
+
+    def set_items(self, items):
+        self.items = [(str(n), p) for n, p in items if n]
+        self.setAccessibleName("Curves: " + ", ".join(n for n, _p in self.items))
+        self.setVisible(bool(self.items)) if self.parentWidget() is not None else None
+        self.updateGeometry()
+        self.update()
+
+    def from_legend(self, legend):
+        import pyqtgraph as pg
+        items = []
+        for sample, lab in getattr(legend, "items", []):
+            item = getattr(sample, "item", None)
+            pen = getattr(item, "opts", {}).get("pen") if item is not None else None
+            items.append((getattr(lab, "text", ""), pg.mkPen(pen) if pen is not None else pg.mkPen("#888888")))
+        self.set_items(items)
+
+    def _places(self, width):
+        from PySide6.QtGui import QFontMetrics
+        fm = QFontMetrics(self.font())
+        x, y, out, h = 0, 0, [], fm.height() + 4
+        for name, pen in self.items:
+            w = self.SAMPLE + self.GAP + fm.horizontalAdvance(name)
+            if x and x + w > width:
+                x, y = 0, y + h
+            out.append((x, y, w, name, pen))
+            x += w + self.SPACE
+        return out, (y + h if out else 0)
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, width):
+        return self._places(width)[1]
+
+    def sizeHint(self):
+        from PySide6.QtCore import QSize
+        return QSize(300, self.heightForWidth(max(300, self.width())))
+
+    def minimumSizeHint(self):
+        from PySide6.QtCore import QSize
+        return QSize(0, self.heightForWidth(max(1, self.width())))
+
+    def paintEvent(self, e):
+        from PySide6.QtCore import QPointF
+        from PySide6.QtGui import QColor, QPainter, QPen
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        fm = p.fontMetrics()
+        for x, y, _w, name, pen in self._places(self.width())[0]:
+            mid = y + (fm.height() + 4) / 2
+            line = QPen(pen)
+            line.setWidthF(max(2.0, min(3.0, pen.widthF())))
+            line.setCosmetic(True)
+            p.setPen(line)
+            p.drawLine(QPointF(x, mid), QPointF(x + self.SAMPLE, mid))
+            p.setPen(QColor(theme.tokens()["ink2"]))
+            p.drawText(int(x + self.SAMPLE + self.GAP), int(y + 2 + fm.ascent()), name)

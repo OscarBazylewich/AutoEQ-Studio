@@ -349,6 +349,7 @@ def eq_screen(t, img):
     return f"""
     QLabel[eqtitle="true"] {{ font-family: "Segoe UI Variable Display"; font-size: {FONT + 1.5}pt; font-weight: 600; }}
     QLabel[eqname="true"] {{ font-size: {FONT}pt; font-weight: 600; }}
+    QLabel[errbig="true"] {{ font-family: "Segoe UI Variable Display"; font-size: {FONT + 4.5}pt; font-weight: 600; }}
     QToolButton[eqsub="true"] {{ font-size: {FONT}pt; font-weight: 400; }}
     QFrame#liveGraph {{ background: {t['card']}; border: 1px solid {t['stroke']}; border-radius: 8px; }}
     QFrame#liveGraph QLabel {{ background: transparent; }}

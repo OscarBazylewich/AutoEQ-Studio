@@ -156,15 +156,13 @@ def test_right_click_menu(eq_screen, check):
     ticked = [t for t, a in acts.items() if a.isChecked()]
     acts["Low shelf"].trigger()
     shelf = page.EDIT[0]["type"]
-    page.handle_menu(0, QPointF(10, 10))
-    next(a for a in page.handle_menu_now.actions() if a.text() == "On").trigger()
-    off = page.EDIT[0]["enabled"]
     page.handle_menu(1, QPointF(10, 10))
     next(a for a in page.handle_menu_now.actions() if a.text() == "Remove").trigger()
-    check("handles: right-click shows the filter's type (ticked) and Switched on; choosing changes it, and Delete "
-          "takes the filter away (the table and the handles follow)",
-          sorted(ticked) == ["On", "Peak"] and shelf == "LSQ" and off is False and len(page.EDIT) == 2
-          and len(page._handles) == 2 and page.editor.table.rowCount() == 2, (ticked, shelf, off, page.EDIT))
+    # (the user's answer, 2026-11-08: no On in the menu; the On tick box of the table and of Sliders turns a filter off)
+    check("handles: right-click shows the filter's type with its check mark, and no On; choosing changes it, and "
+          "Remove takes the filter away (the table and the handles follow)",
+          ticked == ["Peak"] and "On" not in acts and shelf == "LSQ" and len(page.EDIT) == 2
+          and len(page._handles) == 2 and page.editor.table.rowCount() == 2, (ticked, list(acts), shelf, page.EDIT))
 
 
 def test_double_click_adds_a_filter(eq_screen, check):

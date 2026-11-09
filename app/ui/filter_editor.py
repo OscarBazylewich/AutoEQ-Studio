@@ -24,7 +24,8 @@ from ui.forms import Limits, number_text
 from ui.search_combo import SearchCombo
 
 TYPES = [("PK", "Peak"), ("LSQ", "Low shelf"), ("HSQ", "High shelf")]
-SLIDERS_HEIGHT = 460  # (the Sliders view, with its sideways scroll bar: never one up and down)
+SLIDERS_HEIGHT = 460  # (the Sliders view at most, with its sideways scroll bar: never one up and down)
+TYPE_W, NUMBER_W = 130, 100  # (px: the table's Type column and each number column)
 
 
 def _hz(v):
@@ -54,11 +55,24 @@ class FilterEditor(QWidget):
         self.table.verticalHeader().hide()
         self.table.setSelectionMode(QAbstractItemView.NoSelection)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        # (each column only as wide as necessary, the table at the left: on a wide window a number box was 250 px wide
+        # and ✕ far from its row's values; the UI audit, 2026-11-08)
         h = self.table.horizontalHeader()
-        h.setSectionResizeMode(QHeaderView.Stretch)
+        h.setSectionResizeMode(QHeaderView.Fixed)
         for c in (0, 1, 6):
             h.setSectionResizeMode(c, QHeaderView.ResizeToContents)
-        self.stack.addWidget(self.table)
+        self.table.ensurePolished()
+        fm = QFontMetrics(h.font())  # (a column never narrower than its title: "Frequency (Hz)" was cut)
+        for c, w in ((2, TYPE_W), (3, NUMBER_W), (4, NUMBER_W), (5, NUMBER_W)):
+            h.resizeSection(c, max(w, fm.horizontalAdvance(self.table.horizontalHeaderItem(c).text()) + 32))
+        self.table_box = QWidget()
+        tb = QHBoxLayout(self.table_box)
+        tb.setContentsMargins(0, 0, 0, 0)
+        tb.addWidget(self.table)
+        tb.addStretch(1)
+        self.stack.addWidget(self.table_box)
+        from ui.window_parts import EmptyText
+        self.empty = EmptyText(self.table, "No filters. Click Add filter.")
         self.sliders_scroll = QScrollArea()
         self.sliders_scroll.setWidgetResizable(True)
         self.sliders_scroll.setFixedHeight(SLIDERS_HEIGHT)
@@ -136,10 +150,12 @@ class FilterEditor(QWidget):
             t.setCellWidget(i, 6, x)
             self._dim(i)
         t.resizeRowsToContents()
-        rows = sum(t.rowHeight(i) for i in range(t.rowCount()))
+        rows = sum(t.rowHeight(i) for i in range(t.rowCount())) or 44  # (no filters: room for the line that says so)
         height = min(560, t.horizontalHeader().height() + rows + 2 * t.frameWidth() + 2)
         t.setFixedHeight(height)
+        t.setFixedWidth(t.horizontalHeader().length() + 2 * t.frameWidth() + 2)
         self.stack.setFixedHeight(height)  # (as tall as the table: the Sliders view's height left no empty band)
+        self.empty.refresh()
 
     def _dim(self, i):
         """A switched-off filter's row shows paler."""
@@ -205,7 +221,9 @@ class FilterEditor(QWidget):
         holder.scale = _Scale(top)
         g.addWidget(holder.scale, 2, 0, Qt.AlignRight)
         # the pre-amp's own column ("set for you": it follows the filters)
-        cap = QLabel("Pre-amp")
+        cap = QLabel("Pre-amp<br>automatic")  # ("automatic" under its name: its column's title, not a row's value)
+        cap.setTextFormat(Qt.RichText)
+        cap.setAlignment(Qt.AlignCenter)
         theme.mark(cap, role="muted")
         g.addWidget(cap, 0, 1, Qt.AlignHCenter)
         self.pre_label = pre = QLabel(self.preamp_text)
@@ -215,10 +233,6 @@ class FilterEditor(QWidget):
         self.pre_meter = _Meter(top)
         self.pre_meter.set_value(self._read_db(self.preamp_text))
         g.addWidget(self.pre_meter, 2, 1, Qt.AlignHCenter)
-        note = QLabel("automatic")
-        theme.mark(note, role="muted")
-        note.setAlignment(Qt.AlignCenter)
-        g.addWidget(note, 3, 1, 2, 1)
         self.slider_vals = []
         self._slider_rows = []  # (per filter: its gain's words, its slider, its frequency and Q boxes: show_values)
         eq = theme.graph_colours()["eq"]
@@ -297,9 +311,25 @@ class FilterEditor(QWidget):
             fl.addWidget(x)
             g.addWidget(foot, 6, col, Qt.AlignHCenter)
             g.setColumnStretch(col, 1)  # (the columns share the width when they fit, as a graphic EQ's across the card)
-        g.setRowStretch(7, 1)  # (room over goes under the rows, never between them)
         self.sliders_scroll.setWidget(holder)
-        self.stack.setFixedHeight(SLIDERS_HEIGHT)
+        self._fit_sliders()
+
+    def _fit_sliders(self):
+        """The Sliders view as high as its rows, and its sideways scroll bar when it shows (the UI audit, 2026-11-08:
+        an empty band was under them)."""
+        holder = self.sliders_scroll.widget()
+        if holder is None or self.view() != "sliders":
+            return
+        need = holder.sizeHint().height() + 2 * self.sliders_scroll.frameWidth()
+        if holder.sizeHint().width() > self.sliders_scroll.viewport().width() > 0:
+            need += self.sliders_scroll.horizontalScrollBar().sizeHint().height()
+        need = min(need, SLIDERS_HEIGHT)
+        self.sliders_scroll.setFixedHeight(need)
+        self.stack.setFixedHeight(need)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._fit_sliders()
 
     @staticmethod
     def _read_db(text):

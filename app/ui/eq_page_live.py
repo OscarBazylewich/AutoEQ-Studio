@@ -14,7 +14,7 @@ from PySide6.QtCore import QEvent, QObject, QPoint, QRect, Qt
 from PySide6.QtWidgets import QApplication, QFrame, QHBoxLayout, QLabel, QToolButton, QVBoxLayout
 
 from ui import help_window, theme
-from ui.eq_page_parts import TICKS, hz
+from ui.eq_page_parts import TICKS, CurveNames, hz
 
 LIVE_W, LIVE_H = 560, 250  # (its size: the graph's shape at a glance, over the result card's head)
 EDGE = 12                  # (from the edges of what the page shows)
@@ -45,6 +45,9 @@ class LiveGraph(QFrame):
         x.clicked.connect(on_close)
         head.addWidget(x)
         v.addLayout(head)
+        # (its curves' names in their colours, as the page's graph has them: the UI audit, 2026-11-08)
+        self.names = CurveNames()
+        v.addWidget(self.names)
         self.plot = pg.PlotWidget()
         self.plot.setAccessibleName("The graph while you edit")
         self.plot.setLogMode(x=True, y=False)
@@ -72,6 +75,9 @@ class LiveGraph(QFrame):
         self.c_target.setPen(pg.mkPen(col["target"], width=2, style=Qt.DashLine))
         self.c_meas.setPen(pg.mkPen(col["meas"], width=1.6))
         self.c_with.setPen(pg.mkPen(col["with_eq"], width=2.5))
+        self.names.set_items([("Target", pg.mkPen(col["target"], width=2, style=Qt.DashLine)),
+                              ("Measurement", pg.mkPen(col["meas"], width=1.6)),
+                              ("With the EQ", pg.mkPen(col["with_eq"], width=2.5))])
 
     def show_curves(self, f, target, meas, with_eq, yrange, numbers):
         self.shown = (f, target, meas, with_eq)  # (as drawn: what the checks compare with the page's graph)

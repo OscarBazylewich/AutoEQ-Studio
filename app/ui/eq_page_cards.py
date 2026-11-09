@@ -25,12 +25,12 @@ import pyqtgraph as pg
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontMetrics
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFrame, QGridLayout, QGroupBox, QHBoxLayout,
-                               QLineEdit, QMenu, QProgressBar, QPushButton, QScrollArea, QStackedWidget, QVBoxLayout,
-                               QWidget)
+                               QLabel, QLineEdit, QMenu, QProgressBar, QPushButton, QScrollArea, QStackedWidget,
+                               QVBoxLayout, QWidget)
 
 from ui import help_window, icons, theme
 from ui.bubble import InfoMark
-from ui.eq_page_parts import TICKS, Elided, NameCombo, PairTitle, hz, label
+from ui.eq_page_parts import TICKS, CurveNames, Elided, NameCombo, PairTitle, hz, label
 from ui.forms import CHOICE_MOST
 from ui.search_combo import SearchCombo
 
@@ -147,6 +147,10 @@ class EqCards:
         theme.mark(self.hover_lab, role="muted")
         opts.addWidget(self.hover_lab)
         v.addLayout(opts)
+        # (the curves' names in a line between the views and the graph, not on the curves: the UI audit, 2026-11-08;
+        # pyqtgraph's legend still gathers them, hidden)
+        self.curve_names = CurveNames()
+        v.addWidget(self.curve_names)
         self.plot = pg.PlotWidget()
         self.plot.setMinimumHeight(300)
         self.plot.scene().sigMouseMoved.connect(self._hover)
@@ -161,13 +165,20 @@ class EqCards:
             p.getAxis("bottom").setTicks([[(np.log10(t), hz(t).replace(" Hz", "").replace(" kHz", "k")) for t in TICKS]])
             p.setXRange(np.log10(20), np.log10(20000), padding=0)
         self.legend = self.plot.addLegend(offset=(10, 10))
+        self.legend.setVisible(False)
         self.plot.getAxis("left").setLabel("dB")
         self.eqplot.getAxis("left").setLabel("EQ dB")
         # (the EQ graph is where the filters are dragged: ui/eq_page_handles.py; a double-click adds one)
         self.eqplot.scene().sigMouseClicked.connect(self.eq_graph_clicked)
         self.eqplot.setAccessibleName("EQ graph")
+        # (with no EQ: words in its middle that tell what a double-click there does; the UI audit, 2026-11-08)
+        self.eq_empty = QLabel("Double-click here to add a filter and start a manual EQ.", self.eqplot)
+        self.eq_empty.setAlignment(Qt.AlignCenter)
+        self.eq_empty.setAttribute(Qt.WA_TransparentForMouseEvents)
+        theme.mark(self.eq_empty, role="muted")
+        self.eqplot.installEventFilter(self)  # (the words follow its size: eventFilter, eq_page)
         self.eqplot.setToolTip("Drag a handle: frequency and gain. Mouse wheel on a handle: Q. Right-click a handle: type, "
-                               "On, Remove. Double-click an empty area: a new filter.")
+                               "Remove. Double-click an empty area: a new filter.")
         help_window.tag(self.eqplot, "#eq-graph")
         # (both graphs' value axes one width, room for three characters ("-12", "100") in the font pyqtgraph draws
         # them in: left to themselves, each took the width of the first numbers it drew, so a page made ahead, first
@@ -466,13 +477,27 @@ class EqCards:
         v.addLayout(head)
         self.res_sub = label("", "muted")
         v.addWidget(self.res_sub)
+        # (the error first, as a large number, the error without EQ under it, then the other numbers as tags; no
+        # Filters tag: the number of filters is in the line above and in Number of filters. The UI audit, 2026-11-08)
         chips = QHBoxLayout()
-        self.chips = {k: label("", "chip", wrap=False) for k in ("filters", "error", "preamp", "boost", "maxq")}
+        chips.setSpacing(8)
+        err = QWidget()
+        ev = QVBoxLayout(err)
+        ev.setContentsMargins(0, 0, 12, 0)
+        ev.setSpacing(0)
+        big = label("", wrap=False)
+        theme.mark(big, errbig=True)
+        ev.addWidget(big)
+        self.err_noeq = label("", "muted", wrap=False)
+        ev.addWidget(self.err_noeq)
+        chips.addWidget(err)
+        self.chips = {"error": big}
+        self.chips.update({k: label("", "chip", wrap=False) for k in ("preamp", "boost", "maxq")})
         for k, c in self.chips.items():
-            chips.addWidget(c)
-            if k != "filters":  # (F1 on a chip: its entry in Help)
-                help_window.tag(c, {"error": "res.error", "preamp": "res.preamp", "boost": "res.boost",
-                                    "maxq": "res.maxq"}[k])
+            if k != "error":
+                chips.addWidget(c, 0, Qt.AlignVCenter)
+            help_window.tag(c, {"error": "res.error", "preamp": "res.preamp", "boost": "res.boost",
+                                "maxq": "res.maxq"}[k])  # (F1 on a number: its entry in Help)
         chips.addStretch(1)
         v.addLayout(chips)
         self.pick_lab = label("", "muted")  # (the audible pick: the target reached inaudibly, or as close as it gets)
@@ -516,7 +541,10 @@ class EqCards:
         self.count_combo = SearchCombo()
         help_window.tag(self.count_combo, "fcounts")
         self.count_combo.activated.connect(lambda _i: self.show_result(self.count_combo.currentData()))
-        pick.addWidget(self.count_combo, 1)
+        # (as wide as its items, as every drop-down: All results… and Compare… directly after it, UI-RULES 26)
+        self.count_combo.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        self.count_combo.setMaximumWidth(CHOICE_MOST)
+        pick.addWidget(self.count_combo)
         self.all_btn = QPushButton("All results…")
         self.all_btn.setToolTip("All the results that the app tried, and the error for each filter count and maximum Q")
         self.all_btn.clicked.connect(self.open_all_results)
@@ -526,19 +554,18 @@ class EqCards:
                                 "from History")
         self.cmp_btn.clicked.connect(self.open_compare)
         help_window.tag(self.cmp_btn, "#compare-results")
-        # (an EQ by hand, its filter counts' list hidden: Compare… at its own width and still at the row's right end,
-        # where a run's card has it; it sat alone at the left)
-        pick.addStretch(0)
         pick.addWidget(self.cmp_btn)
+        pick.addStretch(1)
         v.addLayout(pick)
         tools = QHBoxLayout()
         self.view_btns = {}
         for key, name in (("table", "Table"), ("sliders", "Sliders")):
             b = QPushButton(name)
             b.setCheckable(True)
-            theme.mark(b, nav=True)
+            theme.mark(b, nav=True, flush=True)  # (its words at the card's left edge, as every tab's: the UI audit)
             b.clicked.connect(lambda _=False, k=key: self.set_view(k))
             tools.addWidget(b)
+            tools.addSpacing(8)
             self.view_btns[key] = b
         tools.addSpacing(12)
         for text, symbol, fn, tip in (("Add filter", "add", self.add_filter, "A new filter at 1 kHz, 0 dB"),
@@ -622,9 +649,18 @@ class EqCards:
         icons.put(copy, "copy")
         copy.setToolTip("Copy the filters as Equalizer APO / squiglink text")
         copy.clicked.connect(lambda: self.copy_filters(self.enabled_filters(), self.stats()["preamp_raw"]))
-        for b in (save, copy, self.use_btn, keep, report, folder):
+        # (two rows by function, the user's answer, 2026-11-08: they were 6 buttons in one row for different jobs. Row
+        # 1, under File name: the files (Save filters, the accent; Copy; Open the Saved EQs folder). Row 2: this EQ on a
+        # device, in Listen, in a report)
+        for b in (save, copy, folder):
             btns.addWidget(b)
         btns.addStretch(1)
         v.addLayout(btns)
+        use_row = QHBoxLayout()
+        for b in (self.use_btn, keep, report):
+            use_row.addWidget(b)
+        use_row.addStretch(1)
+        v.addSpacing(6)
+        v.addLayout(use_row)
         box.hide()
         return box

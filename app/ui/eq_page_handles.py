@@ -202,7 +202,8 @@ class EqHandles:
         self._settle_timer.start()
 
     def handle_menu(self, i, screen_pos):
-        """Right-click on a handle: Peak, Low shelf, High shelf (its type now ticked), Switched on, Delete."""
+        """Right-click on a handle: Peak, Low shelf, High shelf (its type with the check mark), then Remove. No On (the
+        user's answer, 2026-11-08: the On tick box of the table and of Sliders turns a filter off)."""
         if i >= len(self.EDIT):
             return
         import shiboken6
@@ -216,11 +217,6 @@ class EqHandles:
             a.setCheckable(True)
             a.setChecked(f.get("type", "PK") == k)
             a.triggered.connect(lambda _=False, k=k: self._change_filter(i, type=k))
-        m.addSeparator()
-        on = m.addAction("On")
-        on.setCheckable(True)
-        on.setChecked(f.get("enabled", True) is not False)
-        on.triggered.connect(lambda checked: self._change_filter(i, enabled=bool(checked)))
         m.addSeparator()  # (set apart: UI-RULES 14; "Remove": the filter off the EQ, not a file gone, UI-RULES 16)
         m.addAction("Remove", lambda: self._remove_filter(i))
         m.aboutToHide.connect(m.deleteLater)
