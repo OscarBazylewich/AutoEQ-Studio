@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QGridLayout, QHBoxL
                                QWidget)
 
 from ui import theme
-from ui.forms import Limits, _number_text
+from ui.forms import Limits, number_text
 from ui.search_combo import SearchCombo
 
 TYPES = [("PK", "Peak"), ("LSQ", "Low shelf"), ("HSQ", "High shelf")]
@@ -119,7 +119,7 @@ class FilterEditor(QWidget):
             typ.activated.connect(lambda _x, f=f, typ=typ: (f.__setitem__("type", typ.currentData()), self._edited()))
             t.setCellWidget(i, 2, typ)
             for c, key in ((3, "freq"), (4, "gain"), (5, "q")):
-                box = QLineEdit(_number_text(f[key]))
+                box = QLineEdit(number_text(f[key]))
                 box.setAccessibleName(f"Filter {i + 1} " + {"freq": "frequency (Hz)", "gain": "gain (dB)", "q": "Q"}[key])
                 box.setAlignment(Qt.AlignCenter)
                 lim = self.limits.text("edit." + key)
@@ -178,9 +178,9 @@ class FilterEditor(QWidget):
         if v is not None and self.limits.check("edit." + key, v, lambda p: None):
             c = self.limits.clamp("edit." + key, v)
             f[key] = c
-            self.say(f"The value changed to {_number_text(c)}. Permitted: {self.limits.text('edit.' + key)}.")
+            self.say(f"The value changed to {number_text(c)}. Permitted: {self.limits.text('edit.' + key)}.")
             self._edited()
-        box.setText(_number_text(f[key]))
+        box.setText(number_text(f[key]))
         self._mark(box, None)
 
     # ---------------------------------------------------------------- the sliders
@@ -254,7 +254,7 @@ class FilterEditor(QWidget):
             # (frequency, Q and type typed or chosen as in the table, with the same limits)
             boxes = {}
             for row, key in ((3, "freq"), (4, "q")):
-                box = QLineEdit(_number_text(f[key]))
+                box = QLineEdit(number_text(f[key]))
                 box.setAccessibleName(f"Filter {i + 1} " + ("frequency (Hz)" if key == "freq" else "Q"))
                 box.setAlignment(Qt.AlignCenter)
                 box.setFixedWidth(64)
@@ -321,14 +321,14 @@ class FilterEditor(QWidget):
                 val.setText(f"{f['gain']:+.1f}")
                 for box, key in ((fbox, "freq"), (qbox, "q")):
                     if box is not None and not box.hasFocus():
-                        box.setText(_number_text(f[key]))
+                        box.setText(number_text(f[key]))
             return
         t = self.table
         for i, f in enumerate(self.filters[:t.rowCount()]):
             for c, key in ((3, "freq"), (4, "gain"), (5, "q")):
                 box = t.cellWidget(i, c)
                 if box is not None and not box.hasFocus():
-                    box.setText(_number_text(f[key]))
+                    box.setText(number_text(f[key]))
 
     def set_preamp_text(self, text):
         self.preamp_text = text

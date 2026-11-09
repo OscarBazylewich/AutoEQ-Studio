@@ -117,7 +117,7 @@ def test_demos(s, check):
         played, stuck = 0, []
         for i, st in enumerate(t.steps):
             t.go_to_step(i)
-            if not tour._demo_actions(st):
+            if not tour.demo_actions(st):
                 continue
             t.speed = 40.0
             t.replay()
@@ -251,8 +251,8 @@ def test_tracers_guide(s, check):
     demos, play = 0, []
     for i, st in enumerate(t.steps):
         t.go_to_step(i)
-        play.append((st["title"], bool(tour._demo_actions(st)), t.replay_btn.isVisible(), t.all_chk.isVisible()))
-        if tour._demo_actions(st):
+        play.append((st["title"], bool(tour.demo_actions(st)), t.replay_btn.isVisible(), t.all_chk.isVisible()))
+        if tour.demo_actions(st):
             t.speed = 40.0
             t.replay()
             demos += wait_for(lambda: not t.demo_running, 20)

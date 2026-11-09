@@ -197,7 +197,7 @@ class QueueWindow(QDialog):
         page.keep_run(run)
         page.render_runs()
         base = f"{page.session}-{run['n']}-{r['id']}"
-        entry = {"key": f"{base}-{page._fingerprint(filters)}", "base": base, "saved": bool(written),
+        entry = {"key": f"{base}-{page.filters_fingerprint(filters)}", "base": base, "saved": bool(written),
                  "device": payload.get("device"), "target": payload.get("target_name"),
                  "target_file": payload.get("target_file"), "meas_files": payload.get("meas_files"),
                  "adjust": cfg["target_adjust"], "mode": payload["mode"], "label": page.run_label(run, r),

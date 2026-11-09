@@ -37,9 +37,9 @@ class EqHistory:
                 f"{r.get('gain_max')} · Q {r.get('q_min')}–{r.get('q_max')}")
 
     @staticmethod
-    def _fingerprint(filters):
+    def filters_fingerprint(filters):
         """A short fingerprint of filters: the same result saved as it is and edited are two entries (in another
-        order, e.g. sorted, one)."""
+        order, e.g. sorted, one). Public: the Queue window makes its History entries' keys with it too."""
         rows = sorted(json.dumps([f.get("type", "PK"), float(f["freq"]), float(f["gain"]), float(f["q"]),
                                   f.get("enabled", True) is not False]) for f in filters)
         return hashlib.sha1(json.dumps(rows).encode()).hexdigest()[:8]
@@ -51,7 +51,7 @@ class EqHistory:
         base = run.get("history") or f"{self.session}-{run.get('n', 1)}-{r['id']}"
         result = {k: v for k, v in r.items() if k not in ("filters", "start")}  # (by hand: shown again as saved)
         S = self.S
-        return {"key": f"{base}-{self._fingerprint(filters)}", "base": base, "saved": saved,
+        return {"key": f"{base}-{self.filters_fingerprint(filters)}", "base": base, "saved": saved,
                 "device": run.get("device") or c.get("name"), "target": run.get("target_name") or c.get("target_name"),
                 "target_file": run.get("target_file") or self.inputs.get("active_target"),
                 "meas_files": run.get("meas_files") or [m["name"] for m in self.inputs["measurements"] if m["included"]],

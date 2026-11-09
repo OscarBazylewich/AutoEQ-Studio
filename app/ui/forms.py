@@ -30,11 +30,12 @@ def fmt_list(a, dash="-"):
     if all(isinstance(v, int) and not isinstance(v, bool) for v in a) and len(a) > 2 \
             and all(a[i] == a[i - 1] + 1 for i in range(1, len(a))):
         return f"{a[0]}{dash}{a[-1]}"
-    return ", ".join(_number_text(v) for v in a)
+    return ", ".join(number_text(v) for v in a)
 
 
-def _number_text(v):
-    """A number as a box shows it: 0.5, 16000, 0.00005 (never 5e-05)."""
+def number_text(v):
+    """A number as a box shows it: 0.5, 16000, 0.00005 (never 5e-05). Public: the filter table shows its numbers
+    the same way."""
     if not isinstance(v, float):
         return str(v)
     s = f"{v:g}"
@@ -88,7 +89,7 @@ class Limits:
         lim = self.of(key)
         if not lim:
             return ""
-        s = f"{_number_text(lim['min'])} to {_number_text(lim['max'])}{(' ' + lim['unit']) if lim.get('unit') else ''}"
+        s = f"{number_text(lim['min'])} to {number_text(lim['max'])}{(' ' + lim['unit']) if lim.get('unit') else ''}"
         if lim.get("list"):
             s = "each value " + s
         if lim.get("empty"):
@@ -117,9 +118,9 @@ class Limits:
                 continue
             unit = (" " + lim["unit"]) if lim.get("unit") else ""
             return "pair", (f"The value must be {'less than' if strict else 'equal to or less than'} the “to” value "
-                            f"({_number_text(b)}{unit})" if key == lo
+                            f"({number_text(b)}{unit})" if key == lo
                             else f"The value must be {'more than' if strict else 'equal to or more than'} the “from” "
-                            f"value ({_number_text(a)}{unit})")
+                            f"value ({number_text(a)}{unit})")
         return None
 
     def clamp(self, key, v):
@@ -234,9 +235,9 @@ class Field(QWidget):
         elif self.kind in ("intlist", "numlist"):
             self.box.setText(fmt_list(v))
         elif self.kind == "ranges":
-            self.box.setText(", ".join(f"{_number_text(r[0])}..{_number_text(r[1])}" for r in v or []))
+            self.box.setText(", ".join(f"{number_text(r[0])}..{number_text(r[1])}" for r in v or []))
         else:
-            self.box.setText("" if v is None else _number_text(v))
+            self.box.setText("" if v is None else number_text(v))
         self.box.blockSignals(False)
         self._mark(None)
 
@@ -299,7 +300,7 @@ class Field(QWidget):
             if not self.form.limits.check(self.path, c, self.form.get):
                 self._commit(c)
                 self.show_value(c)
-                self.form.say(f"The value changed to {fmt_list(c) if isinstance(c, list) else _number_text(c)}. "
+                self.form.say(f"The value changed to {fmt_list(c) if isinstance(c, list) else number_text(c)}. "
                               f"Permitted: {self.form.limits.text(self.path)}.")
                 return
         if isinstance(v, tuple) and self.box.text().strip() == "":
@@ -313,7 +314,7 @@ class Field(QWidget):
         c = self.form.limits.clamp(self.path, _whole(round(v + n * self.step, 6)))
         if c == v or self.form.limits.check(self.path, c, self.form.get):
             return
-        self.box.setText(_number_text(c))
+        self.box.setText(number_text(c))
         self._mark(None)
         self._commit(c)
 

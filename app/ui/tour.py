@@ -215,7 +215,9 @@ def _control(a):
     return w if isinstance(w, QWidget) and _alive(w) else None
 
 
-def _demo_actions(st, alt=False):
+def demo_actions(st, alt=False):
+    """A step's demo actions as a list (its "demo", or "alt_demo" when alt: a list, or a function that makes one);
+    [] when it has none. Public: the Guide's tests play each step's actions too."""
     d = st.get("alt_demo" if alt else "demo")
     return (d() if callable(d) else d) or []
 
@@ -1139,7 +1141,7 @@ class Tour(QWidget):
             self.extra.addWidget(b)
         if st.get("buttons"):
             self.extra.addStretch(1)
-        actions = _demo_actions(st, self.alt)
+        actions = demo_actions(st, self.alt)
         self.acts = [_val(a.get("say", "")) for a in actions if a.get("say")]
         self.act_now = -1
         has_demo = bool(actions)
@@ -1476,7 +1478,7 @@ class Tour(QWidget):
     def _set_play_all(self, on):
         _kept["all"] = on
         if on and not self.demo_running:
-            if _demo_actions(self.steps[self.i], self.alt) if 0 <= self.i < len(self.steps) else False:
+            if demo_actions(self.steps[self.i], self.alt) if 0 <= self.i < len(self.steps) else False:
                 self.replay()
             else:
                 self._schedule_next()
@@ -1498,7 +1500,7 @@ class Tour(QWidget):
         self.stop_demo()
         if not 0 <= self.i < len(self.steps):
             return
-        actions = _demo_actions(self.steps[self.i], self.alt)
+        actions = demo_actions(self.steps[self.i], self.alt)
         if not actions:
             return
         if not self.glide:  # (animation effects off: numbered markers, nothing moves)
@@ -2044,7 +2046,7 @@ def problems(host, steps):
                     why = None if alt else f"{why} (and its stand-in: {why2})"
                 if why:
                     out.append((n, _val(st["title"]), why))
-            for k, a in enumerate(_demo_actions(st, alt), 1):
+            for k, a in enumerate(demo_actions(st, alt), 1):
                 if any(x in a for x in ACTIONS):
                     why = where(_control(a))
                     if why:
