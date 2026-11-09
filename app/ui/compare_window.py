@@ -10,7 +10,7 @@ agree, the seal, averaging and the data), with the reasons for each.
   except one far from the others (a fit problem?) and the same data published twice; not offered when they're all
   copies of one measurement
 Offline (net.py): what's on this PC and in the app is compared; online measurements downloaded before too; the others
-are listed under "Couldn't load".
+are listed in the fold "Not loaded (n)" under the measurements.
 
 The look (Windows 11's; theme_sheet's find_windows part matches the names given here): the chart on a card in the
 graph's own colours (blue the best one for your target, green the average: never the accent, which is Windows' and may be any
@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (QCheckBox, QDialog, QFrame, QGridLayout, QHBoxLay
 
 import net
 from ui import help_window, icons, tasks, theme
+from ui.eq_page_parts import CurveNames
 from ui.forms import Fold
 from ui.search_combo import SearchCombo
 from ui.theme_sheet import CARD
@@ -60,6 +61,26 @@ class _Row(QFrame):
     def leaveEvent(self, e):
         self.on_leave()
         super().leaveEvent(e)
+
+
+def _not_loaded(errors):
+    """The measurements that did not load, in a fold "Not loaded (n)", one on each line; when they all have one cause
+    (offline: "to download it, change to Online"), it is said once, at the end."""
+    fold = Fold(f"Not loaded ({len(errors)})")
+    names, causes = [], []
+    for e in errors:
+        name, _sep, cause = e.partition("): ")
+        names.append(name + (")" if _sep else ""))
+        causes.append(cause)
+    one = len(set(causes)) == 1 and causes[0]
+    text = "<br>".join(_esc(n) if one else _esc(e) for n, e in zip(names, errors)) + \
+        (f"<br><br>{_esc(causes[0])}" if one else "")
+    lab = QLabel(text)
+    lab.setTextFormat(Qt.RichText)
+    lab.setWordWrap(True)
+    theme.mark(lab, role="muted")
+    fold.add(lab)
+    return fold
 
 
 class CompareWindow(QDialog):
@@ -94,12 +115,19 @@ class CompareWindow(QDialog):
         v.addLayout(top)
         # (the target's rig on a line of its own, its words at the left and its choice at the right as Windows 11's
         # settings: beside the model, a long target name left the model's box a few letters wide at 10.5 pt)
+        # (as a row of Windows 11's Settings: its label in the usual colour, the target's name in gray under it; the
+        # UI audit, 2026-11-08: its label was gray words, "Target … is made for")
         rig_row = QHBoxLayout()
+        words = QVBoxLayout()
+        words.setSpacing(0)
+        words.addWidget(QLabel("Rig of your target"))
         self.target_lab = QLabel()
         self.target_lab.setWordWrap(True)
         theme.mark(self.target_lab, role="muted")
-        rig_row.addWidget(self.target_lab, 1)
+        words.addWidget(self.target_lab)
+        rig_row.addLayout(words, 1)
         self.rig = SearchCombo()
+        self.rig.setAccessibleName("Rig of your target")
         help_window.tag(self.q, "#cmp-q")
         help_window.tag(self.rig, "#cmp-rig")
         self.rig.activated.connect(lambda _i: (self.data or self.busy) and self.search_measurements())
@@ -127,11 +155,10 @@ class CompareWindow(QDialog):
         cc.setContentsMargins(6, 6, 6, 4)
         cc.addWidget(self.chart)
         v.addWidget(chart_card, 1)
-        legend = QLabel("Blue: best for your target, or the row that the mouse is on. Gray: the rig of your target. Dotted line: "
-                        "other rigs. Green dashed line: an average, while the mouse is on its box.")
-        legend.setWordWrap(True)
-        theme.mark(legend, role="muted")
-        v.addWidget(legend)
+        # (the lines' names in a line under the chart, each after a short line in its colour and style, as the other
+        # graphs of the app: the UI audit, 2026-11-08; 2 lines of words told them)
+        self.names = CurveNames()
+        cc.addWidget(self.names)
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -169,7 +196,7 @@ class CompareWindow(QDialog):
         for k, name in rigs.items():
             self.rig.addItem(name, k)
         self.rig.sort_items(pinned=2)  # ("Automatic" and "Don't know" on top, the rigs A to Z under them: UI-RULES 22)
-        self.target_lab.setText(f"Target {(r.get('target') or 'not selected').rsplit('.', 1)[0]} is made for")
+        self.target_lab.setText((r.get("target") or "No target selected").rsplit(".", 1)[0])
         self.q.setText(r.get("query") or "")
         if self.q.text().strip():
             self.search_measurements(auto=True)
@@ -267,11 +294,8 @@ class CompareWindow(QDialog):
             none.setWordWrap(True)
             theme.mark(none, role="muted")
             lay.addWidget(none)
-        if d.get("errors"):
-            err = QLabel("Not loaded: " + " · ".join(d["errors"]))
-            err.setWordWrap(True)
-            theme.mark(err, role="muted")
-            lay.addWidget(err)
+        if d.get("errors"):  # (a fold, as How the app sorts them: the UI audit, 2026-11-08)
+            lay.addWidget(_not_loaded(d["errors"]))
         if d.get("links"):
             links = " · ".join(f"<a href='{l['link']}'>{_esc(l['name'])}</a> ({_esc(l['site'])}"
                                f"{', ' + _esc(l['rig']) if l.get('rig') else ''})" for l in d["links"])
@@ -459,6 +483,10 @@ class CompareWindow(QDialog):
             ch.getAxis(ax).setPen(pg.mkPen(col["axis"]))
             ch.getAxis(ax).setTextPen(pg.mkPen(col["axis"]))
         ch.showGrid(x=True, y=True, alpha=0.2)
+        self.names.set_items([("Best for your target, or the row at the pointer", pg.mkPen(col["with_eq"], width=2.5)),
+                              ("The rig of your target", pg.mkPen(_colour(col["target"], 130), width=1.6)),
+                              ("Other rigs", pg.mkPen(_colour(col["axis"], 160), width=1.6, style=Qt.DotLine)),
+                              ("An average (the pointer on its box)", pg.mkPen(t["c4"], width=2.5, style=Qt.DashLine))])
         d = self.data
         if not d or not d["items"]:
             return

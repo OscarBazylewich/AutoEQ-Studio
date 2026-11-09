@@ -281,3 +281,6 @@ class AllResults(QDialog):
                     it.setFont(f)
                 t.setItem(i, c, it)
         t.setSortingEnabled(True)
+        # (the lowest error at the top, its arrow up: Qt sorted them again from the highest when sorting came on;
+        # the UI audit, 2026-11-08)
+        t.sortByColumn(0, Qt.AscendingOrder)

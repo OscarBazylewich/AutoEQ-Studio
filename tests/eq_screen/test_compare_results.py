@@ -44,6 +44,7 @@ def test_compare_two_results(eq_screen, history_eq, check):
     a_rms = dlg.numbers.item(0, 1).text() if dlg.numbers.rowCount() else ""
     card = page.stats()["rms"]
     names = [dlg.numbers.item(i, 0).text() for i in range(dlg.numbers.rowCount())]
+    apart = dlg.apart.text()  # (the maximum difference: a line under the values, the UI audit, 2026-11-08)
     rows = (dlg.tables[0].rowCount(), dlg.tables[1].rowCount())
     other = opts[1] if len(opts) > 1 else None
     if other and other["rid"] is not None:
@@ -56,7 +57,8 @@ def test_compare_two_results(eq_screen, history_eq, check):
     # was eq_checks.py:2500
     check("compare: the result shown now and another side by side (the error as the result card's, every number, "
           "both filter tables); Show B puts it on the result card", len(opts) >= 2 and opts[0]["label"].startswith("Shown: ")
-          and a_rms == f"{card:.2f}" and len(names) == 6 and rows[0] == len(page.enabled_filters()) and rows[1] == 4
+          and a_rms == f"{card:.2f}" and len(names) == 5 and apart.startswith("Maximum difference between A and B")
+          and rows[0] == len(page.enabled_filters()) and rows[1] == 4
           and (other is None or other["rid"] is None or moved == other["rid"]) and page.cmp_btn.isVisibleTo(page),
           (len(opts), a_rms, card, names, rows, moved))
 

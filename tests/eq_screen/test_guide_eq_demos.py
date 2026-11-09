@@ -197,10 +197,10 @@ def test_history_demo_rows_readable_at_the_smallest(eq_screen, check, monkeypatc
         page.resize(size)
         qt.pump(200)
     rows = seen.get("rows") or []
-    check("guide: at the window's smallest, the History demo shows History's rows with their buttons under their "
-          "words, which keep room to be read (squeezed beside the buttons, they were a column about 100 px wide)",
+    check("guide: at the window's smallest, the History demo shows History's rows with words that keep room to be read "
+          "(squeezed beside the buttons, they were a column about 100 px wide)",
           ended and not errors and seen.get("width", 10 ** 6) < 640 and len(rows) == 2
-          and all(r["Show under the words"] and r["words wide"] >= WORDS_ROOM for r in rows), (ended, errors, seen))
+          and all(r["words wide"] >= WORDS_ROOM for r in rows), (ended, errors, seen))
 
 
 def test_menus_drawn_with_the_real_submenu_arrow(eq_screen, check, monkeypatch):

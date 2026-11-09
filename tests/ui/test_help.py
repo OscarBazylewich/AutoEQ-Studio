@@ -42,7 +42,7 @@ def test_search_and_going_to_an_entry(qapp, check):
     w = hw.open_at()
     try:
         w.q.setText("rig change database")  # ("rig change" alone is in 16 entries)
-        found = w.toc.count()
+        found = w.found
         w.q.setText("zzzz qqqq")
         none = "No results with all of these words" in w.view.toPlainText()
         w.q.setText("rig")
@@ -68,9 +68,8 @@ def test_f1_on_a_control(qapp, check):
 LOOK = r'''
 import json, re, sys, time
 sys.path.insert(0, sys.argv[1])
-from PySide6.QtCore import QRect, Qt
-from PySide6.QtGui import QFontMetrics
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication, QTreeWidgetItemIterator
 qapp = QApplication([])
 from ui import theme, help_window as hw
 out = {}
@@ -78,12 +77,30 @@ def settle():
     for _ in range(20):
         qapp.processEvents()
         time.sleep(0.01)
+def shown_items(toc):
+    out, it = [], QTreeWidgetItemIterator(toc)
+    while it.value():
+        item = it.value()
+        p, seen = item.parent(), not item.isHidden()
+        while seen and p is not None:
+            seen = not p.isHidden() and p.isExpanded()
+            p = p.parent()
+        if seen:
+            out.append(item)
+        it += 1
+    return out
 for dark in (False, True):
     theme.apply(qapp, dark=dark, contrast=False)
     w = hw.open_at()
     w.resize(1000, 760)
-    w.view.verticalScrollBar().setValue(0)
+    w.q.setText("")
+    for i in range(w.toc.topLevelItemCount()):
+        w.toc.topLevelItem(i).setExpanded(False)
+    w.show_page("start")
     settle()
+    toc, vw = w.toc, w.toc.viewport().width()
+    top = [toc.topLevelItem(i) for i in range(toc.topLevelItemCount())]
+    start = [len(shown_items(toc)), any(it.isExpanded() for it in top)]
     img = w.view.grab().toImage()  # (the page's top: the room above its first words)
     k = img.devicePixelRatio()
     w.show_entry("rig-tags")
@@ -91,89 +108,47 @@ for dark in (False, True):
     t = theme.tokens()
     page = w.view.document().toHtml()
     links = {c for s in re.findall(r'<a href="#[^"]*"><span style="([^"]*)"', page) for c in re.findall(r"color:(#\w{6})", s)}
-    toc, vw = w.toc, w.toc.viewport().width()
-    wide, short = [], []
-    for n in range(toc.count()):
-        it = toc.item(n)
-        r = toc.visualItemRect(it)
-        fm = QFontMetrics(it.font() if it.data(Qt.FontRole) is not None else toc.font())
-        need = fm.boundingRect(QRect(0, 0, r.width() - 22, 100000), Qt.TextWordWrap, it.text()).height() + 12
-        if r.right() >= vw:
-            wide.append(it.text()[:40])
-        elif need > r.height():
-            short.append(it.text()[:40])
-    chosen = [it.data(Qt.UserRole) for it in toc.selectedItems()]
-    out["dark" if dark else "light"] = {
-        "links": sorted(links), "accent_text": t["accent_text"],
-        "lit": f'bgcolor="{t["accent"]}"' in page and chosen == ["rig-tags"],
-        "page": img.pixelColor(int(w.view.width() * k / 2), int(5 * k)).name(), "card": t["card"],
-        "wide": wide, "short": short, "rows": toc.count()}
-    w.show_entry("set-best-fit-filter-counts")  # (an entry asked for, then a search typed that finds it half-way down)
+    cur = toc.currentItem()
+    wide = [it.text(0)[:40] for it in shown_items(toc) if toc.visualItemRect(it).right() >= vw]
+    v = out["dark" if dark else "light"] = {
+        "start": start, "links": sorted(links), "accent_text": t["accent_text"],
+        "chosen": cur is not None and cur.data(0, Qt.UserRole) == "rig-tags" and cur.parent().isExpanded(),
+        "one entry": page.count("<h3") == 1, "page": img.pixelColor(int(w.view.width() * k / 2), int(5 * k)).name(),
+        "card": t["card"], "wide": wide, "name": w.view.accessibleName()}
+    w.q.setText("filter")
     settle()
-    for text in ("f", "fi", "filter"):
-        w.q.setText(text)
-    settle()
-    out["dark" if dark else "light"]["typed"] = (toc.verticalScrollBar().value(),
-                                                 [it.data(Qt.UserRole) for it in toc.selectedItems()])
+    groups = [it for it in shown_items(toc) if it.childCount()]
+    found = [it for it in shown_items(toc) if not it.childCount()]
+    v["search"] = [bool(found), all(g.isExpanded() for g in groups),
+                   all(w._matches(hw._by_id()[it.data(0, Qt.UserRole)], ["filter"]) for it in found
+                       if it.data(0, Qt.UserRole) in hw._by_id())]
     w.q.setText("")
+    w.show_entry("set-best-fit-filter-counts")
     settle()
-    bar = toc.verticalScrollBar()  # (the contents scrolled half-way, then an entry there clicked)
-    bar.setValue(bar.maximum() // 2)
-    settle()
-    k = toc.row(toc.itemAt(toc.viewport().rect().center()))
-    while k < toc.count() and toc.item(k).data(Qt.UserRole) not in hw._by_id():
-        k += 1
-    anchor, before = toc.item(k).data(Qt.UserRole), bar.value()
-    w.show_entry(anchor)  # (what a click on it does)
-    settle()
-    out["dark" if dark else "light"]["clicked"] = (before > 0 and bar.value() == before,
-                                                   [it.data(Qt.UserRole) for it in toc.selectedItems()] == [anchor])
-    w.q.setText("")  # (the page scrolled half-way, the theme changed and back, then a search typed)
-    settle()
-    pb = w.view.verticalScrollBar()
-    pb.setValue(pb.maximum() // 2)
-    settle()
-    mid = pb.value()
-    theme.apply(qapp, dark=not dark, contrast=False)
-    settle()
-    kept = pb.value()
-    theme.apply(qapp, dark=dark, contrast=False)
-    settle()
-    for text in ("r", "ri", "rig"):
-        w.q.setText(text)
-    settle()
-    out["dark" if dark else "light"]["place"] = (mid > 0, kept == mid, pb.value(), w.view.accessibleName())
-    w.q.setText("")
-    settle()
+    cur = toc.currentItem()
+    v["setting"] = [cur.data(0, Qt.UserRole), cur.parent().isExpanded(), w.view.document().toHtml().count("<h3")]
 print(json.dumps(out))
 '''
 
 
 def test_the_look_follows_the_theme(check):
     # (2026-10-23, the Windows 11 look: the page was the colour of a text box and its links the accent's fill colour;
-    # the entry asked for was lit paragraph by paragraph; long questions in the contents came out wider than the list,
-    # their ends cut off, and its headings a size smaller than the rest)
+    # long questions in the contents came out wider than the list. The UI audit, 2026-11-08: the contents are groups
+    # that open and close, and the page shows one entry at a time)
     out = subproc.run_python(LOOK, session.SESSION.app)
     d = out.data or {}
     check("help: its page and contents are cards as the rest of the app, its links in the accent's text colour, the "
-          "entry asked for on one quiet block with the accent's bar beside it (and chosen in the contents), light and "
-          "dark",
-          len(d) == 2 and all(v["links"] == [v["accent_text"]] and v["lit"] and v["page"] == v["card"]
+          "entry asked for alone on the page and chosen in the contents (its group open), light and dark",
+          len(d) == 2 and all(v["links"] == [v["accent_text"]] and v["chosen"] and v["one entry"] and v["page"] == v["card"]
                               for v in d.values()), d or out.stderr[-300:])
-    check("help: every entry of the contents is as tall as its words and no wider than the list (none cut off)",
-          len(d) == 2 and all(not v["wide"] and not v["short"] and v["rows"] > 50 for v in d.values()),
-          {m: (v["wide"][:3], v["short"][:3], v["rows"]) for m, v in d.items()} if d else out.stderr[-300:])
-    check("help: while a search is typed the contents stay at their top, the entry asked for still chosen in them; "
-          "an entry opened from the contents leaves them where they were, chosen there",
-          len(d) == 2 and all(v["typed"] == [0, ["set-best-fit-filter-counts"]] and v["clicked"] == [True, True]
-                              for v in d.values()),
-          {m: (v["typed"], v["clicked"]) for m, v in d.items()} if d else out.stderr[-300:])
-    # (2026-10-23: a search typed kept the page's place, so its results showed part-way down with a line cut at the
-    # top; and a screen reader said nothing for the page)
-    check("help: a search typed shows the page from its top (a theme change leaves it where it was), and the page is "
-          "named for a screen reader (“Help page”)",
-          len(d) == 2 and all(v.get("place") == [True, True, 0, "Help page"] for v in d.values()),
-          {m: v.get("place") for m, v in d.items()} if d else out.stderr[-300:])
+    check("help: the contents start with their groups closed (a few rows), and no entry is wider than the list",
+          len(d) == 2 and all(v["start"][0] <= 12 and not v["start"][1] and not v["wide"] for v in d.values()),
+          {m: (v["start"], v["wide"][:3]) for m, v in d.items()} if d else out.stderr[-300:])
+    check("help: a search keeps the entries with its words, each group with one open; F1's entry (a setting) opens "
+          "its group and is alone on the page; the page is named for a screen reader (“Help page”)",
+          len(d) == 2 and all(v["search"] == [True, True, True] and v["setting"] == ["set-best-fit-filter-counts", True, 1]
+                              and v["name"] == "Help page" for v in d.values()),
+          {m: (v["search"], v["setting"], v["name"]) for m, v in d.items()} if d else out.stderr[-300:])
 
 
 def test_rig_tags_say_what_find_shows(check):

@@ -111,6 +111,8 @@ def buttons(t, img):
         color: {t['disabled']}; }}
     QPushButton::menu-indicator {{ image: url({img['chevron']}); subcontrol-origin: padding;
         subcontrol-position: center right; width: 16px; height: 12px; right: 6px; }}
+    QPushButton[nochevron="true"]::menu-indicator {{ image: none; width: 0px; }}
+    QPushButton[nochevron="true"] {{ padding-left: 6px; padding-right: 6px; }}
 """
 
 
@@ -505,7 +507,11 @@ def guide_and_help(t, img):
     QFrame#tourSteps QListWidget {{ background: transparent; border: none; }}
     QFrame#tourSteps QListWidget::item {{ padding: 5px 8px; }}
     QLabel#tourPin {{ background: {t['card']}; border: 1px solid {t['line']}; border-radius: 8px; }}
-    QListWidget#helpContents::item {{ padding: 6px 8px; }}
+    QTreeWidget#helpContents {{ background: {t['card']}; border: 1px solid {t['line']}; border-radius: 8px;
+        padding: 4px; }}
+    QTreeWidget#helpContents::item {{ padding: 5px 4px; }}
+    QTreeWidget#helpContents::branch:has-children:closed {{ image: url({img['chevron_right']}); }}
+    QTreeWidget#helpContents::branch:has-children:open {{ image: url({img['chevron']}); }}
     QTextBrowser#helpPage {{ background: {t['card']}; border: 1px solid {t['line']}; border-radius: 8px; }}
 """
 

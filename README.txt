@@ -126,8 +126,10 @@ One column, from the top to the bottom:
   PC. Find… (or the / key) searches the app, this PC and the online databases:
     - Preview shows a curve on the graph (dotted line). "Hide previews" removes the previews.
     - Use selects the curve. Undo, at the bottom of the window, gives you the previous curve again.
-    - Sources… selects where Find… looks: the folders of this PC, the online databases (on or off) and more
-      squig.link databases. You add a squig.link database from a list or with its URL.
+    - ⋯ (in the rows of the app) has the other commands: Show files, Move to Measurement and Delete….
+    - The tabs above the results show the number of items in each source.
+    - Sources… selects where Find… looks, with a tab for each part: the folders of this PC, the online databases (on
+      or off) and more squig.link databases. You add a squig.link database from a list or with its URL.
     - The results are from A to Z in each part. The Rig, Type and Source lists are from A to Z. They have a search
       box at the top: type a part of a name to find it.
   "Other measurements of this model…" sorts all the measurements of your IEM for the target (Which measurement to
@@ -146,7 +148,8 @@ One column, from the top to the bottom:
   When the pointer is on the graph, the graph shows its values at that position. The app does not calculate the
   error at the gray ends. If the app changed a target for a different rig, a band shows the possible error of that
   change.
-  History… (near the title of the graph) has the EQs that you saved or copied.
+  History… (near the title of the graph) has the EQs that you saved or copied: Show opens one, and its ⋯ has Copy,
+  Keep to compare and Remove from the history.
 - Make the EQ: first Your EQ app, for the two tabs (the EQ stays in its limits, and Save writes its file: the ⓘ after
   its label shows them). Then select how to make the EQ, on two tabs: Automatically or Manually (it opens on the tab
   that you selected last). Below the tabs: Settings and More settings (click to open or close them), then Calculate or

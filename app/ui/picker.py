@@ -33,7 +33,7 @@ import os
 
 from PySide6.QtCore import QRect, QSize, Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QFont, QFontMetrics
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QHBoxLayout, QLabel, QLayout, QLineEdit,
+from PySide6.QtWidgets import (QMenu, QButtonGroup, QCheckBox, QDialog, QHBoxLayout, QLabel, QLayout, QLineEdit,
                                QListWidget, QListWidgetItem, QMessageBox, QPushButton, QSizePolicy, QStyle,
                                QStyleOptionComboBox, QVBoxLayout, QWidget)
 
@@ -241,6 +241,16 @@ class FoundList(QListWidget):
         self.updateGeometries()  # (once more, the list's new width known now)
 
 
+def more_button():
+    """A row's ⋯: its other commands in a menu (quiet, as a row's ✕; no chevron: its symbol says it)."""
+    b = QPushButton()
+    icons.put(b, "more")
+    theme.mark(b, quiet=True, nochevron=True)
+    b.setToolTip("More commands")
+    b.setMenu(QMenu(b))
+    return b
+
+
 class FilesButton(QPushButton):
     """Show files / Hide files: a measurement's files under its row (to tick or untick one by one), or hidden again.
     In words, as wide either way: a chevron on a button opens a menu (.claude/notes/UI-RULES.md 12), and this one, drawn
@@ -292,11 +302,15 @@ class Picker(QDialog):
         top.addWidget(self.anykind)
         v.addLayout(top)
         srcs = QHBoxLayout()
+        srcs.setSpacing(20)
         self.src_btns = QButtonGroup(self)
+        self.src_by_key = {}
         for key, name in SOURCES:
             b = QPushButton(name)
             b.setCheckable(True)
-            theme.mark(b, nav=True)
+            theme.mark(b, nav=True, flush=True)  # (its words at the window's left edge, as every tab's: the UI audit)
+            b.setAccessibleName(name)
+            self.src_by_key[key] = b
             b.setChecked(key == "")
             b.clicked.connect(lambda _=False, k=key: self.set_src(k))
             self.src_btns.addButton(b)
@@ -678,13 +692,24 @@ class Picker(QDialog):
         self._mark_use()
         lst.setUpdatesEnabled(True)
         self._fails = {}  # (by id: only while these rows are alive)
+        # (each source tab with its number of items; the gray line only offline or while the lists load: the UI
+        # audit, 2026-11-08)
         n_app = len(self.page.inputs["targets"]) if self.kind == "target" else len(self.devices())
         n_pc = len([g for g in self.lib.get("items") or [] if not g.get("in_app")])
-        off = "  ·  Offline: you can use the online entries that you downloaded" if net.offline() else ""
-        self.status.setText(("The online lists load…" if self.db.get("loading") else
-                             f"{n_app} in the app · {n_pc} on this PC"
-                             + (" (the app continues to search)" if self.lib.get("scanning") else "")
-                             + f" · {len(self.db.get('items') or []):,} online") + off)
+        loading = self.db.get("loading")
+        n_db = len(self.db.get("items") or [])
+        counts = {"app": f"{n_app:,}", "pc": f"{n_pc:,}" + ("…" if self.lib.get("scanning") else ""),
+                  "db": "…" if loading else f"{n_db:,}"}
+        counts[""] = "…" if loading else f"{n_app + n_pc + n_db:,}"
+        for key, name in SOURCES:
+            b = self.src_by_key[key]
+            words = f"{name}  {counts[key]}"
+            if b.text() != words:
+                b.setText(words)
+        said = (["The online lists load…"] if loading else []) + \
+            (["Offline: you can use the online entries that you downloaded."] if net.offline() else [])
+        self.status.setText(" ".join(said))
+        self.status.setVisible(bool(said))
 
     def _make_more(self, n=None):
         """The next rows of the list (each row is a few widgets, about 2 ms: 120 of them held every key for a
@@ -808,25 +833,26 @@ class Picker(QDialog):
         # (only once it's in the row: shown before, a button with no parent is a window of its own, and every row
         # flashed one on the screen while the lists loaded: the user saw them, and each cost the window's time)
         eye.setVisible(not r.get("link"))
-        x = QPushButton()  # (deleted for good: the bin, UI-RULES 10; quiet, no fill until pointed at, as every row's)
-        icons.put(x, "delete")
-        theme.mark(x, quiet=True)
+        # (the row's other commands in its ⋯ menu: Show files or Move to Measurement, and Delete…; as the list of
+        # apps in Windows 11's Settings. The UI audit, 2026-11-08: the rows in the app had one more button, and the
+        # columns of the rows did not line up)
+        x = more_button()
         if r["src"] == "app":
+            m = x.menu()
             if r.get("device"):
-                b = FilesButton(r["device"]["name"] in self.expanded)  # (Windows 11's chevron after "Files")
-                b.setToolTip("Select or clear the files one by one (seatings, left and right)")
-                b.clicked.connect(lambda _=False, d=r["device"]["name"]: self.toggle_expand(d))
-                h.addWidget(b)
-                x.setToolTip(f"Delete {r['device']['name']} from the app")
-                x.clicked.connect(lambda _=False, d=r["device"]: self.remove("measurement", [f["name"] for f in d["files"]], d["name"]))
+                shown = r["device"]["name"] in self.expanded
+                a = m.addAction(FilesButton.WORDS[1] if shown else FilesButton.WORDS[0],
+                                lambda d=r["device"]["name"]: self.toggle_expand(d))
+                a.setToolTip("Select or clear the files one by one (seatings, left and right)")
+                m.addSeparator()
+                m.addAction("Delete…", lambda d=r["device"]: self.remove("measurement", [f["name"] for f in d["files"]],
+                                                                          d["name"]))
+                x.setAccessibleName(f"More commands for {r['device']['name']}")
             else:
-                mv = QPushButton("Move to Measurement")  # (verb first, no arrow standing in for a symbol: 9, 15)
-                mv.setToolTip("It is a measurement: move it to Measurement")
-                mv.clicked.connect(lambda _=False, n=r["file"]: self.move("target", n))
-                h.addWidget(mv)
-                x.setToolTip("Delete from the app")
-                x.clicked.connect(lambda _=False, n=r["file"]: self.remove("target", [n], n))
-        x.setAccessibleName(x.toolTip() or "Delete from the app")
+                m.addAction("Move to Measurement", lambda n=r["file"]: self.move("target", n))  # (verb first: 15)
+                m.addSeparator()
+                m.addAction("Delete…", lambda n=r["file"]: self.remove("target", [n], n))
+                x.setAccessibleName(f"More commands for {r['name']}")
         use = QPushButton("Use")
         use.setObjectName("findUse")  # (the accent only on the one Enter presses: _mark_use)
         use.setEnabled(self.busy is None)
@@ -858,17 +884,12 @@ class Picker(QDialog):
         cb.setToolTip("Include it in the average")
         cb.toggled.connect(lambda on, n=fl["name"]: self.toggle_file(n, on))
         h.addWidget(cb, 1)
-        mv = QPushButton("Move to Target")
-        mv.setToolTip("It is a target: move it to Target")
-        mv.clicked.connect(lambda _=False, n=fl["name"]: self.move("measurement", n))
-        h.addWidget(mv)
-        h.addSpacing(12)  # (the bin apart, as every row's: UI-RULES 14)
-        x = QPushButton()  # (deleted for good: the bin, UI-RULES 10)
-        icons.put(x, "delete")
-        theme.mark(x, quiet=True)
-        x.setToolTip("Delete from the app")
-        x.setAccessibleName(f"Delete {fl['name']} from the app")
-        x.clicked.connect(lambda _=False, n=fl["name"]: self.remove("measurement", [n], n))
+        h.addSpacing(12)  # (its ⋯ in the column of the rows' ⋯)
+        x = more_button()  # (Move to Target and Delete…, as every row's other commands)
+        x.menu().addAction("Move to Target", lambda n=fl["name"]: self.move("measurement", n))
+        x.menu().addSeparator()
+        x.menu().addAction("Delete…", lambda n=fl["name"]: self.remove("measurement", [n], n))
+        x.setAccessibleName(f"More commands for {fl['name']}")
         h.addWidget(x)
         self._add_row_widget(it, w)
 

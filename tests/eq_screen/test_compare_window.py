@@ -91,7 +91,11 @@ def test_says_when_nothing_could_be_loaded(eq_screen, monkeypatch, check):
         # (said in the list, where they'd be: UI-RULES 21, 2026-10-27; it was the line over the chart)
         listed = [w.text() for w in cw.scroll.widget().findChildren(type(cw.status))]
         status = " ".join(t for t in listed if "cannot load" in t or "No results" in t)
-        reasons = [t for t in listed if t.startswith("Not loaded")]
+        # (in the fold "Not loaded (n)", one on each line: the UI audit, 2026-11-08)
+        from ui.forms import Fold
+        folds = [f for f in cw.scroll.widget().findChildren(Fold) if f.btn.text().startswith("Not loaded")]
+        reasons = [f.btn.text() + " " + " ".join(lab.text() for lab in f.body.findChildren(type(cw.status)))
+                   for f in folds]
     finally:
         qt.close(cw)
     check("ui: Which measurement says, in its list, none of the model's measurements could be loaded, and why (not "

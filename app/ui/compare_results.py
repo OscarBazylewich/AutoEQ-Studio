@@ -5,8 +5,8 @@ filters in two tables. Nothing is changed; Show A / Show B put one back on the r
 this session.
 The graph is drawn as Make an EQ's (in a card, the graph's own colours, never the accent): A in its blue (with the
 EQ), B in its pink, the three told apart from the orange measurement by colour-blind eyes too (the dataviz checks;
-the graph's green failed them beside the orange); its legend at the bottom left, on the card's colour, where it
-hides the least. Redrawn when Windows switches light/dark or its accent colour.
+the graph's green failed them beside the orange); the curves' names in a line under it, and a short line in each
+EQ's colour beside A and B and the titles of their filter tables (the UI audit, 2026-11-08). Redrawn when Windows switches light/dark or its accent colour.
 The numbers and both filter tables in Windows 11's table look, as Profiles and Run several (2026-10-23): no grid
 lines, each heading at the left over its words (the cells' room at the left: ui\\theme_sheet.py's eq_windows,
 #eqwNumbers and #eqwCmpFilters), rows told apart by their shade.
@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QDialog, QFrame, QGridLayout, 
                                QPushButton, QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
 from ui import theme
+from ui.eq_page_parts import CurveNames
 from ui.history_window import follow_theme
 from ui.search_combo import SearchCombo, natural_key
 from ui.theme_sheet import CARD
@@ -31,6 +32,21 @@ from ui.window_parts import Footer, enter_presses, fit_to_screen
 TYPES = {"PK": "Peak", "LSQ": "Low shelf", "HSQ": "High shelf", "LSC": "Low shelf", "HSC": "High shelf"}
 TICKS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]  # (as the EQ screen's graph)
 LEFT = Qt.AlignLeft | Qt.AlignVCenter  # (Windows 11's tables: words at the left, under their heading)
+
+
+def _line_mark(colour):
+    """A short line in a curve's colour (beside A and B, and their tables' titles)."""
+    from PySide6.QtCore import QPointF
+    from PySide6.QtGui import QPainter, QPen, QPixmap
+    pm = QPixmap(40, 16)
+    pm.setDevicePixelRatio(2)
+    pm.fill(Qt.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.setPen(QPen(QColor(colour), 3, Qt.SolidLine, Qt.RoundCap))
+    p.drawLine(QPointF(2, 4), QPointF(18, 4))
+    p.end()
+    return pm
 
 
 def _table_look(t):
@@ -116,8 +132,18 @@ class CompareResults(QDialog):
         first = self.opts[:2]
         shown = [o for o in self.opts if o["run"] is not None and o["label"].startswith("Shown: ")]
         self.opts = shown + sorted((o for o in self.opts if o not in shown), key=lambda o: natural_key(o["label"]))
+        self.marks = []  # (a short line in the colour of A and of B, beside their names: the UI audit, 2026-11-08)
         for i, side in enumerate("AB"):
-            pick.addWidget(QLabel(side), i, 0)
+            mark = QLabel()
+            mark.setAccessibleName(f"The color of {side} on the graph")
+            self.marks.append(mark)
+            name = QWidget()
+            nl = QHBoxLayout(name)
+            nl.setContentsMargins(0, 0, 0, 0)
+            nl.setSpacing(6)
+            nl.addWidget(mark)
+            nl.addWidget(QLabel(side))
+            pick.addWidget(name, i, 0)
             c = SearchCombo()
             c.setAccessibleName(f"EQ {side}")
             for o in self.opts:
@@ -142,13 +168,17 @@ class CompareResults(QDialog):
         self.plot.getAxis("left").setLabel("dB")
         self.plot.setMinimumHeight(260)
         self.plot.showGrid(x=True, y=True, alpha=0.25)
-        # (bottom left: under the curves' bass, which IEMs and headphones keep well above the bottom of the graph)
+        # (the curves' names in a line under the graph, as every graph of the app; pyqtgraph's legend gathers them,
+        # hidden: the UI audit, 2026-11-08)
         self.legend = self.plot.addLegend(offset=(10, -10))
+        self.legend.setVisible(False)
         card = QFrame()  # (the graph in a card, as Make an EQ's)
         theme.mark(card, card=True)
         cl = QVBoxLayout(card)
-        cl.setContentsMargins(0, 0, 0, 0)
+        cl.setContentsMargins(0, 0, 0, 4)
         cl.addWidget(self.plot)
+        self.names = CurveNames()
+        cl.addWidget(self.names)
         v.addWidget(card, 2)
         self.numbers = QTableWidget(0, 3)
         self.numbers.setObjectName("eqwNumbers")  # (room at the left of its cells: ui\theme_sheet.py)
@@ -160,9 +190,24 @@ class CompareResults(QDialog):
         self.numbers.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.numbers.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)  # (the names whole)
         v.addWidget(self.numbers)
+        # (the maximum difference is about the 2 EQs: a line of its own under their values)
+        self.apart = QLabel()
+        theme.mark(self.apart, role="muted")
+        v.addWidget(self.apart)
         tables = QHBoxLayout()
-        self.tables = []
+        self.tables, self.table_marks = [], []
         for side in "AB":
+            box = QVBoxLayout()
+            head = QHBoxLayout()
+            head.setSpacing(6)
+            mark = QLabel()
+            self.table_marks.append(mark)
+            head.addWidget(mark)
+            title = QLabel(f"Filters of {side}")
+            theme.mark(title, role="section")
+            head.addWidget(title)
+            head.addStretch(1)
+            box.addLayout(head)
             t = QTableWidget(0, 4)
             t.setObjectName("eqwCmpFilters")  # (its cells' room at the left: ui\theme_sheet.py's eq_windows)
             t.setAccessibleName(f"Filters of {side}")
@@ -171,7 +216,8 @@ class CompareResults(QDialog):
             t.verticalHeader().hide()
             t.setEditTriggers(QAbstractItemView.NoEditTriggers)
             t.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-            tables.addWidget(t)
+            box.addWidget(t)
+            tables.addLayout(box)
             self.tables.append(t)
         v.addLayout(tables, 2)
         self.footer = Footer(self)
@@ -207,11 +253,9 @@ class CompareResults(QDialog):
         for ax in ("left", "bottom"):  # (as Make an EQ's graph)
             self.plot.getAxis(ax).setPen(pg.mkPen(col["axis"]))
             self.plot.getAxis(ax).setTextPen(pg.mkPen(col["axis"]))
-        back = QColor(col["bg"])
-        back.setAlpha(220)  # (the words readable, a curve under them still seen)
-        self.legend.setBrush(back)
-        self.legend.setPen(None)
-        self.legend.setLabelTextColor(col["axis"])
+        for marks in (self.marks, self.table_marks):  # (A's blue, B's pink: their curves' colours)
+            for m, colour in zip(marks, (col["with_eq"], col["eq"])):
+                m.setPixmap(_line_mark(colour))
         c = page.curves
         f = np.asarray(c["f"])
         self.plot.plot(f, np.asarray(c["meas"]), pen=pg.mkPen(QColor(col["meas"]), width=1.2, style=Qt.DotLine),
@@ -229,20 +273,17 @@ class CompareResults(QDialog):
         rows = [("Error in the range (dB)", lambda n: f"{n['rms']:.2f}" if n["rms"] is not None else "–"),
                 ("Filters", lambda n: str(n["n"])), ("Pre-amp (dB)", lambda n: page.preamp_text(n["preamp"])),
                 ("Maximum gain (dB)", lambda n: f"+{n['boost']:.1f}"), ("Maximum Q", lambda n: f"{n['q']:g}")]
-        self.numbers.setRowCount(len(rows) + 1)
+        self.names.from_legend(self.legend)
+        self.numbers.setRowCount(len(rows))
         for i, (name, fn) in enumerate(rows):
             self.numbers.setItem(i, 0, QTableWidgetItem(name))
             for j, n in enumerate(nums):
                 it = QTableWidgetItem(fn(n))
                 it.setTextAlignment(LEFT)
                 self.numbers.setItem(i, j + 1, it)
-        self.numbers.setItem(len(rows), 0, QTableWidgetItem("Maximum difference (error range)"))
-        it = QTableWidgetItem(f"{apart:.1f} dB")
-        it.setTextAlignment(LEFT)
-        self.numbers.setItem(len(rows), 1, it)
-        self.numbers.setSpan(len(rows), 1, 1, 2)
+        self.apart.setText(f"Maximum difference between A and B (in the error range): {apart:.1f} dB")
         self.numbers.setFixedHeight(self.numbers.horizontalHeader().height()
-                                    + sum(self.numbers.rowHeight(i) for i in range(len(rows) + 1)) + 4)
+                                    + sum(self.numbers.rowHeight(i) for i in range(len(rows))) + 4)
         for tbl, o in zip(self.tables, self.chosen()):
             fs = sorted(o["filters"], key=lambda x: x["freq"])
             tbl.setRowCount(len(fs))

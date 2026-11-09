@@ -553,7 +553,7 @@ def eq_steps(page):
                                                              int(min(520, api.t.height() * 0.6))))
         api.spot_on(w.frame)
         yield from api.at(w.scroll, 0.4, 0.25, 1500, say="Your previous EQs, by date. Show opens one with its files. "
-                                                         "Keep to compare adds it to your EQs to compare")
+                                                         "Its ⋯ has Copy, Keep to compare and Remove from the history")
         yield from api.at(w.q, 0.2, 0.5, 900, say="Search by IEM, target or method")
 
     steps = [
@@ -784,8 +784,8 @@ def eq_steps(page):
          "demo": [{"run": preset_demo, "say": "Save the settings as a preset, and load it again"}]},
         {"chapter": "More", "title": "History", "target": lambda: page.hist_btn,
          "text": "Your previous EQs. The app keeps them after you close it: the EQs that you save or copy (or all "
-                 "results: More settings › History). Show opens an EQ again with its files. Keep to compare adds it to "
-                 "your EQs to compare.",
+                 "results: More settings › History). Show opens an EQ again with its files. Its ⋯ menu has Copy, Keep "
+                 "to compare (it adds the EQ to your EQs to compare) and Remove from the history.",
          "demo": lambda: [{"click": lambda: page.hist_btn, "say": "History: your previous EQs", "then": history_demo}]
          + ([{"at": lambda: page.eqd_show, "say": "Below Measurement: a message if History has an EQ for it. "
                                                   "Show in History… opens these EQs"}]

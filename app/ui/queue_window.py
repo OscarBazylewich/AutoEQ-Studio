@@ -97,7 +97,10 @@ class QueueWindow(QDialog):
         self.table.setColumnWidth(0, 220)
         self.table.setColumnWidth(1, 220)
         v.addWidget(self.table, 1)
-        self.footer = Footer(self, [self.count_lab], main=[self.start_btn, self.cancel_btn])
+        # (the table only once there are results: before Start the lists have the window, and no empty box shows; the
+        # count immediately before Start, UI-RULES 25. The UI audit, 2026-11-08)
+        self.table.hide()
+        self.footer = Footer(self, [], main=[self.count_lab, self.start_btn, self.cancel_btn])
         v.addWidget(self.footer)
         enter_presses(self, self.start_btn)
         self.timer = QTimer(self, interval=400, timeout=self.poll)
@@ -115,6 +118,7 @@ class QueueWindow(QDialog):
         if not self.jobs:
             return
         self.table.setRowCount(len(self.jobs))
+        self.table.show()  # (the lists shorter now: the table under them)
         for i, (d, t) in enumerate(self.jobs):
             for j, text in enumerate((d, os.path.splitext(t)[0], "In the queue")):
                 self.table.setItem(i, j, QTableWidgetItem(text))

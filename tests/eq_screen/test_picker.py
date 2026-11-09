@@ -482,15 +482,17 @@ def test_x_buttons_quiet(eq_screen, check):
         seen["target"] = (len(xs), sum(b.property("quiet") == "true" and _plain_at_rest(b) for b in xs))
     finally:
         _close(pk)
-    check("restyle: Find…'s delete button (a measurement, each of its files, a target: the bin, as a file goes for "
-          "good) is quiet as every row's: no fill or border until pointed at", seen["measurement"][0] >= 2 and seen["target"][0] >= 1
+    # (the UI audit, 2026-11-08: a row's other commands, Delete… among them, in its ⋯ menu)
+    check("restyle: Find…'s ⋯ (a measurement, each of its files, a target: its menu has Delete…) is quiet as every "
+          "row's: no fill or border until pointed at", seen["measurement"][0] >= 2 and seen["target"][0] >= 1
           and all(n == quiet for n, quiet in seen.values()), seen)
 
 
 def _bins(pk):
-    """Find…'s delete buttons shown (the bin: a file of yours, deleted for good), by their tooltip."""
+    """Find…'s ⋯ buttons shown (their menus: the row's other commands, Delete… last), by their tooltip."""
     from PySide6.QtWidgets import QPushButton
-    return [b for b in pk.list.findChildren(QPushButton) if b.isVisible() and b.toolTip().startswith("Delete")]
+    return [b for b in pk.list.findChildren(QPushButton) if b.isVisible() and b.toolTip() == "More commands"
+            and any(a.text() == "Delete…" for a in b.menu().actions())]
 
 
 def test_x_pointed_at_shows_its_fill(eq_screen, check):
@@ -735,8 +737,8 @@ def test_whole_in_the_guides_frame(eq_screen, check):
 
 
 def test_files_says_show_or_hide(eq_screen, check):
-    # (2026-10-27, UI-RULES 12: a chevron on a button opens a menu; a measurement's Files, drawn as a menu button's,
-    # opened rows in the list: it says what it does in words now, as wide either way, no chevron)
+    # (2026-10-27, UI-RULES 12: a measurement's Files says what it does in words. The UI audit, 2026-11-08: it is the
+    # first item of the row's ⋯ menu, Show files or Hide files, then Delete… after a line)
     from PySide6.QtCore import Qt
     from PySide6.QtWidgets import QPushButton
     pk = _shown_picker(eq_screen.page, "")
@@ -744,18 +746,19 @@ def test_files_says_show_or_hide(eq_screen, check):
     try:
         app_row = next(pk.list.item(i).data(Qt.UserRole) for i in range(pk.list.count())
                        if (pk.list.item(i).data(Qt.UserRole) or {}).get("device"))
+        name = app_row["device"]["name"]
 
-        def files_button():
-            return next(b for b in pk.list.findChildren(QPushButton) if b.isVisible() and b.objectName() == "findFiles")
+        def items():
+            b = next(b for b in pk.list.findChildren(QPushButton) if b.isVisible()
+                     and b.accessibleName() == f"More commands for {name}")
+            return [a.text() or "|" for a in b.menu().actions()]
         for state in ("hidden", "shown"):
             if state == "shown":
-                pk.toggle_expand(app_row["device"]["name"])
+                pk.toggle_expand(name)
                 pk.finish_list()
                 qt.pump(200)
-            b = files_button()
-            seen[state] = (b.text(), b.menu() is None, b.width())
+            seen[state] = items()
     finally:
         _close(pk)
-    check("ui: Find…'s Files says Show files / Hide files in words, as wide either way, and has no menu's chevron",
-          seen["hidden"][:2] == ("Show files", True) and seen["shown"][:2] == ("Hide files", True)
-          and seen["hidden"][2] == seen["shown"][2], seen)
+    check("ui: Find…'s ⋯ of a measurement in the app says Show files / Hide files in words, then Delete… after a line",
+          seen["hidden"] == ["Show files", "|", "Delete…"] and seen["shown"] == ["Hide files", "|", "Delete…"], seen)

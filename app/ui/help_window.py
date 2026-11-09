@@ -1,7 +1,10 @@
 """Help: terms and questions (AutoEQ Local's Help page, natively): how an EQ job goes, the questions that come up most,
 every term the app uses in groups, and every setting in full (ui/help_texts.py WIKI), with the contents beside them.
-- the search box keeps only the entries with every word typed (and the groups that still have one)
-- an entry's "See also" opens that entry; open_at(id) opens the window at one (F1 on a setting: its entry), lit
+The UI audit (2026-11-08, the user's selections): the contents are groups that open and close (Windows 11's chevron,
+as every fold of the app), so the list starts with its few groups; the page shows one entry at a time (or a group's
+list of entries), and its "Related" links open the others.
+- the search box keeps only the entries with every word typed in the contents, each group with a result open
+- open_at(id) opens the window at an entry (F1 on a setting: its entry), its group open and the entry selected
 One window for the whole app: opened again, it's brought back. Its look is Windows 11's, as the rest of the app: the
 contents and the page as cards (theme_sheet.py's guide_and_help: #helpContents, #helpPage), the page's own words
 in the theme's colours (links in the accent's text colour; the entry asked for on a quiet fill with the accent's bar
@@ -10,10 +13,9 @@ beside it, as a chosen row), drawn again when the theme changes.
 import html
 import re
 
-from PySide6.QtCore import QRect, QSize, Qt
-from PySide6.QtGui import QFont, QFontMetrics
-from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QStyle, QTextBrowser,
-                               QVBoxLayout, QWidget)
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont
+from PySide6.QtWidgets import QHBoxLayout, QLineEdit, QTextBrowser, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
 from ui import theme
 from ui.help_texts import HELP, WIKI
@@ -21,29 +23,6 @@ from ui.theme_sheet import CARD
 from ui.window_parts import fit_to_screen
 
 _window = None
-ROW_PAD = (6, 8)  # (a contents row's padding, up and down / sideways: theme_sheet.py's #helpContents::item)
-
-
-class _Contents(QListWidget):
-    """The contents: each entry as tall as its words need at the list's width, and never wider than the list (Qt's
-    own measure leaves out the rows' padding: a long question came out wider than the list, its end cut off)."""
-
-    def resizeEvent(self, e):
-        super().resizeEvent(e)
-        self.fit()
-
-    def fit(self):
-        # (the room beside the scroll bar whether it's shown or not: a row's width never changes with it)
-        w = self.width() - 2 * self.frameWidth() - self.verticalScrollBar().sizeHint().width()
-        if w < 60:  # (not laid out yet: fitted when it is)
-            return
-        words = self.style().pixelMetric(QStyle.PM_FocusFrameHMargin, None, self) + 1  # (Qt's room each side of them)
-        room = w - 2 * ROW_PAD[1] - 2 * words - 1  # (the row's padding, the words' own margins, a pixel to spare)
-        for k in range(self.count()):
-            it = self.item(k)
-            fm = QFontMetrics(it.font() if it.data(Qt.FontRole) is not None else self.font())
-            h = fm.boundingRect(QRect(0, 0, room, 100000), Qt.TextWordWrap, it.text()).height()
-            it.setSizeHint(QSize(w, h + 2 * ROW_PAD[0] + 2))
 
 
 def setting_id(key):
@@ -125,12 +104,14 @@ class HelpWindow(QWidget):
         self.q.setClearButtonEnabled(True)
         self.q.textChanged.connect(self.render)
         side.addWidget(self.q)
-        self.toc = _Contents()
+        self.toc = QTreeWidget()
         self.toc.setObjectName("helpContents")
         self.toc.setAccessibleName("Contents")
+        self.toc.setHeaderHidden(True)
         self.toc.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.toc.setWordWrap(True)
-        self.toc.itemClicked.connect(lambda it: it.data(Qt.UserRole) and self.show_entry(it.data(Qt.UserRole)))
+        self.toc.setIndentation(18)
+        self.toc.itemClicked.connect(lambda it, _c=0: it.data(0, Qt.UserRole) and self.show_entry(it.data(0, Qt.UserRole)))
         side.addWidget(self.toc, 1)
         holder = QWidget()
         holder.setLayout(side)
@@ -143,8 +124,34 @@ class HelpWindow(QWidget):
         self.view.setOpenLinks(False)
         self.view.anchorClicked.connect(lambda url: self.show_entry(url.fragment() or url.toString().lstrip("#")))
         h.addWidget(self.view, 1)
+        self.items = {}  # (an anchor: its item in the contents)
+        self._make_contents()
         theme.on_change(self._retheme)
         self.render()
+        self.show_page("start")
+
+    # ---------------------------------------------------------------- the contents: groups that open and close
+    def _make_contents(self):
+        bold = QFont(self.toc.font())
+        bold.setBold(True)
+
+        def item(parent, text, anchor, head=False):
+            it = QTreeWidgetItem([text])
+            it.setData(0, Qt.UserRole, anchor)
+            it.setToolTip(0, text)
+            if head:
+                it.setFont(0, bold)
+            (parent.addChild if isinstance(parent, QTreeWidgetItem) else parent.addTopLevelItem)(it)
+            self.items[anchor] = it
+            return it
+        item(self.toc, "How to make an EQ", "start", True)
+        settings = None
+        for i, (title, sid, entries) in enumerate(self.sections):
+            if i == len(WIKI["groups"]) + 1:  # (the groups of settings: in one group, All settings)
+                settings = item(self.toc, "All settings", "settings", True)
+            g = item(settings if settings is not None else self.toc, title, sid, True)
+            for e in entries:
+                item(g, e["title"], e["id"])
 
     def _matches(self, e, words):
         text = " ".join([e["title"], *[x for b in e["body"] for x in (b if isinstance(b, list) else [b])]]).lower()
@@ -152,91 +159,104 @@ class HelpWindow(QWidget):
 
     def _retheme(self):
         self.render(keep=True)
+        self.show_page(getattr(self, "page_now", "start"), keep=True)
 
     def render(self, *_, keep=False):
-        """The entries (only those with every word typed) and the contents beside them, in the theme's colours; the
-        page and the contents from their top (a search typed) or where they were (keep: an entry opened, the theme
-        changed). The page kept its place while a search was typed, so its results showed part-way down, a line cut
-        at the top (2026-10-23)."""
-        t = theme.tokens()
+        """The contents with only the entries that have every word typed (each group with one open), or all of them
+        (the groups closed, but the one with the entry shown)."""
         words = self.q.text().lower().split()
-        by_id = _by_id()
+        found = 0
+        for _title, sid, entries in self.sections:
+            g = self.items[sid]
+            shown = 0
+            for e in entries:
+                on = self._matches(e, words) if words else True
+                self.items[e["id"]].setHidden(not on)
+                shown += on
+            found += shown if words else 0
+            g.setHidden(bool(words) and not shown)
+            g.setExpanded(bool(words) and bool(shown))
+        self.items["start"].setHidden(bool(words))
+        self.items["settings"].setHidden(bool(words) and all(self.items[sid].isHidden() for _t, sid, _e in
+                                                              self.sections[len(WIKI["groups"]) + 1:]))
+        self.items["settings"].setExpanded(bool(words))
+        self.found = found
+        if words and not found:
+            self.view.setHtml(self._css() + "<p class='muted'>No results with all of these words. Type a smaller number "
+                              "of words.</p>")
+        elif not words and not keep and getattr(self, "page_now", None):
+            self.show_page(self.page_now, keep=True)
+
+    def _css(self):
+        t = theme.tokens()
+        return (f"<style>body {{ color: {t['ink']}; }} "
+                f"h2 {{ color: {t['ink']}; font-size: 15pt; font-weight: 600; margin-top: 4px; }} "
+                f"h3 {{ color: {t['ink']}; font-size: 12pt; font-weight: 600; margin-bottom: 2px; }} "
+                f"p, li {{ line-height: 140%; }} a {{ color: {t['accent_text']}; }} .muted {{ color: {t['muted']}; }}"
+                "</style>")
+
+    # ---------------------------------------------------------------- the page: one entry at a time
+    def show_page(self, anchor, keep=False):
+        """The page for one item of the contents: the start (how to make an EQ), a group (its entries as links), All
+        settings, or one entry (its words and its Related links)."""
         esc = html.escape
-        css = (f"body {{ color: {t['ink']}; }} "
-               f"h2 {{ color: {t['ink']}; font-size: 15pt; font-weight: 600; margin-top: 18px; }} "
-               f"h3 {{ color: {t['ink']}; font-size: 12pt; font-weight: 600; margin-bottom: 2px; }} "
-               f"p, li {{ line-height: 140%; }} a {{ color: {t['accent_text']}; }} .muted {{ color: {t['muted']}; }} "
-               f".lit {{ background: {t['sel']}; color: {t['sel_ink']}; }}")
-        parts, toc = [f"<style>{css}</style>"], []
-        if not words:
-            parts.append(f"<p class='muted'>{esc(WIKI['intro'])}</p><a name='start'></a><h2>How to make an EQ</h2><ol>"
-                         + "".join(f"<li>{esc(s)}</li>" for s in WIKI["steps"]) + "</ol>")
-            toc.append(("How to make an EQ", "start", True))
-        any_shown = False
-        for i, (title, sid, items) in enumerate(self.sections):
-            shown = [e for e in items if self._matches(e, words)]
-            if not shown:
-                continue
-            any_shown = True
-            if i == len(WIKI["groups"]) + 1 and not words:  # (the first group of settings: the part's heading)
-                parts.append("<a name='settings'></a><h2>All settings</h2><p class='muted'>The function of each setting, "
-                             "in full. The tooltip of a setting gives a short line about it, and F1 on a setting "
-                             "opens it here.</p>")
-                toc.append(("All settings", "settings", True))
-            parts.append(f"<a name='{sid}'></a><h2>{esc(title)}</h2>")
-            toc.append((title, sid, True))
-            for e in shown:
-                body = "".join("<ul>" + "".join(f"<li>{esc(x)}</li>" for x in b) + "</ul>" if isinstance(b, list)
-                               else f"<p>{esc(b)}</p>" for b in e["body"])
-                see = [s for s in e.get("see") or [] if s in by_id]
-                if see:
-                    body += "<p class='muted'>Related: " + ", ".join(
-                        f"<a href='#{s}'>{esc(by_id[s]['title'])}</a>" for s in see) + "</p>"
-                entry = f"<h3>{esc(e['title'])}</h3>{body}"
-                if e["id"] == self.lit:  # (the entry asked for: one quiet block, the accent's bar beside it)
-                    entry = (f"<table width='100%' cellspacing='0' cellpadding='0'><tr>"
-                             f"<td width='3' style='background: {t['accent']}'></td>"
-                             f"<td class='lit' style='padding: 2px 12px 6px 12px'>{entry}</td></tr></table>")
-                parts.append(f"<a name='{e['id']}'></a>{entry}")
-                if sid in ("questions",) or sid.startswith("g-") or words:
-                    toc.append((e["title"], e["id"], False))
-        if not any_shown:
-            parts.append("<p class='muted'>No results with all of these words. Type a smaller number of words.</p>")
+        by_id = _by_id()
+        parts = [self._css()]
+        groups = {sid: (title, entries) for title, sid, entries in self.sections}
+        if anchor == "start":
+            parts.append(f"<h2>How to make an EQ</h2><p class='muted'>{esc(WIKI['intro'])}</p><ol>"
+                         + "".join(f"<li>{esc(st)}</li>" for st in WIKI["steps"]) + "</ol>")
+        elif anchor == "settings":
+            parts.append("<h2>All settings</h2><p class='muted'>The function of each setting, in full. The tooltip of a "
+                         "setting gives a short line about it, and F1 on a setting opens it here.</p><ul>"
+                         + "".join(f"<li><a href='#{sid}'>{esc(title)}</a></li>"
+                                   for title, sid, _e in self.sections[len(WIKI["groups"]) + 1:]) + "</ul>")
+        elif anchor in groups:
+            title, entries = groups[anchor]
+            if anchor.startswith("sg-"):  # (a group of settings: all of them, in full)
+                parts.append(f"<h2>{esc(title)}</h2>" + "".join(self._entry_html(e, by_id) for e in entries))
+            else:
+                parts.append(f"<h2>{esc(title)}</h2><ul>" + "".join(f"<li><a href='#{e['id']}'>{esc(e['title'])}</a></li>"
+                                                                  for e in entries) + "</ul>")
+        elif anchor in by_id:
+            parts.append(self._entry_html(by_id[anchor], by_id))
+        else:
+            return
+        self.page_now = anchor
         bar = self.view.verticalScrollBar().value()
         self.view.setHtml("".join(parts))
         self.view.verticalScrollBar().setValue(bar if keep else 0)
-        place = self.toc.verticalScrollBar().value()
-        self.toc.clear()
-        self.toc.ensurePolished()
-        bold = QFont(self.toc.font())  # (the list's own font: an item's font() is the app's smaller default)
-        bold.setBold(True)
-        for text, anchor, head in toc:
-            it = QListWidgetItem(text)
-            it.setData(Qt.UserRole, anchor)
-            if head:
-                it.setFont(bold)
-            self.toc.addItem(it)
-            if anchor == self.lit:  # (marked as chosen; the list isn't moved: show_entry() brings it into sight)
-                it.setSelected(True)
-        self.toc.fit()
-        self.toc.doItemsLayout()  # (laid out now: else the new list took the old one's place, a search part-way down)
-        self.toc.verticalScrollBar().setValue(place if keep else 0)
+
+    @staticmethod
+    def _entry_html(e, by_id):
+        esc = html.escape
+        body = "".join("<ul>" + "".join(f"<li>{esc(x)}</li>" for x in b) + "</ul>" if isinstance(b, list)
+                       else f"<p>{esc(b)}</p>" for b in e["body"])
+        see = [x for x in e.get("see") or [] if x in by_id]
+        if see:
+            body += "<p class='muted'>Related: " + ", ".join(
+                f"<a href='#{x}'>{esc(by_id[x]['title'])}</a>" for x in see) + "</p>"
+        return f"<a name='{e['id']}'></a><h3>{esc(e['title'])}</h3>{body}"
 
     def show_entry(self, entry_id):
-        """An entry shown (the search cleared if it hid it), brought into sight and lit (and in the contents, chosen
-        and in sight)."""
-        if entry_id in _by_id():
-            self.lit = entry_id
-            cleared = bool(self.q.text()) and not self._matches(_by_id()[entry_id], self.q.text().lower().split())
-            if cleared:
-                self.q.blockSignals(True)
-                self.q.clear()
-                self.q.blockSignals(False)
-            self.render(keep=not cleared)  # (the same contents: left where they were; new ones: from their top)
-            row = next((it for it in self.toc.selectedItems() if it.data(Qt.UserRole) == entry_id), None)
-            if row is not None:
-                self.toc.scrollToItem(row)  # (moved only when it's out of sight)
-        self.view.scrollToAnchor(entry_id)
+        """An entry (or a group) shown on the page, selected in the contents with its group open (the search cleared
+        if it hid it)."""
+        it = self.items.get(entry_id)
+        if it is None:
+            return
+        self.lit = entry_id
+        if it.isHidden() and self.q.text():
+            self.q.blockSignals(True)
+            self.q.clear()
+            self.q.blockSignals(False)
+            self.render()
+        p = it.parent()
+        while p is not None:
+            p.setExpanded(True)
+            p = p.parent()
+        self.toc.setCurrentItem(it)
+        self.toc.scrollToItem(it)
+        self.show_page(entry_id)
 
 
 def tag(widget, key):

@@ -18,7 +18,7 @@ Guide's frame) its buttons go on a line under its words, so the words keep room 
 import datetime
 
 from PySide6.QtCore import QEvent, Qt, QTimer
-from PySide6.QtWidgets import (QBoxLayout, QCheckBox, QDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
+from PySide6.QtWidgets import (QMenu, QBoxLayout, QCheckBox, QDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
                                QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
 from ui import bubble, help_window, icons, theme
@@ -197,25 +197,23 @@ class HistoryWindow(QDialog):
         icons.put(show, "view")  # (after the accent: its symbol is drawn in the accent's text colour then)
         show.setToolTip("Show the EQ on the graph and the result card again, with its files if they are in the app")
         show.clicked.connect(lambda: (self.page.show_history_entry(e), self.accept()))
-        copy = QPushButton("Copy")
-        icons.put(copy, "copy")  # (Windows 11's symbols beside the words of the common verbs)
-        copy.setToolTip("Copy its filters (Equalizer APO / squiglink format)")
-        copy.clicked.connect(lambda: self.page.copy_filters(e["filters"], e.get("preamp") or 0, record=False,
-                                                            say=self.footer.say))
-        keep = QPushButton("Keep to compare")  # (the result card's words for the same act, UI-RULES 16)
-        icons.put(keep, "pin")
-        keep.setToolTip("Add it to your EQs to compare for the IEM on the graph, to hear it in Listen")
-        keep.clicked.connect(lambda: self.keep_to_compare(e))
-        x = QPushButton("✕")
-        theme.mark(x, quiet=True)  # (a row's ✕: every list's one look, UI-RULES 18)
-        x.setToolTip("Remove from the history")
-        x.setAccessibleName("Remove from the history")
-        x.clicked.connect(lambda: self.remove([e["key"]]))
+        # (Show, then ⋯ with the other commands: Copy, Keep to compare, Remove from the history; the UI audit,
+        # 2026-11-08: the 3 buttons with words took half of the row, and an EQ used 5 lines)
+        more = QPushButton()
+        icons.put(more, "more")
+        theme.mark(more, quiet=True, nochevron=True)  # (no chevron: its symbol says it is a menu)
+        more.setToolTip("More commands: Copy, Keep to compare, Remove from the history")
+        more.setAccessibleName("More commands")
+        menu = QMenu(more)
+        menu.addAction("Copy", lambda: self.page.copy_filters(e["filters"], e.get("preamp") or 0, record=False,
+                                                              say=self.footer.say))
+        menu.addAction("Keep to compare", lambda: self.keep_to_compare(e))  # (the result card's words, UI-RULES 16)
+        menu.addSeparator()
+        menu.addAction("Remove from the history", lambda: self.remove([e["key"]]))
+        more.setMenu(menu)
         btns = QHBoxLayout()
-        for b in (copy, keep, show):  # (the main one last, then the ✕ apart: every list's row, UI-RULES 18)
-            btns.addWidget(b)
-        btns.addSpacing(12)
-        btns.addWidget(x)
+        btns.addWidget(show)
+        btns.addWidget(more)
         h.addLayout(btns)
         h.setAlignment(btns, Qt.AlignLeft)  # (under the words: at their left, as wide as the buttons)
         row.installEventFilter(self)  # (its width: _fit_row)

@@ -171,10 +171,10 @@ def test_history_look_follows_the_theme(made_up_history, eq_screen, check):
     hw, qapp = made_up_history, eq_screen.qapp
 
     def drawn():
-        """The rows' first lines, the card's colour under a ✕ as drawn now, and the theme's colours."""
+        """The rows' first lines, the card's colour under a ⋯ as drawn now, and the theme's colours."""
         body = hw.scroll.widget()
         heads = [lab.text() for lab in body.findChildren(QLabel) if "→" in lab.text()]
-        x = next(b for b in body.findChildren(QPushButton) if b.text() == "✕")
+        x = next(b for b in body.findChildren(QPushButton) if b.accessibleName() == "More commands")
         row = x.parentWidget()
         pm = row.grab()
         img = pm.toImage()
@@ -182,7 +182,9 @@ def test_history_look_follows_the_theme(made_up_history, eq_screen, check):
         t = theme.tokens()
         return {"heads": heads, "muted": t["muted"], "under ✕": (img.pixelColor(p).name(), t["card"])}
     buttons = hw.scroll.widget().findChildren(QPushButton)
-    symbols = sorted({b.text() for b in buttons if not b.icon().isNull()})
+    symbols = sorted({b.text() or b.accessibleName() for b in buttons if not b.icon().isNull()})
+    menu = [a.text() for a in next(b for b in buttons if b.accessibleName() == "More commands").menu().actions()
+            if a.text()]
     # (each row's Show, in the rows' order, newest first: in the accent or not, and its symbol)
     shows = [(b.property("primary") in (True, "true"), not b.icon().isNull()) for b in buttons if b.text() == "Show"]
     try:
@@ -198,14 +200,15 @@ def test_history_look_follows_the_theme(made_up_history, eq_screen, check):
     check("history: a row's target is in the theme's quieter colour, redone when Windows switches light/dark (it kept "
           "the colour it was drawn in)", follows, {"light": light["heads"][:1], "dark": dark["heads"][:1]})
     # (2026-10-23, the restyle's checkers: Show has its symbol too now, and its accent on the first row only, below)
-    check("history: Copy and Keep to compare show Windows 11's symbols beside their words (Show, the main one, its "
-          "accent); ✕ is every row's quiet button: the row's card shows through it, light and dark",
-          {"Copy", "Keep to compare"} <= set(symbols) and any(accent for accent, _symbol in shows)
-          and all(_near(*d["under ✕"]) for d in (light, dark)), (symbols, shows, light["under ✕"], dark["under ✕"]))
+    # (the UI audit, 2026-11-08: Show, then ⋯ with Copy, Keep to compare and Remove from the history)
+    check("history: a row has Show (the main one, its accent) and ⋯, a quiet button with its symbol (the row's card shows "
+          "through it, light and dark), its menu Copy, Keep to compare and Remove from the history",
+          any(accent for accent, _symbol in shows) and menu == ["Copy", "Keep to compare", "Remove from the history"]
+          and all(_near(*d["under ✕"]) for d in (light, dark)), (menu, shows, light["under ✕"], dark["under ✕"]))
     check("history: only the first row's Show (the newest) is in the accent, the others plain (every row's was: a "
-          "column of accent buttons); every Show has Windows 11's symbol beside its words, as Copy and Keep to compare",
+          "column of accent buttons); every Show has Windows 11's symbol beside its words",
           len(shows) == 3 and [accent for accent, _symbol in shows] == [True, False, False]
-          and all(symbol for _accent, symbol in shows) and symbols == ["Copy", "Keep to compare", "Show"], (shows, symbols))
+          and all(symbol for _accent, symbol in shows) and symbols == ["More commands", "Show"], (shows, symbols))
 
 
 def test_history_rows_whole_at_its_smallest(made_up_history, check):
@@ -261,9 +264,9 @@ def test_history_rows_buttons_under_the_words_when_narrow(made_up_history, check
         qt.pump(250)
         seen[name] = _rows_now(hw)
     beside = lambda rows: len(rows) == 3 and all(r["Show beside them"] and r["words wide"] >= WORDS_ROOM for r in rows)
-    under = lambda rows: len(rows) == 3 and all(r["Show under the words"] and r["words wide"] >= WORDS_ROOM
-                                                for r in rows)
-    check("history: at its smallest a row's buttons go on a line under its words, which keep room to be read (they "
+    # (the UI audit, 2026-11-08: Show and ⋯ only; at its smallest they can stay beside the words, which keep room)
+    under = lambda rows: len(rows) == 3 and all(r["words wide"] >= WORDS_ROOM for r in rows)
+    check("history: at its smallest a row's words keep room to be read, the buttons beside them or under them (they "
           "were squeezed into a column about 100 px wide, up to 9 lines tall); at its own size the buttons stay beside "
           "the words",
           beside(seen["its own size"]) and under(seen["its smallest"]) and beside(seen["its own size again"]), seen)

@@ -133,6 +133,7 @@ def test_folders_box_shows_four_lines(eq_screen, check):
     try:
         src._refresh_soon.stop()
         src.show()
+        src.show_tab(0)  # (its tab: This PC)
         qt.pump(200)
         box = src.folders
         usual = box.placeholderText().splitlines()  # (shown in grey while the list is empty: Downloads … Music)
@@ -184,7 +185,7 @@ def test_fits_a_small_screen(eq_screen, monkeypatch, check):
                     and max(opens[0], src.width()) <= width,
                     "bottom row in sight": len(row) == 3 and all(b.isVisible() and src.rect().contains(b.geometry())
                                                                  for b in row),
-                    "over": _overlapping(_parts(src)) + _overlapping(_parts(_page(src))),
+                    "over": _overlapping(_parts(src)) + _overlapping(_parts(src.pages.currentWidget())),
                     "tree": (src.tree.height(), src.tree.minimumHeight()),
                     "scrolls": area is not None and area.verticalScrollBar().maximum() > 0}
             finally:
@@ -193,11 +194,12 @@ def test_fits_a_small_screen(eq_screen, monkeypatch, check):
     finally:
         net.set_offline(was_off)
     small, big = [seen[h] for _w, h in SMALL_SCREENS], seen[1032]
+    # (the UI audit, 2026-11-08: a tab for each part, so nothing scrolls as a page)
     check("restyle: Sources fits a laptop's screen at 150 % and 175 % (its size and its smallest above the taskbar): "
-          "its parts scroll there, nothing over another, and its bottom row (Refresh the lists now, Open the downloads "
-          "folder, Close) stays in sight; on a big screen it opens and shrinks as before, without scrolling",
+          "nothing over another, and its bottom row (Refresh the lists now, Open the downloads folder, Close) stays in "
+          "sight; on a big screen it opens and shrinks as before, without scrolling",
           all(s["fits"] and s["bottom row in sight"] and not s["over"] and s["tree"][0] >= s["tree"][1]
-              and s["scrolls"] for s in small)
+              for s in small)
           and big["opens"] == (760, 820) and big["smallest"] == (560, 700) and not big["scrolls"]
           and big["bottom row in sight"] and not big["over"], seen)
 
@@ -216,12 +218,11 @@ def test_page_is_no_tab_stop(eq_screen, check):
         close.setFocus()
         src.focusNextChild()  # (Tab from the last button: round to the first control)
         first = src.focusWidget()
-        seen = (first is src.folders, type(first).__name__)
+        seen = (first is src.tab_btns[0], type(first).__name__)
     finally:
         src._refresh_soon.stop()
         qt.close(src)
-    check("access: Tab goes round Sources' controls only (its page that scrolls is no stop of its own): from Close to "
-          "the folders' box", seen[0], seen[1])
+    check("access: Tab goes round Sources' controls only: from Close to its first tab, This PC", seen[0], seen[1])
 
 
 def test_closed_straight_after_a_tick(eq_screen, check):

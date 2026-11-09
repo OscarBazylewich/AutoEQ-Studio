@@ -12,8 +12,8 @@ STEPS = ['Select a Target: the sound that you want (for example, a Harman or dif
          'Select a Measurement: your IEM or headphone, from the app, this PC or the online databases.',
          'Select Your EQ app: the app or device that will play the EQ. The EQ stays in its limits, and the app '
          'saves its file.',
-         'Click Calculate. The app adjusts the automatic settings for your files. The line above Calculate shows '
-         'the settings that it tries.',
+         'Click Calculate. The app adjusts the automatic settings for your files. The line Settings to try shows '
+         'the number of EQs that it tries (its tooltip shows the settings).',
          'Examine the result on the graph. If necessary, edit the filters. Listen to the EQ. Click Save filters.']
 
 TERMS = [{'title': 'Curves and sound',
@@ -371,8 +371,9 @@ TERMS = [{'title': 'Curves and sound',
                      'title': 'The settings that the app tries',
                      'body': ['Best fit adds filters one at a time. It uses each maximum gain and maximum Q that is '
                               'applicable to your curves, each with 2 penalties for opposite filters. It stops '
-                              'when the EQ has the same sound as the target. The line above Calculate shows the '
-                              'settings that it will try, and the approximate time on this PC.',
+                              'when the EQ has the same sound as the target. The line Settings to try shows the '
+                              'number of EQs that it will try and the approximate time on this PC (its tooltip shows '
+                              'the settings).',
                               'Until 1.0.8, there were 3 sets of settings (“Quick”, “Standard”, “Thorough”). After '
                               'Best fit started to add filters one at a time, the 3 sets used only seconds. One set '
                               'with all their settings found the minimum number of filters for all IEMs and '

@@ -10,22 +10,22 @@ window's (window_parts.Footer): Refresh the lists now (online only) and Open the
 message line, Close; a list with nothing to show says so.
 The look: Windows 11's; the databases' tree is styled as the lists by theme_sheet's find_windows (sourcesTree); the
 folders' box as tall as four lines of its text (the four usual folders whole). Its size kept within the screen's free
-room (window_parts.fit_to_screen): on a short screen (a laptop at 150 %) its parts scroll as a page, as Windows 11's
-Settings do, and its footer stays in sight.
+room (window_parts.fit_to_screen). A tab for each part (This PC, Online databases, Add a database: the UI audit,
+2026-11-08), so each list has the full height of the window; its footer stays in sight.
 """
 import math
 
 from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QFontMetricsF
-from PySide6.QtWidgets import (QDialog, QFrame, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget,
-                               QListWidgetItem, QMessageBox, QPlainTextEdit, QPushButton, QScrollArea, QTreeWidget,
-                               QTreeWidgetItem, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QDialog, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem,
+                               QMessageBox, QPlainTextEdit, QPushButton, QStackedWidget, QTreeWidget, QTreeWidgetItem,
+                               QVBoxLayout, QWidget)
 
 import net
 from ui import bubble, help_window, icons, tasks, theme
 from ui.search_combo import SearchCombo
 from ui.theme_sheet import CARD
-from ui.window_parts import Footer, enter_presses, fit_to_screen
+from ui.window_parts import EmptyText, Footer, enter_presses, fit_to_screen
 
 url_key = lambda u: u.strip().rstrip("/").lower()
 
@@ -37,12 +37,6 @@ def _muted(text=""):
     return lab
 
 
-def _head(text):
-    lab = QLabel(text)
-    theme.mark(lab, role="section")
-    return lab
-
-
 def lines_high(box, n):
     """The height of a many-line text box that shows n whole lines of its text: the lines in its text size, the
     document's margin above and below them, and the box's frame and padding (the stylesheet's). A fixed 80 px held
@@ -50,15 +44,6 @@ def lines_high(box, n):
     box.ensurePolished()  # (the stylesheet's text size and padding)
     frame = box.height() - box.contentsRect().height()
     return frame + math.ceil(2 * box.document().documentMargin() + n * QFontMetricsF(box.font()).lineSpacing()) + 1
-
-
-class _Page(QWidget):
-    """Sources' parts on a page that scrolls (in a QScrollArea): never lower than they need at its width (each wrapped
-    note counted line by line), and no taller either, so the lists take the room there is. (Qt's scroll area asks a
-    page for its height at a width, which is otherwise its parts' preferred heights: it would scroll on any screen.)"""
-
-    def heightForWidth(self, width):
-        return self.layout().totalMinimumHeightForWidth(width)
 
 
 class Sources(QDialog):
@@ -77,15 +62,31 @@ class Sources(QDialog):
         self.st, self.dir = {"sites": []}, None
         outer = QVBoxLayout(self)
         outer.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as every window's)
-        self.scroll = QScrollArea()  # (the parts as a page that scrolls when the window is shorter than they need)
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setFrameShape(QFrame.NoFrame)
-        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.scroll.setFocusPolicy(Qt.NoFocus)  # (Tab goes to its parts, each scrolled into sight: no stop of its own)
-        body = _Page()
-        v = QVBoxLayout(body)
-        v.setContentsMargins(0, 0, 0, 0)
-        v.addWidget(_head("This PC"))
+        # (a tab for each part, as Find…'s sources: each list gets the full height of the window; the UI audit,
+        # 2026-11-08: the online databases showed approximately 5 rows)
+        tabs = QHBoxLayout()
+        tabs.setSpacing(20)
+        self.pages = QStackedWidget()
+        self.tab_btns = []
+        for i, name in enumerate(("This PC", "Online databases", "Add a database")):
+            b = QPushButton(name)
+            b.setCheckable(True)
+            b.setChecked(i == 1)
+            theme.mark(b, nav=True, flush=True)
+            b.clicked.connect(lambda _=False, i=i: self.show_tab(i))
+            tabs.addWidget(b)
+            self.tab_btns.append(b)
+        tabs.addStretch(1)
+        outer.addLayout(tabs)
+        outer.addWidget(self.pages, 1)
+
+        def page_of():
+            w = QWidget()
+            lay = QVBoxLayout(w)
+            lay.setContentsMargins(0, 8, 0, 0)
+            self.pages.addWidget(w)
+            return lay
+        v = page_of()
         v.addWidget(QLabel("Folders to search (one on each line, with the folders in them)"))
         self.folders = QPlainTextEdit("\n".join(S["library"].get("folders") or []))
         self.folders.setPlaceholderText("\n".join(page.meta.get("library_defaults") or []) or "Downloads, Documents, …")
@@ -101,7 +102,8 @@ class Sources(QDialog):
         self.lib_status = _muted()
         row.addWidget(self.lib_status, 1)
         v.addLayout(row)
-        v.addWidget(_head("Online databases"))
+        v.addStretch(1)
+        v = page_of()
         v.addWidget(_muted("The app updates the lists after some days. It downloads a curve for Use or Preview."))
         bar = QHBoxLayout()
         self.filter = QLineEdit()
@@ -134,7 +136,7 @@ class Sources(QDialog):
         self.tree.itemClicked.connect(self.item_clicked)
         help_window.tag(self.tree, "databases")
         v.addWidget(self.tree, 1)
-        v.addWidget(_head("Add a database"))
+        v = page_of()
         self.dir_note = _muted("From squig.link's list, or with the URL of a page.")
         v.addWidget(self.dir_note)
         self.dir_q = QLineEdit()
@@ -144,13 +146,13 @@ class Sources(QDialog):
         v.addWidget(self.dir_q)
         self.dir_list = QListWidget()
         self.dir_list.setAccessibleName("squig.link's databases")
-        self.dir_list.setMinimumHeight(72)  # (130 high, less in a small window: the databases' tree comes first)
-        self.dir_list.setMaximumHeight(130)
         self.dir_list.itemDoubleClicked.connect(self._add_listed)
+        # (an empty list says why, in its middle: offline, or its list loading; UI-RULES 21)
+        self.dir_empty = EmptyText(self.dir_list, "")
         # (one clicked: its address in the box, for the one Add under the list, UI-RULES 19; "+ Add" in its words
         # looked like a button, and a click on it did nothing)
         self.dir_list.itemClicked.connect(lambda it: it.data(Qt.UserRole) and self.url.setText(it.data(Qt.UserRole)))
-        v.addWidget(self.dir_list)
+        v.addWidget(self.dir_list, 1)
         row = QHBoxLayout()
         self.url = QLineEdit()
         self.url.setPlaceholderText("https://example.squig.link/")
@@ -162,8 +164,7 @@ class Sources(QDialog):
         add.clicked.connect(self._add_typed)
         row.addWidget(add)
         v.addLayout(row)
-        self.scroll.setWidget(body)
-        outer.addWidget(self.scroll, 1)
+        self.pages.setCurrentIndex(1)
         refresh = QPushButton("Update the lists")
         icons.put(refresh, "refresh")
         refresh.setToolTip("Download all the lists again (only when online)")
@@ -182,6 +183,11 @@ class Sources(QDialog):
         self.poll()
         self.poll_lib()
         self.load_squiglink_list()
+
+    def show_tab(self, i):
+        self.pages.setCurrentIndex(i)
+        for k, b in enumerate(self.tab_btns):
+            b.setChecked(k == i)
 
     # ---------------------------------------------------------------- this PC
     def folders_changed(self):
@@ -362,14 +368,17 @@ class Sources(QDialog):
         if net.offline():
             self.dir_note.setText("Offline: for squig.link's list, change to Online (top right). You can add the URL of "
                                   "a page.")
+            self.dir_empty.set_text("Offline: squig.link's list shows when you change to Online (top right).")
             return
         self.dir_note.setText("From squig.link's list (in progress…), or with the URL of a page.")
+        self.dir_empty.set_text("squig.link's list loads…")
 
         def done(res, err):
             items = (res or {}).get("items") or []
             if err or not items:
                 self.dir_note.setText("The app cannot load squig.link's list (is there no connection?). Load it again "
                                       "at a different time, or add a database with the URL of its page (below).")
+                self.dir_empty.set_text("No list: the app cannot load it.")
                 return
             self.dir = items
             self.dir_note.setText(f"From squig.link's list ({len(items)} databases: click one, then click Add), or "
