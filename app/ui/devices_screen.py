@@ -185,24 +185,28 @@ class DevicesScreen:
             lay.addStretch(1)
             return
         d = self.sw.device(key)
-        head = QWidget()
+        head = QFrame()
+        theme.mark(head, card=True)
         hl = QHBoxLayout(head)
-        hl.setContentsMargins(0, 0, 0, 0)
+        hl.setContentsMargins(4, 0, 4, 0)  # (a card frame's padding and these: its words start at a card's inset)
+        words = QVBoxLayout()
+        words.setSpacing(2)
         title = QLabel(shown(rec))
-        theme.mark(title, role="title")
+        theme.mark(title, role="heading")  # (a card's title: 16 px bold)
         title.setWordWrap(True)
-        hl.addWidget(title, 1)
+        words.addWidget(title)
+        where, _ = self._device_state(key)
+        words.addWidget(muted(where + ("" if d else " (it is not in the Windows list)")
+                              + (f" · Windows name: {rec['label']}" if rec.get("nickname") else "")))
+        hl.addLayout(words, 1)
         ren = QPushButton("Rename…")
         icons.put(ren, "rename")
         ren.setToolTip("Your name for this device (for example, the IEM that you use on it)")
         ren.clicked.connect(lambda: self.rename_device(key))
         from ui import help_window
         help_window.tag(ren, "#dev-rename")
-        hl.addWidget(ren, 0, Qt.AlignTop)
+        hl.addWidget(ren, 0, Qt.AlignVCenter)
         lay.addWidget(head)
-        where, _ = self._device_state(key)
-        lay.addWidget(muted(where + ("" if d else " (it is not in the Windows list)")
-                            + (f" · Windows name: {rec['label']}" if rec.get("nickname") else "")))
 
         if d and not d.apo:
             b = None
@@ -219,30 +223,49 @@ class DevicesScreen:
         # (its EQ off for now, to compare: a bar at the window's top, as a trial's, says so and brings it back,
         # UI-RULES 23; a yellow card here pushed the choices down)
         c = self.sw.compare if self.sw.compare and self.sw.compare["key"] == key else None
+        trying = self.sw.trial if self.sw.trial and self.sw.trial["key"] == key else None
         group = QButtonGroup(box)
         off = QRadioButton("Off")
-        off.setChecked(rec["active"] is None)
+        off.setChecked(rec["active"] is None and not trying)
         off.toggled.connect(lambda on: on and self.sw.set_active(key, None))
         group.addButton(off)
         bl.addWidget(off)
+
+        def two_lines(rb, data):
+            """A row's words: its name (the round button), and under the name its data in small gray text."""
+            col = QVBoxLayout()
+            col.setSpacing(0)
+            col.addWidget(rb)
+            note = muted(data)
+            theme.mark(note, small=True)
+            note.setContentsMargins(26, 0, 0, 2)  # (under the name, not under the round button)
+            col.addWidget(note)
+            return col
+        if trying:  # (selecting a profile ends the 5 minutes, as in the tray menu: switcher's set_active)
+            rb = QRadioButton(f"For 5 minutes: {trying['name']}")
+            rb.setChecked(True)
+            group.addButton(rb)
+            holder = QWidget()
+            tr = QHBoxLayout(holder)
+            tr.setContentsMargins(0, 0, 0, 0)
+            tr.addLayout(two_lines(rb, "The bar at the top has the time, Keep it and Do not keep it"), 1)
+            bl.addWidget(holder)
         for pid in rec["profiles"]:
             p = self.sw.profiles().get(pid)
             row = QHBoxLayout()
             rb = QRadioButton(p["name"])
-            rb.setChecked(rec["active"] == pid)
+            rb.setChecked(rec["active"] == pid and not trying)
             rb.toggled.connect(lambda on, pid=pid: on and self.sw.set_active(key, pid))
             group.addButton(rb)
-            row.addWidget(rb)
-            note = muted(profile_line(p) + ("  (its file is missing from APO's folder)" if
-                                             self.sw.profile_missing(pid) else ""))
-            row.addWidget(note, 1)
+            row.addLayout(two_lines(rb, profile_line(p) + ("  (its file is missing from APO's folder)" if
+                                                           self.sw.profile_missing(pid) else "")), 1)
             x = QToolButton()
             theme.mark(x, quiet=True)  # (a row's ✕: every list's one look, UI-RULES 18)
             x.setText("✕")
             x.setToolTip("Remove it from this device (it stays in Profiles)")  # (✕ = Remove: UI-RULES 10, 16)
             x.setAccessibleName(f"Remove {p['name']} from this device")
             x.clicked.connect(lambda _=False, pid=pid: self.remove_profile_from_device(key, pid))
-            row.addWidget(x)
+            row.addWidget(x, 0, Qt.AlignVCenter)
             holder = QWidget()
             holder.setLayout(row)
             row.setContentsMargins(0, 0, 0, 0)
@@ -256,10 +279,13 @@ class DevicesScreen:
         if others:
             menu.addSeparator()
         menu.addAction("Import EQ files…", lambda: self.import_files(for_device=key))  # (Profiles' words: one act)
+        make = menu.addAction("Make an EQ", lambda: self.show_page("eq"))  # (there, Use on device adds it to a device)
+        make.setToolTip("Make an EQ on the Make an EQ screen. Then click Use on device, and select this device.")
+        menu.setToolTipsVisible(True)
         add.setMenu(menu)
         bl.addWidget(add, 0, Qt.AlignLeft)
         lay.addWidget(box)
-        self.check_label = None
+        self.check_label = self.check_row = self.check_warn = None
         if self.sw.apo.found and d and not c:  # (off for now, APO plays the flat file: asked again once it's back)
             row = QHBoxLayout()
             self.check_label = QLabel()
@@ -277,6 +303,18 @@ class DevicesScreen:
             holder.setLayout(row)
             row.setContentsMargins(0, 0, 0, 0)
             lay.addWidget(holder)
+            self.check_row = holder
+            # (a bad answer: Windows 11's warning bar in the line's place, with its symbol, and Examine again in it;
+            # the ✕ before it was the symbol of Remove, UI-RULES 10)
+            again = QPushButton("Examine again")
+            icons.put(again, "refresh")
+            again.setToolTip(chk.toolTip())
+            again.clicked.connect(lambda: self.check_device(key))
+            help_window.tag(again, "#dev-check")
+            self.check_warn, self.check_warn_text = warning_card("", again)
+            help_window.tag(self.check_warn_text, "#dev-check")
+            self.check_warn.hide()
+            lay.addWidget(self.check_warn)
             self._auto_check(key)
         hk, onoff = self.sw.s.get("hotkey"), self.sw.s.get("onoff_hotkey")
         lay.addWidget(muted("Select a profile in the tray icon menu" + (f", or with {hk} while this device is active."
@@ -304,8 +342,8 @@ class DevicesScreen:
     def rename_device(self, key):
         from ui.window_parts import ask_text  # (looked up here: the tests answer it)
         rec = self.sw.record(key)
-        name, ok = ask_text(self, "Rename the device", f"Your name for it (empty: Windows' name, {rec['label']})",
-                            rec.get("nickname", ""), "Rename")
+        name, ok = ask_text(self, "Rename the device", "Your name for this device", rec.get("nickname", ""), "Rename",
+                            placeholder=rec["label"], note="If the box is empty, AutoEQ Studio uses the Windows name.")
         if ok:
             self.sw.set_nickname(key, name)
             self.render_all()
@@ -355,11 +393,17 @@ class DevicesScreen:
                 lab.setToolTip("")
             elif got:
                 ok, text = got[1], got[2]
-                lab.setText(("✓ " if ok else "✕ " if ok is False else "") + check_line(ok, text))
+                lab.setText(("✓ " if ok else "") + check_line(ok, text))
                 lab.setToolTip(text + "\nF1 opens Help.")
                 theme.mark(lab, role="good" if ok else "warn" if ok is False else "muted")
                 lab.style().unpolish(lab)
                 lab.style().polish(lab)
+            bad = bool(got) and got[1] is False
+            if self.check_warn is not None:
+                self.check_warn_text.setText(lab.text())
+                self.check_warn_text.setToolTip(lab.toolTip())
+                self.check_row.setVisible(not bad)
+                self.check_warn.setVisible(bad)
         except RuntimeError:  # (the panel was drawn again meanwhile)
             pass
 

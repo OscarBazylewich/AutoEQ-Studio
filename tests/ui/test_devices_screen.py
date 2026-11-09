@@ -158,7 +158,7 @@ def test_check_again(set_up_window, check, monkeypatch):
     win, sw = w.win, w.sw
     rec = sw.record(KEY)
     win._checks.clear()
-    chk = [b for b in win.dev_panel.findChildren(QPushButton) if b.text() == "Examine again"]
+    chk = [b for b in win.dev_panel.findChildren(QPushButton) if b.text() == "Examine again" and b.isVisibleTo(win)]
     pfile = os.path.join(sw.apo.profiles, sw.profiles()[rec["active"]]["file"])
     told = []
     monkeypatch.setattr(apo_check, "run", lambda apo, guid, timeout=60: (told.append(guid), {
@@ -171,12 +171,15 @@ def test_check_again(set_up_window, check, monkeypatch):
         qt.wait_for(lambda: len(told) >= 2, 10)
     monkeypatch.undo()  # (put back before the line is read, as the old check did)
     line = win.check_label.text() if win.check_label is not None else ""
-    # was selftest.py:424
+    bar = (win.check_warn is not None and win.check_warn.isVisibleTo(win), win.check_warn_text.text()
+           if win.check_warn is not None else "", win.check_row is not None and win.check_row.isVisibleTo(win))
+    # was selftest.py:424 (the UI audit, 2026-11-08: a bad answer is Windows 11's warning bar, with Examine again in it)
     check("window: Check again asks APO for the device's endpoint and says all it found (its EQ applies, but APO "
-          "isn't on the device); the device's line says it too",
+          "isn't on the device); the device's line says it too, as a warning bar",
           len(chk) == 1 and "{5}" in told and any(isinstance(x, tuple) and x[0] == "not" and "on this device: APO finds the section"
                                                    in x[1] and "is not installed on this device" in x[1] for x in told)
-          and line.startswith("✕ Equalizer APO is not installed on this device"), (told, line))
+          and line.startswith("Equalizer APO is not installed on this device") and bar[0] and bar[1] == line
+          and not bar[2], (told, line, bar))
 
 
 def test_line_asked_once_per_change(set_up_window, check, monkeypatch, qapp):
@@ -196,8 +199,8 @@ def test_line_asked_once_per_change(set_up_window, check, monkeypatch, qapp):
     monkeypatch.undo()
     # was selftest.py:477
     check("window: the device's line isn't asked again while nothing changed; asked by itself after a change "
-          "(✕: APO doesn't read AutoEQ Studio's file)", again == [] and asked == ["{5}"]
-          and "✕" in win.check_label.text() and "does not read" in win.check_label.text(), (again, asked,
+          "(a warning bar: APO doesn't read AutoEQ Studio's file)", again == [] and asked == ["{5}"]
+          and win.check_warn.isVisibleTo(win) and "does not read" in win.check_warn_text.text(), (again, asked,
                                                                                          win.check_label.text()))
 
 

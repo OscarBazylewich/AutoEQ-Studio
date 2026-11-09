@@ -296,18 +296,20 @@ A profile is a copy of an EQ file in the Equalizer APO format. The EQ file can b
   - A file that you saved in the Editor of APO.
 Use on device does this in one step, from the result of Make an EQ. The profiles are in APO's config folder ("AutoEQ
 Studio\profiles"). Thus, if you change the file that you imported, the profile does not change: import it again.
-The buttons of Profiles are above its table (the buttons for one profile are enabled when you select a profile).
-"Edit in Make an EQ" opens the selected profile there as a manual EQ. When you change its filters, Use on device ›
-Update puts it into the profile again (its devices keep it, and you hear the change immediately). The other buttons are
-Rename…, Open the profiles folder and Delete… (the last button: it deletes its file, after a message).
+The buttons of Profiles are above its table: first Import EQ files… and Open the profiles folder, then a line and the
+buttons for one profile (they are enabled when you select a profile). "Edit in Make an EQ" opens the selected profile
+there as a manual EQ. When you change its filters, Use on device › Update puts it into the profile again (its devices
+keep it, and you hear the change immediately). Rename… gives it a different name, and Delete… (the last button)
+deletes its file, after a message.
 
 Devices: your playback devices, with their Windows names ("Headset (EarPods)"), connected devices first, from A to Z.
 A green dot: active. Your Windows accent color (blue at first): connected. Gray: not connected.
-Select a device to give it profiles ("Add a profile"), and select the profile that is on, or Off. The ✕ of a profile
-removes it from the device (Undo is in the message near the ✕). Rename… gives the device your name for it ("Dongle
-– KZ"), and all screens show this name.
-The line below its EQ tells you if Equalizer APO uses the EQ (✓ or ✕): AutoEQ Studio gets this information from
-Equalizer APO. Examine again shows all that it found.
+Select a device to give it profiles ("Add a profile": a profile, Import EQ files… or Make an EQ), and select the
+profile that is on, or Off. The ✕ of a profile removes it from the device (Undo is in the message near the ✕).
+Rename… (in the card with the name of the device) gives the device your name for it ("Dongle – KZ"), and all screens
+show this name. During an EQ for 5 minutes, the card shows that EQ as selected.
+The line below its EQ tells you if Equalizer APO uses the EQ (✓ in green). If APO does not use it, a warning bar
+shows the cause: AutoEQ Studio gets this information from Equalizer APO. Examine again shows all that it found.
 A device can have more than one profile (for example, a USB-C dongle that you use with different IEMs). Select one
 from the menu of the tray icon or with the hotkey.
 

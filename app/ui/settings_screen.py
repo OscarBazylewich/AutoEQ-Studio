@@ -13,8 +13,9 @@ from PySide6.QtWidgets import (QCheckBox, QFileDialog, QGridLayout, QGroupBox, Q
 
 import paths
 from ui import help_window, icons, theme
+from ui.bubble import InfoMark
 from ui.setup_dialog import SetUpDialog
-from ui.window_parts import muted
+from ui.window_parts import glyph_label, muted
 
 
 class SettingsScreen:
@@ -25,6 +26,9 @@ class SettingsScreen:
     # ---------------------------------------------------------------- Settings
     def _settings_tab(self):
         w = QWidget()
+        # (at most about 900 px wide, at the left, as Windows 11's Settings: on a wide window a card's buttons were far
+        # from its words; the UI audit, 2026-11-08)
+        w.setMaximumWidth(900)
         lay = QVBoxLayout(w)
         lay.setContentsMargins(0, 0, 0, 0)  # (lined up with the top bar, as every screen: .claude/notes/UI-RULES.md 5)
         lay.setSpacing(12)  # (its cards as far apart as Make an EQ's: Qt's 6 px)
@@ -41,56 +45,84 @@ class SettingsScreen:
         bl.addWidget(self.chk_offline)
         lay.addWidget(box)
 
-        # the hotkeys, as a form (UI-RULES 26): their labels in one column, their boxes lined up in the next, each
-        # note under its box (they were sentences ending in a colon, each box where its words ended)
+        # the hotkeys, as a form (UI-RULES 26): their labels in one column, each with its ⓘ (the words about it: the
+        # gray notes under the boxes went behind it, the UI audit, 2026-11-08), their boxes lined up in the next, each
+        # with its ✕ at its right end (as the search boxes'; the Clear buttons went); a problem with a hotkey is said
+        # in the warning colour under its box
         box = QGroupBox("Hotkeys")
         g = QGridLayout(box)
         g.setHorizontalSpacing(10)  # (as forms.py's: UI-RULES 26)
         g.setVerticalSpacing(6)
         g.setColumnStretch(2, 1)
-        g.addWidget(QLabel("Change the EQ of the active device"), 0, 0)
-        self.hotkey_edit = QKeySequenceEdit()
-        self.hotkey_edit.setMaximumSequenceLength(1)
-        self.hotkey_edit.setAccessibleName("Hotkey to change the EQ of the active device")
-        self.hotkey_edit.editingFinished.connect(lambda: self.hotkey_changed.emit(
-            self.hotkey_edit.keySequence().toString(QKeySequence.PortableText)))
+
+        def label(words, info):
+            w = QWidget()
+            h = QHBoxLayout(w)
+            h.setContentsMargins(0, 0, 0, 0)
+            h.setSpacing(4)
+            h.addWidget(QLabel(words))
+            mark = InfoMark(info, words)
+            h.addWidget(mark)
+            h.addStretch(1)
+            return w, mark
+
+        def key_box(name, changed):
+            e = QKeySequenceEdit()
+            e.setMaximumSequenceLength(1)
+            e.setClearButtonEnabled(True)
+            e.setAccessibleName(name)
+            e.setMinimumWidth(200)
+            def say():  # (each new key said once: when typing ends, and at once when the box's ✕ empties it)
+                text = e.keySequence().toString(QKeySequence.PortableText)
+                if text != e.property("said"):
+                    e.setProperty("said", text)
+                    changed.emit(text)
+            e.editingFinished.connect(say)
+            e.keySequenceChanged.connect(lambda seq: seq.isEmpty() and say())
+            return e
+        lab, self.hotkey_info = label("Change the EQ of the active device", "")
+        g.addWidget(lab, 0, 0)
+        self.hotkey_edit = key_box("Hotkey to change the EQ of the active device", self.hotkey_changed)
         g.addWidget(self.hotkey_edit, 0, 1)
-        clear = QPushButton("Clear")  # (it was "None", a value's word on an action: UI-RULES 15)
-        clear.setAccessibleName("Clear the hotkey to change the EQ of the active device")
-        clear.clicked.connect(lambda: (self.hotkey_edit.clear(), self.hotkey_changed.emit("")))
-        g.addWidget(clear, 0, 2, Qt.AlignLeft)
-        self.hotkey_note = muted()
+        self.hotkey_note = QLabel()
+        self.hotkey_note.setWordWrap(True)
+        theme.mark(self.hotkey_note, role="warn")
         g.addWidget(self.hotkey_note, 1, 1, 1, 2)
         help_window.tag(self.hotkey_edit, "#hotkey")
         # the on/off hotkey (2026-10-26): the playing device's EQ off for now, to compare, and back
-        g.addWidget(QLabel("Disable and enable its EQ, to compare"), 2, 0)
-        self.onoff_edit = QKeySequenceEdit()
-        self.onoff_edit.setMaximumSequenceLength(1)
-        self.onoff_edit.setAccessibleName("Hotkey to disable the EQ and enable it again")
-        self.onoff_edit.editingFinished.connect(lambda: self.onoff_hotkey_changed.emit(
-            self.onoff_edit.keySequence().toString(QKeySequence.PortableText)))
+        lab, self.onoff_info = label("Disable and enable its EQ, to compare", "")
+        g.addWidget(lab, 2, 0)
+        self.onoff_edit = key_box("Hotkey to disable the EQ and enable it again", self.onoff_hotkey_changed)
         g.addWidget(self.onoff_edit, 2, 1)
-        clear = QPushButton("Clear")
-        clear.setAccessibleName("Clear the hotkey to disable and enable the EQ")
-        clear.clicked.connect(lambda: (self.onoff_edit.clear(), self.onoff_hotkey_changed.emit("")))
-        g.addWidget(clear, 2, 2, Qt.AlignLeft)
         help_window.tag(self.onoff_edit, "#onoff-hotkey")
         self.chk_matched = QCheckBox("Same level: “off” has the same loudness as the EQ (with a lower volume)")
         self.chk_matched.toggled.connect(lambda on: self.sw.set("onoff_matched", bool(on)))
         help_window.tag(self.chk_matched, "#onoff-matched")
         g.addWidget(self.chk_matched, 3, 1, 1, 2)
-        self.onoff_note = muted()
+        self.onoff_note = QLabel()
+        self.onoff_note.setWordWrap(True)
+        theme.mark(self.onoff_note, role="warn")
         g.addWidget(self.onoff_note, 4, 1, 1, 2)
         lay.addWidget(box)
 
+        # (the condition first, with its symbol and colour, as the line about the EQ on Devices; the folder's path under
+        # it in gray: the UI audit, 2026-11-08, the condition came second, after a long path)
         box = QGroupBox("Equalizer APO")
         bl = QVBoxLayout(box)
+        state = QHBoxLayout()
+        state.setSpacing(8)
+        self.apo_mark = glyph_label("warning", role="warn")
+        state.addWidget(self.apo_mark, 0, Qt.AlignTop)
         self.apo_state = QLabel()
         self.apo_state.setWordWrap(True)
-        self.apo_state.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        bl.addWidget(self.apo_state)
+        state.addWidget(self.apo_state, 1)
+        bl.addLayout(state)
+        self.apo_path = muted()
+        self.apo_path.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        bl.addWidget(self.apo_path)
         row = QHBoxLayout()
         self.btn_setup = QPushButton("Add AutoEQ Studio to APO…")
+        theme.mark(self.btn_setup, primary=True)  # (the card's main command when APO does not use it: UI-RULES 8)
         icons.put(self.btn_setup, "tools")  # (every button in the row with its symbol: UI-RULES 9)
         self.btn_setup.clicked.connect(self.add_studio_to_apo)
         self.btn_unset = QPushButton("Remove AutoEQ Studio from APO…")
@@ -239,36 +271,48 @@ class SettingsScreen:
             chk.setChecked(on)
             chk.blockSignals(False)
         if not self.hotkey_edit.hasFocus():
-            self.hotkey_edit.setKeySequence(QKeySequence(self.sw.s.get("hotkey") or ""))
-        self.hotkey_note.setText(self.app.hotkey_problem or "It operates in all programs. It selects the next "
-                                 "profile of the active device each time, and Off after the last profile.")
-        role = "warn" if self.app.hotkey_problem else "muted"  # (a problem with the hotkey is said as a warning)
-        if self.hotkey_note.property("role") != role:
-            theme.mark(self.hotkey_note, role=role)
+            self._show_key(self.hotkey_edit, self.sw.s.get("hotkey") or "")
+        self.hotkey_info.set_text("It operates in all programs. It selects the next profile of the active device each "
+                                  "time, and Off after the last profile.")
+        self.hotkey_note.setText(self.app.hotkey_problem or "")  # (a problem with the hotkey: said under its box)
+        self.hotkey_note.setVisible(bool(self.app.hotkey_problem))
         if not self.onoff_edit.hasFocus():
-            self.onoff_edit.setKeySequence(QKeySequence(self.sw.s.get("onoff_hotkey") or ""))
+            self._show_key(self.onoff_edit, self.sw.s.get("onoff_hotkey") or "")
         self.chk_matched.blockSignals(True)
         self.chk_matched.setChecked(bool(self.sw.s.get("onoff_matched", True)))
         self.chk_matched.blockSignals(False)
         problem = getattr(self.app, "onoff_problem", "")
-        self.onoff_note.setText(problem or "It operates in all programs. It disables the EQ of the active device, and "
-                                "then it enables the EQ again. With Same level, “off” and the EQ have the same "
-                                "loudness. Thus, you compare the sound and not the volume.")
-        role = "warn" if problem else "muted"
-        if self.onoff_note.property("role") != role:
-            theme.mark(self.onoff_note, role=role)
+        self.onoff_info.set_text("It operates in all programs. It disables the EQ of the active device, and then it "
+                                 "enables the EQ again. With Same level, “off” and the EQ have the same loudness. Thus, "
+                                 "you compare the sound and not the volume.")
+        self.onoff_note.setText(problem or "")
+        self.onoff_note.setVisible(bool(problem))
         apo = self.sw.apo
+        good = apo.found and apo.includes_studio()
         if not apo.found:
-            state = "Not installed (or AutoEQ Studio did not find its config folder)."
+            state = "Equalizer APO is not installed (or AutoEQ Studio did not find its config folder)."
         else:
-            state = f"Its config folder is {apo.config}.\n" + ("APO uses AutoEQ Studio: config.txt has a line for the "
-                                                       "AutoEQ Studio file." if apo.includes_studio()
-                                                       else "APO does not use AutoEQ Studio.")
+            state = ("✓ APO uses AutoEQ Studio: config.txt has a line for the AutoEQ Studio file." if good
+                     else "APO does not use AutoEQ Studio.")
         self.apo_state.setText(state)
+        role = "good" if good else "warn"
+        if self.apo_state.property("role") != role:
+            theme.mark(self.apo_state, role=role)
+        self.apo_mark.setVisible(not good)
+        self.apo_path.setText(f"Its config folder: {apo.config}" if apo.found else "")
+        self.apo_path.setVisible(apo.found)
         self.btn_setup.setVisible(apo.found and not apo.includes_studio())
         self.btn_unset.setVisible(apo.found and apo.includes_studio())
         self.btn_conf.setVisible(bool(apo.configurator))
         self.btn_folder.setVisible(apo.found)
+
+    @staticmethod
+    def _show_key(box, text):
+        """A hotkey box shows the saved key (not said back as a change)."""
+        box.blockSignals(True)
+        box.setKeySequence(QKeySequence(text))
+        box.blockSignals(False)
+        box.setProperty("said", QKeySequence(text).toString(QKeySequence.PortableText))
 
     # ---------------------------------------------------------------- APO actions
     def add_studio_to_apo(self):

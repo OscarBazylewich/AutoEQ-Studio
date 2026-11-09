@@ -7,13 +7,13 @@ window, so they use the window's own things (sw, and the Settings part's open_fo
 import os
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QAbstractItemView, QFileDialog, QHBoxLayout, QHeaderView, QMessageBox,
+from PySide6.QtWidgets import (QAbstractItemView, QFileDialog, QFrame, QHBoxLayout, QHeaderView, QMessageBox,
                                QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
 import paths
 from switcher import eqfile
-from ui import help_window, icons
-from ui.window_parts import muted, profile_line
+from ui import help_window, icons, theme
+from ui.window_parts import EmptyText, muted, profile_line
 
 
 class ProfilesScreen:
@@ -31,12 +31,14 @@ class ProfilesScreen:
                             "rename a profile, double-click its name."))
         # (the table's commands above it, near the rows they act on: under a table that fills the screen they were
         # 750 px from its one row)
+        # (the general commands first, then a thin line and those for the selected profile, Delete… last and apart: as
+        # File Explorer's command bar, New first; the UI audit, 2026-11-08: they were mixed, on, off, off, on, off)
         row = QHBoxLayout()
         self.prof_needs_one = []
         for text, fn, symbol in (("Import EQ files…", lambda: self.import_files(), "import"),
+                                 ("Open the profiles folder", lambda: self.open_folder(self.sw.apo.profiles), "folder"),
                                  ("Edit in Make an EQ", self._edit_in_make_eq, "edit"),
                                  ("Rename…", self._rename_profile, "rename"),
-                                 ("Open the profiles folder", lambda: self.open_folder(self.sw.apo.profiles), "folder"),
                                  ("Delete…", self._delete_profile, "delete")):
             b = QPushButton(text)
             icons.put(b, symbol)
@@ -44,6 +46,13 @@ class ProfilesScreen:
             if text == "Delete…":
                 row.addStretch(1)  # (last and apart: UI-RULES 14)
                 b.setToolTip("Delete the selected profile and its file, and remove it from its devices")
+            if text == "Edit in Make an EQ":
+                line = QFrame()
+                theme.mark(line, vline=True)
+                line.setFixedSize(1, 20)
+                row.addSpacing(4)
+                row.addWidget(line)
+                row.addSpacing(4)
             row.addWidget(b)
             if symbol in ("edit", "rename", "delete"):  # (for the chosen profile: off until one is chosen)
                 self.prof_needs_one.append(b)
@@ -73,6 +82,9 @@ class ProfilesScreen:
             h.setSectionResizeMode(c, QHeaderView.Stretch)
         for c in (1, 2):
             h.setSectionResizeMode(c, QHeaderView.ResizeToContents)
+        # (no profiles: one gray line that tells the next step, as every empty list: UI-RULES 21)
+        self.prof_empty = EmptyText(self.prof_table, "No profiles. Click “Import EQ files…”, or make an EQ in Make an EQ "
+                                    "and click Use on device.")
         self.prof_table.itemChanged.connect(self._renamed)
         self.prof_table.itemSelectionChanged.connect(self._update_profile_commands)
         lay.addWidget(self.prof_table, 1)

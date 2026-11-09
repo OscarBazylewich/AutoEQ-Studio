@@ -9,14 +9,15 @@ from helpers import session, subproc
 
 # (after tests\ui\conftest.py's THEMED_WINDOW: Settings in the window at its smallest, the banner showing)
 SMALL = r'''
-from PySide6.QtWidgets import QAbstractButton, QKeySequenceEdit, QScrollArea
+from PySide6.QtWidgets import QAbstractButton, QKeySequenceEdit, QLineEdit, QScrollArea
 win.show_page("settings", remember=False)
 qapp.processEvents()
 win.resize(win.minimumSizeHint())
 for _ in range(10):
     qapp.processEvents()
 page = win.pages["settings"]
-shown = [w for kind in (QAbstractButton, QKeySequenceEdit) for w in page.findChildren(kind) if w.isVisible()]
+shown = [w for kind in (QAbstractButton, QKeySequenceEdit) for w in page.findChildren(kind) if w.isVisible()
+         and not isinstance(w.parentWidget(), QLineEdit)]  # (a box's own ✕ is the box's: sized by it)
 print(json.dumps({"banner": win.banner.isVisible(), "controls": len(shown),
                   "squeezed": [(w.text() if isinstance(w, QAbstractButton) else type(w).__name__, w.height(),
                                 w.sizeHint().height()) for w in shown if w.height() < w.sizeHint().height()],
@@ -49,9 +50,12 @@ def test_a_hotkey_problem_said_as_a_warning(devices_window, check):
     finally:
         del w.app.hotkey_problem  # (the stand-in app's own: none)
         w.win.render_settings()
-    back = w.win.hotkey_note.property("role")
-    check("settings: a problem with the hotkey is said in the warning colour, and the note is quiet again after",
-          said[0].startswith("Windows didn't take") and said[1] == "warn" and back == "muted", (said, back))
+    back = w.win.hotkey_note.isHidden()
+    # (the UI audit, 2026-11-08: the words about the hotkey are behind its ⓘ; under its box only a problem)
+    check("settings: a problem with the hotkey is said under its box in the warning colour, and goes after; the words "
+          "about the hotkey are in its ⓘ",
+          said[0].startswith("Windows didn't take") and said[1] == "warn" and back
+          and "next profile" in w.win.hotkey_info.toolTip(), (said, back))
 
 
 def test_after_a_restore_nothing_is_saved_before_the_restart(devices_window, check, monkeypatch):

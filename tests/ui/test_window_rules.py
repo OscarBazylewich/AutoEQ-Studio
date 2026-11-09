@@ -126,14 +126,14 @@ def test_settings_hotkeys_lined_up_as_a_form(devices_window, check):
     qt.pump(30)
     try:
         boxes = [e.mapTo(win, QPoint(0, 0)).x() for e in (win.hotkey_edit, win.onoff_edit, win.chk_matched)]
-        clears = sorted(b.accessibleName() for b in win.pages["settings"].findChildren(QPushButton)
-                        if b.text() == "Clear")
+        clears = [b.text() for b in win.pages["settings"].findChildren(QPushButton) if b.text() == "Clear"]
+        in_box = [e.isClearButtonEnabled() for e in (win.hotkey_edit, win.onoff_edit)]
     finally:
         win.show_page("devices", remember=False)
+    # (the UI audit, 2026-11-08: Clear is a ✕ in each box, as the search boxes have; the Clear buttons went)
     check("settings: the two hotkeys as a form, their boxes lined up in one column (Level-matched under them), each "
-          "with a Clear named for its hotkey",
-          len(set(boxes)) == 1 and clears == ["Clear the hotkey to change the EQ of the active device",
-                                              "Clear the hotkey to disable and enable the EQ"], (boxes, clears))
+          "with its ✕ in the box and no Clear button",
+          len(set(boxes)) == 1 and clears == [] and in_box == [True, True], (boxes, clears, in_box))
 
 
 def test_deleting_a_profile_asks_with_no_the_default(devices_window, monkeypatch, check):

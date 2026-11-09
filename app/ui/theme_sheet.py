@@ -55,11 +55,13 @@ def cards_and_group_boxes(t, img):
     QFrame[card="warn"] {{ background: {t['warn_bg']}; border: 1px solid {t['line']}; border-radius: 8px;
         padding: 8px; }}
     QGroupBox QLabel, QFrame[card] QLabel {{ background: transparent; font-weight: 400; }}
+    QFrame[card] QLabel[role="heading"] {{ font-weight: 600; }}
 """
 
 
 def text_roles(t, img):
-    """Text roles (QLabel's role): a screen's title, muted, warn, good, a chip, the brand. A label with padding gets
+    """Text roles (QLabel's role): a screen's title, a card's title in a card frame (heading: 16 px bold, as a group
+    box's), muted, warn, good, a chip, the brand; small=true: 12 px (a row's second line, as the device list's). A label with padding gets
     no indent of Qt's own (half an "x" more at its left: a chip's words sat off its middle)."""
     return f"""
     QLabel[role="title"] {{ font-family: "Segoe UI Variable Display"; font-size: 20pt; font-weight: 600; }}
@@ -69,6 +71,8 @@ def text_roles(t, img):
     QLabel[role="chip"] {{ background: {t['subtle']}; border: 1px solid {t['stroke']}; border-radius: 4px;
         padding: 2px 8px; qproperty-indent: 0; }}
     QLabel[role="brand"] {{ font-family: "Segoe UI Variable Display"; font-size: 12pt; font-weight: 600; }}
+    QLabel[role="heading"] {{ font-size: {FONT + 1.5}pt; font-weight: 600; }}
+    QLabel[small="true"] {{ font-size: {FONT * 12 / 14:.2f}pt; }}
     QFrame#bubble QLabel {{ background: transparent; }}
     QToolButton#infoMark {{ padding: 2px; border-radius: 4px; }}
 """

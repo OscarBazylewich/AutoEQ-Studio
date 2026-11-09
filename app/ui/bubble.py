@@ -13,7 +13,7 @@ stops all work until OK.
   words; a click, Space or Enter shows them in a bubble, where links work.
 A screen reader hears a bubble as an alert. last(kind) gives the bubble shown last of a kind (for the tests).
 """
-from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QRectF, Qt, QTimer
+from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import QAccessible, QColor, QKeySequence, QPainter, QPainterPath, QPen, QShortcut
 from PySide6.QtWidgets import (QAbstractButton, QAbstractSlider, QAbstractSpinBox, QApplication, QComboBox, QFrame,
                                QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QPushButton, QToolButton, QWidget)
@@ -327,6 +327,8 @@ class InfoMark(QToolButton):
         from ui import icons
         icons.put(self, "info")
         theme.mark(self, quiet=True, info=True)
+        self.ensurePolished()
+        self.setFixedSize(self.sizeHint().expandedTo(QSize(28, 24)))  # (never squeezed in a small window)
         self.clicked.connect(self.show_words)
         self.set_text(text)
 

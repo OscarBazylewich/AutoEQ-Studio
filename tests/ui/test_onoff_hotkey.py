@@ -14,7 +14,7 @@ KEY = "Headset|EarPods"
 
 
 def test_settings_row(devices_window, check):
-    from PySide6.QtWidgets import QPushButton
+    from PySide6.QtWidgets import QLineEdit
     from ui import help_window
     w = devices_window
     win = w.win
@@ -24,9 +24,8 @@ def test_settings_row(devices_window, check):
     emitted = []
     win.onoff_hotkey_changed.connect(emitted.append)
     try:
-        none = next(b for b in win.pages["settings"].findChildren(QPushButton)
-                    if b.accessibleName() == "Clear the hotkey to disable and enable the EQ")
-        none.click()
+        # (the box's own ✕, as a click on it does: its text box emptied; the UI audit, 2026-11-08: no Clear button)
+        win.onoff_edit.findChild(QLineEdit).clear()
         win.chk_matched.setChecked(False)
         saved = w.sw.s.get("onoff_matched")
     finally:
@@ -34,7 +33,7 @@ def test_settings_row(devices_window, check):
         w.sw.set("onoff_matched", True)
         win.render_settings()
     check("onoff: Settings shows the on/off hotkey as saved (Ctrl+Alt+Space to start with) and Level-matched ticked; "
-          "None asks for no key; Level-matched unticked is saved; each has its Help entry",
+          "the ✕ in its box asks for no key (once); Level-matched unticked is saved; each has its Help entry",
           seq == "Ctrl+Alt+Space" and matched and emitted == [""] and saved is False
           and help_window.entry_of_widget(win.onoff_edit) and help_window.entry_of_widget(win.chk_matched),
           (seq, matched, emitted, saved))
@@ -49,9 +48,11 @@ def test_a_refused_key_said_as_a_warning(devices_window, check):
     finally:
         del w.app.onoff_problem
         w.win.render_settings()
-    check("onoff: a key Windows refused is said in the warning colour, and the note is quiet again after",
-          said[0].startswith("Windows didn't take") and said[1] == "warn" and w.win.onoff_note.property("role") == "muted",
-          said)
+    # (the UI audit, 2026-11-08: the words about the hotkey are behind its ⓘ; under its box only a problem)
+    check("onoff: a key Windows refused is said under its box in the warning colour, and goes after; the words about "
+          "the hotkey are in its ⓘ",
+          said[0].startswith("Windows didn't take") and said[1] == "warn" and w.win.onoff_note.isHidden()
+          and "With Same level" in w.win.onoff_info.toolTip(), said)
 
 
 @pytest.fixture

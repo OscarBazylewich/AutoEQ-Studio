@@ -34,10 +34,16 @@ def name_of(w):
     return (iface.text(QAccessible.Name) if iface is not None else "") or ""
 
 
+def _box_part(w):
+    """A text box's own ✕ (its clear button, Qt's): read and reached as a part of its box (Esc or Ctrl+A, Delete clear
+    it with the keyboard)."""
+    return isinstance(w, QAbstractButton) and isinstance(w.parentWidget(), QLineEdit)
+
+
 def unnamed(root):
     out = []
     for w in root.findChildren(QWidget):
-        if not isinstance(w, CONTROLS) or not _shown(w) or w.property("a11y_skip"):
+        if not isinstance(w, CONTROLS) or not _shown(w) or w.property("a11y_skip") or _box_part(w):
             continue
         if isinstance(w, QLineEdit) and w.parentWidget() is not None and isinstance(w.parentWidget(), (QComboBox,
                                                                                                     QAbstractSpinBox)):
@@ -55,7 +61,7 @@ def unreachable(root):
     from PySide6.QtCore import Qt
     out = []
     for w in root.findChildren(QWidget):
-        if not isinstance(w, CONTROLS) or not _shown(w) or w.property("a11y_skip") or not w.isEnabled():
+        if not isinstance(w, CONTROLS) or not _shown(w) or w.property("a11y_skip") or not w.isEnabled()                 or _box_part(w):
             continue
         if type(w).__name__ in ("QScrollBar", "QHeaderView") or w.objectName().startswith("qt_"):
             continue

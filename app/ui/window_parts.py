@@ -142,11 +142,12 @@ def dialog_band(dialog, main_text, on_main, cancel_text="Cancel"):
     return band, main
 
 
-def ask_text(parent, title, label, text="", verb="OK"):
+def ask_text(parent, title, label, text="", verb="OK", placeholder="", note=""):
     """A name asked for in Windows 11's dialog, as Paste filters' and Set up's (UI-RULES 2): the words and the box on
     the card's colour, the buttons on a band below, `verb` (Rename, Save) first, in the accent and Enter's, then Cancel.
     Returns (text, True), or (text, False) when it's cancelled. (Rename… and Save as… were Qt's own boxes, OK and
-    Cancel at their right: a different look for the same kind of question.)"""
+    Cancel at their right: a different look for the same kind of question.) placeholder: the gray words in the empty box
+    (an example, or what an empty box gives); note: a gray text under the box (UI-RULES 26)."""
     from PySide6.QtWidgets import QDialog, QLineEdit, QVBoxLayout
     dlg = QDialog(parent)
     dlg.setWindowTitle(title)
@@ -163,8 +164,11 @@ def ask_text(parent, title, label, text="", verb="OK"):
     v.addWidget(words)
     box = QLineEdit(text)
     box.setAccessibleName(label)
+    box.setPlaceholderText(placeholder)
     box.selectAll()
     v.addWidget(box)
+    if note:
+        v.addWidget(muted(note))
     outer.addWidget(body, 1)
     band, _main = dialog_band(dlg, verb, dlg.accept)
     outer.addWidget(band)
@@ -303,11 +307,14 @@ class EmptyText(QObject):
         return model.rowCount() if model is not None else 0
 
     def refresh(self, *_a):
-        area = self.label.parentWidget()
-        if area is None:
-            return
-        self.label.setGeometry(16, 0, max(0, area.width() - 32), min(area.height(), 120) or area.height())
-        self.label.setVisible(self.rows() == 0 and bool(self.label.text()))
+        try:
+            area = self.label.parentWidget()
+            if area is None:
+                return
+            self.label.setGeometry(16, 0, max(0, area.width() - 32), min(area.height(), 120) or area.height())
+            self.label.setVisible(self.rows() == 0 and bool(self.label.text()))
+        except RuntimeError:  # (its list was deleted with its window, and its model said so last)
+            pass
 
     def eventFilter(self, obj, e):
         if e.type() in (QEvent.Resize, QEvent.Show):

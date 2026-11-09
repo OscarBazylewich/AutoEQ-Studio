@@ -20,6 +20,14 @@ def _words(text):
     return lab
 
 
+def _title(text):
+    """A part's title in the long dialog: bold, as a section's title in a card (UI-RULES 26)."""
+    lab = QLabel(text)
+    from ui import theme
+    theme.mark(lab, role="section")
+    return lab
+
+
 def _fit(lst, most):
     """A list as tall as its rows, up to `most` of them (more: it scrolls). Its height is fixed: Windows opens a
     dialog no taller than two thirds of the screen, and a list that could shrink was squeezed to a row and a half."""
@@ -55,6 +63,7 @@ class SetUpDialog(QDialog):
                              "(config.txt.autoeq-studio-backup)."))
         self.chk_off = None
         if self.others:
+            lay.addWidget(_title("Lines in config.txt"))
             lay.addWidget(_words("These lines in config.txt are enabled. They change the sound of all devices, "
                                  "together with the EQ of each device:"))
             lst = QListWidget()
@@ -67,22 +76,27 @@ class SetUpDialog(QDialog):
                                      "AutoEQ Studio from APO)")
             self.chk_off.setChecked(True)
             lay.addWidget(self.chk_off)
-            if any("EQ Switcher" in line for line in self.others):
-                note = (" (AutoEQ Studio has your EQ Switcher profiles and selections)" if sw.profiles() else
-                        " (AutoEQ Studio does not have the EQ Switcher profiles. Their EQ files are in the “EQ "
-                        "Switcher\\profiles” folder of Equalizer APO. To add them, use “Import EQ files…” in "
-                        "Profiles)")
-                lay.addWidget(muted("“Include: EQ Switcher\\switcher.txt” is the line of EQ Switcher. AutoEQ "
-                                    "Studio replaces EQ Switcher" + note + "."))
-        # EQ Switcher, which AutoEQ Studio takes over from: its Start with Windows off, and it asked to quit
+        # EQ Switcher, which AutoEQ Studio takes over from: its line in config.txt, its Start with Windows off, and it
+        # asked to quit; under a title of its own (the UI audit, 2026-11-08: the long dialog's 3 parts had no titles)
         from ui import winsys
+        es_line = any("EQ Switcher" in line for line in self.others)
+        es_auto, es_open = winsys.eq_switcher_autostart(), winsys.eq_switcher_running()
+        if es_line or es_auto or es_open:
+            lay.addWidget(_title("EQ Switcher"))
+        if es_line:
+            note = (" (AutoEQ Studio has your EQ Switcher profiles and selections)" if sw.profiles() else
+                    " (AutoEQ Studio does not have the EQ Switcher profiles. Their EQ files are in the “EQ "
+                    "Switcher\\profiles” folder of Equalizer APO. To add them, use “Import EQ files…” in "
+                    "Profiles)")
+            lay.addWidget(muted("“Include: EQ Switcher\\switcher.txt” is the line of EQ Switcher. AutoEQ "
+                                "Studio replaces EQ Switcher" + note + "."))
         self.chk_es_auto = self.chk_es_quit = None
-        if winsys.eq_switcher_autostart():
+        if es_auto:
             self.chk_es_auto = QCheckBox("Disable “Start with Windows” in EQ Switcher (AutoEQ Studio does this "
                                          "task)")
             self.chk_es_auto.setChecked(True)
             lay.addWidget(self.chk_es_auto)
-        if winsys.eq_switcher_running():
+        if es_open:
             self.chk_es_quit = QCheckBox("Close EQ Switcher (it is open, and two apps that change EQs can cause "
                                          "problems)")
             self.chk_es_quit.setChecked(True)
@@ -90,6 +104,7 @@ class SetUpDialog(QDialog):
         self.files = [f for f in sw.apo.referenced_files() if not sw.has_profile_like(f)]
         self.file_list = None
         if self.files:
+            lay.addWidget(_title("EQ files"))
             lay.addWidget(_words("EQ files that config.txt uses (enabled or disabled). Add them as profiles?"))
             self.file_list = QListWidget()
             self.file_list.setAccessibleName("EQ files to add as profiles")

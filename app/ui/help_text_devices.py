@@ -63,8 +63,9 @@ SETTINGS_DEVICES = [{'title': 'Devices',
                                 'title': 'Hotkey (Settings)',
                                 'body': ['This hotkey operates in all apps. It changes the EQ of the active device to '
                                          'each of its profiles in sequence, then to Off. The initial hotkey is '
-                                         'Ctrl+Alt+E. You can click the box and press different keys. Clear removes the '
-                                         'hotkey. Windows does not accept keys that a different app uses.']},
+                                         'Ctrl+Alt+E. You can click the box and press different keys. The ✕ in the box '
+                                         'removes the hotkey. Windows does not accept keys that a different app '
+                                         'uses.']},
                                {'key': '#onoff-hotkey',
                                 'title': 'Hotkey to disable the EQ and enable it again (Settings)',
                                 'body': ['This hotkey operates in all apps (the initial hotkey is Ctrl+Alt+Space). It '

@@ -306,7 +306,14 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         w = QWidget()
         lay = QVBoxLayout(w)
         lay.setContentsMargins(14, 14, 14, 14)  # (as Make an EQ's page: its cards start 14 px under the top bar)
-        lay.addWidget(widget)
+        if widget.maximumWidth() < 100000:  # (a screen with a maximum width, Settings': at the left, not centred)
+            row = QHBoxLayout()
+            row.setContentsMargins(0, 0, 0, 0)
+            row.addWidget(widget, 1)
+            row.addStretch(0)
+            lay.addLayout(row)
+        else:
+            lay.addWidget(widget)
         return w
 
     def _scrolled(self, widget):
