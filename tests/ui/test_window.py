@@ -407,8 +407,8 @@ def test_fits_a_small_screen(qapp, stub_app, tmp_path, monkeypatch, check):
     seen = qt.on_screens(monkeypatch, lambda: Window(sw, stub_app))
     big = seen[qt.BIG_SCREEN]
     check("window: opens within a laptop's screen at 150 % and 175 % (above the taskbar, its smallest size too), its "
-          "parts not squeezed; on a big screen as before (1040 x 760)",
-          all(seen[s]["fits"] for s in qt.SMALL_SCREENS) and big["fits"] and big["opens"] == (1040, 760), seen)
+          "parts not squeezed; on a big screen at 1200 x 760 (the top bar, the title bar too, has room for the names)",
+          all(seen[s]["fits"] for s in qt.SMALL_SCREENS) and big["fits"] and big["opens"] == (1200, 760), seen)
 
 
 def test_the_top_bar_in_the_title_bar_and_narrow(devices_window, check):

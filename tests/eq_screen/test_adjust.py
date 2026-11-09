@@ -1,6 +1,6 @@
-"""The Target card's Adjust (ui\\eq_settings.py): it opens under the target; + and ↑ step the tilt and the target is
-drawn again; a gain's Hz and Q stay in place, greyed while it's 0; Reset puts the adjustments back to 0 (Undo brings
-them back). And Save as a target…: the adjusted target kept as a target of its own, in use, the adjustments back to
+"""The Target's Adjust… (ui\\eq_settings.py): on the Target row, it opens a window (the UI audit, 2026-11-08) with a
+graph of the target; + and ↑ step the tilt and the target is drawn again; a gain's Hz and Q stay in place, greyed
+while it's 0; Clear the adjustments puts them back to 0 (Undo, in the window's own line, brings them back). And Save as a target…: the adjusted target kept as a target of its own, in use, the adjustments back to
 0, its rig kept; Undo puts it all back. Moved from eq_checks.py's adjust_checks (lines 2383-2425) and
 target_save_checks (2428-2471), on a page opened as the old checks opened it (the eq_screen fixture), the target
 unadjusted at the start of each (each puts it back after, as there)."""
@@ -15,11 +15,12 @@ def test_adjust_on_the_target_card(eq_screen, check):
     page, wait_for = eq_screen.page, eq_screen.wait_for
     st = page.settings
     was = dict(page.S["target_adjust"])
-    on_card = st.adjust_btn.isVisibleTo(page) and st.adjust_panel.parentWidget() is page.target_box
-    st.adjust_btn.setChecked(True)
+    dlg = st.adjust_window
+    on_card = st.adjust_btn.isVisibleTo(page) and page.target_box.isAncestorOf(st.adjust_btn) and not dlg.isVisible()
+    st.adjust_btn.click()
     QApplication.processEvents()
     tilt = st.adjust_form.fields["target_adjust.tilt"]
-    opened = tilt.box.isVisibleTo(page) and tilt.plus.isVisibleTo(page)
+    opened = dlg.isVisible() and tilt.box.isVisibleTo(dlg) and tilt.plus.isVisibleTo(dlg)
     wait_for(lambda: page.curves is not None, 30)
     before = np.asarray(page.curves["target"]).copy()
     tilt.plus.click()
@@ -32,22 +33,26 @@ def test_adjust_on_the_target_card(eq_screen, check):
     shown = st.reset_adjust_btn.isEnabled() and st.save_target_btn.isEnabled()
     st.reset_adjust_btn.click()
     reset = (page.S["target_adjust"]["tilt"], tilt.box.text(), st.reset_adjust_btn.isEnabled())
-    eq_screen.undo()  # (the message line's Undo)
+    st.adjust_footer.line.undo_btn.click()  # (the window's own line's Undo: UI-RULES 7)
     undone = page.S["target_adjust"]["tilt"]
+    xs = st.adjust_curve.getData()[0]
+    drawn = xs is not None and len(xs) > 0
     bass, bass_hz = st.adjust_form.fields["target_adjust.bass_gain"], st.adjust_form.fields["target_adjust.bass_freq"]
-    hz_greyed = bass_hz.box.isVisibleTo(page) and not bass_hz.box.isEnabled()
+    hz_greyed = bass_hz.box.isVisibleTo(dlg) and not bass_hz.box.isEnabled()
     bass.plus.click()
-    hz_usable = bass_hz.box.isVisibleTo(page) and bass_hz.box.isEnabled()
+    hz_usable = bass_hz.box.isVisibleTo(dlg) and bass_hz.box.isEnabled()
     bass.minus.click()
     # was eq_checks.py:2417
-    check("target: Adjust, on the Target card, opens the adjustments; + and ↑ step the tilt and the target is drawn "
-          "again; a gain's Hz and Q stay in place, greyed while it's 0; Reset puts them back to 0 (Undo brings them back)",
-          on_card and opened and hz_greyed and hz_usable and stepped == 0.1 and redrawn and keyed == (0.2, "0.2") and "tilt +0.2" in summary
-          and shown and reset == (0.0, "0", False) and undone == 0.2,
-          (on_card, opened, hz_greyed, hz_usable, stepped, redrawn, keyed, summary, shown, reset, undone))
+    check("target: Adjust…, on the Target row, opens a window with the adjustments and a graph of the target; + and ↑ "
+          "step the tilt and the target is drawn again; a gain's Hz and Q stay in place, greyed while it's 0; Clear the "
+          "adjustments puts them back to 0 (Undo, in the window's own line, brings them back); the adjustments show "
+          "under the Target row",
+          on_card and opened and hz_greyed and hz_usable and stepped == 0.1 and redrawn and keyed == (0.2, "0.2")
+          and "tilt +0.2" in summary and shown and reset == (0.0, "0", False) and undone == 0.2 and drawn,
+          (on_card, opened, hz_greyed, hz_usable, stepped, redrawn, keyed, summary, shown, reset, undone, drawn))
     page.S["target_adjust"] = was
     page.changed(curves=True)
-    st.adjust_btn.setChecked(False)
+    dlg.close()
     wait_for(lambda: page.curves is not None, 30)
 
 

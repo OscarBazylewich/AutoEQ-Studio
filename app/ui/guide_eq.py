@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QPushButton
 
 from ui import tasks, theme, tour
-from ui.guide_demos import (adjust_demo, button, card, choose_row, point_at_menu_row, demo_filters, fold_before_after,
+from ui.guide_demos import (adjust_demo, button, choose_row, point_at_menu_row, demo_filters, fold_before_after,
                             meas_with_eq, mock_combo, mock_menu, open_picker, picker_rows, plot_value, show_on_graph,
                             stage_manual, stage_result, type_search, wait_for_background, way_before_after)
 
@@ -20,13 +20,17 @@ def eq_steps(page):
     """Make an EQ's Guide."""
     win = page.window()
     st = page.settings
-    in_card = lambda w, text: (lambda: button(card(w), text))
     has_curves = lambda: bool(page.curves)
     settings_open, settings_close = fold_before_after(st.fold.btn, None)
-    adjust_open, adjust_close = fold_before_after(st.adjust_btn, None)
+    about_open, about_close = fold_before_after(st.why_fold.btn, settings_open)  # (About these settings: in Settings)
+    more_open, more_close = fold_before_after(st.adv.btn, None)
+
+    def best_fit_tab():  # (More settings, open on its Best fit tab: Start from your filters is there)
+        more_open()
+        st.adv_form.show_tab(0)
     # (Make the EQ shows one way's steps: a step about the other's shows its tab, then the one that was shown)
     auto_on, auto_off = way_before_after(page, "auto")
-    auto_settings_open, auto_settings_close = way_before_after(page, "auto", (settings_open, settings_close))
+    auto_settings_open, auto_settings_close = way_before_after(page, "auto", (best_fit_tab, more_close))
     hand_on, hand_off = way_before_after(page, "hand")
     staged = {}
 
@@ -202,8 +206,8 @@ def eq_steps(page):
             api.stage(lambda: page.app_note.text(), page.app_note.setText, page.app_note_text(key))
         api.spot_on(page.app_note)
         api.say("The EQ stays in its limits, and Save filters saves the file that the app imports")
-        yield from api.at(page.app_note, 0.3, 0.5, 1700, say="Below the row: its limits, their source, and how to "
-                                                            "load the EQ")
+        yield from api.at(page.app_note, 0.5, 0.5, 1700, say="The ⓘ after its label: its limits, their source, and how "
+                                                            "to load the EQ")
 
     def mode_demo(api):
         combo = page.mode_combo
@@ -213,7 +217,7 @@ def eq_steps(page):
         yield from mock_combo(api, combo, keys.index(to) if to in keys else 0)
         from ui.eq_page import MODE_HINT
         api.stage(page.mode_hint.text, page.mode_hint.setText, MODE_HINT.get(to, ""))
-        yield from api.at(page.mode_hint, 0.2, 0.5, 1300, say="Its function, in one line")
+        yield from api.at(page.mode_hint, 0.5, 0.5, 1300, say="The ⓘ after its label: its function")
 
     def your_value_demo(api):
         """A value of your own typed into the method's first box: it's marked “yours ↺” (shown, not kept)."""
@@ -555,7 +559,7 @@ def eq_steps(page):
     steps = [
         {"chapter": "The parts of AutoEQ Studio", "title": "How to make an EQ",
          "target": lambda: [page.target_box, page.measurement_box],
-         "text": "From top to bottom: the graph, the target and your IEM or headphone, the EQ, and the result to save. "
+         "text": "From top to bottom: the target and your IEM or headphone, the graph, the EQ, and the result to save. "
                  "Each step has a short demo. The demo does not change your work.",
          "demo": [{"spot": lambda: page.target_combo},
                   {"at": lambda: page.target_combo, "say": "Select the target: the sound that you want"},
@@ -570,25 +574,26 @@ def eq_steps(page):
          "text": "The target is the sound that you want (for example, Harman, or a diffuse-field curve). Find… searches "
                  "the app, this PC and the online databases for a part of a name. The list adjacent to it has the targets "
                  "of the app. Add… adds a file.",
-         "demo": [{"click": in_card(page.target_combo, "Find…"), "say": "Click Find… in Target", "then": find_target_demo}]},
-        {"chapter": "1 · Select", "title": "Adjust the target (optional)",
-         "target": lambda: [st.adjust_row, st.adjust_panel], "before": adjust_open, "after": adjust_close,
-         "text": "Adjust (below Target) gives the target a tilt (Half-tilt: only above a frequency). It also increases "
-                 "or decreases the bass, ear gain, treble and air. Each row has a value (− and +), a frequency (Hz) and "
-                 "a width (Q). If the target is satisfactory, keep the values at 0. Save as a target… keeps the adjusted "
-                 "target.",
+         "demo": [{"click": lambda: button(page.target_box, "Find…"), "say": "Click Find… on the Target row",
+                   "then": find_target_demo}]},
+        {"chapter": "1 · Select", "title": "Adjust the target (optional)", "target": lambda: st.adjust_btn,
+         "text": "Adjust… (on the Target row) opens a window. It gives the target a tilt (Half-tilt: only above a "
+                 "frequency). It also increases or decreases the bass, ear gain, treble and air. Each row has a value (− "
+                 "and +), a frequency (Hz) and a width (Q), and the graph of the window shows the target. If the target "
+                 "is satisfactory, keep the values at 0. Save as a target… keeps the adjusted target.",
          "demo": lambda: adjust_demo(page)},
         {"chapter": "1 · Select", "title": "Select your IEM or headphone", "target": lambda: page.measurement_box,
          "text": "Find… searches by the name of the manufacturer or of the model. When you click Use, the app "
                  "downloads an online measurement and uses the average of its files (left, right, seatings). Add… adds "
                  "your files from this PC (L and R, or more than one seating).",
-         "demo": [{"click": in_card(page.measurement_combo, "Find…"), "say": "Click Find… in Measurement (or press /)",
-                   "then": find_meas_demo}]},
+         "demo": [{"click": lambda: button(page.measurement_box, "Find…"),
+                   "say": "Click Find… on the Measurement row (or press /)", "then": find_meas_demo}]},
         {"chapter": "1 · Select", "title": "Many results?", "target": lambda: page.measurement_box,
          "text": "The rig tag of each result shows the rig of the measurement. A ⇄ after it: a rig change by its "
                  "database. The lists above the results show only one rig, type or source (“Same rig as your target” "
                  "first). Their items are from A to Z, with a search box that finds a source from a part of its name.",
-         "demo": [{"click": in_card(page.measurement_combo, "Find…"), "say": "Search again", "then": many_results_demo}]},
+         "demo": [{"click": lambda: button(page.measurement_box, "Find…"), "say": "Search again",
+                   "then": many_results_demo}]},
         {"chapter": "1 · Select", "title": "More than one measurement of the same model?",
          "target": lambda: button(page, "Other measurements of this model…"),
          "text": "This window sorts all measurements of your model for your target: first the rig, then how much they "
@@ -610,15 +615,16 @@ def eq_steps(page):
          if getattr(page, "rig_note", "") and ((page.curves or {}).get("rig") or {}).get("applied") else
          [{"at": lambda: page.measurement_note, "x": 0.3, "hold": 1500, "say": "The rig of the measurement"}]},
         {"chapter": "2 · Settings", "title": "Automatically or manually", "target": lambda: list(page.way_btns.values()),
-         "text": "Make the EQ starts with two tabs. Automatically: AutoEQ adjusts the filters to the target for your EQ "
-                 "app (select the method, then click Calculate). Manually: you set the filters, from an empty EQ or "
-                 "from an EQ that you have. The card shows the steps of that tab, and opens on the tab that you "
-                 "selected last.",
+         "text": "Make the EQ has two tabs, below Your EQ app. Automatically: AutoEQ adjusts the filters to the target "
+                 "for your EQ app (select the method, then click Calculate). Manually: you set the filters, from an "
+                 "empty EQ or from an EQ that you have. The card shows the steps of that tab, and opens on the tab that "
+                 "you selected last. Settings and More settings are for the two tabs.",
          "demo": [{"run": way_demo, "say": "Each tab shows its steps"}]},
         {"chapter": "2 · Settings", "title": "Your EQ app", "target": lambda: [page.app_combo, page.app_note],
          "text": "Select the app or device that will use the EQ (Windows, Mac, Linux, Android, iPhone, a DAC or "
-                 "squig.link). The EQ stays in its limits (bands, gain, Q, the sliders of a graphic EQ). Save filters "
-                 "saves the file that the app or device imports.",
+                 "squig.link). It is above the tabs, because it is for the two tabs. The EQ stays in its limits (bands, "
+                 "gain, Q, the sliders of a graphic EQ). Save filters saves the file that the app or device imports. The "
+                 "ⓘ after its label shows the limits.",
          "demo": [{"click": lambda: page.app_combo, "say": "Click Your EQ app", "then": app_demo}]},
         {"chapter": "2 · Settings", "title": "Select an EQ method", "target": lambda: [page.mode_combo, page.mode_hint],
          "before": auto_on, "after": auto_off,
@@ -627,10 +633,12 @@ def eq_steps(page):
                  "squiglink or listener800.",
          "demo": [{"click": lambda: page.mode_combo, "say": "Click the method", "then": mode_demo}]},
         {"chapter": "2 · Settings", "title": "Automatic settings",
-         "target": lambda: [st.fold.btn, st.fold.summary, st.auto_on, st.why], "before": settings_open, "after": settings_close,
-         "text": "Settings has the settings that you can change: the automatic settings (adjusted for your files), the "
-                 "filters, and Error and selection. About these settings tells you how the app adjusts each value. The "
-                 "app sets the other settings for you (More settings, below it).",
+         "target": lambda: [st.fold.btn, st.fold.summary, st.auto_on, st.why_fold.btn], "before": about_open,
+         "after": lambda: (about_close(), settings_close()),
+         "text": "Settings (a row in Make the EQ, above Calculate) has the settings that you can change: the automatic "
+                 "settings (adjusted for your files), the filters, and Error and selection. About these settings (a row "
+                 "that opens) tells you how the app adjusts each value. The app sets the other settings for you (More "
+                 "settings, below it).",
          "demo": [{"at": lambda: st.fold.btn, "x": 0.1, "say": "Settings: the settings that you can change"},
                   {"at": lambda: st.auto_on, "x": 0.1,
                    "say": "They change with the measurement and the target that you selected"},
@@ -639,11 +647,11 @@ def eq_steps(page):
         {"chapter": "2 · Settings", "title": "The settings that the app tries", "target": lambda: [page.sa],
          "before": auto_on, "after": auto_off,
          "text": "Best fit adds filters one at a time, with each maximum gain and maximum Q for your curves. It stops "
-                 "when the EQ "
-                 "has the same sound as the target. This line shows the settings that the app tries next, "
-                 "and how long the app calculates on this PC: seconds for most IEMs.",
-         "demo": [{"at": lambda: page.estimate, "x": 0.2, "say": "How long the app calculates on this PC"},
-                  {"at": lambda: page.sa_what, "x": 0.2, "say": "The settings that the app tries next"}]},
+                 "when the EQ has the same sound as the target. This line shows the number of EQs that the app tries, "
+                 "and how long the app calculates on this PC: seconds for most IEMs. Its tooltip and Help give the "
+                 "settings that the app tries.",
+         "demo": [{"at": lambda: page.estimate, "x": 0.2, "say": "The number of EQs, and how long the app calculates"},
+                  {"at": lambda: page.estimate, "x": 0.6, "say": "Its tooltip gives the settings that the app tries"}]},
         {"chapter": "2 · Settings", "title": "Your values", "target": lambda: [st.form],
          "before": settings_open, "after": settings_close,
          "text": "If you change a setting, it shows “your value”, and new files do not change it. Click “your value ↺” "
@@ -651,17 +659,17 @@ def eq_steps(page):
          "demo": [{"run": your_value_demo, "say": "Type your value. Press Enter"},
                   {"at": lambda: st.auto_on, "x": 0.1, "say": "Or disable Automatic settings"}]},
         {"chapter": "2 · Settings", "title": "Start from your filters",
-         "target": lambda: st.form.fields["best_fit.start_filters"] if st.form.fields["best_fit.start_filters"].isVisible() else None,
+         "target": lambda: st.adv_form.fields["best_fit.start_filters"] if st.adv_form.fields["best_fit.start_filters"].isVisible() else None,
          "alt": lambda: page.mode_combo, "before": auto_settings_open, "after": auto_settings_close,
-         "text": "Best fit can start from an EQ that you have: type its filters, edit them as a table, or load its "
-                 "file. It adds filters to your filters, and it can also adjust them.",
-         "alt_text": "If the method is Best fit (and your EQ app has parametric filters), Settings › “Start from your "
-                     "filters” uses an EQ that you have. Best fit adds filters to it.",
-         "demo": [{"type": lambda: st.form.fields["best_fit.start_filters"].box,
+         "text": "More settings › Best fit: Best fit can start from an EQ that you have. Type its filters, edit them as "
+                 "a table, or load its file. It adds filters to your filters, and it can also adjust them.",
+         "alt_text": "If the method is Best fit (and your EQ app has parametric filters), More settings › Best fit › "
+                     "“Start from your filters” uses an EQ that you have. Best fit adds filters to it.",
+         "demo": [{"type": lambda: st.adv_form.fields["best_fit.start_filters"].box,
                    "text": "Filter 1: ON PK Fc 1000 Hz Gain 3 dB Q 1", "keep": True, "hold": 300,
                    "say": "Type them as Equalizer APO lines…"},
-                  {"at": lambda: button(st.fold, "Edit as a table…"), "say": "…or edit them as a table or sliders"},
-                  {"at": lambda: button(st.fold, "Load an EQ file…"), "say": "Or load an EQ file. If you do not select "
+                  {"at": lambda: button(st.adv, "Edit as a table…"), "say": "…or edit them as a table or sliders"},
+                  {"at": lambda: button(st.adv, "Load an EQ file…"), "say": "Or load an EQ file. If you do not select "
                    "“Keep them as they are”, Best fit also adjusts them"}],
          "alt_demo": [{"at": lambda: page.mode_combo, "say": "Select Best fit as the method to start from your filters"}]},
         {"chapter": "3 · Calculate and examine", "title": "Calculate",
@@ -793,10 +801,10 @@ def eq_steps(page):
                   {"at": lambda: win.nav["profiles"], "say": "Your EQs, as profiles"},
                   {"at": lambda: win.nav["settings"], "say": "The hotkeys: the next EQ, and EQ off and on to compare"}]},
         {"chapter": "More", "title": "Settings", "target": lambda: st.adv.btn,
-         "text": "More settings (below Settings) has the settings that the app sets for you. These are Best fit's "
-                 "layout, limits and penalties, the lists of Website best settings, the website settings, Saved files, "
-                 "History and CPU cores. A list of more than 15 items, for example Layout, opens with a "
-                 "search box. The Settings screen (top bar) has the location of your files, backups, Online / Offline "
+         "text": "More settings (below Settings, in Make the EQ) has the settings that the app sets for you, with a tab "
+                 "for each part: Best fit's layout, limits, penalties and your filters, the lists of Website best "
+                 "settings (with that method only), the website settings, Saved files, History and This PC. A list of "
+                 "more than 15 items, for example Layout, opens with a search box. The Settings screen (top bar) has the location of your files, backups, Online / Offline "
                  "and Start with Windows.",
          "demo": lambda: [{"at": lambda: st.adv.btn, "x": 0.1, "say": "More settings: the settings that the app sets for you"}]
          + ([{"at": lambda: win.nav["settings"], "say": "The settings of the app"}] if hasattr(win, "nav") else [])},

@@ -115,7 +115,8 @@ def buttons(t, img):
 
 
 def top_bar(t, img):
-    """The top bar: its screens' buttons (nav=true: the one shown has the accent's bar under it), Online / Offline
+    """The top bar: its screens' buttons (nav=true: the one shown has the accent's bar under it; the same look for the
+    tabs in a card, flush=true: their words start at the left edge of the labels under them, the UI audit), Online / Offline
     (online=true), the bar itself (clear, on the window's background or its Mica, as Windows 11's own), the lines
     between its groups (vline=true), and Minimize, Maximize and Close at its right end (it is the title bar:
     ui\\titlebar.py; Close red when the pointer is on it, as Windows 11's; Maximize's look set by the native part
@@ -128,6 +129,7 @@ def top_bar(t, img):
     QPushButton[nav="true"]:checked {{ color: {t['ink']}; background-color: transparent;
         background-image: url({img['pill_h']}); background-position: bottom center; background-repeat: no-repeat; }}
     QPushButton[nav="true"]:checked:hover {{ background-color: {t['subtle_hover']}; }}
+    QPushButton[nav="true"][flush="true"] {{ padding-left: 0px; padding-right: 0px; }}
     QPushButton[online="true"] {{ border-radius: 14px; padding: 4px 12px; }}
     QPushButton[online="true"]:checked {{ background: {t['pill']}; color: {t['good']}; border-color: {t['good']}; }}
     QFrame[topbar="true"] {{ background: transparent; border: none; }}
@@ -266,6 +268,7 @@ def settings_boxes(t, img):
     QGroupBox QLabel[role="section"], QFrame[card] QLabel[role="section"] {{ font-weight: 600; }}
     QToolButton[fold="true"] {{ background: transparent; border: none; border-radius: 4px; font-size: {FONT + 1.5}pt;
         font-weight: 600; padding: 6px 8px 6px 0px; }}
+    QToolButton[fold="true"][sub="true"] {{ font-size: {FONT}pt; font-weight: 600; }}
     QToolButton[fold="true"]:hover {{ background: {t['subtle_hover']}; }}
     QToolButton[fold="true"]:pressed {{ background: {t['subtle_press']}; }}
     QToolButton[fold="true"]::right-arrow {{ image: url({img['chevron_right']}); padding-right: 6px; }}

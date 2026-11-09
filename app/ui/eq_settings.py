@@ -1,32 +1,37 @@
-"""The Make an EQ screen's two folds of settings (AutoEQ Local's Settings fold and Settings › Advanced, natively):
+"""The Make an EQ screen's two folds of settings (AutoEQ Local's Settings fold and Settings › Advanced, natively): two
+rows that open in the Make the EQ card, above Calculate and Start (the UI audit, 2026-11-08: Calculate was above the
+settings that it uses, and the result 2,000 px below it).
 
 Settings (the ones used most):
-- Automatic settings: on or off, "Why these settings" (the tracer's words; each value and the fact about your files it comes from; "yours"
-  where you've set your own), "Set by you" (each one made automatic again with ↺, or all)
-- the method's own values: Website AutoEQ's six; the website sweep's summary; Best fit's filter counts, shelves and
-  your own filters to start from
-- Scoring: the range the match is judged over, how a result is picked
+- Automatic settings: on or off; "Your values" (each one made automatic again with ↺, or all); About these settings
+  (n), a row that opens (closed at the start, kept as you left it): each value and the fact about your files it
+  comes from
+- the method's own values: Website AutoEQ's six; the website sweep's summary; Best fit's filter counts and shelves
+- Error and selection: the range the match is judged over, how a result is picked
 - Target: the rig conversion
-The Target card's Adjust (AutoEQ Local's, beside the target): tilt, bass, half-tilt, ear gain, treble, air, each
-with − and +; Reset adjustments and Save as a target… once adjusted.
-Advanced: Best fit's layout, bands, shelves, limits and penalties; the website sweep's lists; the website's level
-matching and its code; saved files (the formats, pre-amp, Q decimals); History; CPU cores.
+More settings, a tab for each section (less height; a method's tab only with its method): Best fit (its layout,
+bands, shelves, limits, penalties, and your own filters to start from), Website best settings, Website, Saved files,
+History, This PC.
+The Target's Adjust… (AutoEQ Local's Adjust): a window with tilt, bass, half-tilt, ear gain, treble and air, each
+with − and +, a small graph of the target, Clear the adjustments and Save as a target… (the UI audit: in the page,
+the graph was out of view while you adjusted).
 
 A value the automatic settings fill in becomes "yours" once you change it (kept through new files
 until made automatic again); with them off nothing changes by itself. Settings that change the curves (target adjustments,
 the scored range, the website's levelling, the rig conversion) draw the graph again.
 
-EqSettings(page) keeps what the settings need; build_parts(col, target_layout) makes them in four parts, one per step of
-the page's build (ui/eq_page_cards.py: each a few ms, so the window answers in between): Adjust (put on the Target
-card in the same step), the Settings fold, Advanced's first half, its second half (Form.add_sections). Each part goes
-into its place in the step that makes it.
+EqSettings(page) keeps what the settings need; build_parts(slot, target_row, target_under) makes them in four parts,
+one per step of the page's build (ui/eq_page_cards.py: each a few ms, so the window answers in between): Adjust… (its
+button on the Target row, its window), the Settings fold, More settings' first half, its second half
+(Form.add_sections). Each part goes into its place in the step that makes it.
 """
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtWidgets import (QCheckBox, QDialog, QFileDialog, QGridLayout, QHBoxLayout, QLabel, QMessageBox,
-                               QPushButton, QToolButton, QVBoxLayout, QWidget)
+                               QPushButton, QVBoxLayout, QWidget)
 
 from ui import help_window, icons, theme
-from ui.forms import Field, Fold, Form, Limits, fmt_list, line_up_together
+from ui.bubble import InfoMark
+from ui.forms import Field, Fold, Form, Limits, fmt_list
 
 ADJUST_GAINS = ("tilt", "bass_gain", "halftilt_gain", "ear_gain", "treble_gain", "air_gain")  # (eq.service's)
 CURVE_KEYS = ("target_adjust.","site.", "scoring.band_hz", "files.", "rig_convert.")  # (settings.js)
@@ -84,10 +89,10 @@ class EqSettings:
         from eq import settings as eq_settings
         self.eq_settings = eq_settings
 
-    def build_parts(self, col, target_lay):
+    def build_parts(self, slot, target_row, target_under):
         """The settings made in four parts, each put in its place in the same step (yield: the step ends there):
-        Adjust onto the Target card (target_lay), the Settings fold into col, Advanced's first half into col, its
-        second half into Advanced's form."""
+        Adjust… on the Target row (target_row; its summary in target_under, its window), the Settings fold into slot
+        (the Make the EQ card's), More settings' first half into slot, its second half into More settings' form."""
         page, m = self.page, self.page.meta
         C = self.eq_settings.CHOICES
         S = lambda: page.S
@@ -100,13 +105,13 @@ class EqSettings:
         audible = lambda: multi() and S()["scoring"]["pick"] == "audible"
         get, changed, make_auto, say = self.get, self.changed, self.make_auto, lambda t: page.status(t, 6000)
 
-        # ---------------------------------------------------------------- Adjust, on the Target card (first: Tab
-        # reaches it after Make the EQ and before the Settings fold, as when the page was made in one go)
-        self._adjust_panel(C, get, changed, make_auto, say, target_lay)
+        # ---------------------------------------------------------------- Adjust…, on the Target row (first: Tab
+        # reaches it after Find… and Add…, as when the page was made in one go)
+        self._adjust_panel(C, get, changed, make_auto, say, target_row, target_under)
         yield "adjust"
 
-        # ---------------------------------------------------------------- Settings (the fold)
-        self.fold = Fold("Settings")
+        # ---------------------------------------------------------------- Settings (a row that opens, in Make the EQ)
+        self.fold = Fold("Settings", sub=True)
         self.fold.add(self._auto_box())
         self.sweep_note = QLabel()
         self.sweep_note.setWordWrap(True)
@@ -114,6 +119,38 @@ class EqSettings:
         self.fixed_note = QLabel()
         self.fixed_note.setWordWrap(True)
         theme.mark(self.fixed_note, role="muted")
+        self.method_title = QLabel()
+        self.form = Form([
+            ("Website AutoEQ: one set", [
+                ("Filter rows", [("site_single.rows", "num")], mode("site_single")),
+                ("Frequency from", [("site_single.freq_low", "num"), ("site_single.freq_high", "num")], mode("site_single")),
+                ("Gain from (dB)", [("site_single.gain_min", "num"), ("site_single.gain_max", "num")], mode("site_single")),
+                ("Q from", [("site_single.q_min", "num"), ("site_single.q_max", "num")], mode("site_single"))]),
+            ("Website AutoEQ: find the best settings", [(self.sweep_note, [], mode("site_sweep"))]),
+            ("Best fit", [
+                ("Filter counts to try", [("best_fit.filter_counts", "intlist", None, "for example, 1-10")], free),
+                ("Shelf", [("best_fit.low_shelf", "check")], shelves),
+                (self.fixed_note, [], fixed)]),
+            ("Error and selection", [
+                ("Error from (Hz)", [("scoring.band_hz.0", "num"), ("scoring.band_hz.1", "num")]),
+                ("Best result", [("scoring.pick", "choice",
+                                  [("audible", "Minimum number of filters for the same sound"),
+                                   ("lowest", "Lowest error")])], multi),
+                ("Same sound below (dB)", [("scoring.ear_db", "num")], audible),
+]),
+            ("Target", [
+                ("Rig change", [("rig_convert.enabled", "check")])]),
+        ], self.limits, get, changed, make_auto, say)
+        self.fold.add(self.form)
+        self._label_checks()
+        slot.addWidget(self.fold)
+        yield "settings"
+
+        # ---------------------------------------------------------------- More settings (in two halves), a tab for
+        # each section (the user's words, 2026-11-08: less height), a method's own only with that method
+        self.adv = Fold("More settings", sub=True)
+        layouts = [(l["key"], f"{l['group']}: {l['name']}" if l["group"] not in ("Any",) else l["name"])
+                   for l in m.get("layouts", [])]
         load_mine = QPushButton("Load an EQ file…")
         load_mine.clicked.connect(self.load_your_filters)
         self.mine_note = QLabel()
@@ -127,42 +164,6 @@ class EqSettings:
         edit_mine.clicked.connect(self.edit_your_filters)
         mr.addWidget(edit_mine)
         mr.addWidget(self.mine_note, 1)
-        self.method_title = QLabel()
-        self.form = Form([
-            ("Website AutoEQ: one set", [
-                ("Filter rows", [("site_single.rows", "num")], mode("site_single")),
-                ("Frequency from", [("site_single.freq_low", "num"), ("site_single.freq_high", "num")], mode("site_single")),
-                ("Gain from (dB)", [("site_single.gain_min", "num"), ("site_single.gain_max", "num")], mode("site_single")),
-                ("Q from", [("site_single.q_min", "num"), ("site_single.q_max", "num")], mode("site_single"))]),
-            ("Website AutoEQ: find the best settings", [(self.sweep_note, [], mode("site_sweep"))]),
-            ("Best fit", [
-                ("Filter counts to try", [("best_fit.filter_counts", "intlist", None, "for example, 1-10")], free),
-                ("Shelf", [("best_fit.low_shelf", "check")], shelves),
-                (self.fixed_note, [], fixed),
-                ("Start from your filters", [("best_fit.start_filters", "block", None,
-                                              "Equalizer APO lines, for example Filter: ON PK Fc 1000 Hz Gain -3 dB Q 1")],
-                 mode("best_fit")),
-                ("", [("best_fit.start_keep", "check")], lambda: S()["mode"] == "best_fit" and S()["best_fit"]["start_filters"].strip()),
-                (None, mine_row, mode("best_fit"))]),  # (in the boxes' column, under the box it fills)
-            ("Error and selection", [
-                ("Error from (Hz)", [("scoring.band_hz.0", "num"), ("scoring.band_hz.1", "num")]),
-                ("Best result", [("scoring.pick", "choice",
-                                  [("audible", "Minimum number of filters for the same sound"),
-                                   ("lowest", "Lowest error")])], multi),
-                ("Same sound below (dB)", [("scoring.ear_db", "num")], audible),
-]),
-            ("Target", [
-                ("Rig change", [("rig_convert.enabled", "check")])]),
-        ], self.limits, get, changed, make_auto, say)
-        self.fold.add(self.form)
-        self._label_checks()
-        col.addWidget(self.fold)
-        yield "settings"
-
-        # ---------------------------------------------------------------- Advanced (in two halves)
-        self.adv = Fold("More settings")
-        layouts = [(l["key"], f"{l['group']}: {l['name']}" if l["group"] not in ("Any",) else l["name"])
-                   for l in m.get("layouts", [])]
         sections = [
             ("Best fit", [
                 ("Layout", [("best_fit.layout", "choice", layouts)], mode("best_fit")),
@@ -178,14 +179,22 @@ class EqSettings:
                 ("Maximum gain values (dB)", [("best_fit.gain_max", "numlist")], free),
                 ("Q from", [("best_fit.q_min", "num")], free),
                 ("Maximum Q values", [("best_fit.q_max", "numlist")], free),
-                ("Penalties for opposite filters", [("best_fit.fight_penalty", "numlist")], free)]),
+                ("Penalties for opposite filters", [("best_fit.fight_penalty", "numlist")], free),
+                # (your own filters to start from: here, not in Settings, as they are used less: the UI audit)
+                ("Start from your filters", [("best_fit.start_filters", "block", None,
+                                              "Equalizer APO lines, for example Filter: ON PK Fc 1000 Hz Gain -3 dB Q 1")],
+                 mode("best_fit")),
+                (None, mine_row, mode("best_fit")),  # (under the box that it fills: UI-RULES 27)
+                ("", [("best_fit.start_keep", "check")],
+                 lambda: S()["mode"] == "best_fit" and S()["best_fit"]["start_filters"].strip())]),
             ("Website best settings", [
-                ("Filter rows to try", [("site_sweep.filter_rows", "intlist", None, "for example, 4-10 or 4, 6, 8")]),
-                ("Frequency from", [("site_sweep.freq_low", "num")]),
-                ("Frequency “to” values", [("site_sweep.freq_high", "numlist")]),
-                ("Gain ranges", [("site_sweep.gain_ranges", "ranges", None, "low..high, …")]),
-                ("Q from", [("site_sweep.q_min", "num")]),
-                ("Q “to” values", [("site_sweep.q_max", "numlist")])]),
+                ("Filter rows to try", [("site_sweep.filter_rows", "intlist", None, "for example, 4-10 or 4, 6, 8")],
+                 mode("site_sweep")),
+                ("Frequency from", [("site_sweep.freq_low", "num")], mode("site_sweep")),
+                ("Frequency “to” values", [("site_sweep.freq_high", "numlist")], mode("site_sweep")),
+                ("Gain ranges", [("site_sweep.gain_ranges", "ranges", None, "low..high, …")], mode("site_sweep")),
+                ("Q from", [("site_sweep.q_min", "num")], mode("site_sweep")),
+                ("Q “to” values", [("site_sweep.q_max", "numlist")], mode("site_sweep"))]),
             ("Website", [
                 ("Which website to copy", [("site.profile", "choice", [("listener800", "listener800 (5128 databases)"),
                                                                         ("squig.link lab", "squig.link"), ("custom", "Other")])]),
@@ -211,43 +220,60 @@ class EqSettings:
                 ("", [("history.eqd_before", "check")])]),
             ("This PC", [("CPU cores (0 = all the cores minus 1)", [("performance.cores", "num")])]),
         ]
-        self.adv_form = Form(sections[:2], self.limits, get, changed, make_auto, say)  # (Best fit, Website sweep)
-        line_up_together(self.form, self.adv_form)  # (one label column for Settings and Advanced, one above the other)
+        self.adv_form = Form(sections[:2], self.limits, get, changed, make_auto, say, tabs=True)  # (Best fit, sweep)
         self.adv.add(self.adv_form)
-        col.addWidget(self.adv)
+        slot.addWidget(self.adv)
         yield "advanced, first half"
         self.adv_form.add_sections(sections[2:])  # (Website, Saved files, History, This PC)
         self._label_checks(self.adv_form)
+        self.refresh()
         yield "advanced, second half"
 
     # ---------------------------------------------------------------- the Target card's Adjust (AutoEQ Local's)
-    def _adjust_panel(self, C, get, changed, make_auto, say, target_lay):
-        """Adjust, on the Target card: the target's tilt, bass, half-tilt, ear gain, treble and air (listener800's
-        Custom DF) as a table: Amount with − and +, Hz and Q (greyed while the amount is 0); Reset adjustments and
-        Save as a target… (usable once adjusted).
-        adjust_btn (with adjust_summary) opens adjust_panel; both put on the Target card (target_lay) here."""
-        self.adjust_btn = QToolButton()
-        self.adjust_btn.setText("Adjust")
-        self.adjust_btn.setCheckable(True)
-        self.adjust_btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-        theme.mark(self.adjust_btn, fold=True, eqsub=True)  # (a part of the Target card: quieter than its title)
+    def _adjust_panel(self, C, get, changed, make_auto, say, target_row, target_under):
+        """Adjust… (the UI audit, 2026-11-08: a button after Add… that opens a window): the target's tilt, bass,
+        half-tilt, ear gain, treble and air (listener800's Custom DF) as a table: Value with − and +, Hz and Q (gray
+        while the value is 0); a small graph of the target, which changes as you adjust it; Clear the adjustments and
+        Save as a target… (usable once adjusted); its own message line and Close (UI-RULES 1). adjust_btn on the
+        Target row (target_row), adjust_summary under it (target_under); the window is made here (hidden: its parent
+        is the page, so it never shows as a window before it is opened)."""
+        self.adjust_btn = QPushButton("Adjust…")
+        icons.put(self.adjust_btn, "eq")  # (every button in the row with its symbol, UI-RULES 9)
         self.adjust_btn.setToolTip("Tilt, bass, half-tilt, ear gain, treble and air: give the target more or less bass "
                                    "or treble…")
         help_window.tag(self.adjust_btn, "#target-adjust")
-        self.adjust_btn.toggled.connect(self._show_adjust_panel)
+        self.adjust_btn.clicked.connect(self.open_adjust)
+        target_row.addWidget(self.adjust_btn)
         self.adjust_summary = QLabel()
         theme.mark(self.adjust_summary, role="muted")
-        self.adjust_row = QWidget()
-        r = QHBoxLayout(self.adjust_row)
-        r.setContentsMargins(0, 0, 0, 0)
-        r.addWidget(self.adjust_btn)
-        r.addWidget(self.adjust_summary, 1)
-        target_lay.addWidget(self.adjust_row)  # (under the target, AutoEQ Local's; the panel under it)
-        # a table: one row each, Amount (with − and +), Hz and Q always in their columns (greyed while the amount is 0),
-        # so nothing appears or moves as you type (a row of Hz and Q under the amount, popping up, was hard to follow)
-        self.adjust_form = form = Form([], self.limits, get, changed, make_auto, say,
-                                       steps={"target_adjust.tilt": 0.1,
-                                              **{f"target_adjust.{k}": 0.5 for k in ADJUST_GAINS[1:]}})
+        self.adjust_summary.hide()
+        target_under.addWidget(self.adjust_summary)
+        self.adjust_row = self.adjust_btn  # (the Guide's name for what opens it)
+        w = self.make_adjust_window()
+        self.adjust_window, self.adjust_form, self.adjust_rows = w.dlg, w.form, w.rows
+        self.adjust_plot, self.adjust_curve, self.adjust_footer = w.plot, w.curve, w.footer
+        self.reset_adjust_btn, self.save_target_btn = w.reset_btn, w.save_btn
+        self.adjust_panel = w.dlg  # (the Guide's name for the controls)
+
+    def make_adjust_window(self):
+        """Adjust…'s window, its parts in a namespace (dlg, form, rows, plot, curve, footer, reset_btn, save_btn): the
+        page's own (made at its build), or one for the Guide's demo (shown in the Guide's frame, then thrown away)."""
+        import types
+        from ui.window_parts import Footer, fit_to_screen
+        C, get, changed, make_auto = self.eq_settings.CHOICES, self.get, self.changed, self.make_auto
+        dlg = QDialog(self.page)
+        out = types.SimpleNamespace(dlg=dlg)
+        dlg.setWindowTitle("Adjust the target")
+        dlg.setModal(False)
+        fit_to_screen(dlg, (560, 560), (460, None))
+        v = QVBoxLayout(dlg)
+        v.setContentsMargins(16, 16, 16, 16)  # (a card's room around it, as Windows 11's own windows have)
+        out.footer = Footer(dlg)
+        say = out.footer.say  # (what its boxes say, in its own message line: UI-RULES 7)
+        # a table: one row each, Value (with − and +), Hz and Q always in their columns (gray while the value is 0),
+        # so nothing appears or moves as you type
+        out.form = form = Form([], self.limits, get, changed, make_auto, say,
+                               steps={"target_adjust.tilt": 0.1, **{f"target_adjust.{k}": 0.5 for k in ADJUST_GAINS[1:]}})
         grid_w = QWidget()
         g = QGridLayout(grid_w)
         g.setContentsMargins(0, 0, 0, 0)
@@ -259,7 +285,19 @@ class EqSettings:
             h = QLabel(text)
             h.setToolTip(tip)
             theme.mark(h, role="muted")
-            g.addWidget(h, 0, col)
+            if col == 1:  # (the words about the values: behind the ⓘ after Value, the UI audit)
+                head = QWidget()
+                hh = QHBoxLayout(head)
+                hh.setContentsMargins(0, 0, 0, 0)
+                hh.setSpacing(4)
+                hh.addWidget(h)
+                hh.addWidget(InfoMark("+ increases, − decreases (tilt: − more bass, + more treble). In a box, ↑ ↓ and "
+                                      "the mouse wheel also change the value. Hz and Q change the target only when the "
+                                      "value is not 0.", "the values"))
+                hh.addStretch(1)
+                g.addWidget(head, 0, col)
+            else:
+                g.addWidget(h, 0, col)
 
         def field(path, kind, options=None, width=64):
             f = Field(form, path, kind, options)
@@ -267,9 +305,11 @@ class EqSettings:
             f.make_auto_clicked.connect(make_auto)
             if kind == "num":
                 f.box.setFixedWidth(width)
+            else:
+                f.box.setFixedWidth(104)
             form.fields[path] = f
             return f
-        self.adjust_rows = {}
+        out.rows = {}
         rows = (("tilt", "Tilt", "dB/oct", None, None), ("bass", "Bass", "dB", "bass_freq", "bass_q"),
                 ("halftilt", "Half-tilt", "dB", "halftilt_freq", None), ("ear", "Ear gain", "dB", "ear_freq", "ear_q"),
                 ("treble", "Treble", "dB", "treble_freq", "treble_q"), ("air", "Air", "dB", "air_freq", "air_q"))
@@ -297,43 +337,77 @@ class EqSettings:
                 f.box.setAccessibleName(f"{name} Q")
                 g.addWidget(f, i, 3)
                 deps.append(f)
-            self.adjust_rows[amount] = deps
+            out.rows[amount] = deps
         g.setColumnStretch(4, 1)
-        hint = QLabel("+ increases, − decreases (tilt: − more bass, + more treble). In a box, ↑ ↓ and the mouse wheel "
-                      "also change the value. Hz and Q change the target only when the value is not 0.")
-        hint.setWordWrap(True)
-        theme.mark(hint, role="muted")
-        self.reset_adjust_btn = QPushButton("Clear the adjustments")
-        self.reset_adjust_btn.setToolTip("Set all adjustments to 0 (you can undo this)")
-        self.reset_adjust_btn.clicked.connect(self.clear_adjustments)
-        self.save_target_btn = QPushButton("Save as a target…")
-        self.save_target_btn.setToolTip("Save the adjusted target as a new target (then all adjustments become 0)")
-        self.save_target_btn.clicked.connect(self.page.save_adjusted_target)
-        help_window.tag(self.save_target_btn, "#target-save")
-        # (made on the Target card, its place: opened before it had a parent, it was a window of its own)
-        self.adjust_panel = QWidget(target_lay.parentWidget())
-        v = QVBoxLayout(self.adjust_panel)
-        v.setContentsMargins(0, 4, 0, 0)
         v.addWidget(grid_w)
-        v.addWidget(hint)
+        # the target, as it changes (the graph of the page can be under this window)
+        import numpy as np
+        import pyqtgraph as pg
+        from ui.eq_page_parts import TICKS, hz as hz_text
+        out.plot = plot = pg.PlotWidget()
+        plot.setFixedHeight(170)
+        plot.setLogMode(x=True, y=False)
+        plot.setMenuEnabled(False)
+        plot.setMouseEnabled(x=False, y=False)
+        plot.hideButtons()
+        plot.getAxis("bottom").setTicks([[(np.log10(t), hz_text(t).replace(" Hz", "").replace(" kHz", "k"))
+                                          for t in TICKS]])
+        plot.setXRange(np.log10(20), np.log10(20000), padding=0)
+        plot.setAccessibleName("Graph of the adjusted target")
+        out.curve = plot.plot([], [])
+        v.addWidget(plot)
+        out.reset_btn = QPushButton("Clear the adjustments")
+        out.reset_btn.setToolTip("Set all adjustments to 0 (you can undo this)")
+        out.reset_btn.clicked.connect(self.clear_adjustments)
+        out.save_btn = QPushButton("Save as a target…")
+        out.save_btn.setToolTip("Save the adjusted target as a new target (then all adjustments become 0)")
+        out.save_btn.clicked.connect(self.page.save_adjusted_target)
+        help_window.tag(out.save_btn, "#target-save")
         b = QHBoxLayout()
-        b.addWidget(self.reset_adjust_btn)
-        b.addWidget(self.save_target_btn)
+        b.addWidget(out.reset_btn)
+        b.addWidget(out.save_btn)
         b.addStretch(1)
         v.addLayout(b)
-        target_lay.addWidget(self.adjust_panel)
-        self.adjust_btn.setChecked(self.adjusted())  # (open when the target is adjusted already)
-        self._show_adjust_panel(self.adjust_btn.isChecked())
+        v.addStretch(1)
+        v.addWidget(out.footer)
+        return out
+
+    def draw_adjust(self, w):
+        """An Adjust window's graph (w: make_adjust_window's parts): the target as it is now, adjusted."""
+        c = self.page.curves
+        import numpy as np
+        import pyqtgraph as pg
+        if not c:
+            w.curve.setData([], [])
+            return
+        f, t = np.asarray(c["f"], dtype=float), np.asarray(c["target"], dtype=float)
+        col = theme.graph_colours()
+        w.plot.setBackground(col["bg"])
+        w.curve.setData(f, t, pen=pg.mkPen(col["target"], width=2))  # (the frequencies as they are: a log graph)
+
+    def open_adjust(self):
+        """Adjust…: its window, in front (made at the page's build)."""
+        dlg = self.adjust_window
+        if not dlg.isVisible():
+            from ui.window_parts import fit_to_screen
+            fit_to_screen(dlg, (560, 560), (460, None))
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
+        self.redraw_adjust()
+
+    def redraw_adjust(self):
+        """The window's graph, while it shows."""
+        if self.adjust_window.isVisible():
+            import types
+            self.draw_adjust(types.SimpleNamespace(plot=self.adjust_plot, curve=self.adjust_curve))
 
     def adjusted(self):
         return any(self.page.S["target_adjust"].get(k) for k in ADJUST_GAINS)
 
-    def _show_adjust_panel(self, on):
-        self.adjust_btn.setArrowType(Qt.DownArrow if on else Qt.RightArrow)
-        self.adjust_panel.setVisible(on)
-
     def clear_adjustments(self):
-        """Reset adjustments: the target as it is (every adjustment's default); Undo puts them back."""
+        """Reset adjustments: the target as it is (every adjustment's default); Undo puts them back (in the window's
+        own message line: UI-RULES 7)."""
         before = dict(self.page.S["target_adjust"])
         self.page.S["target_adjust"] = dict(self.page.meta["defaults"]["target_adjust"])
         self.page.changed(curves=True)
@@ -341,10 +415,13 @@ class EqSettings:
         def undo():
             self.page.S["target_adjust"] = before
             self.page.changed(curves=True)
-        self.page.notify("All adjustments of the target are 0.", undo)
+        if self.adjust_window.isVisible():
+            self.adjust_footer.say("All adjustments of the target are 0.", undo=undo)
+        else:
+            self.page.notify("All adjustments of the target are 0.", undo)
 
     def _adjust_summary_text(self):
-        """Beside Adjust: what's adjusted (“tilt −1 dB/oct, bass +4 dB”), or nothing."""
+        """Under the Target row: what's adjusted (“tilt −1 dB/oct, bass +4 dB”), or nothing."""
         a = self.page.S["target_adjust"]
         n = lambda v: f"{v:+g}".replace("-", "−")
         parts = [f"tilt {n(a['tilt'])} dB/oct"] if a.get("tilt") else []
@@ -373,13 +450,6 @@ class EqSettings:
         self.auto_on.toggled.connect(self.auto_switched)
         help_window.tag(self.auto_on, "#auto-on")
         v.addWidget(self.auto_on)
-        self.why_head = QLabel("About these settings")
-        theme.mark(self.why_head, role="section")
-        v.addWidget(self.why_head)
-        self.why = QLabel()
-        self.why.setWordWrap(True)
-        self.why.setTextFormat(Qt.RichText)  # (the list)
-        v.addWidget(self.why)
         self.mine_box = QWidget()
         mb = QHBoxLayout(self.mine_box)
         mb.setContentsMargins(0, 0, 0, 0)
@@ -390,6 +460,19 @@ class EqSettings:
         all_back.clicked.connect(lambda: self.make_auto(None))
         mb.addWidget(all_back)
         v.addWidget(self.mine_box)
+        # About these settings: a row that opens, closed at the start (the UI audit, 2026-11-08: its list was between
+        # the tick box and the settings; as the tracer's, UI-RULES 12); kept open or closed for the next start
+        sw = self.page.sw
+        self.why_fold = Fold("About these settings", open_=bool(sw is not None and sw.s.get("about_settings_open")),
+                             sub=True)
+        self.why_head = self.why_fold.btn
+        self.why = QLabel()
+        self.why.setWordWrap(True)
+        self.why.setTextFormat(Qt.RichText)  # (the list)
+        self.why_fold.add(self.why)
+        self.why_fold.toggled.connect(lambda on: sw is not None and sw.s.get("about_settings_open") != on
+                                      and sw.set("about_settings_open", on, tell=False))
+        v.addWidget(self.why_fold)
         return w
 
     # ---------------------------------------------------------------- reading and changing
@@ -549,6 +632,7 @@ class EqSettings:
                          ("Select a target and a measurement for the automatic settings." if on
                           else "Automatic settings are off."))
         self.why_head.setText(f"About these settings ({len(notes)})" if notes else "About these settings")
+        self.redraw_adjust()
         self.mine_box.setVisible(on and bool(mine))
         self.mine_text.setText("Your values (not changed): " + ", ".join(LABELS.get(p, p) for p in mine)
                                + ".  To make one automatic, click its “your value ↺” tag.")
@@ -560,7 +644,8 @@ class EqSettings:
             for f in deps:
                 f.box.setEnabled(bool(S["target_adjust"].get(amount)))
         adj = self.adjusted()
-        self.adjust_summary.setText(self._adjust_summary_text())
+        self.adjust_summary.setText(("Adjusted: " + self._adjust_summary_text()) if adj else "")
+        self.adjust_summary.setVisible(adj)
         self.reset_adjust_btn.setEnabled(adj)  # (always there, so nothing moves; usable once adjusted)
         self.save_target_btn.setEnabled(adj)
         sw = S["site_sweep"]

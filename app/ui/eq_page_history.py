@@ -177,8 +177,11 @@ class EqHistory:
         if not names:
             a = menu.addAction("No presets: a preset keeps all your settings (not your files)")
             a.setEnabled(False)
-        for n in names:
-            menu.addAction(n, lambda n=n: self.load_preset(n))
+        for n in names:  # (✓ at the preset with the settings in use: the UI audit, 2026-11-08)
+            a = menu.addAction(n, lambda n=n: self.load_preset(n))
+            if self.preset_in_use(n):
+                a.setCheckable(True)
+                a.setChecked(True)
         menu.addSeparator()
         menu.addAction("Save as a preset…", self.save_preset)  # (the window it opens says the same: UI-RULES 17)
         if names:
@@ -187,6 +190,27 @@ class EqHistory:
                 d.addAction(n, lambda n=n: self.delete_preset(n))
         menu.addSeparator()
         menu.addAction("Use the initial settings…", self.use_initial_settings)
+
+    def preset_in_use(self, name):
+        """Whether the preset has the settings in use: all of them but your files and, with the automatic settings on,
+        the values that they set (they change with each new measurement)."""
+        res = self.svc.call("/api/presets/load", {"name": name})
+        if res.get("error") or not isinstance(res.get("settings"), dict):
+            return False
+        from eq import settings as eq_settings
+        a, b = json.loads(json.dumps(self.S)), json.loads(json.dumps(res["settings"]))
+        for d in (a, b):
+            d.pop("files", None)
+        if self.S["auto"]["enabled"] and hasattr(self, "settings"):
+            manual = set(self.S["auto"].get("manual") or [])
+            for p in self.settings.auto_paths:
+                if p not in manual:
+                    for d in (a, b):
+                        try:
+                            eq_settings.set_path(d, p, None)
+                        except (KeyError, IndexError, TypeError):
+                            pass
+        return a == b
 
     def _use_settings(self, s, said):
         """Settings from a preset (or the defaults) in use, your files as they are; Undo in the notice puts the ones

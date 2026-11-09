@@ -75,7 +75,7 @@ class EqGraph:
             return
         a = self.svc.call("/api/auto", {"settings": self.S, "analysis": self.analysis})
         if a.get("error"):
-            self.sa_what.setText(a["error"])
+            self.estimate.setText(a["error"])
             return
         self.auto = a
         from eq import settings as eq_settings
@@ -90,9 +90,11 @@ class EqGraph:
             self._save_timer.start()
             if any(p.startswith("scoring.band_hz") for p in moved):
                 self.load_curves()
-        search = a.get("search") or ""
-        self.sa_what.setText((search[:1].upper() + search[1:] + ".") if search else "")
-        self.estimate.setText(f"Time to calculate: {a['time']}" if a.get("time") else "")
+        # (one short line, its whole text in the tooltip: the UI audit, 2026-11-08)
+        search, short = a.get("search") or "", a.get("short") or ""
+        self.estimate.setText(" · ".join(x for x in (short, a.get("time") or "") if x))
+        self.estimate.setToolTip(((search[:1].upper() + search[1:] + ". ") if search else "")
+                                 + (f"Time to calculate on this PC: {a['time']}." if a.get("time") else ""))
         if hasattr(self, "settings"):
             self.settings.refresh()  # (the values filled in, "Why these settings")
 
@@ -188,6 +190,8 @@ class EqGraph:
         self.eqplot.clear()
         self.legend.clear()
         c = self.curves
+        if hasattr(self, "settings"):  # (Adjust's window has a graph of the target too)
+            self.settings.redraw_adjust()
         self._drawn = self._eq_drawn = self._live_series = None  # (the floating graph's curves: eq_page_live)
         if not c:
             if self.current()[1]:  # (an EQ by hand with no measurement chosen: the EQ itself, under the empty graph)

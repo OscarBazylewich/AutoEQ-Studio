@@ -529,8 +529,8 @@ class EqResult:
         self.way = way
         for key, b in self.way_btns.items():
             b.setChecked(key == way)
-        self.auto_w.setVisible(way == "auto")
-        self.hand_w.setVisible(way == "hand")
+        self.way_stack.setCurrentWidget(self.auto_w if way == "auto" else self.hand_w)
+        self.go_stack.setCurrentIndex(0 if way == "auto" else 1)
         if way == "hand":
             self.fill_manual_sources()  # (the profiles as they are now)
         if remember and self.sw is not None and self.sw.s.get("make_way") != way:
@@ -562,15 +562,16 @@ class EqResult:
         self.manual_source_changed()
 
     def manual_source_changed(self):
-        """The note under Start from for the source chosen, and Start's words ("Start…" when it asks first: a file,
-        pasted lines, UI-RULES 11)."""
+        """The words about the source chosen (behind the ⓘ after Start from), and Start's words ("Start…" when it asks
+        first: a file, pasted lines, UI-RULES 11)."""
         key = self.hand_source.currentData() or "empty"
         note = next((n for k, _w, n in HAND_SOURCES if k == key), "")
         if key == "profile:":
             note = "No profiles: add a profile in Devices (Add a profile). Then start from it here."
         elif key.startswith("profile:"):
             note = "A device's profile: Use on device › Update writes your changes into it."
-        self.hand_src_note.setText(note)
+        self.hand_src_note.setText(note + " Then change its filters on the EQ graph (drag a handle) or in the table below "
+                                   "Your result.")
         self.hand_start.setText("Start…" if key in ("file", "paste") else "Start")
 
     def start_from_source(self):

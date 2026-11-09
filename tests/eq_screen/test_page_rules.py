@@ -115,31 +115,38 @@ def test_result_card_lines_up(eq_screen, check):
 
 
 def test_settings_and_advanced_line_up_and_head_their_sections(eq_screen, check):
-    # (2026-10-27, the pictures' review: with both folds open, Advanced's boxes started 21 px right of Settings', and
-    # the folds' section headings ("Best fit", "Scoring" …) were drawn as plain as the labels under them: a card's
-    # plain words rule outranked the headings' semibold)
+    # (2026-10-27, the pictures' review: the folds' section headings ("Best fit", "Scoring" …) were drawn as plain as
+    # the labels under them: a card's plain words rule outranked the headings' semibold. The UI audit, 2026-11-08:
+    # each label above its box, the boxes in columns, two widths of box)
     from PySide6.QtCore import QPoint
     from PySide6.QtGui import QFont
     from PySide6.QtWidgets import QLabel
+    from ui.forms import LONG, SHORT
     page = eq_screen.page
     s = page.settings
     s.fold.btn.setChecked(True)
     s.adv.btn.setChecked(True)
     qt.pump(100)
     try:
-        def first_box(form):
-            f = next(f for f in form.fields.values() if f.isVisibleTo(page))
-            return f.mapTo(page, QPoint(0, 0)).x()
-        xs = (first_box(s.form), first_box(s.adv_form))
-        heads = [lab for lab in s.adv_form.findChildren(QLabel) if lab.property("role") == "section"]
+        above, widths = [], set()
+        for form in (s.form, s.adv_form):
+            for path, f in form.fields.items():
+                if not f.isVisibleTo(page) or f.kind == "check":
+                    continue
+                cell = f.parentWidget().parentWidget()
+                lab = cell.findChildren(QLabel)[0]
+                above.append(lab.mapTo(page, QPoint(0, 0)).y() < f.box.mapTo(page, QPoint(0, 0)).y())
+                widths.add(f.box.width() if f.kind != "num" or not path.endswith((".0", ".1")) else "pair")
+        heads = [lab for lab in s.form.findChildren(QLabel) if lab.property("role") == "section"]
         weights = sorted({lab.font().weight() for lab in heads})
     finally:
         s.fold.btn.setChecked(False)
         s.adv.btn.setChecked(False)
         qt.pump(50)
-    check("page: Settings' and Advanced's boxes start at one place (one label column for both folds), and their "
-          "sections' headings are semibold, as every section's heading",
-          xs[0] == xs[1] and heads and weights == [QFont.DemiBold], (xs, len(heads), weights))
+    check("page: in Settings and More settings each label is above its box, the boxes have two widths (a number's, "
+          "every other box's), and Settings' sections' headings are semibold, as every section's heading",
+          above and all(above) and widths <= {SHORT, LONG, "pair"} and heads and weights == [QFont.DemiBold],
+          (above.count(False), widths, len(heads), weights))
 
 
 def test_eq_app_box_as_wide_as_a_forms(eq_screen, check):

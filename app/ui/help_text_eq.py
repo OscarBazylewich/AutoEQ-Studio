@@ -739,15 +739,16 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'show an EQ that you made on the result card again.']}]},
                {'title': 'Target › Adjust: your target',
                 'items': [{'key': '#target-adjust',
-                           'title': 'Adjust (on the Target card)',
-                           'body': ['Opens the target adjustments below the target: tilt, bass, half-tilt, ear gain, '
-                                    'treble and air (the Custom DF of listener800), each on one row. Value: how much '
+                           'title': 'Adjust… (on the Target row)',
+                           'body': ['Opens a window with the target adjustments: tilt, bass, half-tilt, ear gain, '
+                                    'treble and air (the Custom DF of listener800), each on one row, and a graph of the '
+                                    'target. Value: how much '
                                     '(+ increases, − decreases, and for the tilt, − gives more bass and + gives more '
                                     'treble). − and + (or ↑ ↓ and the mouse wheel in the box) change it one step at a '
                                     'time, and the graph changes with it. Hz: where a shelf starts, or the center of '
                                     'the ear gain. Q: the slope of a shelf, or the width of the ear gain.',
-                                    'Hz and Q are gray while the value is 0, because they have no effect then. Adjacent to '
-                                    'Adjust, the app shows the adjustments that you made. Clear the adjustments sets '
+                                    'Hz and Q are gray while the value is 0, because they have no effect then. Below the '
+                                    'Target row, the app shows the adjustments that you made. Clear the adjustments sets '
                                     'them to 0. Undo, adjacent to the message at the bottom of the window, sets them to '
                                     'their previous values.'],
                            'see': ['target-adjustments']},

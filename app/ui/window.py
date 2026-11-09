@@ -87,7 +87,9 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.sw, self.app = sw, app
         self.setWindowTitle("AutoEQ Studio")
         self.setWindowIcon(icons.app_icon())
-        fit_to_screen(self, (1040, 760))  # (within the screen's room: 760 high was under a laptop's taskbar at 150 %)
+        # (within the screen's room: 760 high was under a laptop's taskbar at 150 %; 1200 wide, so the top bar, which is
+        # also the title bar, has room for the names of the screens on Make an EQ)
+        fit_to_screen(self, (1200, 760))
         self.selected = sw.playing_key or (sw.devices[0].key if sw.devices else None)
         self.eq_page = None
         # Make an EQ made ahead and the memory given back in the tray: only when the app allows it (allow_preload)

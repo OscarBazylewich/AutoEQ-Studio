@@ -150,12 +150,16 @@ def test_folds_as_windows_11(check, shapes):
           len(seen) == 2 and all(0 <= (m.get("chevron_x") or -9) - inset <= 4
                                  and all(abs(x - inset) <= 2 for x in (m.get("labels") or {"": -9}).values())
                                  for m in seen), d or out.stderr[-300:])
-    # (each section had a label column of its own: Advanced's boxes started at 131, 181, 197, 215 or 226 px, and the
-    # section headings sat 3 px right of the labels under them: Qt's own indent for a label with padding)
-    check("settings boxes: every section's boxes start at the same place (one label column for the whole form, a hidden "
-          "row's label too: nothing moves when it shows), the section headings in line with the labels under them",
-          len(seen) == 2 and all(len(set((m.get("boxes") or {"": 0, " ": 1}).values())) == 1
-                                 and set(m.get("boxes_after") or [0, 1]) == set(m["boxes"].values())
+    # (the section headings sat 3 px right of the labels under them: Qt's own indent for a label with padding. The UI
+    # audit, 2026-11-08: each label directly above its box, the boxes in columns that start at the same places, so a
+    # row that shows moves no box before it)
+    check("settings boxes: each label is directly above its box, a section's first box starts where the form's first "
+          "does, a row that shows moves no other box, the section headings in line with the labels under them",
+          len(seen) == 2 and all(abs(m["labels"]["Filter counts to try"] - m["boxes"]["best_fit.filter_counts"]) <= 2
+                                 and abs(m["labels"]["Which website to copy"] - m["boxes"]["site.profile"]) <= 2
+                                 and m["boxes"]["best_fit.filter_counts"] == m["boxes"]["site.profile"]
+                                 == m["boxes"]["export.extra_headroom"]
+                                 and set(m["boxes"].values()) <= set(m.get("boxes_after") or [])
                                  and all(abs(m["labels"][h] - m["labels"][first]) <= 1
                                          for h, first in (("Best fit", "Filter counts to try"),
                                                           ("Website", "Which website to copy"),
@@ -189,16 +193,14 @@ def test_a_form_made_in_two_halves(qapp, check):
         labels = [lab.text() for lab in form.findChildren(QLabel)]
         return {"fields": list(form.fields), "names": [f.box.accessibleName() for f in form.fields.values()],
                 "labels": labels, "rows": len(form.rows), "widgets": len(form.findChildren(QWidget)),
-                "label column": {g.columnMinimumWidth(0) for g in form._grids},
                 "shown": [w.isVisibleTo(form) for widgets, _show in form.rows for w in widgets]}
     whole, halves = make([sections]), make([sections[:2], sections[2:]])
     try:
         a, b = seen(whole), seen(halves)
         halves.fields["export.apo"].box.setChecked(True)  # (a box of the second half, ticked: said to the form's owner)
         check("settings boxes: a form made in two halves (add_sections) is the one made at once: the same boxes, names "
-              "for a screen reader, labels, rows shown and hidden, one label column for all of it, and its boxes' "
-              "changes said to the form's owner",
-              a == b and len(b["label column"]) == 1 and b["rows"] == 8 and told == [("export.apo", True)], (a, b, told))
+              "for a screen reader, labels, rows shown and hidden, and its boxes' changes said to the form's owner",
+              a == b and b["rows"] == 8 and told == [("export.apo", True)], (a, b, told))
     finally:
         from helpers import qt
         qt.close(whole)

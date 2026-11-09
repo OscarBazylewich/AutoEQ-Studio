@@ -399,7 +399,8 @@ TERMS = [{'title': 'Curves and sound',
                      'see': []},
                     {'id': 'own-filters',
                      'title': 'Start from your filters',
-                     'body': ['Best fit can start from an EQ that you have. You can type filter lines, use a table '
+                     'body': ['Best fit can start from an EQ that you have (More settings › Best fit). You can type '
+                              'filter lines, use a table '
                               'or sliders (Edit as a table…), or load an EQ file (Load an EQ file…). With “Keep them '
                               'as they are”, Best fit adds filters to your filters. Without it, Best fit can also change '
                               'your filters. One more result shows only your filters, to compare.',
@@ -614,7 +615,8 @@ QUESTIONS = [{'id': 'q-which-method',
               'see': ['automatic-settings', 'speed-accuracy', 'simplest', 'treble-limit']},
              {'id': 'q-have-eq',
               'q': 'You have an EQ. Can the app make it better?',
-              'body': ['Yes. Use “Start from your filters” of Best fit (type them, or use Load an EQ file…). Or '
+              'body': ['Yes. Use “Start from your filters” (More settings › Best fit: type them, or use Load an EQ '
+                       'file…). Or '
                        'edit the filters of a result and use Calculate from these filters. Best fit adjusts your filters '
                        'or adds filters to them.'],
               'see': ['own-filters', 'retry']},

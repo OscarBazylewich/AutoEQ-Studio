@@ -7,16 +7,22 @@ per line), check, choice ([(value, label)]), text. A value is checked as it's ty
 isn't used); leaving a box with a value past a limit moves it to the limit and says so. Every box has its tooltip
 (help_texts.HELP; a "to" box shares its "from" box's).
 
-The automatic settings: a box they fill in has a tag beside it, "auto", or "yours ↺" once you've changed it (the tag
-hands it back). A Form is a list of rows in sections; show(predicate) hides a row when it doesn't apply. Every
-section's boxes start at the same place (one label column for the whole form). A Fold is a card that opens and
-closes (Settings, Advanced, the tracer's Why these settings).
+The automatic settings: a box they fill in has a tag beside it, "automatic", or "your value ↺" once you've changed it
+(the tag hands it back). A Form is a list of rows in sections; show(predicate) hides a row when it doesn't apply.
+
+The layout (the UI audit, 2026-11-08, the user's selections): each setting is a cell with its label above its box
+(+ its tag), and the cells go side by side in columns of one width (CELL), as many as the width holds (FlowLayout):
+the label is directly above its box, and on a wide window the settings use less height. Two widths of box: a number
+SHORT (110 px), every other box, list and "from … to" pair LONG (360 px), so their tags are in one column. A form
+with tabs=True shows each section as a tab (More settings: less height; a section whose rows all hide has no tab).
+A Fold is a part that opens and closes: a card (the tracer's About these settings), or a row in a card (sub=True:
+Settings and More settings in Make the EQ, About these settings in Settings).
 """
 import re
 
-from PySide6.QtCore import QEvent, Qt, Signal
-from PySide6.QtWidgets import (QCheckBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
-                               QPlainTextEdit, QToolButton, QVBoxLayout, QWidget)
+from PySide6.QtCore import QEvent, QRect, QSize, Qt, Signal
+from PySide6.QtWidgets import (QCheckBox, QFrame, QHBoxLayout, QLabel, QLayout, QLineEdit, QPlainTextEdit,
+                               QPushButton, QSizePolicy, QStackedWidget, QToolButton, QVBoxLayout, QWidget)
 
 from ui import theme
 from ui.help_texts import HELP
@@ -138,7 +144,9 @@ class Limits:
         return sorted(set(map(c, v)))
 
 
-CHOICE_MOST, LIST_MOST = 360, 240  # (px: a drop-down's width at most, a list of numbers' (UI-RULES 26))
+SHORT, LONG = 110, 360  # (px: a number box; every other box, a drop-down, a list, a "from … to" pair: UI-RULES 26)
+CHOICE_MOST = LONG       # (a drop-down's width outside a form: Your EQ app, Start from)
+CELL = 470               # (px: a setting's cell, its box and its tag: the columns of a form)
 
 
 def help_of(path):
@@ -179,14 +187,14 @@ class Field(QWidget):
             self.box.setPlaceholderText(placeholder or (form.limits.of(path) or {}).get("empty", ""))
             self.box.textEdited.connect(self._typed)
             self.box.editingFinished.connect(self._edit_finished)
-            if kind == "num":
-                self.box.setMaximumWidth(110)
-        # (a drop-down or a list of numbers as wide as its choices, not the card: its tag right after it, where every
-        # number box's is; they zig-zagged, UI-RULES 26)
-        capped = {"choice": CHOICE_MOST}.get(kind, LIST_MOST if kind not in ("check", "num", "lines", "block") else None)
-        if capped:
-            self.box.setMaximumWidth(capped)
-        lay.addWidget(self.box, 0 if kind == "check" else 1)
+        # (two widths: a number SHORT, every other box LONG, so the tags are in one column, UI-RULES 26; a pair's
+        # boxes share LONG: the form sets them)
+        if kind == "num":
+            self.box.setFixedWidth(SHORT)
+        elif kind != "check":
+            self.box.setFixedWidth(LONG)
+        capped = kind != "check"
+        lay.addWidget(self.box, 0)
         self.step = (form.steps or {}).get(path) if kind == "num" else None
         if self.step:  # (− and +, and ↑ ↓ or the wheel in the box: a step down or up, as AutoEQ Local's number boxes)
             for sign, text, tip in ((-1, "−", "Decrease (or ↓ in the box)"), (1, "+", "Increase (or ↑ in the box)")):
@@ -342,71 +350,149 @@ class Field(QWidget):
             self.tag.setEnabled(state == "yours")
 
 
-def line_up_together(*forms):
-    """Forms one above the other (Make an EQ's Settings and Advanced) with one label column: each one's boxes start
-    where the others' do, as within a form (they started 21 px apart: .claude/notes/UI-RULES.md 26). Sections added
-    later line them all up again."""
-    for f in forms:
-        f._together = forms
-    forms[0]._line_up()
+class FlowLayout(QLayout):
+    """Cells side by side, as many as the width holds, then the next row (Qt's flow layout): each cell CELL px wide,
+    so they make columns; a widget with the property full_row takes a row of its own. Hidden cells take no room."""
+
+    def __init__(self, parent=None, cell=CELL, hspace=16, vspace=12):
+        super().__init__(parent)
+        self._items, self.cell, self.hspace, self.vspace = [], cell, hspace, vspace
+        self.setContentsMargins(0, 0, 0, 0)
+
+    def addItem(self, item):
+        self._items.append(item)
+
+    def count(self):
+        return len(self._items)
+
+    def itemAt(self, i):
+        return self._items[i] if 0 <= i < len(self._items) else None
+
+    def takeAt(self, i):
+        return self._items.pop(i) if 0 <= i < len(self._items) else None
+
+    def expandingDirections(self):
+        return Qt.Orientations(0)
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, width):
+        return self._place(QRect(0, 0, width, 0), True)
+
+    def setGeometry(self, rect):
+        super().setGeometry(rect)
+        self._place(rect, False)
+
+    def sizeHint(self):
+        return self.minimumSize()
+
+    def minimumSize(self):
+        w = h = 0
+        for it in self._items:
+            if not it.isEmpty():
+                m = it.minimumSize()
+                w, h = max(w, min(self.cell, m.width()) if not _full(it) else m.width()), max(h, m.height())
+        return QSize(w, h)
+
+    def _place(self, rect, test):
+        x, y, line, first = rect.x(), rect.y(), 0, True
+        for it in self._items:
+            if it.isEmpty():
+                continue
+            full = _full(it)
+            w = rect.width() if full else min(self.cell, rect.width())
+            h = it.heightForWidth(w) if it.hasHeightForWidth() else it.sizeHint().height()
+            if not first and (full or x + w > rect.right() + 1):
+                x, y, line = rect.x(), y + line + self.vspace, 0
+            if not test:
+                it.setGeometry(QRect(x, y, w, h))
+            x += w + self.hspace
+            line = max(line, h)
+            first = False
+            if full:  # (the next cell starts a new row)
+                x = rect.right() + 2
+        return y + line - rect.y()
+
+
+def _full(item):
+    w = item.widget()
+    return w is not None and bool(w.property("full_row"))
 
 
 # ---------------------------------------------------------------- a form: sections of rows
 class Form(QWidget):
     """Rows of settings in sections. Each row: (label, [Field spec…], show) where a spec is (path, kind, options);
     two specs in a row are a "from … to …" pair. changed(path, value) is called with each valid value set;
-    make_auto(path) for "yours ↺"; steps {path: step} gives a number box − and + (and ↑ ↓). The labels are one column
-    for every section, as wide as the widest of them (_line_up): each section's boxes start at the same place (a
-    column per section made them zig-zag down Advanced). add_sections(sections) adds more sections under them later,
-    exactly as if they'd been in the list (Make an EQ makes Advanced in two halves, one per step of its build)."""
+    make_auto(path) for "your value ↺"; steps {path: step} gives a number box − and + (and ↑ ↓). Each row is a cell,
+    its label above its box, the cells in columns (FlowLayout); a widget as the label is a note across the form; a
+    (None, widget) row goes under the box above it (a button that fills it: UI-RULES 27). tabs: a tab for each
+    section (More settings), else a title above each section. add_sections(sections) adds more sections under them
+    later, exactly as if they'd been in the list (Make an EQ makes More settings in two halves, one per step of its
+    build)."""
 
-    def __init__(self, sections, limits, get, changed, make_auto, say, steps=None):
+    def __init__(self, sections, limits, get, changed, make_auto, say, steps=None, tabs=False):
         super().__init__()
         self.limits, self.get, self.say, self.steps = limits, get, say, steps
         self._changed, self._make_auto = changed, make_auto
         self.fields, self.rows = {}, []
-        self._labels, self._grids = [], []
+        self.tabs, self.tab_btns, self._sections = tabs, {}, []
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(10)
+        if tabs:  # (the tabs in the app's look: Table / Sliders, Find…'s sources; the page as high as its own cells)
+            self.tab_row = QHBoxLayout()
+            self.tab_row.setSpacing(20)
+            self.tab_row.addStretch(1)
+            lay.addLayout(self.tab_row)
+            self.pages = QStackedWidget()
+            self.pages.currentChanged.connect(self._fit_pages)
+            lay.addWidget(self.pages)
         self.add_sections(sections)
 
     def add_sections(self, sections):
-        """More sections under those there are (their rows and boxes as the form's own), the label column lined up
-        again over all of them."""
+        """More sections under those there are (their rows and boxes as the form's own)."""
         lay, changed, make_auto = self.layout(), self._changed, self._make_auto
         for title, rows in sections:
             sec = QWidget()
             sl = QVBoxLayout(sec)
             sl.setContentsMargins(0, 0, 0, 0)
             sl.setSpacing(6)
-            if title:
+            if title and not self.tabs:
                 h = QLabel(title)
                 theme.mark(h, role="section")
                 sl.addWidget(h)
-            grid = QGridLayout()
-            grid.setHorizontalSpacing(10)
-            grid.setVerticalSpacing(6)
-            grid.setColumnStretch(1, 1)
-            self._grids.append(grid)
-            for i, row in enumerate(rows):
+            flow = FlowLayout()
+            last = None
+            for row in rows:
                 label, specs = row[0], row[1]
                 show = row[2] if len(row) > 2 else None
-                if isinstance(label, QWidget):  # (a note or a widget of its own, across the row)
-                    grid.addWidget(label, i, 0, 1, 2)
+                if isinstance(label, QWidget):  # (a note or a widget of its own, across the form)
+                    label.setProperty("full_row", True)
+                    flow.addWidget(label)
                     self.rows.append(([label], show))
                     continue
-                if label is None and isinstance(specs, QWidget):  # (a widget in the boxes' column: a button that fills
-                    grid.addWidget(specs, i, 1)  # the box above it, under it: .claude/notes/UI-RULES.md 27)
+                if label is None and isinstance(specs, QWidget):  # (under the box above it, in its cell)
+                    if last is not None:
+                        last.layout().addWidget(specs)
+                    else:
+                        flow.addWidget(specs)
                     self.rows.append(([specs], show))
                     continue
+                cell = QWidget()
+                cl = QVBoxLayout(cell)
+                cl.setContentsMargins(0, 0, 0, 0)
+                cl.setSpacing(4)
+                checks = all(sp[1] == "check" for sp in specs)
                 lab = QLabel(label)
-                self._labels.append(lab)
                 lab.setToolTip(help_of(specs[0][0]) if specs else "")
+                if not checks or label:
+                    cl.addWidget(lab)
                 box = QWidget()
                 bl = QHBoxLayout(box)
                 bl.setContentsMargins(0, 0, 0, 0)
                 bl.setSpacing(8)
+                pair = len(specs) == 2
                 for j, spec in enumerate(specs):
                     if j:
                         bl.addWidget(QLabel("to"))
@@ -414,42 +500,62 @@ class Form(QWidget):
                               spec[3] if len(spec) > 3 else "")
                     f.committed.connect(changed)
                     f.make_auto_clicked.connect(make_auto)
-                    f.box.setAccessibleName(label.strip() + (" (to)" if j else ""))  # (what a screen reader says)
+                    name = (label or "").strip() or spec[0]
+                    f.box.setAccessibleName(name + (" (to)" if j else ""))  # (what a screen reader says)
                     if f.step:
-                        f.minus.setAccessibleName(label.strip() + " lower")
-                        f.plus.setAccessibleName(label.strip() + " higher")
+                        f.minus.setAccessibleName(name + " lower")
+                        f.plus.setAccessibleName(name + " higher")
+                    if pair and spec[1] == "num":  # (a pair: its two boxes and "to" as wide as one long box)
+                        f.box.setFixedWidth((LONG - 24 - 2 * bl.spacing()) // 2)
                     self.fields[spec[0]] = f
-                    bl.addWidget(f, 1 if spec[1] not in ("num",) else 0)
-                bl.addStretch(1) if all(s[1] in ("num", "check") for s in specs) else None
-                grid.addWidget(lab, i, 0, Qt.AlignTop if specs and specs[0][1] in ("lines", "block") else Qt.AlignVCenter)
-                grid.addWidget(box, i, 1)
-                self.rows.append(([lab, box], show))
-            sl.addLayout(grid)
-            lay.addWidget(sec)
+                    bl.addWidget(f)
+                bl.addStretch(1)
+                cl.addWidget(box)
+                flow.addWidget(cell)
+                last = cell
+                self.rows.append(([cell], show))
+            sl.addLayout(flow)
             shows = [r[2] if len(r) > 2 else None for r in rows]
-            if shows and all(shows):  # (a section whose rows all may hide: hidden with them, its heading too)
-                self.rows.append(([sec], lambda shows=shows: any(s() for s in shows)))
-        self._line_up()
+            whole = (lambda shows=shows: any(s() for s in shows)) if shows and all(shows) else None
+            if self.tabs:
+                self._add_tab(title, sec, whole)
+            else:
+                lay.addWidget(sec)
+                if whole is not None:  # (a section whose rows all may hide: hidden with them, its heading too)
+                    self.rows.append(([sec], whole))
 
-    def _line_up(self):
-        """The label column as wide as the form's widest label, in every section (hidden rows' labels too, so nothing
-        moves when a row shows or hides); and the forms lined up with it (line_up_together) the same."""
-        forms = getattr(self, "_together", None) or (self,)
-        labels = [lab for f in forms for lab in f._labels]
-        for lab in labels:
-            lab.ensurePolished()  # (in the theme's text size)
-        width = max((lab.sizeHint().width() for lab in labels), default=0)
-        for f in forms:
-            for grid in f._grids:
-                grid.setColumnMinimumWidth(0, width)
+    def _add_tab(self, title, page, show):
+        b = QPushButton(title)
+        b.setCheckable(True)
+        theme.mark(b, nav=True, flush=True)
+        i = self.pages.addWidget(page)
+        b.clicked.connect(lambda _=False, i=i: self.show_tab(i))
+        self.tab_row.insertWidget(self.tab_row.count() - 1, b)
+        self.tab_btns[i] = b
+        self._sections.append((i, show))
+        if len(self.tab_btns) == 1:
+            self.show_tab(i)
+        self._fit_pages()
 
-    def changeEvent(self, e):
-        super().changeEvent(e)
-        if e.type() in (QEvent.StyleChange, QEvent.FontChange):  # (the theme's text size may have come since)
-            self._line_up()
+    def show_tab(self, i):
+        self.pages.setCurrentIndex(i)
+        for k, b in self.tab_btns.items():
+            b.setChecked(k == i)
+
+    def _fit_pages(self, *_a):
+        """The tabs' pages as high as the one shown (a stack is as high as its highest page)."""
+        if not self.tabs:
+            return
+        for k in range(self.pages.count()):
+            p = self.pages.widget(k)
+            on = k == self.pages.currentIndex()
+            p.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred if on else QSizePolicy.Ignored)
+        self.pages.adjustSize()
+        self.updateGeometry()
 
     def refresh(self, tags=None):
-        """Show the settings' values; hide what doesn't apply; the automatic settings' tags ({path: state})."""
+        """Show the settings' values; hide what doesn't apply; the automatic settings' tags ({path: state}); the tabs
+        of the sections that apply."""
         for path, f in self.fields.items():
             f.show_value(self.get(path))
             f.set_tag((tags or {}).get(path))
@@ -458,26 +564,35 @@ class Form(QWidget):
                 on = bool(show())
                 for w in widgets:
                     w.setVisible(on)
+        if self.tabs:
+            for i, show in self._sections:
+                self.tab_btns[i].setVisible(show is None or bool(show()))
+            if not self.tab_btns[self.pages.currentIndex()].isVisibleTo(self) and self.isVisible():
+                first = next((i for i, b in self.tab_btns.items() if b.isVisibleTo(self)), None)
+                if first is not None:
+                    self.show_tab(first)
 
 
 class Fold(QFrame):
-    """A card that opens and closes: its title (and a short summary beside it) is the button, Windows 11's chevron
-    before it (the theme's settings_boxes part: right when closed, down when open; filled when pointed at). Its
-    chevron and its content start at a card's inset, as a card's title and content do (theme_sheet's CARD: the card's
-    padding and these margins; the chevron's place starts where the button does)."""
+    """A part that opens and closes: its title (and a short summary after it, with no "·" before it) is the button,
+    Windows 11's chevron at its left (the theme's settings_boxes part: right when closed, down when open; filled when
+    pointed at). A card (its chevron and its content start at a card's inset, as a card's title and content do), or
+    with sub=True a row in a card (its title 14 px bold, a title in a card: Settings and More settings in Make the EQ,
+    About these settings)."""
     toggled = Signal(bool)
 
-    def __init__(self, title, open_=False):
+    def __init__(self, title, open_=False, sub=False):
         super().__init__()
-        theme.mark(self, card=True)
+        if not sub:
+            theme.mark(self, card=True)
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(4, 2, 4, 4)
+        lay.setContentsMargins(*((0, 0, 0, 0) if sub else (4, 2, 4, 4)))
         head = QHBoxLayout()
         self.btn = QToolButton()
         self.btn.setText(title)
         self.btn.setCheckable(True)
         self.btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-        theme.mark(self.btn, fold=True)
+        theme.mark(self.btn, fold=True, **({"sub": True} if sub else {}))
         self.btn.toggled.connect(self._set_open)
         head.addWidget(self.btn)
         self.summary = QLabel("")

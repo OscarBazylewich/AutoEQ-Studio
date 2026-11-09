@@ -1,9 +1,9 @@
 """Make an EQ's cards (a part of EqPage, ui/eq_page.py): the page laid out once the EQ part has opened, top to
-bottom: the graph (its title, Trace a graph image…, History…, View, Y range, Channels, Hide previews), Target, then
-Measurement (Find…,
-Add…), Make the EQ (your EQ app, the method, the search, Run), the settings' folds
-(ui/eq_settings.py), Your result (its numbers, the filters, File name, Save filters, Use on device) and Listen
-(ui/listen.py). This is the file to restyle Make an EQ in.
+bottom (the UI audit, 2026-11-08): Target and Measurement in one card (a row each, Find…, Add…, the Target's
+Adjust…), the graph (its title, Trace a graph image…, History…, View, Y range, Channels, Hide previews), Make the EQ
+(Your EQ app, then the tabs Automatically and Manually: Method and Settings to try, or Start from; then the rows that
+open, Settings and More settings (ui/eq_settings.py); then Calculate or Start), Your result (its numbers, the
+filters, File name, Save filters, Use on device) and Listen (ui/listen.py). This is the file to restyle Make an EQ in.
 The look is Windows 11's (the restyle, 2026-10-23): Windows 11's symbols beside the main actions' words
 (ui/icons.py), and every card as wide as the window and no wider (a long
 title wraps, a long name ends in "…"; Target and Measurement one above the other, so their names fit). Its own
@@ -24,9 +24,12 @@ import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontMetrics
-from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLineEdit, QMenu, QProgressBar, QPushButton, QScrollArea, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFrame, QGridLayout, QGroupBox, QHBoxLayout,
+                               QLineEdit, QMenu, QProgressBar, QPushButton, QScrollArea, QStackedWidget, QVBoxLayout,
+                               QWidget)
 
 from ui import help_window, icons, theme
+from ui.bubble import InfoMark
 from ui.eq_page_parts import TICKS, Elided, NameCombo, PairTitle, hz, label
 from ui.forms import CHOICE_MOST
 from ui.search_combo import SearchCombo
@@ -53,19 +56,18 @@ class EqCards:
         scroll.hide()  # ("Opening the EQ part…" until the page is whole)
         self.layout().addWidget(scroll)  # (in its place first: the cards then go straight into it, never moved)
         yield "the page's frame"
+        # (Target and Measurement first, above the graph: the first screen has the lists, and the graph is directly
+        # under them as you select; the UI audit, 2026-11-08)
+        col.addWidget(self._select_card())
+        yield "Target, Measurement"
         col.addWidget(self._graph_card())
         yield "the graph"
-        # (one above the other, each the page's width: side by side, with Windows 11's sizes, a measurement's name was
-        # cut off in its drop-down at the window's own size, 2026-10-23)
-        col.addWidget(self._file_card("target"))
-        col.addWidget(self._file_card("measurement"))
-        yield "Target, Measurement"
         col.addWidget(self._eq_card())
         yield "Make the EQ"
         from ui.eq_settings import EqSettings
         settings = EqSettings(self)
-        # (Adjust onto the Target card, under the target: AutoEQ Local's; the Settings fold; Advanced in two halves)
-        yield from settings.build_parts(col, self.target_box.layout())
+        # (Adjust… onto the Target row; Settings and More settings, rows that open in Make the EQ, in their place)
+        yield from settings.build_parts(self.settings_slot, self.target_row, self.target_under)
         self.settings = settings
         col.addWidget(self._result_card())
         # (the settings shown again now the result card is there: its line under File name, "Save filters writes: …",
@@ -188,15 +190,61 @@ class EqCards:
         notice card that was here, between the cards, made the page jump as it came and went)."""
         self.status(text, undo=undo)
 
-    def _file_card(self, kind):
-        box = QGroupBox("Target" if kind == "target" else "Measurement")
-        v = QVBoxLayout(box)
+    def _select_card(self):
+        """Target and Measurement, the 2 inputs of the EQ, in one card (the UI audit, 2026-11-08: two cards used
+        approximately 90 px more): a row each, their labels in a column at the left, as Make the EQ's. Under a row, its
+        information (a note; the Target's adjustments; Other measurements of this model… and History's line)."""
+        card = QFrame()
+        theme.mark(card, card=True)
+        g = QGridLayout(card)
+        g.setContentsMargins(4, 4, 4, 4)  # (a card frame's padding and these: a card's inset)
+        g.setHorizontalSpacing(12)
+        g.setVerticalSpacing(4)
+        g.setColumnStretch(1, 1)
+        for i, kind in enumerate(("target", "measurement")):
+            g.addWidget(label("Target" if kind == "target" else "Measurement", wrap=False), 2 * i, 0)
+            g.addWidget(self._file_row(kind), 2 * i, 1)
+            under = QWidget()
+            u = QVBoxLayout(under)
+            u.setContentsMargins(0, 0, 0, 6 if kind == "target" else 0)
+            u.setSpacing(4)
+            g.addWidget(under, 2 * i + 1, 1)
+            note = label("", "muted")
+            note.hide()  # (shown when it has words: eq_page_files.show_inputs)
+            u.addWidget(note)
+            setattr(self, f"{kind}_note", note)
+            setattr(self, f"{kind}_under", u)
+            if kind == "measurement":
+                other = QPushButton("Other measurements of this model…")
+                other.setToolTip("Find all the measurements of this model and the best one for your target")
+                other.clicked.connect(self.open_other_measurements)
+                u.addWidget(other, 0, Qt.AlignLeft)
+                row2 = QHBoxLayout()
+                self.eqd_before = label("", wrap=False)
+                row2.addWidget(self.eqd_before)
+                self.eqd_show = QPushButton("Show in History…")  # (it opens History, this IEM's: UI-RULES 11, 16)
+                self.eqd_show.setToolTip("History, with the EQs that you made for this IEM")
+                self.eqd_show.clicked.connect(lambda: self.open_history(True))
+                row2.addWidget(self.eqd_show)
+                row2.addStretch(1)
+                u.addLayout(row2)
+                self.eqd_before.hide()
+                self.eqd_show.hide()
+        self.select_box = card
+        return card
+
+    def _file_row(self, kind):
+        """A row of the Target and Measurement card: the list (a long name ends in "…"), Find… and Add… (the
+        Target's Adjust… comes after them: eq_settings). It is target_box or measurement_box."""
+        box = QWidget()
+        row = QHBoxLayout(box)
+        row.setContentsMargins(0, 0, 0, 0)
         combo = NameCombo()  # (a name longer than its room ends in "…": never cut off)
         combo.setMinimumContentsLength(20)
         combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        combo.setAccessibleName("Target" if kind == "target" else "Measurement")
         combo.activated.connect(lambda _i, k=kind: self._file_chosen(k))
         help_window.tag(combo, "slot:" + kind)
-        row = QHBoxLayout()
         row.addWidget(combo, 1)
         find = QPushButton("Find…")
         icons.put(find, "find")
@@ -209,58 +257,22 @@ class EqCards:
                        "Add measurement files from this PC (a set: L/R, seatings)")
         add.clicked.connect(lambda _=False, k=kind: self.add_files(k))
         row.addWidget(add)
-        v.addLayout(row)
-        note = label("", "muted")
-        note.hide()  # (shown when it has words: eq_page_files.show_inputs)
-        v.addWidget(note)
-        if kind == "measurement":
-            other = QPushButton("Other measurements of this model…")
-            other.setToolTip("Find all the measurements of this model and the best one for your target")
-            other.clicked.connect(self.open_other_measurements)
-            v.addWidget(other, 0, Qt.AlignLeft)
-            row2 = QHBoxLayout()
-            self.eqd_before = label("", wrap=False)
-            row2.addWidget(self.eqd_before)
-            self.eqd_show = QPushButton("Show in History…")  # (it opens History, this IEM's: UI-RULES 11, 16)
-            self.eqd_show.setToolTip("History, with the EQs that you made for this IEM")
-            self.eqd_show.clicked.connect(lambda: self.open_history(True))
-            row2.addWidget(self.eqd_show)
-            row2.addStretch(1)
-            v.addLayout(row2)
-            self.eqd_before.hide()
-            self.eqd_show.hide()
         setattr(self, f"{kind}_combo", combo)
-        setattr(self, f"{kind}_note", note)
         setattr(self, f"{kind}_box", box)
+        if kind == "target":
+            self.target_row = row
         return box
 
     def _eq_card(self):
-        """Make the EQ: first the way to make it (the user's ask, 2026-10-27: By hand was a small menu at the end of
-        the Run row, after three settings only a run uses), as tabs in the look of the app's other tabs (Table /
-        Sliders, Find…'s sources: .claude/notes/UI-RULES.md 8): Automatically (a run: AutoEQ fits the filters) or By
-        hand (an EQ of your own). Under them Your EQ app, which both use (its limits, the file Save writes), then only
-        the chosen way's steps: Method, Search and Run (with Run several…), or Start from and Start. Its three grids
-        keep one label column (_line_up_ways)."""
+        """Make the EQ (the UI audit, 2026-11-08): Your EQ app first, as it is for the 2 ways; then the tabs
+        Automatically and Manually (their words lined up with the labels; the card as high with either tab: nothing
+        under it moves); then only that way's steps (Method and Settings to try, or Start from); then the rows that
+        open, Settings and More settings (eq_settings: for the 2 ways, above the button that uses them); then the way's
+        main button (Calculate with Queue…, or Start), so the result card comes directly after it. The gray notes are
+        behind an ⓘ after their labels (bubble.InfoMark). Its grids keep one label column (_line_up_ways)."""
         self.eq_box = box = QGroupBox("Make the EQ")
         v = QVBoxLayout(box)
         v.setSpacing(8)
-        tabs = QHBoxLayout()
-        tabs.setSpacing(4)
-        self.way_btns = {}
-        for key, words, tip in (("auto", "Automatically", "AutoEQ adjusts the filters for the target and your EQ "
-                                 "app: you select the method, then click Calculate"),
-                                ("hand", "Manually", "You make the filters: start from an empty EQ or from an EQ "
-                                 "that you have. Then change them on the EQ graph.")):
-            b = QPushButton(words)
-            b.setCheckable(True)
-            theme.mark(b, nav=True)
-            b.setToolTip(tip)
-            b.clicked.connect(lambda _=False, key=key: self.set_way(key))
-            help_window.tag(b, "#make-way" if key == "auto" else "#by-hand")  # (F1: the entry named as it reads)
-            tabs.addWidget(b)
-            self.way_btns[key] = b
-        tabs.addStretch(1)
-        v.addLayout(tabs)
 
         def grid(parent=None):
             g = QGridLayout(parent) if parent is not None else QGridLayout()
@@ -271,60 +283,107 @@ class EqCards:
             self._way_grids.append(g)
             return g
 
-        def name(words):
-            lab = label(words, wrap=False)
-            self._way_labels.append(lab)
-            return lab
+        def name(words, info=None):
+            """A label of the column, with its ⓘ after it when it has one."""
+            if info is None:
+                lab = label(words, wrap=False)
+                self._way_labels.append(lab)
+                return lab
+            w = QWidget()
+            h = QHBoxLayout(w)
+            h.setContentsMargins(0, 0, 0, 0)
+            h.setSpacing(4)
+            h.addWidget(label(words, wrap=False))
+            h.addWidget(info)
+            h.addStretch(1)
+            self._way_labels.append(w)
+            return w
         self._way_labels, self._way_grids = [], []
         g = grid()
-        g.addWidget(name("Your EQ app"), 0, 0)
+        self.app_note = InfoMark("", "Your EQ app", links=self.open_link)
+        g.addWidget(name("Your EQ app", self.app_note), 0, 0)
         self.app_combo = SearchCombo()
-        self.app_combo.addItem("Select your EQ app (the EQ stays in its limits)", "")
+        self.app_combo.addItem("Select your EQ app", "")
         self.app_combo.addItem("Not in the list, or not sure: no limits, an Equalizer APO file", "other")
         for a in sorted(self.meta.get("eq_apps", []), key=lambda a: a["name"].lower()):
             self.app_combo.addItem(f"{a['name']}  ·  {', '.join(a['platforms'])}", a["key"])
-        self.app_combo.sort_items(pinned=2)  # ("Choose your EQ app" and "Not listed" on top: it was among the apps)
+        self.app_combo.sort_items(pinned=2)  # ("Select your EQ app" and "Not in the list" on top: it was among the apps)
         self.app_combo.activated.connect(lambda _i: self.choose_app(self.app_combo.currentData()))
         help_window.tag(self.app_combo, "eq_app")
-        # (as wide as its choices, capped as every drop-down of a form, and Method's under it: it took the card's
-        # whole width, UI-RULES 26)
-        self.app_combo.setMaximumWidth(CHOICE_MOST)
+        self.app_combo.setFixedWidth(CHOICE_MOST)  # (one width for the drop-downs: their edges on one line, UI-RULES 26)
         g.addWidget(self.app_combo, 0, 1, 1, 3, Qt.AlignLeft)
-        self.app_note = label("", "muted")
-        self.app_note.setTextFormat(Qt.RichText)
-        self.app_note.linkActivated.connect(self.open_link)
-        g.addWidget(self.app_note, 1, 1, 1, 3)
         v.addLayout(g)
+        tabs = QHBoxLayout()
+        tabs.setSpacing(20)
+        self.way_btns = {}
+        for key, words, tip in (("auto", "Automatically", "AutoEQ adjusts the filters for the target and your EQ "
+                                 "app: you select the method, then click Calculate"),
+                                ("hand", "Manually", "You make the filters: start from an empty EQ or from an EQ "
+                                 "that you have. Then change them on the EQ graph.")):
+            b = QPushButton(words)
+            b.setCheckable(True)
+            theme.mark(b, nav=True, flush=True)  # (its words start at the labels' left edge: the UI audit)
+            b.setToolTip(tip)
+            b.clicked.connect(lambda _=False, key=key: self.set_way(key))
+            help_window.tag(b, "#make-way" if key == "auto" else "#by-hand")  # (F1: the entry named as it reads)
+            tabs.addWidget(b)
+            self.way_btns[key] = b
+        tabs.addStretch(1)
+        v.addLayout(tabs)
 
-        # Automatically: the method, the search, Run (its rows in a part of their own, shown with its tab: what a run
-        # shows of itself, its progress and Cancel, keeps its own state meanwhile)
+        # the way's own steps: a stack, as high as the higher one (the card keeps one height with either tab)
+        self.way_stack = QStackedWidget()
         self.auto_w = QWidget()
         g = grid(self.auto_w)
-        g.addWidget(name("Method"), 0, 0)
+        self.mode_hint = InfoMark("", "Method")
+        g.addWidget(name("Method", self.mode_hint), 0, 0)
         self.mode_combo = SearchCombo()
         for k, mode in self.meta["modes"].items():
             self.mode_combo.addItem(mode, k)
         self.mode_combo.sort_items()
         self.mode_combo.activated.connect(lambda _i: self.set_mode(self.mode_combo.currentData()))
         help_window.tag(self.mode_combo, "slot:method")
-        g.addWidget(self.mode_combo, 0, 1)
-        self.mode_hint = label("", "muted")  # (under its box, as Your EQ app's note: UI-RULES 26)
-        g.addWidget(self.mode_hint, 1, 1, 1, 3)
-        g.addWidget(name("Settings to try"), 2, 0, Qt.AlignTop)  # (level with the first of its lines)
-        # what a run tries and how long it takes (one search since 1.0.8, the user's ask 2026-10-13: with the EQ grown
-        # one filter at a time Quick, Standard and Thorough all took seconds, and one search trying every limit they
-        # tried found the fewest filters for every IEM tested: the benchmarks in BENCHMARKS.md)
+        self.mode_combo.setFixedWidth(CHOICE_MOST)
+        g.addWidget(self.mode_combo, 0, 1, 1, 3, Qt.AlignLeft)
+        g.addWidget(name("Settings to try"), 1, 0)
+        # what a run tries and how long it takes, in one short line ("36 EQs, 1 to 32 filters · approximately 20 s");
+        # the whole text in its tooltip and in Help (the UI audit, 2026-11-08: 2 lines, 5 numbers, 3 settings)
         self.sa = QWidget()
         sa = QVBoxLayout(self.sa)
         sa.setContentsMargins(0, 0, 0, 0)
-        sa.setSpacing(2)
         self.estimate = label("", wrap=False)
+        theme.mark(self.estimate, role="section")
         sa.addWidget(self.estimate)
-        self.sa_what = label("", "muted")
-        sa.addWidget(self.sa_what)
+        self.sa_what = self.estimate  # (the Guide's name for it)
         self.sa.setAccessibleName("Settings to try")
         help_window.tag(self.sa, "sa")
-        g.addWidget(self.sa, 2, 1, 1, 3)
+        g.addWidget(self.sa, 1, 1, 1, 3)
+        self.way_stack.addWidget(self.auto_w)
+        self.hand_w = QWidget()
+        g = grid(self.hand_w)
+        self.hand_src_note = InfoMark("", "Start from")
+        g.addWidget(name("Start from", self.hand_src_note), 0, 0)
+        self.hand_source = SearchCombo()
+        self.hand_source.setAccessibleName("Start from")
+        self.hand_source.setFixedWidth(CHOICE_MOST)  # (as Your EQ app's: UI-RULES 26)
+        self.hand_source.currentIndexChanged.connect(lambda _i: self.manual_source_changed())
+        help_window.tag(self.hand_source, "#by-hand")
+        g.addWidget(self.hand_source, 0, 1, 1, 3, Qt.AlignLeft)
+        g.setRowStretch(1, 1)
+        self.way_stack.addWidget(self.hand_w)
+        v.addWidget(self.way_stack)
+
+        # Settings and More settings: rows that open, for the 2 ways (eq_settings puts them here in its own steps)
+        self.settings_slot = QVBoxLayout()
+        self.settings_slot.setSpacing(2)
+        v.addLayout(self.settings_slot)
+
+        # the way's main button: Calculate (with Queue…, and Cancel while it runs) or Start
+        self.go_stack = QStackedWidget()
+        go_auto = QWidget()
+        ga = QVBoxLayout(go_auto)
+        ga.setContentsMargins(0, 4, 0, 0)
+        ga.setSpacing(6)
         run_row = QHBoxLayout()
         run_row.setSpacing(10)
         self.run_btn = QPushButton("Calculate")
@@ -348,43 +407,30 @@ class EqCards:
         run_row.addWidget(self.queue_btn)
         run_row.addWidget(self.cancel_btn)
         run_row.addStretch(1)
-        g.addLayout(run_row, 3, 1, 1, 3)
+        ga.addLayout(run_row)
         self.progress = QProgressBar()  # (Windows 11's thin line: its height is the theme's)
         self.progress.setTextVisible(False)
         self.progress.hide()
-        g.addWidget(self.progress, 4, 1, 1, 3)
+        ga.addWidget(self.progress)
         self.progress_text = label("", "muted")
         self.progress_text.hide()  # (shown with words only: an empty band under Run before any run, say_progress)
-        g.addWidget(self.progress_text, 5, 1, 1, 3)
-        v.addWidget(self.auto_w)
-
-        # By hand: an EQ of your own, from where it starts (an EQ's sources in their order, then each device's
-        # profile: fill_manual_sources), then Start, as Run (its words with "…" when it asks first: a file, pasted lines)
-        self.hand_w = QWidget()
-        g = grid(self.hand_w)
-        g.addWidget(name("Start from"), 0, 0)
-        self.hand_source = SearchCombo()
-        self.hand_source.setAccessibleName("Start from")
-        self.hand_source.setMaximumWidth(CHOICE_MOST)  # (as Your EQ app's: UI-RULES 26)
-        self.hand_source.currentIndexChanged.connect(lambda _i: self.manual_source_changed())
-        help_window.tag(self.hand_source, "#by-hand")
-        g.addWidget(self.hand_source, 0, 1, 1, 3, Qt.AlignLeft)
-        self.hand_src_note = label("", "muted")
-        g.addWidget(self.hand_src_note, 1, 1, 1, 3)
-        start_row = QHBoxLayout()
-        start_row.setSpacing(10)
+        ga.addWidget(self.progress_text)
+        ga.addStretch(1)
+        self.go_stack.addWidget(go_auto)
+        go_hand = QWidget()
+        gh = QHBoxLayout(go_hand)
+        gh.setContentsMargins(0, 4, 0, 0)
+        gh.setSpacing(10)
         self.hand_start = QPushButton("Start")
-        theme.mark(self.hand_start, primary=True)  # (By hand's main action, as Run is Automatically's)
+        theme.mark(self.hand_start, primary=True)  # (Manually's main action, as Calculate is Automatically's)
         icons.put(self.hand_start, "edit")
         self.hand_start.setMinimumWidth(120)
         self.hand_start.clicked.connect(self.start_from_source)
         help_window.tag(self.hand_start, "#hand-start")
-        start_row.addWidget(self.hand_start)
-        start_row.addStretch(1)
-        g.addLayout(start_row, 2, 1, 1, 3)
-        g.addWidget(label("Then change its filters on the EQ graph (drag a handle) or in the table below Your result.",
-                          "muted"), 3, 1, 1, 3)
-        v.addWidget(self.hand_w)
+        gh.addWidget(self.hand_start, 0, Qt.AlignTop)
+        gh.addStretch(1)
+        self.go_stack.addWidget(go_hand)
+        v.addWidget(self.go_stack)
         self.show_settings()
         self.fill_manual_sources()
         self.set_way((self.sw.s.get("make_way") if self.sw is not None else None) or "auto", remember=False)

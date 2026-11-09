@@ -217,16 +217,16 @@ def test_graph_card_title_lined_up_with_the_cards(eq_screen, check):
     from PySide6.QtCore import QPoint, QRect
     from ui import theme_sheet
     page = eq_screen.page
-    card, title, box = page.graph_title.parentWidget(), page.graph_title, page.target_box
+    card, title, box = page.graph_title.parentWidget(), page.graph_title, page.eq_box  # (Make the EQ: a group box)
     at = QRect(title.mapTo(card, QPoint(0, 0)), title.size())
-    head = QRect(3, 3, box.width() // 2, 34)  # (the Target card's title, inside its round corners)
+    head = QRect(3, 3, box.width() // 2, 34)  # (Make the EQ's title, inside its round corners)
     graph, target = qt.words_start(qt.picture(card), at), qt.words_start(qt.picture(box), head)
     found = {"graph card's title": graph is not None and graph + at.left(),
-             "Target card's title": target is not None and target + head.left(), "inset": theme_sheet.CARD + 1,
+             "Make the EQ's title": target is not None and target + head.left(), "inset": theme_sheet.CARD + 1,
              "cards' left edges": (card.mapTo(page, QPoint(0, 0)).x(), box.mapTo(page, QPoint(0, 0)).x())}
     check("look: the graph card's title starts where the cards' titles under it start (a card's inset inside its "
           "border), not 5 px further in",
-          graph is not None and target is not None and abs(found["graph card's title"] - found["Target card's title"]) <= 1
+          graph is not None and target is not None and abs(found["graph card's title"] - found["Make the EQ's title"]) <= 1
           and abs(found["graph card's title"] - found["inset"]) <= 2 and found["cards' left edges"][0] == found[
               "cards' left edges"][1], found)
 

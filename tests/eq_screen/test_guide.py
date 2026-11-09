@@ -622,8 +622,10 @@ def test_ring_joins_cards_that_touch(s, check):
         holes = [h.getRect() for h in t.holes]
     finally:
         t.end()
-    check("guide: two lit cards that touch (step 1's Target and Measurement) are lit as one, the ring's sides running "
-          "straight past where they meet (no notch)", touch <= 0 and ring == (True, True) and len(holes) == 1,
+    # (the UI audit, 2026-11-08: they are 2 rows of one card now, a few px apart, and still lit as one)
+    check("guide: two lit parts that touch or almost touch (step 1's Target and Measurement rows) are lit as one, the "
+          "ring's sides running straight past where they meet (no notch)", touch <= 4 and ring == (True, True)
+          and len(holes) == 1,
           (touch, ring, holes))
 
 

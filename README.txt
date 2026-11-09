@@ -121,6 +121,21 @@ online databases, the same as AutoEQ Local). The EQs of your devices change with
 MAKE AN EQ
 ----------
 One column, from the top to the bottom:
+- Target and Measurement (one card, a row for each): the files in the app, from A to Z (numbers in their sequence:
+  "IEM 2" before "IEM 10"). A measurement is a set: left and right, or more than one seating. Add… adds files from this
+  PC. Find… (or the / key) searches the app, this PC and the online databases:
+    - Preview shows a curve on the graph (dotted line). "Hide previews" removes the previews.
+    - Use selects the curve. Undo, at the bottom of the window, gives you the previous curve again.
+    - Sources… selects where Find… looks: the folders of this PC, the online databases (on or off) and more
+      squig.link databases. You add a squig.link database from a list or with its URL.
+    - The results are from A to Z in each part. The Rig, Type and Source lists are from A to Z. They have a search
+      box at the top: type a part of a name to find it.
+  "Other measurements of this model…" sorts all the measurements of your IEM for the target (Which measurement to
+  use). Adjust… (on the Target row) opens a window: tilt, bass, half-tilt, ear gain, treble and air, one row for each.
+  Value: − and + (or ↑ ↓ and the mouse wheel in the box), and the graph of the window shows each change. Then Hz and Q
+  (gray while the value is 0). "Clear the adjustments" changes them to 0. "Save as a target…" saves the adjusted
+  target as your target and uses it. The adjustments go to 0, because they are in the new target. Undo, at the bottom
+  of the window, gives you all of this again. Below the Target row, the app shows the adjustments that you made.
 - The graph: your measurement (orange), the target (dashed line) and, after you calculate, the measurement with the
   EQ (blue). Below it, the EQ graph shows the EQ (pink: above 0 it adds gain, below 0 it removes gain). "Error
   without EQ": the difference between the measurement and the target with no EQ. Above the graph:
@@ -131,23 +146,14 @@ One column, from the top to the bottom:
   When the pointer is on the graph, the graph shows its values at that position. The app does not calculate the
   error at the gray ends. If the app changed a target for a different rig, a band shows the possible error of that
   change.
-- Target and Measurement: the files in the app, from A to Z (numbers in their sequence: "IEM 2" before "IEM 10"). A
-  measurement is a set: left and right, or more than one seating. Add… adds files from this PC. Find… (or the / key)
-  searches the app, this PC and the online databases:
-    - Preview shows a curve on the graph (dotted line). "Hide previews" removes the previews.
-    - Use selects the curve. Undo, at the bottom of the window, gives you the previous curve again.
-    - Sources… selects where Find… looks: the folders of this PC, the online databases (on or off) and more
-      squig.link databases. You add a squig.link database from a list or with its URL.
-    - The results are from A to Z in each part. The Rig, Type and Source lists are from A to Z. They have a search
-      box at the top: type a part of a name to find it.
-  "Other measurements of this model…" sorts all the measurements of your IEM for the target (Which measurement to
-  use). History… (near the title of the graph) has the EQs that you saved or copied.
-- Make the EQ: first select how to make the EQ, on two tabs: Automatically or Manually (it opens on the tab that you
-  selected last). Your EQ app, below the tabs, is for the two tabs (the EQ stays in its limits, and Save writes its
-  file).
+  History… (near the title of the graph) has the EQs that you saved or copied.
+- Make the EQ: first Your EQ app, for the two tabs (the EQ stays in its limits, and Save writes its file: the ⓘ after
+  its label shows them). Then select how to make the EQ, on two tabs: Automatically or Manually (it opens on the tab
+  that you selected last). Below the tabs: Settings and More settings (click to open or close them), then Calculate or
+  Start.
   Automatically: the method, Settings to try and Calculate. The methods are Best fit for EQ apps, and the Website
-  methods for the AutoEQ of squig.link. Settings to try shows the settings that the app tries, and the time that is
-  necessary on this PC.
+  methods for the AutoEQ of squig.link. Settings to try shows the number of EQs that the app tries, and the time that
+  is necessary on this PC (its tooltip shows the settings).
   Best fit adds filters one at a time. It keeps the minimum number of filters for the same sound as the target. The
   same sound is a difference of 0.25 dB or less at all frequencies, as the ear hears it. The line below the numbers
   of the result tells you this. If the limits of your EQ app stop this, the line shows the error and its frequencies.
@@ -166,16 +172,13 @@ One column, from the top to the bottom:
   Close (on the right side of its title) shows the result that was there before the manual EQ, or no result. If you
   changed the EQ, it stays in "EQs that you made", and you can open it again. If it is empty, it closes. If it has no
   changes, it closes, and Undo in the message can open it again.
-- Settings and More settings (click to open or close them): the values of the automatic settings and information about
-  them, or your values. A value that you change shows "your value", and ↺ makes it automatic again. All lists are from
-  A to Z (numbers in their sequence, and a "Select…" item stays at the top). A list with more than 15 items (More
-  settings › Layout, the Source list of Find…, …) opens with a search box at the top. Best fit can start from your
-  filters (type them, or use "Edit as a table…" or "Load an EQ file…"). The graph shows them as "With your filters".
-- Adjust (on the Target card, below the target): tilt, bass, half-tilt, ear gain, treble and air, one row for each.
-  Value: − and + (or ↑ ↓ and the mouse wheel in the box), and the graph shows each change. Then Hz and Q (gray
-  while the value is 0). "Clear the adjustments" changes them to 0. "Save as a target…" saves the adjusted target as
-  your target and uses it. The adjustments go to 0, because they are in the new target. Undo, at the bottom of the
-  window, gives you all of this again.
+- Settings and More settings (in Make the EQ, click to open or close them): the values of the automatic settings, or
+  your values. Each label is above its box. "About these settings" (click to open it) tells you how the app adjusts
+  each value. A value that you change shows "your value", and ↺ makes it automatic again. More settings has a tab for
+  each part (the tab of a method shows only with that method). All lists are from A to Z (numbers in their sequence,
+  and a "Select…" item stays at the top). A list with more than 15 items (More settings › Layout, the Source list of
+  Find…, …) opens with a search box at the top. Best fit can start from your filters (More settings › Best fit: type
+  them, or use "Edit as a table…" or "Load an EQ file…"). The graph shows them as "With your filters".
 - Your result:
     - The error, the pre-amp, the maximum gain and the maximum Q.
     - "EQs that you made": open a different EQ that you made.

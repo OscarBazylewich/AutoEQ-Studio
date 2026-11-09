@@ -320,6 +320,7 @@ class InfoMark(QToolButton):
 
     def __init__(self, text="", name="", links=None):
         super().__init__()
+        self._text = ""  # (read as it is made: the theme's watch asks a button for its words)
         self.setObjectName("infoMark")
         self.setAutoRaise(True)
         self.setCursor(Qt.PointingHandCursor)
@@ -344,6 +345,12 @@ class InfoMark(QToolButton):
 
     def text_now(self):
         return self._text
+
+    def text(self):  # (its words, not a button's: the Guide stages a note's words as it did a label's)
+        return self._text
+
+    def setText(self, text):
+        self.set_text(text)
 
     def show_words(self):
         if not self._text:

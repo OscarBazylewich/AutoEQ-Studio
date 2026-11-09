@@ -218,37 +218,46 @@ def test_each_part_placed_in_the_step_that_makes_it(ahead, check):
     lay = body.layout()
     items = [lay.itemAt(i) for i in range(lay.count())]
     cards = [it.widget() for it in items if it.widget() is not None]
-    want = [page.plot.parentWidget(), page.target_box, page.measurement_box, page.eq_box,
-            page.settings.fold, page.settings.adv, page.result_box, page.listen]
-    tlay = page.target_box.layout()
-    target_last = [tlay.itemAt(i).widget() for i in range(tlay.count() - 2, tlay.count())]
+    want = [page.select_box, page.plot.parentWidget(), page.eq_box, page.result_box, page.listen]
+    tlay = page.target_row
+    target_last = tlay.itemAt(tlay.count() - 1).widget()
+    slot = [page.settings_slot.itemAt(i).widget() for i in range(page.settings_slot.count())]
 
     def headings(form):
         return [lab.text() for lab in form.findChildren(QLabel) if lab.property("role") == "section"]
     adv, form = page.settings.adv_form, page.settings.form
-    grids = {g.columnMinimumWidth(0) for g in adv._grids}
+    cell = adv.fields["site.profile"].box.parentWidget().parentWidget().parentWidget()  # (its cell: label, then box)
+    lab = next(w for w in cell.findChildren(QLabel) if w.text() == "Which website to copy")
+    from PySide6.QtWidgets import QVBoxLayout
+    cl = cell.layout()  # (More settings is closed: its parts are placed by their layouts, not drawn yet)
+    above = isinstance(cl, QVBoxLayout) and cl.itemAt(0).widget() is lab and         cl.itemAt(1).widget() is adv.fields["site.profile"].parentWidget()
     names = {p: adv.fields[p].box.accessibleName() if p in adv.fields else None
              for p in ("best_fit.layout", "site.profile", "export.extra_headroom", "history.keep", "performance.cores")}
     seen = {"cards in order": cards == want, "a stretch last": isinstance(items[-1], QSpacerItem) or
             items[-1].spacerItem() is not None,
-            "Adjust's row and panel last on the Target card": target_last == [page.settings.adjust_row,
-                                                                             page.settings.adjust_panel],
-            "Settings' sections": headings(form), "Advanced's sections": headings(adv),
-            "Advanced's label column one width": len(grids) == 1, "names": names,
+            "Adjust… last on the Target row": target_last is page.settings.adjust_btn,
+            "Settings and More settings in Make the EQ": slot == [page.settings.fold, page.settings.adv],
+            "Settings' sections": headings(form), "More settings' tabs": [b.text() for b in adv.tab_btns.values()],
+            "a label above its box": above, "names": names,
             "shown": [a.isVisibleTo(page) for a in _content(page)], "opening shown": page.loading.isVisibleTo(page)}
-    check("eq page: the finished page's parts are where they were: the cards in order (graph, Target, Measurement, "
-          "Make the EQ, Settings, Advanced, Your result, Listen), Adjust under the target, every section "
-          "of both folds, Advanced's two halves one form (one label column, its boxes named for a screen reader)",
-          seen["cards in order"] and seen["a stretch last"] and seen["Adjust's row and panel last on the Target card"]
+    # (the UI audit, 2026-11-08: Target and Measurement in one card above the graph; Settings and More settings rows
+    # in Make the EQ; labels above the boxes; a tab for each part of More settings)
+    check("eq page: the finished page's parts are where they were: the cards in order (Target and Measurement, the "
+          "graph, Make the EQ with Settings and More settings in it, Your result, Listen), Adjust… last on the Target "
+          "row, every section of Settings, a tab for each part of More settings (its two halves one form, a label "
+          "above its box, its boxes named for a screen reader)",
+          seen["cards in order"] and seen["a stretch last"] and seen["Adjust… last on the Target row"]
+          and seen["Settings and More settings in Make the EQ"]
           and seen["Settings' sections"] == ["Website AutoEQ: one set", "Website AutoEQ: find the best settings",
                                              "Best fit", "Error and selection", "Target"]
-          and seen["Advanced's sections"] == ["Best fit", "Website best settings", "Website", "Saved files", "History",
+          and seen["More settings' tabs"] == ["Best fit", "Website best settings", "Website", "Saved files", "History",
                                               "This PC"]
-          and seen["Advanced's label column one width"]
+          and seen["a label above its box"]
           and names == {"best_fit.layout": "Layout", "site.profile": "Which website to copy",
                         "export.extra_headroom": "More headroom (dB)", "history.keep": "History keeps",
                         "performance.cores": "CPU cores (0 = all the cores minus 1)"}
-          and seen["shown"] == [True] and seen["opening shown"] is False, seen)
+          and seen["shown"] == [True] and seen["opening shown"] is False,
+          ([k for k, v in seen.items() if v is False], seen["More settings' tabs"], seen["names"], seen["shown"]))
 
 
 def test_says_nothing_until_first_seen(ahead, check):

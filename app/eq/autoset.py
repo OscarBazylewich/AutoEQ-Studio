@@ -467,6 +467,35 @@ def describe(cfg, mode=None):
     return mode
 
 
+
+def describe_short(cfg, mode=None):
+    """What a run with these settings will try, in a few words (Make the EQ's Settings to try: "36 EQs, 1 to 32
+    filters"); describe() has the whole text."""
+    from . import engines
+    mode = mode or cfg["mode"]
+    if mode == "site_single":
+        return f"1 website EQ, {cfg['site_single']['rows']} filter rows"
+    if mode == "site_sweep":
+        n = len(engines.site_combos(cfg["site_sweep"]))
+        return f"{n} website EQ{'s' if n != 1 else ''}"
+    if mode == "best_fit":
+        bf = cfg["best_fit"]
+        if layouts.is_fixed(bf["layout"]):
+            return f"{len(layouts.bands(bf)[0])} bands"
+        bf = device_settings(bf)
+        n_mine = _count_mine(bf)
+        fp = len(engines.fight_penalties(bf))
+        if n_mine and bf.get("start_add") is False:
+            return f"your {n_mine} filters"
+        counts = bf["filter_counts"]
+        if engines.grows(bf, n_mine):
+            n = len(bf["gain_max"]) * len(bf["q_max"]) * fp
+            return f"{n} EQ{'s' if n != 1 else ''}, 1 to {max(counts)} filters"
+        n = engines.fit_count(bf, n_mine)
+        lo, hi = min(counts), max(counts)
+        return f"{n} EQ{'s' if n != 1 else ''}, {lo} to {hi} filters" if lo != hi else f"{n} EQs, {lo} filters"
+    return mode
+
 def device_settings(bf):
     """Best fit's settings kept within its device layout's (your own filters, kept or adjusted, take some of its)."""
     return layouts.device_settings(bf, _count_mine(bf))
@@ -619,5 +648,6 @@ def auto_result(cfg, an):
         out.update(values={}, notes=[], manual=[])
     s = estimate(eff)
     out["seconds"], out["time"], out["search"] = round(s, 1), fmt_time(s), describe(eff)
+    out["short"] = describe_short(eff)
     out["analysis"] = an
     return out

@@ -20,7 +20,7 @@ def _x(page, w):
 def test_the_way_first_and_only_its_steps(eq_screen, check):
     page = eq_screen.page
     was = page.way
-    shown = {}
+    shown, folds = {}, set()
     try:
         for way in ("auto", "hand"):
             page.set_way(way, remember=False)
@@ -29,7 +29,9 @@ def test_the_way_first_and_only_its_steps(eq_screen, check):
                           "app": page.app_combo.isVisibleTo(page),
                           "run": page.run_btn.isVisibleTo(page) and page.mode_combo.isVisibleTo(page),
                           "start": page.hand_start.isVisibleTo(page) and page.hand_source.isVisibleTo(page)}
-        first = all(_y(page, b) < _y(page, page.app_combo) for b in page.way_btns.values())
+            folds.add((_y(page, page.settings.fold), _y(page, page.settings.adv)))
+        under_app = all(_y(page, page.app_combo) < _y(page, b) for b in page.way_btns.values())
+        lined_up = _x(page, page.way_btns["auto"]) == _x(page, page.app_combo) - page.app_combo.x() +             page._way_labels[0].x()
         page.set_way("auto", remember=False)
         qt.pump(30)
         column = {_x(page, page.app_combo), _x(page, page.mode_combo)}
@@ -38,11 +40,14 @@ def test_the_way_first_and_only_its_steps(eq_screen, check):
         column.add(_x(page, page.hand_source))
     finally:
         page.set_way(was, remember=False)
-    check("make the EQ: the two ways come first, as tabs; Your EQ app shows under them for both, then only the chosen "
-          "way's steps (Method and Run, or Start from and Start), their boxes in one column",
-          first and shown == {"auto": {"tab": ["auto"], "app": True, "run": True, "start": False},
-                              "hand": {"tab": ["hand"], "app": True, "run": False, "start": True}}
-          and len(column) == 1, (first, shown, column))
+    # (the UI audit, 2026-11-08: Your EQ app above the tabs, as it is for the two; the tabs' words start at the labels'
+    # left edge; the card as high with either tab, so Settings, More settings and the cards under them do not move)
+    check("make the EQ: Your EQ app first, then the two ways as tabs (their words lined up with the labels), then only "
+          "the chosen way's steps (Method and Calculate, or Start from and Start), their boxes in one column; Settings "
+          "and More settings in one place with either tab",
+          under_app and lined_up and shown == {"auto": {"tab": ["auto"], "app": True, "run": True, "start": False},
+                                               "hand": {"tab": ["hand"], "app": True, "run": False, "start": True}}
+          and len(column) == 1 and len(folds) == 1, (under_app, lined_up, shown, column, folds))
 
 
 def test_the_tab_you_click_is_kept(eq_screen, check):

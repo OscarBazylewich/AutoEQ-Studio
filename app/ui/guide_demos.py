@@ -434,35 +434,47 @@ def _adj_shape(page, key, v):
 
 
 def adjust_demo(page):
+    """Adjust…: its window (one made for the demo, in the Guide's frame: the page's own is not touched), a value
+    typed into some rows (drawn over the box, not set) and the target in the window's graph with each one (then as it
+    was), and Clear the adjustments."""
     st = page.settings
-    if not page.curves:
-        return [{"at": lambda: st.adjust_btn, "say": "Adjust, below the target, has these controls"}]
-    col = theme.graph_colours()
     hold = {}
 
-    def start(api):
+    def open_(api):
+        from PySide6.QtCore import QSize
         import numpy as np
-        yield from api.pin_graph(page, st.adjust_panel)
-        hold["base"] = np.asarray(page.curves["target"], dtype=float)
-        hold["item"] = api.curve(page, hold["base"], col["target"], 2.6, name="Target, adjusted (demo)")
+        w = st.make_adjust_window()
+        w.form.refresh()  # (its values, as the page's own window shows them)
+        hold["w"] = w
+        api.window(w.dlg, near=st.adjust_btn, size=QSize(int(min(560, api.t.width() * 0.6)),
+                                                          int(min(600, api.t.height() * 0.85))))
+        st.draw_adjust(w)
+        if page.curves:
+            hold["f"] = np.asarray(page.curves["f"], dtype=float)
+            hold["base"] = np.asarray(page.curves["target"], dtype=float)
         yield 300
 
     def morph(api, key, text):
-        v = float(text)
-        d = _adj_shape(page, key, v)
-        b = hold.get("base")
-        if b is None:
-            yield 300
+        w, b = hold.get("w"), hold.get("base")
+        if w is None or b is None:
+            yield 600
             return
-        yield from api.morph(page, hold["item"], b, b + d, 900)
+        d = _adj_shape(page, key, float(text))
+        f = hold["f"]
+        yield from api.tween(900, lambda p: w.curve.setData(f, b + d * p))
         yield 1300
-        api.t.typed = [e for e in api.t.typed if e[0] is not st.adjust_form.fields["target_adjust." + key].box]
-        yield from api.morph(page, hold["item"], b + d, b, 450)
-    acts = [{"at": lambda: st.adjust_btn, "say": "Adjust (below Target) opens these controls. The graph shows the "
-             "target while you change them", "then": start}]
+        yield from api.tween(450, lambda p: w.curve.setData(f, b + d * (1 - p)))
+
+    def field(key):
+        w = hold.get("w")
+        return w.form.fields["target_adjust." + key].box if w is not None else st.adjust_btn
+    acts = [{"click": lambda: st.adjust_btn, "say": "Click Adjust… (after Add…, on the Target row)", "then": open_}]
     for key, text, say in ADJ:
-        acts += [{"type": (lambda k=key: st.adjust_form.fields["target_adjust." + k].box), "text": text, "keep": True,
-                  "hold": 250, "say": say(page.S["target_adjust"])},
+        acts += [{"type": (lambda k=key: field(k)), "text": text, "keep": True, "hold": 250,
+                  "say": say(page.S["target_adjust"])},
                  {"run": (lambda api, k=key, t=text: morph(api, k, t))}]
-    acts.append({"at": lambda: st.reset_adjust_btn, "say": "“Clear the adjustments” sets all the values to 0"})
+    acts.append({"at": lambda: hold["w"].plot if hold.get("w") else st.adjust_btn,
+                 "say": "The graph of the window shows the target while you change the values"})
+    acts.append({"at": lambda: hold["w"].reset_btn if hold.get("w") else st.adjust_btn,
+                 "say": "“Clear the adjustments” sets all the values to 0"})
     return acts
