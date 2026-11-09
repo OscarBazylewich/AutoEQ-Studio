@@ -58,8 +58,11 @@ def test_a_whole_test(lis, eq_screen, check):
     saved = dict(sw.s.get("listen") or {})
     lis.abx_begin()
     t = lis.abx
+    # (the UI audit, 2026-11-08: the test's rows in place of the ABX test's row, which hides; the row of how you
+    # compare, Same level, the ears and Hide the names, disabled as one)
     during = (lis.lm.isChecked(), lis.ears.currentData(), lis.ab_box.isVisibleTo(lis), lis.abx_box.isVisibleTo(lis),
-              lis.abx_row.isEnabled(), lis.engine.active, lis.engine.level_match, lis.engine.ears)
+              lis.abx_row.isVisibleTo(lis) or lis.compare_row.isEnabled(), lis.engine.active, lis.engine.level_match,
+              lis.engine.ears)
     saved_during = dict(sw.s.get("listen") or {})
     first_x = t.key("X")
     note = lis.note.text()
@@ -76,8 +79,8 @@ def test_a_whole_test(lis, eq_screen, check):
     said = lis.abx_said.text()
     check("abx: Start ABX tests A and B (EQ off and the EQ to start with), heard level-matched with both ears the same "
           "while it runs (not kept as your Listen settings), the version buttons put away (and the keys: the card "
-          "doesn't offer them then); X heard first, only its button lit; Listen to A and B play theirs; key 1 does "
-          "nothing",
+          "doesn't offer them then), the ABX test's row hidden and the row of how you compare disabled; X heard "
+          "first, only its button lit; Listen to A and B play theirs; key 1 does nothing",
           (a, b) == ("off", "sel") and during[:5] == (True, "both", False, True, False) and during[5] == first_x
           and during[6:] == (True, "both") and saved_during == saved and lit == ["Listen to X"]
           and "Keys 1-9" not in note and heard_a == "off" and heard_b == "sel" and after_key == "sel",

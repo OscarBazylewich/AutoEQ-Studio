@@ -431,7 +431,6 @@ def tracer(t, img):
     as its symbols: a quiet button's are greyer). The picture's card itself is drawn by the window in the same colours
     (trace_window.Stage)."""
     return f"""
-    QLabel#trTitle {{ font-family: "Segoe UI Variable Display"; font-size: 15pt; font-weight: 600; }}
     QLabel#trDropHead {{ font-family: "Segoe UI Variable Display"; font-size: 13.5pt; font-weight: 600; }}
     QCheckBox#trAutoOn {{ font-weight: 600; }}
     QFrame#trWhy {{ background: transparent; border: none; padding: 0px; }}
@@ -471,8 +470,7 @@ def guide_and_help(t, img):
         padding: 3px 26px 3px 6px; color: {t['ink2']}; qproperty-icon: url({img['chevron']}); }}
     QFrame#tourCard QToolButton#tourCount:hover {{ background: {t['subtle_hover']}; color: {t['ink']}; }}
     QFrame#tourCard QToolButton#tourCount:pressed {{ background: {t['subtle_press']}; }}
-    QFrame#tourCard QLabel#tourBadge {{ background: {t['accent_soft']}; color: {t['accent_text']};
-        border: 1px solid {t['accent_soft_line']}; border-radius: 10px; padding: 1px 8px; font-size: {FONT - 1.5}pt; }}
+    QFrame#tourCard QLabel#tourBadge {{ color: {t['muted']}; }}
     QFrame#tourCard QLabel#tourTitle {{ font-size: {FONT + 1.5}pt; font-weight: 600; }}
     QFrame#tourCard QPushButton[link="true"] {{ background: transparent; border: none; border-radius: 4px;
         color: {t['accent_text']}; padding: {PAD[0]}px 8px; }}

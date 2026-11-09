@@ -245,7 +245,8 @@ def test_tracers_guide(s, check):
     t = guide.start_trace(tw)
     opened = tw.t.has_image and tw.sample_open
     probs = tour.problems(tw, guide.trace_steps(tw))
-    t.go_to_step(7)  # (Auto trace: the sample's curves traced for it)
+    t.go_to_step(next(n for n, st in enumerate(t.steps) if st["title"] == "Trace automatically"))  # (the sample's
+    # curves traced for it)
     traced = sum(map(tw.t.has_data, tw.t.curves))
     t.all_chk.setChecked(False)
     demos, play = 0, []
@@ -262,10 +263,11 @@ def test_tracers_guide(s, check):
           "sample, and the tracer is empty again after", opened and not probs and traced >= 2 and not tw.t.has_image
           and not tw.sample_open and demos >= 7, (opened, probs, traced, demos))
     # (2026-10-23: Play demo showed on the tracer's steps that have no demo, doing nothing: its row was put in the
-    # card before the demo's box that hides on such a step)
-    wrong = [(title, has, shown) for title, has, shown, opts in play if shown != has or opts != has]
-    check("guide: the card's Play demo (and Play all steps, the speed) shows on a step with a demo and not on one "
-          "without (the tracer's “How tracing a graph goes”, “Automatic settings” …)",
+    # card before the demo's box that hides on such a step. The UI audit, 2026-11-08: Play all steps and the speed
+    # are in the list of steps, not on the card)
+    wrong = [(title, has, shown) for title, has, shown, opts in play if shown != has or opts]
+    check("guide: the card's Play demo shows on a step with a demo and not on one without (the tracer's “How to "
+          "trace a graph”, “Automatic settings” …); Play all steps and the speed are not on the card",
           not wrong and sum(not has for _t, has, _s, _o in play) >= 5, (wrong, play))
     tw.close()
 
@@ -357,9 +359,8 @@ def test_the_guides_look_follows_the_theme(s, check):
                 lit = {px(x, yy) for x in range(h.left() + 10, h.right() - 10) for yy in (h.top() - 1, h.top(), h.top() + 1)}
                 found["dark" if dark else "light"] = {
                     "trail": px(140, y) == tok["accent"], "ring": tok["accent"] in ring, "lit": tok["accent"] in lit,
-                    "tag": t.badge.palette().color(t.badge.foregroundRole()).name() == tok["accent_text"],
-                    "links": t.skip_btn.palette().color(QPalette.ButtonText).name() == tok["accent_text"]
-                    == t.end_btn.palette().color(QPalette.ButtonText).name()}
+                    "tag": t.badge.palette().color(t.badge.foregroundRole()).name() == tok["muted"],
+                    "links": t.skip_btn.palette().color(QPalette.ButtonText).name() == tok["accent_text"]}
             finally:
                 t.hot_w = t.trail = None
                 t.end()
@@ -845,3 +846,69 @@ def test_lists_a_demo_shows(s, check):
           "is", alike(menu, real_menu) and menu["corner"] == real_menu["corner"] == tk["stroke"]
           and menu["edge"] == menu["fill"] and menu["arrow"] is not None and real_menu["arrow"] is not None
           and abs(menu["arrow"] - real_menu["arrow"]) <= 1, (menu, real_menu))
+
+
+def test_the_card_top_and_the_step_list(s, check):
+    # (the UI audit, 2026-11-08: ✕ at the card's top right closes the Guide, no "Close the Guide" at its foot; the
+    # Demo words in gray under the bar; Play all steps and the speed at the foot of the list of steps, which clears
+    # Play all steps when you click a step; the pointer's words not drawn where they would cover the card)
+    from PySide6.QtCore import QPointF, QRectF
+    from PySide6.QtWidgets import QPushButton
+    from ui import theme
+    t = _on_step(s.page, "Calculate")
+    on_card = off_card = off = card = None
+    past = []
+    try:
+        x = t.end_btn
+        top_right = (x.text() == "✕" and x.accessibleName() == "Close the Guide"
+                     and x.mapTo(t.bubble, x.rect().topRight()).x() > t.bubble.width() - 40
+                     and x.mapTo(t.bubble, x.rect().topLeft()).y() < t.count_btn.mapTo(t.bubble, t.count_btn.rect()
+                                                                                       .bottomLeft()).y())
+        words = [b.text() for b in t.bubble.findChildren(QPushButton) if b.isVisible()]
+        under_bar = t.badge.mapTo(t.bubble, t.badge.rect().topLeft()).y() > t.bar.mapTo(t.bubble, t.bar.rect()
+                                                                                        .topLeft()).y()
+        gray = t.badge.palette().color(t.badge.foregroundRole()).name() == theme.tokens()["muted"]
+        closed = (t.all_chk.isVisible(), t.speed_slider.isVisible())
+        t._toggle_list()
+        s.qapp.processEvents()
+        opened = (t.all_chk.isVisible(), t.speed_slider.isVisible(), t.step_list.isAncestorOf(t.all_chk))
+        t.all_chk.setChecked(True)
+        it = next(t.step_list.list.item(k) for k in range(t.step_list.list.count())
+                  if t.step_list.list.item(k).data(0x0100) == 1)  # (Qt.UserRole: the second step)
+        t.step_list._chosen(it)
+        after = (t.i, t.all_chk.isChecked())
+        # a step with a button of its own (as the last step's Open Help): the card's height counts its row, and the
+        # button goes with the step (it stayed under the card where no event loop deleted it)
+        k = next(n for n, st in enumerate(t.steps) if st["title"] == "Calculate")
+        t.steps[k]["buttons"] = [("Open Help", lambda: None)]
+        try:
+            t.go_to_step(k)
+            past = [w.text() for w in t.bubble.findChildren(QPushButton) if w.isVisible()
+                    and w.mapTo(t.bubble, w.rect().bottomLeft()).y() > t.bubble.height()]
+            t.go_to_step(k - 1)
+            past += [w.text() for w in t.bubble.findChildren(QPushButton) if w.isVisible() and w.text() == "Open Help"]
+        finally:
+            t.steps[k].pop("buttons", None)
+        # the pointer's words: with the pointer in the card's middle, every place beside it is on the card: no box;
+        # with the pointer far from the card, a box off the card
+        t.say = "Some words"
+        t.cur = QPointF(t.bubble.geometry().center())
+        on_card = t.words_box()
+        card = QRectF(t.bubble.geometry())
+        far = QPointF(t.width() - card.right() > card.left() and t.width() - 200 or 200, t.height() / 2)
+        t.cur = far
+        off = t.words_box()
+        off_card = off is not None and not off.intersects(card)
+    finally:
+        t.say = ""
+        t.cur = None
+        t.end()
+    check("guide: ✕ at the card's top right closes the Guide (Close the Guide is its name for a screen reader), no "
+          "Close the Guide button at the foot; the Demo words gray under the bar; Play all steps and the speed only "
+          "in the list of steps, and a step clicked there clears Play all steps",
+          top_right and "Close the Guide" not in words and under_bar and gray and closed == (False, False)
+          and opened == (True, True, True) and after == (1, False) and not past,
+          (top_right, words, under_bar, gray, closed, opened, after, past))
+    check("guide: the pointer's words get no box where every place beside the pointer would cover the card (the "
+          "card's line says them); away from the card, their box is off the card", on_card is None and off_card,
+          (on_card, off, card))

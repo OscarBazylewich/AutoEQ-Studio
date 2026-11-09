@@ -136,9 +136,13 @@ class Listen(QGroupBox):
         self.pins, self.pins_for = [], None  # this IEM's EQs to compare, and which IEM they're for
         st = page.sw.s.get("listen") or {}
         v = QVBoxLayout(self)
-        sub = QLabel("Listen to the EQ with your IEM or headphone. Start with a low volume.")
-        theme.mark(sub, role="muted")
-        v.addWidget(sub)
+        # (one gray line under the title, with all its help text: the IEM, and "Start with a low volume" once; the keys
+        # 1-9 are in the version buttons' tooltips. The UI audit, 2026-11-08: a second line under the ears' row said
+        # the volume again, and read as the ABX test's)
+        self.note = QLabel("Listen to the EQ with your IEM or headphone. Start with a low volume.")
+        self.note.setWordWrap(True)
+        theme.mark(self.note, role="muted")
+        v.addWidget(self.note)
         # the device's own EQ playing too: said first, as it changes what Play sounds like (Windows 11's warning bar,
         # at the top of what it's about, as Devices' are: UI-RULES 23)
         self.apo_off = QPushButton("Disable it")
@@ -171,7 +175,6 @@ class Listen(QGroupBox):
         self.lm.setToolTip("All versions have the same loudness. Thus, you compare the EQ and not the volume")
         self.lm.setChecked(st.get("lm", True))
         self.lm.toggled.connect(self.same_level_changed)
-        row.addWidget(self.lm)
         for w, key in ((self.src, "#snd-src"), (self.vol, "#snd-vol"), (self.lm, "#snd-lm")):
             help_window.tag(w, key)
         row.addStretch(1)
@@ -247,6 +250,9 @@ class Listen(QGroupBox):
         self.ears.setCurrentIndex(max(0, self.ears.findData("split" if st.get("ears") == "split" else "both")))
         self.ears.activated.connect(lambda _i: self.ears_changed())
         ears.addWidget(self.ears)
+        # (Same level here, with the ears and Hide the names: the 3 settings of how you compare, in one row, which an
+        # ABX test disables as one; the Play row stays enabled. The UI audit, 2026-11-08)
+        ears.addWidget(self.lm)
         self.blind = QCheckBox("Hide the names")
         self.blind.setToolTip("Shows the versions as A, B, C … in a random sequence, until you click “Show the names”")
         self.blind.toggled.connect(self.hide_names_changed)
@@ -255,14 +261,13 @@ class Listen(QGroupBox):
         self.reveal_btn.clicked.connect(self.show_names)
         ears.addWidget(self.reveal_btn)
         ears.addStretch(1)
-        v.addLayout(ears)
+        self.compare_row = QWidget()
+        self.compare_row.setLayout(ears)
+        ears.setContentsMargins(0, 0, 0, 0)
+        v.addWidget(self.compare_row)
         for w, key in ((self.ears, "#snd-ears"), (self.blind, "#snd-blind"), (self.left, "#snd-left"),
                        (self.right, "#snd-right")):
             help_window.tag(w, key)
-        self.note = QLabel()
-        self.note.setWordWrap(True)
-        theme.mark(self.note, role="muted")
-        v.addWidget(self.note)
         self._abx_controls(v)
         # your EQs to compare
         head = QLabel("Your EQs to compare")
@@ -304,10 +309,13 @@ class Listen(QGroupBox):
         from ui import abx as abx_mod
         self.abx, self.abx_results, self._abx_was = None, [], None
         self._abx_labels, self._abx_heard = {}, {}  # (a test's versions' names and filters as it began)
+        self.abx_head = QLabel("ABX test")  # (a section title, as Your EQs to compare: the UI audit, 2026-11-08)
+        theme.mark(self.abx_head, role="section")
+        v.addWidget(self.abx_head)
         self.abx_row = QWidget()
         ar = QHBoxLayout(self.abx_row)
         ar.setContentsMargins(0, 0, 0, 0)
-        ar.addWidget(QLabel("ABX test of A"))  # (words, no label's colon: UI-RULES 15)
+        ar.addWidget(QLabel("A"))  # (words, no label's colon: UI-RULES 15)
         self.abx_a = SearchCombo()
         self.abx_a.setAccessibleName("ABX test, version A")
         ar.addWidget(self.abx_a, 1)
@@ -334,8 +342,11 @@ class Listen(QGroupBox):
         self.abx_box = QWidget()
         ab = QVBoxLayout(self.abx_box)
         ab.setContentsMargins(0, 0, 0, 0)
+        # (during a test: a bold line with the trial, A and B; the Listen to buttons; then "Which version is X?" with
+        # X is A, X is B and Stop the test. The instructions are in Start ABX's tooltip and in Help: the UI audit)
         self.abx_text = QLabel()
         self.abx_text.setWordWrap(True)
+        theme.mark(self.abx_text, role="section")
         ab.addWidget(self.abx_text)
         row = QHBoxLayout()
         self.abx_group = QButtonGroup(self)
@@ -347,7 +358,10 @@ class Listen(QGroupBox):
             self.abx_group.addButton(b)
             self.abx_hear[which] = b
             row.addWidget(b)
-        row.addSpacing(16)
+        row.addStretch(1)
+        ab.addLayout(row)
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Which version is X?"))
         self.abx_says = {}
         for which in ("A", "B"):
             b = QPushButton(f"X is {which}")  # (not filled: only the version heard is lit, as Listen's own buttons)
@@ -404,8 +418,8 @@ class Listen(QGroupBox):
         self._abx_labels, self._abx_heard = {k: label for k, label, *_ in vs}, self._abx_filters(vs)
         self._abx_was = {"lm": self.lm.isChecked(), "ears": self.ears.currentData(), "blind": self.blind.isChecked()}
         self._abx_set_options(True, "both", False)
-        for w in (self.lm, self.ears, self.blind, self.abx_row):
-            w.setEnabled(False)
+        self.compare_row.setEnabled(False)
+        self.abx_row.hide()  # (the test's own rows in its place)
         self.abx_said.hide()
         self.abx_listen("X")
 
@@ -462,9 +476,7 @@ class Listen(QGroupBox):
         if t is None:
             return
         names = {k: label for k, label, *_ in self.versions()}
-        self.abx_text.setText(f"Trial {t.trial + 1} of {t.n}: A is {names.get(t.a, t.a)}, B is {names.get(t.b, t.b)}, "
-                              "and X is one of the two. You can listen to each version many times. Then click “X is A” or "
-                              "“X is B”."
+        self.abx_text.setText(f"Trial {t.trial + 1} of {t.n}: A is {names.get(t.a, t.a)}, B is {names.get(t.b, t.b)}"
                               + ("" if self.playing else " (Play first.)"))
         self.abx_box.show()
         self.render_versions()
@@ -476,8 +488,8 @@ class Listen(QGroupBox):
         if t is None:
             return
         self.abx_box.hide()
-        for w in (self.lm, self.ears, self.blind, self.abx_row):
-            w.setEnabled(True)
+        self.compare_row.setEnabled(True)
+        self.abx_row.show()
         was, self._abx_was = self._abx_was or {}, None
         self._abx_set_options(was.get("lm", True), was.get("ears") or "both", was.get("blind", False))
         names = {**{k: label for k, label, *_ in self.versions()}, **self._abx_labels}  # (as they were when it began)
@@ -607,10 +619,12 @@ class Listen(QGroupBox):
             b.setChecked(key == self.active)
             if not blind or self.revealed:  # (its curve's colour on its left: theme_sheet.py's listen part)
                 theme.mark(b, listen_mark=colour)
+            tip = [f"Key {i + 1}"] if i < 9 else []  # (its key: in its tooltip, as the tracer's tools have theirs)
             if self.engine and (not blind or self.revealed):
                 s = next((s for s in self.engine.slots if s["key"] == key and not s.get("fading")), None)
                 if s:
-                    b.setToolTip(f"Level {s['gain_db']:.1f} dB")
+                    tip.append(f"Level {s['gain_db']:.1f} dB")
+            b.setToolTip(" · ".join(tip))
             b.clicked.connect(lambda _=False, k=key: self.choose(k))
             self.version_group.addButton(b)
             self.ab.addWidget(b)
@@ -623,15 +637,14 @@ class Listen(QGroupBox):
             box.sort_items(pinned=sum(k in ("off", "sel") for k, *_ in vs))  # (EQ off, the selected EQ on top: 22)
             box.setCurrentIndex(max(0, box.findData(key)))
             box.blockSignals(False)
-        note = ""
+        note = "Listen to the EQ with your IEM or headphone. "
         if self.page.curves:
             note = f"Listen with the {self.page.curves['name']}. "
         if len(self.versions()) < 2:
             note += "To hear more than one version, calculate an EQ or keep EQs to compare. "
         if split:
             note += "Also interchange the sides: your two ears are different. "
-        # (each ear chooses its own version there: the keys would only change one that isn't heard)
-        self.note.setText(note + ("" if split or testing else "Keys 1-9 change the version. ") + "Start with a low volume.")
+        self.note.setText(note + "Start with a low volume.")
 
     def ears_changed(self):
         self._save_listen_settings(ears=self.ears.currentData())

@@ -24,8 +24,8 @@ import numpy as np
 from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox, QFileDialog, QFrame, QGridLayout,
-                               QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea,
-                               QSlider, QToolButton, QVBoxLayout, QWidget)
+                               QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSlider,
+                               QStackedWidget, QToolButton, QVBoxLayout, QWidget)
 
 import textfile
 from ui import help_window, icons, tasks, theme
@@ -609,11 +609,14 @@ class TraceWindow(QWidget):
         v.setSpacing(10)
         head = QHBoxLayout()
         head.setSpacing(8)
-        title = QLabel("Trace a graph image")
-        title.setObjectName("trTitle")
-        head.addWidget(title)
-        self.file_lab = _label("", "muted", wrap=False)
-        head.addWidget(self.file_lab, 1)
+        # (no large title: the title bar says "Trace a graph image", as Help's says its name. The picture's name in bold
+        # where the title was, its size in gray beside it, or "No picture". The UI audit, 2026-11-08)
+        self.file_lab = QLabel()
+        theme.mark(self.file_lab, role="heading")  # (bold, a card title's size)
+        head.addWidget(self.file_lab)
+        self.size_lab = _label("", "muted", wrap=False)
+        head.addWidget(self.size_lab, 1)
+        self.show_name()
         # (the picture's own actions together, Remove last; then Guide apart at the right end, as the top bar's: it sat
         # between them, UI-RULES 14 and 28)
         self.open_btn = opn = QPushButton("Open image…")
@@ -649,9 +652,29 @@ class TraceWindow(QWidget):
         sv.setContentsMargins(0, 0, 6, 0)
         sv.setSpacing(8)
         sv.addWidget(self._auto_box())
-        sv.addWidget(self._axes_box())
-        sv.addWidget(self._trace_box())
-        sv.addWidget(self._save_box())
+        # (one step at a time: the tabs 1 Axes, 2 Trace and 3 Save, and the step's card under them, so the side does not
+        # scroll. The Automatic settings card stays above them, as it is for all the steps. The UI audit, 2026-11-08)
+        tabs = QHBoxLayout()
+        tabs.setSpacing(20)
+        self.tab_btns = []
+        for i, name in enumerate(("1  Axes", "2  Trace", "3  Save")):
+            b = QPushButton(name)
+            b.setCheckable(True)
+            theme.mark(b, nav=True, flush=True)
+            b.clicked.connect(lambda _=False, i=i: self.show_tab(i))
+            tabs.addWidget(b)
+            self.tab_btns.append(b)
+        tabs.addStretch(1)
+        sv.addLayout(tabs)
+        self.pages = QStackedWidget()
+        for box in (self._axes_box(), self._trace_box(), self._save_box()):
+            page = QWidget()  # (the card at its own height, not the tallest card's)
+            pv = QVBoxLayout(page)
+            pv.setContentsMargins(0, 0, 0, 0)
+            pv.addWidget(box)
+            pv.addStretch(1)
+            self.pages.addWidget(page)
+        sv.addWidget(self.pages)
         sv.addStretch(1)
         side_scroll.setWidget(side)
         _no_focus(side)
@@ -663,9 +686,21 @@ class TraceWindow(QWidget):
                        *((self.boxes[k], "#tr-" + k) for k in ("d1", "d2", "f1", "f2"))):
             help_window.tag(w, key)
         self.set_tool("trace")
+        self.show_tab(0)
         self.show_values()
         self.render_auto_settings()
         self.update_ui()
+
+    def show_tab(self, i):
+        """The side's step i (0: Axes, 1: Trace, 2: Save): its tab lit and its card shown."""
+        self.pages.setCurrentIndex(i)
+        for k, b in enumerate(self.tab_btns):
+            b.setChecked(k == i)
+
+    def show_name(self, name="", size=None):
+        """The picture's name in bold at the top and its size (w, h) in gray beside it; "No picture" without one."""
+        self.file_lab.setText(name or ("Picture" if size else "No picture"))
+        self.size_lab.setText(f"{size[0]}×{size[1]}" if size else "")
 
     # ---------------------------------------------------------------- the side
     def _tag(self, key):
@@ -712,23 +747,40 @@ class TraceWindow(QWidget):
         v.addWidget(why)
         return box
 
-    def _axes_box(self):
-        box = QGroupBox("1  Axes")
+    def _card(self):
+        """A step's card (its tab is its title): a card frame, its content at a card's inset, as the Automatic settings
+        card's."""
+        box = QFrame()
+        theme.mark(box, card=True)
         v = QVBoxLayout(box)
+        v.setContentsMargins(4, 4, 4, 4)  # (the card's padding and these 4 px: the same inset as the card above)
+        return box, v
+
+    def _axes_box(self):
+        box, v = self._card()
         v.addWidget(_label("Drag the red lines to two dB grid lines. Drag the blue lines to two frequency grid lines. "
                            "Type their values.", "muted"))
+        # (two rows with their labels in a column at the left, as 3 Save's form; Top, Bottom, Left and Right small and
+        # gray in the row, the boxes' full names for a screen reader. The UI audit, 2026-11-08)
         g = QGridLayout()
+        g.setColumnStretch(2, 1)
+        g.setColumnStretch(4, 1)
         self.boxes = {}
-        for i, (key, text, lim) in enumerate((("d1", "Top red line (dB)", "trace.db"), ("d2", "Bottom red line (dB)", "trace.db"),
-                                              ("f1", "Left blue line (Hz)", "trace.hz"), ("f2", "Right blue line (Hz)", "trace.hz"))):
-            g.addWidget(_label(text, wrap=False), i // 2 * 2, i % 2)
-            b = QLineEdit()
-            b.setAccessibleName(text)
-            b.setToolTip(help_of(f"#tr-{key}") + f"\nPermitted: {self.limits.text(lim)}.")
-            b.textEdited.connect(lambda _t, k=key, lim=lim: self.value_typed(k, lim))
-            b.editingFinished.connect(lambda k=key, lim=lim: self.value_left(k, lim))
-            g.addWidget(b, i // 2 * 2 + 1, i % 2)
-            self.boxes[key] = b
+        rows = (("Red lines (dB)", (("d1", "Top", "Top red line (dB)", "trace.db"),
+                                    ("d2", "Bottom", "Bottom red line (dB)", "trace.db"))),
+                ("Blue lines (Hz)", (("f1", "Left", "Left blue line (Hz)", "trace.hz"),
+                                     ("f2", "Right", "Right blue line (Hz)", "trace.hz"))))
+        for r, (label, pair) in enumerate(rows):
+            g.addWidget(_label(label, wrap=False), r, 0)
+            for c, (key, short, text, lim) in enumerate(pair):
+                g.addWidget(_label(short, "muted", wrap=False), r, 1 + 2 * c)
+                b = QLineEdit()
+                b.setAccessibleName(text)
+                b.setToolTip(help_of(f"#tr-{key}") + f"\nPermitted: {self.limits.text(lim)}.")
+                b.textEdited.connect(lambda _t, k=key, lim=lim: self.value_typed(k, lim))
+                b.editingFinished.connect(lambda k=key, lim=lim: self.value_left(k, lim))
+                g.addWidget(b, r, 2 + 2 * c)
+                self.boxes[key] = b
         v.addLayout(g)
         checks = QHBoxLayout()
         self.snap = QCheckBox("Align with grid lines")
@@ -759,41 +811,11 @@ class TraceWindow(QWidget):
         return box
 
     def _trace_box(self):
-        box = QGroupBox("2  Trace")
-        v = QVBoxLayout(box)
-        tools = QHBoxLayout()
-        tools.setSpacing(0)  # (one group: theme_sheet's tracer part rounds only its two ends; the one on is filled in
-        # the accent, as Windows 11's toggle buttons: UI-RULES 8)
-        self.tool_btns = {}
-        group = QButtonGroup(self)
-        for n, (key, text, tip) in enumerate(TOOLS):
-            b = QPushButton(text)
-            b.setCheckable(True)
-            b.setToolTip(tip)
-            b.clicked.connect(lambda _=False, k=key: self.set_tool(k))
-            theme.mark(b, trTool="first" if n == 0 else "last" if n == len(TOOLS) - 1 else "mid")
-            icons.put(b, TOOL_SYMBOLS[key])
-            group.addButton(b)
-            tools.addWidget(b)
-            self.tool_btns[key] = b
-        tools.addStretch(1)
-        v.addLayout(tools)
-        self.curves_box = QWidget()
-        self.curves_lay = QVBoxLayout(self.curves_box)
-        self.curves_lay.setContentsMargins(0, 0, 0, 0)
-        self.curves_lay.setSpacing(2)
-        v.addWidget(self.curves_box)
-        row = QHBoxLayout()
-        self.add_btn = QPushButton("Add a curve")  # (verb first, UI-RULES 15: it was "Another curve"; Windows 11's +)
-        self.add_btn.setToolTip("Trace one more curve on the same graph (for example, the other channel)")
-        self.add_btn.clicked.connect(self.add_curve)
-        icons.put(self.add_btn, "add")
-        row.addWidget(self.add_btn)
-        self.curves_note = _label("", "muted")
-        row.addWidget(self.curves_note, 1)
-        v.addLayout(row)
-        # Auto trace with the colour it traced beside it; the tolerance on a row of its own (the slider's room at
-        # 10.5 pt text)
+        # (automatic first, the button the Guide says to use first, with its two settings; then the curves; then "Trace
+        # manually": the tools, their words and the edit row, Clear set apart. The UI audit, 2026-11-08)
+        box, v = self._card()
+        # Trace automatically with the colour it traced beside it; the tolerance on a row of its own (the slider's room
+        # at 10.5 pt text)
         row = QHBoxLayout()
         self.auto_btn = QPushButton("Trace automatically")
         theme.mark(self.auto_btn, primary=True)
@@ -826,11 +848,49 @@ class TraceWindow(QWidget):
         row.addWidget(self._tag("dashed"))
         row.addStretch(1)
         v.addLayout(row)
+        self.curves_box = QWidget()
+        self.curves_lay = QVBoxLayout(self.curves_box)
+        self.curves_lay.setContentsMargins(0, 0, 0, 0)
+        self.curves_lay.setSpacing(2)
+        v.addWidget(self.curves_box)
+        row = QHBoxLayout()
+        self.add_btn = QPushButton("Add a curve")  # (verb first, UI-RULES 15: it was "Another curve"; Windows 11's +)
+        self.add_btn.setToolTip("Trace one more curve on the same graph (for example, the other channel)")
+        self.add_btn.clicked.connect(self.add_curve)
+        icons.put(self.add_btn, "add")
+        row.addWidget(self.add_btn)
+        self.curves_note = _label("", "muted")
+        row.addWidget(self.curves_note, 1)
+        v.addLayout(row)
+        self.manual_head = QLabel("Trace manually")  # (a section title in the card: UI-RULES 26)
+        theme.mark(self.manual_head, role="section")
+        v.addWidget(self.manual_head)
+        tools = QHBoxLayout()
+        tools.setSpacing(0)  # (one group: theme_sheet's tracer part rounds only its two ends; the one on is filled in
+        # the accent, as Windows 11's toggle buttons: UI-RULES 8)
+        self.tool_btns = {}
+        group = QButtonGroup(self)
+        for n, (key, text, tip) in enumerate(TOOLS):
+            b = QPushButton(text)
+            b.setCheckable(True)
+            b.setToolTip(tip)
+            b.clicked.connect(lambda _=False, k=key: self.set_tool(k))
+            theme.mark(b, trTool="first" if n == 0 else "last" if n == len(TOOLS) - 1 else "mid")
+            icons.put(b, TOOL_SYMBOLS[key])
+            group.addButton(b)
+            tools.addWidget(b)
+            self.tool_btns[key] = b
+        tools.addStretch(1)
+        v.addLayout(tools)
+        self.status = _label("", "muted")  # (the tool's words, and what the tracer did)
+        v.addWidget(self.status)
         row = QHBoxLayout()
         self.edit_btns = {}
         for key, text, tip, fn in (("smooth", "Make smooth", "Make the pixel steps smooth (S)", self.smooth),
                                    ("undo", "Undo", "Undo (Ctrl+Z)", self.undo), ("redo", "Redo", "Redo (Ctrl+Shift+Z)", self.redo),
                                    ("clear", "Clear", "Clear the selected curve (Delete)", self.clear)):
+            if key == "clear":
+                row.addSpacing(12)  # (Clear set apart, as every row's: UI-RULES 14)
             b = QPushButton(text)  # (no symbols in this row: Smooth and Clear have none, UI-RULES 9)
             b.setToolTip(tip)
             b.clicked.connect(fn)
@@ -838,13 +898,12 @@ class TraceWindow(QWidget):
             self.edit_btns[key] = b
         row.addStretch(1)
         v.addLayout(row)
-        self.status = _label("", "muted")
-        v.addWidget(self.status)
         return box
 
     def _save_box(self):
-        box = QGroupBox("3  Save")
-        g = QGridLayout(box)
+        box, v = self._card()
+        g = QGridLayout()
+        v.addLayout(g)
         g.addWidget(_label("Name", wrap=False), 0, 0)
         self.name = QLineEdit()
         self.name.setToolTip(help_of("#tr-name"))
@@ -1085,13 +1144,14 @@ class TraceWindow(QWidget):
             traceback.print_exc()
             self.t.unload()
             self.stage.clear_image()
-            self.file_lab.setText("")
+            self.show_name()
             self.changed()
             QMessageBox.warning(self, "Trace", f"The app cannot read the axes of this picture ({e}). Send the picture "
                                 "and data\\app.log. Then we can correct the problem.")
             return
         h, w = rgb.shape[:2]
-        self.file_lab.setText(f"{name} · {w}×{h}" if name != "Traced graph" else f"{w}×{h}")
+        self.show_name(name if name != "Traced graph" else "Pasted picture", (w, h))
+        self.show_tab(0)  # (a new picture: its axes first)
         self.stage.set_image(rgb)
         self.saved_note = False
         self.status.setText(HINTS[self.tool])
@@ -1116,7 +1176,7 @@ class TraceWindow(QWidget):
             t.v["dashed"] = False
         self.reading = False
         self.stage.clear_image()
-        self.file_lab.setText("")
+        self.show_name()
         self.saved_note = False
         self.save_note.setText("")
         self.show_values()
@@ -1449,6 +1509,8 @@ class TraceWindow(QWidget):
                 Qt.Key_Plus: lambda: st.zoom(1.25), Qt.Key_Equal: lambda: st.zoom(1.25), Qt.Key_Minus: lambda: st.zoom(0.8),
                 Qt.Key_Backspace: self.clear, Qt.Key_Delete: self.clear}
         if key in acts and self.t.has_image:
+            if key not in (Qt.Key_F, Qt.Key_Plus, Qt.Key_Equal, Qt.Key_Minus):
+                self.show_tab(1)  # (a key of the Trace step: its card shown, where the curves change)
             acts[key]()
             return
         super().keyPressEvent(e)

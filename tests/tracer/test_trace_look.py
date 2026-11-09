@@ -83,6 +83,7 @@ def test_chosen_curve_row(eq_screen, check):
     from ui import theme
     tw = _new(eq_screen)
     _sample(eq_screen, tw, 2)
+    tw.show_tab(1)  # (the curves' rows are on 2 Trace)
     tw.select_curve(0)
     qt.pump(50)
     first = [r.property("trRow") for r in tw.curve_rows]
@@ -172,12 +173,13 @@ def test_cards_content_at_one_inset(eq_screen, check):
     from ui import theme_sheet
     tw = _new(eq_screen)
     auto, axes = tw.auto_on.parentWidget(), tw.boxes["d1"].parentWidget()
+    red = next(lab for lab in axes.findChildren(QLabel) if lab.text() == "Red lines (dB)")
 
     def sides(w, card):  # (how far in from the card's left edge, and from its right edge)
         at = w.mapTo(card, QPoint(0, 0)).x()
         return at, card.width() - at - w.width()
     got = {"Automatic settings": sides(tw.auto_on, auto)[0], "Why these settings": sides(tw.why, auto)[0],
-           "the card's right": sides(tw.auto_state, auto)[1], "1 Axes": sides(tw.boxes["d1"], axes)[0],
+           "the card's right": sides(tw.auto_state, auto)[1], "1 Axes": sides(red, axes)[0],
            "1 Axes' right": sides(tw.boxes["d2"], axes)[1]}
     qt.close(tw)
     inset = theme_sheet.CARD + 1  # (inside its 1 px border)
@@ -200,7 +202,11 @@ def test_nothing_cut_at_the_new_sizes(eq_screen, check):
         if max(side.width(), side.minimumSizeHint().width()) > room:
             out.append(("the side", side.width(), side.minimumSizeHint().width(), room))
         return out
-    at_default = cut()
+    at_default = []
+    for i in range(3):  # (each step's card: the side shows one at a time, the UI audit 2026-11-08)
+        tw.show_tab(i)
+        qt.pump(50)
+        at_default += cut()
     combo = tw.comp
     combo.setCurrentIndex(0)
     opt = QStyleOptionComboBox()
@@ -210,7 +216,11 @@ def test_nothing_cut_at_the_new_sizes(eq_screen, check):
     slider = tw.tol.width()
     tw.resize(tw.minimumSizeHint())
     qt.pump(100)
-    at_least = cut()
+    at_least = []
+    for i in range(3):
+        tw.show_tab(i)
+        qt.pump(50)
+        at_least += cut()
     qt.close(tw)
     check("tracer: nothing is cut or squeezed at Windows 11's sizes (10.5 pt text, symbols beside the words): every "
           "button, tick box and label as wide as its words, the settings' side within its room, “The actual response "
@@ -266,7 +276,7 @@ def test_notes_and_zoom_bar_take_no_room_when_empty(eq_screen, check):
     fresh = (tw.axis_note.isVisible(), tw.save_note.isVisible(), tw.stage.zoom_box.isVisible())
     _sample(eq_screen, tw, 0)
     loaded = (tw.axis_note.isVisible() and bool(tw.axis_note.text()), tw.stage.zoom_box.isVisible(),
-              tw.save_note.isVisible() == bool(tw.save_note.text()))
+              tw.save_note.isVisibleTo(tw.save_note.parentWidget()) == bool(tw.save_note.text()))  # (on 3 Save)
     tw.remove_image()  # (nothing traced: removed without asking)
     qt.pump(50)
     removed = (tw.axis_note.isVisible(), tw.save_note.isVisible(), tw.stage.zoom_box.isVisible())
@@ -275,3 +285,50 @@ def test_notes_and_zoom_bar_take_no_room_when_empty(eq_screen, check):
           "only with a picture (on a new window too)",
           fresh == (False, False, False) and loaded == (True, True, True) and removed == (False, False, False),
           (fresh, loaded, removed))
+
+
+def test_one_step_at_a_time(eq_screen, check):
+    # (the UI audit, 2026-11-08: no large title, the picture's name in bold at the top, its size in gray, or "No
+    # picture"; the side's Automatic settings card, then the tabs 1 Axes, 2 Trace and 3 Save with one card at a time; a
+    # new picture shows 1 Axes, a key of the Trace step (A, T…) shows 2 Trace; 1 Axes in two rows, its labels at the
+    # left; 2 Trace with Trace automatically first and "Trace manually" over the tools and the edit row)
+    from PySide6.QtGui import QKeyEvent
+    tw = _new(eq_screen)
+    empty = (tw.file_lab.text(), tw.size_lab.text(), tw.file_lab.property("role"),
+             [lab.text() for lab in tw.findChildren(QLabel) if lab.text() == "Trace a graph image"])
+    _sample(eq_screen, tw, 0)
+    loaded = (tw.file_lab.text(), bool(tw.size_lab.text()), tw.pages.currentIndex(),
+              [b.isChecked() for b in tw.tab_btns], [b.text() for b in tw.tab_btns])
+    shown = []
+    for i in range(3):
+        tw.show_tab(i)
+        qt.pump(30)
+        shown.append([w.isVisible() for w in (tw.boxes["d1"], tw.auto_btn, tw.save_meas)] + [tw.auto_on.isVisible()])
+    tw.show_tab(0)
+    tw.activateWindow()
+    tw.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_T, Qt.NoModifier))
+    after_key = tw.pages.currentIndex()
+    axes = tw.boxes["d1"].parentWidget()
+    rows = [lab.text() for lab in axes.findChildren(QLabel) if lab.text() in ("Red lines (dB)", "Blue lines (Hz)",
+                                                                               "Top", "Bottom", "Left", "Right")]
+    names = [tw.boxes[k].accessibleName() for k in ("d1", "d2", "f1", "f2")]
+    card = tw.auto_btn.parentWidget()
+    order = sorted((w.mapTo(card, w.rect().topLeft()).y(), name) for name, w in
+                   (("auto", tw.auto_btn), ("curves", tw.curves_box), ("manual", tw.manual_head),
+                    ("tools", tw.tool_btns["trace"]), ("edit", tw.edit_btns["undo"])))
+    clear_apart = tw.edit_btns["clear"].x() - tw.edit_btns["redo"].geometry().right()
+    qt.close(tw)
+    check("tracer: no large title; the top shows No picture, then the picture's name in bold (a heading) with its "
+          "size in gray; the side has the tabs 1 Axes, 2 Trace and 3 Save, one card at a time under the Automatic "
+          "settings card; a new picture shows 1 Axes, the key T shows 2 Trace",
+          empty == ("No picture", "", "heading", []) and loaded[0] == "Sample IEM" and loaded[1]
+          and loaded[2:] == (0, [True, False, False], ["1  Axes", "2  Trace", "3  Save"])
+          and shown == [[True, False, False, True], [False, True, False, True], [False, False, True, True]]
+          and after_key == 1, (empty, loaded, shown, after_key))
+    check("tracer: 1 Axes has two rows, Red lines (dB) with Top and Bottom, Blue lines (Hz) with Left and Right (the "
+          "boxes' full names for a screen reader); 2 Trace has Trace automatically first, then the curves, then "
+          "Trace manually with its tools and the edit row, Clear set apart",
+          rows == ["Red lines (dB)", "Top", "Bottom", "Blue lines (Hz)", "Left", "Right"]
+          and names == ["Top red line (dB)", "Bottom red line (dB)", "Left blue line (Hz)", "Right blue line (Hz)"]
+          and [n for _y, n in order] == ["auto", "curves", "manual", "tools", "edit"] and clear_apart >= 12,
+          (rows, names, order, clear_apart))

@@ -463,12 +463,13 @@ def eq_steps(page):
             yield 600
             yield from api.click(btns[0])
             api.stage_checked(btns[0], True)
-        yield from api.at(L.lm, 0.1, 0.5, 900, say="Same level: the same loudness for each version")
 
     def compare_ear_demo(api):
         from PySide6.QtCore import QSignalBlocker
         L = page.listen
         api.undo(L.render_versions)  # (put back last: the version buttons as the boxes are again)
+        # (Same level is in the row of how you compare, with the ears and Hide the names: the UI audit, 2026-11-08)
+        yield from api.at(L.lm, 0.1, 0.5, 900, say="Same level: the same loudness for each version")
         api.say("Hide the names: the versions show as A, B, C… until you click Show the names")
         yield from api.click(L.blind, 0.1)
         api.stage_checked(L.blind, True)
@@ -560,7 +561,8 @@ def eq_steps(page):
         {"chapter": "The parts of AutoEQ Studio", "title": "How to make an EQ",
          "target": lambda: [page.target_box, page.measurement_box],
          "text": "From top to bottom: the target and your IEM or headphone, the graph, the EQ, and the result to save. "
-                 "Each step has a short demo. The demo does not change your work.",
+                 "Each step has a short demo. The demo does not change your work. The list of steps (at the top of "
+                 "this box) has Play all steps and the speed of the demos.",
          "demo": [{"spot": lambda: page.target_combo},
                   {"at": lambda: page.target_combo, "say": "Select the target: the sound that you want"},
                   {"spot": lambda: page.measurement_combo},

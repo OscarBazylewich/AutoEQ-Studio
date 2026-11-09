@@ -89,17 +89,18 @@ Transparency effects are off.
 You can go to each control with Tab (in the top bar, go to the screens with the arrow keys). Each control has a name
 for a screen reader.
 
-Guide: the 30 steps to make an EQ on Make an EQ (select, the settings, calculate, examine, save, listen and more),
+Guide: the 31 steps to make an EQ on Make an EQ (select, the settings, calculate, examine, save, listen and more),
 the same as the Guide of AutoEQ Local. Each step highlights a part of the screen, tells you about it and shows it in
 a short demo. In a demo, a pointer opens Find…, types a name, selects a row and shows it on the graph. It also opens
 a list and selects an item. Or it types the target adjustments while the target changes on the graph (the graph
 stays at the top while the page scrolls). A demo also shows how the app calculates, and the curve with the EQ.
 Before you calculate, the steps of the result show an example result from your files.
 The card of the Guide has:
-  - "3 of 30": a list of all the steps (Go to a step).
-  - Play again (R), Wait (P), Complete the demo, and the speed of the demo.
-  - "Play all steps": all the Guide, automatically.
-  - Back / Next (the arrow keys), Close the Guide (Esc) and Start again.
+  - "3 of 31" at the top: a list of all the steps (Go to a step). Below the list: "Play all steps" (all the Guide,
+    automatically) and the speed of the demos.
+  - ✕ at the top right: it closes the Guide (also Esc).
+  - Play again (R), Wait (P) and Complete the demo.
+  - Back / Next (the arrow keys) and Start again.
 If you scroll while a demo plays, the demo waits. Continue scrolls to the step again. After a demo, the items that it
 changed are as they were before it. A demo does not select, calculate, save or download. If the Animation effects
 of Windows are off, a demo shows markers with numbers. The tracer has its Guide (on a sample graph).
@@ -238,7 +239,7 @@ TRACE A GRAPH (Trace a graph image…, near the title of the graph)
 -----------------------------------------------------------------
 Use the tracer if the measurement of an IEM or headphone is only a picture (a data sheet, or a screenshot from a
 website). Open, drag or paste (Ctrl+V) the picture, and it becomes a measurement or a target. If you paste or drag a
-picture on Make an EQ, the tracer also opens with it.
+picture on Make an EQ, the tracer also opens with it. The tabs 1 Axes, 2 Trace and 3 Save show one step at a time.
 1. Axes: the app finds the grid lines and reads the numbers on the axes with the text reader of Windows. The two red
    lines (dB) and the two blue lines (Hz) are on grid lines, with their values. Examine them on the picture. If a
    value is not correct, drag the line to a different grid line or type the value.

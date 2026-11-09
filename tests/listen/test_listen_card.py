@@ -58,6 +58,30 @@ def test_versions_and_play(card, check):
           and [s["key"] for s in lis.engine.slots] == keys, (keys, lis.play_btn.text(), lis.engine.ears))
 
 
+def test_layout_of_the_card(card, check):
+    # (the UI audit, 2026-11-08: one gray line of help at the top; Same level in the row of how you compare, with the
+    # ears and Hide the names; the ABX test under a section title, its row's first label "A"; each version button's
+    # key in its tooltip; during a test, a bold line, then "Which version is X?" with X is A and X is B)
+    from PySide6.QtWidgets import QLabel
+    lis = card.lis
+    lis.render_versions()
+    row = lis.compare_row
+    in_row = [w for w in (lis.ears, lis.lm, lis.blind) if row.isAncestorOf(w)]
+    texts = [lab.text() for lab in lis.findChildren(QLabel)]
+    tips = [b.toolTip().split(" · ")[0] for b in lis.ab_box.findChildren(QPushButton)][:3]
+    first = next(lab.text() for lab in lis.abx_row.findChildren(QLabel))
+    check("listen: one gray line of help at the top (with Start with a low volume once, no keys in it); Same level "
+          "in the row of how you compare, with the ears and Hide the names; the ABX test under a title, its row "
+          "begins with A; the version buttons say their keys in their tooltips; during a test the question "
+          "Which version is X?",
+          texts.count("Listen to the EQ with your IEM or headphone. Start with a low volume.") <= 1
+          and lis.note.text().count("Start with a low volume") == 1 and "Keys" not in lis.note.text()
+          and in_row == [lis.ears, lis.lm, lis.blind] and lis.abx_head.text() == "ABX test"
+          and lis.abx_head.property("role") == "section" and first == "A" and tips == ["Key 1", "Key 2", "Key 3"][:len(tips)]
+          and len(tips) >= 2 and "Which version is X?" in texts and lis.abx_text.property("role") == "section",
+          (lis.note.text(), [w.objectName() or type(w).__name__ for w in in_row], first, tips))
+
+
 def test_keys_1_and_2(card, check):
     page, lis = card.page, card.lis
     page.setFocus()

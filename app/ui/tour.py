@@ -5,10 +5,11 @@ in a card, and can carry a demo: actions played by a drawn pointer on a layer ab
 the window while a tour runs, and what a demo shows (a list opened, a value typed, a curve on the graph) is put back
 when it ends: nothing of yours changes.
 
-The card: the step list ("1 · Choose · 3 of 27", Windows 11's chevron after it: go straight to any step), a progress
-bar, "Demo · your work isn't changed", the title and words, the demo's actions (while it plays, only the one playing
-now), Play demo / Replay, Pause (P), Skip demo, Play all steps (one after another), the demo's speed (¼× to 4×), a
-step's own buttons (e.g. Open Help), End tour (Esc), Start again (the last step), Back / Next (← →). The card goes
+The card: the step list ("1 · Choose · 3 of 27", Windows 11's chevron after it: go straight to any step; at its foot
+Play all steps, one after another, and the demos' speed, ¼× to 4×) and ✕ (close the Guide, Esc) at the top right, a
+progress bar, "Demo · your work does not change" in gray under it, the title and words, the demo's actions (while it
+plays, only the one playing now), Play demo / Replay, Pause (P), Skip demo, a step's own buttons (e.g. Open Help),
+Start again (the last step), Back / Next (← →). The card goes
 where it covers least of what's lit, what the demo uses and the pointer, and stays put while that's as good as
 anywhere else.
 The look is Windows 11's, as the rest of the app: the card and what a demo shows inside the tour are styled by name in
@@ -789,9 +790,9 @@ class Api:
 
 # ---------------------------------------------------------------- the step list
 class _Steps(QFrame):
-    """Every step, by chapter (the card's "3 of 27" button): click one to go straight to it. It opens as a menu does
-    (#tourSteps), as wide as its longest step (up to the window's width) and as tall as its rows (up to the window's
-    bottom)."""
+    """Every step, by chapter (the card's "3 of 27" button): click one to go straight to it (Play all steps is then
+    cleared). It opens as a menu does (#tourSteps), as wide as its longest step (up to the window's width) and as tall
+    as its rows (up to the window's bottom), with Play all steps and the demos' speed at its foot."""
 
     def __init__(self, tour):
         super().__init__(tour)
@@ -805,6 +806,10 @@ class _Steps(QFrame):
         self.list.itemActivated.connect(self._chosen)
         self.list.itemClicked.connect(self._chosen)
         v.addWidget(self.list)
+        # (Play all steps and the demos' speed at the list's foot: they change the step, as the list does, and the card
+        # has one row less on each step with a demo. The UI audit, 2026-11-08)
+        tour.play_opts.setParent(self)
+        v.addWidget(tour.play_opts)
         self.hide()
 
     def open(self):
@@ -842,7 +847,8 @@ class _Steps(QFrame):
         b = tr.bubble.geometry()
         top = b.top() + tr.count_btn.geometry().bottom() + 16
         rows = sum(max(self.list.sizeHintForRow(k), 1) for k in range(self.list.count()))
-        h = max(160, min(tr.height() - top - 10, rows + 12))
+        foot = tr.play_opts.sizeHint().height() + self.layout().spacing()
+        h = max(160 + foot, min(tr.height() - top - 10, rows + 12 + foot))
         # (its longest step in sight: the list's room is its width less the frame, the row's padding and the scroll bar)
         widest = max([QFontMetrics(self.list.item(k).font() if self.list.item(k).data(Qt.FontRole) is not None
                                    else base).horizontalAdvance(self.list.item(k).text())
@@ -948,13 +954,22 @@ class Tour(QWidget):
         self.count_btn.clicked.connect(self._toggle_list)
         top.addWidget(self.count_btn)
         top.addStretch(1)
-        self.badge = QLabel("Demo · your work does not change")
-        self.badge.setObjectName("tourBadge")
-        top.addWidget(self.badge)
+        # (✕ at the top right closes the Guide, as Windows 11's teaching tips (Esc too); "Close the Guide" at the foot
+        # went, and the Demo tag became a gray line under the bar. The UI audit, 2026-11-08)
+        self.end_btn = QToolButton()
+        self.end_btn.setText("✕")
+        self.end_btn.setToolTip("Close the Guide (Esc)")
+        self.end_btn.setAccessibleName("Close the Guide")
+        theme.mark(self.end_btn, quiet=True)
+        self.end_btn.clicked.connect(self.end)
+        top.addWidget(self.end_btn, 0, Qt.AlignTop)
         b.addLayout(top)
         b.addSpacing(2)
         self.bar = _Bar()
         b.addWidget(self.bar)
+        self.badge = QLabel("Demo · your work does not change")
+        self.badge.setObjectName("tourBadge")  # (gray words: theme_sheet's guide_and_help)
+        b.addWidget(self.badge)
         b.addSpacing(4)
         self.chapter = self.count_btn  # (older name: the chapter is in the step list button)
         self.title = QLabel()
@@ -985,7 +1000,9 @@ class Tour(QWidget):
         self.skip_btn.clicked.connect(self.skip_demo)
         demo_row.addWidget(self.skip_btn)
         demo_row.addStretch(1)
-        opts = QHBoxLayout()
+        self.play_opts = QWidget()  # (put in the step list's foot: _Steps)
+        opts = QHBoxLayout(self.play_opts)
+        opts.setContentsMargins(8, 4, 8, 4)
         self.all_chk = QCheckBox("Play all steps")
         self.all_chk.setToolTip("The Guide plays the demo of each step and then goes to the next step automatically")
         self.all_chk.setChecked(_kept["all"])
@@ -1015,15 +1032,10 @@ class Tour(QWidget):
         dv.setContentsMargins(0, 0, 0, 0)
         dv.setSpacing(6)
         dv.addLayout(demo_row)
-        dv.addLayout(opts)
         b.addWidget(self.demo_box)
         self.extra = QHBoxLayout()
         b.addLayout(self.extra)
         row = QHBoxLayout()
-        self.end_btn = QPushButton("Close the Guide")
-        theme.mark(self.end_btn, link=True)
-        self.end_btn.clicked.connect(self.end)
-        row.addWidget(self.end_btn)
         row.addStretch(1)
         self.again_btn = QPushButton("Start again")
         self.again_btn.clicked.connect(lambda: self.go_to_step(0))
@@ -1120,7 +1132,7 @@ class Tour(QWidget):
         text = _val(st["alt_text"] if self.alt and st.get("alt_text") else st["text"])
         self.count_btn.setText(((f"{st['chapter']}  ·  " if st.get("chapter") else "") + f"{i + 1} of {len(self.steps)}")
                                .replace("&", "&&"))  # (a button's & marks its shortcut: shown as one; its chevron: _Count)
-        self.badge.setText("Demo · your work does not change")  # (shortened below when the card has no room for it)
+        self.badge.setText("Demo · your work does not change")
         self.badge.setToolTip("A demo: it does not change your work")
         self.bar.frac = (i + 1) / len(self.steps)
         self.bar.update()
@@ -1133,12 +1145,14 @@ class Tour(QWidget):
         while self.extra.count():
             w = self.extra.takeAt(0).widget()
             if w is not None:
+                w.hide()  # (out of sight now: deleteLater waits for the event loop, and it stayed under the card)
                 w.deleteLater()
         for label, fn in st.get("buttons") or []:
             b = QPushButton(label)
             b.setFocusPolicy(Qt.NoFocus)
             b.clicked.connect(lambda _=False, fn=fn: (self.end(), fn()))
             self.extra.addWidget(b)
+            b.show()  # (now, not when Qt gets to it: the card's height counts its row. It went past the card's foot)
         if st.get("buttons"):
             self.extra.addStretch(1)
         actions = demo_actions(st, self.alt)
@@ -1200,9 +1214,6 @@ class Tour(QWidget):
         lay.activate()
         self.bubble.resize(CARD_W, lay.totalHeightForWidth(CARD_W))
         lay.activate()
-        if self.badge.isVisible() and self.badge.width() < self.badge.sizeHint().width() and self.badge.text() != "Demo":
-            self.badge.setText("Demo")  # (cut off: the chapter and count took the room)
-            lay.activate()
 
     # ---------------------------------------------------------------- the spotlight
     def _holes(self):
@@ -1897,24 +1908,29 @@ class Tour(QWidget):
         p.drawRoundedRect(tag, tag.height() / 2, tag.height() / 2)
         p.setPen(QColor(t["on_accent"]))
         p.drawText(tag, Qt.AlignCenter, "demo")
-        if self.say:
-            f = QFont(self.font())
-            p.setFont(f)
-            fm = QFontMetrics(f)
-            r = fm.boundingRect(QRect(0, 0, 260, 400), Qt.TextWordWrap, self.say)
-            w, h = r.width() + 20, r.height() + 12
-            places = [QRectF(x + 22, y + 40, w, h), QRectF(x + 22, y - 10 - h, w, h), QRectF(x - 10 - w, y + 24, w, h),
-                      QRectF(x - 10 - w, y - 10 - h, w, h)]  # (beside the pointer, off the card, in the window)
-            inside = [b for b in places if QRectF(self.rect()).adjusted(8, 8, -8, -8).contains(b)] or places[:1]
-            keep = [QRectF(self.bubble.geometry())] + [QRectF(w.geometry()) for w in self.inside
-                                                       if _alive(w) and w.isVisible() and isinstance(w, (_Note, Mock))]
-            box = next((b for b in inside if not any(b.intersects(k) for k in keep)),
-                       next((b for b in inside if not b.intersects(keep[0])), inside[0]))
+        box = self.words_box() if self.say else None
+        if box is not None:
+            p.setFont(QFont(self.font()))
             p.setPen(QPen(QColor(t["accent"]), 1))
             p.setBrush(QColor(t["card"]))
             p.drawRoundedRect(box.adjusted(0.5, 0.5, -0.5, -0.5), 8, 8)
             p.setPen(QColor(t["ink"]))
             p.drawText(box.adjusted(10, 6, -10, -6), Qt.TextWordWrap, self.say)
+
+    def words_box(self):
+        """Where the pointer's words go: beside the pointer, in the window, off the card and what the demo shows; else
+        off the card only. None where every place would cover the card: the card's line says the same words (the UI
+        audit, 2026-11-08: the box covered the card's words)."""
+        x, y = self.cur.x(), self.cur.y()
+        r = QFontMetrics(QFont(self.font())).boundingRect(QRect(0, 0, 260, 400), Qt.TextWordWrap, self.say)
+        w, h = r.width() + 20, r.height() + 12
+        places = [QRectF(x + 22, y + 40, w, h), QRectF(x + 22, y - 10 - h, w, h), QRectF(x - 10 - w, y + 24, w, h),
+                  QRectF(x - 10 - w, y - 10 - h, w, h)]
+        inside = [b for b in places if QRectF(self.rect()).adjusted(8, 8, -8, -8).contains(b)] or places[:1]
+        keep = [QRectF(self.bubble.geometry())] + [QRectF(v.geometry()) for v in self.inside
+                                                   if _alive(v) and v.isVisible() and isinstance(v, (_Note, Mock))]
+        return next((b for b in inside if not any(b.intersects(k) for k in keep)),
+                    next((b for b in inside if not b.intersects(keep[0])), None))
 
     # ---------------------------------------------------------------- your scrolling, the keys, the end
     def _scroll_area_at(self, pos):
