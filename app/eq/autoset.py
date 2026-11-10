@@ -272,7 +272,8 @@ class _Plan:
         # on the Help page: wiki.js "q-auto-why")
         an = self.an
         need = f"{an['features']} peaks and dips to correct" if an["features"] else "no peaks or dips, only the general shape"
-        self.note(path, f"{n} filters: {need}." if single else f"Maximum {n} filters: {need}.")
+        s = "" if n == 1 else "s"
+        self.note(path, f"{n} filter{s}: {need}." if single else f"Maximum {n} filter{s}: {need}.")
 
     def note_boost(self, gt, path):
         boost = self.an["need_boost"]

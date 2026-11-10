@@ -258,7 +258,7 @@ class QueueWindow(QDialog):
         self.update_count()
         done = sum(1 for i in range(self.table.rowCount())
                    if (self.table.item(i, 2) or QTableWidgetItem("")).text().startswith("Done"))
-        self.footer.say(f"The queue made {done} of {len(self.jobs)} EQs.", 0)  # (its own line, kept until the next)
+        self.footer.say(f"The queue made {done} of {len(self.jobs)} EQ{'' if len(self.jobs) == 1 else 's'}.", 0)  # (its own line, kept until the next)
         if page.run_result is None and page.session_runs:  # (the result card was hidden: Runs this session out of reach)
             page.choose_run(id(page.session_runs[-1]))
 

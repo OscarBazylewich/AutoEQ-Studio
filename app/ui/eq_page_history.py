@@ -34,7 +34,7 @@ class EqHistory:
             return (mine + (f"{lay['name']} · " if lay and lay["key"] != "any" else "")
                     + f"{r['n_filters']} filter{'' if r['n_filters'] == 1 else 's'}, Q ≤ {r.get('q_max')}, gain ≤ "
                     f"+{r.get('gain_max')}")
-        return (f"{r.get('rows')} rows · {r.get('freq_low')}–{r.get('freq_high')} · {r.get('gain_min')} to "
+        return (f"{r.get('rows')} row{'' if r.get('rows') == 1 else 's'} · {r.get('freq_low')}–{r.get('freq_high')} · {r.get('gain_min')} to "
                 f"{r.get('gain_max')} · Q {r.get('q_min')}–{r.get('q_max')}")
 
     @staticmethod

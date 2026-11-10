@@ -140,7 +140,7 @@ def check_run(mode, cfg, curves):
                          f"number of values in those boxes.")
     room = layouts.capacity(bf["layout"])
     if room is not None and n_mine > room:  # (more than the device holds whatever is added)
-        raise ValueError(f"You have {n_mine} filters, and {layouts.name(bf['layout'])} has a maximum of {room}. Remove "
+        raise ValueError(f"You have {n_mine} filter{'' if n_mine == 1 else 's'}, and {layouts.name(bf['layout'])} has a maximum of {room}. Remove "
                          f"some filters in “Start from your filters” (Best fit).")
 
 
