@@ -71,9 +71,24 @@ class Bubble(QFrame):
         self.close_btn.clicked.connect(self.close_now)
         row.addWidget(self.close_btn, 0, Qt.AlignTop)
         self._undo_fn = self._links = None
+        self._size_key = None  # (what its size was measured for: see place)
         self._timer = QTimer(self, singleShot=True, timeout=self.close_now)
-        self._follow = QTimer(self, interval=150, timeout=self.place)  # (the page under it scrolls, the window resizes)
+        # (the page under it scrolls, the window resizes: only while the window shows, see eventFilter)
+        self._follow = QTimer(self, interval=150, timeout=self.place)
         self.hide()
+        win.installEventFilter(self)
+
+    def eventFilter(self, obj, e):
+        """The window shown again or restored (from the tray, from minimized): the bubble follows its anchor again."""
+        if obj is self.parentWidget() and e.type() in (QEvent.Show, QEvent.WindowStateChange) \
+                and not self.isHidden() and not self._follow.isActive():
+            QTimer.singleShot(0, self, self._resume)
+        return False
+
+    def _resume(self):
+        if not self.isHidden() and _window_shows(self.parentWidget()):
+            self._follow.start()
+            self.place()
 
     # ---------------------------------------------------------------- showing
     def show_text(self, text, anchor=None, ms=None, undo=None, links=None):
@@ -85,18 +100,22 @@ class Bubble(QFrame):
         self._links = links
         if links is not None:
             self.text.linkActivated.connect(links)
-        self.setAccessibleName(plain(text))
+        words = plain(text)  # (once: for rich text it is a whole text document)
+        self.setAccessibleName(words)
         # (as wide as its words, up to WORDS: Qt broke a short message into lines of two or three words)
         self.text.ensurePolished()
-        widest = max((self.text.fontMetrics().horizontalAdvance(line) for line in plain(text).splitlines()), default=0)
+        widest = max((self.text.fontMetrics().horizontalAdvance(line) for line in words.splitlines()), default=0)
         self.text.setMinimumWidth(min(WORDS, widest + 2))
         self._undo_fn = undo
         self.undo_btn.setVisible(undo is not None)
         self.anchor = anchor
         self.place()
+        if self.isHidden() and self.text.text() == "":  # (place() closed it: its anchor is out of view)
+            return
         self.show()
         self.raise_()
-        self._follow.start()
+        if _window_shows(self.parentWidget()):
+            self._follow.start()
         if ms:
             self._timer.start(ms)
         else:
@@ -114,9 +133,12 @@ class Bubble(QFrame):
         win = self.parentWidget()
         if win is None:
             return
+        if not _window_shows(win):  # (minimized or in the tray: nothing to follow; _resume starts it again)
+            self._follow.stop()
+            return
         a = self.anchor
         try:
-            gone = a is not None and not a.isVisible()
+            gone = a is not None and (not a.isVisible() or not in_view(a, win))
         except RuntimeError:  # (the anchor was deleted)
             gone = True
         if gone:
@@ -125,27 +147,31 @@ class Bubble(QFrame):
             else:
                 self.close_now()
                 return
-        self.below = True
         self.setContentsMargins(0, 0, 0, 0)
         lay = self.layout()
-        lay.setContentsMargins(14, 8 + ARROW, 8, 8)
-        self.adjustSize()
-        w, h = self.width(), self.height()
         W, H = win.width(), win.height()
+        # (its size measured again only when its words or its point changed: the size is the slow part, and the
+        # follow timer places it every 150 ms. Above or below, the point takes the same height)
+        size_key = (self.text.text(), self.undo_btn.isVisibleTo(self), a is not None)
         if a is None:
-            self.point = None
+            self.below, self.point = True, None
             lay.setContentsMargins(14, 8, 8, 8)
-            self.adjustSize()
+            if size_key != self._size_key:
+                self._size_key = size_key
+                self.adjustSize()
             self.move(max(8, (W - self.width()) // 2), max(8, H - self.height() - 16))
             self.update()
             return
+        if size_key != self._size_key:
+            self._size_key = size_key
+            lay.setContentsMargins(14, 8 + ARROW, 8, 8)
+            self.adjustSize()
+        w, h = self.width(), self.height()
         r = QRect(a.mapTo(win, QPoint(0, 0)), a.size())
         y = r.bottom() + 2
-        if y + h > H - 4 and r.top() - 2 - h >= 4:  # (no room under it: above it)
-            self.below = False
-            lay.setContentsMargins(14, 8, 8, 8 + ARROW)
-            self.adjustSize()
-            w, h = self.width(), self.height()
+        self.below = not (y + h > H - 4 and r.top() - 2 - h >= 4)  # (no room under it: above it)
+        lay.setContentsMargins(14, 8 + ARROW, 8, 8) if self.below else lay.setContentsMargins(14, 8, 8, 8 + ARROW)
+        if not self.below:
             y = r.top() - 2 - h
         y = max(4, min(y, H - h - 4))
         x = max(8, min(r.center().x() - w // 2, W - w - 8))
@@ -185,7 +211,10 @@ class Bubble(QFrame):
         self._follow.stop()
         self._undo_fn = None
         self.text.setText("")
+        self._size_key = None
         self.hide()
+        if _closer:  # (the app-wide watch goes with the last bubble that it watched)
+            _closer[0].forget(self)
 
     def _undo(self):
         fn = self._undo_fn
@@ -211,33 +240,79 @@ class _Closer(QObject):
         if len(self.bubbles) == 1:
             QApplication.instance().installEventFilter(self)
 
+    def forget(self, b):
+        """b closed (by its time, its ✕, Undo or the code): not watched; the app-wide watch off with the last one."""
+        if b in self.bubbles:
+            self.bubbles.remove(b)
+            if not self.bubbles:
+                QApplication.instance().removeEventFilter(self)
+
+    def watching(self):
+        return bool(self.bubbles)
+
     def eventFilter(self, obj, e):
         t = e.type()
         if t not in (QEvent.MouseButtonPress, QEvent.KeyPress):
             return False
+        if t == QEvent.KeyPress and (e.key() != Qt.Key_Escape or QApplication.activePopupWidget() is not None):
+            return False  # (Esc goes to an open menu or list first: it closes that, and the bubble stays)
         for b in list(self.bubbles):
             try:
                 if not b.isVisible():
-                    self.bubbles.remove(b)
+                    self.forget(b)
                     continue
                 if t == QEvent.KeyPress:
-                    if e.key() == Qt.Key_Escape and b.window().isActiveWindow():
+                    if b.window().isActiveWindow():
                         b.close_now()
-                        self.bubbles.remove(b)
                         return True
                     continue
-                if isinstance(obj, QWidget) and (obj is b or b.isAncestorOf(obj)):
+                # (a press in the bubble: its ✕, its links, its words. The app sees a press first on the window's
+                # native part (a QWindow, not a widget), so where the press is decides, not which object has it)
+                if _press_in(b, obj, e):
                     continue
                 b.close_now()
-                self.bubbles.remove(b)
             except RuntimeError:  # (deleted with its window)
-                self.bubbles.remove(b)
-        if not self.bubbles:
-            QApplication.instance().removeEventFilter(self)
+                self.forget(b)
         return False
 
 
 _closer = []
+
+
+def _press_in(b, obj, e):
+    """True when the press e (to obj: a widget or a window's native part) is on the bubble b."""
+    if isinstance(obj, QWidget):
+        if obj is b or b.isAncestorOf(obj):
+            return True
+        if obj.window() is not b.window():
+            return False
+    elif getattr(obj, "isTopLevel", None) is not None and obj is not b.window().windowHandle():
+        return False  # (a press on a different window: a menu, a dialog)
+    try:
+        at = e.globalPosition().toPoint()
+    except AttributeError:
+        return False
+    return b.rect().contains(b.mapFromGlobal(at))
+
+
+def _window_shows(win):
+    """The window shows on the screen (not minimized, not hidden in the tray)."""
+    return win is not None and win.isVisible() and not win.isMinimized()
+
+
+def in_view(w, win):
+    """Some of w is in view in win: not scrolled out of a scroll area (or any other parent that clips it)."""
+    r = w.rect()
+    p = w
+    while p is not None and p is not win:
+        parent = p.parentWidget()
+        if parent is None:
+            break
+        r = QRect(p.mapToParent(r.topLeft()), r.size()).intersected(parent.rect())
+        if r.isEmpty():
+            return False
+        p = parent
+    return True
 
 
 def _bubble(win, kind):

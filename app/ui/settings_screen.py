@@ -6,16 +6,33 @@ SettingsScreen is one part of the window's class (Window, in ui\\window.py): a p
 window, so they use the window's own things (sw, app, status(), and its hotkey_changed signal)."""
 import os
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import QEvent, QObject, Qt, QUrl
 from PySide6.QtGui import QDesktopServices, QKeySequence
 from PySide6.QtWidgets import (QCheckBox, QFileDialog, QGridLayout, QGroupBox, QHBoxLayout, QKeySequenceEdit, QLabel,
-                               QMessageBox, QPushButton, QVBoxLayout, QWidget)
+                               QLineEdit, QMessageBox, QPushButton, QVBoxLayout, QWidget)
 
 import paths
 from ui import help_window, icons, theme
 from ui.bubble import InfoMark
 from ui.setup_dialog import SetUpDialog
 from ui.window_parts import glyph_label, muted
+
+
+class _KeyWatch(QObject):
+    """A hotkey box's watch: typing is True from a key press until the key is complete (Qt empties the box at the
+    first key press); cleared is True when the box was emptied on purpose."""
+
+    def __init__(self, box):
+        super().__init__(box)
+        self.typing = self.cleared = False
+        box.installEventFilter(self)
+
+    def eventFilter(self, obj, e):
+        if e.type() == QEvent.KeyPress:
+            self.typing = True
+        elif e.type() == QEvent.FocusOut:
+            self.typing = False
+        return False
 
 
 class SettingsScreen:
@@ -66,23 +83,42 @@ class SettingsScreen:
             h.addStretch(1)
             return w, mark
 
-        def key_box(name, changed):
+        def key_box(name, changed, setting):
             e = QKeySequenceEdit()
             e.setMaximumSequenceLength(1)
             e.setClearButtonEnabled(True)
             e.setAccessibleName(name)
             e.setMinimumWidth(200)
+            # (Qt empties the box when you press the first key of a new hotkey: that empty value is not a change.
+            # Only the box's ✕, or the box emptied while you do not type in it, asks for no hotkey. Before, the first
+            # key press saved "no hotkey", so a key that Windows then refused could not put the old key back.)
+            watch = _KeyWatch(e)
+
             def say():  # (each new key said once: when typing ends, and at once when the box's ✕ empties it)
+                watch.typing = False
                 text = e.keySequence().toString(QKeySequence.PortableText)
-                if text != e.property("said"):
-                    e.setProperty("said", text)
-                    changed.emit(text)
+                if text == e.property("said"):
+                    return
+                if not text and not watch.cleared:  # (typing ended with no key, e.g. Ctrl only: the key before stays)
+                    self._show_key(e, e.property("said") or "")
+                    return
+                watch.cleared = False
+                e.setProperty("said", text)
+                changed.emit(text)
+                kept = QKeySequence(self.sw.s.get(setting) or "").toString(QKeySequence.PortableText)
+                if kept != text:  # (Windows refused it: the box shows the key that the app kept)
+                    self._show_key(e, kept)
+
+            def emptied():
+                watch.cleared = True
+                say()
             e.editingFinished.connect(say)
-            e.keySequenceChanged.connect(lambda seq: seq.isEmpty() and say())
+            e.keySequenceChanged.connect(lambda seq: seq.isEmpty() and not watch.typing and emptied())
+            e.findChild(QLineEdit).textEdited.connect(lambda text: not text and emptied())  # (the box's ✕)
             return e
         lab, self.hotkey_info = label("Change the EQ of the active device", "")
         g.addWidget(lab, 0, 0)
-        self.hotkey_edit = key_box("Hotkey to change the EQ of the active device", self.hotkey_changed)
+        self.hotkey_edit = key_box("Hotkey to change the EQ of the active device", self.hotkey_changed, "hotkey")
         g.addWidget(self.hotkey_edit, 0, 1)
         self.hotkey_note = QLabel()
         self.hotkey_note.setWordWrap(True)
@@ -92,7 +128,8 @@ class SettingsScreen:
         # the on/off hotkey (2026-10-26): the playing device's EQ off for now, to compare, and back
         lab, self.onoff_info = label("Disable and enable its EQ, to compare", "")
         g.addWidget(lab, 2, 0)
-        self.onoff_edit = key_box("Hotkey to disable the EQ and enable it again", self.onoff_hotkey_changed)
+        self.onoff_edit = key_box("Hotkey to disable the EQ and enable it again", self.onoff_hotkey_changed,
+                                  "onoff_hotkey")
         g.addWidget(self.onoff_edit, 2, 1)
         help_window.tag(self.onoff_edit, "#onoff-hotkey")
         self.chk_matched = QCheckBox("Same level: “off” has the same loudness as the EQ (with a lower volume)")
