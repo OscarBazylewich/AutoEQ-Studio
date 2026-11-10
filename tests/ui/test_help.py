@@ -47,12 +47,140 @@ def test_search_and_going_to_an_entry(qapp, check):
         none = "No results with all of these words" in w.view.toPlainText()
         w.q.setText("rig")
         w.show_entry("set-best-fit-filter-counts")
+        cur = _current(w)
         # was selftest.py:899
         check("help: the search keeps the entries with every word; going to an entry clears a search that hid it and "
-              "lights it", 0 < found < 15 and none and w.q.text() == "" and w.lit == "set-best-fit-filter-counts",
-              (found, none))
+              "lights it", 0 < found < 15 and none and w.q.text() == "" and w.page_now == "set-best-fit-filter-counts"
+              and cur == "set-best-fit-filter-counts", (found, none, w.page_now, cur))
     finally:
         w.close()
+
+
+def _current(w):
+    from PySide6.QtCore import Qt
+    it = w.toc.currentItem()
+    return it.data(0, Qt.UserRole) if it is not None else None
+
+
+def test_a_search_with_results_after_one_without(qapp, check):
+    # (2026-11-10, the review: after a search without results, a search with results left "No results" on the page)
+    from ui import help_window as hw
+    w = hw.open_at()
+    try:
+        w.q.setText("")
+        w.show_entry("rig-tags")
+        w.q.setText("zzzz qqqq")
+        none = "No results" in w.view.toPlainText()
+        w.q.setText("rig change database")
+        by = hw._by_id()
+        page, cur = w.view.toPlainText(), _current(w)
+        shown = cur in by and not w.items[cur].isHidden() and page.startswith(by[cur]["title"])
+        check("help: a search with results after one without shows a result on the page (not “No results”), chosen "
+              "in the contents", none and "No results" not in page and shown and w.page_now == cur,
+              (none, page[:60], cur, w.page_now))
+        w.q.setText("")
+        w.show_entry("unit-conversion")
+        w.q.setText("rig change")
+        check("help: a search keeps the entry that was open on the page when it is one of the results",
+              w.page_now == "unit-conversion" and _current(w) == "unit-conversion", (w.page_now, _current(w)))
+    finally:
+        w.q.setText("")
+        w.close()
+
+
+def test_keys_in_the_contents_open_entries(qapp, check):
+    # (2026-11-10, the review: only a click opened an entry; the page shows one entry at a time, so the arrow keys
+    # and Enter must open them too)
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from helpers import qt
+    from ui import help_window as hw
+    w = hw.open_at()
+    try:
+        w.q.setText("")
+        w.show_entry("start")
+        for i in range(w.toc.topLevelItemCount()):
+            w.toc.topLevelItem(i).setExpanded(False)
+        qt.pump(50)
+        QTest.keyClick(w.toc, Qt.Key_Down)
+        down = w.page_now
+        QTest.keyClick(w.toc, Qt.Key_Right)  # (a group row: the Right key opens it, as before)
+        opened = w.items["questions"].isExpanded()
+        QTest.keyClick(w.toc, Qt.Key_Down)
+        first_q = w.items["questions"].child(0).data(0, Qt.UserRole)
+        entry = w.page_now
+        QTest.keyClick(w.toc, Qt.Key_Up)
+        QTest.keyClick(w.toc, Qt.Key_Left)  # (and the Left key closes it)
+        closed = not w.items["questions"].isExpanded()
+        check("help: the arrow keys in the contents open the entry (or group) they go to; Left and Right close and "
+              "open a group", down == "questions" and opened and entry == first_q and closed,
+              (down, opened, entry, first_q, closed))
+        w.toc.blockSignals(True)  # (a row made current without opening it: then Enter opens it)
+        w.toc.setCurrentItem(w.items["questions"])
+        w.toc.blockSignals(False)
+        w.show_page("start")
+        QTest.keyClick(w.toc, Qt.Key_Return)
+        check("help: Enter in the contents opens the chosen entry", w.page_now == _current(w) != "start",
+              (w.page_now, _current(w)))
+    finally:
+        w.close()
+
+
+def test_clearing_the_search_keeps_the_entry_s_group_open(qapp, check):
+    # (2026-11-10, the review: clearing the search closed every group, the one with the entry shown too)
+    from ui import help_window as hw
+    w = hw.open_at()
+    try:
+        w.q.setText("")
+        w.q.setText("filter")
+        now = w.page_now
+        w.q.setText("")
+        opened, ups = [], []
+        p = w.items[now].parent()
+        while p is not None:
+            opened.append(p.isExpanded())
+            ups.append(p.data(0, 0x0100))  # (Qt.UserRole: the row's anchor)
+            p = p.parent()
+        others = [sid for _t, sid, _e in w.sections if w.items[sid].isExpanded() and sid not in ups]
+        check("help: clearing the search closes the groups, but not the group of the entry on the page",
+              now in hw._by_id() and opened and all(opened) and not others and w.page_now == now,
+              (now, opened, others))
+    finally:
+        w.close()
+
+
+def test_help_has_a_smallest_size(qapp, check):
+    # (2026-11-10, the review: it could be made 392 x 153, its page 40 px wide)
+    from helpers import qt
+    from ui import help_window as hw
+    w = hw.open_at()
+    try:
+        w.resize(100, 100)
+        qt.pump(100)
+        size, page = w.size().toTuple(), w.view.width()
+        check("help: its window has a smallest size, the page beside the contents still wide enough to read",
+              size[0] >= 680 and size[1] >= 400 and page >= 300, (size, page))
+    finally:
+        w.resize(1000, 760)
+        w.close()
+
+
+def test_names_agree_with_their_controls(check):
+    # (2026-11-10, the review: one name for one item: Help called the rig list “Target is made for”; the graph's
+    # handle tooltip still named an On item its menu does not have)
+    from types import SimpleNamespace
+    from ui import help_window as hw
+    from ui.eq_page_handles import EqHandles
+    with open(os.path.join(paths.PROJECT_APP, "ui", "compare_window.py"), encoding="utf-8") as fh:
+        control = 'QLabel("Rig of your target")' in fh.read()
+    title = hw._by_id()["set-cmp-rig"]["title"]
+    check("help: the entry of Other measurements' rig list has the name of the control (“Rig of your target”)",
+          control and title == "Rig of your target", (control, title))
+    tip = EqHandles.handle_tip(SimpleNamespace(EDIT=[{"freq": 1000, "gain": 3.0, "q": 1.0, "type": "PK"}]), 0)
+    with open(os.path.join(paths.PROJECT_APP, "ui", "eq_page_handles.py"), encoding="utf-8") as fh:
+        menu = re.search(r"def handle_menu.*?\n    def ", fh.read(), re.S).group(0)
+    check("help: a graph handle's tooltip names the items of its right-click menu (its type, Remove; no On)",
+          tip.endswith("right-click: type, Remove") and 'addAction("Remove"' in menu and '"On"' not in menu, tip)
 
 
 def test_f1_on_a_control(qapp, check):
@@ -68,8 +196,9 @@ def test_f1_on_a_control(qapp, check):
 LOOK = r'''
 import json, re, sys, time
 sys.path.insert(0, sys.argv[1])
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QTreeWidgetItemIterator
+from PySide6.QtCore import QRect, Qt
+from PySide6.QtGui import QFontMetrics
+from PySide6.QtWidgets import QApplication, QStyle, QTreeWidgetItemIterator
 qapp = QApplication([])
 from ui import theme, help_window as hw
 out = {}
@@ -109,7 +238,19 @@ for dark in (False, True):
     page = w.view.document().toHtml()
     links = {c for s in re.findall(r'<a href="#[^"]*"><span style="([^"]*)"', page) for c in re.findall(r"color:(#\w{6})", s)}
     cur = toc.currentItem()
-    wide = [it.text(0)[:40] for it in shown_items(toc) if toc.visualItemRect(it).right() >= vw]
+    # (rows cut with "…": the room for a row's words is its rect less the sheet's padding, 5 px 4 px, and Qt's own
+    # margin; the words wrapped in it need more height than the row has. Frequent problems open: the long questions)
+    w.items["questions"].setExpanded(True)
+    settle()
+    margin = 8 + 2 * (toc.style().pixelMetric(QStyle.PM_FocusFrameHMargin, None, toc) + 1)
+    wide = []
+    for it in shown_items(toc):
+        r = toc.visualItemRect(it)
+        need = QFontMetrics(it.font(0)).boundingRect(QRect(0, 0, max(r.width() - margin, 1), 100000),
+                                                     Qt.TextWordWrap, it.text(0)).height()
+        if r.right() >= vw or need > r.height() - 10:
+            wide.append((it.text(0)[:40], r.width(), r.height(), need))
+    w.items["questions"].setExpanded(False)
     v = out["dark" if dark else "light"] = {
         "start": start, "links": sorted(links), "accent_text": t["accent_text"],
         "chosen": cur is not None and cur.data(0, Qt.UserRole) == "rig-tags" and cur.parent().isExpanded(),

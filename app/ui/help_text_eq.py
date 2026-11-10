@@ -643,7 +643,7 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'body': ['The model to find. Each word must be in a name. Thus, with a smaller number of '
                                     'words, you find more results (for example, “Blessing 2” and not the full name).']},
                           {'key': '#cmp-rig',
-                           'title': 'Target is made for',
+                           'title': 'Rig of your target',
                            'body': ['The rig that your target was made for. The app finds it from the name or the '
                                     'source of the target. If it is incorrect, change it. The app sorts the '
                                     'measurements by how accurately it can change their rig to this rig.']},
