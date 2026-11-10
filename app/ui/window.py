@@ -36,13 +36,13 @@ import time
 from PySide6.QtCore import QEvent, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QCursor, QDesktopServices, QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel, QMainWindow, QMenu, QPushButton,
-                               QScrollArea, QStackedWidget, QVBoxLayout, QWidget)
+                               QStackedWidget, QVBoxLayout, QWidget)
 
 import net
 import paths
 from switcher.core import shown
 from ui import icons, preload, theme, titlebar, winsys
-from ui.devices_screen import DevicesScreen, check_line  # noqa: F401 - (check_line: still taken from here)
+from ui.devices_screen import DevicesScreen, ScreenArea, check_line  # noqa: F401 - (check_line: still taken from here)
 from ui.profiles_screen import ProfilesScreen
 from ui.settings_screen import SettingsScreen
 from ui.setup_dialog import SetUpDialog  # noqa: F401 - (still taken from here, as before the screens had files)
@@ -70,6 +70,7 @@ def online_mark(on):
 # (the start of the message that Make an EQ shows when its part cannot open: eq_page.py)
 NOT_OPENED = ("The EQ part cannot", "The EQ part did not")
 PAGES = [("eq", "Make an EQ"), ("devices", "Devices"), ("profiles", "Profiles"), ("settings", "Settings")]
+
 
 
 class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
@@ -321,8 +322,9 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
 
     def _scrolled(self, widget):
         """A screen that scrolls when the window is too small for it, as Windows 11's Settings do (its cards and
-        buttons keep their size: without it they were squeezed, the hotkey box to half its height)."""
-        area = QScrollArea()
+        buttons keep their size: without it they were squeezed, the hotkey box to half its height). It scrolls up and
+        down only: it is at least as wide as its cards need (ScreenArea)."""
+        area = ScreenArea(side=14)  # (its scroll bar goes in the screen's right space of 14 px)
         area.setWidgetResizable(True)
         area.setFrameShape(QFrame.NoFrame)
         inner = self._padded(widget)
@@ -564,16 +566,19 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
             titlebar.follow_state(self)
 
     def showEvent(self, e):
-        self.render_all()  # (devices plugged in, EQs switched from the tray while it was hidden)
-        super().showEvent(e)
         if self._title_mode and self._native is None:
             self._native = titlebar.install(self, self.topbar, framed=self._title_mode == "frame")
             if self._native is None:  # (Windows refused: its own title bar, and no buttons of ours)
                 self._title_mode = None
-                self.setWindowFlags(titlebar.flags_for(None))
+                self.setWindowFlags(titlebar.flags_for(None))  # (this hides the window: shown again at once)
                 for b in self.caption.values():
                     b.hide()
+                # (that show's own showEvent does the rest: done here too, the screens were drawn twice and Make an
+                # EQ started twice)
                 self.show()
+                return
+        self.render_all()  # (devices plugged in, EQs switched from the tray while it was hidden)
+        super().showEvent(e)
         if self._mica and self._mica_hwnd is None:
             self._mica_hwnd = int(self.winId())
             theme.on_change(self._mica_on)
