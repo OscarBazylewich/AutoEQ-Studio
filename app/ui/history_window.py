@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (QMenu, QBoxLayout, QCheckBox, QDialog, QFrame, QH
 
 from ui import bubble, help_window, icons, theme
 from ui.theme_sheet import CARD
-from ui.window_parts import Footer, enter_presses, fit_to_screen
+from ui.window_parts import EmptyText, Footer, enter_presses, fit_to_screen
 
 FIRST_ROWS, ROWS_AT_ONCE = 40, 15  # (rows made at once, then a batch at a time: as Find…)
 WORDS_ROOM = 240  # (the least a row's words get beside its buttons: with less, the buttons go on a line under them)
@@ -129,11 +129,11 @@ class HistoryWindow(QDialog):
         body = QWidget()
         lay = QVBoxLayout(body)
         lay.setSpacing(6)
-        if not entries:
-            lab = QLabel("No results. Type different text, or clear “This IEM only”." if page.history else
-                         "No EQs. If you save or copy an EQ, History keeps it here.")
-            theme.mark(lab, role="muted")
-            lay.addWidget(lab)
+        if not entries:  # (the gray line in the list's middle, as every empty list's: UI-RULES 21)
+            self.empty = EmptyText(body, "No results. Type different text, or clear “This IEM only”." if page.history
+                                   else "No EQs. If you save or copy an EQ, History keeps it here.")
+        else:
+            self.empty = None
         todo, day = [], ""
         for e in entries:
             d = day_of(e["when"])
@@ -203,7 +203,8 @@ class HistoryWindow(QDialog):
         icons.put(more, "more")
         theme.mark(more, quiet=True, nochevron=True)  # (no chevron: its symbol says it is a menu)
         more.setToolTip("More commands: Copy, Keep to compare, Remove from the history")
-        more.setAccessibleName("More commands")
+        more.setAccessibleName(f"More commands for {e.get('device')} → {e.get('target')}, "  # (each row's own name: a
+                               f"{day_of(e['when'])} {time_of(e['when'])}")  # screen reader read "More commands" on all)
         menu = QMenu(more)
         menu.addAction("Copy", lambda: self.page.copy_filters(e["filters"], e.get("preamp") or 0, record=False,
                                                               say=self.footer.say))
@@ -265,7 +266,7 @@ class HistoryWindow(QDialog):
                              f"({day_of(e['when'])} {time_of(e['when'])})", [dict(f) for f in e["filters"]],
                              f"made for {e.get('device')}" if other else
                              "from History" + (f" · error {e['rms']:.2f} dB" if e.get("rms") is not None else ""),
-                             say=self.footer.say)
+                             say=self.footer.say, near=self)
         if ok:
             self.footer.say(f"It is in your EQs to compare. That EQ is for {e.get('device')}. Thus, its sound on the "
                             f"{page.curves['name']} is not correct." if other else

@@ -31,7 +31,7 @@ A demo's actions (each with "say": a few words, shown in the card and beside the
 - {"click": control, "then": f}: and clicks (a ripple only: nothing is pressed). f() (or f(api)) shows what the click
   would: it returns the function that puts it back, None, or a generator (a demo of its own, see run)
 - {"type": control, "text": "…", "keep": False}: the text appears letter by letter over the field (drawn: the field
-  is unchanged); keep: it stays until the demo ends
+  is unchanged); keep: it stays until the demo ends, or until api.untype(field) takes it away
 - {"drag": control, "from": (x, y), "to": (x, y), "set": f(p), "undo": g, "label": f(p)}: press and drag, leaving a
   trail; set(p) shows each moment (0-1), undo() puts it back, label(p) the words beside the pointer
 - {"run": f(api)}: a generator: the demo's own moves (api: move, ripple, sleep, tween, note, mock lists, a window
@@ -519,6 +519,12 @@ class Api:
             self.t.typed.remove(entry)
             self.t.update()
 
+    def untype(self, w):
+        """The text a demo typed (kept) over the field w taken away: the field shows its own value again, as the
+        demo's change went back."""
+        self.t.typed = [e for e in self.t.typed if e[0] is not w]
+        self.t.update()
+
     def say(self, text):
         self.t.say = text or ""
         self.t.update()
@@ -792,7 +798,8 @@ class Api:
 class _Steps(QFrame):
     """Every step, by chapter (the card's "3 of 27" button): click one to go straight to it (Play all steps is then
     cleared). It opens as a menu does (#tourSteps), as wide as its longest step (up to the window's width) and as tall
-    as its rows (up to the window's bottom), with Play all steps and the demos' speed at its foot."""
+    as its rows, with Play all steps and the demos' speed at its foot: under the step button, or above it when there
+    is more room there, and never past the window's edges (its rows scroll; the foot stays in sight)."""
 
     def __init__(self, tour):
         super().__init__(tour)
@@ -845,10 +852,23 @@ class _Steps(QFrame):
                 now = it
             self.list.addItem(it)
         b = tr.bubble.geometry()
-        top = b.top() + tr.count_btn.geometry().bottom() + 16
+        btn = tr.count_btn.geometry()
         rows = sum(max(self.list.sizeHintForRow(k), 1) for k in range(self.list.count()))
         foot = tr.play_opts.sizeHint().height() + self.layout().spacing()
-        h = max(160 + foot, min(tr.height() - top - 10, rows + 12 + foot))
+        want = rows + 12 + foot
+        # (under the step button; above it when the card is low and there is more room there. Always inside the
+        # window, its rows scrolling: with the card low in a 600 px window, its foot was cut off, 2026-11-10)
+        below_top = b.top() + btn.bottom() + 16
+        room_below = tr.height() - 8 - below_top
+        above_bottom = b.top() + btn.top() - 4
+        room_above = above_bottom - 8
+        if want <= room_below or room_below >= room_above:
+            h = max(1, min(want, room_below, tr.height() - 16))
+            top = below_top
+        else:
+            h = max(1, min(want, room_above, tr.height() - 16))
+            top = above_bottom - h
+        top = max(8, min(top, tr.height() - 8 - h))
         # (its longest step in sight: the list's room is its width less the frame, the row's padding and the scroll bar)
         widest = max([QFontMetrics(self.list.item(k).font() if self.list.item(k).data(Qt.FontRole) is not None
                                    else base).horizontalAdvance(self.list.item(k).text())
@@ -1488,6 +1508,8 @@ class Tour(QWidget):
 
     def _set_play_all(self, on):
         _kept["all"] = on
+        if on:  # (the demo plays on the card and the window: the list of steps closes, it stayed open over them)
+            self.step_list.close_list()
         if on and not self.demo_running:
             if demo_actions(self.steps[self.i], self.alt) if 0 <= self.i < len(self.steps) else False:
                 self.replay()
@@ -1918,19 +1940,26 @@ class Tour(QWidget):
             p.drawText(box.adjusted(10, 6, -10, -6), Qt.TextWordWrap, self.say)
 
     def words_box(self):
-        """Where the pointer's words go: beside the pointer, in the window, off the card and what the demo shows; else
-        off the card only. None where every place would cover the card: the card's line says the same words (the UI
-        audit, 2026-11-08: the box covered the card's words)."""
+        """Where the pointer's words go: beside the pointer, in the window, off the card, what the demo shows and what
+        is lit (just under or over the lit part when the pointer is in it); else off the card and what the demo shows;
+        else off the card only. None where every place would cover the card: the card's line says the same words (the
+        UI audit, 2026-11-08: the box covered the card's words; 2026-11-10: it covered the words of the lit controls,
+        as Automatic settings' About these settings)."""
         x, y = self.cur.x(), self.cur.y()
         r = QFontMetrics(QFont(self.font())).boundingRect(QRect(0, 0, 260, 400), Qt.TextWordWrap, self.say)
         w, h = r.width() + 20, r.height() + 12
         places = [QRectF(x + 22, y + 40, w, h), QRectF(x + 22, y - 10 - h, w, h), QRectF(x - 10 - w, y + 24, w, h),
                   QRectF(x - 10 - w, y - 10 - h, w, h)]
+        lit = [QRectF(hole) for hole in self.holes]
+        for hole in lit:
+            if hole.contains(self.cur):
+                places += [QRectF(x + 22, hole.bottom() + 8, w, h), QRectF(x + 22, hole.top() - 8 - h, w, h)]
         inside = [b for b in places if QRectF(self.rect()).adjusted(8, 8, -8, -8).contains(b)] or places[:1]
         keep = [QRectF(self.bubble.geometry())] + [QRectF(v.geometry()) for v in self.inside
                                                    if _alive(v) and v.isVisible() and isinstance(v, (_Note, Mock))]
-        return next((b for b in inside if not any(b.intersects(k) for k in keep)),
-                    next((b for b in inside if not b.intersects(keep[0])), None))
+        return next((b for b in inside if not any(b.intersects(k) for k in keep + lit)),
+                    next((b for b in inside if not any(b.intersects(k) for k in keep)),
+                         next((b for b in inside if not b.intersects(keep[0])), None)))
 
     # ---------------------------------------------------------------- your scrolling, the keys, the end
     def _scroll_area_at(self, pos):

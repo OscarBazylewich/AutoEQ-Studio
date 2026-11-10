@@ -884,16 +884,18 @@ class Listen(QGroupBox):
         self.page.draw()
         return True
 
-    def add(self, name, filters, note="", say=None):
+    def add(self, name, filters, note="", say=None, near=None):
         """An EQ into this IEM's list (the same filters twice: refused). Returns whether it went in. say: where a window
-        of its own says it's there already (History's line; the page's by itself: UI-RULES 7)."""
+        of its own says it's there already (History's line; the page's by itself: UI-RULES 7). near: the window that
+        asked (History), where a refusal's bubble goes (said at this card, it was behind History, 2026-11-10)."""
+        near = near or self
         if not self.pins_for:
             bubble.tell(None, "Select a measurement first. Each IEM or headphone has a different list of EQs to "
-                        "compare.", near=self)
+                        "compare.", near=near)
             return False
         filters = [dict(f) for f in filters if f.get("enabled", True) is not False and f.get("freq") and f.get("q")]
         if not filters:
-            bubble.tell(None, "That EQ has no filters to compare.", near=self)
+            bubble.tell(None, "That EQ has no filters to compare.", near=near)
             return False
         sig = lambda fl: sorted((f.get("type", "PK"), float(f["freq"]), float(f["gain"]), float(f["q"])) for f in fl
                                 if f.get("enabled", True) is not False)
@@ -901,7 +903,7 @@ class Listen(QGroupBox):
             (say or self.page.status)("That EQ is in the list.")
             return False
         if len(self.pins) >= getattr(self, "max_pins", 12):
-            bubble.tell(None, "The list is full (12). Remove an EQ first.", near=self)
+            bubble.tell(None, "The list is full (12). Remove an EQ first.", near=near)
             return False
         import uuid
         used = {p.get("color", i) % len(COLOURS) for i, p in enumerate(self.pins)}  # (a colour not in use, as eqlist.js)

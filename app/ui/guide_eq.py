@@ -25,12 +25,20 @@ def eq_steps(page):
     about_open, about_close = fold_before_after(st.why_fold.btn, settings_open)  # (About these settings: in Settings)
     more_open, more_close = fold_before_after(st.adv.btn, None)
 
+    was_tab = {}
+
     def best_fit_tab():  # (More settings, open on its Best fit tab: Start from your filters is there)
         more_open()
+        was_tab["i"] = st.adv_form.pages.currentIndex()
         st.adv_form.show_tab(0)
+
+    def tab_back():  # (your tab of More settings back, then the fold as it was: it stayed on Best fit, 2026-11-10)
+        if "i" in was_tab:
+            st.adv_form.show_tab(was_tab.pop("i"))
+        more_close()
     # (Make the EQ shows one way's steps: a step about the other's shows its tab, then the one that was shown)
     auto_on, auto_off = way_before_after(page, "auto")
-    auto_settings_open, auto_settings_close = way_before_after(page, "auto", (best_fit_tab, more_close))
+    auto_settings_open, auto_settings_close = way_before_after(page, "auto", (best_fit_tab, tab_back))
     hand_on, hand_off = way_before_after(page, "hand")
     staged = {}
 
