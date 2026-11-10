@@ -388,7 +388,7 @@ holder = QWidget()
 play = QPushButton("Play", holder)
 for name in ("play", "stop", "play", "stop"):  # (Listen's Play / Stop: each press gives the button the other one)
     icons.put(play, name)
-entries = [n for ref, n in icons._shown if ref() is play]
+entries = [n for ref, n in icons._shown.values() if ref() is play]
 for _ in range(3):  # (the device panel, made again on each change: its buttons deleted, new ones given symbols)
     rows = [QPushButton("Rename…", holder) for _ in range(4)]
     for b in rows:
@@ -397,7 +397,28 @@ for _ in range(3):  # (the device panel, made again on each change: its buttons 
         shiboken6.delete(b)
 icons.put(QPushButton("Examine again", holder), "refresh")
 listed = len(icons._shown)
-for ref, _ in list(icons._shown):  # (every button gone: the next theme change lets go of them all)
+gone = QPushButton("Gone", holder)
+icons.put(gone, "remove")
+with_gone = len(icons._shown)
+shiboken6.delete(gone)  # (deleted by Qt: its entry goes at once, before any other put or theme change)
+at_once = len(icons._shown)
+import time
+many = [QPushButton(str(i), holder) for i in range(2400)]
+draw, icons._draw = icons._draw, lambda b, n: None  # (the bookkeeping only: the drawing is the same for any structure)
+t = time.perf_counter()
+for b in many[:200]:  # (200 symbols put while there are few)
+    icons.put(b, "add")
+first = time.perf_counter() - t
+for b in many[200:2200]:
+    icons.put(b, "add")
+t = time.perf_counter()
+for b in many[2200:]:  # (200 more while there are 2,200)
+    icons.put(b, "add")
+second = time.perf_counter() - t
+icons._draw = draw
+for b in many:
+    shiboken6.delete(b)
+for ref, _ in list(icons._shown.values()):  # (every button gone: the next theme change lets go of them all)
     if ref() is not None and shiboken6.isValid(ref()):
         shiboken6.delete(ref())
 theme.apply(qapp, dark=True, contrast=False)
@@ -408,7 +429,8 @@ theme.apply(qapp, dark=False, contrast=False)
 asked = sum(1 for fn in theme._state["listeners"] if fn is icons._redraw)
 size = QSize(22, 16)
 shown = again.icon().pixmap(size).toImage() == icons.glyph("stop", theme.tokens()["ink"]).pixmap(size).toImage()
-print(json.dumps({"entries": entries, "listed": listed, "emptied": emptied, "asked": asked, "shown": shown}))
+print(json.dumps({"entries": entries, "listed": listed, "emptied": emptied, "asked": asked, "shown": shown,
+                  "with_gone": with_gone, "at_once": at_once, "first": first, "second": second}))
 '''
 
 
@@ -423,6 +445,12 @@ def test_icons_one_entry_per_button(check):
           "the theme is asked once to tell of a change",
           d.get("entries") == ["stop"] and d.get("listed") == 2 and d.get("emptied") == 0 and d.get("asked") == 1
           and d.get("shown") is True, d or out.stderr[-300:])
+    # (2026-11-10: put() scanned the whole list of symbols on each call, a cost that grew with the square of the
+    # buttons; now a dict, and a deleted button's entry goes with its destroyed signal)
+    check("icons: a button that Qt deletes is let go of at once (not only at the next symbol put), and put() does not "
+          "get slower as there are more buttons (200 puts among 2,200 symbols take not much longer than among a few)",
+          d.get("with_gone") == 3 and d.get("at_once") == 2
+          and d.get("second", 1) < 3 * d.get("first", 0) + 0.002, d or out.stderr[-300:])
 
 
 # A quiet button (a row's ✕) on a card, on a row pointed at and on a chosen row (the colours the lists fill those rows

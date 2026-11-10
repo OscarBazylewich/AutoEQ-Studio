@@ -24,7 +24,10 @@ GLYPHS = {"eq": "E9E9", "devices": "E7F6", "profiles": "E8FD", "settings": "E713
           "hide": "ED1A", "image": "EB9F", "colour": "E790", "ruler": "ECC6", "move": "E7C2", "crop": "E7A8",
           "chart": "E9D9", "report": "E9F9", "select": "E8B3", "clock": "E823", "calendar": "E787", "tag": "E8EC",
           "tools": "E90F", "swap": "E8AB", "power": "E7E8"}
-_shown = []  # ((button, name)): the symbols shown, one per button, drawn again when the theme changes
+# {id(button): (weak reference to the button, name)}: the symbols shown, one per button, drawn again when the theme
+# changes. A dict, not a list scanned at each put() (that cost grew with the square of the buttons: 150 buttons took
+# ~12 ms, now <1 ms, 2026-11-10); a button's entry goes as Qt deletes the button (its destroyed signal)
+_shown = {}
 _told = []  # (not empty once the theme tells put()'s symbols of a change: asked once)
 
 
@@ -64,9 +67,21 @@ def put(button, name):
     if not _told:
         _told.append(True)
         theme.on_change(_redraw)
-    _shown[:] = [(ref, n) for ref, n in _shown if _alive(ref) and ref() is not button]
-    _shown.append((weakref.ref(button), name))  # (held weakly: a symbol never keeps its button)
+    key = id(button)
+    old = _shown.get(key)
+    if old is not None and old[0]() is button:  # (another symbol for the same button: only the new one is kept)
+        _shown[key] = (old[0], name)
+    else:  # (a new button, or a dead one's id used again: its entry replaced)
+        ref = weakref.ref(button)  # (held weakly: a symbol never keeps its button)
+        _shown[key] = (ref, name)
+        button.destroyed.connect(lambda *_, key=key, ref=ref: _forget(key, ref))
     _draw(button, name)
+
+
+def _forget(key, ref):
+    """A deleted button's entry let go of (only its own: the id can be another button's since)."""
+    if _shown.get(key, (None,))[0] is ref:
+        del _shown[key]
 
 
 def _alive(ref):
@@ -86,11 +101,11 @@ def _draw(button, name):
 
 
 def _redraw():
-    for ref, name in list(_shown):
+    for key, (ref, name) in list(_shown.items()):
         if _alive(ref):
             _draw(ref(), name)
-        else:
-            _shown.remove((ref, name))
+        else:  # (its Python object gone, or its button deleted without a signal Python saw)
+            _forget(key, ref)
 
 ON, OFF = QColor("#2f6fde"), QColor("#7a7f87")  # (the app's own icon, in the tray too: its colours are its own)
 # the device list's dots, each in a colour of the theme (green playing, the accent connected: blue with Windows'

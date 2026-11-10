@@ -410,3 +410,45 @@ def test_keys_and_drops_wait_for_ready(ahead, check, dialogs):
           "until the page is ready (while it's made, they'd open over half a page); ready, “/” opens Find…",
           seen["not ready"] == {"asked": [], "drag accepted": False, "drop accepted": False, "tracer": False}
           and any(kind == "exec" and "Picker" in text for kind, text in seen["ready"]["asked"]), seen)
+
+
+def test_adjust_window_made_at_first_use(ahead, check):
+    # (2026-11-10: Adjust…'s window, with its graph, was made in the build's "adjust" step, most of it; now at its
+    # first use. Until then a theme change and a changed setting must not fail, nor make it; it opens with the values
+    # as they are then)
+    from PySide6.QtWidgets import QApplication
+    from ui import theme
+    page = ahead.s.page
+    st = page.settings
+    made_in_build = st._adjust is not None
+    theme.apply(QApplication.instance(), dark=True)
+    theme.apply(QApplication.instance(), dark=False)
+    was = dict(page.S["target_adjust"])
+    st.changed("target_adjust.bass_gain", 3.0)
+    asked = st.adjust_open()  # (only a question: it must not make the window)
+    made_before_click = st._adjust is not None
+    st.adjust_btn.click()
+    qt.pump(100)
+    dlg = st.adjust_window
+    bass = st.adjust_form.fields["target_adjust.bass_gain"]
+    bass_hz = st.adjust_form.fields["target_adjust.bass_freq"]
+    tilt = st.adjust_form.fields["target_adjust.tilt"]
+    seen = {"made in the build": made_in_build, "made before the click": made_before_click, "open asked": asked,
+            "shown": dlg.isVisible(), "bass": bass.box.text(), "bass Hz usable": bass_hz.box.isEnabled(),
+            "tilt": tilt.box.text(),
+            "clear and save usable": st.reset_adjust_btn.isEnabled() and st.save_target_btn.isEnabled(),
+            "summary": st.adjust_summary.text(), "one window": st.adjust() is st.adjust() and st.adjust_window is dlg}
+    st.changed("target_adjust.bass_gain", was.get("bass_gain", 0.0))
+    seen["after a change"] = (bass.box.text(), bass_hz.box.isEnabled(), st.save_target_btn.isEnabled())
+    dlg.close()
+    page.S["target_adjust"] = was
+    page.changed(curves=True)
+    qt.wait_for(lambda: page.curves is not None, 30)
+    check("eq page: Adjust…'s window is not made while the page is built (with its graph it was most of a step), "
+          "nor by a theme change, a changed setting or the question whether it is open; the first click on Adjust… "
+          "makes and opens it with the values as they are then (bass +3: its box, its Hz usable, Clear and Save "
+          "usable), and it follows a change after that",
+          seen == {"made in the build": False, "made before the click": False, "open asked": False, "shown": True,
+                   "bass": "3", "bass Hz usable": True, "tilt": "0", "clear and save usable": True,
+                   "summary": "Adjusted: bass +3 dB", "one window": True, "after a change": ("0", False, False)},
+          seen)
