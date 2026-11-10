@@ -1,7 +1,7 @@
 """Make an EQ's EQ graph (under the graph) as a place to edit the filters (a part of EqPage, ui/eq_page.py,
 2026-10-26): a handle for each filter of the EQ shown, on its own curve at its frequency (a peak's top, a shelf's
 middle: half its gain), with its number (over it; under it at the graph's top). Drag one: left and right its
-frequency, up and down its gain; the mouse wheel over it: its Q; right-click it: its type, on or off, Remove.
+frequency, up and down its gain; the mouse wheel over it: its Q; right-click it: its type, Remove.
 Double-click the graph where there's no handle: a new peak there (with no EQ shown, it starts one by hand). While a
 handle is held only what follows it changes (the EQ's curves, the numbers, the table's values, Listen's sound) and the
 graph's scale stays as it was until it's let go: a scale that moved under the pointer made the handle run away from
