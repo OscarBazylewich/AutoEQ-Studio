@@ -83,3 +83,61 @@ def test_after_a_restore_nothing_is_saved_before_the_restart(devices_window, che
     # was selftest.py:625
     check("window: after a restore nothing is saved over it before the restart (settings read-only, the poll stopped)",
           seen == [(True, False)], seen)
+
+
+def test_a_hotkey_box_keeps_the_key_while_you_type(devices_window, monkeypatch, check):
+    # (the review of 2026-11-10: Qt empties the box at the first key press of a new hotkey, and that empty value was
+    # said as "no hotkey": the app saved it and took the hotkey off, so a key that Windows then refused could not put
+    # the old key back)
+    import types
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QLineEdit, QToolButton
+    from helpers import qt
+    from ui import app as app_module
+    w = devices_window
+    win, sw = w.win, w.sw
+    box = win.hotkey_edit
+    old = sw.s.get("hotkey")
+    sw.set("hotkey", "Ctrl+Alt+E")
+    win.render_settings()
+    said = []
+    refuse = {"Ctrl+Alt+J"}
+
+    class Hotkey:  # (Windows' side: a key it refuses)
+        @staticmethod
+        def set(text):
+            return text not in refuse
+    fake = types.SimpleNamespace(sw=sw, win=win, hotkey=Hotkey())
+
+    def changed(text):  # (the app's own way: ui\app.py)
+        said.append(text)
+        app_module.App._set_key(fake, "hotkey", fake.hotkey, text, True)
+    win.hotkey_changed.connect(changed)
+    try:
+        box.setFocus()
+        QTest.keyPress(box, Qt.Key_Control, Qt.ControlModifier)
+        QTest.keyRelease(box, Qt.Key_Control, Qt.NoModifier)
+        qt.wait_for(lambda: box.keySequence().toString() == "Ctrl+Alt+E", 3)
+        ctrl_only = (list(said), sw.s.get("hotkey"), box.keySequence().toString())
+        QTest.keyClick(box, Qt.Key_K, Qt.ControlModifier | Qt.AltModifier)
+        qt.pump(5)
+        complete = (list(said), sw.s.get("hotkey"))
+        QTest.keyClick(box, Qt.Key_J, Qt.ControlModifier | Qt.AltModifier)
+        qt.pump(5)
+        refused = (list(said), sw.s.get("hotkey"), box.keySequence().toString(), bool(fake.hotkey_problem))
+        x = box.findChild(QLineEdit).findChildren(QToolButton)  # (the box's ✕)
+        QTest.mouseClick(x[0], Qt.LeftButton)
+        qt.pump(5)
+        cleared = (list(said), sw.s.get("hotkey"))
+    finally:
+        win.hotkey_changed.disconnect(changed)
+        sw.set("hotkey", old)
+        win.setFocus()
+        win.render_settings()
+    check("settings: in a hotkey box, Ctrl only (typing not complete) says no change and the key before stays; a "
+          "complete key is said once; a key that Windows refuses puts the key before back (saved and in the box); "
+          "the box's ✕ says no hotkey",
+          ctrl_only == ([], "Ctrl+Alt+E", "Ctrl+Alt+E") and complete == (["Ctrl+Alt+K"], "Ctrl+Alt+K")
+          and refused == (["Ctrl+Alt+K", "Ctrl+Alt+J"], "Ctrl+Alt+K", "Ctrl+Alt+K", True)
+          and cleared == (["Ctrl+Alt+K", "Ctrl+Alt+J", ""], ""), (ctrl_only, complete, refused, cleared))

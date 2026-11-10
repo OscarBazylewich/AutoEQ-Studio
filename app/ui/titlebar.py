@@ -54,6 +54,39 @@ WM_WINDOWPOSCHANGING, MONITOR_DEFAULTTONEAREST = 0x0046, 2
 GLYPHS = {"min": "E921", "max": "E922", "restore": "E923", "close": "E8BB"}  # (Segoe Fluent Icons' caption symbols)
 
 
+_api = []  # (user32 with the argument types of the calls below, made once: see user32())
+
+
+def user32():
+    """user32's functions that this module calls with window, menu and monitor handles, with their argument types (a
+    handle is 64 bits on 64-bit Windows: without the types, ctypes passes a Python int as a 32-bit int). Its own copy
+    of user32: the types set here do not change the calls of other modules (ctypes.windll.user32 is shared)."""
+    if not _api:
+        u = ctypes.WinDLL("user32")
+        H, HW, UINT, INT = wintypes.HANDLE, wintypes.HWND, wintypes.UINT, ctypes.c_int
+        for name, args, res in (
+                ("GetSystemMenu", [HW, wintypes.BOOL], wintypes.HMENU),
+                ("EnableMenuItem", [wintypes.HMENU, UINT, UINT], wintypes.BOOL),
+                ("TrackPopupMenu", [wintypes.HMENU, UINT, INT, INT, INT, HW, ctypes.c_void_p], wintypes.BOOL),
+                ("PostMessageW", [HW, UINT, wintypes.WPARAM, wintypes.LPARAM], wintypes.BOOL),
+                ("MonitorFromWindow", [HW, wintypes.DWORD], H),
+                ("MonitorFromRect", [ctypes.POINTER(wintypes.RECT), wintypes.DWORD], H),
+                ("GetMonitorInfoW", [H, ctypes.c_void_p], wintypes.BOOL),
+                ("GetWindowRect", [HW, ctypes.POINTER(wintypes.RECT)], wintypes.BOOL),
+                ("IsZoomed", [HW], wintypes.BOOL),
+                ("IsIconic", [HW], wintypes.BOOL),
+                ("GetDpiForWindow", [HW], UINT),
+                ("GetSystemMetricsForDpi", [INT, UINT], INT),
+                ("ClientToScreen", [HW, ctypes.POINTER(wintypes.POINT)], wintypes.BOOL)):
+            try:
+                f = getattr(u, name)
+            except AttributeError:  # (GetDpiForWindow, GetSystemMetricsForDpi: Windows 10 1607 and later)
+                continue
+            f.argtypes, f.restype = args, res
+        _api.append(u)
+    return _api[0]
+
+
 def window_menu_states(maximized):
     """The window menu's commands, enabled or not, as Windows' own title bar has them."""
     return ((SC_RESTORE, maximized), (SC_MOVE, not maximized), (SC_SIZE, not maximized), (SC_MINIMIZE, True),
@@ -63,16 +96,12 @@ def window_menu_states(maximized):
 def _window_menu(hwnd, x, y, maximized):
     """Windows' window menu (Restore, Move, Size, Minimize, Maximize, Close) at the screen point x, y: the command
     chosen goes to the window as the menu of Windows' own title bar sends it (WM_SYSCOMMAND)."""
-    u = ctypes.windll.user32
-    u.GetSystemMenu.restype = wintypes.HMENU
-    u.GetSystemMenu.argtypes = [wintypes.HWND, wintypes.BOOL]
+    u = user32()
     menu = u.GetSystemMenu(wintypes.HWND(hwnd), False)
     if not menu:
         return
     for cmd, on in window_menu_states(maximized):
         u.EnableMenuItem(menu, cmd, 0 if on else MF_GRAYED)
-    u.TrackPopupMenu.argtypes = [wintypes.HMENU, wintypes.UINT, ctypes.c_int, ctypes.c_int, ctypes.c_int,
-                                 wintypes.HWND, ctypes.c_void_p]
     cmd = u.TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, x, y, 0, wintypes.HWND(hwnd), None)
     if cmd:
         u.PostMessageW(wintypes.HWND(hwnd), WM_SYSCOMMAND, cmd, 0)
@@ -182,6 +211,7 @@ class Native(QObject):
         self.win, self.bar, self.framed = win, bar, framed
         self.hwnd = None
         self._down = False
+        self._frames = {}  # (dpi, x_axis) -> the resize frame's thickness (asked on each WM_NCHITTEST: kept)
         # (Maximize's look while the pointer is on it, checked until it is off: Windows tells it late or not at all,
         # and too early when Snap layouts opens under the pointer; Maximize kept its pointed-at look after it left)
         self._poll = QTimer(self, interval=100, timeout=self._pointer_check)
@@ -209,32 +239,45 @@ class Native(QObject):
     def _zoomed(self):
         """Maximized, for Windows (its style): during a restore that Windows starts (a double-click, a drag down,
         Win+Down) Qt says the window is maximized until its WM_SIZE, after the frame is calculated."""
-        return bool(ctypes.windll.user32.IsZoomed(wintypes.HWND(self.hwnd)))
+        return bool(user32().IsZoomed(wintypes.HWND(self.hwnd)))
 
-    def maximized_rect(self):
-        """Framed, maximized: the work area of the window's monitor, with Windows' frame around it (off the screen),
-        as (x, y, width, height) in physical pixels; None if Windows does not say. Qt puts a window without a title bar
-        at the monitor's own corner: under a taskbar or another app bar at the top or at the left."""
-        u = ctypes.windll.user32
-        u.MonitorFromWindow.restype = wintypes.HANDLE
-        mon = u.MonitorFromWindow(wintypes.HWND(self.hwnd), MONITOR_DEFAULTTONEAREST)
+    def maximized_rect(self, near=None):
+        """Framed, maximized: the work area of a monitor, with Windows' frame around it (off the screen), as (x, y,
+        width, height) in physical pixels; None if Windows does not say. The monitor: the one with most of the
+        rectangle near (x, y, width, height: where Windows puts the window, e.g. Win+Shift+Right to the next monitor),
+        else the window's monitor now. Qt puts a window without a title bar at the monitor's own corner: under a
+        taskbar or another app bar at the top or at the left."""
+        u = user32()
+        if near is not None:
+            x, y, w, h = near
+            mon = u.MonitorFromRect(ctypes.byref(wintypes.RECT(x, y, x + w, y + h)), MONITOR_DEFAULTTONEAREST)
+        else:
+            mon = u.MonitorFromWindow(wintypes.HWND(self.hwnd), MONITOR_DEFAULTTONEAREST)
         info = _MonitorInfo()
         info.cbSize = ctypes.sizeof(_MonitorInfo)
-        if not mon or not u.GetMonitorInfoW(wintypes.HANDLE(mon), ctypes.byref(info)):
+        if not mon or not u.GetMonitorInfoW(mon, ctypes.byref(info)):
             return None
         bx, by, work = self._frame(True), self._frame(False), info.rcWork
         return work.left - bx, work.top - by, work.right - work.left + 2 * bx, work.bottom - work.top + 2 * by
 
     def _frame(self, x_axis):
-        """The resize frame's thickness in physical pixels (as Windows draws it at the window's DPI)."""
-        u = ctypes.windll.user32
+        """The resize frame's thickness in physical pixels (as Windows draws it at the window's DPI), kept per DPI."""
+        u = user32()
         try:
             dpi = u.GetDpiForWindow(wintypes.HWND(self.hwnd))
-            m = (SM_CXSIZEFRAME if x_axis else SM_CYSIZEFRAME)
-            return u.GetSystemMetricsForDpi(m, dpi) + u.GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi)
         except (AttributeError, OSError):
-            return u.GetSystemMetrics(SM_CXSIZEFRAME if x_axis else SM_CYSIZEFRAME) + \
-                u.GetSystemMetrics(SM_CXPADDEDBORDER)
+            dpi = 0
+        got = self._frames.get((dpi, x_axis))
+        if got is None:
+            m = (SM_CXSIZEFRAME if x_axis else SM_CYSIZEFRAME)
+            try:
+                if not dpi:
+                    raise OSError("no DPI of the window")
+                got = u.GetSystemMetricsForDpi(m, dpi) + u.GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi)
+            except (AttributeError, OSError):
+                got = u.GetSystemMetrics(m) + u.GetSystemMetrics(SM_CXPADDEDBORDER)
+            self._frames[(dpi, x_axis)] = got
+        return got
 
     def handle(self, message):
         """(handled, result) for one native message (not named event: that is QObject's, which Qt calls with its own
@@ -296,20 +339,30 @@ class Native(QObject):
         """Framed and maximized: a move or a resize changed to the work area and its frame (see maximized_rect). Not
         for a minimize (Windows puts the window far off the screen) or a change of the stacking order only."""
         wp = _WindowPos.from_address(lparam)
-        if ctypes.windll.user32.IsIconic(wintypes.HWND(self.hwnd)) or wp.x <= -30000:
+        if user32().IsIconic(wintypes.HWND(self.hwnd)) or wp.x <= -30000:
             return
         if wp.flags & SWP_NOMOVE and wp.flags & SWP_NOSIZE:
             return
-        want = self.maximized_rect()
+        # (a new position: the monitor that it is on. Win+Shift+Left or Right moves a maximized window to the next
+        # monitor, and the window's monitor now would pull it back)
+        want = self.maximized_rect(None if wp.flags & SWP_NOMOVE else self.proposed(wp))
         if want and (wp.x, wp.y, wp.cx, wp.cy) != want:
             wp.x, wp.y, wp.cx, wp.cy = want
             wp.flags &= ~(SWP_NOMOVE | SWP_NOSIZE)
+
+    def proposed(self, wp):
+        """Where a WM_WINDOWPOSCHANGING puts the window: (x, y, width, height), with its size now when it keeps it."""
+        if wp.flags & SWP_NOSIZE:
+            r = wintypes.RECT()
+            user32().GetWindowRect(wintypes.HWND(self.hwnd), ctypes.byref(r))
+            return wp.x, wp.y, r.right - r.left, r.bottom - r.top
+        return wp.x, wp.y, wp.cx, wp.cy
 
     def _client_point(self, lparam):
         """The message's screen point (physical pixels) in the window's own coordinates (Qt's, logical)."""
         x, y = ctypes.c_short(lparam & 0xFFFF).value, ctypes.c_short((lparam >> 16) & 0xFFFF).value
         origin = wintypes.POINT(0, 0)
-        ctypes.windll.user32.ClientToScreen(wintypes.HWND(self.hwnd), ctypes.byref(origin))
+        user32().ClientToScreen(wintypes.HWND(self.hwnd), ctypes.byref(origin))
         ratio = self.win.devicePixelRatioF() or 1.0
         # (down, not toward 0: at 125 % the frame's pixel next to the window, -0.8, was the window's own 0)
         return QPoint(math.floor((x - origin.x) / ratio), math.floor((y - origin.y) / ratio))
@@ -328,6 +381,8 @@ class Native(QObject):
                              (bottom, HTBOTTOM)):
                 if on:
                     return code
+        if self._covered(p):  # (a bubble or the Guide's card over the bar: its ✕ and links are clicked, not dragged)
+            return HTCLIENT
         mx = getattr(win, "caption", {}).get("max")
         if mx is not None and mx.isVisible() and mx.rect().contains(mx.mapFrom(win, p)):
             return HTMAXBUTTON
@@ -340,6 +395,16 @@ class Native(QObject):
             if child is None or child is bar or not isinstance(child, QAbstractButton):
                 return HTCAPTION  # (the name and the empty parts of the bar)
         return HTCLIENT
+
+    def _covered(self, p):
+        """True when a control that is not the top bar's is drawn at p (a bubble, the Guide's card). The Guide's
+        cover itself (a widget as large as the window, under its card) does not count: the bar under it stays the
+        title bar, so the window still moves during the Guide."""
+        win, bar = self.win, self.bar
+        over = win.childAt(p)
+        if over is None or over is bar or bar.isAncestorOf(over):
+            return False
+        return not (over.parentWidget() is win and over.size() == win.size())
 
     def _max_look(self, hover=False, down=False):
         b = getattr(self.win, "caption", {}).get("max")

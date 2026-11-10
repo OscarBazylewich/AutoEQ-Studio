@@ -259,3 +259,142 @@ def test_maximize_look_through_the_messages(win, monkeypatch, check):
           "it (Snap layouts opened) keeps it; the timer takes it off once the pointer is off",
           pointed == "hover" and after_leave == "hover" and cleared and not n._poll.isActive(),
           (pointed, after_leave, cleared, n._poll.isActive()))
+
+
+
+def test_a_bubble_over_the_bar_is_clicked_not_dragged(win, check):
+    # (the review of 2026-11-10: a bubble whose control was scrolled out of view went to the window's top, over the
+    # bar, and a click on its ✕ moved the window; the Guide's card the same)
+    from PySide6.QtWidgets import QWidget
+    from ui import bubble
+    from ui import titlebar as T
+    w, made = win
+    n = _native(w, made, True)
+    bar_point = _empty_bar(w)
+    b = bubble.tell(w.nav["devices"], "Do this first.")
+    cover = None
+    try:
+        b.move(bar_point.x() - b.width() // 2, 0)  # (over the empty part of the bar)
+        b.raise_()
+        qt.pump(2)
+        x = b.close_btn.mapTo(w, QPoint(b.close_btn.width() // 2, b.close_btn.height() // 2))
+        words = b.text.mapTo(w, QPoint(4, b.text.height() // 2))
+        on_bubble = (n.hit(x), n.hit(words))
+        b.close_now()
+        qt.pump(2)
+        after = n.hit(bar_point)
+        # the Guide's cover: a widget as large as the window (its card is a child of it)
+        cover = QWidget(w)
+        cover.setGeometry(w.rect())
+        card = QWidget(cover)
+        card.setGeometry(bar_point.x() - 60, 0, 120, 40)
+        cover.show()
+        cover.raise_()
+        qt.pump(2)
+        under_cover = n.hit(QPoint(bar_point.x() - 100, bar_point.y()))
+        on_card = n.hit(QPoint(bar_point.x(), 20))
+    finally:
+        b.close_now()
+        if cover is not None:
+            qt.close(cover)
+    check("titlebar: a bubble or the Guide's card over the top bar is the window's own (its ✕ and words are clicked, "
+          "not dragged); the bar is the title bar again when the bubble closes, and under the Guide's cover",
+          on_bubble == (T.HTCLIENT, T.HTCLIENT) and after == T.HTCAPTION and under_cover == T.HTCAPTION
+          and on_card == T.HTCLIENT, (on_bubble, after, under_cover, on_card))
+
+
+def test_a_maximized_window_moved_to_another_monitor(win, monkeypatch, check):
+    # (the review of 2026-11-10: the work area came from the monitor that the window was on, so Win+Shift+Right to the
+    # next monitor could pull a maximized window back)
+    import ctypes
+    from ui import titlebar as T
+    w, made = win
+    n = _native(w, made, True)
+    asked = []
+    monkeypatch.setattr(n, "maximized_rect", lambda near=None: asked.append(near) or (0, 0, 10, 10))
+
+    def changing(x, y, cx, cy, flags):
+        wp = T._WindowPos()
+        wp.x, wp.y, wp.cx, wp.cy, wp.flags = x, y, cx, cy, flags
+        n._keep_to_work_area(ctypes.addressof(wp))
+        return wp.x, wp.y, wp.cx, wp.cy
+    moved = changing(3000, 20, 1900, 1000, 0)
+    sized = changing(0, 0, 1900, 1000, T.SWP_NOMOVE)
+    minimized = changing(-32000, -32000, 160, 28, 0)
+    real = T.Native.maximized_rect(n, (100, 100, 400, 300))  # (Windows' own answer for a place on this PC's monitor)
+    check("titlebar: a maximized window that Windows moves gets the work area of the monitor at its new place (not "
+          "of the monitor that it was on); a resize only keeps its monitor; a minimize is left alone; the work area "
+          "with the frame has the place in it",
+          asked == [(3000, 20, 1900, 1000), None] and moved == (0, 0, 10, 10) and minimized == (-32000, -32000, 160, 28)
+          and real is not None and real[0] <= 100 and real[1] <= 100 and real[0] + real[2] >= 500
+          and real[1] + real[3] >= 400, (asked, moved, sized, minimized, real))
+
+
+def test_handles_keep_their_64_bits(check):
+    # (EnableMenuItem had no argument types: ctypes passed a menu handle as a 32-bit int)
+    import ctypes
+    from ctypes import wintypes as W
+    from ui import titlebar as T
+    u = T.user32()
+    big = 0x1_0000_0010  # (no menu has it: Windows answers -1 and does nothing)
+    try:
+        got = u.EnableMenuItem(big, T.SC_CLOSE, 0)
+        error = None
+    except ctypes.ArgumentError as e:
+        got, error = None, str(e)
+    shared = ctypes.windll.user32.EnableMenuItem.argtypes
+    check("titlebar: the user32 calls with a window, menu or monitor handle have their argument types (a 64-bit handle "
+          "goes through whole), on a copy of user32 of its own (other modules' calls are not changed)",
+          error is None and u.EnableMenuItem.argtypes[0] is W.HMENU and u.MonitorFromRect.argtypes
+          and u.PostMessageW.argtypes[0] is W.HWND and shared is None and u is T.user32(), (got, error, shared))
+
+
+def test_the_frame_size_is_kept_per_dpi(win, monkeypatch, check):
+    # (the frameless window asked Windows for its frame on each WM_NCHITTEST: now once for each DPI)
+    from ui import titlebar as T
+    w, made = win
+    n = _native(w, made, False)
+    u = T.user32()
+    dpi, asked = [96], []
+    monkeypatch.setattr(u, "GetDpiForWindow", lambda hwnd: dpi[0])
+    monkeypatch.setattr(u, "GetSystemMetricsForDpi", lambda m, d: asked.append((m, d)) or (4 if d == 96 else 6))
+    first = [n._frame(True) for _ in range(3)]
+    for _ in range(5):
+        n.hit(QPoint(1, w.height() // 2))
+    at_96 = len(asked)
+    dpi[0] = 144
+    second = n._frame(True)
+    check("titlebar: the resize frame's size is asked of Windows once for each DPI (not on each WM_NCHITTEST), and "
+          "again after a DPI change", first == [8, 8, 8] and at_96 == 2 and second == 12 and len(asked) == 4,
+          (first, at_96, second, asked))
+
+
+def test_the_names_come_back_only_with_room(win, check):
+    # (the review of 2026-11-10 thought the names could come back squeezed: measured here, they come back with room)
+    w, made = win
+    bar = w.topbar
+    w.resize(1400, 760)
+    qt.pump(10)
+    full = bar.layout().minimumSize().width()  # (the bar's true width with the names)
+    went = back = None
+    try:
+        for width in range(1400, 500, -6):
+            w.resize(width, 760)
+            qt.pump(3)
+            if bar.is_compact():
+                went = bar.width()
+                break
+        for width in range(w.width(), 1400, 2):
+            w.resize(width, 760)
+            qt.pump(3)
+            if not bar.is_compact():
+                back = bar.width()
+                break
+        squeezed = [b.accessibleName() for b in bar._buttons if b.isVisible() and b.width() < b.sizeHint().width()]
+    finally:
+        w.resize(1040, 760)
+        qt.pump(10)
+    check("titlebar: the screens' names go only when the bar is narrower than they need, and come back only with "
+          "room to spare (never squeezed, no switch to and fro)",
+          went is not None and went < full and back is not None and back >= full and squeezed == [],
+          (full, went, back, squeezed))
