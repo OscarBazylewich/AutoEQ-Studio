@@ -31,7 +31,7 @@ Find… is kept within the screen's free room (ui\\window_parts.fit_to_screen, a
 """
 import os
 
-from PySide6.QtCore import QRect, QSize, Qt, QTimer, QUrl
+from PySide6.QtCore import QEvent, QRect, QSize, Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QFont, QFontMetrics
 from PySide6.QtWidgets import (QMenu, QButtonGroup, QCheckBox, QDialog, QHBoxLayout, QLabel, QLayout, QLineEdit,
                                QListWidget, QListWidgetItem, QMessageBox, QPushButton, QSizePolicy, QStyle,
@@ -241,35 +241,43 @@ class FoundList(QListWidget):
         self.updateGeometries()  # (once more, the list's new width known now)
 
 
-def more_button():
-    """A row's ⋯: its other commands in a menu (quiet, as a row's ✕; no chevron: its symbol says it)."""
-    b = QPushButton()
-    icons.put(b, "more")
-    theme.mark(b, quiet=True, nochevron=True)
-    b.setToolTip("More commands")
-    b.setMenu(QMenu(b))
-    return b
+class MoreButton(QPushButton):
+    """A row's ⋯: its other commands in a menu (quiet, as a row's ✕; no chevron: its symbol says it). Its menu is
+    made the first time it can be needed: the pointer on the button, the button focused or pressed, or menu() asked
+    for. A menu made with each row cost Find… about 45 ms each time it opened (the code's review, 2026-11-10)."""
+
+    MENU_EVENTS = (QEvent.Enter, QEvent.FocusIn, QEvent.MouseButtonPress, QEvent.KeyPress, QEvent.Shortcut)
+
+    def __init__(self, fill):
+        super().__init__()
+        self._fill = fill  # (fill(menu) puts the row's commands in its menu; None once they are in it)
+        icons.put(self, "more")
+        theme.mark(self, quiet=True, nochevron=True)
+        self.setToolTip("More commands")
+
+    def menu(self):
+        m = super().menu()
+        if m is None and self._fill is not None:
+            fill, self._fill = self._fill, None
+            m = QMenu(self)
+            fill(m)
+            self.setMenu(m)  # (from now on Qt opens it on a press, as every menu button's)
+        return m
+
+    def event(self, e):
+        if self._fill is not None and e.type() in self.MENU_EVENTS:
+            self.menu()
+        return super().event(e)
 
 
-class FilesButton(QPushButton):
-    """Show files / Hide files: a measurement's files under its row (to tick or untick one by one), or hidden again.
-    In words, as wide either way: a chevron on a button opens a menu (.claude/notes/UI-RULES.md 12), and this one, drawn
-    as a menu button's (the recheck, 2026-10-23, from typed triangles), opened rows."""
+def more_button(fill):
+    """A row's ⋯ (MoreButton): fill(menu) puts its commands in its menu when the menu is first needed."""
+    return MoreButton(fill)
 
-    WORDS = ("Show files", "Hide files")
 
-    def __init__(self, shown):
-        super().__init__(self.WORDS[1] if shown else self.WORDS[0])
-        self.setObjectName("findFiles")
-
-    def sizeHint(self):
-        # (room for the longer of its two words, in the font it's drawn in: the row doesn't move as it changes)
-        s, fm = super().sizeHint(), self.fontMetrics()
-        more = max(fm.horizontalAdvance(w) for w in self.WORDS) - fm.horizontalAdvance(self.text())
-        return QSize(s.width() + max(0, more), s.height())
-
-    def minimumSizeHint(self):
-        return self.sizeHint()
+# Show files / Hide files, the first item of a measurement's ⋯ menu: its files under its row (to tick or untick one
+# by one), or hidden again. In words: a chevron on a button opens a menu (.claude/notes/UI-RULES.md 12)
+FILES_WORDS = ("Show files", "Hide files")
 
 
 class Picker(QDialog):
@@ -285,7 +293,7 @@ class Picker(QDialog):
         saved = page.sw.s.get("picker") or {}
         self.filters = {k: dict(ANY, **(saved.get(k) or {})) for k in ("target", "measurement")}
         self.src, self.expanded, self.busy, self._fetching = "", set(), None, False
-        self._fails, self._tr = {}, ""
+        self._fails, self._tr, self._more_w = {}, "", None
         self.db, self.lib = {"items": [], "loading": True}, {"items": [], "scanning": True}
 
         v = QVBoxLayout(self)
@@ -634,11 +642,12 @@ class Picker(QDialog):
     def render(self):
         ws = [w for w in self.q.text().lower().split() if w]
         f = self.filters[self.kind]
-        self._fails, self._tr = {}, self.target_rig()
-        sections = [(s, title, fn(ws)) for s, title, fn in (("app", "In the app", self.app_rows),
-                                                             ("pc", "This PC", self.pc_rows),
-                                                             ("db", "Online databases", self.db_rows))
-                    if not self.src or self.src == s]
+        self._fails, self._tr, self._more_w = {}, self.target_rig(), None
+        # (every source's rows for the search, the tab shown or not: each tab says how many it shows)
+        every = [(s, title, fn(ws)) for s, title, fn in (("app", "In the app", self.app_rows),
+                                                          ("pc", "This PC", self.pc_rows),
+                                                          ("db", "Online databases", self.db_rows))]
+        sections = [x for x in every if not self.src or self.src == x[0]]
         self._render_filters([r for _, _, rows in sections for r in rows], f)
         lst = self.list
         # (the same search and filters: Show, ticking a file, a list loaded… keep the place in the list and the row)
@@ -691,16 +700,15 @@ class Picker(QDialog):
             QTimer.singleShot(0, lst, lambda v=place[1]: lst.verticalScrollBar().setValue(v))
         self._mark_use()
         lst.setUpdatesEnabled(True)
+        # (each source tab with the number of results it shows: for the words in the search box and the selections,
+        # as its heading in All. The UI audit, 2026-11-08; until the code's review, 2026-11-10, the counts were of
+        # every item, whatever the search, both types too)
+        n = {s: sum(1 for r in found if self.passes(r, f)) for s, _title, found in every}
         self._fails = {}  # (by id: only while these rows are alive)
-        # (each source tab with its number of items; the gray line only offline or while the lists load: the UI
-        # audit, 2026-11-08)
-        n_app = len(self.page.inputs["targets"]) if self.kind == "target" else len(self.devices())
-        n_pc = len([g for g in self.lib.get("items") or [] if not g.get("in_app")])
         loading = self.db.get("loading")
-        n_db = len(self.db.get("items") or [])
-        counts = {"app": f"{n_app:,}", "pc": f"{n_pc:,}" + ("…" if self.lib.get("scanning") else ""),
-                  "db": "…" if loading else f"{n_db:,}"}
-        counts[""] = "…" if loading else f"{n_app + n_pc + n_db:,}"
+        counts = {"app": f"{n['app']:,}", "pc": f"{n['pc']:,}" + ("…" if self.lib.get("scanning") else ""),
+                  "db": "…" if loading else f"{n['db']:,}"}
+        counts[""] = "…" if loading else f"{sum(n.values()):,}"
         for key, name in SOURCES:
             b = self.src_by_key[key]
             words = f"{name}  {counts[key]}"
@@ -836,32 +844,48 @@ class Picker(QDialog):
         # (the row's other commands in its ⋯ menu: Show files or Move to Measurement, and Delete…; as the list of
         # apps in Windows 11's Settings. The UI audit, 2026-11-08: the rows in the app had one more button, and the
         # columns of the rows did not line up)
-        x = more_button()
-        if r["src"] == "app":
-            m = x.menu()
-            if r.get("device"):
-                shown = r["device"]["name"] in self.expanded
-                a = m.addAction(FilesButton.WORDS[1] if shown else FilesButton.WORDS[0],
-                                lambda d=r["device"]["name"]: self.toggle_expand(d))
-                a.setToolTip("Select or clear the files one by one (seatings, left and right)")
-                m.addSeparator()
-                m.addAction("Delete…", lambda d=r["device"]: self.remove("measurement", [f["name"] for f in d["files"]],
-                                                                          d["name"]))
-                x.setAccessibleName(f"More commands for {r['device']['name']}")
-            else:
-                m.addAction("Move to Measurement", lambda n=r["file"]: self.move("target", n))  # (verb first: 15)
-                m.addSeparator()
-                m.addAction("Delete…", lambda n=r["file"]: self.remove("target", [n], n))
-                x.setAccessibleName(f"More commands for {r['name']}")
         use = QPushButton("Use")
         use.setObjectName("findUse")  # (the accent only on the one Enter presses: _mark_use)
         use.setEnabled(self.busy is None)
         use.clicked.connect(lambda _=False, r=r: self.use_row(r))
         h.addWidget(use)
         h.addSpacing(12)  # (the bin apart from Use, the main action, as History's ✕: UI-RULES 14)
-        h.addWidget(_keep_room_when_hidden(x))
-        x.setVisible(r["src"] == "app")
+        if r["src"] == "app":
+            x = more_button(lambda m, r=r: self._fill_more(m, r))
+            x.setAccessibleName(f"More commands for {r['device']['name'] if r.get('device') else r['name']}")
+            h.addWidget(x)
+        else:  # (no ⋯: its room kept, so every Use is in one column. An empty room, not a hidden button: most rows
+            # are online entries, and each button cost the window's time. The gap before a button too: a layout puts
+            # none before a room)
+            h.addSpacing(self._more_room() + max(0, h.spacing()))
         self._add_row_widget(it, w)
+
+    def _fill_more(self, m, r):
+        """The commands of a row in the app into its ⋯ menu: Show files or Move to Measurement, then Delete… after a
+        line (made when the menu is first needed: MoreButton)."""
+        if r.get("device"):
+            shown = r["device"]["name"] in self.expanded
+            a = m.addAction(FILES_WORDS[1] if shown else FILES_WORDS[0],
+                            lambda d=r["device"]["name"]: self.toggle_expand(d))
+            a.setToolTip("Select or clear the files one by one (seatings, left and right)")
+            m.addSeparator()
+            m.addAction("Delete…", lambda d=r["device"]: self.remove("measurement", [f["name"] for f in d["files"]],
+                                                                      d["name"]))
+        else:
+            m.addAction("Move to Measurement", lambda n=r["file"]: self.move("target", n))  # (verb first: 15)
+            m.addSeparator()
+            m.addAction("Delete…", lambda n=r["file"]: self.remove("target", [n], n))
+
+    def _more_room(self):
+        """The width of a row's ⋯ in this list, measured once each time the list is drawn (the theme can change it)."""
+        if self._more_w is None:
+            b = MoreButton(None)
+            b.setParent(self.list.viewport())  # (styled as the rows' ⋯; never shown)
+            b.hide()
+            b.ensurePolished()
+            self._more_w = b.sizeHint().width()
+            b.setParent(None)  # (gone at once, Python's again: not left in the list until Qt deletes it)
+        return self._more_w
 
     def _add_row_widget(self, it, w):
         """A row's widgets into the list, its height from them in the theme's text (worked out before the theme's
@@ -885,10 +909,11 @@ class Picker(QDialog):
         cb.toggled.connect(lambda on, n=fl["name"]: self.toggle_file(n, on))
         h.addWidget(cb, 1)
         h.addSpacing(12)  # (its ⋯ in the column of the rows' ⋯)
-        x = more_button()  # (Move to Target and Delete…, as every row's other commands)
-        x.menu().addAction("Move to Target", lambda n=fl["name"]: self.move("measurement", n))
-        x.menu().addSeparator()
-        x.menu().addAction("Delete…", lambda n=fl["name"]: self.remove("measurement", [n], n))
+        def fill(m, n=fl["name"]):  # (Move to Target and Delete…, as every row's other commands)
+            m.addAction("Move to Target", lambda: self.move("measurement", n))
+            m.addSeparator()
+            m.addAction("Delete…", lambda: self.remove("measurement", [n], n))
+        x = more_button(fill)
         x.setAccessibleName(f"More commands for {fl['name']}")
         h.addWidget(x)
         self._add_row_widget(it, w)

@@ -29,6 +29,7 @@ import weakref
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QCheckBox, QDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
                                QProgressBar, QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
@@ -88,6 +89,7 @@ class CompareWindow(QDialog):
         super().__init__(page)
         self.page, self.svc = page, page.svc
         self.data, self.hot, self.avg_hot, self.picked, self.busy, self.again = None, -1, None, {}, False, None
+        self.has_average = False  # (an average's box offered: its line's name under the chart)
         self.setWindowTitle("Other measurements of this model")  # (its button's words, UI-RULES 17)
         # (Qt's own minimum counts each wrapped line of text once, and then squeezed the chart's card, cutting off its
         # scale: room here for the note and the legend on two lines each. Both kept within the screen's free room: on
@@ -99,40 +101,39 @@ class CompareWindow(QDialog):
         list_min = max(40, both - chart_min)
         v = QVBoxLayout(self)
         v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as every window's)
-        top = QHBoxLayout()
-        top.addWidget(QLabel("Model"))
+        # (the labels in one column, each beside its control, as a form's label column (UI-RULES 26): the rig's list
+        # was at the window's far right, its label far at the left, out of line with the model's box. The code's
+        # review, 2026-11-10)
+        top = QGridLayout()
+        top.addWidget(QLabel("Model"), 0, 0)
         self.q = QLineEdit()
         self.q.setPlaceholderText("for example, Truthear Gate")
         self.q.setClearButtonEnabled(True)
         self.q.returnPressed.connect(lambda: self.search_measurements())
-        top.addWidget(self.q, 1)
+        top.addWidget(self.q, 0, 1)
         # (plain: the accent is the main action's, a measurement's or an average's. "Search", what it does: it was
         # "Compare", the result card's word for two EQs side by side)
         self.go = QPushButton("Search")
         icons.put(self.go, "find")
         self.go.clicked.connect(lambda: self.search_measurements())
-        top.addWidget(self.go)
-        v.addLayout(top)
-        # (the target's rig on a line of its own, its words at the left and its choice at the right as Windows 11's
-        # settings: beside the model, a long target name left the model's box a few letters wide at 10.5 pt)
-        # (as a row of Windows 11's Settings: its label in the usual colour, the target's name in gray under it; the
-        # UI audit, 2026-11-08: its label was gray words, "Target … is made for")
-        rig_row = QHBoxLayout()
-        words = QVBoxLayout()
-        words.setSpacing(0)
-        words.addWidget(QLabel("Rig of your target"))
-        self.target_lab = QLabel()
-        self.target_lab.setWordWrap(True)
-        theme.mark(self.target_lab, role="muted")
-        words.addWidget(self.target_lab)
-        rig_row.addLayout(words, 1)
+        top.addWidget(self.go, 0, 2)
+        # (the target's rig on a line of its own: beside the model, a long target name left the model's box a few
+        # letters wide at 10.5 pt. Its label in the usual colour, the target's name in gray under it, as a row of
+        # Windows 11's Settings: the UI audit, 2026-11-08; its label was gray words, "Target … is made for")
+        top.addWidget(QLabel("Rig of your target"), 1, 0)
         self.rig = SearchCombo()
         self.rig.setAccessibleName("Rig of your target")
         help_window.tag(self.q, "#cmp-q")
         help_window.tag(self.rig, "#cmp-rig")
         self.rig.activated.connect(lambda _i: (self.data or self.busy) and self.search_measurements())
-        rig_row.addWidget(self.rig)
-        v.addLayout(rig_row)
+        # (its own width, under the model's box; in the Search column too, so the window is not wider for it)
+        top.addWidget(self.rig, 1, 1, 1, 2, Qt.AlignLeft)
+        self.target_lab = QLabel()
+        self.target_lab.setWordWrap(True)
+        theme.mark(self.target_lab, role="muted")
+        top.addWidget(self.target_lab, 2, 0, 1, 3)
+        top.setColumnStretch(1, 1)
+        v.addLayout(top)
         self.status = QLabel()
         self.status.setWordWrap(True)
         theme.mark(self.status, role="muted")
@@ -284,6 +285,7 @@ class CompareWindow(QDialog):
         lay.setContentsMargins(0, 0, 0, 0)  # (its cards' edges lined up with the chart's and the folds': Qt's 9 px)
         lay.setSpacing(8)
         averages = self._averages()  # (the first's button the main action, the accent: as Windows 11, only one)
+        self.has_average = bool(averages)
         for w in averages:
             lay.addWidget(w)
         for i, c in enumerate(d["items"]):
@@ -483,10 +485,8 @@ class CompareWindow(QDialog):
             ch.getAxis(ax).setPen(pg.mkPen(col["axis"]))
             ch.getAxis(ax).setTextPen(pg.mkPen(col["axis"]))
         ch.showGrid(x=True, y=True, alpha=0.2)
-        self.names.set_items([("Best for your target, or the row at the pointer", pg.mkPen(col["with_eq"], width=2.5)),
-                              ("The rig of your target", pg.mkPen(_colour(col["target"], 130), width=1.6)),
-                              ("Other rigs", pg.mkPen(_colour(col["axis"], 160), width=1.6, style=Qt.DotLine)),
-                              ("An average (the pointer on its box)", pg.mkPen(t["c4"], width=2.5, style=Qt.DashLine))])
+        pens = _pens(col, t)  # (the lines and their samples in the names' line: one pen each, so they look the same)
+        self._set_names(pens)
         d = self.data
         if not d or not d["items"]:
             return
@@ -495,23 +495,44 @@ class CompareWindow(QDialog):
         order = [i for i in range(len(d["items"])) if i != top] + [top]
         for i in order:
             c = d["items"][i]
-            same = not d.get("target_rig") or c.get("rig") == d["target_rig"]
-            colour = _colour(col["with_eq"] if i == top else col["target"] if same else col["axis"],
-                             255 if i == top else 130 if same else 90)
             ch.plot(f, np.asarray(c["vals"], dtype=float),
-                    pen=pg.mkPen(colour, width=2.5 if i == top else 1.2,
-                                 style=Qt.SolidLine if same or i == top else Qt.DotLine))
+                    pen=pens["top" if i == top else "same" if self._same_rig(c) else "other"])
         if self.avg_hot:
             lst = [c for c in d["items"] if c.get("rig") == self.avg_hot and c["hash"] in self.picked.get(self.avg_hot, set())]
             if len(lst) >= 2:
                 avg = np.mean([np.asarray(c["vals"], dtype=float) for c in lst], axis=0)
-                ch.plot(f, avg, pen=pg.mkPen(t["c4"], width=3, style=Qt.DashLine))  # (the graph's green)
+                ch.plot(f, avg, pen=pens["average"])  # (the graph's green)
         inside = (f >= 30) & (f <= 12000)
         vals = np.sort(np.concatenate([np.asarray(c["vals"], dtype=float)[inside] for c in d["items"]]))
         lo = np.floor((vals[int(len(vals) * 0.01)] - 3) / 5) * 5
         hi = np.ceil((vals[int(len(vals) * 0.99)] + 3) / 5) * 5
         ch.setYRange(lo, hi, padding=0)
         ch.setXRange(np.log10(20), np.log10(20000), padding=0)
+
+    def _same_rig(self, c):
+        """Drawn as on your target's rig: on it, or every one when the target's rig is not known (not compared)."""
+        return not self.data.get("target_rig") or c.get("rig") == self.data["target_rig"]
+
+    def _set_names(self, pens):
+        """The names under the chart: only of the lines that these measurements give (a line that the pointer shows,
+        on a row or an average's box, included), nothing before a search. Given again only when they change: the
+        chart is drawn again at each move of the pointer from row to row."""
+        d, items = self.data, []
+        rows = (d or {}).get("items") or []
+        if rows:
+            items.append(("Best for your target, or the row at the pointer", "top"))
+            # (with 2 or more, each one can be a line under the one on top: the pointer on another's row)
+            if len(rows) > 1 and any(self._same_rig(c) for c in rows):
+                items.append(("The rig of your target" if d.get("target_rig") else "The other measurements", "same"))
+            if len(rows) > 1 and not all(self._same_rig(c) for c in rows):
+                items.append(("Other rigs", "other"))
+            if self.has_average:
+                items.append(("An average (the pointer on its box)", "average"))
+        key = [(name, pens[k].color().name(QColor.HexArgb), pens[k].widthF(), int(pens[k].style().value))
+               for name, k in items]
+        if key != getattr(self, "_names_key", None):
+            self._names_key = key
+            self.names.set_items([(name, pens[k]) for name, k in items])
 
     # ---------------------------------------------------------------- using
     def use(self, c, btn):
@@ -568,8 +589,16 @@ def _redraw_on_theme(window):
     theme.on_change(again)
 
 
+def _pens(col, t):
+    """The chart's pens (col: theme.graph_colours(), t: theme.tokens()): the one on top in blue, the others gray (your
+    target's rig) or dotted (other rigs), an average in green dashes."""
+    return {"top": pg.mkPen(col["with_eq"], width=2.5),
+            "same": pg.mkPen(_colour(col["target"], 130), width=1.2),
+            "other": pg.mkPen(_colour(col["axis"], 90), width=1.2, style=Qt.DotLine),
+            "average": pg.mkPen(t["c4"], width=3, style=Qt.DashLine)}
+
+
 def _colour(hex_, alpha):
-    from PySide6.QtGui import QColor
     c = QColor(hex_)
     c.setAlpha(alpha)
     return c

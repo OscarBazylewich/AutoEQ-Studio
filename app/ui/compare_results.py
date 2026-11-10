@@ -17,7 +17,7 @@ now pinned on top (it sorted last); Enter presses nothing (Qt made "Show A" Ente
 """
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QAbstractItemView, QDialog, QFrame, QGridLayout, QHBoxLayout, QHeaderView, QLabel,
                                QPushButton, QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
@@ -31,6 +31,7 @@ from ui.window_parts import Footer, enter_presses, fit_to_screen
 
 TYPES = {"PK": "Peak", "LSQ": "Low shelf", "HSQ": "High shelf", "LSC": "Low shelf", "HSC": "High shelf"}
 TICKS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]  # (as the EQ screen's graph)
+PLOT_LOW, PLOT_HIGH = 260, 480  # (px: the graph's height, as the page's visible room allows)
 LEFT = Qt.AlignLeft | Qt.AlignVCenter  # (Windows 11's tables: words at the left, under their heading)
 
 
@@ -120,6 +121,8 @@ class CompareResults(QDialog):
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # (only up and down: its parts fit its width)
         scroll.setWidget(page_w)
         outer.addWidget(scroll, 1)
+        self.scroll = scroll
+        scroll.viewport().installEventFilter(self)  # (the graph's height follows the room in sight: fit_plot)
         lead = QLabel("Two of these: the result on the result card, the EQs that you made, and the History of this "
                       "IEM. The graph shows them with your measurement and target.")
         lead.setWordWrap(True)
@@ -166,20 +169,20 @@ class CompareResults(QDialog):
         self.plot.hideButtons()
         self.plot.getAxis("bottom").setTicks([[(np.log10(t), f"{t // 1000}k" if t >= 1000 else str(t)) for t in TICKS]])
         self.plot.getAxis("left").setLabel("dB")
-        self.plot.setMinimumHeight(260)
+        self.plot.setFixedHeight(PLOT_HIGH)  # (less on a short window: fit_plot)
         self.plot.showGrid(x=True, y=True, alpha=0.25)
         # (the curves' names in a line under the graph, as every graph of the app; pyqtgraph's legend gathers them,
         # hidden: the UI audit, 2026-11-08)
         self.legend = self.plot.addLegend(offset=(10, -10))
         self.legend.setVisible(False)
-        card = QFrame()  # (the graph in a card, as Make an EQ's)
+        card = self.card = QFrame()  # (the graph in a card, as Make an EQ's)
         theme.mark(card, card=True)
         cl = QVBoxLayout(card)
         cl.setContentsMargins(0, 0, 0, 4)
         cl.addWidget(self.plot)
         self.names = CurveNames()
         cl.addWidget(self.names)
-        v.addWidget(card, 2)
+        v.addWidget(card)
         self.numbers = QTableWidget(0, 3)
         self.numbers.setObjectName("eqwNumbers")  # (room at the left of its cells: ui\theme_sheet.py)
         self.numbers.setAccessibleName("Values")
@@ -216,15 +219,38 @@ class CompareResults(QDialog):
             t.verticalHeader().hide()
             t.setEditTriggers(QAbstractItemView.NoEditTriggers)
             t.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+            t.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)  # ("High shelf (off)" whole)
+            t.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # (as tall as its rows: render)
             box.addWidget(t)
+            box.addStretch(1)  # (a shorter table at the top, level with the other: not in the middle of the row)
             tables.addLayout(box)
             self.tables.append(t)
-        v.addLayout(tables, 2)
+        v.addLayout(tables)
+        v.addStretch(1)  # (on a tall window: the room left over under the tables)
         self.footer = Footer(self)
         outer.addWidget(self.footer)
         enter_presses(self)
         self.render()
         follow_theme(self, lambda w: w.render())
+
+    def eventFilter(self, obj, e):
+        if e.type() == QEvent.Resize and obj is self.scroll.viewport():
+            self.fit_plot()
+        return super().eventFilter(obj, e)
+
+    def fit_plot(self):
+        """The graph as tall as the page's room in sight allows (from PLOT_LOW to PLOT_HIGH px), so its card, the
+        scale and the curves' names included, can be seen whole: at the window's smallest (760 x 440) the graph was
+        480 px high in 360 px of room, its frequency scale always under the edge (the code's review, 2026-11-10)."""
+        room = self.scroll.viewport().height()
+        frame = self.card.height() - self.card.contentsRect().height()
+        cl = self.card.layout()
+        m = cl.contentsMargins()
+        names = self.names.heightForWidth(max(1, self.scroll.viewport().width() - frame))
+        other = frame + m.top() + m.bottom() + (cl.spacing() if names else 0) + names + 2
+        h = max(PLOT_LOW, min(PLOT_HIGH, room - other))
+        if self.plot.height() != h:
+            self.plot.setFixedHeight(h)
 
     def chosen(self):
         return [self.opts[c.currentIndex()] for c in self.combos] if self.opts else []
@@ -293,6 +319,11 @@ class CompareResults(QDialog):
                     it = QTableWidgetItem(text)
                     it.setTextAlignment(LEFT)
                     tbl.setItem(i, j, it)
+            # (as tall as its rows, as the values' table: the page scrolls as one. Each table was squeezed into the
+            # room left at the window's foot, its rows in a scroll of their own: the code's review, 2026-11-10)
+            tbl.resizeColumnToContents(0)
+            tbl.setFixedHeight(tbl.horizontalHeader().height() + sum(tbl.rowHeight(i) for i in range(len(fs)))
+                               + 2 * tbl.frameWidth() + 2)
 
     def show_on_card(self, i):
         """A result of this session back on the result card (a History entry: History's Show does that)."""

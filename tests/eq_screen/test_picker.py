@@ -762,3 +762,66 @@ def test_files_says_show_or_hide(eq_screen, check):
         _close(pk)
     check("ui: Find…'s ⋯ of a measurement in the app says Show files / Hide files in words, then Delete… after a line",
           seen["hidden"] == ["Show files", "|", "Delete…"] and seen["shown"] == ["Hide files", "|", "Delete…"], seen)
+
+
+def test_more_menus_made_when_needed(eq_screen, check):
+    # (2026-11-10, the code's review: each row made its ⋯ with its menu at once, the online rows a hidden ⋯ too, and
+    # Find… took 142 ms to open where it took 96 before the ⋯ menus. Now a row in the app has a ⋯ whose menu is made
+    # when it can be needed (the pointer on it, focus, a press, menu()); the other rows keep its room, so every Use is
+    # still in one column)
+    from PySide6.QtCore import QEvent, Qt
+    from PySide6.QtGui import QFocusEvent
+    from PySide6.QtWidgets import QApplication, QPushButton
+    pk = _shown_picker(eq_screen.page, "")
+    seen = {}
+    try:
+        app_rows = sum(1 for r in _rows(pk) if r["src"] == "app")
+        rows = [pk.list.itemWidget(pk.list.item(i)) for i in range(pk.list.count())]
+        xs = [b for w in rows if w is not None for b in w.findChildren(QPushButton) if b.toolTip() == "More commands"]
+        seen["⋯ (rows in the app)"] = (len(xs), app_rows)
+        seen["menus made at the start"] = sum(QPushButton.menu(b) is not None for b in xs)
+        uses = {b.mapTo(pk.list, b.rect().topLeft()).x() + b.width()
+                for b in pk.list.findChildren(QPushButton, "findUse") if b.isVisible()}
+        seen["right edges of Use"] = sorted(uses)
+        if xs:
+            x = xs[0]
+            seen["name, Tab"] = (x.accessibleName(), bool(x.focusPolicy() & Qt.TabFocus))
+            QApplication.sendEvent(x, QFocusEvent(QEvent.FocusIn, Qt.TabFocusReason))  # (reached by Tab)
+            m = QPushButton.menu(x)
+            seen["after focus"] = [a.text() or "|" for a in m.actions()] if m is not None else None
+    finally:
+        _close(pk)
+    check("speed: Find…'s ⋯ only on the rows in the app, its menu made when it can be needed (its focus made it, with "
+          "Show files and Delete…), named for its row and in the Tab order; every Use still in one column",
+          seen.get("⋯ (rows in the app)", (0, 1))[0] == seen["⋯ (rows in the app)"][1] >= 1
+          and seen["menus made at the start"] == 0 and len(seen["right edges of Use"]) == 1
+          and seen["name, Tab"][0].startswith("More commands for ") and seen["name, Tab"][1]
+          and seen["after focus"] == ["Show files", "|", "Delete…"], seen)
+
+
+def test_tab_counts_follow_the_search(eq_screen, check):
+    # (2026-11-10, the code's review: each source's tab said how many items it had, whatever was typed in the search
+    # box; "This PC" counted targets too. Now each tab says how many results it shows for the search and selections)
+    import re
+    pk = _shown_picker(eq_screen.page, "")
+    seen = {}
+    try:
+        for words in ("", "truthear", "zzzz"):
+            pk.q.setText(words)
+            pk._later.stop()
+            pk.render()
+            said = {k: int(re.sub(r"[^0-9]", "", b.text()) or 0) for k, b in pk.src_by_key.items()}
+            shown = {}
+            for key in ("app", "pc", "db"):
+                pk.set_src(key)
+                pk.finish_list()
+                shown[key] = len(_rows(pk))
+            pk.set_src("")
+            shown[""] = sum(shown.values())
+            seen[words or "(nothing typed)"] = (said, shown)
+    finally:
+        _close(pk)
+    check("ui: Find…'s source tabs each say how many results the tab shows for the words in the search box (nothing "
+          "found: 0 on every tab)",
+          all(said == shown for said, shown in seen.values()) and seen["zzzz"][0] == {"": 0, "app": 0, "pc": 0, "db": 0}
+          and seen["truthear"][0][""] > 0, seen)
