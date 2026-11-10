@@ -144,3 +144,52 @@ def test_compare_fits_a_small_screen(eq_screen, history_eq, check, monkeypatch):
           "parts not squeezed; on a big screen as before (1000 x 820, at least 760 wide)",
           all(seen[s]["fits"] for s in qt.SMALL_SCREENS) and big["fits"] and big["opens"] == (1000, 820)
           and big["smallest"][0] == 760, seen)
+
+
+def test_compare_graph_and_tables_whole_at_its_smallest(eq_screen, history_eq, check):
+    # (2026-11-10, the code's review: at the window's smallest, 760 x 440, the graph was 480 px high in about 370 px
+    # of room, its frequency scale always under the edge; each filter table had its own scroll bar (10 filters in 5
+    # rows of room) and "High shelf (off)" read "High shel…". Now the graph is as tall as the room in sight allows,
+    # each table as tall as its rows, and the page scrolls as one)
+    page = eq_screen.page
+    run, r = page.current()
+    ten = [{"enabled": k != 3, "type": ("LSQ", "PK", "PK", "HSQ")[k % 4], "freq": 30 * (k + 1) ** 2,
+            "gain": 1.5 - k * 0.4, "q": 0.7 + k / 10} for k in range(10)]
+    extra = dict(run, n=98, pick="cmp-10", best="cmp-10", device=page.curves["name"],
+                 results=[dict(r, id="cmp-10", n_filters=10, rms=r["rms"] + 0.3, filters=ten)])
+    page.session_runs.append(extra)
+    from PySide6.QtCore import QSize
+    from PySide6.QtWidgets import QScrollArea
+    seen = {}
+    try:
+        dlg = CompareResults(page)
+        try:
+            b = dlg.combos[1]
+            b.setCurrentIndex(next(i for i in range(b.count()) if b.itemText(i).startswith("#98 ")))
+            dlg.show()
+            card, room = dlg.plot.parentWidget(), dlg.findChild(QScrollArea).viewport()
+            for size in ("smallest", "usual"):
+                dlg.resize(dlg.minimumSize() if size == "smallest" else QSize(1000, 820))
+                qt.pump(300)
+                tb = dlg.tables[1]
+                fm = tb.fontMetrics()
+                seen[size] = {
+                    "window": (dlg.width(), dlg.height()),
+                    "graph's card, room in sight": (card.height(), room.height()),
+                    "graph": dlg.plot.height(),
+                    "tables' scroll bars": [t.verticalScrollBar().isVisible() for t in dlg.tables],
+                    "B's rows in sight": all(tb.visualRect(tb.model().index(i, 0)).bottom() <= tb.viewport().height()
+                                             for i in range(tb.rowCount())),
+                    "type column, its words": (tb.columnWidth(0), fm.horizontalAdvance("High shelf (off)"))}
+        finally:
+            qt.close(dlg)
+    finally:
+        page.session_runs.remove(extra)
+    small, usual = seen.get("smallest", {}), seen.get("usual", {})
+    check("compare: at its smallest the graph's card (its scale and names too) fits in the room in sight, each filter "
+          "table shows all its rows with no scroll bar of its own, and a type's words are whole; at the usual size the "
+          "graph is as high as before (480 px)",
+          small and small["graph's card, room in sight"][0] <= small["graph's card, room in sight"][1]
+          and all(not s["tables' scroll bars"][0] and not s["tables' scroll bars"][1] and s["B's rows in sight"]
+                  and s["type column, its words"][0] >= s["type column, its words"][1] for s in (small, usual))
+          and usual["graph"] == 480, seen)

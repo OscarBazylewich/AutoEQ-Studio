@@ -302,3 +302,90 @@ def test_no_average_of_copies(eq_screen, monkeypatch, check):
           "rig are still offered their average",
           seen == {"copies": {"averages": 0, "accent on": ["Use"]},
                    "two different ones": {"averages": 1, "accent on": ["Use the average of 2"]}}, seen)
+
+
+def _with_other_rig(cw):
+    """A third measurement, on another rig (the 711), into the window shown by _shown_with: a dotted line."""
+    c = dict(cw.data["items"][-1], name="Model on 711", hash="h711", rig="711", rig_name="711", score=40.0)
+    c["vals"] = [v - 2 for v in c["vals"]]
+    cw.data["items"].append(c)
+    cw.picked.clear()
+    cw.render()
+    qt.pump(100)
+
+
+def test_curve_names_only_of_lines_drawn(eq_screen, monkeypatch, check):
+    # (2026-11-10, the code's review: the line under the chart always had the four names, also before a search and
+    # with only one measurement, after a theme change too; it was given again at each move of the pointer)
+    from ui import compare_window, theme
+    qapp, seen = eq_screen.qapp, {}
+    monkeypatch.setattr(compare_window.CompareWindow, "search_measurements", lambda self, auto=False: None)
+    empty = compare_window.CompareWindow(eq_screen.page)
+    empty.show()
+    try:
+        theme.apply(qapp, dark=True)  # (drawn again: still no data)
+        qapp.processEvents()
+        seen["no search"] = [n for n, _p in empty.names.items]
+    finally:
+        qt.light(qapp)
+        qapp.processEvents()
+        qt.close(empty)
+    for n in (1, 2, 3):
+        cw = _shown_with(eq_screen.page, monkeypatch, items=min(n, 2))
+        try:
+            if n == 3:
+                _with_other_rig(cw)
+            seen[n] = [name for name, _p in cw.names.items]
+            if n == 3:
+                given = []
+                real = cw.names.set_items
+                cw.names.set_items = lambda items, given=given, real=real: (given.append(1), real(items))
+                for i in (1, 2, -1, 0, -1):  # (the pointer from row to row)
+                    cw._hover(i)
+                seen["given again on 5 moves"] = len(given)
+        finally:
+            qt.close(cw)
+    best, rig, other, avg = ("Best for your target, or the row at the pointer", "The rig of your target", "Other rigs",
+                             "An average (the pointer on its box)")
+    check("ui: Which measurement's names under the chart are only of the lines that its measurements give (none before "
+          "a search; one measurement: only the best; an average's name only when one is offered), given again only "
+          "when they change, not at each move of the pointer",
+          seen == {"no search": [], 1: [best], 2: [best, rig, avg], 3: [best, rig, other, avg],
+                   "given again on 5 moves": 0}, seen)
+
+
+def test_curve_names_samples_as_their_lines(eq_screen, monkeypatch, check):
+    # (2026-11-10, the code's review: the sample of "Other rigs" had alpha 160 and its dotted lines 90, the gray one
+    # was wider than its lines: each sample must look as its lines do)
+    from PySide6.QtGui import QColor
+    cw = _shown_with(eq_screen.page, monkeypatch)
+    try:
+        _with_other_rig(cw)
+        cw._avg_hover("5128")  # (the average's line drawn too)
+        look = lambda p: (p.color().name(QColor.HexArgb), round(p.widthF(), 2), int(p.style().value))
+        lines = {look(i.opts["pen"]) for i in cw.chart.listDataItems()}
+        samples = {name: look(p) for name, p in cw.names.items}
+    finally:
+        qt.close(cw)
+    check("ui: each name's sample under Which measurement's chart has its lines' colour, alpha, width and style",
+          len(samples) == 4 and all(s in lines for s in samples.values()), (samples, sorted(lines)))
+
+
+def test_labels_in_one_column(eq_screen, monkeypatch, check):
+    # (2026-11-10, the code's review: "Rig of your target" sat at the window's left edge and its list at the far
+    # right, out of line with "Model" beside its box. Now the labels are in one column, each control after its label)
+    cw = _shown_with(eq_screen.page, monkeypatch)
+    try:
+        from PySide6.QtWidgets import QLabel
+        label = {w.text(): w for w in cw.findChildren(QLabel) if w.text() in ("Model", "Rig of your target")}
+        left = lambda w: w.mapTo(cw, w.rect().topLeft()).x()
+        seen = {"labels": {k: left(w) for k, w in label.items()}, "model's box": left(cw.q), "rig's list": left(cw.rig),
+                "rig's list beside its label": abs(cw.rig.mapTo(cw, cw.rig.rect().center()).y()
+                                                   - label["Rig of your target"].mapTo(
+                                                       cw, label["Rig of your target"].rect().center()).y()) <= 2}
+    finally:
+        qt.close(cw)
+    check("ui: Which measurement's labels (Model, Rig of your target) in one column, the model's box and the rig's list "
+          "after them, in line, each beside its label",
+          len(seen["labels"]) == 2 and len(set(seen["labels"].values())) == 1
+          and seen["model's box"] == seen["rig's list"] and seen["rig's list beside its label"], seen)
