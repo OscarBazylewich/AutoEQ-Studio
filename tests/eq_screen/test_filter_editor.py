@@ -241,6 +241,34 @@ def test_own_filters_sliders_whole(eq_screen, check, monkeypatch):
           len(seen) == 2 and all(whole(s) for s in seen.values()), seen)
 
 
+def test_own_filters_one_filter_says_filter(eq_screen, check, monkeypatch, tmp_path):
+    # (2026-11-10: Best fit's line said "starts from 1 filters" after Load a file… or OK in Your own filters)
+    from PySide6.QtWidgets import QDialog, QFileDialog
+    page = eq_screen.page
+    said = []
+    monkeypatch.setattr(page, "status", lambda text, *a, **k: said.append(text))
+    monkeypatch.setattr(QDialog, "exec", lambda dlg, *a: QDialog.Accepted)
+    kept = page.S["best_fit"]["start_filters"]
+    one, two = tmp_path / "one.txt", tmp_path / "two.txt"
+    one.write_text("Filter 1: ON PK Fc 1000 Hz Gain 2 dB Q 1\n", encoding="utf-8")
+    two.write_text("Filter 1: ON PK Fc 1000 Hz Gain 2 dB Q 1\nFilter 2: ON PK Fc 3000 Hz Gain -2 dB Q 2\n",
+                   encoding="utf-8")
+    try:
+        for path in (one, two):
+            monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, p=path, **k: (str(p), ""))
+            page.settings.load_your_filters()
+        page.S["best_fit"]["start_filters"] = "Filter 1: ON PK Fc 1000 Hz Gain 2 dB Q 1"
+        page.settings.edit_your_filters()
+    finally:
+        page.S["best_fit"]["start_filters"] = kept
+        page.changed()
+    said = [s for s in said if s.startswith("Best fit starts")]
+    check("filters: Best fit's line says “1 filter” for one of your own filters (from a file, or OK in Your own "
+          "filters; it said “1 filters”), and “2 filters” for two",
+          said[:3] == ["Best fit starts from the 1 filter in the file.", "Best fit starts from the 2 filters in the file.",
+                       "Best fit starts from 1 filter."], said)
+
+
 def test_own_filters_window_ends_as_every_window(eq_screen, check, monkeypatch):
     # (2026-10-27, the rules' review: Enter in one of its boxes pressed OK and closed the window, and what the editor
     # changed ("Changed to …") was said in the main window's line, behind it)

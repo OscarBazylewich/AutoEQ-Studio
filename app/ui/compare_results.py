@@ -90,7 +90,7 @@ def options(page):
         for k, x in sorted(by_n.items()):
             if r and rn is run and x["id"] == r["id"] and not page.edited():
                 continue
-            out.append({"label": f"#{rn.get('n', '?')} · {k} filters · {x['rms']:.2f} dB"
+            out.append({"label": f"#{rn.get('n', '?')} · {k} filter{'' if k == 1 else 's'} · {x['rms']:.2f} dB"
                                  + ("  ✓ selected for you" if x["id"] == rn["pick"] else ""),
                         "filters": _filters(x["filters"]), "run": rn, "rid": x["id"]})
     from ui.history_window import day_of, time_of

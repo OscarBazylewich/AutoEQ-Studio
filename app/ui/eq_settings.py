@@ -540,7 +540,7 @@ class EqSettings:
             return
         lines = self._apo_lines(r["filters"])
         self.changed("best_fit.start_filters", "\n".join(lines))
-        self.page.status(f"Best fit starts from the {len(lines)} filters in the file.", 5000)
+        self.page.status(f"Best fit starts from the {len(lines)} filter{'' if len(lines) == 1 else 's'} in the file.", 5000)
 
     @staticmethod
     def _apo_lines(filters):
@@ -620,8 +620,8 @@ class EqSettings:
         dlg.deleteLater()  # (each opening made a window of its own, kept hidden under the Settings fold)
         if ok:
             self.changed("best_fit.start_filters", "\n".join(self._apo_lines(filters)))
-            self.page.status(f"Best fit starts from {sum(f.get('enabled', True) is not False for f in filters)} filters.",
-                             5000)
+            n = sum(f.get('enabled', True) is not False for f in filters)
+            self.page.status(f"Best fit starts from {n} filter{'' if n == 1 else 's'}.", 5000)
 
     # ---------------------------------------------------------------- showing
     def refresh(self):

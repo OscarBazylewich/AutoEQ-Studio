@@ -168,6 +168,32 @@ def test_history_says_already_in_its_own_line(card, check):
           kept_once and "That EQ is in the list." in told, told)
 
 
+def test_one_filter_named_filter(card, check, monkeypatch):
+    # (2026-11-10: an EQ of one filter went into the list as "…, 1 filters")
+    page, lis, entry = card.page, card.lis, card.entry
+    one = [dict(entry["filters"][0], gain=entry["filters"][0]["gain"] + 3)]
+    names = []
+    hw = HistoryWindow(page, True)
+    hw.keep_to_compare(dict(entry, device=page.curves["name"], n_filters=1, filters=one))
+    hw.close()
+    if lis.pins and lis.pins[-1]["filters"][0]["gain"] == one[0]["gain"]:
+        names.append(lis.pins[-1]["name"])
+        lis._remove(lis.pins[-1])
+    two = [dict(f, gain=f["gain"] + 4) for f in entry["filters"][:2]]
+    for fs in (one, two):
+        monkeypatch.setattr(page, "stats", lambda fs=fs: {"n": len(fs), "rms": 1.0})
+        monkeypatch.setattr(page, "enabled_filters", lambda fs=fs: [dict(f) for f in fs])
+        n = len(lis.pins)
+        lis.add_selected()
+        if len(lis.pins) == n + 1:
+            names.append(lis.pins[-1]["name"])
+            lis._remove(lis.pins[-1])  # (the list as it was)
+    check("listen: an EQ of one filter is “1 filter” in the list of EQs to compare (History's Keep to compare and the "
+          "card's; it said “1 filters”), of two “2 filters”",
+          len(names) == 3 and ", 1 filter (" in names[0] and ", 1 filter" in names[1]
+          and ", 2 filters" in names[2] and not any("1 filters" in x for x in names), names)
+
+
 def test_device_eq_said(card, check):
     lis = card.lis
     # was eq_checks.py:2973

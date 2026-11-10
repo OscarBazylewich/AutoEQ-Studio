@@ -262,7 +262,7 @@ class HistoryWindow(QDialog):
                         "compare.", near=self)
             return
         other = e.get("device") != page.curves["name"]
-        ok = page.listen.add(f"{MODE_SHORT.get(e.get('mode'), 'EQ')}, {e.get('n_filters')} filters "
+        ok = page.listen.add(f"{MODE_SHORT.get(e.get('mode'), 'EQ')}, {e.get('n_filters')} filter{'' if e.get('n_filters') == 1 else 's'} "
                              f"({day_of(e['when'])} {time_of(e['when'])})", [dict(f) for f in e["filters"]],
                              f"made for {e.get('device')}" if other else
                              "from History" + (f" · error {e['rms']:.2f} dB" if e.get("rms") is not None else ""),
@@ -305,7 +305,7 @@ class HistoryWindow(QDialog):
             self.footer.say("The history is empty.")
             return
         if QMessageBox.question(self, "Clear the history",  # (its words the button's: clear, delete, never "remove")
-                                f"Clear the history: delete all {n} EQs in it? The files that you saved stay in your "
+                                f"Clear the history: delete {'the EQ' if n == 1 else f'all {n} EQs'} in it? The files that you saved stay in your "
                                 "Saved EQs folder.", QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
             return  # (No the default: it can't be undone, UI-RULES 17)
         r = self.page.svc.call("/api/history/remove", {"all": True})

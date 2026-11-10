@@ -295,18 +295,25 @@ class CurveNames(QWidget):
         from PySide6.QtCore import QSize
         return QSize(0, self.heightForWidth(max(1, self.width())))
 
+    @staticmethod
+    def sample_pen(pen):
+        """The pen of a name's short line: the curve's own colour, style and width (at least 1 px). A floor of 2 px
+        made a 1.2 px curve's line look thicker than the curve (2026-11-10)."""
+        from PySide6.QtGui import QPen
+        line = QPen(pen)
+        line.setWidthF(max(1.0, pen.widthF()))
+        line.setCosmetic(True)
+        return line
+
     def paintEvent(self, e):
         from PySide6.QtCore import QPointF
-        from PySide6.QtGui import QColor, QPainter, QPen
+        from PySide6.QtGui import QColor, QPainter
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         fm = p.fontMetrics()
         for x, y, _w, name, pen, _whole in self._places(self.width())[0]:
             mid = y + (fm.height() + 4) / 2
-            line = QPen(pen)
-            line.setWidthF(max(2.0, min(3.0, pen.widthF())))
-            line.setCosmetic(True)
-            p.setPen(line)
+            p.setPen(self.sample_pen(pen))
             p.drawLine(QPointF(x, mid), QPointF(x + self.SAMPLE, mid))
             p.setPen(QColor(theme.tokens()["ink2"]))
             p.drawText(int(x + self.SAMPLE + self.GAP), int(y + 2 + fm.ascent()), name)

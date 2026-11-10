@@ -95,6 +95,29 @@ def test_clear_off_with_nothing_to_clear(eq_screen, check):
           "on with entries", empty is False and full == bool(kept), (empty, full, len(kept)))
 
 
+def test_clear_one_eq_says_the_eq(eq_screen, check, dialogs):
+    # (2026-11-10: with one EQ in History, its question said "delete all 1 EQs")
+    from PySide6.QtWidgets import QMessageBox
+    page = eq_screen.page
+    kept = page.history
+    asked = []
+    try:
+        for n in (1, 2):
+            page.history = []  # (no rows to draw: clear_all only counts them)
+            dialogs.asked.clear()
+            dialogs.answer("question", QMessageBox.No)
+            hw = HistoryWindow(page, False)
+            page.history = [{} for _ in range(n)]
+            hw.clear_all()
+            hw.close()
+            asked.append(next((text for kind, text in dialogs.asked if kind == "question"), None))
+    finally:
+        page.history = kept
+    check("ui: History's Clear the history… with one EQ asks “delete the EQ in it?” (it said “all 1 EQs”), with two "
+          "“delete all 2 EQs”", asked[0] and "delete the EQ in it?" in asked[0]
+          and asked[1] and "delete all 2 EQs in it?" in asked[1], asked)
+
+
 def test_long_history_in_batches(eq_screen, check):
     page = eq_screen.page
     # (lines 1596-1613: History swapped for 300 made-up entries, put back after)
