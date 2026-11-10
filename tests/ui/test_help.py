@@ -166,21 +166,14 @@ def test_help_has_a_smallest_size(qapp, check):
 
 
 def test_names_agree_with_their_controls(check):
-    # (2026-11-10, the review: one name for one item: Help called the rig list “Target is made for”; the graph's
-    # handle tooltip still named an On item its menu does not have)
-    from types import SimpleNamespace
+    # (2026-11-10, the review: one name for one item: Help called the rig list “Target is made for”. The graph
+    # handle's tooltip and menu: tests/eq_screen/test_help_tags.py, as that part loads the EQ part)
     from ui import help_window as hw
-    from ui.eq_page_handles import EqHandles
     with open(os.path.join(paths.PROJECT_APP, "ui", "compare_window.py"), encoding="utf-8") as fh:
         control = 'QLabel("Rig of your target")' in fh.read()
     title = hw._by_id()["set-cmp-rig"]["title"]
     check("help: the entry of Other measurements' rig list has the name of the control (“Rig of your target”)",
           control and title == "Rig of your target", (control, title))
-    tip = EqHandles.handle_tip(SimpleNamespace(EDIT=[{"freq": 1000, "gain": 3.0, "q": 1.0, "type": "PK"}]), 0)
-    with open(os.path.join(paths.PROJECT_APP, "ui", "eq_page_handles.py"), encoding="utf-8") as fh:
-        menu = re.search(r"def handle_menu.*?\n    def ", fh.read(), re.S).group(0)
-    check("help: a graph handle's tooltip names the items of its right-click menu (its type, Remove; no On)",
-          tip.endswith("right-click: type, Remove") and 'addAction("Remove"' in menu and '"On"' not in menu, tip)
 
 
 def test_f1_on_a_control(qapp, check):

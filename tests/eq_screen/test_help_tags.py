@@ -38,3 +38,18 @@ def test_buttons_named_in_help_as_they_read(eq_screen, check):
     wrong = {words: title for words, title in named.items() if not title.startswith(words)}
     check("help: each button on Make an EQ that F1 explains has its entry in Help named as the button reads (“↻ Retry "
           "from these filters” kept a symbol the button no longer has)", len(named) >= 5 and not wrong, (named, wrong))
+
+
+def test_handle_tooltip_names_its_menu(check):
+    # (2026-11-10, the review: the graph's handle tooltip still named an On item its menu does not have)
+    import os
+    import re
+    from types import SimpleNamespace
+
+    from helpers import paths
+    from ui.eq_page_handles import EqHandles
+    tip = EqHandles.handle_tip(SimpleNamespace(EDIT=[{"freq": 1000, "gain": 3.0, "q": 1.0, "type": "PK"}]), 0)
+    with open(os.path.join(paths.PROJECT_APP, "ui", "eq_page_handles.py"), encoding="utf-8") as fh:
+        menu = re.search(r"def handle_menu.*?\n    def ", fh.read(), re.S).group(0)
+    check("help: a graph handle's tooltip names the items of its right-click menu (its type, Remove; no On)",
+          tip.endswith("right-click: type, Remove") and 'addAction("Remove"' in menu and '"On"' not in menu, tip)
