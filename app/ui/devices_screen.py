@@ -10,16 +10,16 @@ import os
 import re
 import subprocess
 
-from PySide6.QtCore import QRect, QRectF, Qt
+from PySide6.QtCore import QEvent, QRect, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QIcon, QPainter
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QGroupBox, QHBoxLayout, QLabel,
                                QListWidget, QListWidgetItem, QMenu, QMessageBox, QPushButton, QRadioButton, QScrollArea,
-                               QSplitter, QStyle, QStyledItemDelegate, QStyleOptionViewItem, QToolButton, QVBoxLayout,
-                               QWidget)
+                               QSizePolicy, QSplitter, QStyle, QStyledItemDelegate, QStyleOptionButton,
+                               QStyleOptionViewItem, QStylePainter, QToolButton, QVBoxLayout, QWidget)
 
 from switcher.core import shown
 from ui import bubble, icons, theme, theme_tokens
-from ui.window_parts import muted, profile_line, warning_card
+from ui.window_parts import EmptyText, muted, profile_line, warning_card
 
 
 DOT = Qt.UserRole + 1  # (a device row's dot: "playing", "connected" or "away", ui\\icons.py's DOTS)
@@ -86,6 +86,76 @@ class DeviceRows(QStyledItemDelegate):
         painter.restore()
 
 
+class ElidedRadio(QRadioButton):
+    """A round button whose words end in "…" when its row is too narrow for them (a long profile name), so the row's ✕
+    and the card's Rename… stay whole and in view (a name of 60 letters made the panel wider than the window at its
+    smallest width, and cut them). text() and the name a screen reader reads stay whole; the tooltip has the whole
+    name while it is cut."""
+
+    def __init__(self, text):
+        super().__init__(text)
+        policy = self.sizePolicy()
+        policy.setHorizontalPolicy(QSizePolicy.Preferred)  # (Qt's round button never becomes narrower than its words)
+        self.setSizePolicy(policy)
+
+    def minimumSizeHint(self):
+        hint = super().sizeHint()
+        fm = self.fontMetrics()
+        cut = max(0, fm.horizontalAdvance(self.text()) - fm.horizontalAdvance(self.text()[:3] + "…"))
+        return QSize(hint.width() - cut, hint.height())
+
+    def _room(self, opt):
+        return self.style().subElementRect(QStyle.SE_RadioButtonContents, opt, self).width()
+
+    def is_cut(self):
+        opt = QStyleOptionButton()
+        self.initStyleOption(opt)
+        return self.fontMetrics().horizontalAdvance(self.text()) > self._room(opt)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self.setToolTip(self.text() if self.is_cut() else "")
+
+    def paintEvent(self, _e):
+        p = QStylePainter(self)
+        opt = QStyleOptionButton()
+        self.initStyleOption(opt)
+        opt.text = self.fontMetrics().elidedText(self.text(), Qt.ElideRight, self._room(opt))
+        p.drawControl(QStyle.CE_RadioButton, opt)
+
+
+class ScreenArea(QScrollArea):
+    """A part that scrolls up and down only (the Settings screen, a device's card): its smallest width is the one its
+    content needs, so the window's smallest width, or the line between the device list and the card, never cuts it.
+    side: the space at the content's right that its scroll bar goes in (Settings' 14 px: window_parts.
+    scroll_bar_in_margin; 0: the bar beside the content). Without it, the Settings cards were cut 17 px at the window's
+    smallest width, and a device's Rename… and ✕ when the line was dragged to the right. Measured again when its
+    content changes size, or shows. Hidden (Settings while another screen shows), it keeps the width it had: Qt
+    measures a hidden screen's rows again only when it shows (its APO row had all four buttons then, 962 px)."""
+
+    def __init__(self, side=0):
+        super().__init__()
+        self.side, self._need = side, 0
+
+    def minimumSizeHint(self):
+        hint = super().minimumSizeHint()
+        inner = self.widget()
+        if inner is not None and inner.layout() is not None and self.isVisible():
+            m = inner.layout().contentsMargins()
+            bar = self.verticalScrollBar().sizeHint().width()  # (the theme's is 12 px; another style's can be wider)
+            self._need = inner.minimumSizeHint().width() - m.right() + max(self.side, bar + 2) + 2 * self.frameWidth()
+        return hint.expandedTo(QSize(self._need, 0))
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        self.updateGeometry()
+
+    def eventFilter(self, obj, e):
+        if obj is self.widget() and e.type() == QEvent.LayoutRequest:
+            self.updateGeometry()  # (its content's smallest width may have changed)
+        return super().eventFilter(obj, e)
+
+
 def check_line(ok, text):
     """The device's one-line answer from Equalizer APO's check (switcher\\check.explain's words; all of it in the
     tooltip): the first sentence up to its ": " and without a closing "(…)" remark. A profile's name in “ ” is kept
@@ -116,13 +186,15 @@ class DevicesScreen:
         self.dev_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.dev_list.setItemDelegate(DeviceRows(self.dev_list))
         self.dev_list.currentItemChanged.connect(self._pick_device)
+        # (no devices: one gray line in the list that tells the next step, as every empty list: UI-RULES 21)
+        self.dev_empty = EmptyText(self.dev_list, "No playback devices. Connect a playback device to this PC.")
         split.addWidget(self.dev_list)
         self.dev_panel = QWidget()
         self.dev_lay = QVBoxLayout(self.dev_panel)
         # (its title level with the list's top, as every screen's content: Qt's 9 px put it lower, .claude/notes/
         # UI-RULES.md 5; a gap kept from the list beside it)
         self.dev_lay.setContentsMargins(16, 0, 0, 0)
-        scroll = QScrollArea()  # (many profiles on a device, or a small window: the panel scrolls, never squeezed)
+        scroll = ScreenArea()  # (many profiles on a device, or a small window: the panel scrolls, never squeezed)
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
         scroll.setWidget(self.dev_panel)
@@ -180,8 +252,7 @@ class DevicesScreen:
                 w.deleteLater()
         key, lay = self.selected, self.dev_lay
         rec = self.sw.record(key) if key else None
-        if not rec:
-            lay.addWidget(muted("No playback devices."))
+        if not rec:  # (no devices: the list says so, in its middle)
             lay.addStretch(1)
             return
         d = self.sw.device(key)
@@ -242,7 +313,7 @@ class DevicesScreen:
             col.addWidget(note)
             return col
         if trying:  # (selecting a profile ends the 5 minutes, as in the tray menu: switcher's set_active)
-            rb = QRadioButton(f"For 5 minutes: {trying['name']}")
+            rb = ElidedRadio(f"For 5 minutes: {trying['name']}")
             rb.setChecked(True)
             group.addButton(rb)
             holder = QWidget()
@@ -253,7 +324,7 @@ class DevicesScreen:
         for pid in rec["profiles"]:
             p = self.sw.profiles().get(pid)
             row = QHBoxLayout()
-            rb = QRadioButton(p["name"])
+            rb = ElidedRadio(p["name"])
             rb.setChecked(rec["active"] == pid and not trying)
             rb.toggled.connect(lambda on, pid=pid: on and self.sw.set_active(key, pid))
             group.addButton(rb)
@@ -391,13 +462,14 @@ class DevicesScreen:
             if key in self._checking and not got:
                 lab.setText("Wait for Equalizer APO: does it use this EQ?")
                 lab.setToolTip("")
+                # (a usual wait, in a note's gray: it kept the colour of the answer before, a warning's after a bad
+                # one, while Examine again asked)
+                theme.mark(lab, role="muted")
             elif got:
                 ok, text = got[1], got[2]
                 lab.setText(("✓ " if ok else "") + check_line(ok, text))
                 lab.setToolTip(text + "\nF1 opens Help.")
                 theme.mark(lab, role="good" if ok else "warn" if ok is False else "muted")
-                lab.style().unpolish(lab)
-                lab.style().polish(lab)
             bad = bool(got) and got[1] is False
             if self.check_warn is not None:
                 self.check_warn_text.setText(lab.text())

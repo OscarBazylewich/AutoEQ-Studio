@@ -6,7 +6,7 @@ ProfilesScreen is one part of the window's class (Window, in ui\\window.py): a p
 window, so they use the window's own things (sw, and the Settings part's open_folder for Open the profiles folder)."""
 import os
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtWidgets import (QAbstractItemView, QFileDialog, QFrame, QHBoxLayout, QHeaderView, QMessageBox,
                                QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
@@ -14,6 +14,34 @@ import paths
 from switcher import eqfile
 from ui import help_window, icons, theme
 from ui.window_parts import EmptyText, muted, profile_line
+
+
+USED_BY_MOST = 0.3  # (the "Used by" column's largest part of the table's width: the name keeps its room)
+
+
+class UsedByWidth(QObject):
+    """The "Used by" column as wide as its words, but never more than USED_BY_MOST of the table: with a profile on
+    many devices it took all the room, and the Name column became too narrow to read. Its cells end in "…" then, and
+    their tooltips have all the devices. Measured again when the table changes size and after it is filled (fit())."""
+
+    COLUMN = 2
+
+    def __init__(self, table):
+        super().__init__(table)
+        self.table = table
+        table.horizontalHeader().setSectionResizeMode(self.COLUMN, QHeaderView.Fixed)
+        table.viewport().installEventFilter(self)
+
+    def fit(self):
+        t, h, c = self.table, self.table.horizontalHeader(), self.COLUMN
+        words = max(t.sizeHintForColumn(c), h.sectionSizeHint(c))
+        most = int(t.viewport().width() * USED_BY_MOST)
+        h.resizeSection(c, max(h.sectionSizeHint(c), min(words, most)))
+
+    def eventFilter(self, obj, e):
+        if e.type() == QEvent.Resize:
+            self.fit()
+        return False
 
 
 class ProfilesScreen:
@@ -80,8 +108,8 @@ class ProfilesScreen:
         # (the name and the file it came from share the room left: neither is cut while the other has plenty)
         for c in (0, 3):
             h.setSectionResizeMode(c, QHeaderView.Stretch)
-        for c in (1, 2):
-            h.setSectionResizeMode(c, QHeaderView.ResizeToContents)
+        h.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.prof_used_by = UsedByWidth(self.prof_table)  # ("Used by": as wide as its words, to a limit)
         # (no profiles: one gray line that tells the next step, as every empty list: UI-RULES 21)
         self.prof_empty = EmptyText(self.prof_table, "No profiles. Click “Import EQ files…”, or make an EQ in Make an EQ "
                                     "and click Use on device.")
@@ -114,12 +142,15 @@ class ProfilesScreen:
                             (3, os.path.basename(p.get("source", "")))):
                 item = QTableWidgetItem(text)
                 item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                if c == 2:
+                    item.setToolTip(text)  # (whole, when the column is too narrow for it)
                 if c == 3:
                     item.setToolTip(p.get("source", ""))
                 t.setItem(r, c, item)
             if pid == chosen:
                 t.selectRow(r)
         t.blockSignals(False)
+        self.prof_used_by.fit()
         self._update_profile_commands()
 
     def _selected_profile(self):
