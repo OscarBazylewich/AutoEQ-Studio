@@ -3,7 +3,10 @@ every term the app uses in groups, and every setting in full (ui/help_texts.py W
 The UI audit (2026-11-08, the user's selections): the contents are groups that open and close (Windows 11's chevron,
 as every fold of the app), so the list starts with its few groups; the page shows one entry at a time (or a group's
 list of entries), and its "Related" links open the others.
-- the search box keeps only the entries with every word typed in the contents, each group with a result open
+- the search box keeps only the entries with every word typed in the contents, each group with a result open, and
+  one result on the page
+- a row of the contents opens its entry when it becomes the current row (a click, the arrow keys) and on Enter; a
+  long row goes on to more lines (WrappedRows)
 - open_at(id) opens the window at an entry (F1 on a setting: its entry), its group open and the entry selected
 One window for the whole app: opened again, it's brought back. Its look is Windows 11's, as the rest of the app: the
 contents and the page as cards (theme_sheet.py's guide_and_help: #helpContents, #helpPage), the page's own words
@@ -13,9 +16,10 @@ beside it, as a chosen row), drawn again when the theme changes.
 import html
 import re
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QHBoxLayout, QLineEdit, QTextBrowser, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
+from PySide6.QtCore import QEvent, QObject, QRect, QSize, Qt
+from PySide6.QtGui import QFont, QFontMetrics
+from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QStyle, QStyledItemDelegate, QStyleOptionViewItem, QTextBrowser,
+                               QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from ui import theme
 from ui.help_texts import HELP, WIKI
@@ -88,13 +92,48 @@ def open_at(entry_id=None):
     return _window
 
 
+class WrappedRows(QStyledItemDelegate):
+    """The contents' rows as high as their words need: a long question goes on to a second line, never cut with "…"
+    (Qt's setWordWrap alone wraps a row's words but keeps it one line high). The room for the words: the list's width
+    less its frame, its scroll bar (counted always, so a scroll bar that comes and goes never changes the rows) and
+    the row's indent, less the style's own margins."""
+
+    def sizeHint(self, option, index):
+        size = super().sizeHint(option, index)
+        tree = self.parent()
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        depth, p = 1 if tree.rootIsDecorated() else 0, index.parent()
+        while p.isValid():
+            depth, p = depth + 1, p.parent()
+        style = tree.style()
+        width = (tree.width() - 2 * tree.frameWidth() - style.pixelMetric(QStyle.PM_ScrollBarExtent, None, tree)
+                 - tree.indentation() * depth)
+        opt.rect = QRect(0, 0, max(width, 1), size.height())
+        room = style.subElementRect(QStyle.SE_ItemViewItemText, opt, tree).width()
+        room -= 2 * (style.pixelMetric(QStyle.PM_FocusFrameHMargin, None, tree) + 1)  # (Qt's margin inside it)
+        fm = QFontMetrics(opt.font)
+        need = fm.boundingRect(QRect(0, 0, max(room, 1), 100000), Qt.TextWordWrap, opt.text).height()
+        return QSize(size.width(), max(size.height(), need + size.height() - fm.height()))
+
+
+class _Relayout(QObject):
+    """The contents' rows measured again when the list's width changes (as the window first shows)."""
+
+    def eventFilter(self, obj, ev):
+        if ev.type() == QEvent.Resize and ev.size().width() != ev.oldSize().width():
+            obj.doItemsLayout()
+        return False
+
+
 class HelpWindow(QWidget):
     def __init__(self):
         super().__init__(None, Qt.Window)
         self.setWindowTitle("Help - AutoEQ Studio")  # (a window of its own: Windows' " - " and the app's name, UI-RULES 3)
-        fit_to_screen(self, (1000, 760))  # (within the screen's room: 760 high was under a laptop's taskbar at 150 %)
+        # (within the screen's room: 760 high was under a laptop's taskbar at 150 %; at its smallest, the page keeps
+        # room for its words beside the contents, and a few rows of the contents show)
+        fit_to_screen(self, (1000, 760), (680, 420))
         self.sections = _entries()
-        self.lit = None
         h = QHBoxLayout(self)
         h.setContentsMargins(CARD, CARD, CARD, CARD)  # (as every window's: Qt's own 11 px, UI-RULES 5)
         side = QVBoxLayout()
@@ -110,8 +149,16 @@ class HelpWindow(QWidget):
         self.toc.setHeaderHidden(True)
         self.toc.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.toc.setWordWrap(True)
+        self.toc.setUniformRowHeights(False)
+        self.toc.setItemDelegate(WrappedRows(self.toc))
+        self._relayout = _Relayout(self.toc)
+        self.toc.installEventFilter(self._relayout)
         self.toc.setIndentation(18)
-        self.toc.itemClicked.connect(lambda it, _c=0: it.data(0, Qt.UserRole) and self.show_entry(it.data(0, Qt.UserRole)))
+        # (the page shows one entry at a time, so the row that becomes current opens its entry: a click, the arrow
+        # keys, Home, End; Enter too. A group row's chevron and the Left and Right keys open and close it, as before)
+        self.toc.currentItemChanged.connect(lambda it, _old=None: self._item_chosen(it))
+        self.toc.itemClicked.connect(lambda it, _c=0: self._item_chosen(it))
+        self.toc.itemActivated.connect(lambda it, _c=0: self._item_chosen(it))
         side.addWidget(self.toc, 1)
         holder = QWidget()
         holder.setLayout(side)
@@ -153,39 +200,71 @@ class HelpWindow(QWidget):
             for e in entries:
                 item(g, e["title"], e["id"])
 
+    def _item_chosen(self, it):
+        anchor = it.data(0, Qt.UserRole) if it is not None else None
+        if anchor and anchor != getattr(self, "page_now", None):
+            self.show_entry(anchor)
+
+    def _select(self, it):
+        """A row made the current one without opening it again (the page is already done)."""
+        self.toc.blockSignals(True)
+        try:
+            self.toc.setCurrentItem(it)
+        finally:
+            self.toc.blockSignals(False)
+        self.toc.scrollToItem(it)
+
     def _matches(self, e, words):
         text = " ".join([e["title"], *[x for b in e["body"] for x in (b if isinstance(b, list) else [b])]]).lower()
         return all(w in text for w in words)
 
     def _retheme(self):
         self.render(keep=True)
-        self.show_page(getattr(self, "page_now", "start"), keep=True)
+        if not (self.q.text().split() and not self.found):  # (render drew the "No results" words again)
+            self.show_page(getattr(self, "page_now", "start"), keep=True)
 
     def render(self, *_, keep=False):
         """The contents with only the entries that have every word typed (each group with one open), or all of them
-        (the groups closed, but the one with the entry shown)."""
+        (the groups closed, but the one with the entry shown). A search with results shows one on the page: the entry
+        that was open if it is one of them, else the first; a search without, the words "No results"."""
         words = self.q.text().lower().split()
-        found = 0
-        for _title, sid, entries in self.sections:
-            g = self.items[sid]
-            shown = 0
-            for e in entries:
-                on = self._matches(e, words) if words else True
-                self.items[e["id"]].setHidden(not on)
-                shown += on
-            found += shown if words else 0
-            g.setHidden(bool(words) and not shown)
-            g.setExpanded(bool(words) and bool(shown))
-        self.items["start"].setHidden(bool(words))
-        self.items["settings"].setHidden(bool(words) and all(self.items[sid].isHidden() for _t, sid, _e in
-                                                              self.sections[len(WIKI["groups"]) + 1:]))
-        self.items["settings"].setExpanded(bool(words))
+        now = getattr(self, "page_now", None)
+        found, first = 0, None
+        self.toc.blockSignals(True)  # (rows hidden and groups closed here never open an entry)
+        try:
+            for _title, sid, entries in self.sections:
+                g = self.items[sid]
+                shown = 0
+                for e in entries:
+                    on = self._matches(e, words) if words else True
+                    self.items[e["id"]].setHidden(not on)
+                    shown += on
+                    if words and on and first is None:
+                        first = e["id"]
+                found += shown if words else 0
+                g.setHidden(bool(words) and not shown)
+                g.setExpanded(bool(words) and bool(shown))
+            self.items["start"].setHidden(bool(words))
+            self.items["settings"].setHidden(bool(words) and all(self.items[sid].isHidden() for _t, sid, _e in
+                                                                  self.sections[len(WIKI["groups"]) + 1:]))
+            self.items["settings"].setExpanded(bool(words))
+            if not words and now in self.items:  # (the entry shown keeps its group open)
+                p = self.items[now].parent()
+                while p is not None:
+                    p.setExpanded(True)
+                    p = p.parent()
+        finally:
+            self.toc.blockSignals(False)
         self.found = found
         if words and not found:
             self.view.setHtml(self._css() + "<p class='muted'>No results with all of these words. Type a smaller number "
                               "of words.</p>")
-        elif not words and not keep and getattr(self, "page_now", None):
-            self.show_page(self.page_now, keep=True)
+        elif words:
+            show = now if now in _by_id() and not self.items[now].isHidden() else first
+            self.show_page(show, keep=keep or show == now)
+            self._select(self.items[show])
+        elif not keep and now:
+            self.show_page(now, keep=True)
 
     def _css(self):
         t = theme.tokens()
@@ -244,7 +323,6 @@ class HelpWindow(QWidget):
         it = self.items.get(entry_id)
         if it is None:
             return
-        self.lit = entry_id
         if it.isHidden() and self.q.text():
             self.q.blockSignals(True)
             self.q.clear()
@@ -254,9 +332,8 @@ class HelpWindow(QWidget):
         while p is not None:
             p.setExpanded(True)
             p = p.parent()
-        self.toc.setCurrentItem(it)
-        self.toc.scrollToItem(it)
         self.show_page(entry_id)
+        self._select(it)
 
 
 def tag(widget, key):
