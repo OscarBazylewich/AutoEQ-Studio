@@ -154,6 +154,55 @@ def test_settings_whole_at_the_smallest_width(devices_window, check):
           "is at least as wide as the Hotkeys card needs)", not cut, (width, height, cut))
 
 
+def test_settings_keeps_the_smallest_width(devices_window, check):
+    # (2026-11-10: Same level's words on one line made the Hotkeys card about 777 px wide, so the window's smallest
+    # width went from 788 to 805 px once Settings showed; now its words wrap)
+    win = devices_window.win
+    win.show()
+    widths = {}
+    try:
+        for page in ("devices", "settings", "devices"):
+            win.show_page(page, remember=False)
+            if page == "settings":
+                win.render_settings()
+            win.resize(300, 760)
+            qt.pump(20)
+            widths.setdefault(page, []).append((win.width(), win.minimumWidth()))
+        from PySide6.QtWidgets import QGroupBox
+        box = win.chk_matched
+        words = win.matched_words
+        lines = words.height() > words.fontMetrics().height() * 1.5
+        card = box.parentWidget()
+        while not isinstance(card, QGroupBox):
+            card = card.parentWidget()
+        # (the card needs less than the labels' column and the tick box's words on one line: before, it needed both)
+        need = card.minimumSizeHint().width()
+        one_line = box.mapTo(card, box.rect().topLeft()).x() + box.fontMetrics().horizontalAdvance(box.accessibleName())
+        before = box.isChecked()
+        from PySide6.QtCore import QPointF, Qt
+        from PySide6.QtGui import QMouseEvent
+        from PySide6.QtWidgets import QApplication
+        for kind in (QMouseEvent.MouseButtonPress, QMouseEvent.MouseButtonRelease):
+            QApplication.sendEvent(words, QMouseEvent(kind, QPointF(5, 5), QPointF(5, 5), Qt.LeftButton,
+                                                      Qt.LeftButton, Qt.NoModifier))
+        ticked = box.isChecked() != before
+        box.setChecked(before)
+        found = {"widths": widths, "words on more lines": lines, "a click on the words ticks the box": ticked,
+                 "name": box.accessibleName(), "Hotkeys card needs": need, "the words on one line": one_line,
+                 "card": card.title()}
+    finally:
+        win.resize(1040, 760)
+        win.show_page("devices", remember=False)
+        qt.pump(10)
+    settings_w = widths["settings"][0][0]
+    check("settings: with Settings shown the window's smallest width is not more than 788 px (Same level's words "
+          "made it 805), and not more than with Devices shown; the Hotkeys card needs less than Same level's words on "
+          "one line, they wrap, and a click on them ticks the box; its name has all its words",
+          settings_w <= 788 and settings_w <= max(w for w, _m in widths["devices"]) and lines and ticked
+          and found["card"] == "Hotkeys" and need < one_line
+          and found["name"].startswith("Same level: ") and "loudness" in found["name"], found)
+
+
 def _small_window(tmp_path, stub_app, eps):
     from switcher import core
     from switcher.apo import Apo

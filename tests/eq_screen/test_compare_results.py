@@ -63,6 +63,23 @@ def test_compare_two_results(eq_screen, history_eq, check):
           (len(opts), a_rms, card, names, rows, moved))
 
 
+def test_compare_one_filter_says_filter(eq_screen, history_eq, check):
+    # (2026-11-10: a result of one filter was "#98 · 1 filters · …" in Compare's lists)
+    page = eq_screen.page
+    run, r = page.current()
+    extra = dict(run, n=98, mode="best_fit", pick="cmp-1", best="cmp-1", device=page.curves["name"],
+                 results=[dict(r, id="cmp-1", n_filters=1, rms=r["rms"] + 0.5, filters=r["filters"][:1]),
+                          dict(r, id="cmp-2", n_filters=2, rms=r["rms"] + 0.4, filters=r["filters"][:2])])
+    page.session_runs.append(extra)
+    try:
+        labels = [o["label"] for o in options(page) if o["label"].startswith("#98 ")]
+    finally:
+        page.session_runs.remove(extra)
+    check("compare: a result of one filter is “1 filter” in Compare's lists (it said “1 filters”), of two “2 filters”",
+          any(x.startswith("#98 · 1 filter · ") for x in labels) and any(x.startswith("#98 · 2 filters · ") for x in labels)
+          and not any("1 filters" in x for x in labels), labels)
+
+
 def test_compare_colours_follow_the_theme(eq_screen, history_eq, check):
     from helpers import palette
     from ui import theme, theme_tokens

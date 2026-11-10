@@ -35,6 +35,24 @@ class _KeyWatch(QObject):
         return False
 
 
+MATCHED_WORDS = "Same level: “off” has the same loudness as the EQ (with a lower volume)"
+
+
+class _TickWords(QLabel):
+    """The words after a tick box, on more lines when the window is narrow (a tick box's own words stay on one line).
+    A click on them ticks or clears the box, as a click on its own words does."""
+
+    def __init__(self, words, box):
+        super().__init__(words)
+        self.box = box
+        self.setWordWrap(True)
+
+    def mouseReleaseEvent(self, e):
+        if e.button() == Qt.LeftButton and self.box.isEnabled() and self.rect().contains(e.position().toPoint()):
+            self.box.toggle()
+        super().mouseReleaseEvent(e)
+
+
 class SettingsScreen:
     """The Settings screen's part of the window: AutoEQ Studio's own settings, Equalizer APO (its state, Set up…, Take
     AutoEQ Studio out, its Configurator and folder: the banner and Profiles use these actions too), your files' folder
@@ -132,10 +150,23 @@ class SettingsScreen:
                                   "onoff_hotkey")
         g.addWidget(self.onoff_edit, 2, 1)
         help_window.tag(self.onoff_edit, "#onoff-hotkey")
-        self.chk_matched = QCheckBox("Same level: “off” has the same loudness as the EQ (with a lower volume)")
+        # (Same level's words wrap: a tick box's words stay on one line, and in one line they made the card about
+        # 777 px wide, so the window's smallest width went from 788 to 805 px once Settings showed; 2026-11-10. The
+        # tick box's words are a label of their own beside it that wraps, each line under the first, as Windows wraps
+        # a tick box's words; a click on them ticks the box, as on its own words)
+        same = QWidget()
+        sl = QHBoxLayout(same)
+        sl.setContentsMargins(0, 0, 0, 0)
+        sl.setSpacing(1)  # (a tick box with no words keeps 8 px after its box: its words 9 px from it, as the others')
+        self.chk_matched = QCheckBox()
+        self.chk_matched.setAccessibleName(MATCHED_WORDS)
         self.chk_matched.toggled.connect(lambda on: self.sw.set("onoff_matched", bool(on)))
         help_window.tag(self.chk_matched, "#onoff-matched")
-        g.addWidget(self.chk_matched, 3, 1, 1, 2)
+        sl.addWidget(self.chk_matched, 0, Qt.AlignTop)
+        self.matched_words = _TickWords(MATCHED_WORDS, self.chk_matched)
+        help_window.tag(self.matched_words, "#onoff-matched")
+        sl.addWidget(self.matched_words, 1)
+        g.addWidget(same, 3, 1, 1, 2)
         self.onoff_note = QLabel()
         self.onoff_note.setWordWrap(True)
         theme.mark(self.onoff_note, role="warn")

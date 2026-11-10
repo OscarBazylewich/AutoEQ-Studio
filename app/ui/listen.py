@@ -924,7 +924,7 @@ class Listen(QGroupBox):
         st = self.page.stats()
         from ui.eq_page import MODE_SHORT
         self.add(f"#{run.get('n', 1)}: {MODE_SHORT.get(run['mode'], 'EQ')}, "
-                 f"{st['n']} filters{' (edited)' if self.page.edited() else ''}", [dict(f) for f in self.page.enabled_filters()],
+                 f"{st['n']} filter{'' if st['n'] == 1 else 's'}{' (edited)' if self.page.edited() else ''}", [dict(f) for f in self.page.enabled_filters()],
                  f"error {st['rms']:.2f} dB" if st["rms"] is not None else "")
 
     def add_file(self):

@@ -627,3 +627,53 @@ def test_symbols_looked_up_once(check):
           d.get("before") is False and d.get("first") is True and d.get("again") is False and d.get("after") is True
           and set("✕✓▶↺⇄▾▴") <= set(sym) and d.get("measured") == [sym, sym]
           and d.get("weights") == [d.get("normal"), d.get("semibold")], d or out.stderr[-300:])
+
+
+# A table on a card with both scroll bars, light and dark: the colour of the square where they meet and of the
+# vertical bar's track beside it, with the theme's sheet and with its corner rule made red (the rule reaches it)
+CORNER = r'''
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from PySide6.QtCore import QPoint
+from PySide6.QtWidgets import QApplication, QGroupBox, QTableWidget, QVBoxLayout
+qapp = QApplication([])
+from ui import theme
+RULE = "QAbstractScrollArea::corner { background: transparent; }"
+out = {}
+for look in ("light", "dark"):
+    theme.apply(qapp, dark=look == "dark", contrast=False)
+    sheet = qapp.styleSheet()
+    for kind in ("now", "red"):
+        qapp.setStyleSheet(sheet if kind == "now" else sheet.replace(RULE, RULE.replace("transparent", "#ff0000")))
+        card = QGroupBox("Card")
+        lay = QVBoxLayout(card)
+        table = QTableWidget(40, 12, card)
+        lay.addWidget(table)
+        card.resize(260, 200)
+        card.show()
+        for _ in range(5):
+            qapp.processEvents()
+        img = card.grab().toImage()
+        v, h = table.verticalScrollBar(), table.horizontalScrollBar()
+        # (the bars are in containers of their own: their places mapped from the bars themselves)
+        corner = QPoint(v.mapTo(card, QPoint(v.width() // 2, 0)).x(), h.mapTo(card, QPoint(0, h.height() // 2)).y())
+        track = v.mapTo(card, QPoint(v.width() // 2, v.height() - 4))
+        out[f"{look}, {kind}"] = {"corner": img.pixelColor(corner).name(), "track": img.pixelColor(track).name(),
+                                  "bars": v.isVisible() and h.isVisible(), "rule": RULE in sheet}
+        card.deleteLater()
+        qapp.processEvents()
+    qapp.setStyleSheet(sheet)
+print(json.dumps(out))
+'''
+
+
+def test_scroll_corner_as_the_bars(check):
+    # (2026-11-10: the square where two scroll bars meet had Qt's own colour, not the bars' see-through track)
+    out = subproc.run_python(CORNER, session.SESSION.app)
+    d = out.data or {}
+    now = {look: d.get(f"{look}, now") or {} for look in ("light", "dark")}
+    check("theme: the square where two scroll bars meet is see-through, as the bars' track beside it (it had Qt's own "
+          "colour), light and dark",
+          all(v.get("bars") and v.get("rule") and v.get("corner") == v.get("track") for v in now.values())
+          and all((d.get(f"{look}, red") or {}).get("corner") == "#ff0000" for look in ("light", "dark")),
+          d or out.stderr[-300:])

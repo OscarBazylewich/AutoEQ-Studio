@@ -227,7 +227,7 @@ def scroll_areas_and_menus(t, img):
     chosen is a note in this app ("No presets yet: …", "Run first", the tray's device playing): in the muted colour,
     readable (4.5:1), not the unavailable grey. A submenu's arrow is Windows 11's chevron. A menu's default item (the
     tray's Open AutoEQ Studio: the icon's own click) in semibold, as Windows marks it (a stylesheet's menu item drops
-    Qt's own bold)."""
+    Qt's own bold). The square where two scroll bars meet is transparent (it had Qt's default colour)."""
     return f"""
     QScrollArea {{ background: transparent; border: none; }}
     QScrollArea > QWidget > QWidget {{ background: transparent; }}
@@ -247,6 +247,7 @@ def scroll_areas_and_menus(t, img):
     QScrollBar::handle:hover {{ background: {t['scroll_hover']}; }}
     QScrollBar::add-line, QScrollBar::sub-line {{ width: 0px; height: 0px; border: none; background: none; }}
     QScrollBar::add-page, QScrollBar::sub-page {{ background: none; }}
+    QAbstractScrollArea::corner {{ background: transparent; }}
 """
 
 

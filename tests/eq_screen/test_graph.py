@@ -124,6 +124,30 @@ def test_empty_eq_graph_words_clear_of_the_0_db_line(eq_screen, check):
               and f["inside"] == f["bg"] and f["outside"] != f["bg"] for f in found.values()), found)
 
 
+def test_curve_name_line_as_wide_as_its_curve(eq_screen, check):
+    # (2026-11-10: the short line before a curve's name was at least 2 px wide, so a 1.2 px curve's looked thicker)
+    import pyqtgraph as pg
+    from PySide6.QtGui import QImage, QPainter
+    from ui.eq_page_parts import CurveNames
+    widths = {w: CurveNames.sample_pen(pg.mkPen("#c04000", width=w)).widthF() for w in (0.5, 1.2, 2.0, 2.5, 4.0)}
+    colour = CurveNames.sample_pen(pg.mkPen("#c04000", width=1.2)).color().name()
+    # (drawn: the line of a 1.2 px curve and of a 3 px one, the rows of pixels it covers counted)
+    rows = {}
+    for w in (1.2, 3.0):
+        img = QImage(40, 20, QImage.Format_ARGB32)
+        img.fill(0)
+        p = QPainter(img)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(CurveNames.sample_pen(pg.mkPen("#c04000", width=w)))
+        p.drawLine(5, 10, 35, 10)
+        p.end()
+        rows[w] = sum(1 for y in range(20) if (img.pixel(20, y) >> 24) & 0xFF > 40)
+    check("graph names: the short line before a curve's name is as wide as the curve (a 1.2 px curve's was 2 px), at "
+          "least 1 px, in the curve's colour",
+          widths == {0.5: 1.0, 1.2: 1.2, 2.0: 2.0, 2.5: 2.5, 4.0: 4.0} and colour == "#c04000" and rows[1.2] < rows[3.0],
+          (widths, colour, rows))
+
+
 def test_long_curve_name_ends_in_dots(eq_screen, check):
     # (a code review, 2026-11-10: a name longer than the line of names went past the graph's edge and was cut off;
     # now it ends in "…", its whole name in its tooltip; set_items is as before for its callers)
