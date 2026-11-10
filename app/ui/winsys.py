@@ -314,14 +314,24 @@ class _LastInput(ctypes.Structure):
     _fields_ = [("cbSize", wintypes.UINT), ("dwTime", wintypes.DWORD)]
 
 
+_kernel32 = []  # (kernel32 with GetTickCount's result type set: made at the first idle_ms, then kept, as timers call it)
+
+
+def _tick_kernel32():
+    if not _kernel32:
+        k32 = ctypes.WinDLL("kernel32")
+        k32.GetTickCount.restype = wintypes.DWORD
+        _kernel32.append(k32)
+    return _kernel32[0]
+
+
 def idle_ms():
     """How long since the last key or mouse input, in any program (GetLastInputInfo), in ms: work that holds the
     window a moment waits for a quiet one (ui\\window.py). 0 when Windows can't say."""
     try:
         info = _LastInput()
         info.cbSize = ctypes.sizeof(_LastInput)
-        k32 = ctypes.WinDLL("kernel32")
-        k32.GetTickCount.restype = wintypes.DWORD
+        k32 = _tick_kernel32()
         if not _user32.GetLastInputInfo(ctypes.byref(info)):
             return 0
         return (k32.GetTickCount() - info.dwTime) & 0xFFFFFFFF

@@ -487,7 +487,9 @@ class TopBar(QFrame):
         self._fit()
 
     def _fit(self):
-        if not self._buttons or self.layout() is None:
+        # (hidden, as while the window is made, it has no width of its own yet (Qt's 640 px): measured, it went compact
+        # and came back as it showed; it is measured when it shows)
+        if not self._buttons or self.layout() is None or not self.isVisible():
             return
         base = self.layout().minimumSize().width() - (0 if self._compact else self._names_need())
         # (the names back only with some room to spare: they never show squeezed, and it doesn't switch to and fro)

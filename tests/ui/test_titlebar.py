@@ -398,3 +398,34 @@ def test_the_names_come_back_only_with_room(win, check):
           "room to spare (never squeezed, no switch to and fro)",
           went is not None and went < full and back is not None and back >= full and squeezed == [],
           (full, went, back, squeezed))
+
+
+def test_a_hidden_bar_is_measured_when_it_shows(win, check):
+    # (2026-11-10: as the window was made, its top bar, hidden and 640 px wide, went compact, and came back as it
+    # showed: two text changes and two new layouts for each button, for nothing)
+    from PySide6.QtWidgets import QHBoxLayout, QPushButton, QWidget
+    from ui import titlebar
+    holder = QWidget(win[0])  # (inside the window: never a window of its own)
+    try:
+        holder.resize(300, 40)
+        bar = titlebar.TopBar()
+        bar.setParent(holder)
+        row = QHBoxLayout(bar)
+        names = ["Make an EQ", "Devices", "Profiles", "Settings"]
+        buttons = [QPushButton(n, bar) for n in names]
+        for b in buttons:
+            row.addWidget(b)
+        bar.compact(buttons)
+        hidden = (bar.is_compact(), [b.text() for b in buttons])
+        holder.show()
+        bar.resize(300, 40)
+        qt.pump(5)
+        narrow = bar.is_compact()
+        bar.resize(1400, 40)
+        qt.pump(5)
+        wide = (bar.is_compact(), [b.text() for b in buttons])
+    finally:
+        qt.close(holder)
+    check("titlebar: a hidden top bar keeps its names (it has no width of its own yet); shown, it is measured: narrow, "
+          "only the symbols, and with room, the names", hidden == (False, names) and narrow is True
+          and wide == (False, names), (hidden, narrow, wide))

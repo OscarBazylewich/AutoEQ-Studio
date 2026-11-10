@@ -289,13 +289,19 @@ def apply(app, dark=None, contrast=None):
     _state["contrast"] = contrast or None
     _state["accent"] = accent_palette()
     _state["tokens"] = theme_tokens.build(_state["dark"], _state["accent"])
-    app.setStyle("Fusion")  # (the same drawing everywhere: Windows' own style ignores parts of the stylesheet)
-    font = app.font()
-    font.setFamily(FONT if FONT in QFontDatabase.families() else "Segoe UI")
-    app.setFont(font)
-    t = tokens()
-    app.setPalette(_palette(t))
-    app.setStyleSheet(_stylesheet(t))
+    # (the app-wide filter (_Names) off meanwhile, as while a screen is built: restyling every control sends Qt's
+    # events by the hundred thousand, each a call into Python: ~0.25 s of a theme change's 0.9 s with Make an EQ open,
+    # 2026-11-10; none of them is one it looks for: a restyle polishes no control for the first time)
+    with building():
+        if not app.property("fusionStyle"):  # (the same drawing everywhere: Windows' own style ignores parts of the
+            app.setStyle("Fusion")            # stylesheet; set once: set again, it restyled every control for nothing)
+            app.setProperty("fusionStyle", True)
+        font = app.font()
+        font.setFamily(FONT if FONT in QFontDatabase.families() else "Segoe UI")
+        app.setFont(font)
+        t = tokens()
+        app.setPalette(_palette(t))
+        app.setStyleSheet(_stylesheet(t))
     if "names" not in _state:  # (once: names for a screen reader, pop-ups' corners: _Names)
         from ui import winsys
         _state["corners"] = winsys.supported_effects(QGuiApplication.platformName())[1]
@@ -340,6 +346,9 @@ def mark(widget, **props):
     """Set style properties (role="muted", primary=True, card=True …) and redraw with them."""
     for k, v in props.items():
         widget.setProperty(k, "true" if v is True else v)
-    widget.style().unpolish(widget)
-    widget.style().polish(widget)
+    # (a control not polished yet, as one just made, is polished by Qt with its properties at the next turn of the event
+    # loop or as it shows: polished here too, it was done twice)
+    if widget.testAttribute(Qt.WA_WState_Polished):
+        widget.style().unpolish(widget)
+        widget.style().polish(widget)
     return widget
