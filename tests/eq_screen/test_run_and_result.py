@@ -127,3 +127,42 @@ def test_pick_note(eq_screen, check):
           same.startswith("The same sound as the target: 0.18 dB or less") and "0.47 dB from the target near 6.2 kHz" in out
           and "a smaller number of filters" in out and "largest difference is near 6.2 kHz" in other and none == ""
           and alone.endswith("This EQ is the nearest one."), (same, out, other, none, alone))
+
+
+def test_number_of_filters_keeps_one_width(eq_screen, chain, check):
+    # (a code review, 2026-11-10: Number of filters was as wide as its lines, so its width changed from one result to
+    # the next and moved All results… and Compare…; its line for 1 filter said "1 filters")
+    from PySide6.QtWidgets import QComboBox
+    from ui.eq_page_cards import COUNT_LONGEST
+    from ui.eq_page_parts import combo_width
+    page = eq_screen.page
+    combo = page.count_combo
+    sel = page.sel
+    widths, xs = set(), set()
+    for i in range(combo.count()):
+        page.show_result(combo.itemData(i))
+        widths.add(combo.width())
+        xs.add(page.all_btn.x())
+    combo.addItem("99 filters  ·  99.99 dB  ✓ selected for you", "check")  # (a longer line than any of this run)
+    longer = combo.width()
+    combo.removeItem(combo.count() - 1)
+    page.show_result(sel)
+    lines = [combo.itemText(i) for i in range(combo.count())]
+    found = {"widths": widths, "with a longer line": longer, "buttons' x": xs,
+             "policy": combo.sizeAdjustPolicy() == QComboBox.AdjustToContents, "lines": lines,
+             "room": combo_width(combo, COUNT_LONGEST)}
+    one = "1 filter  ·" in page.count_combo.itemText(0) if any(t.startswith("1 ") for t in lines) else True
+    check("result: Number of filters keeps one width, its longest line whole (All results… does not move); 1 filter "
+          "without “s”", len(widths) == 1 and longer in widths and len(xs) == 1 and not found["policy"]
+          and min(widths) >= min(found["room"], 360) and one and not any(t.startswith("1 filters") for t in lines),
+          found)
+
+
+def test_file_name_shows_its_start(eq_screen, chain, check):
+    # (a code review, 2026-11-10: a long file name showed its end, and its start was out of sight)
+    page = eq_screen.page
+    page.name_edit.setProperty("auto", True)
+    page.show_result(page.sel)
+    found = (page.name_edit.cursorPosition(), len(page.name_edit.text()), page.name_edit.text()[:30])
+    check("result: File name shows the start of its name (the box showed the end of a long one)",
+          found[0] == 0 and found[1] > 0, found)

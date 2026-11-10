@@ -408,10 +408,18 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
 
     # ---------------------------------------------------------------- Listen (ui/listen.py)
     def eventFilter(self, obj, e):
-        """The EQ graph's words (with no EQ) as large as it, in its middle."""
-        from PySide6.QtCore import QEvent
+        """The EQ graph's words (with no EQ) in its middle, only as large as they are: their background is the graph's
+        colour (eq_page_graph._recolour), so the 0 dB line stops at their edges and does not go through them."""
+        from PySide6.QtCore import QEvent, QRect
         if obj is getattr(self, "eqplot", None) and e.type() in (QEvent.Resize, QEvent.Show):
-            self.eq_empty.setGeometry(obj.rect().adjusted(40, 0, 0, -24))  # (clear of its value axis and its labels)
+            area = obj.rect().adjusted(40, 0, 0, -24)  # (clear of its value axis and its labels)
+            lab = self.eq_empty
+            lab.ensurePolished()  # (in the theme's text size and padding: its contents margins)
+            m = lab.contentsMargins()
+            # (on one line when it fits: a label that wraps takes a narrower width for itself than the graph has)
+            w = min(lab.fontMetrics().horizontalAdvance(lab.text()) + m.left() + m.right() + 2, area.width())
+            h = lab.heightForWidth(w)
+            lab.setGeometry(QRect(area.center().x() - w // 2, area.center().y() - h // 2 + 1, w, h))
         return super().eventFilter(obj, e)
 
     def keyPressEvent(self, e):

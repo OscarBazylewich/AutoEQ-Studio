@@ -44,6 +44,10 @@ class EqGraph:
             set_note(self.graph_note, str((c or {}).get("error") or "The app cannot calculate the curves."))
             self.chip_noeq.hide()
             self.draw()
+            # (Settings to try for the settings as they are, with no curves to analyse: with no measurement the line
+            # stayed empty, or kept what it said for the curves before; a code review, 2026-11-10)
+            self.analysis = None
+            self.refresh_auto()
             return
         self.curves = c
         self.graph_title.set_pair(c["name"], c["target_name"])  # ("A  →  B", or B under A on a narrow window)
@@ -121,6 +125,8 @@ class EqGraph:
                 p.getAxis(ax).setPen(pg.mkPen(col["axis"]))
                 p.getAxis(ax).setTextPen(pg.mkPen(col["axis"]))
             p.showGrid(x=True, y=True, alpha=0.25)
+        # (the empty EQ graph's words on the graph's own colour: the 0 dB line went through them)
+        self.eq_empty.setStyleSheet(f"background: {col['bg']}; padding: 2px 10px;")
         self.legend.setLabelTextColor(col["axis"])  # (pyqtgraph's own grey was 2.9:1 on the light card: the axes')
         if getattr(self, "live_graph", None) is not None:
             self.live_graph.recolour()

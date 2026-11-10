@@ -30,9 +30,13 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFrame, QGrid
 
 from ui import help_window, icons, theme
 from ui.bubble import InfoMark
-from ui.eq_page_parts import TICKS, CurveNames, Elided, NameCombo, PairTitle, hz, label
+from ui.eq_page_parts import TICKS, CurveNames, Elided, NameCombo, PairTitle, SameWidth, combo_width, hz, label
 from ui.forms import CHOICE_MOST
 from ui.search_combo import SearchCombo
+
+
+# Number of filters' longest line (eq_page_result.show_result: a count, its error, the pick's words), for its width
+COUNT_LONGEST = "00 filters  ·  00.00 dB  ✓ selected for you"
 
 
 class EqCards:
@@ -69,6 +73,7 @@ class EqCards:
         # (Adjust… onto the Target row; Settings and More settings, rows that open in Make the EQ, in their place)
         yield from settings.build_parts(self.settings_slot, self.target_row, self.target_under)
         self.settings = settings
+        self.measurement_pad.follow(settings.adjust_btn)  # (the two drop-downs end at one x: Adjust… is the Target's)
         col.addWidget(self._result_card())
         # (the settings shown again now the result card is there: its line under File name, "Save filters writes: …",
         # was made after Make the EQ first showed them, and stayed empty until a setting changed, 2026-10-23)
@@ -174,6 +179,7 @@ class EqCards:
         # (with no EQ: words in its middle that tell what a double-click there does; the UI audit, 2026-11-08)
         self.eq_empty = QLabel("Double-click here to add a filter and start a manual EQ.", self.eqplot)
         self.eq_empty.setAlignment(Qt.AlignCenter)
+        self.eq_empty.setWordWrap(True)  # (on a narrow graph: two lines, never cut)
         self.eq_empty.setAttribute(Qt.WA_TransparentForMouseEvents)
         theme.mark(self.eq_empty, role="muted")
         self.eqplot.installEventFilter(self)  # (the words follow its size: eventFilter, eq_page)
@@ -268,6 +274,11 @@ class EqCards:
                        "Add measurement files from this PC (a set: L/R, seatings)")
         add.clicked.connect(lambda _=False, k=kind: self.add_files(k))
         row.addWidget(add)
+        if kind == "measurement":
+            # (room as wide as the Target's Adjust… after Add…, so that the two drop-downs end at one x at every
+            # width: the Measurement's went on 105 px further; a code review, 2026-11-10)
+            self.measurement_pad = SameWidth()
+            row.addWidget(self.measurement_pad)
         setattr(self, f"{kind}_combo", combo)
         setattr(self, f"{kind}_box", box)
         if kind == "target":
@@ -402,8 +413,8 @@ class EqCards:
         icons.put(self.run_btn, "run")
         self.run_btn.setMinimumWidth(120)
         self.run_btn.clicked.connect(lambda: self.run())  # (not self.run: Qt hands it the click's checked=False as retry)
-        # (Cancel at the row's end while a run goes on: beside Run it pushed Run several… along, and in Run's place a
-        # double-click on Run cancelled the run it started, UI-RULES 13)
+        # (Cancel at the row's end while a run goes on: beside Calculate it pushed Queue… along, and in Calculate's
+        # place a double-click on Calculate cancelled the run it started, UI-RULES 13)
         self.cancel_btn = QPushButton("Cancel")
         icons.put(self.cancel_btn, "cancel")
         self.cancel_btn.clicked.connect(lambda: self.svc.call("/api/cancel"))
@@ -449,8 +460,8 @@ class EqCards:
         return box
 
     def _line_up_ways(self):
-        """Your EQ app's grid and each way's: one label column, as wide as the widest label of the three (as
-        forms.line_up_together does for forms)."""
+        """Your EQ app's grid and each way's (3 grids): one label column, as wide as the widest of their labels (Your
+        EQ app, Method, Settings to try, Start from), so that their boxes start at one x."""
         for lab in self._way_labels:
             lab.ensurePolished()  # (in the theme's text size)
         width = max(lab.sizeHint().width() for lab in self._way_labels)
@@ -541,9 +552,11 @@ class EqCards:
         self.count_combo = SearchCombo()
         help_window.tag(self.count_combo, "fcounts")
         self.count_combo.activated.connect(lambda _i: self.show_result(self.count_combo.currentData()))
-        # (as wide as its items, as every drop-down: All results… and Compare… directly after it, UI-RULES 26)
-        self.count_combo.setSizeAdjustPolicy(QComboBox.AdjustToContents)
-        self.count_combo.setMaximumWidth(CHOICE_MOST)
+        # (one width, as wide as its longest line can be: All results… and Compare… directly after it, UI-RULES 33.
+        # As wide as the lines of each result, it changed width from one result to the next and moved them; a code
+        # review, 2026-11-10)
+        self.count_combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        self.count_combo.setFixedWidth(min(CHOICE_MOST, combo_width(self.count_combo, COUNT_LONGEST)))
         pick.addWidget(self.count_combo)
         self.all_btn = QPushButton("All results…")
         self.all_btn.setToolTip("All the results that the app tried, and the error for each filter count and maximum Q")

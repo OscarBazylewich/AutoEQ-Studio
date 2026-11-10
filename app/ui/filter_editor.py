@@ -16,8 +16,8 @@ colours, as the app's own sliders look; each filter's number as its handle on th
 from PySide6.QtCore import QPointF, QRectF, QSize, QTimer, Qt, Signal
 from PySide6.QtGui import QColor, QFontMetrics, QPainter, QPen
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QGridLayout, QHBoxLayout, QHeaderView, QLabel,
-                               QLineEdit, QScrollArea, QSlider, QStackedWidget, QTableWidget, QToolButton, QVBoxLayout,
-                               QWidget)
+                               QLineEdit, QScrollArea, QSlider, QStackedWidget, QStyle, QTableWidget, QToolButton,
+                               QVBoxLayout, QWidget)
 
 from ui import theme
 from ui.forms import Limits, number_text
@@ -26,6 +26,7 @@ from ui.search_combo import SearchCombo
 TYPES = [("PK", "Peak"), ("LSQ", "Low shelf"), ("HSQ", "High shelf")]
 SLIDERS_HEIGHT = 460  # (the Sliders view at most, with its sideways scroll bar: never one up and down)
 TYPE_W, NUMBER_W = 130, 100  # (px: the table's Type column and each number column)
+TABLE_MOST = 560  # (px: the table at most; more rows scroll in it)
 
 
 def _hz(v):
@@ -65,6 +66,13 @@ class FilterEditor(QWidget):
         fm = QFontMetrics(h.font())  # (a column never narrower than its title: "Frequency (Hz)" was cut)
         for c, w in ((2, TYPE_W), (3, NUMBER_W), (4, NUMBER_W), (5, NUMBER_W)):
             h.resizeSection(c, max(w, fm.horizontalAdvance(self.table.horizontalHeaderItem(c).text()) + 32))
+        # (the table as wide as its columns, without a scroll bar across: the width was read before Qt had sized the
+        # columns to their boxes, 10 px too narrow, so a bar across showed, took the rows' room and the ✕ was cut;
+        # a code review, 2026-11-10. Now kept to the columns each time one changes size, the bar up and down's room
+        # in it when the rows need one)
+        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        h.sectionResized.connect(lambda *_a: self._fit_width())
+        self.table.setCornerWidget(QWidget())  # (the corner between two scroll bars: Qt's own was white in light)
         self.table_box = QWidget()
         tb = QHBoxLayout(self.table_box)
         tb.setContentsMargins(0, 0, 0, 0)
@@ -149,13 +157,26 @@ class FilterEditor(QWidget):
             x.clicked.connect(lambda _=False, i=i: self.delete(i))
             t.setCellWidget(i, 6, x)
             self._dim(i)
+        for i in range(t.rowCount()):  # (in the theme's sizes before the columns are sized to them)
+            for c in (0, 6):
+                t.cellWidget(i, c).ensurePolished()
+        for c in (0, 1, 6):
+            t.resizeColumnToContents(c)
         t.resizeRowsToContents()
         rows = sum(t.rowHeight(i) for i in range(t.rowCount())) or 44  # (no filters: room for the line that says so)
-        height = min(560, t.horizontalHeader().height() + rows + 2 * t.frameWidth() + 2)
+        need = t.horizontalHeader().height() + rows + 2 * t.frameWidth() + 2
+        height = min(TABLE_MOST, need)
+        self._rows_scroll = need > height  # (more rows than its height: the bar up and down needs its room)
         t.setFixedHeight(height)
-        t.setFixedWidth(t.horizontalHeader().length() + 2 * t.frameWidth() + 2)
+        self._fit_width()
         self.stack.setFixedHeight(height)  # (as tall as the table: the Sliders view's height left no empty band)
         self.empty.refresh()
+
+    def _fit_width(self):
+        """The table as wide as its columns, and the bar up and down when its rows need one (_build_table)."""
+        t = self.table
+        bar = t.style().pixelMetric(QStyle.PM_ScrollBarExtent, None, t) if getattr(self, "_rows_scroll", False) else 0
+        t.setFixedWidth(t.horizontalHeader().length() + 2 * t.frameWidth() + 2 + bar)
 
     def _dim(self, i):
         """A switched-off filter's row shows paler."""

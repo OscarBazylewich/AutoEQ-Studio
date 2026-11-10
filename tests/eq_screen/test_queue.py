@@ -91,3 +91,30 @@ def test_run_several_lists_a_to_z(eq_screen, check):
         page.inputs["targets"] = kept
     check("queue: Run several's targets are A to Z, numbers as numbers (as every list)",
           names == ["Alpha", "target 2", "Target 10"], names)
+
+
+def test_run_several_long_names_fit_their_list(eq_screen, check):
+    # (a code review, 2026-11-10: a long target's name made a scroll bar across its list, and the end of the name was
+    # out of sight; now the row is as wide as the list and the name goes on to a second line)
+    page = eq_screen.page
+    kept = page.inputs.get("targets")
+    long = ("A target with a very long name that is wider than the list of targets in the queue window, "
+            "and longer still.csv")
+    try:
+        page.inputs["targets"] = [long, "Short.csv"]
+        q = QueueWindow(page)
+        q.show()
+        q.resize(q.minimumSize())
+        qt.pump(200)
+        lst = q.tgts
+        row = next(i for i in range(lst.count()) if lst.item(i).data(Qt.UserRole) == long)
+        rect = lst.visualItemRect(lst.item(row))
+        bar = lst.horizontalScrollBar()
+        found = (bar.isVisible(), bar.maximum(), rect.height(), lst.sizeHintForRow(1 - row),
+                 lst.item(row).toolTip() == os.path.splitext(long)[0])
+        qt.close(q)
+    finally:
+        page.inputs["targets"] = kept
+    check("queue: a long name in a list goes on to more lines in the list's width (no scroll bar across), its whole "
+          "name in its tooltip",
+          not found[0] and found[1] == 0 and found[2] > found[3] and found[4], found)

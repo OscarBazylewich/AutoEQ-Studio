@@ -180,3 +180,25 @@ def test_short_text_with_no_filter_counts(check):
     found = raises(autoset.describe_short, cfg), settings.with_auto({"best_fit": {"filter_counts": []}})["best_fit"]["filter_counts"]
     check("automatic settings: the short text of Best fit with no filter counts gives words, not an error (and checked "
           "settings put the default counts back)", found[0] is None and found[1] == list(range(1, 11)), found)
+
+
+def test_whole_text_says_one_without_s(check):
+    # (a code review, 2026-11-10: describe() said "1 filter rows", "1 gain limits × 1 Q limits", "your 1 filters";
+    # it now counts with _many, as describe_short does)
+    def scratch(counts):
+        cfg = _short_cfg(filter_counts=counts)
+        cfg["best_fit"]["build"] = "scratch"
+        return cfg
+    found = {"one row": autoset.describe(settings.with_auto({"mode": "site_single", "site_single": {"rows": 1}})),
+             "one growing EQ": autoset.describe(_short_cfg(filter_counts=[4])),
+             "one EQ of 1": autoset.describe(scratch([1])),
+             "your one filter": autoset.describe(_short_cfg(start_filters=MINE, start_add=False))}
+    wrong = [w for w in ("1 filters", "1 filter rows", "1 gain limits", "1 Q limits", "1 filter counts", "1 EQs",
+                         "1 EQ that add ", "they use") if any(w in t for t in found.values())]
+    check("automatic settings: the whole text says “1 filter row”, “1 gain limit”, “1 Q limit”, “1 filter count”, "
+          "“1 EQ”, “your 1 filter” (it said “1 filter rows”, “1 gain limits”, “your 1 filters”)",
+          not wrong and found["one row"] == "1 website EQ with 1 filter row"
+          and found["one growing EQ"].startswith("1 EQ that adds one filter at a time, to a maximum of 4 (1 gain limit "
+                                                 "× 1 Q limit)")
+          and found["one EQ of 1"].startswith("1 EQ (1 filter count × 1 gain limit × 1 Q limit)")
+          and found["your one filter"].startswith("only your 1 filter, not changed (it uses all"), (wrong, found))
