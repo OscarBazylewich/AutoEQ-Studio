@@ -417,13 +417,19 @@ def save_preset(name, cfg):
     textfile.write_atomic(preset_path(name), json.dumps(s, indent=2))  # (never a cut-off preset)
 
 
-def load_preset(name):
-    """The preset's settings with the current files, saved as the settings in use."""
+def read_preset(name):
+    """The preset's settings with the current files, complete and valid, but not saved: only to look at (the
+    Presets menu's mark at the preset in use). load_preset is the same, then saved."""
     p = textfile.read_json(preset_path(name))
     if not isinstance(p, dict):
         raise ValueError(f"The preset “{name}” is missing, or the app cannot read it.")
     p["files"] = load()["files"]
-    cfg = with_auto(p)
+    return with_auto(p)
+
+
+def load_preset(name):
+    """The preset's settings with the current files, saved as the settings in use."""
+    cfg = read_preset(name)
     save(cfg)
     return cfg
 

@@ -468,33 +468,39 @@ def describe(cfg, mode=None):
 
 
 
+def _many(n, word):
+    """A count and its word, with an "s" for every count but 1 ("1 filter", "3 filters")."""
+    return f"{n} {word}{'' if n == 1 else 's'}"
+
+
 def describe_short(cfg, mode=None):
     """What a run with these settings will try, in a few words (Make the EQ's Settings to try: "36 EQs, 1 to 32
     filters"); describe() has the whole text."""
     from . import engines
     mode = mode or cfg["mode"]
     if mode == "site_single":
-        return f"1 website EQ, {cfg['site_single']['rows']} filter rows"
+        return f"1 website EQ, {_many(cfg['site_single']['rows'], 'filter row')}"
     if mode == "site_sweep":
         n = len(engines.site_combos(cfg["site_sweep"]))
-        return f"{n} website EQ{'s' if n != 1 else ''}"
+        return _many(n, "website EQ")
     if mode == "best_fit":
         bf = cfg["best_fit"]
         if layouts.is_fixed(bf["layout"]):
-            return f"{len(layouts.bands(bf)[0])} bands"
+            return _many(len(layouts.bands(bf)[0]), "band")
         bf = device_settings(bf)
         n_mine = _count_mine(bf)
-        fp = len(engines.fight_penalties(bf))
         if n_mine and bf.get("start_add") is False:
-            return f"your {n_mine} filters"
-        counts = bf["filter_counts"]
-        if engines.grows(bf, n_mine):
-            n = len(bf["gain_max"]) * len(bf["q_max"]) * fp
-            return f"{n} EQ{'s' if n != 1 else ''}, 1 to {max(counts)} filters"
+            return f"your {_many(n_mine, 'filter')}"
+        # (fit_count as the run counts them: growing, your own filters kept as they are are one EQ more; this text
+        # said one EQ too few then)
         n = engines.fit_count(bf, n_mine)
-        lo, hi = min(counts), max(counts)
-        return f"{n} EQ{'s' if n != 1 else ''}, {lo} to {hi} filters" if lo != hi else f"{n} EQs, {lo} filters"
+        counts = bf["filter_counts"]
+        if not counts:  # (settings that were not checked: no filter counts to say)
+            return _many(n, "EQ")
+        lo, hi = (1, max(counts)) if engines.grows(bf, n_mine) else (min(counts), max(counts))
+        return f"{_many(n, 'EQ')}, {lo} to {hi} filters" if lo != hi else f"{_many(n, 'EQ')}, {_many(lo, 'filter')}"
     return mode
+
 
 def device_settings(bf):
     """Best fit's settings kept within its device layout's (your own filters, kept or adjusted, take some of its)."""

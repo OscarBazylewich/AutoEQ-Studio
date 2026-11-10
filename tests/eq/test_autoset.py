@@ -131,3 +131,52 @@ def test_grows_by_default_every_count_at_every_search(check):
           and all("best_fit.seed_with_site" not in v and v["scoring.pick"] == "audible" and v["scoring.ear_db"] == 0.25
                   and v["best_fit.filter_counts"] == list(range(1, 33)) for v in plans),
           [(v["scoring.pick"], len(v["best_fit.filter_counts"])) for v in plans])
+
+
+# ---------------------------------------------------------------- the short text of what a run tries (2026-11-10)
+def _short_cfg(**bf):
+    """Best fit with one boost limit, one Q limit and one penalty (one growing EQ per limit), these settings over."""
+    cfg = settings.with_auto({"mode": "best_fit"})
+    cfg["best_fit"].update({"gain_max": [6], "q_max": [2], "fight_penalty": [0.01], **bf})
+    return cfg
+
+
+MINE = "Filter 1: ON PK Fc 100 Hz Gain 2 dB Q 1"
+
+
+def test_short_text_counts_your_filters_kept(check):
+    # (a code review: with your own filters kept as they are, a growing run makes one EQ more, theirs alone, as
+    # engines.fit_count counts it; the short text said one too few)
+    from eq import engines
+    cfg = _short_cfg(filter_counts=[2, 3], start_filters=MINE, start_keep=True)
+    bf = autoset.device_settings(cfg["best_fit"])
+    short, real = autoset.describe_short(cfg), engines.fit_count(bf, 1)
+    check("automatic settings: the short text of a run counts the EQ of your own filters kept as they are (one too "
+          "few before)", engines.grows(bf, 1) and real == 2 and short == "2 EQs, 1 to 3 filters", (short, real))
+
+
+def test_short_text_says_one_without_s(check):
+    def scratch(counts):  # (each count fitted on its own: the benchmarks' way, so one EQ for one count and limit)
+        cfg = _short_cfg(filter_counts=counts)
+        cfg["best_fit"]["build"] = "scratch"
+        return cfg
+    found = {"one row": autoset.describe_short(settings.with_auto({"mode": "site_single", "site_single": {"rows": 1}})),
+             "one growing EQ": autoset.describe_short(_short_cfg(filter_counts=[4])),
+             "one EQ of 4": autoset.describe_short(scratch([4])),
+             "one EQ of 1": autoset.describe_short(scratch([1])),
+             "your one filter": autoset.describe_short(_short_cfg(start_filters=MINE, start_add=False))}
+    check("automatic settings: the short text says “1 EQ”, “1 filter”, “1 filter row”, “your 1 filter” (it said "
+          "“1 EQs”, “1 filter rows”, “your 1 filters”)",
+          found == {"one row": "1 website EQ, 1 filter row", "one growing EQ": "1 EQ, 1 to 4 filters",
+                    "one EQ of 4": "1 EQ, 4 filters", "one EQ of 1": "1 EQ, 1 filter",
+                    "your one filter": "your 1 filter"}, found)
+
+
+def test_short_text_with_no_filter_counts(check):
+    # (settings.with_auto puts the default counts back for an empty list, so /api/auto never sends one; settings not
+    # checked that way made min() and max() stop with a ValueError)
+    cfg = _short_cfg()
+    cfg["best_fit"]["filter_counts"] = []
+    found = raises(autoset.describe_short, cfg), settings.with_auto({"best_fit": {"filter_counts": []}})["best_fit"]["filter_counts"]
+    check("automatic settings: the short text of Best fit with no filter counts gives words, not an error (and checked "
+          "settings put the default counts back)", found[0] is None and found[1] == list(range(1, 11)), found)

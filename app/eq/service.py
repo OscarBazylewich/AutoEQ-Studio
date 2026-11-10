@@ -684,6 +684,12 @@ def preset_load(body):
     return {"settings": settings.load_preset(text_of(body, "name"))}
 
 
+@route("/api/presets/read")
+def preset_read(body):
+    """A preset's settings to look at: settings.json does not change (the Presets menu's mark at the preset in use)."""
+    return {"settings": settings.read_preset(text_of(body, "name"))}
+
+
 @route("/api/presets/delete")
 def preset_delete(body):
     settings.delete_preset(text_of(body, "name"))

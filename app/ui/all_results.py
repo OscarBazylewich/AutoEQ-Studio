@@ -102,6 +102,7 @@ class AllResults(QDialog):
         self.grid.setItemDelegate(_Shade(self.grid))
         _table_look(self.grid)
         self._grid_height = None  # (its rows' height: render())
+        self._sorted_run = None  # (the run the table was last filled with: render() keeps your sort for it)
         self.grid.horizontalScrollBar().rangeChanged.connect(self._fit_grid)
         self.grid_note.setWordWrap(True)
         theme.mark(self.grid_note, role="muted")
@@ -261,6 +262,12 @@ class AllResults(QDialog):
         # Best fit's own count of the filters it added said "1" for a 2-filter result and nothing for a Retry's)
         t = self.table
         t.setColumnHidden(2, not str(run.get("mode", "")).startswith("site"))
+        # (the sort you chose by a click on a heading stays when the table fills again, as it does after each click
+        # on a result; the lowest error first only on the first fill, or for a different run)
+        h = t.horizontalHeader()
+        sort = ((h.sortIndicatorSection(), h.sortIndicatorOrder()) if self._sorted_run is run
+                else (0, Qt.AscendingOrder))
+        self._sorted_run = run
         t.setSortingEnabled(False)
         t.setRowCount(0)
         for r in sorted(rs, key=lambda x: x["rms"])[:500]:
@@ -283,4 +290,4 @@ class AllResults(QDialog):
         t.setSortingEnabled(True)
         # (the lowest error at the top, its arrow up: Qt sorted them again from the highest when sorting came on;
         # the UI audit, 2026-11-08)
-        t.sortByColumn(0, Qt.AscendingOrder)
+        t.sortByColumn(*sort)
