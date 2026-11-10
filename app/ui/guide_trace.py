@@ -1,7 +1,8 @@
 """Trace image's Guide (AutoEQ Local's tracer TOUR, told for AutoEQ Studio's window; ui/tour.py shows it):
 trace_steps(tw), every step in order, and start_trace(tw), the tour, on the sample graph when no picture is
 open. The chapters have the names of the window's tabs (1 · Axes, 2 · Trace, 3 · Save), and a step shows its tab
-first ("before"). The steps of 2 · Trace go in the card's order: Trace automatically first, Trace manually last.
+first ("before"); the tab that you had comes back when the Guide closes. The steps of 2 · Trace go in the card's
+order: Trace automatically first, Trace manually last.
 """
 from ui import tour
 
@@ -29,8 +30,8 @@ def trace_steps(tw):
         {"chapter": "The parts of this window", "title": "How to trace a graph", "target": lambda: tw.stage,
          "text": "Open a picture of a graph. Examine the axes that the app found. Trace the curve (Trace automatically "
                  "does this). Save it as a measurement or a target. The tabs 1 Axes, 2 Trace and 3 Save show one step "
-                 "at a time. The list of steps (at the top of this box) has Play all steps and the speed of the "
-                 "demos." + sample},
+                 "at a time. The app shows its messages under the settings, at the bottom right. The list of steps (at the "
+                 "top of this box) has Play all steps and the speed of the demos." + sample},
         {"chapter": "Picture", "title": "The picture", "target": lambda: tw.stage,
          "text": "Drag a picture of a graph here, paste it (Ctrl+V), or click Open image…. Its name shows at the top. "
                  "To remove an incorrect picture, click Remove image. Zoom in and out with the mouse wheel. Move the "
@@ -107,8 +108,13 @@ def trace_steps(tw):
 
 
 def start_trace(tw):
-    """The tracer's tour; with no picture open, on the sample graph (closed again at the end, the tracer as it was)."""
+    """The tracer's tour; with no picture open, on the sample graph (closed again at the end, the tracer as it was).
+    The steps show their tabs: the tab that you had comes back at the end (the tracer stayed on 3 Save, 2026-11-10)."""
     t = tw.t
+    was_tab = tw.pages.currentIndex()
+
+    def tab_back():
+        tw.show_tab(was_tab)
     if not t.has_image:
         from ui.trace_window import sample_image
         kept = {"v": dict(t.v), "ta": {k: (set(v) if isinstance(v, set) else dict(v) if isinstance(v, dict) else v)
@@ -130,5 +136,9 @@ def start_trace(tw):
             tw.show_values()
             tw.changed()
             tw.status.setText("")
-        return tour.Tour(tw, trace_steps(tw), on_end=close)
-    return tour.Tour(tw, trace_steps(tw))
+
+        def end():
+            close()
+            tab_back()
+        return tour.Tour(tw, trace_steps(tw), on_end=end)
+    return tour.Tour(tw, trace_steps(tw), on_end=tab_back)

@@ -912,3 +912,115 @@ def test_the_card_top_and_the_step_list(s, check):
     check("guide: the pointer's words get no box where every place beside the pointer would cover the card (the "
           "card's line says them); away from the card, their box is off the card", on_card is None and off_card,
           (on_card, off, card))
+
+
+def test_start_from_your_filters_puts_your_tab_back(s, check):
+    # (2026-11-10, the code's review: the step showed More settings' Best fit tab and left it there)
+    page = s.page
+    form = page.settings.adv_form
+    page.settings.adv.btn.setChecked(True)
+    s.qapp.processEvents()
+    yours = next((i for i, b in form.tab_btns.items() if i != 0 and b.isVisibleTo(form)), None)
+    page.settings.adv.btn.setChecked(False)
+    if yours is None:
+        check.skipped("More settings shows one tab only", "guide: the step “Start from your filters” shows More "
+                      "settings' Best fit tab, and your tab comes back when you leave the step or close the Guide")
+        return
+    form.show_tab(yours)
+    t = _on_step(page, "Start from your filters")
+    during = form.pages.currentIndex()
+    t.go_to_step(t.i + 1)
+    left = form.pages.currentIndex()
+    t.go_to_step(t.i - 1)
+    again = form.pages.currentIndex()
+    t.end()
+    closed = form.pages.currentIndex()
+    check("guide: the step “Start from your filters” shows More settings' Best fit tab, and your tab comes back when "
+          "you leave the step or close the Guide", (during, left, again, closed) == (0, yours, 0, yours),
+          (during, left, again, closed, yours))
+
+
+def test_typed_value_goes_with_the_graph(s, check):
+    # (2026-11-10, the code's review: Adjust's demo typed a value, the graph went back, and the typed value stayed in
+    # its box until the demo ended)
+    page = s.page
+    t = _on_step(page, "Adjust the target (optional)")
+    seen = []
+    try:
+        t.speed = 40.0
+        t.replay()
+        s.wait_for(lambda: seen.append(len(t.typed)) or not t.demo_running, 30)
+    finally:
+        t.end()
+    check("guide: Adjust's demo takes a typed value away when the graph goes back (one typed value at a time, never "
+          "the three)", seen and max(seen) == 1, (max(seen or [0]), len(seen)))
+
+
+def _low_card_window(height):
+    """A window with a large control at its top, so the Guide's card goes low in it; its tour on a step list of 27
+    steps (as many as Make an EQ's)."""
+    from PySide6.QtWidgets import QMainWindow, QTextEdit, QVBoxLayout, QWidget
+    from ui import tour
+    win = QMainWindow()
+    win.resize(1000, height)
+    c = QWidget()
+    win.setCentralWidget(c)
+    v = QVBoxLayout(c)
+    big = QTextEdit()
+    v.addWidget(big, 3)
+    v.addStretch(2)
+    win.show()
+    steps = [{"chapter": f"Chapter {k // 4}", "title": f"Step {k}", "target": (lambda: big), "text": "Words. " * 10}
+             for k in range(27)]
+    return win, tour.Tour(win, steps)
+
+
+def test_step_list_inside_the_window(s, check):
+    # (2026-11-10, the code's review: the list of steps opened down from the card's step button and went past the
+    # window's bottom when the card was low: Play all steps and the speed were cut off, in a window 600 px high)
+    from PySide6.QtCore import QPoint, QRect
+    from helpers import qt
+    seen = {}
+    for height in (600, 900):
+        win, t = _low_card_window(height)
+        try:
+            s.qapp.processEvents()
+            t.all_chk.setChecked(False)
+            t._toggle_list()
+            s.qapp.processEvents()
+            lst, po = t.step_list.geometry(), QRect(t.play_opts.mapTo(t, QPoint(0, 0)), t.play_opts.size())
+            card = t.bubble.geometry()
+            seen[height] = {"inside": t.rect().contains(lst) and t.rect().contains(po), "foot shown": po.height() > 10,
+                            "above the card": lst.bottom() < card.top() + t.count_btn.geometry().top(),
+                            "card low": card.top() > t.height() / 2}
+            t.all_chk.setChecked(True)  # (Play all steps: the demo plays, so the list closes)
+            seen[height]["closed by Play all steps"] = not t.step_list.isVisible()
+            t.all_chk.setChecked(False)
+        finally:
+            t.end()
+            qt.close(win)
+    check("guide: the list of steps stays inside the window (above its button when the card is low), Play all steps "
+          "and the speed in sight at its foot; ticking Play all steps closes the list",
+          all(all(v.values()) for v in seen.values()), seen)
+
+
+def test_pointer_words_off_what_is_lit(s, check):
+    # (2026-11-10, the code's review: on Automatic settings the pointer's words covered About these settings, a lit
+    # control's words; now they go just under or over the lit part, off the card)
+    from PySide6.QtCore import QPointF, QRectF
+    from helpers import qt
+    win, t = _low_card_window(900)
+    try:
+        s.qapp.processEvents()
+        lit = QRectF(t.holes[0])
+        t.say = "Some words of the demo"
+        t.cur = QPointF(lit.center().x() + 100, lit.center().y())
+        box = t.words_box()
+        card = QRectF(t.bubble.geometry())
+    finally:
+        t.say = ""
+        t.cur = None
+        t.end()
+        qt.close(win)
+    check("guide: the pointer's words go off the lit control (just under or over it) and off the card",
+          box is not None and not box.intersects(lit) and not box.intersects(card), (box, lit, card))

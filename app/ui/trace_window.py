@@ -9,7 +9,9 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   with their names; Add a curve; Auto trace; colour tolerance; dashed lines; Smooth, Undo, Redo, Clear), 3 Save
   (name, points per octave, what the graph shows, the range; Add as measurement, Add as target, Save .txt…)
 - keys: T D E H tools, A Auto trace, S Smooth, F fit, + - zoom, Delete clears, Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y,
-  arrows move a selected line (Shift: 10 px), Ctrl+V pastes a picture
+  arrows move a selected line (Shift: 10 px), Ctrl+V pastes a picture; a key of a tab's control shows that tab first
+  (the tools, A, S, Delete, Undo and Redo: 2 Trace; the arrows: 1 Axes)
+- the message line (what the tracer did, the tool's words) under the side, in sight on every tab
 sample_image() draws AutoEQ Local's sample graph (an IEM's two channels and a dashed target) for checks and the tour.
 
 The look is Windows 11's, as the rest of the app (2026-10-23): the picture on a card, the tools as one group, Windows
@@ -79,6 +81,39 @@ class _Note(QLabel):
     def setText(self, text):
         super().setText(text)
         self.setVisible(bool(text))
+
+
+class _Elided(QLabel):
+    """A one-line label that never widens its window: a text longer than its room ends in "…", the whole text in its
+    tooltip and its name for a screen reader (the picture's name: a long file name made the tracer wider than the
+    screen, 2026-11-10)."""
+
+    def __init__(self):
+        super().__init__("")
+        self.whole = ""
+
+    def setText(self, text):
+        self.whole = text or ""
+        self.setToolTip(self.whole)
+        self.setAccessibleName(self.whole)
+        self.updateGeometry()
+        self._fit()
+
+    def sizeHint(self):
+        self.ensurePolished()
+        return QSize(self.fontMetrics().horizontalAdvance(self.whole) + 4, super().sizeHint().height())
+
+    def minimumSizeHint(self):
+        self.ensurePolished()
+        return QSize(min(self.sizeHint().width(), self.fontMetrics().horizontalAdvance("M…") * 4),
+                     super().minimumSizeHint().height())
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._fit()
+
+    def _fit(self):
+        QLabel.setText(self, self.fontMetrics().elidedText(self.whole, Qt.ElideMiddle, max(0, self.width() - 2)))
 
 
 def _dot(colour, size=16):
@@ -611,7 +646,7 @@ class TraceWindow(QWidget):
         head.setSpacing(8)
         # (no large title: the title bar says "Trace a graph image", as Help's says its name. The picture's name in bold
         # where the title was, its size in gray beside it, or "No picture". The UI audit, 2026-11-08)
-        self.file_lab = QLabel()
+        self.file_lab = _Elided()  # (a long name cut in its middle, the whole name in its tooltip)
         theme.mark(self.file_lab, role="heading")  # (bold, a card title's size)
         head.addWidget(self.file_lab)
         self.size_lab = _label("", "muted", wrap=False)
@@ -678,7 +713,16 @@ class TraceWindow(QWidget):
         sv.addStretch(1)
         side_scroll.setWidget(side)
         _no_focus(side)
-        body.addWidget(side_scroll)
+        # (the tracer's message line under the side, outside its scrolling part: in sight on every tab. It was in 2
+        # Trace's card, so a value moved to its limit, an empty clipboard or Remove image said nothing on 1 Axes and
+        # 3 Save, 2026-11-10. As wide as the side: a long message wraps, the window never grows)
+        col = QVBoxLayout()
+        col.setSpacing(6)
+        col.addWidget(side_scroll, 1)
+        self.status = _label("", "muted")  # (the tool's words, and what the tracer did)
+        self.status.setFixedWidth(SIDE)
+        col.addWidget(self.status)
+        body.addLayout(col)
         v.addLayout(body, 1)
         for w, key in ((self.auto_on, "#tr-auto-on"), (self.snap, "#tr-snap"), (self.every, "#tr-every"),
                        (self.tol, "#tr-tol"), (self.ppo, "#tr-ppo"), (self.fmin, "#tr-fmin"), (self.fmax, "#tr-fmin"),
@@ -882,8 +926,6 @@ class TraceWindow(QWidget):
             self.tool_btns[key] = b
         tools.addStretch(1)
         v.addLayout(tools)
-        self.status = _label("", "muted")  # (the tool's words, and what the tracer did)
-        v.addWidget(self.status)
         row = QHBoxLayout()
         self.edit_btns = {}
         for key, text, tip, fn in (("smooth", "Make smooth", "Make the pixel steps smooth (S)", self.smooth),
@@ -1484,12 +1526,14 @@ class TraceWindow(QWidget):
             return
         if typing:
             return super().keyPressEvent(e)
+        # (a key whose control is on a tab shows that tab first, so you see what it changed: Undo and Redo are 2
+        # Trace's, the arrows move a line of 1 Axes. They acted on a hidden tab, 2026-11-10. Ctrl+V, F, + and - are
+        # the picture's own: no tab changes)
         ctrl = bool(mods & Qt.ControlModifier)
-        if ctrl and key == Qt.Key_Z:
-            self.redo() if mods & Qt.ShiftModifier else self.undo()
-            return
-        if ctrl and key == Qt.Key_Y:
-            self.redo()
+        if ctrl and key in (Qt.Key_Z, Qt.Key_Y):
+            if self.t.has_image:
+                self.show_tab(1)
+            self.redo() if key == Qt.Key_Y or mods & Qt.ShiftModifier else self.undo()
             return
         if ctrl and key == Qt.Key_V:
             self.paste()
@@ -1499,6 +1543,7 @@ class TraceWindow(QWidget):
         if st.sel_line and key in (Qt.Key_Up, Qt.Key_Down, Qt.Key_Left, Qt.Key_Right):
             d = (10 if mods & Qt.ShiftModifier else 1) / max(1, st.view["s"]) * (-1 if key in (Qt.Key_Up, Qt.Key_Left) else 1)
             if (st.sel_line[0] == "y") == (key in (Qt.Key_Up, Qt.Key_Down)):
+                self.show_tab(0)  # (the line's values are 1 Axes')
                 self.t.cal[st.sel_line] += d
                 self.t.moved["d" if st.sel_line[0] == "y" else "f"] = True
                 self.fit_and_show()

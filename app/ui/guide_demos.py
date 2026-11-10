@@ -446,6 +446,9 @@ def adjust_demo(page):
         w = st.make_adjust_window()
         w.form.refresh()  # (its values, as the page's own window shows them)
         hold["w"] = w
+        # (its Form has no parent: deleted with the demo, never left for Python's garbage collector to delete at a
+        # random later moment)
+        api.undo(w.form.deleteLater)
         api.window(w.dlg, near=st.adjust_btn, size=QSize(int(min(560, api.t.width() * 0.6)),
                                                           int(min(600, api.t.height() * 0.85))))
         st.draw_adjust(w)
@@ -464,6 +467,7 @@ def adjust_demo(page):
         yield from api.tween(900, lambda p: w.curve.setData(f, b + d * p))
         yield 1300
         yield from api.tween(450, lambda p: w.curve.setData(f, b + d * (1 - p)))
+        api.untype(field(key))  # (the graph went back: the typed value goes too, the box shows its own value)
 
     def field(key):
         w = hold.get("w")

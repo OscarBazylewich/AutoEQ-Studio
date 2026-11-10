@@ -6,8 +6,9 @@ trace_checks.
 The last two were the end of the old trace checks' chain on one picture (test_trace_core.py has the rest): each test
 here traces the sample again and takes the old chain's steps up to it (tracing it takes about half a second). Add as
 measurement changes the studio's Measurements: the studio is new again after it (fresh_studio)."""
-from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
-from PySide6.QtGui import QFocusEvent, QMouseEvent
+import pytest
+from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, Qt
+from PySide6.QtGui import QFocusEvent, QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import QApplication, QGestureEvent, QLineEdit, QMessageBox, QPinchGesture
 
 from helpers import eqpage
@@ -142,3 +143,120 @@ def test_fits_a_small_screen(eq_screen, monkeypatch, check):
     check("trace: the tracer's window opens within a laptop's screen at 150 % and 175 % (above the taskbar, its "
           "smallest size too), its parts not squeezed; on a big screen as before (1320 x 860)",
           all(seen[s]["fits"] for s in qt.SMALL_SCREENS) and big["fits"] and big["opens"] == (1320, 860), seen)
+
+
+def _sample_open(eq_screen, name="Sample IEM"):
+    """The tracer on the sample graph, its labels' reading waited for."""
+    page = eq_screen.page
+    page.open_trace()
+    tw = page.tracer
+    img, _s = sample_image()
+    tw.load_image(img, name)
+    eq_screen.wait_for(lambda: not tw.reading, 60)
+    return tw
+
+
+def _key(tw, key, mods=Qt.NoModifier):
+    tw.keyPressEvent(QKeyEvent(QEvent.KeyPress, key, mods))
+
+
+def test_messages_in_sight_on_every_tab(eq_screen, monkeypatch, check):
+    # (2026-11-10, the code's review: the message line was in 2 Trace's card, so a value moved to its limit on 1 Axes,
+    # an empty clipboard or Remove image said nothing on the other tabs)
+    tw = _sample_open(eq_screen)
+    eq_screen.qapp.processEvents()
+    seen = []
+    tw.show_tab(0)
+    box = tw.boxes["f2"]
+    box.setText("99999999")
+    tw.value_left("f2", "trace.hz")
+    seen.append(("1 Axes, a value moved to its limit", tw.status.isVisibleTo(tw), tw.status.text()))
+    tw.show_tab(2)
+    QApplication.clipboard().clear()  # (the off-screen clipboard: Windows' is not touched)
+    tw.paste()
+    seen.append(("3 Save, an empty clipboard", tw.status.isVisibleTo(tw), tw.status.text()))
+    tw.show_tab(1)
+    tw.say("A message on 2 Trace.")
+    seen.append(("2 Trace", tw.status.isVisibleTo(tw), tw.status.text()))
+    tw.show_tab(2)
+    monkeypatch.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.Yes))
+    tw.remove_image()
+    seen.append(("3 Save, Remove image", tw.status.isVisibleTo(tw), tw.status.text()))
+    inside = tw.rect().contains(QRect(tw.status.mapTo(tw, QPoint(0, 0)), tw.status.size()))
+    tw.close()
+    check("trace: the tracer's messages show on every tab (1 Axes, 2 Trace, 3 Save), inside the window",
+          all(shown and text for _w, shown, text in seen) and "changed the value" in seen[0][2]
+          and "clipboard" in seen[1][2] and "removed the picture" in seen[3][2] and inside, (seen, inside))
+
+
+def test_keys_show_their_tab(eq_screen, check):
+    # (2026-11-10, the code's review: Ctrl+Z and the arrows changed the curves or a line while another tab showed)
+    tw = _sample_open(eq_screen)
+    if QApplication.focusWidget() is not None:
+        QApplication.focusWidget().clearFocus()  # (a key typed in a box is the box's own)
+    tabs = {}
+    tw.show_tab(0)
+    _key(tw, Qt.Key_Z, Qt.ControlModifier)
+    tabs["Ctrl+Z on 1 Axes"] = tw.pages.currentIndex()
+    tw.show_tab(2)
+    _key(tw, Qt.Key_Y, Qt.ControlModifier)
+    tabs["Ctrl+Y on 3 Save"] = tw.pages.currentIndex()
+    tw.show_tab(2)
+    line = next(k for k in tw.t.cal if k[0] == "y")
+    tw.stage.sel_line = line
+    was = tw.t.cal[line]
+    _key(tw, Qt.Key_Down)
+    tabs["Down on 3 Save, a red line selected"] = tw.pages.currentIndex()
+    moved = tw.t.cal[line] != was
+    tw.stage.sel_line = None
+    tw.show_tab(2)
+    _key(tw, Qt.Key_F)
+    tabs["F on 3 Save (the picture's own)"] = tw.pages.currentIndex()
+    tw.close()
+    check("trace: a key shows the tab of what it changes (Ctrl+Z, Ctrl+Y: 2 Trace; an arrow on a selected line: "
+          "1 Axes); F, the picture's own key, keeps the tab", tabs == {"Ctrl+Z on 1 Axes": 1, "Ctrl+Y on 3 Save": 1,
+                                                                   "Down on 3 Save, a red line selected": 0,
+                                                                   "F on 3 Save (the picture's own)": 2} and moved,
+          (tabs, moved))
+
+
+def test_long_file_name_cut(eq_screen, check):
+    # (2026-11-10, the code's review: a long file name widened the tracer past the screen)
+    name = "A very long name of a picture of a graph from a review website " * 5
+    tw = _sample_open(eq_screen, name.strip())
+    eq_screen.qapp.processEvents()
+    lab = tw.file_lab
+    least = tw.minimumSizeHint().width()
+    shown, tip, reader = lab.text(), lab.toolTip(), lab.accessibleName()
+    tw.close()
+    check("trace: a long picture name is cut in its middle (…), its whole name in its tooltip and for a screen "
+          "reader, and it does not make the window wider", "…" in shown and len(shown) < len(name.strip())
+          and tip == name.strip() and reader == name.strip() and least < 1320, (shown, tip, least))
+
+
+def test_guide_puts_the_tab_back(eq_screen, check):
+    # (2026-11-10, the code's review: the Guide's steps show their tabs, and the tracer stayed on 3 Save after it)
+    from ui import guide
+    tw = _sample_open(eq_screen)
+    tw.show_tab(1)
+    t = guide.start_trace(tw)
+    t.all_chk.setChecked(False)
+    t.go_to_step(next(n for n, st in enumerate(t.steps) if st["title"] == "Save"))
+    during = tw.pages.currentIndex()
+    t.end()
+    yours = tw.pages.currentIndex()
+    tw.show_tab(0)
+    with pytest.MonkeyPatch.context() as m:  # (no picture: the Guide opens the sample graph and closes it after)
+        m.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.Yes))
+        tw.remove_image()
+    tw.show_tab(2)
+    t = guide.start_trace(tw)
+    t.all_chk.setChecked(False)
+    t.go_to_step(next(n for n, st in enumerate(t.steps) if st["title"] == "Examine the axes"))
+    during_sample = tw.pages.currentIndex()
+    t.end()
+    sample_yours = tw.pages.currentIndex()
+    tw.close()
+    check("trace: the tracer's Guide shows a step's tab, and the tab that you had comes back when it closes (with "
+          "your picture, and on the sample graph)", (during, yours, during_sample, sample_yours) == (2, 1, 0, 2),
+          (during, yours, during_sample, sample_yours))

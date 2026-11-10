@@ -174,7 +174,7 @@ def test_history_look_follows_the_theme(made_up_history, eq_screen, check):
         """The rows' first lines, the card's colour under a ⋯ as drawn now, and the theme's colours."""
         body = hw.scroll.widget()
         heads = [lab.text() for lab in body.findChildren(QLabel) if "→" in lab.text()]
-        x = next(b for b in body.findChildren(QPushButton) if b.accessibleName() == "More commands")
+        x = next(b for b in body.findChildren(QPushButton) if b.accessibleName().startswith("More commands for "))
         row = x.parentWidget()
         pm = row.grab()
         img = pm.toImage()
@@ -182,8 +182,8 @@ def test_history_look_follows_the_theme(made_up_history, eq_screen, check):
         t = theme.tokens()
         return {"heads": heads, "muted": t["muted"], "under ✕": (img.pixelColor(p).name(), t["card"])}
     buttons = hw.scroll.widget().findChildren(QPushButton)
-    symbols = sorted({b.text() or b.accessibleName() for b in buttons if not b.icon().isNull()})
-    menu = [a.text() for a in next(b for b in buttons if b.accessibleName() == "More commands").menu().actions()
+    symbols = sorted({b.text() or b.accessibleName().split(" for ")[0] for b in buttons if not b.icon().isNull()})
+    menu = [a.text() for a in next(b for b in buttons if b.accessibleName().startswith("More commands for ")).menu().actions()
             if a.text()]
     # (each row's Show, in the rows' order, newest first: in the accent or not, and its symbol)
     shows = [(b.property("primary") in (True, "true"), not b.icon().isNull()) for b in buttons if b.text() == "Show"]
@@ -209,6 +209,57 @@ def test_history_look_follows_the_theme(made_up_history, eq_screen, check):
           "column of accent buttons); every Show has Windows 11's symbol beside its words",
           len(shows) == 3 and [accent for accent, _symbol in shows] == [True, False, False]
           and all(symbol for _accent, symbol in shows) and symbols == ["More commands", "Show"], (shows, symbols))
+
+
+def test_history_more_names_its_eq(made_up_history, check):
+    # (2026-11-10, the code's review: a screen reader read "More commands" on every row's ⋯, never which EQ)
+    from PySide6.QtWidgets import QPushButton
+    names = [b.accessibleName() for b in made_up_history.scroll.widget().findChildren(QPushButton)
+             if b.accessibleName().startswith("More commands")]
+    check("history: each row's ⋯ has the name of its EQ for a screen reader (“More commands for” the IEM → the target, "
+          "and its time): no two the same", len(names) == 3 and len(set(names)) == 3
+          and all(n.startswith("More commands for Look IEM → Look target, ") for n in names), names)
+
+
+def test_history_empty_line(eq_screen, check):
+    # (2026-11-10, the code's review: an empty History had a plain gray label at its top, not every empty list's line
+    # (window_parts.EmptyText, UI-RULES 21))
+    from PySide6.QtWidgets import QLabel
+    page = eq_screen.page
+    kept = page.history
+    hw = None
+    try:
+        page.history = []
+        hw = HistoryWindow(page, False)
+        hw.show()
+        qt.pump(200)
+        empty = hw.empty
+        seen = (empty is not None and empty.label.isVisible(), empty.label.text() if empty else None,
+                [lab.text() for lab in hw.scroll.widget().findChildren(QLabel) if lab is not (empty and empty.label)])
+    finally:
+        if hw is not None:
+            qt.close(hw)
+        page.history = kept
+    check("history: an empty History shows every empty list's gray line in the list (No EQs, and what to do), no "
+          "other label", seen[0] and seen[1].startswith("No EQs.") and not seen[2], seen)
+
+
+def test_keep_to_compare_refusal_shown_in_history(made_up_history, eq_screen, monkeypatch, check):
+    # (2026-11-10, the code's review: Listen said "no filters" or "the list is full" at its own card, behind History)
+    from ui import bubble
+    hw, page = made_up_history, eq_screen.page
+    told = []
+    for what, entry, full in (("no filters", dict(page.history[0], filters=[]), False),
+                              ("the list is full", page.history[0], True)):
+        if full:
+            monkeypatch.setattr(page.listen, "max_pins", len(page.listen.pins), raising=False)
+        hw.keep_to_compare(entry)
+        b = bubble.last("tell")
+        told.append((what, b is not None and b.isVisible() and b.window() is hw, b.text.text() if b else None))
+        if b is not None:
+            b.close_now()
+    check("history: when Keep to compare cannot add an EQ (no filters, the list is full), the bubble that says why is "
+          "in the History window, where you are (it was behind History)", all(here for _w, here, _t in told), told)
 
 
 def test_history_rows_whole_at_its_smallest(made_up_history, check):
