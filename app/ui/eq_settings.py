@@ -22,8 +22,9 @@ the scored range, the website's levelling, the rig conversion) draw the graph ag
 
 EqSettings(page) keeps what the settings need; build_parts(slot, target_row, target_under) makes them in four parts,
 one per step of the page's build (ui/eq_page_cards.py: each a few ms, so the window answers in between): Adjust… (its
-button on the Target row, its window), the Settings fold, More settings' first half, its second half
-(Form.add_sections). Each part goes into its place in the step that makes it.
+button on the Target row), the Settings fold, More settings' first half, its second half (Form.add_sections). Each
+part goes into its place in the step that makes it. Adjust…'s window is made at its first use (adjust()), not in the
+build: with its graph it was most of the build's "adjust" step (34 ms, now under 1 ms, offscreen, 2026-11-10).
 """
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtWidgets import (QCheckBox, QDialog, QFileDialog, QGridLayout, QHBoxLayout, QLabel, QMessageBox,
@@ -80,10 +81,23 @@ class OwnFiltersWindow(QDialog):
         return done
 
 
+def _adjust_part(part):
+    """One part of Adjust…'s window (make_adjust_window's namespace) by its old attribute name: the window is made at
+    the first use of one (EqSettings.adjust)."""
+    return property(lambda self: getattr(self.adjust(), part), doc=f"Adjust…'s window's {part} (made when first used)")
+
+
 class EqSettings:
+    # Adjust…'s window and its parts, made at their first use (EqSettings.adjust); adjust_panel is the Guide's name
+    adjust_window = adjust_panel = _adjust_part("dlg")
+    adjust_form, adjust_rows, adjust_footer = _adjust_part("form"), _adjust_part("rows"), _adjust_part("footer")
+    adjust_plot, adjust_curve = _adjust_part("plot"), _adjust_part("curve")
+    reset_adjust_btn, save_target_btn = _adjust_part("reset_btn"), _adjust_part("save_btn")
+
     def __init__(self, page):
         """What the settings need (their limits, the paths the automatic settings fill in); build_parts() makes them."""
         self.page = page
+        self._adjust = None  # (Adjust…'s window: made at its first use, adjust())
         m = page.meta
         self.limits = Limits(m.get("limits", {}), m.get("limit_pairs", []))
         self.auto_paths = [p for ps in (m.get("auto_paths") or {}).values() for p in ps]
@@ -230,7 +244,8 @@ class EqSettings:
         yield "advanced, first half"
         self.adv_form.add_sections(sections[2:])  # (Website, Saved files, History, This PC)
         self._label_checks(self.adv_form)
-        self.refresh()
+        # (no refresh() here: the page's next step, the result card's, shows the settings (show_settings), which
+        # refreshes all of them: the same work done twice, a few ms, 2026-11-10)
         yield "advanced, second half"
 
     # ---------------------------------------------------------------- the Target card's Adjust (AutoEQ Local's)
@@ -239,8 +254,8 @@ class EqSettings:
         half-tilt, ear gain, treble and air (listener800's Custom DF) as a table: Value with − and +, Hz and Q (gray
         while the value is 0); a small graph of the target, which changes as you adjust it; Clear the adjustments and
         Save as a target… (usable once adjusted); its own message line and Close (UI-RULES 1). adjust_btn on the
-        Target row (target_row), adjust_summary under it (target_under); the window is made here (hidden: its parent
-        is the page, so it never shows as a window before it is opened)."""
+        Target row (target_row), adjust_summary under it (target_under). The window is made at its first use (adjust():
+        with its graph it was most of this step's time), hidden, its parent the page."""
         self.adjust_btn = QPushButton("Adjust…")
         icons.put(self.adjust_btn, "eq")  # (every button in the row with its symbol, UI-RULES 9)
         self.adjust_btn.setToolTip("Tilt, bass, half-tilt, ear gain, treble and air: give the target more or less bass "
@@ -253,15 +268,23 @@ class EqSettings:
         self.adjust_summary.hide()
         target_under.addWidget(self.adjust_summary)
         self.adjust_row = self.adjust_btn  # (the Guide's name for what opens it)
-        w = self.make_adjust_window()
-        self.adjust_window, self.adjust_form, self.adjust_rows = w.dlg, w.form, w.rows
-        self.adjust_plot, self.adjust_curve, self.adjust_footer = w.plot, w.curve, w.footer
-        self.reset_adjust_btn, self.save_target_btn = w.reset_btn, w.save_btn
-        self.adjust_panel = w.dlg  # (the Guide's name for the controls)
+
+    def adjust(self):
+        """Adjust…'s window (make_adjust_window's parts), made the first time it is needed (a click on Adjust…, or
+        code that uses one of its parts), with the values as they are then; the same window after that."""
+        if self._adjust is None:
+            self._adjust = self.make_adjust_window()
+            self._show_adjust_values()
+        return self._adjust
+
+    def adjust_open(self):
+        """Adjust…'s window shows (never made by the question)."""
+        return self._adjust is not None and self._adjust.dlg.isVisible()
 
     def make_adjust_window(self):
         """Adjust…'s window, its parts in a namespace (dlg, form, rows, plot, curve, footer, reset_btn, save_btn): the
-        page's own (made at its build), or one for the Guide's demo (shown in the Guide's frame, then thrown away)."""
+        page's own (adjust(): made at its first use), or one for the Guide's demo (shown in the Guide's frame, then
+        thrown away)."""
         import types
         from ui.window_parts import Footer, fit_to_screen
         C, get, changed, make_auto = self.eq_settings.CHOICES, self.get, self.changed, self.make_auto
@@ -394,7 +417,7 @@ class EqSettings:
         w.curve.setData(f, t, pen=pg.mkPen(col["target"], width=2))  # (the frequencies as they are: a log graph)
 
     def open_adjust(self):
-        """Adjust…: its window, in front (made at the page's build)."""
+        """Adjust…: its window, in front (made at the first click, adjust())."""
         dlg = self.adjust_window
         if not dlg.isVisible():
             from ui.window_parts import fit_to_screen
@@ -406,7 +429,7 @@ class EqSettings:
 
     def redraw_adjust(self):
         """The window's graph, while it shows."""
-        if self.adjust_window.isVisible():
+        if self.adjust_open():
             import types
             self.draw_adjust(types.SimpleNamespace(plot=self.adjust_plot, curve=self.adjust_curve))
 
@@ -423,7 +446,7 @@ class EqSettings:
         def undo():
             self.page.S["target_adjust"] = before
             self.page.changed(curves=True)
-        if self.adjust_window.isVisible():
+        if self.adjust_open():
             self.adjust_footer.say("All adjustments of the target are 0.", undo=undo)
         else:
             self.page.notify("All adjustments of the target are 0.", undo)
@@ -652,15 +675,11 @@ class EqSettings:
         tags = {p: ("yours" if p in mine else "auto") for p in self.auto_paths} if on else {}
         self.form.refresh(tags)
         self.adv_form.refresh(tags)
-        self.adjust_form.refresh()
-        for amount, deps in self.adjust_rows.items():  # (a gain's Hz and Q greyed while it's 0: they do nothing then)
-            for f in deps:
-                f.box.setEnabled(bool(S["target_adjust"].get(amount)))
+        if self._adjust is not None:  # (not made yet: adjust() shows the values as it makes it)
+            self._show_adjust_values()
         adj = self.adjusted()
         self.adjust_summary.setText(("Adjusted: " + self._adjust_summary_text()) if adj else "")
         self.adjust_summary.setVisible(adj)
-        self.reset_adjust_btn.setEnabled(adj)  # (always there, so nothing moves; usable once adjusted)
-        self.save_target_btn.setEnabled(adj)
         sw = S["site_sweep"]
         self.sweep_note.setText(f"The settings that the app tries: rows {fmt_list(sw['filter_rows'])} · frequency to "
                                 f"{', '.join(f'{v / 1000:g} kHz' for v in sw['freq_high'])} · gain "
@@ -677,3 +696,15 @@ class EqSettings:
         self.fold.summary.setText(f"{'automatic' if on else 'automatic off: your values'} · error range "
                                   f"{hz(S['scoring']['band_hz'][0])}–{hz(S['scoring']['band_hz'][1])}")
         self.adv.summary.setText("the layout, the limits and the settings to try, the website's values, saved files")
+
+    def _show_adjust_values(self):
+        """Adjust…'s window (once made) with the values as they are: its boxes, a gain's Hz and Q greyed while it's 0
+        (they do nothing then), Clear and Save usable once adjusted."""
+        w, S = self._adjust, self.page.S
+        w.form.refresh()
+        for amount, deps in w.rows.items():
+            for f in deps:
+                f.box.setEnabled(bool(S["target_adjust"].get(amount)))
+        adj = self.adjusted()
+        w.reset_btn.setEnabled(adj)  # (always there, so nothing moves; usable once adjusted)
+        w.save_btn.setEnabled(adj)
