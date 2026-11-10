@@ -3,7 +3,8 @@ the limits (a value's range, whole numbers, a pair's order, clamping) as AutoEQ 
 selftest.py's qt_checks. Then their look in Windows 11's (the checkers' findings, 2026-10-23), drawn themed in a Python
 of their own: a fold's chevrons and its fill when pointed at, its chevron and content at a card's inset, and one label
 column for a whole form. And a form made in two halves (Form.add_sections, 2026-10-24: Make an EQ makes Advanced so,
-one half per step of its build) the same as one made at once."""
+one half per step of its build) the same as one made at once. Last, a form with tabs (More settings, the review of
+2026-11-10): the tab it starts on, each tab's height, the names a screen reader says, a pair's width and its tags."""
 from helpers import session, subproc
 from ui import forms
 
@@ -205,3 +206,125 @@ def test_a_form_made_in_two_halves(qapp, check):
         from helpers import qt
         qt.close(whole)
         qt.close(halves)
+
+
+def _tab_form(sections, shown=None):
+    """A form with tabs (as More settings) in a closed fold, in a window of its own (a dialog: never a stray)."""
+    from PySide6.QtWidgets import QDialog, QVBoxLayout
+    dlg = QDialog()
+    lay = QVBoxLayout(dlg)
+    fold = forms.Fold("More settings", sub=True)
+    form = forms.Form(sections, forms.Limits({}, []), lambda p: None, lambda p, v: None, lambda p: None,
+                      lambda s: None, tabs=True)
+    fold.add(form)
+    lay.addWidget(fold)
+    lay.addStretch(1)  # (as the page: the room under the cards is a stretch)
+    return dlg, fold, form
+
+
+def test_tabs_start_on_a_tab_that_applies(qapp, check):
+    from helpers import qt
+    method = {"best_fit": False}
+    dlg, fold, form = _tab_form([("Best fit", [("Q from", [("best_fit.q_min", "num")], lambda: method["best_fit"])]),
+                                 ("Website", [("Around (Hz)", [("site.norm_hz", "num")])])])
+    try:
+        form.refresh()  # (as the page's build does: the fold closed, nothing shown yet)
+        closed = (form.pages.currentIndex(), [b.text() for b in form.tab_btns.values() if b.isChecked()])
+        dlg.show()
+        fold.btn.setChecked(True)
+        qt.pump(50)
+        opened = (form.pages.currentIndex(), [b.text() for b in form.tab_btns.values() if b.isChecked()],
+                  form.pages.currentWidget().isVisible())
+        # (2026-11-10: with a saved method other than Best fit, More settings opened on Best fit's empty page, no tab
+        # selected: the form changed tab only while it showed, and it is closed at the start)
+        check("settings boxes: a form with tabs, refreshed while its fold is closed, goes to the first tab that applies: "
+              "opened, that tab is selected and its page shows",
+              closed == (1, ["Website"]) and opened == (1, ["Website"], True), (closed, opened))
+    finally:
+        qt.close(dlg)
+
+
+def test_a_tab_as_high_as_its_own_page(qapp, check):
+    from helpers import qt
+    tall = [(f"Value {i}", [(f"best_fit.v{i}", "num")]) for i in range(12)]
+    dlg, fold, form = _tab_form([("Best fit", tall), ("This PC", [("CPU cores", [("performance.cores", "num")])])])
+    try:
+        form.refresh()
+        fold.btn.setChecked(True)
+        dlg.resize(600, 400)
+        dlg.show()
+        qt.pump(50)
+        tall_h = form.pages.height()
+        form.show_tab(1)
+        qt.pump(50)
+        page = form.pages.currentWidget()
+        own = page.layout().totalHeightForWidth(form.pages.width())
+        short_h = form.pages.height()
+        form.show_tab(0)
+        qt.pump(50)
+        back = form.pages.height()
+        # (2026-11-10: Qt's stack is as high as its highest page, so History and This PC had up to 330 px of empty room
+        # above Calculate)
+        check("settings boxes: each tab's page is as high as its own settings (a short tab is not as high as the "
+              "highest), and the tall tab is as high as before when it shows again",
+              abs(short_h - own) <= 2 and short_h < tall_h / 3 and back == tall_h, (tall_h, short_h, own, back))
+    finally:
+        qt.close(dlg)
+
+
+def test_tick_boxes_named_by_their_words(qapp, check):
+    from PySide6.QtGui import QAccessible
+    from helpers import qt
+    form = forms.Form([("Saved files", [("", [("export.apo", "check")]),
+                                        ("Shelf", [("best_fit.low_shelf", "check")]),
+                                        ("Around (Hz)", [("site.norm_hz", "num")])])],
+                      forms.Limits({}, []), lambda p: None, lambda p, v: None, lambda p: None, lambda s: None)
+    try:
+        form.fields["export.apo"].box.setText("Equalizer APO / squiglink filters (.txt)")
+        form.fields["best_fit.low_shelf"].box.setText("Low shelf (a wide bass change)")
+
+        def said(path):
+            iface = QAccessible.queryAccessibleInterface(form.fields[path].box)
+            return iface.text(QAccessible.Name) if iface is not None else ""
+        names = {p: said(p) for p in form.fields}
+        # (2026-11-10: a tick box without a label was named by its setting's path, "export.apo")
+        check("settings boxes: a screen reader says a tick box's own words (never the setting's path), and a box's "
+              "label",
+              names == {"export.apo": "Equalizer APO / squiglink filters (.txt)",
+                        "best_fit.low_shelf": "Low shelf (a wide bass change)", "site.norm_hz": "Around (Hz)"}, names)
+    finally:
+        qt.close(form)
+
+
+def test_pairs_and_long_words(qapp, check):
+    from PySide6.QtCore import QPoint
+    from helpers import qt
+    long_words = "Convolution impulse response: Viper4Android, JamesDSP, EasyEffects, Roon, foobar2000 (.wav)"
+    dlg, fold, form = _tab_form([("Best fit", [("Filters from (Hz)", [("a.0", "num"), ("a.1", "num")]),
+                                               ("Layout", [("best_fit.layout", "choice", [("x", "Parametric")])]),
+                                               ("", [("export.convolution", "check")])])])
+    try:
+        form.fields["export.convolution"].box.setText(long_words)
+        form.refresh({"a.0": "yours", "a.1": "auto", "best_fit.layout": "auto"})  # (both of the pair's tags shown)
+        fold.btn.setChecked(True)
+        dlg.resize(1100, 400)
+        dlg.show()
+        qt.pump(50)
+        x = lambda w, right=False: w.mapTo(form, QPoint(w.width() if right else 0, 0)).x()
+        a, b = form.fields["a.0"], form.fields["a.1"]
+        long_box = form.fields["best_fit.layout"].box
+        pair = x(b.box, True) - x(a.box)
+        tags = sorted((x(t), x(t, True)) for t in (a.tag, b.tag))
+        boxes = [(x(f.box), x(f.box, True)) for f in (a, b)]
+        on_box = [t for t in tags for bx in boxes if t[0] < bx[1] and bx[0] < t[1]]
+        conv = form.fields["export.convolution"].box
+        # (UI-RULES 26: a pair as wide as a LONG box, so the tags are in one column; it was 11 px narrower, and a
+        # "from" box's tag sat between its box and "to", 2026-11-10)
+        check("settings boxes: a \"from … to\" pair is exactly as wide as one long box, its tags after it in the tags' "
+              "column (never on a box), and a tick box's long words are not cut when the form is wide enough",
+              pair == forms.LONG == x(long_box, True) - x(long_box) and not on_box
+              and tags[0][0] >= boxes[1][1] and tags[0][0] - boxes[1][1] == x(form.fields["best_fit.layout"].tag) - x(long_box, True)
+              and conv.width() >= conv.sizeHint().width(),
+              (pair, forms.LONG, tags, boxes, conv.width(), conv.sizeHint().width()))
+    finally:
+        qt.close(dlg)

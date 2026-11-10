@@ -49,7 +49,8 @@ FORMATS = [("apo", "Equalizer APO / squiglink filters (.txt)"), ("graphic", "Gra
            ("uapp", "USB Audio Player PRO parametric EQ preset (.xml)"),
            ("soundsource", "SoundSource headphone EQ, macOS (.txt)"), ("voicemeeter", "Voicemeeter bus EQ, Windows (.xml)"),
            ("rockbox", "Rockbox EQ preset, music devices (.cfg)"),
-           ("convolution", "Convolution impulse response: Viper4Android, JamesDSP, EasyEffects, Roon… (.wav)"),
+           # (Help's title for it; the apps that use it are in Help: with them, the words were cut at every width)
+           ("convolution", "Convolution impulse response (.wav)"),
            ("report", "An HTML report")]
 
 
@@ -221,6 +222,9 @@ class EqSettings:
             ("This PC", [("CPU cores (0 = all the cores minus 1)", [("performance.cores", "num")])]),
         ]
         self.adv_form = Form(sections[:2], self.limits, get, changed, make_auto, say, tabs=True)  # (Best fit, sweep)
+        # (a tick box's words in the step that makes it: a screen reader's name is its words, and a box without words
+        # when Qt first draws it is named by its tooltip, theme._Names)
+        self._label_checks(self.adv_form)
         self.adv.add(self.adv_form)
         slot.addWidget(self.adv)
         yield "advanced, first half"
@@ -377,12 +381,16 @@ class EqSettings:
         c = self.page.curves
         import numpy as np
         import pyqtgraph as pg
+        col = theme.graph_colours()
+        w.plot.setBackground(col["bg"])
+        for ax in ("left", "bottom"):  # (the axes and grid as the page's graphs have them: pyqtgraph's own were gray)
+            w.plot.getAxis(ax).setPen(pg.mkPen(col["axis"]))
+            w.plot.getAxis(ax).setTextPen(pg.mkPen(col["axis"]))
+        w.plot.showGrid(x=True, y=True, alpha=0.25)
         if not c:
             w.curve.setData([], [])
             return
         f, t = np.asarray(c["f"], dtype=float), np.asarray(c["target"], dtype=float)
-        col = theme.graph_colours()
-        w.plot.setBackground(col["bg"])
         w.curve.setData(f, t, pen=pg.mkPen(col["target"], width=2))  # (the frequencies as they are: a log graph)
 
     def open_adjust(self):
