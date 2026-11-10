@@ -22,7 +22,7 @@ import re
 
 from PySide6.QtCore import QEvent, QRect, QSize, Qt, Signal
 from PySide6.QtWidgets import (QCheckBox, QFrame, QHBoxLayout, QLabel, QLayout, QLineEdit, QPlainTextEdit,
-                               QPushButton, QSizePolicy, QStackedWidget, QToolButton, QVBoxLayout, QWidget)
+                               QPushButton, QToolButton, QVBoxLayout, QWidget)
 
 from ui import theme
 from ui.help_texts import HELP
@@ -147,6 +147,8 @@ class Limits:
 SHORT, LONG = 110, 360  # (px: a number box; every other box, a drop-down, a list, a "from … to" pair: UI-RULES 26)
 CHOICE_MOST = LONG       # (a drop-down's width outside a form: Your EQ app, Start from)
 CELL = 470               # (px: a setting's cell, its box and its tag: the columns of a form)
+PAIR_GAP, PAIR_TO = 8, 24  # (px: a "from … to" pair's gaps, and its "to")
+PAIR_BOX = (LONG - PAIR_TO - 2 * PAIR_GAP) // 2  # (px: a pair's first box; the second has the rest of LONG)
 
 
 def help_of(path):
@@ -162,7 +164,7 @@ class Field(QWidget):
     committed = Signal(str, object)   # (path, value): a valid value the user set
     make_auto_clicked = Signal(str)         # (path): "yours ↺" clicked
 
-    def __init__(self, form, path, kind, options=None, placeholder=""):
+    def __init__(self, form, path, kind, options=None, placeholder="", pair=False):
         super().__init__()
         self.form, self.path, self.kind = form, path, kind
         lay = QHBoxLayout(self)
@@ -193,7 +195,6 @@ class Field(QWidget):
             self.box.setFixedWidth(SHORT)
         elif kind != "check":
             self.box.setFixedWidth(LONG)
-        capped = kind != "check"
         lay.addWidget(self.box, 0)
         self.step = (form.steps or {}).get(path) if kind == "num" else None
         if self.step:  # (− and +, and ↑ ↓ or the wheel in the box: a step down or up, as AutoEQ Local's number boxes)
@@ -212,8 +213,8 @@ class Field(QWidget):
         theme.mark(self.tag, tag=True)
         self.tag.clicked.connect(lambda: self.make_auto_clicked.emit(self.path))
         self.tag.hide()
-        lay.addWidget(self.tag)
-        if kind == "check" or capped:  # (the tag right beside its box)
+        if not pair:  # (the tag right beside its box; a pair's tags: after its second box, put there by the form)
+            lay.addWidget(self.tag)
             lay.addStretch(1)
         tip = help_of(path)
         allowed = form.limits.text(path)
@@ -401,7 +402,8 @@ class FlowLayout(QLayout):
             if it.isEmpty():
                 continue
             full = _full(it)
-            w = rect.width() if full else min(self.cell, rect.width())
+            # (a cell that needs more than CELL, as long words or two tags, gets it: else they were cut or went on a box)
+            w = rect.width() if full else min(max(self.cell, it.minimumSize().width()), rect.width())
             h = it.heightForWidth(w) if it.hasHeightForWidth() else it.sizeHint().height()
             if not first and (full or x + w > rect.right() + 1):
                 x, y, line = rect.x(), y + line + self.vspace, 0
@@ -418,6 +420,54 @@ class FlowLayout(QLayout):
 def _full(item):
     w = item.widget()
     return w is not None and bool(w.property("full_row"))
+
+
+class TabPages(QWidget):
+    """A form's tab pages, one shown at a time, as high as the page shown. Qt's QStackedWidget is as high as its
+    highest page: its layout asks every page for its height at a width, whatever their size policy, so More settings'
+    short tabs (History, This PC) had up to 330 px of empty room under them (the review, 2026-11-10). Here the pages
+    are in a column and only the page shown is not hidden: a layout leaves out hidden widgets, so the column is as
+    high as that page. The names are QStackedWidget's (addWidget, count, widget, currentIndex, setCurrentIndex,
+    currentWidget, currentChanged)."""
+    currentChanged = Signal(int)
+
+    def __init__(self):
+        super().__init__()
+        self._pages, self._current = [], -1
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
+
+    def addWidget(self, page):
+        if self._pages:  # (hidden before it goes in: never shown, so never styled, until its tab is clicked)
+            page.hide()
+        self._pages.append(page)
+        self.layout().addWidget(page)
+        if self._current < 0:
+            self._current = 0
+            self.currentChanged.emit(0)
+        return len(self._pages) - 1
+
+    def count(self):
+        return len(self._pages)
+
+    def widget(self, i):
+        return self._pages[i] if 0 <= i < len(self._pages) else None
+
+    def currentIndex(self):
+        return self._current
+
+    def currentWidget(self):
+        return self.widget(self._current)
+
+    def setCurrentIndex(self, i):
+        if not 0 <= i < len(self._pages) or i == self._current:
+            return
+        old, self._current = self.currentWidget(), i
+        self._pages[i].show()
+        if old is not None:
+            old.hide()
+        self.currentChanged.emit(i)
 
 
 # ---------------------------------------------------------------- a form: sections of rows
@@ -445,8 +495,7 @@ class Form(QWidget):
             self.tab_row.setSpacing(20)
             self.tab_row.addStretch(1)
             lay.addLayout(self.tab_row)
-            self.pages = QStackedWidget()
-            self.pages.currentChanged.connect(self._fit_pages)
+            self.pages = TabPages()
             lay.addWidget(self.pages)
         self.add_sections(sections)
 
@@ -484,31 +533,40 @@ class Form(QWidget):
                 cl.setContentsMargins(0, 0, 0, 0)
                 cl.setSpacing(4)
                 checks = all(sp[1] == "check" for sp in specs)
-                lab = QLabel(label)
-                lab.setToolTip(help_of(specs[0][0]) if specs else "")
-                if not checks or label:
+                if not checks or label:  # (a tick box's words are beside it: no label above it, unless given one)
+                    lab = QLabel(label)
+                    lab.setToolTip(help_of(specs[0][0]) if specs else "")
                     cl.addWidget(lab)
-                box = QWidget()
+                pair = len(specs) == 2
+                box = QWidget()  # (the boxes' row: a pair's boxes and "to", then their tags)
                 bl = QHBoxLayout(box)
                 bl.setContentsMargins(0, 0, 0, 0)
-                bl.setSpacing(8)
-                pair = len(specs) == 2
+                bl.setSpacing(PAIR_GAP)
                 for j, spec in enumerate(specs):
                     if j:
-                        bl.addWidget(QLabel("to"))
+                        to = QLabel("to")
+                        to.setFixedWidth(PAIR_TO)
+                        to.setAlignment(Qt.AlignCenter)
+                        bl.addWidget(to)
                     f = Field(self, spec[0], spec[1], spec[2] if len(spec) > 2 else None,
-                              spec[3] if len(spec) > 3 else "")
+                              spec[3] if len(spec) > 3 else "", pair=pair)
                     f.committed.connect(changed)
                     f.make_auto_clicked.connect(make_auto)
                     name = (label or "").strip() or spec[0]
-                    f.box.setAccessibleName(name + (" (to)" if j else ""))  # (what a screen reader says)
+                    if spec[1] != "check":  # (what a screen reader says; a tick box: its own words, Qt's default)
+                        f.box.setAccessibleName(name + (" (to)" if j else ""))
                     if f.step:
                         f.minus.setAccessibleName(name + " lower")
                         f.plus.setAccessibleName(name + " higher")
-                    if pair and spec[1] == "num":  # (a pair: its two boxes and "to" as wide as one long box)
-                        f.box.setFixedWidth((LONG - 24 - 2 * bl.spacing()) // 2)
                     self.fields[spec[0]] = f
+                    if pair and spec[1] == "num":  # (its two boxes and "to" exactly as wide as one LONG box: UI-RULES 26)
+                        f.box.setFixedWidth(PAIR_BOX if not j else LONG - PAIR_BOX - PAIR_TO - 2 * PAIR_GAP)
                     bl.addWidget(f)
+                if pair:  # (both tags after the second box, so they are in the tags' column and never on a box)
+                    first, second = (self.fields[sp[0]] for sp in specs)
+                    second.layout().addWidget(first.tag)
+                    second.layout().addWidget(second.tag)
+                    second.layout().addStretch(1)
                 bl.addStretch(1)
                 cl.addWidget(box)
                 flow.addWidget(cell)
@@ -533,25 +591,12 @@ class Form(QWidget):
         self.tab_row.insertWidget(self.tab_row.count() - 1, b)
         self.tab_btns[i] = b
         self._sections.append((i, show))
-        if len(self.tab_btns) == 1:
-            self.show_tab(i)
-        self._fit_pages()
+        b.setChecked(i == self.pages.currentIndex())
 
     def show_tab(self, i):
         self.pages.setCurrentIndex(i)
         for k, b in self.tab_btns.items():
             b.setChecked(k == i)
-
-    def _fit_pages(self, *_a):
-        """The tabs' pages as high as the one shown (a stack is as high as its highest page)."""
-        if not self.tabs:
-            return
-        for k in range(self.pages.count()):
-            p = self.pages.widget(k)
-            on = k == self.pages.currentIndex()
-            p.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred if on else QSizePolicy.Ignored)
-        self.pages.adjustSize()
-        self.updateGeometry()
 
     def refresh(self, tags=None):
         """Show the settings' values; hide what doesn't apply; the automatic settings' tags ({path: state}); the tabs
@@ -567,8 +612,12 @@ class Form(QWidget):
         if self.tabs:
             for i, show in self._sections:
                 self.tab_btns[i].setVisible(show is None or bool(show()))
-            if not self.tab_btns[self.pages.currentIndex()].isVisibleTo(self) and self.isVisible():
-                first = next((i for i, b in self.tab_btns.items() if b.isVisibleTo(self)), None)
+            # (the tab shown has no settings that apply now: the first that has. Not only while the form shows: More
+            # settings is closed at the start, and with a saved method other than Best fit it opened on Best fit's
+            # empty page with no tab selected, 2026-11-10. A tab button is the form's own child, so its own hidden
+            # state is all that counts)
+            if self.tab_btns[self.pages.currentIndex()].isHidden():
+                first = next((i for i, b in self.tab_btns.items() if not b.isHidden()), None)
                 if first is not None:
                     self.show_tab(first)
 
