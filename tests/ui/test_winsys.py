@@ -149,3 +149,17 @@ def test_windows_11_materials(monkeypatch, check):
           and not_taken == (False, False) and refused.asked == [("frame", -1, -1, -1, -1), (33, 2)]
           and builds == {19045: (False, False), 22000: (False, True), 22621: (True, True), 26300: (True, True)}
           and off == (False, False), (took, dwm.asked, not_taken, refused.asked, builds, off))
+
+
+def test_idle_ms_loads_kernel32_once(monkeypatch, check):
+    made = []
+    real = ctypes.WinDLL
+
+    def counting(*a, **k):
+        made.append(a)
+        return real(*a, **k)
+    winsys.idle_ms()  # (the first call may make it)
+    monkeypatch.setattr(ctypes, "WinDLL", counting)
+    got = [winsys.idle_ms() for _ in range(20)]
+    check("winsys: idle_ms makes no new kernel32 object on each call (a timer calls it), and says a time in ms",
+          made == [] and all(isinstance(ms, int) and ms >= 0 for ms in got), (made, got[:3]))

@@ -42,11 +42,12 @@ import net
 import paths
 from switcher.core import shown
 from ui import icons, preload, theme, titlebar, winsys
-from ui.devices_screen import DevicesScreen, ScreenArea, check_line  # noqa: F401 - (check_line: still taken from here)
+from ui.devices_screen import DevicesScreen, check_line  # noqa: F401 - (check_line: still taken from here)
 from ui.profiles_screen import ProfilesScreen
 from ui.settings_screen import SettingsScreen
 from ui.setup_dialog import SetUpDialog  # noqa: F401 - (still taken from here, as before the screens had files)
-from ui.window_parts import fit_to_screen, glyph_label, warning_card
+from ui.window_parts import ScreenArea, fit_to_screen, glyph_label, warning_card
+
 
 def online_mark(on):
     """Online's mark as a small picture (the UI audit, 2026-11-08: "○ Offline" read as "O Offline"): a full circle in
@@ -70,7 +71,6 @@ def online_mark(on):
 # (the start of the message that Make an EQ shows when its part cannot open: eq_page.py)
 NOT_OPENED = ("The EQ part cannot", "The EQ part did not")
 PAGES = [("eq", "Make an EQ"), ("devices", "Devices"), ("profiles", "Profiles"), ("settings", "Settings")]
-
 
 
 class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):

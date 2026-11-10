@@ -677,3 +677,74 @@ def test_scroll_corner_as_the_bars(check):
           all(v.get("bars") and v.get("rule") and v.get("corner") == v.get("track") for v in now.values())
           and all((d.get(f"{look}, red") or {}).get("corner") == "#ff0000" for look in ("light", "dark")),
           d or out.stderr[-300:])
+
+
+THEME_CHANGE = r'''
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from PySide6.QtWidgets import QApplication, QLabel, QPushButton, QVBoxLayout, QWidget
+qapp = QApplication([])
+from ui import theme
+styles, sheets = [], []
+real_style, real_sheet = qapp.setStyle, qapp.setStyleSheet
+qapp.setStyle = lambda s: (styles.append(s), real_style(s))[1]
+qapp.setStyleSheet = lambda s: (sheets.append(theme._state.get("building")), real_sheet(s))[1]
+theme.apply(qapp, dark=False, contrast=False)
+root = QWidget()
+QVBoxLayout(root)
+before = QPushButton("✕", root)
+before.setToolTip("Delete from the app.")
+root.layout().addWidget(before)
+root.show()
+qapp.processEvents()
+light = qapp.styleSheet()
+theme.apply(qapp, dark=True, contrast=False)
+dark = qapp.styleSheet()
+theme.apply(qapp, dark=False, contrast=False)
+late = QPushButton("↺", root)
+late.setToolTip("Find axes again")
+root.layout().addWidget(late)
+late.show()
+qapp.processEvents()
+
+
+class Style:  # (records what theme.mark asks of a control's style)
+    def __init__(self):
+        self.asked = []
+
+    def unpolish(self, w):
+        self.asked.append("unpolish")
+
+    def polish(self, w):
+        self.asked.append("polish")
+
+
+shown = QLabel("shown", root)
+root.layout().addWidget(shown)
+shown.show()
+qapp.processEvents()
+new = QLabel("new")  # (just made: Qt polishes it at the next turn of the event loop, or as it shows)
+new_style, shown_style = Style(), Style()
+new.style, shown.style = (lambda: new_style), (lambda: shown_style)
+theme.mark(new, role="muted")
+theme.mark(shown, role="muted")
+print(json.dumps({"styles": styles, "sheets": sheets, "changed": light != dark, "back": qapp.styleSheet() == light,
+                  "before": before.accessibleName(), "late": late.accessibleName(),
+                  "depth": theme._state.get("building"), "new": new_style.asked, "shown": shown_style.asked,
+                  "props": [new.property("role"), shown.property("role")]}))
+'''
+
+
+def test_theme_change_restyles_once(check):
+    # (2026-11-10: a theme change with the window and Make an EQ open took ~0.9 s; Qt's style set again restyled every
+    # control a second time, and the restyle's events, ~100,000, each went through the naming filter)
+    out = subproc.run_python(THEME_CHANGE, session.SESSION.app)
+    d = out.data or {}
+    check("theme: a theme change restyles the controls once: Fusion set at the first apply only, the stylesheet set "
+          "with the screen-reader naming filter off (theme.building), and the filter back after it (a control made "
+          "later is named)", d.get("styles") == ["Fusion"] and d.get("sheets") == [1, 1, 1] and d.get("changed")
+          and d.get("back") and d.get("before") == "Delete from the app" and d.get("late") == "Find axes again"
+          and d.get("depth") == 0, d or out.stderr[-300:])
+    check("theme: mark() leaves a control that is not polished yet to Qt's own polish (done once, at the next turn of "
+          "the event loop or as it shows), and polishes again one that is", d.get("new") == [] and d.get("shown") == ["unpolish", "polish"]
+          and d.get("props") == ["muted", "muted"], d or out.stderr[-300:])

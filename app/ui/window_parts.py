@@ -4,9 +4,10 @@ EQ in a few words, a warning card as Windows 11 draws one (its sign, its words, 
 in front of words. And the parts every window of the app uses, so each kind of thing is done one way everywhere
 (.claude\\notes\\UI-RULES.md): fit_to_screen (its size kept within the screen's room), MessageLine (what was just done,
 with Undo), Footer (a window's last row: its extras, its message line, Close), dialog_band (a dialog's decision:
-Windows 11's band of buttons) and enter_presses (what Enter does in a window)."""
-from PySide6.QtCore import QEvent, QObject, Qt, QTimer
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QWidget
+Windows 11's band of buttons), enter_presses (what Enter does in a window) and ScreenArea (a part that scrolls up and
+down only, never narrower than its content: Settings, a device's card)."""
+from PySide6.QtCore import QEvent, QObject, QSize, Qt, QTimer
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSizePolicy, QWidget
 
 from ui import theme
 
@@ -336,3 +337,35 @@ def scroll_bar_in_margin(area, layout, side=14):
             layout.setContentsMargins(m.left(), m.top(), right, m.bottom())
     bar.rangeChanged.connect(follow)
     follow()
+
+
+class ScreenArea(QScrollArea):
+    """A part that scrolls up and down only (the Settings screen, a device's card): its smallest width is the one its
+    content needs, so the window's smallest width, or the line between the device list and the card, never cuts it.
+    side: the space at the content's right that its scroll bar goes in (Settings' 14 px:
+    scroll_bar_in_margin; 0: the bar beside the content). Without it, the Settings cards were cut 17 px at the window's
+    smallest width, and a device's Rename… and ✕ when the line was dragged to the right. Measured again when its
+    content changes size, or shows. Hidden (Settings while another screen shows), it keeps the width it had: Qt
+    measures a hidden screen's rows again only when it shows (its APO row had all four buttons then, 962 px)."""
+
+    def __init__(self, side=0):
+        super().__init__()
+        self.side, self._need = side, 0
+
+    def minimumSizeHint(self):
+        hint = super().minimumSizeHint()
+        inner = self.widget()
+        if inner is not None and inner.layout() is not None and self.isVisible():
+            m = inner.layout().contentsMargins()
+            bar = self.verticalScrollBar().sizeHint().width()  # (the theme's is 12 px; another style's can be wider)
+            self._need = inner.minimumSizeHint().width() - m.right() + max(self.side, bar + 2) + 2 * self.frameWidth()
+        return hint.expandedTo(QSize(self._need, 0))
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        self.updateGeometry()
+
+    def eventFilter(self, obj, e):
+        if obj is self.widget() and e.type() == QEvent.LayoutRequest:
+            self.updateGeometry()  # (its content's smallest width may have changed)
+        return super().eventFilter(obj, e)

@@ -10,16 +10,16 @@ import os
 import re
 import subprocess
 
-from PySide6.QtCore import QEvent, QRect, QRectF, QSize, Qt
+from PySide6.QtCore import QRect, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QIcon, QPainter
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QGroupBox, QHBoxLayout, QLabel,
-                               QListWidget, QListWidgetItem, QMenu, QMessageBox, QPushButton, QRadioButton, QScrollArea,
+                               QListWidget, QListWidgetItem, QMenu, QMessageBox, QPushButton, QRadioButton,
                                QSizePolicy, QSplitter, QStyle, QStyledItemDelegate, QStyleOptionButton,
                                QStyleOptionViewItem, QStylePainter, QToolButton, QVBoxLayout, QWidget)
 
 from switcher.core import shown
 from ui import bubble, icons, theme, theme_tokens
-from ui.window_parts import EmptyText, muted, profile_line, warning_card
+from ui.window_parts import EmptyText, ScreenArea, muted, profile_line, warning_card
 
 
 DOT = Qt.UserRole + 1  # (a device row's dot: "playing", "connected" or "away", ui\\icons.py's DOTS)
@@ -122,38 +122,6 @@ class ElidedRadio(QRadioButton):
         self.initStyleOption(opt)
         opt.text = self.fontMetrics().elidedText(self.text(), Qt.ElideRight, self._room(opt))
         p.drawControl(QStyle.CE_RadioButton, opt)
-
-
-class ScreenArea(QScrollArea):
-    """A part that scrolls up and down only (the Settings screen, a device's card): its smallest width is the one its
-    content needs, so the window's smallest width, or the line between the device list and the card, never cuts it.
-    side: the space at the content's right that its scroll bar goes in (Settings' 14 px: window_parts.
-    scroll_bar_in_margin; 0: the bar beside the content). Without it, the Settings cards were cut 17 px at the window's
-    smallest width, and a device's Rename… and ✕ when the line was dragged to the right. Measured again when its
-    content changes size, or shows. Hidden (Settings while another screen shows), it keeps the width it had: Qt
-    measures a hidden screen's rows again only when it shows (its APO row had all four buttons then, 962 px)."""
-
-    def __init__(self, side=0):
-        super().__init__()
-        self.side, self._need = side, 0
-
-    def minimumSizeHint(self):
-        hint = super().minimumSizeHint()
-        inner = self.widget()
-        if inner is not None and inner.layout() is not None and self.isVisible():
-            m = inner.layout().contentsMargins()
-            bar = self.verticalScrollBar().sizeHint().width()  # (the theme's is 12 px; another style's can be wider)
-            self._need = inner.minimumSizeHint().width() - m.right() + max(self.side, bar + 2) + 2 * self.frameWidth()
-        return hint.expandedTo(QSize(self._need, 0))
-
-    def showEvent(self, e):
-        super().showEvent(e)
-        self.updateGeometry()
-
-    def eventFilter(self, obj, e):
-        if obj is self.widget() and e.type() == QEvent.LayoutRequest:
-            self.updateGeometry()  # (its content's smallest width may have changed)
-        return super().eventFilter(obj, e)
 
 
 def check_line(ok, text):
