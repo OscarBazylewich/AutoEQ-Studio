@@ -194,7 +194,8 @@ class EqHistory:
     def preset_in_use(self, name):
         """Whether the preset has the settings in use: all of them but your files and, with the automatic settings on,
         the values that they set (they change with each new measurement)."""
-        res = self.svc.call("/api/presets/load", {"name": name})
+        # (read only: /api/presets/load would save each preset in turn as settings.json while the menu opens)
+        res = self.svc.call("/api/presets/read", {"name": name})
         if res.get("error") or not isinstance(res.get("settings"), dict):
             return False
         from eq import settings as eq_settings

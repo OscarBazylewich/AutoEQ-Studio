@@ -9,10 +9,14 @@ import json
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QFontMetrics
 
 from ui import tasks, theme
 from ui.eq_page_parts import set_note
+
+# The Search line's room for a message, in average characters: its label does not wrap, so a long message from
+# /api/auto made the whole page wider. A longer one ends in "…" there, its whole text in the tooltip.
+ESTIMATE_CHARS = 60
 
 
 class EqGraph:
@@ -68,6 +72,14 @@ class EqGraph:
             self.refresh_auto()
         tasks.background(lambda: self.svc.call("/api/analysis", {"settings": s}), done, owner=self)
 
+    def show_estimate_error(self, text):
+        """A message from the automatic settings on the Search line: cut to its room with "…" at the end (the line
+        does not wrap: a long one made the page wider), its whole text in the tooltip."""
+        self.estimate.ensurePolished()  # (the theme's text size)
+        fm = QFontMetrics(self.estimate.font())
+        self.estimate.setText(fm.elidedText(text, Qt.ElideRight, fm.averageCharWidth() * ESTIMATE_CHARS))
+        self.estimate.setToolTip(text)
+
     def refresh_auto(self):
         """The automatic settings for these curves: their values go into the settings (not yours), and the Search
         line says what a run tries and how long it takes."""
@@ -75,7 +87,7 @@ class EqGraph:
             return
         a = self.svc.call("/api/auto", {"settings": self.S, "analysis": self.analysis})
         if a.get("error"):
-            self.estimate.setText(a["error"])
+            self.show_estimate_error(str(a["error"]))
             return
         self.auto = a
         from eq import settings as eq_settings

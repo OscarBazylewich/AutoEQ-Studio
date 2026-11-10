@@ -54,3 +54,35 @@ def test_graph_views_and_the_values_under_the_pointer(eq_screen, check):
           "the pointer (Hz and each curve's dB); kept in the settings", rel_ok and abs((hi - lo) - 30) < 0.01
           and "Hz" in read and "Measurement" in read and (page.sw.s.get("graph") or {}).get("view") == keep.get("view", "abs"),
           (rel_ok, lo, hi, read))
+
+
+def test_long_auto_message_keeps_the_page_width(eq_screen, monkeypatch, check):
+    # (2026-11-10, a code review: a message from /api/auto went whole into the Search line, a label that does not
+    # wrap, so a long one made the page wider)
+    from PySide6.QtGui import QFontMetrics
+    from helpers import qt
+    page = eq_screen.page
+    page.refresh_auto()
+    qt.pump(100)
+    before = (page.minimumSizeHint().width(), page.estimate.text(), page.estimate.toolTip())
+    long = "The app cannot calculate the automatic settings: " + "the curves are not correct, " * 12 + "end."
+    real_call = page.svc.call
+
+    def call(path, body=None):
+        return {"error": long} if path == "/api/auto" else real_call(path, body)
+    with monkeypatch.context() as m:
+        m.setattr(page.svc, "call", call)
+        page.refresh_auto()
+        qt.pump(100)
+        fm = QFontMetrics(page.estimate.font())
+        found = {"text": page.estimate.text(), "tooltip": page.estimate.toolTip(),
+                 "label width": page.estimate.sizeHint().width(), "room": fm.averageCharWidth() * 61,
+                 "page width": page.minimumSizeHint().width(), "page width before": before[0]}
+    page.refresh_auto()  # (the real line back)
+    qt.pump(100)
+    found["back"] = (page.estimate.text(), page.estimate.toolTip()) == before[1:]
+    check("make an EQ: a long message from the automatic settings ends in “…” on the Search line, its whole text in "
+          "the tooltip, and the page does not get wider (the line does not wrap)",
+          found["text"].endswith("…") and len(found["text"]) < len(long) and found["tooltip"] == long
+          and found["label width"] <= found["room"] and found["page width"] <= found["page width before"]
+          and found["back"], found)

@@ -45,3 +45,34 @@ def test_presets(eq_screen, monkeypatch, check):
     page.S = was_all  # (the settings as they were)
     page.changed(curves=True)
     eq_screen.wait_for(lambda: page.curves is not None, 30)
+
+
+def test_presets_menu_changes_no_file(eq_screen, check):
+    # (2026-11-10, a code review: to find the preset in use, the menu loaded each preset the way a click does, and a
+    # load saves the preset as settings.json: each opening of Presets left the last preset there, while the page kept
+    # its own settings)
+    from PySide6.QtWidgets import QMenu
+    from eq import settings as eq_settings
+    from helpers import qt
+    page = eq_screen.page
+    other = json.loads(json.dumps(page.S))
+    other["mode"] = "site_single" if page.S["mode"] != "site_single" else "best_fit"
+    eq_settings.save_preset("Check in use", page.S)
+    eq_settings.save_preset("Check zz other", other)  # (last in the list: what settings.json became)
+    eq_settings.save(page.S)
+    menu = QMenu(page)
+    try:
+        with open(eq_settings.PATH, "rb") as f:
+            before = f.read()
+        page.fill_presets(menu)
+        with open(eq_settings.PATH, "rb") as f:
+            after = f.read()
+        marks = {a.text(): a.isChecked() for a in menu.actions() if a.text().startswith("Check ")}
+    finally:
+        qt.close(menu)
+        eq_settings.delete_preset("Check in use")
+        eq_settings.delete_preset("Check zz other")
+    check("presets: opening the Presets menu leaves settings.json as it was, byte for byte (it saved each preset "
+          "there in turn), and the mark is still at the preset with the settings in use",
+          after == before and marks == {"Check in use": True, "Check zz other": False},
+          (after == before, marks, len(before), len(after)))

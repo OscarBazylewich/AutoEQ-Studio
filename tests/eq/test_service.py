@@ -451,9 +451,33 @@ def test_missing_field_named(api, chain, check):
           == "The type is missing: target or measurement.")
 
 
+def test_preset_read_changes_no_file(api, chain, check):
+    # (2026-11-10, a code review: the Presets menu found the preset in use with /api/presets/load, which saves the
+    # preset as settings.json; /api/presets/read gives the same settings and saves nothing)
+    from eq import settings
+    S = _every_format(_small(chain["S"]))
+    _ask(api, "/api/presets/save", {"name": "Selftest read", "settings": dict(S, mode="site_single")})
+    with open(settings.PATH, "rb") as f:
+        before = f.read()
+    try:
+        code, r = _ask(api, "/api/presets/read", {"name": "Selftest read"})
+        with open(settings.PATH, "rb") as f:
+            after = f.read()
+        _code, loaded = _ask(api, "/api/presets/load", {"name": "Selftest read"})
+        saved = settings.load()
+    finally:
+        _ask(api, "/api/presets/delete", {"name": "Selftest read"})
+        with open(settings.PATH, "wb") as f:  # (the settings as they were, for the checks after)
+            f.write(before)
+    check("requests: a preset read to look at leaves settings.json as it was, with the same settings a load gives "
+          "(and a load still saves them)", code == 200 and after == before and r["settings"] == loaded["settings"]
+          and r["settings"]["mode"] == "site_single" and saved["mode"] == "site_single", (code, after == before, saved["mode"]))
+
+
 def test_wrong_kinds_of_values(api, check):
     wrong = [_ask(api, p, {"kind": "measurement", "name": 5, "names": 4, "content": 9})[1].get("error", "")
-             for p in ("/api/files/add", "/api/files/remove", "/api/files/move", "/api/presets/load", "/api/listen")]
+             for p in ("/api/files/add", "/api/files/remove", "/api/files/move", "/api/presets/load", "/api/presets/read",
+                       "/api/listen")]
     # was eq_checks.py:1239
     check("requests: wrong kinds of values get plain messages", all(e.startswith("The ") and e.endswith(("is missing.", "are missing.")) for e in wrong), wrong)
 

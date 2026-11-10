@@ -59,6 +59,49 @@ def test_all_results(eq_screen, history_eq, check):
           (shape, len(ids), picked, bold, counts[:3]))
 
 
+def test_all_results_sort_stays_after_a_click(eq_screen, history_eq, check):
+    # (2026-11-10, a code review: each click on a result filled the table again and sorted it by the error, so a sort
+    # chosen by a click on a heading was lost at the next click on a row)
+    page = eq_screen.page
+    real = page.run_result
+    page.show_result(real["pick"])
+    base = next(r for r in real["results"] if r["id"] == real["pick"])
+    rs = [dict(base, id=f"k{n}-{q}", n_filters=n, rows=n, q_max=q, rms=base["rms"] + 0.01 * (8 - n) + 0.002 * q)
+          for n in (4, 6, 8) for q in (2, 4)]
+    page.run_result = dict(real, mode="best_fit", results=rs, best="k8-2", pick="k8-2")
+    page.show_result("k8-2")
+    found = {}
+    try:
+        ar = AllResults(page)
+        try:
+            h = ar.table.horizontalHeader()
+            found["opened"] = (h.sortIndicatorSection(), h.sortIndicatorOrder())
+            h.setSortIndicator(1, Qt.DescendingOrder)  # (as a click on the Filters heading, twice)
+            row = next(i for i in range(ar.table.rowCount()) if ar.table.item(i, 0).data(Qt.UserRole) == "k4-4")
+            ar.table.cellClicked.emit(row, 0)  # (a click on a row: the result shown, the table filled again)
+            found["after the click"] = (h.sortIndicatorSection(), h.sortIndicatorOrder())
+            found["counts"] = [ar.table.item(i, 1).value for i in range(ar.table.rowCount())]
+            found["shown"] = page.sel
+        finally:
+            qt.close(ar)
+        ar = AllResults(page)  # (opened again: the lowest error first)
+        try:
+            h = ar.table.horizontalHeader()
+            found["opened again"] = (h.sortIndicatorSection(), h.sortIndicatorOrder())
+            found["errors"] = [ar.table.item(i, 0).value for i in range(ar.table.rowCount())]
+        finally:
+            qt.close(ar)
+    finally:
+        page.run_result = real
+        page.show_result(real["pick"])
+    check("all results: a sort chosen by a click on a heading stays after a click on a row (the table sorted itself "
+          "by the error again); a window opened again starts with the lowest error first",
+          found["opened"] == (0, Qt.AscendingOrder) and found["after the click"] == (1, Qt.DescendingOrder)
+          and found["counts"] == sorted(found["counts"], reverse=True) and found["counts"][0] == 8
+          and found["shown"] == "k4-4" and found["opened again"] == (0, Qt.AscendingOrder)
+          and found["errors"] == sorted(found["errors"]), found)
+
+
 # ---------------------------------------------------------------- the look (the restyle's stage 2, 2026-10-23)
 def _near(a, b, by=8):
     """Two colours the same but for a little rounding (each of red, green and blue within `by`)."""
