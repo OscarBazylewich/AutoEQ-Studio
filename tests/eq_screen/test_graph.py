@@ -3,7 +3,7 @@ filters drawn as "With your filters"; the views (Relative to target, the Y range
 kept in the settings. Moved from eq_checks.py's review_checks, review_low_checks and rest_checks: one page for the
 file (the eq_screen fixture), each check on its own (any curves do: no run needed)."""
 import numpy as np
-from PySide6.QtCore import QPoint
+from PySide6.QtCore import QPoint, QPointF
 
 
 def test_hide_shown_curves(eq_screen, check):
@@ -86,3 +86,69 @@ def test_long_auto_message_keeps_the_page_width(eq_screen, monkeypatch, check):
           found["text"].endswith("…") and len(found["text"]) < len(long) and found["tooltip"] == long
           and found["label width"] <= found["room"] and found["page width"] <= found["page width before"]
           and found["back"], found)
+
+
+def test_empty_eq_graph_words_clear_of_the_0_db_line(eq_screen, check):
+    # (a code review, 2026-11-10: the words of the empty EQ graph were drawn on its 0 dB line, so the line went
+    # through them; now they are only as wide as they are, on the graph's colour, and the line stops at their edges)
+    from helpers import qt
+    from ui import theme
+    page = eq_screen.page
+    run, sel = page.run_result, page.sel
+    found = {}
+    try:
+        page.run_result, page.sel = None, None  # (no EQ: the words show)
+        page.draw()
+        for dark in (False, True):
+            theme.apply(qt.app(), dark=dark)
+            qt.pump(150)
+            lab, plot = page.eq_empty, page.eqplot
+            vb = plot.getPlotItem().vb
+            zero = plot.mapFromScene(vb.mapViewToScene(QPointF(2.0, 0.0))).y()  # (the 0 dB line's row)
+            img = qt.picture(plot)
+            g = lab.geometry()
+            bg = theme.graph_colours()["bg"].lower()
+            inside = img.pixelColor(g.left() + 3, zero).name()  # (the words' own padding, on the 0 dB line's row)
+            outside = img.pixelColor(max(45, g.left() - 30), zero).name()  # (the line itself, left of the words)
+            found["dark" if dark else "light"] = {"shown": lab.isVisible(), "words": (g.left(), g.right(), g.top(),
+                                                  g.bottom()), "zero": zero, "plot width": plot.width(),
+                                                  "inside": inside, "outside": outside, "bg": bg}
+    finally:
+        theme.apply(qt.app(), dark=False)
+        page.run_result, page.sel = run, sel
+        page.draw()
+        qt.pump(100)
+    check("EQ graph: with no EQ, its words are on the graph's colour and the 0 dB line stops at their edges (it "
+          "went through them), light and dark",
+          all(f["shown"] and f["words"][2] < f["zero"] < f["words"][3] and f["words"][1] - f["words"][0] < f["plot width"] - 100
+              and f["inside"] == f["bg"] and f["outside"] != f["bg"] for f in found.values()), found)
+
+
+def test_long_curve_name_ends_in_dots(eq_screen, check):
+    # (a code review, 2026-11-10: a name longer than the line of names went past the graph's edge and was cut off;
+    # now it ends in "…", its whole name in its tooltip; set_items is as before for its callers)
+    import pyqtgraph as pg
+    from PySide6.QtWidgets import QWidget
+    from helpers import qt
+    from ui.eq_page_parts import CurveNames
+    holder = QWidget(eq_screen.page)
+    names = CurveNames()
+    names.setParent(holder)
+    long = "A measurement with a very long name, longer than the whole line of names is wide on a narrow window " * 2
+    names.set_items([(long, pg.mkPen("#c04000")), ("Target", pg.mkPen("#808080"))])
+    names.resize(400, names.heightForWidth(400))
+    holder.show()
+    qt.pump(50)
+    places, height = names._places(names.width())
+    shown = names.shown_names()
+    first = places[0]
+    tip = names.full_name_at(QPoint(first[0] + 40, first[1] + 4))
+    tip_short = names.full_name_at(QPoint(places[1][0] + 30, places[1][1] + 4))
+    found = {"shown": shown, "right edges": [x + w for x, _y, w, *_r in places], "width": names.width(),
+             "tooltip whole": tip == long, "short name's tooltip": tip_short, "items": [n for n, _p in names.items]}
+    qt.close(holder)
+    check("graph names: a name longer than the line ends in “…” within the line (it went past the graph's edge), its "
+          "whole name in its tooltip; a short name whole, without one; the names kept as given",
+          shown[0].endswith("…") and long.startswith(shown[0][:-1].rstrip()) and shown[1] == "Target"
+          and all(r <= found["width"] for r in found["right edges"]) and found["tooltip whole"] and tip_short == ""
+          and found["items"] == [long, "Target"], found)

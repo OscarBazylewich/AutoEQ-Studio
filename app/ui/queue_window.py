@@ -13,7 +13,8 @@ import os
 import numpy as np
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (QAbstractItemView, QDialog, QHBoxLayout, QHeaderView, QLabel, QListWidget,
-                               QListWidgetItem, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout)
+                               QListWidgetItem, QPushButton, QStyle, QStyledItemDelegate, QStyleOptionViewItem,
+                               QTableWidget, QTableWidgetItem, QVBoxLayout)
 
 from ui import icons, theme
 from ui.search_combo import natural_key
@@ -21,10 +22,36 @@ from ui.theme_sheet import CARD
 from ui.window_parts import Footer, enter_presses, fit_to_screen
 
 
+class _WrapInRoom(QStyledItemDelegate):
+    """A list row's height for its words in the room they have: Qt's own leaves out the tick box's width, so a name
+    a little longer than its room stayed on one line and ended in "…" (the words are drawn after the tick box)."""
+
+    def sizeHint(self, option, index):
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        view = self.parent()
+        style = view.style()
+        tick = style.subElementRect(QStyle.SE_ItemViewItemCheckIndicator, opt, view)
+        opt.rect.setWidth(view.viewport().width() - tick.width() - 2 * style.pixelMetric(QStyle.PM_FocusFrameHMargin,
+                                                                                       opt, view) - 2)
+        return super().sizeHint(opt, index)
+
+
 def _checklist(items, on):
+    """A list of names with a tick box each. A long name goes on to a second line (one long word ends in "…", its
+    whole name in its tooltip), never past the list's edge: a code review, 2026-11-10, found a scroll bar across that
+    the list does not need (Qt's lists with that bar off make each row as wide as the list)."""
     lst = QListWidget()
+    lst.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+    lst.setWordWrap(True)
+    lst.setTextElideMode(Qt.ElideRight)
+    lst.setItemDelegate(_WrapInRoom(lst))
+    lst.setResizeMode(QListWidget.Adjust)  # (its rows laid out again as the window changes size: else a name kept
+    # the lines it had at the first width)
     for name in items:
-        it = QListWidgetItem(os.path.splitext(name)[0] if name.lower().endswith((".txt", ".csv")) else name)
+        shown = os.path.splitext(name)[0] if name.lower().endswith((".txt", ".csv")) else name
+        it = QListWidgetItem(shown)
+        it.setToolTip(shown)
         it.setData(Qt.UserRole, name)
         it.setFlags(it.flags() | Qt.ItemIsUserCheckable)
         it.setCheckState(Qt.Checked if name in on else Qt.Unchecked)
@@ -211,7 +238,7 @@ class QueueWindow(QDialog):
         h = page.svc.call("/api/history/add", {"entry": entry})
         if not h.get("error"):
             page.history = [e for e in page.history if e.get("key") != h["entry"]["key"]] + [h["entry"]]
-        return (f"Done: {r['n_filters']} filters · {r['rms']:.2f} dB · "
+        return (f"Done: {r['n_filters']} filter{'' if r['n_filters'] == 1 else 's'} · {r['rms']:.2f} dB · "
                 + (f"saved as {written[0]}" if written else "not saved (no file type selected in More settings › Saved files)"))
 
     def cancel(self):

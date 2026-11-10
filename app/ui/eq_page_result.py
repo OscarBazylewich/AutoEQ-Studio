@@ -1,7 +1,7 @@
 """Make an EQ's run and result (a part of EqPage, ui/eq_page.py): Run (Retry, Cancel) and its progress, the result
-shown (its numbers, Fewer or more filters, All results…, Compare…, Run several…), this session's runs, the filters
-being edited (Table, Sliders, Add filter, Sort, Revert), Save filters, Report, and Use on device (or Try for 5
-minutes on).
+shown (its numbers, Number of filters, All results…, Compare…; Queue… on Make the EQ), the EQs that you made, the
+filters being edited (Table, Sliders, Add filter, Sort, Undo all), Save filters, Report, and Use on device (or Try for
+5 minutes on).
 By hand (Make the EQ's second way, set_way: its tab beside Automatically): an EQ of your own, begun empty, from an EQ
 file (Equalizer APO's lines, a Room EQ Wizard export, a Peace preset: read as Equalizer APO plays them,
 eq\\eqtext.py), from pasted lines, from a device's profile or as a copy of the EQ shown (Start from, then Start). It's a
@@ -149,8 +149,8 @@ class EqResult:
             by_n[shown["n_filters"]] = shown
         self.count_combo.clear()
         for n, x in sorted(by_n.items()):
-            self.count_combo.addItem(f"{n} filters  ·  {x['rms']:.2f} dB" + ("  ✓ selected for you" if x["id"] == run["pick"] else ""),
-                                     x["id"])
+            self.count_combo.addItem(f"{n} filter{'' if n == 1 else 's'}  ·  {x['rms']:.2f} dB"
+                                     + ("  ✓ selected for you" if x["id"] == run["pick"] else ""), x["id"])
         self.count_combo.setCurrentIndex(max(0, self.count_combo.findData(rid)))
         self.count_combo.sort_items()
         self.count_combo.setEnabled(len(by_n) > 1)
@@ -373,6 +373,7 @@ class EqResult:
             self.listen.refresh()
         if not self.name_edit.text().strip() or self.name_edit.property("auto") is not False:
             self.name_edit.setText(self.auto_name())
+            self.name_edit.setCursorPosition(0)  # (the name's start in sight: a long one showed only its end)
             self.name_edit.setProperty("auto", True)
         self.draw()
         self.sync_trial()  # (the EQ shown being tried on a device: the change plays there too)

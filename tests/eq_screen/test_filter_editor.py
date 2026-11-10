@@ -347,3 +347,37 @@ def test_slider_moves_where_it_is_clicked_and_dragged(own_editor, check):
           "pressed on the thumb it stays under the pointer as it's dragged; double-click: 0 dB; the filter's gain follows",
           at_top == s.maximum() and abs(at_middle) <= 1 and held == 0 and abs(dragged - 40 * per_px) <= 2
           and double == 0 and gain == 0.0, (at_top, at_middle, held, dragged, double, gain))
+
+
+def test_table_has_room_for_its_columns_and_scroll_bar(eq_screen, check):
+    # (a code review, 2026-11-10: the table's width was read before Qt had sized its columns, and had no room for the
+    # scroll bar up and down: a scroll bar across showed and the ✕ column was cut; the corner between the two bars was
+    # white in light)
+    from PySide6.QtWidgets import QDialog, QVBoxLayout
+    from ui import theme
+    from ui.filter_editor import FilterEditor
+    found = {}
+    for dark in (False, True):
+        theme.apply(qt.app(), dark=dark)
+        for n in (3, 20):
+            dlg = QDialog(eq_screen.page)
+            dlg.resize(820, 700)
+            v = QVBoxLayout(dlg)
+            ed = FilterEditor(eq_screen.page.meta.get("limits", {}))
+            ed.set_filters([{"enabled": True, "type": "PK", "freq": 100 * (i + 1), "gain": -3.5, "q": 1.41}
+                            for i in range(n)])
+            v.addWidget(ed, 1)
+            dlg.show()
+            qt.pump(150)
+            t = ed.table
+            found[("dark" if dark else "light", n)] = {
+                "bar across": (t.horizontalScrollBar().isVisible(), t.horizontalScrollBar().maximum()),
+                "bar up and down": t.verticalScrollBar().isVisible(),
+                "columns": t.horizontalHeader().length(), "room": t.viewport().width(),
+                "corner": t.cornerWidget() is not None}
+            qt.close(dlg)
+    theme.apply(qt.app(), dark=False)
+    check("filters: the table is as wide as its columns, with room for the scroll bar up and down when its rows need "
+          "one (a scroll bar across showed, and ✕ was cut), and a corner of its own (white in light), light and dark",
+          all(f["bar across"] == (False, 0) and f["columns"] <= f["room"] and f["corner"]
+              and f["bar up and down"] == (n == 20) for (_d, n), f in found.items()), found)

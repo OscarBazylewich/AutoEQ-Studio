@@ -424,46 +424,53 @@ def plan(cfg, an, mode=None):
 
 
 def describe(cfg, mode=None):
-    """What a run with these settings will try, in words."""
+    """What a run with these settings will try, in words (each count with its own word: "1 filter", "3 filters",
+    _many)."""
     from . import engines
     mode = mode or cfg["mode"]
     if mode == "site_single":
-        return f"1 website EQ with {cfg['site_single']['rows']} filter rows"
+        return f"1 website EQ with {_many(cfg['site_single']['rows'], 'filter row')}"
     sw = cfg["site_sweep"]
     n_site = len(engines.site_combos(sw))
     if mode == "site_sweep":
-        return (f"{n_site} website EQs: {len(sw['filter_rows'])} row counts × {len(sw['freq_high'])} frequency limits × "
-                f"{len(sw['gain_ranges'])} gain ranges × {len(sw['q_max'])} Q limits")
+        return (f"{_many(n_site, 'website EQ')}: {_many(len(sw['filter_rows']), 'row count')} × "
+                f"{_many(len(sw['freq_high']), 'frequency limit')} × {_many(len(sw['gain_ranges']), 'gain range')} × "
+                f"{_many(len(sw['q_max']), 'Q limit')}")
     if mode == "best_fit":
         bf = cfg["best_fit"]
         if layouts.is_fixed(bf["layout"]):
             lo, hi, step = layouts.sliders(bf)  # (a graphic EQ app's own range and steps kept)
-            return (f"{len(layouts.bands(bf)[0])} bands' gains ({layouts.name(bf['layout'])}), {lo:g} to "
+            return (f"the gains of {_many(len(layouts.bands(bf)[0]), 'band')} ({layouts.name(bf['layout'])}), {lo:g} to "
                     f"+{hi:g} dB in {step:g} dB steps")
         bf = device_settings(bf)
         nfit = engines.fit_count(bf, _count_mine(bf))  # (with your own filters: theirs too)
         fp = len(engines.fight_penalties(bf))
         times = f" × {fp} penalties for opposite filters" if fp > 1 else ""
+        limits_text = f"{_many(len(bf['gain_max']), 'gain limit')} × {_many(len(bf['q_max']), 'Q limit')}{times}"
         n_mine = _count_mine(bf)
         if n_mine and bf.get("start_add") is False:  # (your filters fill the device: nothing is added)
+            they = "it uses" if n_mine == 1 else "they use"
             if bf.get("start_keep", True):
-                return (f"only your {n_mine} filters, not changed (they use all the filters of {layouts.name(bf['layout'])}): "
-                        f"the app calculates their error")
-            return (f"only your {n_mine} filters (they use all the filters of {layouts.name(bf['layout'])}), adjusted one "
-                    f"time for each limit: {len(bf['gain_max'])} gain limits × {len(bf['q_max'])} Q limits{times}")
+                return (f"only your {_many(n_mine, 'filter')}, not changed ({they} all the filters of "
+                        f"{layouts.name(bf['layout'])}): the app calculates {'its' if n_mine == 1 else 'their'} error")
+            return (f"only your {_many(n_mine, 'filter')} ({they} all the filters of {layouts.name(bf['layout'])}), "
+                    f"adjusted one time for each limit: {limits_text}")
+        mine = f", added to your {_many(n_mine, 'filter')}" if n_mine else ""
+        limits_of = f", in the limits of {layouts.name(bf['layout'])}" if bf["layout"] in layouts.DEVICES else ""
         if engines.grows(bf, n_mine):
             limits = len(bf["gain_max"]) * len(bf["q_max"]) * fp
+            one = limits == 1
             stops = cfg["scoring"].get("pick") == "audible"
-            return (f"{limits} EQs that add one filter at a time, to a maximum of {max(bf['filter_counts'])} "
-                    f"({len(bf['gain_max'])} gain limits × {len(bf['q_max'])} Q limits{times})"
-                    + (", which stop at the first EQ with the same sound as the target" if stops else "")
-                    + (f", added to your {n_mine} filters" if (n_mine := _count_mine(bf)) else "")
-                    + (f", in the limits of {layouts.name(bf['layout'])}" if bf["layout"] in layouts.DEVICES else ""))
-        return (f"{nfit} EQs ({len(bf['filter_counts'])} filter counts × {len(bf['gain_max'])} gain limits × "
-                f"{len(bf['q_max'])} Q limits{times}), {engines.RANDOM_STARTS} random starts for each"
-                + (f", added to your {n_mine} filters" + ("" if bf.get("start_keep", True) else " (Best fit can adjust them)")
-                   if (n_mine := _count_mine(bf)) else "")
-                + (f", in the limits of {layouts.name(bf['layout'])}" if bf["layout"] in layouts.DEVICES else ""))
+            return (f"{_many(limits, 'EQ')} that {'adds' if one else 'add'} one filter at a time, to a maximum of "
+                    f"{max(bf['filter_counts'])} ({limits_text})"
+                    + (f", which {'stops' if one else 'stop'} at the first EQ with the same sound as the target"
+                       if stops else "")
+                    + mine + limits_of)
+        return (f"{_many(nfit, 'EQ')} ({_many(len(bf['filter_counts']), 'filter count')} × {limits_text}), "
+                f"{_many(engines.RANDOM_STARTS, 'random start')} for each"
+                + (mine + ("" if bf.get("start_keep", True) else
+                          f" (Best fit can adjust {'it' if n_mine == 1 else 'them'})") if n_mine else "")
+                + limits_of)
     return mode
 
 

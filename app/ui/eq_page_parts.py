@@ -4,6 +4,7 @@ MODE_HINT, TICKS and file_base_name still import from ui/eq_page.py too.
   beside Method; TICKS: the graph's frequencies
 - label(text, role, wrap): a label, in one of the theme's text roles; set_note(lab, text): a note's words, the note
   hidden while it has none (so an empty one takes no room); hz(v): a frequency in Hz or kHz
+- combo_width(combo, text): the width a drop-down needs for text; SameWidth: empty room as wide as another widget
 - Elided: a one-line label that never makes its row wider than the window (the values under the pointer); NameCombo:
   a drop-down whose name, when longer than its room, ends in "…" as Windows 11's own do (Target, Measurement, Runs
   this session); PairTitle: "A  →  B" on one line, or B under A when the window is narrow (the graph's title)
@@ -97,6 +98,41 @@ class PairTitle(QLabel):
         self._fit()
 
 
+def combo_width(combo, text):
+    """The width a drop-down needs to show text whole (its frame and arrow too), in the theme's sizes."""
+    combo.ensurePolished()
+    opt = QStyleOptionComboBox()
+    combo.initStyleOption(opt)
+    fm = combo.fontMetrics()
+    inner = QSize(fm.horizontalAdvance(text) + 4, fm.height())
+    return combo.style().sizeFromContents(QStyle.CT_ComboBox, opt, inner, combo).width()
+
+
+class SameWidth(QWidget):
+    """Empty room as wide as another widget (follow(widget)), none while that one is hidden: a row's end lined up
+    with the row above, whose last button this row does not have (the Measurement row, under the Target's
+    Adjust…)."""
+
+    def __init__(self):
+        super().__init__()
+        from PySide6.QtWidgets import QSizePolicy
+        self.partner = None
+        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+
+    def follow(self, widget):
+        self.partner = widget
+        self.updateGeometry()
+
+    def sizeHint(self):
+        p = self.partner
+        if p is None or p.isHidden():
+            return QSize(0, 0)
+        return QSize(p.sizeHint().width(), 0)
+
+    def minimumSizeHint(self):
+        return self.sizeHint()
+
+
 class NameCombo(SearchCombo):
     """A drop-down of names (a target, a measurement, a run): one too long for it ends in "…", as Windows 11's own
     drop-downs do, rather than being cut off; its list shows every name whole."""
@@ -173,7 +209,9 @@ def paste_dialog(parent, title, name_hint, words, verb="OK"):
 class CurveNames(QWidget):
     """The names of a graph's curves in a line next to it, each after a short line in its colour and style (the UI
     audit, 2026-11-08: pyqtgraph's names were in the graph, on the curves at its top left); more lines when they
-    need them. set_items([(name, pen)]); from_legend(legend): the names a pyqtgraph legend has (kept hidden)."""
+    need them. set_items([(name, pen)]); from_legend(legend): the names a pyqtgraph legend has (kept hidden). A name
+    longer than the whole line ends in "…" (it went past the graph's edge, cut off: a code review, 2026-11-10), its
+    whole name in its tooltip (full_name_at)."""
     SAMPLE, GAP, SPACE = 20, 6, 18  # (px: the line, from it to the name, between two names)
 
     def __init__(self):
@@ -201,16 +239,47 @@ class CurveNames(QWidget):
         self.set_items(items)
 
     def _places(self, width):
+        """Each name's place: (x, y, width, the name as drawn, pen, its whole name), and the height of them all. A
+        name that fits on no line ends in "…" at the line's end."""
         from PySide6.QtGui import QFontMetrics
         fm = QFontMetrics(self.font())
         x, y, out, h = 0, 0, [], fm.height() + 4
+        room = max(0, width - self.SAMPLE - self.GAP)  # (for the words of a name alone on its line)
         for name, pen in self.items:
-            w = self.SAMPLE + self.GAP + fm.horizontalAdvance(name)
+            shown = name if fm.horizontalAdvance(name) <= room else fm.elidedText(name, Qt.ElideRight, room)
+            w = self.SAMPLE + self.GAP + fm.horizontalAdvance(shown)
             if x and x + w > width:
                 x, y = 0, y + h
-            out.append((x, y, w, name, pen))
+            out.append((x, y, w, shown, pen, name))
             x += w + self.SPACE
         return out, (y + h if out else 0)
+
+    def shown_names(self):
+        """The names as drawn at the present width (a long one ends in "…")."""
+        return [shown for _x, _y, _w, shown, _p, _n in self._places(self.width())[0]]
+
+    def full_name_at(self, pos):
+        """The whole name of a name cut to "…" at pos (a point in the widget), or "" (a name shown whole needs no
+        tooltip)."""
+        from PySide6.QtGui import QFontMetrics
+        h = QFontMetrics(self.font()).height() + 4
+        for x, y, w, shown, _p, name in self._places(self.width())[0]:
+            if shown != name and x <= pos.x() <= x + w and y <= pos.y() < y + h:
+                return name
+        return ""
+
+    def event(self, e):
+        from PySide6.QtCore import QEvent
+        if e.type() == QEvent.ToolTip:  # (only on a name that ends in "…": its whole name)
+            from PySide6.QtWidgets import QToolTip
+            whole = self.full_name_at(e.pos())
+            if whole:
+                QToolTip.showText(e.globalPos(), whole, self)
+            else:
+                QToolTip.hideText()
+                e.ignore()
+            return True
+        return super().event(e)
 
     def hasHeightForWidth(self):
         return True
@@ -232,7 +301,7 @@ class CurveNames(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         fm = p.fontMetrics()
-        for x, y, _w, name, pen in self._places(self.width())[0]:
+        for x, y, _w, name, pen, _whole in self._places(self.width())[0]:
             mid = y + (fm.height() + 4) / 2
             line = QPen(pen)
             line.setWidthF(max(2.0, min(3.0, pen.widthF())))

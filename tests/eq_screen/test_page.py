@@ -249,3 +249,41 @@ def test_theme_changed_while_opening(eq_screen, check):
         qt.close(opening)
     check("look: the theme changing while Make an EQ is still opening does nothing wrong (the other screens follow "
           "it too)", error is None, error)
+
+
+def test_target_and_measurement_end_at_one_x(eq_screen, check):
+    # (a code review, 2026-11-10: the Target's drop-down ended 105 px before the Measurement's, as the Target's row
+    # has Adjust… after Add…; now the Measurement's row keeps that room, and their buttons line up too)
+    from PySide6.QtCore import QPoint
+    page = eq_screen.page
+    size = page.size()
+    found = {}
+    try:
+        for w in (900, 1100, 1300, 1600):
+            page.resize(w, 900)
+            qt.pump(100)
+            right = lambda x: x.mapTo(page, QPoint(x.width(), 0)).x()
+            found[w] = (right(page.target_combo), right(page.measurement_combo))
+    finally:
+        page.resize(size)
+        qt.pump(50)
+    check("look: the Target and Measurement drop-downs end at one x at every width (900 to 1600 px; the Target's "
+          "ended 105 px before)", all(t == m for t, m in found.values()), found)
+
+
+def test_settings_to_try_with_no_curves(eq_screen, check):
+    # (a code review, 2026-11-10: with no measurement (no curves) Settings to try had no value: the line was filled
+    # only after the curves' analysis. Now it says what a run with the settings as they are tries)
+    page = eq_screen.page
+    kept = (page.estimate.text(), page.estimate.toolTip())
+    page.estimate.setText("")  # (as a page that has never had curves)
+    page.curves_loaded({"error": "No measurement is selected."})
+    qt.pump(100)
+    found = {"text": page.estimate.text(), "tooltip": page.estimate.toolTip(), "note": page.graph_note.text()}
+    page.load_curves()
+    eq_screen.wait_for(lambda: page.curves is not None, 60)
+    eq_screen.wait_for(lambda: page.estimate.text() == kept[0], 30)
+    found["back"] = (page.estimate.text(), page.estimate.toolTip()) == kept
+    check("make an EQ: with no curves (no measurement), Settings to try still says what a run tries and how long it "
+          "takes (it had no value)", bool(found["text"]) and "EQ" in found["text"] and bool(found["tooltip"])
+          and found["back"], found)
