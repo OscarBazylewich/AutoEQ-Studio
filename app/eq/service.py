@@ -233,8 +233,14 @@ def files_add(body):
     where = inputs.folder(kind)
     had = set(os.listdir(where)) if os.path.isdir(where) else set()
     names = inputs.add_files(kind, files)
-    # (new files: not the database a file of that name once came from; one the app already had keeps its record)
-    rigs.forget_source([n for n in names if n not in had])
+    src = body.get("source")
+    if isinstance(src, dict) and databases.find_site(src.get("site_url")):
+        # (a trace of a database entry, the tracer's picture from a website: its rig is known later, also for a
+        # name that the user changed or "… (2).txt")
+        rigs.record_source(names, src)
+    else:
+        # (new files: not the database a file of that name once came from; one the app already had keeps its record)
+        rigs.forget_source([n for n in names if n not in had])
     if kind == "target":
         cfg["files"]["active_target"] = names[0]
     else:
@@ -394,6 +400,14 @@ def db_refresh(body):
 def db_download(body):
     files, name, _ = _source_files(dict(body, src="db"))
     return {"name": name, "paths": files, "folder": os.path.dirname(files[0])}
+
+
+@route("/api/db/entry")
+def db_entry(body):
+    """One database entry by its id, from the lists in memory (no internet): its name, tag, website and link (the
+    picture from a website: ui/eq_page_files.py's trace_from_website)."""
+    it = databases.item(body.get("id"))
+    return {"entry": {k: it.get(k) for k in ("id", "kind", "name", "sub", "tag", "site", "site_url", "link")}}
 
 
 # ---------------------------------------------------------------- which measurement to use

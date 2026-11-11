@@ -277,7 +277,7 @@ class Sources(QDialog):
             for d in vis:
                 s = by_url.get(d["url"])
                 count = ("off" if not d["on"] else "" if not s else "did not load" if s.get("error")
-                         else f"{s.get('count', 0):,}" + (" · only in the list" if d.get("browse") else ""))
+                         else f"{s.get('count', 0):,}" + (" · from a picture" if d.get("browse") else ""))
                 if d["on"] and not s and self.st.get("loading"):
                     count = "in progress…"
                 it = QTreeWidgetItem([d["name"], count, "" if d["extra"] else "↗ website"])

@@ -262,6 +262,10 @@ class CompareWindow(QDialog):
         tasks.background(lambda: self.svc.call("/api/compare", body), done, owner=self)
 
     def _open_site(self, url):
+        entry_id = getattr(self, "link_ids", {}).get(url)
+        if entry_id:  # (an entry that the app cannot download: the browser, then a wait for a picture of its graph)
+            self.page.trace_from_website(entry_id, over=self, say=self.footer.say)
+            return
         if net.offline():
             self.footer.say("Offline: to open websites, change to Online (top right).")
             return
@@ -298,11 +302,12 @@ class CompareWindow(QDialog):
             lay.addWidget(none)
         if d.get("errors"):  # (a fold, as How the app sorts them: the UI audit, 2026-11-08)
             lay.addWidget(_not_loaded(d["errors"]))
+        self.link_ids = {l["link"]: l["id"] for l in d.get("links") or [] if l.get("id")}
         if d.get("links"):
             links = " · ".join(f"<a href='{l['link']}'>{_esc(l['name'])}</a> ({_esc(l['site'])}"
                                f"{', ' + _esc(l['rig']) if l.get('rig') else ''})" for l in d["links"])
-            lk = QLabel("Other websites also have measurements, but you cannot download them (open the websites to look, or "
-                        "trace their graphs): " + links)
+            lk = QLabel("The app cannot download the measurements of these websites. Click a name to open it on its "
+                        "website. Then the app waits for a picture of its graph and traces it: " + links)
             lk.setWordWrap(True)
             lk.setTextFormat(Qt.RichText)
             lk.linkActivated.connect(self._open_site)  # (offline: said in the window's line, UI-RULES 25)

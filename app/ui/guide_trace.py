@@ -96,7 +96,8 @@ def trace_steps(tw):
         {"chapter": "3 · Save", "title": "Save", "target": lambda: [tw.save_meas, tw.save_tgt, tw.download_btn],
          "before": tab(2),
          "text": "Add as measurement adds the curves to the app and uses them. Add as target saves the selected curve. "
-                 "Save .txt… makes a file for other apps.",
+                 "Save .txt… makes a file for other apps. If the app found a target line in a picture from a website, "
+                 "Add the target line as target… adds that line as a target.",
          "demo": [{"click": lambda: tw.save_meas, "say": "It adds the curves to the app and uses them"},
                   {"at": lambda: tw.save_tgt, "say": "Or as a target"},
                   {"at": lambda: tw.download_btn, "say": "A .txt file for other apps"}]},
@@ -120,6 +121,7 @@ def start_trace(tw):
         kept = {"v": dict(t.v), "ta": {k: (set(v) if isinstance(v, set) else dict(v) if isinstance(v, dict) else v)
                                          for k, v in t.ta.items()}}
         img, _s = sample_image()
+        tw.entry = None  # (the sample is not a picture from a website)
         tw.load_image(img, "Sample graph")
         tw.sample_open = True
 

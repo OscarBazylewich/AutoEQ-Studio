@@ -825,3 +825,25 @@ def test_tab_counts_follow_the_search(eq_screen, check):
           "found: 0 on every tab)",
           all(said == shown for said, shown in seen.values()) and seen["zzzz"][0] == {"": 0, "app": 0, "pc": 0, "db": 0}
           and seen["truthear"][0][""] > 0, seen)
+
+
+def test_website_entry_row(eq_screen, check):
+    # (2026-11-11, the picture from a website: a row of a database that does not let other programs download its files
+    # (the fixture's Hangout.Audio 5128 list) says what Use does, and has no Preview)
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QLabel, QPushButton
+    pk = _shown_picker(eq_screen.page, "truthear gate")
+    try:
+        seen = None
+        for i in range(pk.list.count()):
+            r = pk.list.item(i).data(Qt.UserRole)
+            if r and r.get("link") and r["name"] == "Truthear Gate":
+                w = pk.list.itemWidget(pk.list.item(i))
+                marks = [lab for lab in w.findChildren(QLabel) if lab.text() == "trace from the website ↗"]
+                preview = [b for b in w.findChildren(QPushButton) if b.text() in ("Preview", "Hide")]
+                seen = {"mark": bool(marks), "tooltip": marks[0].toolTip() if marks else "",
+                        "preview hidden": bool(preview) and all(b.isHidden() for b in preview)}
+    finally:
+        _close(pk)
+    check("Find…: the row of a website entry says trace from the website ↗ and has no Preview", seen is not None
+          and seen["mark"] and "waits for a picture of the graph" in seen["tooltip"] and seen["preview hidden"], seen)

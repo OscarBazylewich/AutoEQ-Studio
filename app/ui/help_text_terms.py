@@ -279,7 +279,8 @@ TERMS = [{'title': 'Curves and sound',
                      'body': ['It changes a picture of a frequency response graph into curve files. It reads the '
                               'axes, follows a curve by its color, and saves it as a measurement or a target. '
                               'Trace a graph image… (near the title of the graph) opens it. Drag, paste or open a '
-                              'picture there. Its window also has a Guide.'],
+                              'picture there. Its window also has a Guide. Find… also opens it for an entry that the '
+                              'app cannot download.'],
                      'see': ['compensated', 'measurement']}]},
          {'title': 'Best fit and the error',
           'terms': [{'id': 'error',
@@ -460,7 +461,10 @@ TERMS = [{'title': 'Curves and sound',
                                'Curve files on this PC (in Downloads, Documents, Desktop and Music).',
                                'Approximately 150 online databases (the list of squig.link, the AutoEq repository, '
                                'listener800).'],
-                              'The app downloads an online curve when you use it or show a preview of it.',
+                              'The app downloads an online curve when you use it or show a preview of it. If a database '
+                              'does not let the app download its files, the app opens the entry on the website and '
+                              'waits for a picture of its graph (a screenshot). The tracer then makes the measurement '
+                              'from the picture.',
                               'In Find… › Sources…, you can enable or disable databases, add a page of the '
                               'squig.link type, and set the folders to search on this PC. Offline, the app uses '
                               'only the lists and the curves that are on this PC.'],

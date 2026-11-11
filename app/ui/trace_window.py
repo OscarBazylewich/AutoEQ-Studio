@@ -634,6 +634,15 @@ class TraceWindow(QWidget):
         fit_to_screen(self, (1320, 860))  # (within the screen's room: a laptop's at 150 % is 1280 x 672)
         self.setAcceptDrops(True)
         self.t = tc.Tracer()
+        # (a picture from a website, eq_page_files.trace_from_website: its database entry, for the name, the file's
+        # first line and the source record; whether the picture's curves went into the app; the last automatic read's
+        # result: None with no read)
+        self.entry = None
+        self.added = False
+        self.read_ok = None
+        self.reading_graph = False
+        self.graph_token = 0
+        self.auto_note = ""  # (3 Save's note after an automatic read that passed)
         st = page.sw.s.get("trace") or {}
         if isinstance(st.get("enabled"), bool):
             self.t.ta["enabled"] = st["enabled"]
@@ -997,8 +1006,20 @@ class TraceWindow(QWidget):
             btns.addWidget(b)
         btns.addStretch(1)
         g.addLayout(btns, 4, 0, 1, 4)
+        # (the target line that the automatic read found in a picture from a website: a row of its own under the
+        # buttons, shown only with such a line)
+        line_row = QHBoxLayout()
+        self.save_line = QPushButton("Add the target line as target…")
+        self.save_line.setToolTip("Adds the target line of the picture as a target. You give its name first.")
+        self.save_line.clicked.connect(self.add_target_line)
+        icons.put(self.save_line, "add")
+        help_window.tag(self.save_line, "#tr-target-line")
+        line_row.addWidget(self.save_line)
+        line_row.addStretch(1)
+        g.addLayout(line_row, 5, 0, 1, 4)
+        self.save_line.hide()
         self.save_note = _Note()
-        g.addWidget(self.save_note, 5, 0, 1, 4)
+        g.addWidget(self.save_note, 6, 0, 1, 4)
         g.setColumnStretch(3, 1)
         return box
 
@@ -1065,14 +1086,23 @@ class TraceWindow(QWidget):
         self.edit_btns["smooth"].setEnabled(has)
         self.edit_btns["clear"].setEnabled(has)
         img = t.has_image
-        for b in (self.add_btn, self.auto_btn, self.save_meas, self.save_tgt, self.download_btn, self.ocr_btn):
+        for b in (self.add_btn, self.auto_btn, self.save_meas, self.save_tgt, self.save_line, self.download_btn,
+                  self.ocr_btn):
             b.setEnabled(img and (b is not self.ocr_btn or not getattr(self, "reading", False)))
         self.remove_btn.setVisible(img)
         need = "" if not img else "Type the dB values of the red lines (and examine the blue Hz values) to save the curve." \
             if not t.calib() else "Trace a curve to save it." if not anything else None
+        # (the target line of a picture from a website: its button while a curve has the "target" mark; a line that
+        # the user changed lost the mark, trace_core.user_edit, and is a measurement curve: said, not silent)
+        self.save_line.setVisible(img and any(c.get("target") and t.has_data(c) for c in t.curves))
+        changed_line = next((c for c in t.curves if c.get("website_line") and not c.get("target") and t.has_data(c)),
+                            None)
         if need or not getattr(self, "saved_note", False):  # ("Saved as …" stays until something is needed)
             self.saved_note = False
-            self.save_note.setText(need or "")
+            self.save_note.setText(need or (
+                f"You changed the curve “{changed_line['label']}”. Thus, it is a measurement curve: Add as measurement "
+                "also adds it. To add it as a target, select it, then click Add as target." if changed_line else
+                self.auto_note))
         colour = cur and cur["colour"]
         self.swatch.setVisible(bool(colour))
         if colour:  # (the colour traced: the picture's own, set here; its frame follows the theme, from the sheet)
@@ -1123,6 +1153,9 @@ class TraceWindow(QWidget):
             def renamed(s, c=c, pick=pick, x=x, i=i):
                 c["label"] = s.strip()
                 _name_curve_buttons(pick, x, c["label"], i)
+                if c.get("target"):  # (a renamed target line is a measurement curve: the core does not see a rename)
+                    self.t.user_edit(i)
+                    self.update_ui()
             name.textEdited.connect(renamed)
             lay.addWidget(row)
         _no_focus(self.curves_box)
@@ -1168,16 +1201,31 @@ class TraceWindow(QWidget):
         if f:
             self.open_file(f)
 
-    def open_file(self, path):
+    def open_file(self, path, entry=None):
         img = QImage(path)
         if img.isNull():
             QMessageBox.warning(self, "Trace", "The app cannot read this file as a picture (PNG, JPG, WebP, BMP, GIF, TIFF).")
             return
         name = os.path.splitext(os.path.basename(path))[0]
-        self.load_image(img, name, os.path.splitext(path)[1].lower() in (".jpg", ".jpeg", ".jfif"))
+        self.load_image(img, name, os.path.splitext(path)[1].lower() in (".jpg", ".jpeg", ".jfif"), entry)
 
-    def load_image(self, qimg, name="Traced graph", jpeg=False):
+    def kept_entry(self):
+        """The entry a picture pasted or dropped here keeps: the present one only when nothing was added from the
+        picture before and its automatic read was not OK (the user gives a better picture of the same graph)."""
+        return self.entry if self.entry and not self.added and self.read_ok is False else None
+
+    def load_image(self, qimg, name="Traced graph", jpeg=False, entry=None):
+        """A picture into the tracer. entry: the database entry of a picture from a website (/api/db/entry's): its
+        name with its tag is the picture's name, and the automatic read (read_graph) replaces the label read."""
         self.sample_open = False  # (a picture of yours: the Guide's sample, set again by the Guide, isn't on any more)
+        self.entry = entry
+        self.added = False
+        self.read_ok = None
+        self.auto_note = ""
+        self.graph_token += 1  # (an automatic read still running for the picture before is dropped)
+        self._reading_graph(False)
+        if entry:
+            name = self.entry_name()
         rgb = rgb_of(qimg)
         try:
             self.t.load(rgb, name, jpeg)
@@ -1200,7 +1248,87 @@ class TraceWindow(QWidget):
         self.fill_comp()
         self.show_values()
         self.changed()
-        self.read_labels()
+        self.read_graph() if entry else self.read_labels()
+
+    def entry_name(self):
+        """The name of a picture from a website: the entry's name and its database's tag, as a downloaded entry's."""
+        e = self.entry or {}
+        return f"{e.get('name', '')} ({e.get('tag', '')})" if e.get("tag") else e.get("name", "")
+
+    def source_note(self):
+        """The part of a traced file's first line that names the website and the entry's link."""
+        e = self.entry
+        return f" (a picture from {e.get('site')}: {e.get('link')})" if e and e.get("link") else ""
+
+    def _reading_graph(self, on):
+        """While the automatic read runs, the picture and the side take no input (take() then replaces the tracer's
+        state: the user's work would go)."""
+        self.reading_graph = on
+        for w in (self.stage, self.side_scroll, self.guide_btn):
+            w.setEnabled(not on)
+
+    def read_graph(self):
+        """The automatic read of a picture from a website (trace_core.auto_read) off the window's thread; its answer
+        taken into the window's tracer: all checks OK, 3 Save with the traced curve; else the tab of the first check
+        that failed, with its reason (the user corrects that step); an error, 1 Axes and the labels read."""
+        t = self.t
+        if not t.has_image or not self.entry:
+            return
+        from ui import ocr
+        rgb, jpeg, name, entry = t.px.copy(), bool(t.ta["jpeg"]), self.entry_name(), self.entry
+        self.graph_token += 1
+        token = self.graph_token
+        t.label_token += 1  # (a label read still running is dropped)
+        self.reading = False
+        self._reading_graph(True)
+        self.status.setText("The app reads the graph…")
+        self.update_ui()
+
+        def done(res, err):
+            if token != self.graph_token:  # (another picture, or the picture removed, meanwhile)
+                return
+            self._reading_graph(False)
+            if err is not None:
+                self.read_ok = False
+                self.show_tab(0)
+                self.status.setText(f"The app cannot trace this picture automatically ({err}). Correct this step. "
+                                    "Then go to 3 Save.")
+                self.read_labels()
+                return
+            self.take_read(res, entry)
+        tasks.background(lambda: tc.auto_read(rgb, ocr.words, jpeg, name), done, owner=self)
+
+    def take_read(self, r, entry):
+        """auto_read's answer (an AutoRead) into the window: the tracer's state taken (a crop of the picture: the
+        stage, the name, the size, the values and the settings shown again), then the tab that the result needs.
+        entry: the one the read was for (the window's can go meanwhile: its close)."""
+        t = self.t
+        if r.target is not None:
+            r.target["website_line"] = True  # (this curve was the target line: said when the user changes it)
+        t.take(r.tracer)
+        self.stage.set_image(t.px)
+        self.show_name(t.src_name, (t.W, t.H))
+        self.read_ok = bool(r.ok)
+        e = entry or {}
+        if r.ok:
+            self.auto_note = (f"The app traced the graph of “{e.get('name', '')}” from {e.get('site', '')}. Compare the "
+                              "curve with the picture. If they agree, click Add as measurement."
+                              + (" The picture also has a target line. Add the target line as target… adds it as a "
+                                 "target." if r.target is not None else ""))
+            self.status.setText(HINTS[self.tool])
+            self.show_tab(2)
+        else:
+            first = next(c for c in r.checks if not c.ok)
+            text = f"The app cannot trace this picture automatically. {first.reason} Correct this step. Then go to 3 Save."
+            axes = first.name.startswith("axes")
+            if axes:
+                t.axis_note = t.detect_note = text  # (also on 1 Axes; a label read starts from it)
+            self.show_tab(0 if axes else 1)
+            self.status.setText(text)
+        self.show_values()
+        self.changed()
+        if not r.ok and r.checks and next(c for c in r.checks if not c.ok).name == "axes_plot":
+            self.read_labels()  # (not a graph of the website: today's way for a picture)
 
     def remove_image(self):
         t = self.t
@@ -1210,6 +1338,9 @@ class TraceWindow(QWidget):
                 self, "Remove image", "Remove this picture and the curves that you traced on it?",
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
             return
+        self.entry, self.added, self.read_ok, self.auto_note = None, False, None, ""
+        self.graph_token += 1  # (an automatic read still running is dropped)
+        self._reading_graph(False)
         t.unload()
         t.v.update(d1="", d2="", f1="", f2="", name="")
         t.typed = {"d": False, "f": False}
@@ -1231,19 +1362,24 @@ class TraceWindow(QWidget):
 
     def dropEvent(self, e):
         md = e.mimeData()
+        entry = self.kept_entry()
         for u in md.urls():
             if u.isLocalFile():
-                self.open_file(u.toLocalFile())
+                self.open_file(u.toLocalFile(), entry)
                 return
         if md.hasImage():
-            self.load_image(QImage(md.imageData()))
+            self.load_image(QImage(md.imageData()), entry=entry)
 
     def paste(self):
         img = QApplication.clipboard().image()
         if img.isNull():
             self.say("There is no picture on the clipboard. First, copy a picture of a graph.")
             return
-        self.load_image(img)
+        self.load_image(img, entry=self.kept_entry())
+
+    def closeEvent(self, e):
+        self.entry = None  # (the next picture is a picture of yours, unless it comes from a website again)
+        super().closeEvent(e)
 
     # ---------------------------------------------------------------- axes
     def value_typed(self, key, lim):
@@ -1443,24 +1579,39 @@ class TraceWindow(QWidget):
         return (lambda x: float(np.interp(math.log(x), lf, vals))), \
             f" (the graph showed the difference from {os.path.splitext(name)[0]}: the app added this target)"
 
-    def outputs(self, only_current=False):
+    def outputs(self, only_current=False, name=None):
+        """The files to save (trace_core's outputs; name: in place of the Name box's). A picture from a website: their
+        first line also names the website and the entry's link."""
         comp, note = self.compensation()
-        return self.t.outputs(only_current, comp, note)
+        return self.t.outputs(only_current, comp, note + self.source_note(), name=name)
 
-    def save(self, kind):
-        """Into the app: a measurement (the traced curves as one device, made the one in use) or a target."""
+    def source(self, name):
+        """The source record of an add from a picture from a website (eq.service records it for the files: their rig
+        is the database's), with `name`: the entry's for a measurement, the target's own for a target."""
+        e = self.entry
+        return dict(e, name=name) if e and e.get("site_url") else None
+
+    def save(self, kind, outs=None, title=None):
+        """Into the app: a measurement (the traced curves as one device, made the one in use) or a target. outs: the
+        files to add (none: the window's curves, as outputs() makes them); title: the message boxes' title."""
         page = self.page
+        title = title or f"Add as {kind}"
         try:
-            outs = self.outputs(kind == "target")
+            outs = outs if outs is not None else self.outputs(kind == "target")
         except (ValueError, ArithmeticError) as e:
             QMessageBox.warning(self, "Trace", str(e))
             return
         # (all channels in one go: one number for the set when names are taken, so they stay one device)
-        r = page.svc.call("/api/files/add", {"kind": kind, "files": [{"name": o["file"], "content": o["text"]}
-                                                                     for o in outs], "settings": page.S})
+        body = {"kind": kind, "files": [{"name": o["file"], "content": o["text"]} for o in outs], "settings": page.S}
+        src = self.source(self.entry["name"] if kind == "measurement" and self.entry else
+                          os.path.splitext(outs[0]["file"])[0])
+        if src:
+            body["source"] = src
+        r = page.svc.call("/api/files/add", body)
         if r.get("error"):
-            QMessageBox.warning(self, f"Add as {kind}", r["error"])
+            QMessageBox.warning(self, title, r["error"])
             return
+        self.added = True
         names, page.S, inputs = r["names"], r["settings"], r["inputs"]
         if kind == "measurement" and inputs:  # a traced graph is a device of its own: exactly its files in use
             page.S["files"]["excluded"] = [m["name"] for m in inputs["measurements"] if m["name"] not in names]
@@ -1477,10 +1628,34 @@ class TraceWindow(QWidget):
         self.save_note.setText(f"The app saved {what} “{shown}”. To see it on the graph, close this window. "
                                "You can also trace more curves."
                                + (" (The app saved only the selected curve, because a target is one curve.)"
-                                  if kind == "target" and sum(map(self.t.has_data, self.t.curves)) > 1 else ""))
+                                  if kind == "target" and title == "Add as target"
+                                  and sum(map(self.t.has_data, self.t.curves)) > 1 else ""))
         gaps = self.t.gaps_text(outs)
         if gaps:
             QMessageBox.information(self, "Trace", gaps)
+
+    def add_target_line(self):
+        """Add the target line as target…: the curve that the automatic read marked as the target line, added as a
+        target under the name that the user gives (Add as measurement leaves it out)."""
+        from ui.window_parts import ask_text  # (looked up here: the tests answer it)
+        t = self.t
+        i = next((i for i, c in enumerate(t.curves) if c.get("target") and t.has_data(c)), None)
+        if i is None:
+            return
+        title = "Add the target line as target"
+        name, ok = ask_text(self, title, "Name of the target", f"Target from {t.src_name}", "Add")
+        if not ok or not name.strip():
+            return
+        was = t.cur
+        t.cur = i  # (outputs' "only the selected curve" is this one)
+        try:
+            outs = self.outputs(True, name=name.strip())
+        except (ValueError, ArithmeticError) as e:
+            QMessageBox.warning(self, title, str(e))
+            return
+        finally:
+            t.cur = was
+        self.save("target", outs, title)
 
     def save_txt(self):
         """The traced curves as .txt files wherever you choose."""
@@ -1520,6 +1695,8 @@ class TraceWindow(QWidget):
         st = self.stage
         typing = isinstance(QApplication.focusWidget(), (QLineEdit, QComboBox))
         key, mods = e.key(), e.modifiers()
+        if self.reading_graph and not (mods & Qt.ControlModifier and key == Qt.Key_V):
+            return super().keyPressEvent(e)  # (the automatic read runs: no key changes the tracer, but a new picture)
         if key == Qt.Key_Space and not typing:
             if not e.isAutoRepeat():
                 st.space = True

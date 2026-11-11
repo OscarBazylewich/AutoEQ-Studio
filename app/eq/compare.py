@@ -72,7 +72,8 @@ def candidates(query, limit=40, links=None):
         if it["kind"] == "measurement" and matches(query, it["name"]):
             if it.get("link"):  # can't be downloaded: listed with its page link instead
                 if links is not None:
-                    links.append({"name": it["name"], "site": it["site"], "rig": RIGS.get(rigs.source_rig(it)[0]), "link": it["link"]})
+                    links.append({"id": it["id"], "name": it["name"], "site": it["site"],
+                                  "rig": RIGS.get(rigs.source_rig(it)[0]), "link": it["link"]})
                 continue
             rig, sure = rigs.source_rig(it)
             f = (it.get("ref") or {}).get("file")

@@ -17,7 +17,8 @@ HELP_TRACE = {'#tr-auto-on': ["The app adjusts the tracer's settings for the ima
  '#tr-name': "The saved file's name.",
  '#tr-dashed': 'The app follows dashed or dotted curves across their spaces.',
  '#tr-comp': ['The app adds a target to the curve, for a graph that shows the difference from a target.',
-              'compensated']}
+              'compensated'],
+ '#tr-target-line': 'Adds the target line of the picture as a target. You give its name first.'}
 
 SETTINGS_TRACE = [{'title': 'Trace a graph image',
                    'items': [{'key': '#tr-auto-on',
@@ -69,7 +70,9 @@ SETTINGS_TRACE = [{'title': 'Trace a graph image',
                              {'key': '#tr-name',
                               'title': 'Name',
                               'body': ["The saved file's name. If there is more than one curve, the app adds the label of "
-                                       'each curve to its file name (for example, L and R).']},
+                                       'each curve to its file name (for example, L and R).',
+                                       'For a picture from a website, the file has the name of the entry. With more '
+                                       'than one measurement curve, each file also has the name of its curve.']},
                              {'key': '#tr-dashed',
                               'title': 'Dashed or dotted line',
                               'body': ['For dashed or dotted curves: the traced line continues across the spaces.']},
@@ -77,4 +80,11 @@ SETTINGS_TRACE = [{'title': 'Trace a graph image',
                               'title': 'The graph shows (compensated)',
                               'body': ['If the graph shows the difference from a target (compensated), select that '
                                        'target. The app adds the target to the curve when you save it. The target must '
-                                       'be in the app.']}]}]
+                                       'be in the app.']},
+                             {'key': '#tr-target-line',
+                              'title': 'Add the target line as target…',
+                              'body': ['Adds the target line of the picture as a target. You give its name first. It '
+                                       'shows only when the app found a target line in a picture from a website.',
+                                       'Add as measurement does not add the target line. If you change the target line '
+                                       '(for example, you erase a part of it or rename it), it becomes a measurement '
+                                       'curve. To add it as a target, select it, then click Add as target.']}]}]

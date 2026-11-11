@@ -7,8 +7,8 @@ headphones (its page moved to dhrme.nl with a meta refresh); sites on modernGrap
 SilicaGel IEMs, headphones and earbuds: measurements in data/phones/, targets in data/target(s)/, per-model sample
 counts and sets of seatings); Hana (its graph tool keeps measurements in data/measurements/). A download test of 894
 random entries from every database: all download except 10 whose files the sites never uploaded (their own graph
-pages can't show them either). Hangout.Audio's page now also loads an AES decryption library (its data is kept for its
-own page), on top of refusing its files to other programs: still list only; the app doesn't try to get round it.
+pages can't show them either). Hangout.Audio's page also loads an AES decryption library. Its files stay closed to
+other programs, and the app does not go around that.
 
 Update (25 September 2026): every database in squig.link's list is now included and on by default (about
 51,000 curves from 154 databases); the analysis below, of which ones are largest and add the most, is kept as a
@@ -94,7 +94,8 @@ HOW EACH IS INTEGRATED (checked 23 September 2026)
   - AutoEq: GitHub's file list and raw.githubusercontent.com downloads, as before.
   - Hangout.Audio (all three): its list (phone_book.json) is public and is indexed, but its server refuses the
     measurement files to anything but its own graph page (HTTP 403 Forbidden). The app doesn't try to get round
-    that. Its entries appear in searches marked "open on site ↗" and open on Hangout.Audio (the share link
-    squig.link itself uses); "Which measurement to use?" lists them as "also measured by" with links. To use one,
-    trace its graph with Trace image.
+    that. Its entries show in searches with "trace from the website ↗". To use one of its entries, click Use in
+    Find…. The app opens the entry in your browser (the share link squig.link itself uses), waits for a picture of
+    the graph and traces it. "Which measurement to use?" lists them with links that do the same. The app makes no
+    request to the website for this.
   Lists refresh every few days; new models in these databases appear by themselves.

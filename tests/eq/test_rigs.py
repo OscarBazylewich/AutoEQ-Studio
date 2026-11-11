@@ -169,3 +169,19 @@ def test_conversion_without_error_figures_not_used(tmp_path, monkeypatch, check)
     # was eq_checks.py:1061
     check("rigs: a conversion without its error figures isn't used (no crash)", kept_pairs == ["711"] and units == {},
           (kept_pairs, units))
+
+
+def test_traced_file_rig_from_its_record(check):
+    # (2026-11-11, the picture from a website: the tracer's file of a database entry has the name that the user gave,
+    # or "… (2)"; its source record gives the database's rig)
+    names = ["My own name.txt", "Truthear Gate (Hangout 5128) (2).txt"]
+    before = [rigs.file_rig(n) for n in names]
+    rigs.record_source(names, {"site_url": "https://graph.hangout.audio/iem/5128/",
+                               "site": "Hangout.Audio IEMs (Crinacle, 5128)", "name": "Truthear Gate"})
+    try:
+        after = [rigs.file_rig(n) for n in names]
+    finally:
+        rigs.forget_source(names)
+    check("rigs: a traced file's rig comes from its record when the name has no tag (or a number after it)",
+          after == [("5128", True), ("5128", True)] and before[0] == (None, False) and before[1] != ("5128", True),
+          (before, after))
