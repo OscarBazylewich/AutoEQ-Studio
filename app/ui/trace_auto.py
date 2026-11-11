@@ -17,38 +17,54 @@ auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph") does it all:
    (the window opens the tab where the user can correct it).
 
 Every limit here was measured (2026-11-10 and 2026-11-11) on three real pictures and on a drawn look-alike
-(tests\\helpers\\website_graph.py; 2,746 look-alikes of 500 to 1600 px, PNG and JPEG 85, 60, 50 and 30, the stand-in
-for the text reader): see .claude\\notes\\benchmarks\\BENCHMARKS.md.
+(tests\\helpers\\website_graph.py; the reviews' 6,592 look-alikes of 420 to 2000 px, PNG and JPEG 85 to 20, with the
+stand-in for the text reader): see .claude\\notes\\benchmarks\\BENCHMARKS.md.
 
 Known limits (the picture alone cannot tell; ok can be True with a curve that is not correct). "N dB at P points": the
-largest difference from the true average, and the count of points (of about 470) more than 0.5 dB off:
+largest difference from the true average, and the count of points (of about 470) more than 0.5 dB off. "Of K": the
+largest of the K look-alikes of that kind:
 - A second measurement in the color of the first, or in a near color that touches the band (for example #1a48a0,
   #0d357d, #1a88a0, #3a48c0, #1f4faa, #2a58b0, #1a68a0, #104090, #5a48c0, #4a40b8, #2040a8, #1a48c0, #1a3890, 3 dB
   from the first or crossing it), is read as a part of the band: the curve is the middle of all of them, 1.0 to 1.7 dB
-  off (the largest: 1.68 dB at 474 points, #1a3890, 1000 px, JPEG 60; #5a48c0, 1000 px, JPEG 60: 1.56
-  dB at 274 points). trace_band fails only when they are more than MAX_BAND_DB apart; where its pieces are apart
-  from the band, trace_single fails.
+  off (of 432, 404 with ok=True; the largest: 1.68 dB at 474 points, #1a3890, 1000 px, JPEG 60; #5a48c0, 1000 px,
+  JPEG 60: 1.56 dB at 274 points). trace_band fails only when they are more than MAX_BAND_DB apart; where its pieces
+  are apart from the band, trace_single fails.
 - Text in the curve's color on the curve (the legend over the curve) can move the curve there: band() keeps only the
   rows that continue the band, leaves out the columns where level text touches a steep part, and trace_steps fails
-  for a large step, but text that lies along the line cannot be told from it. 120 legend places for each size, PNG,
-  ok=True: 500 px 1.98 dB at 11 points (7 places above 0.5 dB), 700 px 1.56 dB at 6 points (9), 900 px 1.17 dB at 4
-  points (14), 1200 px 1.12 dB at 3 points (6), 1600 px 1.10 dB at 1 point (6); an orange or pink legend, 600 and
-  1000 px: 0.96 dB at 2 points; 1000 px, JPEG 85: 0.89 dB at 4 points.
+  for a large step, but text that lies along the line cannot be told from it. Of 120 legend places for each size,
+  PNG, ok=True: 500 px 1.98 dB at 11 points (7 places above 0.5 dB), 700 px 1.56 dB at 6 points (9), 900 px 1.17 dB at
+  4 points (14), 1200 px 1.12 dB at 3 points (6), 1600 px 1.10 dB at 1 point (6). With the channels 2 to 4 dB apart
+  (of 648, 500 to 1600 px, PNG, JPEG 60 and 50): 1.85 dB at 4 points (900 px, 2 dB apart, PNG), 1.63 dB at 6 points
+  (700 px, 3 dB apart, PNG). An orange or pink legend (of 144, 600 and 1000 px): 0.96 dB at 2 points; 1000 px, JPEG 85
+  (of 54): 0.89 dB at 4 points.
 - Three or more dB labels that the text reader reads wrongly agree with each other when they still give equal steps:
   wrong by the same amount (60, 65, 70 read as 80, 85, 90: 20.03 dB at all points), or with a wrong step (60, 65, 70
   read as 60, 70, 80: 11.67 dB at 441 points). A test of the curve's level would also fail the graphs that other
   websites set to other levels.
-- A JPEG moves the curve by a few tenths of a dB at single points (no target and no legend on the curve; PNG: 0.44 dB
-  or less): JPEG 85 0.75 dB at 1 point (500 px), JPEG 50 0.70 dB at 1 point (1200 px), JPEG 30 0.89 dB at 3 points
-  (700 px), 0.81 dB at 13 points (1200 px), 0.77 dB at 16 points (700 px); a dark background, JPEG 60: 0.85 dB at 2
-  points (600 px).
-- A target line that touches the band in a JPEG can move the curve there: 0.96 dB at 4 points (a dashed target 2 dB
-  under the curve, 700 px, JPEG 30), 0.78 dB at 2 points (a solid target that crosses the curve, 700 px, JPEG 50).
+- A JPEG moves the curve by a few tenths of a dB at single points (no target and no legend on the curve; of 3,000
+  look-alikes of 500 to 1800 px with the channels 1 to 6 dB apart): PNG 0.44 dB or less (of 240), JPEG 85 0.75 dB at
+  1 point (of 480; 500 px), JPEG 70 0.35 dB (of 120), JPEG 60 0.68 dB at 3 points (of 320; 1000 px), JPEG 50 0.92 dB
+  at 2 points (of 480; 600 px), JPEG 40 0.73 dB at 2 points (of 440; 1400 px), JPEG 30 0.89 dB at 3 points (of 800;
+  700 px; also 0.81 dB at 13 points, 1200 px, and 0.77 dB at 16 points, 700 px), JPEG 20 0.76 dB at 4 points (of 120;
+  1400 px). A dark background (of 72), JPEG 60: 0.85 dB at 2 points (600 px).
+- A target line that touches or comes near the band in a JPEG can move the curve there (of 1,026 look-alikes with a
+  target line): 1.25 dB at 5 points (a dashed target 2 dB under the curve, a dB axis of 32 to 72 dB, 700 px, JPEG 30),
+  1.04 dB at 48 points (a level target at 47.5 dB, 1 to 9 dB under the curve from 9 to 18 kHz, 1400 px, JPEG 30), 1.00
+  dB at 4 points (a solid target 2 dB under the curve, 600 px, JPEG 40), 0.96 dB at 4 points (dashed, 2 dB under, 700
+  px, JPEG 30), 0.78 dB at 2 points (a solid target that crosses the curve, 700 px, JPEG 50).
 - A level target line across all of the grid can be read as the last dB grid line (the dB axis then ends at the
-  line): 0.64 dB at 111 points (a solid target at 67.5 dB, 1200 px, JPEG 50; PNG 0.41 dB).
-- The target line has no points where the band hides it, beside that and at the ends of each traced part (the
-  largest error of a target point: 0.83 dB, 1200 px, JPEG 30); with few points left it is None (75 of 208 targets
-  near or across the curve): the user adds the target by hand.
+  line): 0.78 dB at 110 points (a solid target at 72.5 dB, 1400 px, JPEG 20), 0.64 dB at 111 points (67.5 dB, 1200 px,
+  JPEG 50). Of 268 look-alikes with a level target: PNG 0.49 dB or less.
+- The target line has no points where the band hides it, beside that, at the ends of each traced part and on a short
+  traced part. The largest error of a target point (of 882 look-alikes with a target near the curve, across it or
+  level, the 144 below not counted): 0.89 dB (72.5 dB, 1400 px, JPEG 20). A target line along gray text or 1 dB from
+  its own name ("Sample Target", in its color) goes onto the words for a part (of 144): 1.39 dB at 17 points (a dashed
+  target at 48.6 dB, 1000 px, PNG); 7 of the 144 above 1 dB. With few points left it is None (65 of 176 targets near
+  or across the curve; 176 of 459 with ok=True in a second set of 512): the user adds the target by hand.
+- A noisy picture (random noise with a standard deviation of 6 or 10 levels, 1000 px, PNG; 2 look-alikes) fails
+  trace_single, which is not the true cause.
+- Some correct JPEG pictures fail trace_curve or trace_gaps (lost_channel, the text rule): of 2,040 JPEG look-alikes
+  with the channels 1 to 6 dB apart, 897 give a correct curve with ok=True. The user traces the others by hand.
 """
 import collections
 import math
@@ -837,11 +853,21 @@ def band(rgb, plot, bg, colour, px_db=None):
     mrows = _piece_rows(lab, sl, main)
     near = 0.15 * (y1 - y0)
     mcols = lw_main = None
+    wide_rows = []  # (the rows of each wide piece kept)
     for i in order[1:]:
         if spans[i] < 0.02 * wide:
             break
-        if spans[i] >= 0.25 * wide or sl[i][1].start >= sl[main][1].stop - 2 or sl[i][1].stop <= sl[main][1].start + 2:
+        if spans[i] >= 0.25 * wide:
             keep[i + 1] = True
+            wide_rows.append(_piece_rows(lab, sl, i))
+            continue
+        if sl[i][1].start >= sl[main][1].stop - 2 or sl[i][1].stop <= sl[main][1].start + 2:
+            # beside the widest piece, but in the columns of a wide piece: only near that piece (a JPEG cuts the
+            # lighter channel into pieces, and a word of the legend far below the curve was a part of the band:
+            # 10.9 dB off at 11 points, 800 px, JPEG 30)
+            gaps = [g for wr in wide_rows for g in _gap_to(_piece_rows(lab, sl, i), wr)]
+            if not gaps or float(np.median(gaps)) <= near:
+                keep[i + 1] = True
             continue
         if spans[i] < NEAR_PIECE_PX:
             continue
@@ -929,10 +955,12 @@ def band(rgb, plot, bg, colour, px_db=None):
             out[x] = room < sep + lw
         drop(out, "edge")
     drop(faded_ends(top, nruns, c1, c2, lw, px_db), "ends")
-    # (the text rule and lost_channel look at the same columns: no case needed one of them first)
+    # lost_channel before and after the text rule's cut, both: before it, it finds a channel lost in the text's
+    # columns (orange, 1000 px, JPEG 30: 2.02 dB at 29 points with the second only); after it, a channel lost after
+    # those columns where they were one high run (cyan, 1800 px, JPEG 20: 1.87 dB at 16 points with the first only)
     text, lost = flat_beside_steep(top, bot, lw), lost_channel(top, bot, nruns, c1, c2, lw, px_db)
     drop(text, "text")
-    drop(lost, "lost")
+    drop(lost | lost_channel(top, bot, nruns, c1, c2, lw, px_db), "lost")
     drop(short_parts(top), "alone")
     return {"x0": x0, "top": top, "bot": bot, "mid": (top + bot) / 2, "first": first, "c1": c1, "c2": c2,
             "runs": nruns, "lw": lw, "cut": cut, "full_top": full_top, "full_bot": full_bot, "cover": c,
@@ -1054,13 +1082,15 @@ def target_ends(ys, width):
     """The columns of the target's points ({column: row}) at the ends of each traced part (the parts apart by more
     than 1 % of the width): the first and last TARGET_END of the width, at least 3 columns (follow() goes on past
     where the line goes under the band or ends, onto the band's soft pixels or a word: measured 3.3 dB off at one
-    point, 500 px, JPEG 50; 1.3 dB at 4 points, 1200 px, JPEG 30). find_target leaves them out. Returns a sorted
-    list."""
+    point, 500 px, JPEG 50; 1.3 dB at 4 points, 1200 px, JPEG 30), and all the columns of a part shorter than 4 times
+    that or 2 % of the width. find_target leaves them out. Returns a sorted list."""
     kx = sorted(ys)
     trim = max(3, int(math.ceil(TARGET_END * width)))
     out = []
     for part in np.split(np.array(kx, int), np.flatnonzero(np.diff(kx) > max(8, 0.01 * width)) + 1) if kx else []:
-        out += [int(x) for x in part if x - part[0] < trim or part[-1] - x < trim]
+        # (a short part is not the line: follow() went onto gray text near the band, 14 dB off at 1 point, 700 px)
+        short = part[-1] - part[0] + 1 < max(4 * trim, 0.02 * width)
+        out += [int(x) for x in part if short or x - part[0] < trim or part[-1] - x < trim]
     return out
 
 

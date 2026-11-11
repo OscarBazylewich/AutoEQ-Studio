@@ -274,6 +274,41 @@ def test_target_off_the_line(qapp, monkeypatch, check):
     check("target_ends: the first and last 3 columns of each part (parts apart by more than 1 % of 1000 columns)",
           trace_auto.target_ends(ys, 1000) == [100, 101, 102, 157, 158, 159, 200, 201, 202, 203, 204, 400, 401, 402,
                                                 467, 468, 469], trace_auto.target_ends(ys, 1000))
+    ys = {x: 50.0 for x in list(range(100, 160)) + list(range(300, 319)) + list(range(500, 520))}
+    check("target_ends: all the columns of a part shorter than 2 % of 1000 columns (19 columns), the ends of a part of "
+          "20 columns", trace_auto.target_ends(ys, 1000) == [100, 101, 102, 157, 158, 159] + list(range(300, 319))
+          + [500, 501, 502, 517, 518, 519], trace_auto.target_ends(ys, 1000))
+    ys = {x: 50.0 for x in list(range(100, 160)) + list(range(300, 311))}
+    check("target_ends: all the columns of a part shorter than 4 times the ends (12 columns) of 500 columns (11 "
+          "columns)", trace_auto.target_ends(ys, 500) == [100, 101, 102, 157, 158, 159] + list(range(300, 311)),
+          trace_auto.target_ends(ys, 500))
+    ys = {x: 50.0 for x in range(100, 160)}
+    check(f"target_ends: the first and last {trace_auto.TARGET_END:g} of 2000 columns (6 columns) of a part",
+          trace_auto.target_ends(ys, 2000) == [100, 101, 102, 103, 104, 105, 154, 155, 156, 157, 158, 159],
+          trace_auto.target_ends(ys, 2000))
+
+
+def test_target_near_gray_text(qapp, monkeypatch, check):
+    """The fourth review's targets with a dB axis that puts the band near the gray text at the top right (MUST FIX 2):
+    a short traced part on the text stayed after target_ends (14.07 dB at 1 point, 6.26 dB at 5 points)."""
+    avg = lambda f: (wg._left(f) + wg._right(f)) / 2  # noqa: E731
+    for w, jpeg, kind, fn, rng, what in ((700, None, "dashed", lambda f: avg(f) - 1, (32, 72), "dashed, 1 dB under"),
+                                         (1000, 30, "solid", lambda f: avg(f) + 1, (33, 73), "solid, 1 dB over")):
+        truth, _rgb, r = fresh(monkeypatch, w, jpeg, target=kind, target_fn=fn, db_range=rng)
+        e = [abs(v - truth["tgt"](f)) for f, v in r.target_points or [] if 20 <= f <= 20000]
+        check(f"a target near the band and the gray text: no target, or each target point 1.0 dB or less from the true "
+              f"target ({what} the curve, {w} px, JPEG {jpeg}, a dB axis of {rng[0]} to {rng[1]})",
+              r.target is None or (e and max(e) <= 1.0), (r.target is None, e and max(e)))
+
+
+def test_target_known_limit(qapp, monkeypatch, check):
+    """A level target line 1 dB over its own name ("Sample Target", in its color): follow() goes onto the words for a
+    long part (a known limit of trace_auto, with its number in the docstring). The error must not become larger."""
+    truth, _rgb, r = fresh(monkeypatch, 1000, None, target="dashed", target_fn=lambda f: 48.6)
+    e = [abs(v - truth["tgt"](f)) for f, v in r.target_points or [] if 20 <= f <= 20000]
+    check("a level target 1 dB over its own name (1000 px, PNG): no target, or each target point 1.39 dB or less from "
+          "the true target (the known limit, to 0.01 dB)", r.target is None or (e and round(max(e), 2) <= 1.39),
+          (r.target is None, e and max(e)))
 
 
 def test_no_target(read, check):
@@ -666,6 +701,13 @@ def test_faded_end_rule(check):
           ends(7.0, split=2.0) == list(range(10)), ends(7.0, split=2.0))
     check("two lines again at column 4 (half the distance or more): the columns before it only",
           ends(7.0, split=4.0) == list(range(4)), ends(7.0, split=4.0))
+    # (just inside the end zone, columns 15 to 24, two lines 14 rows apart in each second column only: the median of
+    # the distances is 7 rows, but the band there is not two lines)
+    r, c2 = runs.copy(), c1 + 14.0
+    r[15:25:2] = 1
+    c2 = np.where(r >= 2, c2, c1)
+    got = list(np.flatnonzero(trace_auto.faded_ends(top, r, c1, c2, 3.0)))
+    check("the band just inside the end zone two lines in half of its columns only: no column", got == [], got)
 
 
 def test_legend_on_the_curve(qapp, monkeypatch, check):
@@ -690,8 +732,8 @@ def test_legend_known_limit(qapp, monkeypatch, check):
         truth, _rgb, r = fresh(monkeypatch, 700, legend_xy=xy)
         e = _worst(truth, r)
         check(f"the legend's words along a steep part at 700 px: the read fails, or the curve is 1.56 dB or less from "
-              f"the true average (the known limit, to 0.01 dB) ({xy})", not r.ok or (e is not None and round(e, 2) <= 1.56),
-              (r.ok, e))
+              f"the true average (the known limit, to 0.01 dB) ({xy})",
+              not r.ok or (e is not None and round(e, 2) <= 1.56), (r.ok, e))
 
 
 def test_legend_words_at_600_px(qapp, monkeypatch, check):
@@ -766,6 +808,37 @@ def test_near_pieces(check):
           f"a part of the band", abs(at(b, 340) - 102.5) < 0.6, at(b, 340))
 
 
+def test_piece_beside_the_widest_piece(check):
+    """band() keeps a piece beside the widest piece, in the columns of a wide piece, only when it is near that wide
+    piece (the fourth review, MUST FIX 1: a word of the legend far below the curve was a part of the band)."""
+    rgb = np.full((300, 800, 3), CREAM, np.uint8)
+    rgb[100:103, 10:490] = BLUE  # (the widest piece)
+    rgb[104:107, 500:700] = BLUE  # (a wide piece beside it: 200 of 780 columns)
+    rgb[200:206, 520:541] = BLUE  # (a piece of 21 columns 94 rows under the wide piece: a word)
+    rgb[108:111, 600:641] = BLUE  # (a piece of 41 columns 2 rows under the wide piece: the other channel)
+    rgb[150:153, 720:761] = BLUE  # (a piece of 41 columns where no wide piece is: a faded end cut off by a break)
+    b = trace_auto.band(rgb, {"x0": 10.0, "x1": 789.0, "y0": 10, "y1": 290}, CREAM, BLUE)
+    at = lambda x: float(b["bot"][x - b["x0"]])  # noqa: E731
+    check("a piece beside the widest piece, 94 rows from the wide piece in its columns (more than 0.15 of the grid's "
+          "height): not a part of the band", abs(at(530) - 106.5) < 0.6, at(530))
+    check("a piece beside the widest piece, 2 rows from the wide piece in its columns: a part of the band",
+          abs(at(620) - 110.5) < 0.6, at(620))
+    check("a piece beside the widest piece where no wide piece is: a part of the band", abs(at(740) - 152.5) < 0.6,
+          at(740))
+
+
+def test_word_far_from_the_curve(qapp, monkeypatch, check):
+    """The look-alikes of the fourth review where a JPEG cut the lighter channel into pieces and a word of the legend
+    at its usual place (far under the curve) was a part of the band: 10.93 dB at 11 points with ok=True (olive), and
+    12.39 dB at 69 points where a different check failed by chance (light blue)."""
+    for w, jpeg, colours, off in ((800, 30, ("#a4b000", "#7d8700"), 1.5), (500, 85, ("#74a9f7", "#5c93e6"), 1)):
+        truth, _rgb, r = fresh(monkeypatch, w, jpeg, colours=colours, offset_db=off)
+        e = _worst(truth, r)
+        check(f"a word of the legend far under the curve: the curve's points are 1.0 dB or less from the true average, "
+              f"and 0.5 dB or less when the read passes ({w} px, JPEG {jpeg}, {colours[0]}, {off:+} dB)",
+              e is not None and e <= 1.0 and (not r.ok or e <= 0.5), (r.ok, failed(r), e))
+
+
 def test_short_part_between_gaps(qapp, monkeypatch, check):
     """short_parts(): a part of the curve of 1 or 2 columns with no curve on its two sides is left out."""
     top = np.full(100, 50.0)
@@ -781,6 +854,15 @@ def test_short_part_between_gaps(qapp, monkeypatch, check):
           list(np.flatnonzero(trace_auto.short_parts(end))) == [0, 1], np.flatnonzero(trace_auto.short_parts(end)))
     top[50:53] = 50.0
     check("3 columns between two gaps: none", not trace_auto.short_parts(top).any())
+    # through band(): two lines (the second at the grid's bottom row), then one line; the edge rule leaves out the one
+    # line near the edge columns, but not columns 416 and 417, where a second line joins it: those 2 columns go too
+    rgb = np.full((300, 800, 3), CREAM, np.uint8)
+    rgb[278:281, 10:400], rgb[286:289, 10:400], rgb[282:285, 400:790] = BLUE, BLUE, BLUE
+    rgb[279:282, 415], rgb[276:279, 416:418], rgb[279:282, 418] = BLUE, BLUE, BLUE
+    b = trace_auto.band(rgb, {"x0": 10.0, "x1": 789.0, "y0": 10, "y1": 290}, CREAM, BLUE)
+    kept = [int(x) + b["x0"] for x in np.flatnonzero(np.isfinite(b["top"])) if 400 <= x + b["x0"] < 437]
+    check("band(): 2 columns with two lines between columns that the edge rule left out: left out too ('alone')",
+          b["cut"]["alone"] == 2 and kept == [], (b["cut"], kept))
     # the look-alike: one channel at the grid's bottom edge, a column between two cut parts (the dip at 10.7 kHz)
     truth, _rgb, r = fresh(monkeypatch, 1000, db_range=(50, 90), offset_db=3)
     e = errors(r.points, truth["avg"], 20, 20000)
@@ -910,6 +992,51 @@ def test_lost_channel_at_a_gap_and_a_junk_run(check):
           "stretch goes on to the end", list(np.flatnonzero(got)) == list(range(200, 300)), np.flatnonzero(got)[-5:])
 
 
+def test_lost_channel_parts_and_middle(check):
+    """lost_channel(): a short part between long gaps, the distance of LOST_APART from the band's full width, the
+    middle from the median of the 3 columns, and two lines again at 0.6 of the distance (the fourth review, SHOULD FIX
+    2: each rule with a test)."""
+    n = 500
+    nan = lambda: np.full(n, np.nan)  # noqa: E731
+    top, bot, c1, c2, runs = nan(), nan(), nan(), nan(), np.zeros(n, int)
+    p = slice(300, 320)  # (the only part with a curve: 20 columns between long gaps)
+    top[p], c1[p], c2[p], bot[p], runs[p] = 100.0, 101.5, 121.5, 123.0, 2
+    bot[306:320], c2[306:320], runs[306:320] = 103.0, 101.5, 1
+    got = trace_auto.lost_channel(top, bot, runs, c1, c2, 3.0)
+    check("a part of 20 columns between long gaps, the first line only from its 7th column: those columns",
+          list(np.flatnonzero(got)) == list(range(306, 320)), np.flatnonzero(got))
+    # (lines 5 rows apart in a part of 200 columns of a band of 1000: under LOST_APART of 1000 columns, 8 rows, but
+    # more than LOST_APART of the part, 1.6 rows)
+    n = 1000
+    top, bot, c1, c2, runs = nan(), nan(), nan(), nan(), np.zeros(n, int)
+    p = slice(400, 600)
+    top[p], c1[p], c2[p], bot[p], runs[p] = 100.0, 101.5, 106.5, 108.0, 2
+    bot[500:600], c2[500:600], runs[500:600] = 103.0, 101.5, 1
+    got = trace_auto.lost_channel(top, bot, runs, c1, c2, 1.0)
+    check(f"two lines 5 rows apart in a part of 200 columns of 1000 (under {trace_auto.LOST_APART:g} of the band's "
+          f"full width, 8 rows): no column", not got.any(), np.flatnonzero(got)[:5])
+    # a junk run over the first line in the middle one of the 3 columns before the lost line (each way): the median
+    # of the 3 middles stays the middle of the two lines (the mean moves 6.7 rows towards the line that stays)
+    n = 500
+    top, c1 = np.full(n, 100.0), np.full(n, 101.5)
+    bot, runs, c2 = np.full(n, 123.0), np.full(n, 2), np.full(n, 121.5)
+    bot[200:240], runs[200:240], c2[200:240] = 103.0, 1, 101.5
+    for x in (198, 241):
+        top[x], c1[x], runs[x] = 60.0, 61.5, 3
+    got = trace_auto.lost_channel(top, bot, runs, c1, c2, 3.0)
+    check("a junk run 40 rows over the first line in the middle one of the 3 columns before (each way): the 40 "
+          "columns with one line", list(np.flatnonzero(got)) == list(range(200, 240)), np.flatnonzero(got))
+    # two lines again 20 rows apart after a lost stretch of lines 30 rows apart, each 22 rows high: 0.6 of the
+    # distance (18 rows) or more ends the stretch, though under one line's height
+    x = np.arange(300, dtype=float)
+    top, bot, c1, c2, runs = 6 * x, 6 * x + 52, 6 * x + 11, 6 * x + 41, np.full(300, 2)  # (steep lines 30 rows apart)
+    top[200:], c1[200:], runs[200:] = c2[200:] - 11, c2[200:], 1  # (the first line lost from column 200)
+    c1[260:], top[260:], runs[260:] = c2[260:] - 20, c2[260:] - 31, 2  # (two lines 20 rows apart from column 260)
+    got = trace_auto.lost_channel(top, bot, runs, c1, c2, 3.0)
+    check("two lines 20 rows apart again after a stretch with one line (0.6 of the distance of 30 rows or more): the "
+          "stretch ends there", list(np.flatnonzero(got)) == list(range(200, 260)), np.flatnonzero(got)[-5:])
+
+
 def _worst(truth, r, lo=20, hi=20000):
     """The largest difference in dB of the curve's points from the true average between lo and hi Hz (None: no
     points there)."""
@@ -933,6 +1060,18 @@ def test_lost_channel_look_alikes(qapp, monkeypatch, check):
     check("a channel lost for 2 columns after a junk run (1600 px, JPEG 30, orange, -2 dB): the read fails, or the "
           "curve is 0.5 dB or less from the true average from 8 to 9 kHz, and 0.6 dB or less at each point",
           not r.ok or (e8 is not None and e8 <= 0.5 and e <= 0.6), (r.ok, failed(r), e8, e))
+
+
+def test_lost_channel_and_the_text_cut(qapp, monkeypatch, check):
+    """band() looks for a lost channel before and after the text rule's cut (the fourth review, SHOULD FIX 3): each
+    of these look-alikes passed with a wrong curve when lost_channel looked at one of the two only."""
+    for w, jpeg, colours, off, before in ((1800, 20, ("#00a8c6", "#0087a0"), -3, "1.87 dB at 16 points"),
+                                          (1000, 30, ORANGE, -2.5, "2.02 dB at 29 points")):
+        truth, _rgb, r = fresh(monkeypatch, w, jpeg, colours=colours, offset_db=off)
+        e = _worst(truth, r)
+        check(f"a channel lost near the columns of the text rule: the read fails, or the curve is 0.5 dB or less from "
+              f"the true average ({w} px, JPEG {jpeg}, {colours[0]}, {off:+} dB; with one look only: {before})",
+              not r.ok or (e is not None and e <= 0.5), (r.ok, failed(r), e))
 
 
 def test_text_beside_a_steep_part(check):
