@@ -17,8 +17,8 @@ parent is a drop-down: #searchPopup is a plain widget for that; as a frame it ne
 import re
 
 from PySide6.QtCore import QEvent, QPoint, Qt
-from PySide6.QtWidgets import (QComboBox, QFrame, QLineEdit, QListWidget, QListWidgetItem, QStyledItemDelegate,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QComboBox, QFrame, QLineEdit, QListWidget, QListWidgetItem, QStyle,
+                               QStyledItemDelegate, QStyleOptionComboBox, QStylePainter, QVBoxLayout, QWidget)
 
 
 SEARCH_FROM = 15  # a list with more choices than this opens with the search box (one screen of rows, about)
@@ -172,6 +172,23 @@ class SearchCombo(QComboBox):
             self.setCurrentIndex(i if i >= 0 else (0 if self.count() else -1))
         finally:
             self.blockSignals(blocked)
+
+    def shown_text(self):
+        """The chosen item as drawn: whole, or as much as fits, then "…", as Windows 11's own drop-downs do (Qt cuts
+        it off: "HiBy Music (and HiBy devices)  ·  Android, iOS, D"). Its list shows every item whole."""
+        opt = QStyleOptionComboBox()
+        self.initStyleOption(opt)
+        room = self.style().subControlRect(QStyle.CC_ComboBox, opt, QStyle.SC_ComboBoxEditField, self).width()
+        return self.fontMetrics().elidedText(opt.currentText, Qt.ElideRight, max(0, room - 4))
+
+    def paintEvent(self, e):
+        p = QStylePainter(self)
+        p.setPen(self.palette().color(self.foregroundRole()))
+        opt = QStyleOptionComboBox()
+        self.initStyleOption(opt)
+        p.drawComplexControl(QStyle.CC_ComboBox, opt)
+        opt.currentText = self.shown_text()
+        p.drawControl(QStyle.CE_ComboBoxLabel, opt)
 
     def has_search_box(self):
         """Does the list open with the search box (more than SEARCH_FROM choices)?"""

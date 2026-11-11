@@ -211,6 +211,27 @@ def test_long_names_and_empty_notes(eq_screen, check):
           and all(on == has for on, has in notes.values()) and notes["measurement"] == (True, True), (shown, notes))
 
 
+def test_long_choice_of_any_drop_down_ends_in_dots(eq_screen, check):
+    # (2026-11-10, the user's picture: Your EQ app showed "HiBy Music (and HiBy devices)  ·  Android, iOS, D", cut
+    # off: only the lists of names ended in "…")
+    combo = eq_screen.page.app_combo
+    was = combo.currentIndex()
+    longest = max(range(combo.count()), key=lambda k: combo.fontMetrics().horizontalAdvance(combo.itemText(k)))
+    short = min(range(2, combo.count()), key=lambda k: len(combo.itemText(k)))
+    try:
+        combo.setCurrentIndex(longest)
+        long_shown = combo.shown_text()
+        combo.setCurrentIndex(short)
+        short_shown = combo.shown_text()
+    finally:
+        combo.setCurrentIndex(was)
+    whole = combo.itemText(longest)
+    check("look: a choice too long for its drop-down (Your EQ app's longest) ends in “…”, never cut off part-way; one "
+          "that fits shows whole",
+          long_shown.endswith("…") and whole.startswith(long_shown[:-1].rstrip()) and len(long_shown) < len(whole)
+          and short_shown == combo.itemText(short), (long_shown, short_shown))
+
+
 def test_graph_card_title_lined_up_with_the_cards(eq_screen, check):
     # (2026-10-23, the restyle's recheck: the graph card, a card frame, kept Qt's own 9 px layout margin on top of its
     # padding, so its title started 5 px further in than the cards' titles under it: x 36 on the page against 32)

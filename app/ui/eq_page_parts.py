@@ -134,24 +134,8 @@ class SameWidth(QWidget):
 
 
 class NameCombo(SearchCombo):
-    """A drop-down of names (a target, a measurement, a run): one too long for it ends in "…", as Windows 11's own
-    drop-downs do, rather than being cut off; its list shows every name whole."""
-
-    def shown_text(self):
-        """The chosen name as drawn: whole, or as much as fits, then "…"."""
-        opt = QStyleOptionComboBox()
-        self.initStyleOption(opt)
-        room = self.style().subControlRect(QStyle.CC_ComboBox, opt, QStyle.SC_ComboBoxEditField, self).width()
-        return self.fontMetrics().elidedText(opt.currentText, Qt.ElideRight, max(0, room - 4))
-
-    def paintEvent(self, e):
-        p = QStylePainter(self)
-        p.setPen(self.palette().color(self.foregroundRole()))
-        opt = QStyleOptionComboBox()
-        self.initStyleOption(opt)
-        p.drawComplexControl(QStyle.CC_ComboBox, opt)
-        opt.currentText = self.shown_text()
-        p.drawControl(QStyle.CE_ComboBoxLabel, opt)
+    """A drop-down of names (a target, a measurement, a run). A name too long for it ends in "…": every SearchCombo
+    does that now (2026-11-10), so this is only its name for those lists."""
 
 
 def file_base_name(device, target, layout_name, mode, n):
