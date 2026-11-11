@@ -92,7 +92,8 @@ SETTINGS_DEVICES = [{'title': 'Devices',
                                          'can change its filters in the table, in the sliders or on the graph, and '
                                          'listen to it. Then Use on device › Update “its name” saves it in the profile. '
                                          'The profile keeps its name and its devices. A device that has this profile on '
-                                         'uses the change immediately. The message has Undo.',
+                                         'uses the change immediately, but some conditions can prevent this (refer to '
+                                         '“Update a profile (Use on device)”). The message has Undo.',
                                          'Make an EQ cannot edit some profiles (a graphic EQ, or other filter types): '
                                          'for these, you can use the EQ as a new profile. Use on device can also put a '
                                          'result into a profile that you have (Update a profile): the profile keeps '
@@ -118,8 +119,9 @@ SETTINGS_DEVICES = [{'title': 'Devices',
                                          'The profile keeps its name, its file name, and its devices. A device that has '
                                          'the profile on uses the new EQ immediately. A device that has the profile '
                                          'only in its list does not change. A device that is not connected uses the new '
-                                         'EQ when you connect it. After an update from a different result, the From '
-                                         'column of Profiles shows the file name of that result.',
+                                         'EQ when you connect it. A device on which Equalizer APO is not installed does '
+                                         'not use the EQ (refer to Devices). After an update from a different result, '
+                                         'the From column of Profiles shows the file name of that result.',
                                          'The update occurs immediately when you click the row. The message has Undo '
                                          'for 20 seconds (Ctrl+Z does the same). After Undo, the profile has its '
                                          'previous EQ again. Undo is not possible after you delete the profile, or '

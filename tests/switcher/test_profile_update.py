@@ -6,7 +6,8 @@ EQ, or a profile that's gone, changes nothing. Since 2026-11-10 any result of Ma
 file back byte for byte with its old record (or says the profile was deleted, or that its file changed since, and
 changes nothing); a profile whose file is gone gets it again (and Undo removes it); a source sets the profile's From.
 on_for gives the devices a profile is switched on for, not those that only have it in their list (used_by). A save
-that fails puts the update (or its Undo) back and raises. On a stand-in APO folder in the test's own folder."""
+that fails puts the update (or its Undo) back and raises. A long name (77 to 80 characters) whose file is there gets a
+second file and the import ends (also Keep it). On a stand-in APO folder in the test's own folder."""
 import os
 
 import pytest
@@ -258,3 +259,59 @@ def test_a_save_that_fails_removes_a_file_the_update_made(sw, check, monkeypatch
         raised = True
     check("core: when the save fails after an update made a profile's missing file, the file is removed again",
           raised and not os.path.exists(_file(sw, pid)), raised)
+
+
+LONG = "Truthear GATe (Wide Bore Tips) (L800 IEM) to Diffuse field 5128 -1dB per octave"  # (79: Make an EQ's own name)
+
+
+def _counted_names(monkeypatch):
+    """textfile.safe_name counted: after 50 calls for one profile it raises (the loop that never ended stops the
+    test, not the run)."""
+    real, calls = textfile.safe_name, []
+
+    def safe_name(*a, **k):
+        calls.append(a)
+        if len(calls) > 50:
+            raise RuntimeError("import_profile tried 50 file names: it never ends")
+        return real(*a, **k)
+    monkeypatch.setattr(textfile, "safe_name", safe_name)
+    return calls
+
+
+def test_a_long_name_two_times_gives_two_files(sw, check, monkeypatch):
+    # (2026-11-11: with a name of 77 characters or more and its file there, safe_name("<name> 2", 80) cut the number
+    # off, so each try gave the same file name and import_profile never ended: Keep it and a second Use on device
+    # stopped the window)
+    calls, seen = _counted_names(monkeypatch), {}
+    for size in (77, 78, 79, 80):
+        name = (LONG + "x" * 20)[:size]
+        files = []
+        for _ in range(2):
+            del calls[:]
+            try:
+                pid = sw.import_profile(_write(os.path.join(sw.top, "In.txt"), NEW), name)
+                files.append(sw.profiles()[pid]["file"])
+            except RuntimeError as e:
+                files.append(str(e))
+        seen[size] = files
+    check("core: a profile name of 77, 78, 79 or 80 characters imported two times gives two different files of 80 "
+          "characters or fewer (the number is after the cut), and the import ends",
+          all(len(set(f)) == 2 and all(x.endswith(".txt") and len(x) <= 84 and os.path.isfile(os.path.join(
+              sw.apo.profiles, x)) for x in f) for f in seen.values())
+          and seen[80][1][-6:] in (" 2.txt", " 3.txt"), seen)  # (" 2": the file of the 79 before it)
+
+
+def test_keep_it_with_a_long_name_ends(sw, check, monkeypatch):
+    calls = _counted_names(monkeypatch)
+    name = (LONG + "x" * 20)[:80]
+    first = sw.import_profile(_write(os.path.join(sw.top, "In.txt"), NEW), name)
+    del calls[:]
+    sw.try_eq(KEY, NEW, name)
+    try:
+        kept = sw.end_trial(keep=True)
+    except RuntimeError as e:
+        kept = str(e)
+    files = [sw.profiles()[p]["file"] for p in (first, kept) if p in sw.profiles()]
+    check("core: Keep it of an EQ for 5 minutes with a name of 80 characters, when a profile has that file name, "
+          "makes a second file and ends",
+          len(files) == 2 and files[0] != files[1] and sw.record(KEY)["active"] == kept, (kept, files))

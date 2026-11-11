@@ -202,7 +202,10 @@ class Switcher:
         file = textfile.safe_name(name, "EQ", 80) + ".txt"
         n = 2
         while os.path.exists(os.path.join(self.apo.profiles, file)):
-            file, n = textfile.safe_name(f"{name} {n}", "EQ", 80) + ".txt", n + 1
+            # (the number after the cut: safe_name("<name of 77 or more> 2", 80) cut it off, so each try gave the
+            # same file name and this never ended, with the window stopped)
+            suffix = f" {n}"
+            file, n = textfile.safe_name(name, "EQ", 80 - len(suffix)) + suffix + ".txt", n + 1
         os.makedirs(self.apo.profiles, exist_ok=True)
         textfile.write_atomic(os.path.join(self.apo.profiles, file), raw)
         pid = uuid.uuid4().hex[:10]

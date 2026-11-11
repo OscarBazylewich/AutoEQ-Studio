@@ -367,17 +367,16 @@ def eq_steps(page):
         api.say("Use on device: the EQ becomes a new profile of a device, or it goes into a profile that you have")
         yield from api.click(page.use_btn)
         from switcher.core import shown
-        from ui.eq_page_parts import update_row_words
+        from ui.eq_page_parts import update_row_words, use_menu_order
         sw = page.sw
-        names = [f"{shown(sw.record(d.key))}  ·  " + ("active" if d.key == sw.playing_key else "connected"
-                                                       if d.connected else "not connected") for d in sw.devices][:5]
-        # (the real menu's rows: the profiles that are on, in the sequence of the device rows, then Update a profile;
-        # the mock's rows have no keys' column; the words cut as the real menu cuts them)
-        seen = []
-        for d in sw.devices:
-            on = sw.record(d.key)["active"]
-            if on in sw.profiles() and on not in seen:
-                seen.append(on)
+        # (the real menu's rows, in its sequence (one function for the two): the devices, then the profiles that are
+        # on, then Update a profile; the mock's rows have no keys' column; the words cut as the real menu cuts them)
+        keys, seen = use_menu_order(sw)
+        names = []
+        for k in keys[:5]:
+            d = sw.device(k)
+            names.append(f"{shown(sw.record(k))}  ·  " + ("active" if k == sw.playing_key else "connected"
+                                                          if d and d.connected else "not connected"))
         page.use_menu.ensurePolished()
         fm = page.use_menu.fontMetrics()
         ups = []
@@ -386,6 +385,11 @@ def eq_steps(page):
                                               [shown(sw.record(k)) for k in sw.on_for(pid)])
             ups.append(f"{text}  ·  {where}")
         rows = (names or ["Headphones  ·  active"]) + [None] + ups + ["Update a profile ▸", None, "Use for 5 minutes on ▸"]
+        # (only Use on device lit, and the typed name taken away, while its menu shows: with the Update rows the menu is
+        # wider, so at 1000 x 900 the card's only room is over File name, and the field's light and the typed “New EQ”
+        # showed over the card's words and buttons, 2026-11-11)
+        api.spot_to(page.use_btn)
+        api.untype(page.name_edit)
         m = yield from mock_menu(api, page.use_btn, rows)
         api.say("Update a profile: the EQ goes into a profile that you have, and the devices that have it on use the new "
                 "EQ immediately")

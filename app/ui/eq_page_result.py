@@ -18,7 +18,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 import textfile
 from ui import bubble
-from ui.eq_page_parts import MODE_SHORT, and_list, file_base_name, modal, update_row_words
+from ui.eq_page_parts import MODE_SHORT, and_list, file_base_name, modal, update_row_words, use_menu_order
 
 # By hand's Start from: an EQ's sources in the order every such list has (.claude/notes/UI-RULES.md 16), each with the
 # note under the box; then each device's profile ("profile:<id>"; "profile:" when there's none yet)
@@ -731,8 +731,7 @@ class EqResult:
             self._update_row(m, pid)
             m.addSeparator()
         from switcher.core import shown
-        keys = [d.key for d in self.sw.devices] + [k for k in self.sw.s["devices"] if not self.sw.device(k)]
-        keys.sort(key=self.sw.device_sort_key)  # (as the Devices screen lists them)
+        keys, ups = use_menu_order(self.sw, pid)  # (as the Devices screen lists them; the Guide's picture the same)
         for key in keys:
             rec, d = self.sw.record(key), self.sw.device(key)
             where = "active" if key == self.sw.playing_key else "connected" if d and d.connected else "not connected"
@@ -744,13 +743,8 @@ class EqResult:
             m.addAction("No playback devices").setEnabled(False)
         if profiles:  # (into a profile you have: the ones that are on, one click; all of them, A to Z, in a submenu)
             m.addSeparator()
-            rows = []
-            flat = keys  # (every device's; for connected ones only: [k for k in keys if (d := self.sw.device(k)) and d.connected])
-            for key in flat:
-                on = self.sw.record(key)["active"]
-                if on and on != pid and on in profiles and on not in rows:
-                    rows.append(on)
-                    self._update_row(m, on)
+            for on in ups:  # (every device's, in the device rows' sequence)
+                self._update_row(m, on)
             u = m.addMenu("Update a profile")
             u.setToolTipsVisible(True)
             for other, _ in sorted(profiles.items(), key=lambda x: x[1]["name"].lower()):
@@ -782,21 +776,26 @@ class EqResult:
         a = menu.addAction(f"{text}\t{where}".replace("&", "&&"))  # (Qt reads one "&" as a key's mark)
         if pid == run.get("profile") and run.get("left_out"):
             a.setEnabled(False)
-            a.setToolTip("Its file has items that this EQ cannot show (" + " · ".join(run["left_out"]) + "): use this "
-                         "EQ as a new profile below")
+            why = ("its file has items that this EQ cannot show (" + " · ".join(run["left_out"]) + "): use this EQ as a "
+                   "new profile below")
+            a.setToolTip(f"The profile “{name}”: {why}" if cut else why[0].upper() + why[1:])  # (cut: its whole name)
             return a
-        who = self._on_sentences(keys, "it") or "No device has this profile on."
+        who = self._on_sentences(keys) or "No device has this profile on."
         a.setToolTip((f"The profile “{name}” changes to this EQ." if cut else "The profile changes to this EQ.")
-                     + f" {who} Its EQ at this time: {profile_line(self.sw.profiles()[pid])}.")
+                     + f" {who} The EQ of the profile at this time: {profile_line(self.sw.profiles()[pid])}.")
         a.triggered.connect(lambda _=False, pid=pid: self.update_profile(pid))
         return a
 
-    def _on_sentences(self, keys, it):
+    def _on_sentences(self, keys):
         """What the devices that have a profile on (keys) do after its update, a sentence for each group, true for
-        each device: the ones that use it immediately (it: "it" or "the new EQ"), the ones with an EQ for 5 minutes or
+        each device (the same words in the message and in the row's tooltip, each sentence with "the new EQ", so no
+        "it" can be the EQ or the device): the ones that use it immediately, the ones with an EQ for 5 minutes or
         their EQ off to compare (APO's file keeps that EQ for them), the ones not connected, and the ones without
-        Equalizer APO (as use_on says). "" with no keys."""
+        Equalizer APO (as use_on says). When Equalizer APO doesn't include the app, no device uses it immediately: that
+        comes first, and the others use it "after that". "" with no keys."""
         from switcher.core import shown
+        if not keys:
+            return ""
         held = {x["key"] for x in (self.sw.trial, self.sw.compare) if x}
         now, later, away, no_apo = [], [], [], []
         for k in keys:
@@ -804,8 +803,12 @@ class EqResult:
             (later if k in held else away if not (d and d.connected) else no_apo if not d.apo else now).append(
                 shown(self.sw.record(k)))
         out = []
+        unused = not self.sw.apo.includes_studio()
+        if unused:  # (APO reads none of the app's files: as use_on says it)
+            out.append("Equalizer APO does not use AutoEQ Studio: click Add AutoEQ Studio to APO… on the Devices screen.")
         if now:
-            out.append(f"{and_list(now)} {'uses' if len(now) == 1 else 'use'} {it} immediately.")
+            out.append(f"{and_list(now)} {'uses' if len(now) == 1 else 'use'} the new EQ "
+                       f"{'after that' if unused else 'immediately'}.")
         if later:
             one = len(later) == 1
             out.append(f"{and_list(later)} {'has' if one else 'have'} an EQ for 5 minutes, or "
@@ -892,10 +895,7 @@ class EqResult:
         except (OSError, ValueError) as e:
             QMessageBox.warning(self, "Update the profile", str(e))
             return
-        keys = self.sw.on_for(pid)
-        words = f"The app updated “{name}”. " + (self._on_sentences(keys, "the new EQ") or "No device has it on.")
-        if keys and not self.sw.apo.includes_studio():
-            words += " Equalizer APO does not use AutoEQ Studio: click Add AutoEQ Studio to APO… on the Devices screen."
+        words = f"The app updated “{name}”. " + (self._on_sentences(self.sw.on_for(pid)) or "No device has it on.")
 
         def undo():
             now = self.sw.profile_name(pid) or name  # (renamed meanwhile: its name now)
