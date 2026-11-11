@@ -792,7 +792,8 @@ class EqResult:
         "it" can be the EQ or the device): the ones that use it immediately, the ones with an EQ for 5 minutes or
         their EQ off to compare (APO's file keeps that EQ for them), the ones not connected, and the ones without
         Equalizer APO (as use_on says). When Equalizer APO doesn't include the app, no device uses it immediately: that
-        comes first, and the others use it "after that". "" with no keys."""
+        comes first, and the others use it "after that" (the ones not connected "after that, when you connect it"). ""
+        with no keys."""
         from switcher.core import shown
         if not keys:
             return ""
@@ -816,8 +817,8 @@ class EqResult:
                        "after that.")
         if away:
             one = len(away) == 1
-            out.append(f"{and_list(away)} {'uses' if one else 'use'} the new EQ when you connect "
-                       f"{'it' if one else 'them'}.")
+            out.append(f"{and_list(away)} {'uses' if one else 'use'} the new EQ {'after that, ' if unused else ''}"
+                       f"when you connect {'it' if one else 'them'}.")
         if no_apo:
             out.append(f"Equalizer APO is not installed on {and_list(no_apo)} (refer to Devices).")
         return " ".join(out)

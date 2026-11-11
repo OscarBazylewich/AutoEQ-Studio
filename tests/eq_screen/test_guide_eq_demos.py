@@ -280,7 +280,8 @@ def test_use_on_device_demo_rows_as_the_real_menu(eq_screen, check, monkeypatch,
     key, speakers = "Headset|EarPods", "Speakers|Realtek(R) High Definition Audio"
     eps = [D.Endpoint("{5}", "Headset", "EarPods", D.ACTIVE, True),
            D.Endpoint("{6}", "Speakers", "Realtek(R) High Definition Audio", D.ACTIVE, True),
-           D.Endpoint("{7}", "TV", "NVIDIA", D.ACTIVE, True)]
+           D.Endpoint("{7}", "TV", "NVIDIA", D.ACTIVE, True),
+           D.Endpoint("{9}", "Zone", "Dell", D.ACTIVE, True)]  # (last, A to Z: the long name on for two devices)
     long_name = "Daily, a profile with a long name that the menu cuts in the middle, as the Guide does"[:80]
     headset = copy.deepcopy(sw.record(key))
     seen = []
@@ -309,12 +310,15 @@ def test_use_on_device_demo_rows_as_the_real_menu(eq_screen, check, monkeypatch,
     made = []
     try:
         # (made in the opposite sequence: the profiles' own sequence is not the menu's)
-        for name, on in (("Zeta", "TV|NVIDIA"), (long_name, speakers), ("Night", key)):
+        # (the long name on for Speakers and Zone: its on words, "on for Speakers (Realtek(R) … and 1 more device",
+        # are cut too, 2026-11-11: a Guide that did not cut them passed)
+        for name, ons in (("Zeta", ["TV|NVIDIA"]), (long_name, [speakers, "Zone|Dell"]), ("Night", [key])):
             path = os.path.join(str(tmp_path), f"{len(made)}.txt")
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write("Preamp: -3 dB\nFilter 1: ON PK Fc 1000 Hz Gain 3 dB Q 1\n")
             made.append(sw.import_profile(path, name))
-            sw.add_to_device(on, made[-1], switch_on=True)
+            for on in ons:
+                sw.add_to_device(on, made[-1], switch_on=True)
         played = []
         for nickname in ("", "A TV"):  # (with a nickname, TV is first in the real menu: A to Z by the name shown)
             sw.set_nickname("TV|NVIDIA", nickname)
@@ -333,20 +337,22 @@ def test_use_on_device_demo_rows_as_the_real_menu(eq_screen, check, monkeypatch,
     ok = len(seen) == 2
     for s in seen:
         ups = lambda rows: [r for r in rows if r.startswith("Update “")]
-        devices = lambda rows: rows[:3]
+        devices = lambda rows: rows[:4]
         s["same"] = (ups(s["mock"]) == ups(s["real"])[:2] and len(ups(s["mock"])) == 2
                      and devices(s["mock"]) == devices(s["real"]))
-        s["cut"] = any(r.startswith("Update “Daily, a") and "…" in r for r in ups(s["mock"]))
+        s["cut"] = any(r.startswith("Update “Daily, a") and "…" in r.split("  ·  ")[0]
+                       and r.split("  ·  ")[-1].startswith("on for Speakers (Realtek")
+                       and r.endswith("… and 1 more device") for r in ups(s["mock"]))
         ok = ok and s["same"]
     ok = ok and seen[0]["cut"]  # (the long name: on the second device, an Update row of the first play)
     check("guide: the Use on device demo's device rows and Update rows are the real menu's, in its sequence (the "
           "profiles made in the opposite sequence; a device with a nickname first), with the same words, a long name "
-          "cut as the menu cuts it",
+          "and the on words of two devices, the first with a long name, cut as the menu cuts them",
           ok and all(e and not err for e, err in played)
-          and seen[0]["mock"][:3] == ["Headset (EarPods)  ·  active",
+          and seen[0]["mock"][:4] == ["Headset (EarPods)  ·  active",
                                       "Speakers (Realtek(R) High Definition Audio)  ·  connected",
-                                      "TV (NVIDIA)  ·  connected"]
-          and seen[1]["mock"][0] == "A TV  ·  connected" and seen[1]["mock"][3].startswith("Update “Zeta”"),
+                                      "TV (NVIDIA)  ·  connected", "Zone (Dell)  ·  connected"]
+          and seen[1]["mock"][0] == "A TV  ·  connected" and seen[1]["mock"][4].startswith("Update “Zeta”"),
           (played, seen))
     check("guide: while the Use on device demo points at its wide menu, nothing that the Guide draws over its card "
           "(a lit part, a typed name) is under the card",
