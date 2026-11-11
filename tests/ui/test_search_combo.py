@@ -107,3 +107,22 @@ def test_short_and_long_lists_alike(check):
           len(seen) == 2 and all((m.get("narrow") or {}).get("in_sight_width", 0) >= m["narrow"]["needs"]
                                  and m["narrow"]["in_sight"] == m["narrow"]["count"] for m in seen),
           [m.get("narrow") for m in seen] if d else out.stderr[-300:])
+
+
+def test_long_list_stays_on_the_screen(check):
+    # (2026-11-10, the user: Your EQ app's list, opened low in a maximized window scrolled just so, went up past the
+    # screen's top: no search box in sight. It had no room below, and above only less than its height)
+    from PySide6.QtCore import QRect
+    from ui.search_combo import place_list
+    screen = QRect(0, 0, 1920, 1040)
+    seen = {"fits below": place_list(100, 32, 200, 500, 400, screen),
+            "more room above, not enough": place_list(560, 32, 200, 500, 600, screen),
+            "more room below, not enough": place_list(300, 32, 200, 500, 800, screen),
+            "fits above": place_list(900, 32, 200, 500, 400, screen),
+            "past the right": place_list(100, 32, 1700, 500, 400, screen)}
+    check("drop-down lists: the long list opens below its drop-down when it fits there, else on the side with more "
+          "room and only as high as that room (its search box, at its top, stays on the screen), and not past the "
+          "screen's right",
+          seen == {"fits below": (200, 134, 400), "more room above, not enough": (200, 0, 558),
+                   "more room below, not enough": (200, 334, 706), "fits above": (200, 498, 400),
+                   "past the right": (1420, 134, 400)}, seen)

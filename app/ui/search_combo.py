@@ -31,6 +31,25 @@ def natural_key(s):
     return [float(t) if i % 2 else t for i, t in enumerate(parts)]
 
 
+def place_list(top, height, x, w, h, screen):
+    """Where a drop-down's long list goes: (x, y, h). Below the drop-down (its top and height, on the screen) when its
+    h fits there; else on the side with more room, only as high as that room, so its search box, the list's top, is
+    never off the screen (2026-11-10: above a drop-down low in a high window, the list's top went past the screen's);
+    and not past the screen's right or left."""
+    gap = 2
+    below = screen.bottom() + 1 - (top + height + gap)
+    above = top - gap - screen.top()
+    y = top + height + gap
+    if h > below:
+        if above > below:
+            h = min(h, above)
+            y = top - gap - h
+        else:
+            h = below
+    x = max(screen.left(), min(x, screen.right() + 1 - w))
+    return x, y, h
+
+
 class _Popup(QWidget):
     def __init__(self, combo):
         super().__init__(combo, Qt.Popup)
@@ -174,11 +193,11 @@ class SearchCombo(QComboBox):
         rows = max(1, min(self.count(), 14))
         h = self.list_height(p, rows)
         w = max(self.width(), min(520, p.list.sizeHintForColumn(0) + 40))  # (as wide as its longest row, within reason)
-        below = self.mapToGlobal(QPoint(0, self.height() + 2))
-        screen = self.screen().availableGeometry() if self.screen() else None
-        if screen is not None and below.y() + h > screen.bottom():
-            below = self.mapToGlobal(QPoint(0, -h - 2))
-        p.setGeometry(below.x(), below.y(), w, h)
+        top = self.mapToGlobal(QPoint(0, 0))
+        x, y = top.x(), top.y() + self.height() + 2
+        if self.screen() is not None:
+            x, y, h = place_list(top.y(), self.height(), x, w, h, self.screen().availableGeometry())
+        p.setGeometry(x, y, w, h)
         p.show()
         p.q.setFocus()
 
