@@ -18,7 +18,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 import textfile
 from ui import bubble
-from ui.eq_page_parts import MODE_SHORT, and_list, file_base_name, modal, on_words
+from ui.eq_page_parts import MODE_SHORT, and_list, file_base_name, modal, update_row_words
 
 # By hand's Start from: an EQ's sources in the order every such list has (.claude/notes/UI-RULES.md 16), each with the
 # note under the box; then each device's profile ("profile:<id>"; "profile:" when there's none yet)
@@ -728,7 +728,7 @@ class EqResult:
         pid = run.get("profile")
         profiles = self.sw.profiles()
         if pid in profiles:  # (an EQ by hand from a profile: back into it, or as a new one below)
-            self._update_row(m, pid, f"Update “{profiles[pid]['name']}”")
+            self._update_row(m, pid)
             m.addSeparator()
         from switcher.core import shown
         keys = [d.key for d in self.sw.devices] + [k for k in self.sw.s["devices"] if not self.sw.device(k)]
@@ -736,8 +736,9 @@ class EqResult:
         for key in keys:
             rec, d = self.sw.record(key), self.sw.device(key)
             where = "active" if key == self.sw.playing_key else "connected" if d and d.connected else "not connected"
-            # (the condition in a column at the right, as a menu's keys: the UI audit, 2026-11-08)
-            a = m.addAction(f"{shown(rec)}\t{where}")
+            # (the condition in a column at the right, as a menu's keys: the UI audit, 2026-11-08; Qt reads one "&" as
+            # a key's mark, so "TV (R&D Audio)" showed as "TV (RD Audio)")
+            a = m.addAction(f"{shown(rec).replace('&', '&&')}\t{where}")
             a.triggered.connect(lambda _=False, k=key: self.use_on(k))
         if not keys:
             m.addAction("No playback devices").setEnabled(False)
@@ -749,40 +750,74 @@ class EqResult:
                 on = self.sw.record(key)["active"]
                 if on and on != pid and on in profiles and on not in rows:
                     rows.append(on)
-                    self._update_row(m, on, f"Update “{profiles[on]['name']}”")
+                    self._update_row(m, on)
             u = m.addMenu("Update a profile")
             u.setToolTipsVisible(True)
-            for other, p in sorted(profiles.items(), key=lambda x: x[1]["name"].lower()):
-                self._update_row(u, other, p["name"])
+            for other, _ in sorted(profiles.items(), key=lambda x: x[1]["name"].lower()):
+                self._update_row(u, other, quoted=False)
         live = [d.key for d in self.sw.devices if d.connected]
         if live:  # (hear it in every app for a few minutes before keeping it)
             m.addSeparator()
             t = m.addMenu("Use for 5 minutes on")
             t.setToolTipsVisible(True)
             for key in live:
-                a = t.addAction(shown(self.sw.record(key)) + ("\tactive" if key == self.sw.playing_key else ""))
+                a = t.addAction(shown(self.sw.record(key)).replace("&", "&&")
+                                + ("\tactive" if key == self.sw.playing_key else ""))
                 a.setToolTip("The EQ plays in all apps for 5 minutes. Then, if you do not select Keep it, the device "
                              "uses its usual EQ again.")
                 a.triggered.connect(lambda _=False, k=key: self.start_trial(k))
 
-    def _update_row(self, menu, pid, text):
-        """One row that puts the EQ shown into this profile (Use on device): its words, where it's on in the keys'
-        column, what it does in its tooltip; off for the profile this EQ came from when it can't show all of it."""
+    def _update_row(self, menu, pid, quoted=True):
+        """One row that puts the EQ shown into this profile (Use on device): Update “its name” (quoted; the submenu's
+        rows: the name only), where it's on in the keys' column (the two cut to their room: update_row_words), what it
+        does in its tooltip (the whole name when it was cut, every device); off for the profile this EQ came from when
+        it can't show all of it."""
         from switcher.core import shown
         from ui.window_parts import profile_line
         run, _ = self.current()
-        on = [shown(self.sw.record(k)) for k in self.sw.on_for(pid)]
-        a = menu.addAction(f"{text}	{on_words(on)}".replace("&", "&&"))  # (Qt reads one "&" as a key's mark)
+        keys = self.sw.on_for(pid)
+        name = self.sw.profiles()[pid]["name"]
+        menu.ensurePolished()  # (the menu's own font, as it shows)
+        text, where, cut = update_row_words(menu.fontMetrics(), name, [shown(self.sw.record(k)) for k in keys], quoted)
+        a = menu.addAction(f"{text}\t{where}".replace("&", "&&"))  # (Qt reads one "&" as a key's mark)
         if pid == run.get("profile") and run.get("left_out"):
             a.setEnabled(False)
             a.setToolTip("Its file has items that this EQ cannot show (" + " · ".join(run["left_out"]) + "): use this "
                          "EQ as a new profile below")
             return a
-        who = f"{and_list(on)} use{'s' if len(on) == 1 else ''} it immediately." if on else             "No device has this profile on."
-        a.setToolTip(f"The profile changes to this EQ. {who} Its EQ at this time: "
-                     f"{profile_line(self.sw.profiles()[pid])}.")
+        who = self._on_sentences(keys, "it") or "No device has this profile on."
+        a.setToolTip((f"The profile “{name}” changes to this EQ." if cut else "The profile changes to this EQ.")
+                     + f" {who} Its EQ at this time: {profile_line(self.sw.profiles()[pid])}.")
         a.triggered.connect(lambda _=False, pid=pid: self.update_profile(pid))
         return a
+
+    def _on_sentences(self, keys, it):
+        """What the devices that have a profile on (keys) do after its update, a sentence for each group, true for
+        each device: the ones that use it immediately (it: "it" or "the new EQ"), the ones with an EQ for 5 minutes or
+        their EQ off to compare (APO's file keeps that EQ for them), the ones not connected, and the ones without
+        Equalizer APO (as use_on says). "" with no keys."""
+        from switcher.core import shown
+        held = {x["key"] for x in (self.sw.trial, self.sw.compare) if x}
+        now, later, away, no_apo = [], [], [], []
+        for k in keys:
+            d = self.sw.device(k)
+            (later if k in held else away if not (d and d.connected) else no_apo if not d.apo else now).append(
+                shown(self.sw.record(k)))
+        out = []
+        if now:
+            out.append(f"{and_list(now)} {'uses' if len(now) == 1 else 'use'} {it} immediately.")
+        if later:
+            one = len(later) == 1
+            out.append(f"{and_list(later)} {'has' if one else 'have'} an EQ for 5 minutes, or "
+                       f"{'its' if one else 'their'} EQ off to compare. {'It uses' if one else 'They use'} the new EQ "
+                       "after that.")
+        if away:
+            one = len(away) == 1
+            out.append(f"{and_list(away)} {'uses' if one else 'use'} the new EQ when you connect "
+                       f"{'it' if one else 'them'}.")
+        if no_apo:
+            out.append(f"Equalizer APO is not installed on {and_list(no_apo)} (refer to Devices).")
+        return " ".join(out)
 
     def _apo_text(self, title):
         """The EQ shown, as Equalizer APO text (as edited, with its pre-amp), or None (said)."""
@@ -842,8 +877,8 @@ class EqResult:
         name, its file's name and its devices stay, and the devices that have it switched on hear it at once (Equalizer
         APO reads the file again). No question first: the message has Undo (20 s, Ctrl+Z), which puts the old file and
         record back. From a different result, the profile's From becomes that result's name (as Use on device's new
-        profiles); its own EQ by hand keeps it."""
-        from switcher.core import shown
+        profiles); its own EQ by hand keeps it. The message says what each device that has it on does
+        (_on_sentences)."""
         run, _ = self.current()
         text = self._apo_text("Update the profile")
         if text is None:
@@ -858,13 +893,8 @@ class EqResult:
             QMessageBox.warning(self, "Update the profile", str(e))
             return
         keys = self.sw.on_for(pid)
-        on = [shown(self.sw.record(k)) for k in keys]
-        words = f"The app updated “{name}”. " + (f"{and_list(on)} use{'s' if len(on) == 1 else ''} the new EQ "
-                                                 "immediately." if on else "No device has it on.")
-        held = [x["key"] for x in (self.sw.trial, self.sw.compare) if x]
-        if any(k in held for k in keys):
-            words += " A device with an EQ for 5 minutes, or with its EQ off to compare, uses the new EQ after that."
-        if on and not self.sw.apo.includes_studio():
+        words = f"The app updated “{name}”. " + (self._on_sentences(keys, "the new EQ") or "No device has it on.")
+        if keys and not self.sw.apo.includes_studio():
             words += " Equalizer APO does not use AutoEQ Studio: click Add AutoEQ Studio to APO… on the Devices screen."
 
         def undo():
@@ -884,7 +914,7 @@ class EqResult:
         """fn(path) with the EQ's text in a file of its own for a moment (a profile is made from a file)."""
         path = os.path.join(tempfile.mkdtemp(prefix="autoeq-studio-"), textfile.safe_name(name, "EQ", 80) + ".txt")
         try:
-            textfile.write_atomic(path, text)
+            textfile.write_atomic(path, text, newline="")  # (its own CRLF: text mode wrote CR CR LF into profiles)
             return fn(path)
         finally:
             try:

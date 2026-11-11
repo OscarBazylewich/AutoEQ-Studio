@@ -92,11 +92,11 @@ SETTINGS_DEVICES = [{'title': 'Devices',
                                          'can change its filters in the table, in the sliders or on the graph, and '
                                          'listen to it. Then Use on device › Update “its name” saves it in the profile. '
                                          'The profile keeps its name and its devices. A device that has this profile on '
-                                         'uses the change immediately. The message has Undo. Make an EQ cannot edit '
-                                         'some profiles (a graphic EQ, or other filter types): for these, you can use '
-                                         'the EQ as a new profile. Use on device can also put a result into a profile '
-                                         'that you have (Update a profile): the profile keeps its name and its '
-                                         'devices.']},
+                                         'uses the change immediately. The message has Undo.',
+                                         'Make an EQ cannot edit some profiles (a graphic EQ, or other filter types): '
+                                         'for these, you can use the EQ as a new profile. Use on device can also put a '
+                                         'result into a profile that you have (Update a profile): the profile keeps '
+                                         'its name and its devices.']},
                                {'key': '#dev-rename',
                                 'title': 'Rename… (a device)',
                                 'body': ['Your name for a device (for example, “Dongle – KZ”). AutoEQ Studio shows it '
@@ -112,20 +112,21 @@ SETTINGS_DEVICES = [{'title': 'Devices',
                                {'key': '#use-update',
                                 'title': 'Update a profile (Use on device)',
                                 'body': ['In the menu of Use on device, each row Update “name” puts the EQ of the '
-                                         'result into a profile that you have. The row shows the devices that have the '
-                                         'profile on. Update a profile shows all your profiles.',
+                                         'result into a profile that you have. The row shows the first device that has '
+                                         'the profile on, and the number of other devices. Its tooltip shows all of '
+                                         'them. Update a profile shows all your profiles.',
                                          'The profile keeps its name, its file name, and its devices. A device that has '
                                          'the profile on uses the new EQ immediately. A device that has the profile '
                                          'only in its list does not change. A device that is not connected uses the new '
-                                         'EQ when you connect it. The From column of Profiles shows the name of the '
-                                         'result.',
+                                         'EQ when you connect it. After an update from a different result, the From '
+                                         'column of Profiles shows the file name of that result.',
                                          'The update occurs immediately when you click the row. The message has Undo '
-                                         'for 20 seconds (Ctrl+Z does the same). Undo puts the previous EQ of the '
-                                         'profile back. Undo is not possible after you delete the profile, or after its '
-                                         'file changes again.',
+                                         'for 20 seconds (Ctrl+Z does the same). After Undo, the profile has its '
+                                         'previous EQ again. Undo is not possible after you delete the profile, or '
+                                         'after its file changes again.',
                                          'If the result came from a profile (Edit in Make an EQ), Update “its name” is '
                                          'the first row of the menu. If the file of that profile has items that Make an '
-                                         'EQ cannot show (a graphic EQ, or other filter types), the row is off: use the '
-                                         'EQ as a new profile.',
+                                         'EQ cannot show (a graphic EQ, or other filter types), the row is off. For '
+                                         'that profile, you can use the EQ as a new profile.',
                                          'While a device uses an EQ for 5 minutes, or has its EQ off to compare, it does '
-                                         'not change. It uses the new EQ after that.']}]}]
+                                         'not change. It uses the new EQ after that, if you do not click Keep it.']}]}]

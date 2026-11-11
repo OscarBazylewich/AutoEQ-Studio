@@ -5,8 +5,8 @@ EQ, or a profile that's gone, changes nothing. Since 2026-11-10 any result of Ma
 (Use on device › Update a profile): the update gives back what its Undo needs, and restore_profile puts the profile's
 file back byte for byte with its old record (or says the profile was deleted, or that its file changed since, and
 changes nothing); a profile whose file is gone gets it again (and Undo removes it); a source sets the profile's From.
-on_for gives the devices a profile is switched on for, not those that only have it in their list (used_by). On a
-stand-in APO folder in the test's own folder."""
+on_for gives the devices a profile is switched on for, not those that only have it in their list (used_by). A save
+that fails puts the update (or its Undo) back and raises. On a stand-in APO folder in the test's own folder."""
 import os
 
 import pytest
@@ -192,3 +192,69 @@ def test_on_for_names_only_the_devices_where_it_is_on(sw2, check):
           "have it in their list (used_by gives both)",
           one == [KEY] and used == ["Headset (EarPods)", "Speakers (Realtek)"] and both == [KEY2, KEY]
           and sw2.on_for(other) == [] and sw2.on_for("gone") == [], (one, used, both))
+
+
+def test_an_eq_for_5_minutes_keeps_its_line_ends(sw, check):
+    crlf = "Preamp: -3 dB\r\nFilter 1: ON PK Fc 1000 Hz Gain -3 dB Q 1\r\n"  # (as Make an EQ gives it)
+    sw.try_eq(KEY, crlf, "Tried")
+    first = _bytes(sw.trial_path())
+    sw.trial_update(crlf.replace("-3 dB Q", "-4 dB Q"))
+    second = _bytes(sw.trial_path())
+    sw.end_trial()
+    check("core: an EQ for 5 minutes, and each change to it, is written with the text's own CRLF line ends (text mode "
+          "made them CR CR LF)",
+          first == crlf.encode() and second == crlf.replace("-3 dB Q", "-4 dB Q").encode(), (first, second))
+
+
+def _disk_record(sw, pid):
+    """The profile's record in the settings file on the disk."""
+    return textfile.read_json(sw.path)["profiles"][pid]
+
+
+def test_a_save_that_fails_puts_the_update_and_its_undo_back(sw, check, monkeypatch):
+    pid = _old_profile(sw)
+    sw.add_to_device(KEY, pid, switch_on=True)
+    rec, disk = dict(sw.profiles()[pid]), _disk_record(sw, pid)
+
+    def refuse():
+        raise PermissionError("Another program uses the settings file.")
+    monkeypatch.setattr(sw, "save", refuse)
+    try:
+        sw.update_profile(pid, _write(os.path.join(sw.top, "Result.txt"), NEW), source="Result.txt")
+        update = None
+    except OSError as e:
+        update = type(e).__name__
+    after_update = (_bytes(_file(sw, pid)) == OLD, sw.profiles()[pid] == rec, _disk_record(sw, pid) == disk)
+    monkeypatch.undo()
+    before = sw.update_profile(pid, _write(os.path.join(sw.top, "Result.txt"), NEW), source="Result.txt")
+    new_bytes, new_rec = _bytes(_file(sw, pid)), dict(sw.profiles()[pid])
+    monkeypatch.setattr(sw, "save", refuse)
+    try:
+        sw.restore_profile(pid, before)
+        undo = None
+    except OSError as e:
+        undo = type(e).__name__
+    after_undo = (_bytes(_file(sw, pid)) == new_bytes, sw.profiles()[pid] == new_rec)
+    monkeypatch.undo()
+    check("core: when the settings can't be saved, an update and its Undo raise the error and put the profile's file "
+          "and its record back as they were (no device plays an EQ that the settings don't name)",
+          update == "PermissionError" and after_update == (True, True, True)
+          and undo == "PermissionError" and after_undo == (True, True)
+          and sw.restore_profile(pid, before) == "" and _bytes(_file(sw, pid)) == OLD,
+          (update, after_update, undo, after_undo))
+
+
+def test_a_save_that_fails_removes_a_file_the_update_made(sw, check, monkeypatch):
+    pid = _old_profile(sw)
+    os.remove(_file(sw, pid))
+
+    def refuse():
+        raise OSError("The disk is full.")
+    monkeypatch.setattr(sw, "save", refuse)
+    try:
+        sw.update_profile(pid, _write(os.path.join(sw.top, "Result.txt"), NEW))
+        raised = False
+    except OSError:
+        raised = True
+    check("core: when the save fails after an update made a profile's missing file, the file is removed again",
+          raised and not os.path.exists(_file(sw, pid)), raised)

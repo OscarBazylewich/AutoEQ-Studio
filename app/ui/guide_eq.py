@@ -367,13 +367,24 @@ def eq_steps(page):
         api.say("Use on device: the EQ becomes a new profile of a device, or it goes into a profile that you have")
         yield from api.click(page.use_btn)
         from switcher.core import shown
-        from ui.eq_page_parts import on_words
+        from ui.eq_page_parts import update_row_words
         sw = page.sw
         names = [f"{shown(sw.record(d.key))}  ·  " + ("active" if d.key == sw.playing_key else "connected"
                                                        if d.connected else "not connected") for d in sw.devices][:5]
-        # (the real menu's rows: a profile that is on, then Update a profile; the mock's rows have no keys' column)
-        ups = [f"Update “{p['name']}”  ·  " + on_words([shown(sw.record(k)) for k in sw.on_for(pid)])
-               for pid, p in sw.profiles().items() if sw.on_for(pid)][:2]
+        # (the real menu's rows: the profiles that are on, in the sequence of the device rows, then Update a profile;
+        # the mock's rows have no keys' column; the words cut as the real menu cuts them)
+        seen = []
+        for d in sw.devices:
+            on = sw.record(d.key)["active"]
+            if on in sw.profiles() and on not in seen:
+                seen.append(on)
+        page.use_menu.ensurePolished()
+        fm = page.use_menu.fontMetrics()
+        ups = []
+        for pid in seen[:2]:
+            text, where, _ = update_row_words(fm, sw.profiles()[pid]["name"],
+                                              [shown(sw.record(k)) for k in sw.on_for(pid)])
+            ups.append(f"{text}  ·  {where}")
         rows = (names or ["Headphones  ·  active"]) + [None] + ups + ["Update a profile ▸", None, "Use for 5 minutes on ▸"]
         m = yield from mock_menu(api, page.use_btn, rows)
         api.say("Update a profile: the EQ goes into a profile that you have, and the devices that have it on use the new "

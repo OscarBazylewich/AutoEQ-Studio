@@ -218,7 +218,7 @@ class Switcher:
         its file's name, the devices that have it and where it's switched on stay; Equalizer APO reads its file again,
         so they hear it at once. source: the profile's new "From" file (None: it stays). Returns what restore_profile
         needs to undo it. Raises eqfile.NotAnEqFile (said as it is) or OSError. Every read comes before the first
-        write, so a refusal changes nothing."""
+        write, so a refusal changes nothing; a save that fails puts the file and the record back first."""
         p = self.s["profiles"].get(pid)
         if not p:
             raise OSError("The profile is not there.")
@@ -231,13 +231,14 @@ class Switcher:
         except FileNotFoundError:  # (a profile whose file is gone: the update makes it again, Undo removes it)
             old = None
         before = {"raw": old, "written": raw, "rec": {k: p[k] for k in _UPDATED if k in p}}
+        kept = dict(p)
         os.makedirs(self.apo.profiles, exist_ok=True)
         textfile.write_atomic(file, raw)
         p.update(filters=info["filters"], preamp=info["preamp"], graphic=info["graphic"],
                  changed=time.strftime("%Y-%m-%d %H:%M"))
         if source:
             p["source"] = source
-        self.save()
+        self._save_or_put_back(p, kept, file, old)
         self.apply()
         self._tell("profiles")
         return before
@@ -258,6 +259,7 @@ class Switcher:
             now = None
         if now != before["written"]:
             return "changed"
+        kept = dict(p)
         if before["raw"] is None:
             os.remove(file)
         else:
@@ -267,10 +269,29 @@ class Switcher:
                 p[k] = before["rec"][k]
             else:
                 p.pop(k, None)
-        self.save()
+        self._save_or_put_back(p, kept, file, now)
         self.apply()
         self._tell("profiles")
         return ""
+
+    def _save_or_put_back(self, p, kept, file, raw):
+        """The settings saved after a profile's file was written (update_profile, restore_profile); when the save
+        fails, the profile's record (kept) and its file (raw: its bytes before, None: it had none) as they were, then
+        the error raised: else its devices would play the new file while the settings on the disk and the page (no
+        Undo) said the old one."""
+        try:
+            self.save()
+        except OSError:
+            p.clear()
+            p.update(kept)
+            try:
+                if raw is None:
+                    os.remove(file)
+                else:
+                    textfile.write_atomic(file, raw)
+            except OSError:
+                pass
+            raise
 
     def rename_profile(self, pid, name):
         name = (name or "").strip()[:80]
@@ -413,7 +434,8 @@ class Switcher:
         if not self.record(key):
             raise OSError("AutoEQ Studio does not know this device.")
         os.makedirs(self.apo.profiles, exist_ok=True)
-        textfile.write_atomic(self.trial_path(), apo_text)
+        # (the text's own line ends: text mode made its CRLF CR CR LF)
+        textfile.write_atomic(self.trial_path(), apo_text, newline="")
         self.trial = {"key": key, "name": name, "until": time.time() + minutes * 60}
         self._clear_compare(key)
         self.apply()
@@ -425,7 +447,7 @@ class Switcher:
         if not self.trial:
             return False
         self._require_writable()
-        textfile.write_atomic(self.trial_path(), apo_text)
+        textfile.write_atomic(self.trial_path(), apo_text, newline="")
         return True
 
     def end_trial(self, keep=False):

@@ -2,7 +2,8 @@
 MODE_HINT, TICKS and file_base_name still import from ui/eq_page.py too.
 - FORMAT_NAMES: the files Save filters can write, by key; MODE_SHORT: each method's short name; MODE_HINT: the line
   beside Method; TICKS: the graph's frequencies
-- and_list(names): "A, B, and C" in a sentence; on_words(names): where a profile is on, for a menu's keys' column
+- and_list(names): "A, B, and C" in a sentence; on_words(names): where a profile is on, for a menu's keys' column;
+  update_row_words(fm, name, names): an update row's two texts, cut to their room (the menu and the Guide)
 - label(text, role, wrap): a label, in one of the theme's text roles; set_note(lab, text): a note's words, the note
   hidden while it has none (so an empty one takes no room); hz(v): a frequency in Hz or kHz
 - combo_width(combo, text): the width a drop-down needs for text; SameWidth: empty room as wide as another widget
@@ -64,6 +65,22 @@ def on_words(names):
         return "not on"
     more = len(names) - 1
     return f"on for {names[0]}" + (f" and {more} more device{'' if more == 1 else 's'}" if more else "")
+
+
+UPDATE_ROOM = 38  # (average characters for each of the two texts of an update row: about 600 px for the menu)
+
+
+def update_row_words(fm, name, names, quoted=True):
+    """The two texts of a row that updates a profile (Use on device's menu, and the Guide's picture of it):
+    Update “name” (quoted; the name only in the submenu) and on_words(names), each cut to UPDATE_ROOM average
+    characters of fm (the menu's QFontMetrics) with "…", so a long name doesn't make the menu wide (an automatic name
+    of 68 characters made it 958 px, a name of 80 wider than a 1366 px screen). The name is cut in the middle (the
+    end, "… 10f", tells automatic names apart), the on words at the end. Returns (the row's first text, its on
+    words, True when the name was cut)."""
+    room = fm.averageCharWidth() * UPDATE_ROOM
+    words = "Update “{}”" if quoted else "{}"
+    short = fm.elidedText(name, Qt.ElideMiddle, room - fm.horizontalAdvance(words.format("")))
+    return words.format(short), fm.elidedText(on_words(names), Qt.ElideRight, room), short != name
 
 
 class Elided(QLabel):
