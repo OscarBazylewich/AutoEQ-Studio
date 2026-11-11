@@ -175,10 +175,14 @@ class SearchCombo(QComboBox):
 
     def shown_text(self):
         """The chosen item as drawn: whole, or as much as fits, then "…", as Windows 11's own drop-downs do (Qt cuts
-        it off: "HiBy Music (and HiBy devices)  ·  Android, iOS, D"). Its list shows every item whole."""
+        it off: "HiBy Music (and HiBy devices)  ·  Android, iOS, D"). Its list shows every item whole. An item as wide
+        as the room shows whole: a drop-down at its own size has just that room for its widest item (the tracer's
+        Points in each octave showed "…" for "48")."""
         opt = QStyleOptionComboBox()
         self.initStyleOption(opt)
         room = self.style().subControlRect(QStyle.CC_ComboBox, opt, QStyle.SC_ComboBoxEditField, self).width()
+        if self.fontMetrics().horizontalAdvance(opt.currentText) <= room:
+            return opt.currentText
         return self.fontMetrics().elidedText(opt.currentText, Qt.ElideRight, max(0, room - 4))
 
     def paintEvent(self, e):

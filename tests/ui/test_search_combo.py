@@ -126,3 +126,58 @@ def test_long_list_stays_on_the_screen(check):
           seen == {"fits below": (200, 134, 400), "more room above, not enough": (200, 0, 558),
                    "more room below, not enough": (200, 334, 706), "fits above": (200, 498, 400),
                    "past the right": (1420, 134, 400)}, seen)
+
+
+# Drop-downs at their own size (the size the layouts give most of them), each choice chosen in turn and read back as
+# it is drawn; then one made narrow
+OWN_SIZE = r'''
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget
+qapp = QApplication([])
+from ui import theme, theme_tokens
+from ui.search_combo import SearchCombo
+theme.accent_palette = lambda: theme_tokens.DEFAULT_ACCENT
+LISTS = (["6", "12", "24", "48", "96"], ["A", "B"], ["100000", "1"], ["All rigs", "711", "5128"],
+         ["Frequency response (not compensated)", "Difference from a target"])
+out = {}
+for mode, dark in (("dark", True), ("light", False)):
+    theme.apply(qapp, dark=dark)
+    host = QWidget()
+    lay = QVBoxLayout(host)
+    combos = []
+    for items in LISTS:
+        c = SearchCombo(host)
+        c.addItems(items)
+        lay.addWidget(c)
+        combos.append(c)
+    host.show()
+    for _ in range(5):
+        qapp.processEvents()
+    cut = []
+    for c in combos:
+        c.setFixedWidth(c.sizeHint().width())
+        for i in range(c.count()):
+            c.setCurrentIndex(i)
+            if c.shown_text() != c.itemText(i):
+                cut.append([c.itemText(i), c.shown_text()])
+    narrow = combos[-1]
+    narrow.setCurrentIndex(0)
+    narrow.setFixedWidth(120)
+    out[mode] = {"cut": cut, "narrow": narrow.shown_text()}
+    host.close()
+print(json.dumps(out))
+'''
+
+
+def test_choice_whole_at_the_drop_downs_own_size(check):
+    # (2026-11-11, seen in a picture of the tracer: Points in each octave showed "…", not "48". At its own size a
+    # drop-down's room is just its widest choice's width, and the "…" rule kept 4 pixels free)
+    out = subproc.run_python(OWN_SIZE, session.SESSION.app)
+    d = out.data or {}
+    whole = "Frequency response (not compensated)"
+    check("drop-down lists: at its own size a drop-down shows each of its choices whole (\"48\", not \"…\"); made "
+          "narrower than its choice, the choice ends in “…”; light and dark",
+          set(d) == {"dark", "light"} and all(
+              m["cut"] == [] and m["narrow"].endswith("…") and whole.startswith(m["narrow"][:-1].rstrip())
+              and 1 < len(m["narrow"]) < len(whole) for m in d.values()), d or out.stderr[-300:])
