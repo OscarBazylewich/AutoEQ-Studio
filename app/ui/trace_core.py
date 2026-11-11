@@ -33,6 +33,18 @@ NICE = [math.log10(v) for v in (1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 7, 8, 9, 10)]
 LOG_DIGITS = np.log10(np.arange(1, 11))
 NAMES = {"tol": "Color tolerance", "ppo": "Points in each octave", "fmin": "Save from", "fmax": "Save to",
          "dashed": "Dashed line"}
+# What Tracer.take() does with each part of a tracer's state ("ta.<key>" and "v.<key>": a key of those dicts; the
+# others are attributes). A new key or attribute goes into one of the three (tests\tracer\test_trace_website.py).
+# Copied from the other tracer: what describes the picture and what was read from it.
+TAKE_COPIED = ("px", "W", "H", "h_lines", "v_lines", "grid_x", "box", "label_words", "src_name", "curves", "cur", "cal",
+               "bg", "dbg", "axis_note", "detect_note",
+               "ta.jpeg", "ta.noise", "ta.px_oct", "ta.notes", "ta.dashed_found", "ta.last_ocr", "ta.last_trace",
+               "v.name", "v.f1", "v.f2", "v.d1", "v.d2", "v.every")
+# Kept: the user's selections that are not for one picture (with the automatic settings on, fit_settings() then sets
+# tol, ppo, fmin and fmax, and "dashed" is set as load() sets it).
+TAKE_KEPT = ("ta.enabled", "v.tol", "v.ppo", "v.fmin", "v.fmax", "v.dashed", "v.snap")
+# Reset: what records the user's work on the picture before.
+TAKE_RESET = ("undo_stack", "redo_stack", "_match", "ta.manual", "typed", "moved", "label_token")
 
 
 def _round_3_digits(v):
@@ -332,6 +344,28 @@ class Tracer:
             self.v["dashed"] = False
         self.fit_settings()
         return note
+
+    def take(self, other):
+        """The state of another Tracer (auto_read's result, made in a thread) taken on the window's thread, with
+        TAKE_COPIED, TAKE_KEPT and TAKE_RESET above: the picture, its axes and curves are copied, the user's
+        selections stay, undo and redo start again. `other` is not used after this.
+        The caller's duties: the result's picture is a crop, so after take() the window sets its stage's picture from
+        self.px, shows the name and the axis values again, and renders the settings."""
+        for key in TAKE_COPIED:
+            part, _, k = key.rpartition(".")
+            if part:
+                getattr(self, part)[k] = getattr(other, part)[k]
+            else:
+                setattr(self, k, getattr(other, k))
+        self.undo_stack, self.redo_stack = [], []
+        self._match = {}
+        self.ta["manual"].clear()
+        self.typed = {"d": False, "f": False}
+        self.moved = {"d": False, "f": False}
+        self.label_token += 1  # (a label reading still running for the picture before is ignored)
+        if self.ta["enabled"]:
+            self.v["dashed"] = bool(self.ta["dashed_found"])
+        self.fit_settings()
 
     def squared_colour_distance(self, ys, xs, c):
         """Squared colour distance of pixels (arrays of rows and columns, or slices) from colour c."""
@@ -725,6 +759,7 @@ class Tracer:
             return ("The app cannot follow a line from that position. Click the middle of the curve, or increase the "
                     "color tolerance.")
         self.push_undo()
+        self.user_edit()
         ys = self.ys
         for gx, gy in got.items():
             ys[gx] = gy
@@ -859,9 +894,16 @@ class Tracer:
         self.cur = len(self.curves) - 1
         return f"New curve “{c['label']}”: click the curve on the picture, or click Trace automatically."
 
+    def user_edit(self, i=None):
+        """The user changes a curve's data (trace, make a line, erase, smooth, clear): it is a measurement curve from
+        now on, not the target line that auto_read found (its "target" mark goes)."""
+        if self.curves:
+            self.curves[self.cur if i is None else i].pop("target", None)
+
     def remove_curve(self, i):
         self.push_undo()
         if len(self.curves) == 1:
+            self.user_edit(0)
             self.curves[0]["ys"][:] = np.nan
             self.curves[0]["colour"] = None
         else:
@@ -1047,6 +1089,7 @@ class Tracer:
         if not self.curves or not self.has_data(self.curves[self.cur]):
             return ""
         self.push_undo()
+        self.user_edit()
         self.ys[:] = np.nan
         return "The app cleared this curve (you can undo this)."
 
@@ -1055,6 +1098,7 @@ class Tracer:
         if self.ys is None:
             return
         self.push_undo()
+        self.user_edit()
         ys = self.ys
         w = np.exp(-(np.arange(-3, 4) ** 2) / (2 * 1.5 * 1.5))
         ok = np.isfinite(ys)
@@ -1067,6 +1111,7 @@ class Tracer:
     def draw_segment(self, xa, ya, xb, yb):
         if xa > xb:
             xa, ya, xb, yb = xb, yb, xa, ya
+        self.user_edit()
         ys = self.ys
         for x in range(max(0, _js_round(xa)), min(self.W - 1, _js_round(xb)) + 1):
             ys[x] = yb if xb == xa else ya + (yb - ya) * (x - xa) / (xb - xa)
@@ -1082,6 +1127,7 @@ class Tracer:
             hit = np.flatnonzero((ys[a:b + 1] >= lo) & (ys[a:b + 1] <= hi)) + a
         if len(hit):
             self.push_undo()
+            self.user_edit()
             self.ys[hit] = np.nan
         return len(hit)
 
@@ -1124,11 +1170,16 @@ class Tracer:
         return f"* Traced from {self.src_name} with AutoEQ Studio{note}\n" + \
             "\n".join(f"{f:.{3 if f < 100 else 2}f}\t{v:.3f}" for f, v in pts) + "\n"
 
-    def outputs(self, only_current=False, comp=None, comp_note=""):
-        """What to save: [{file, text, label, gaps}], every curve with data as "<name> <label>", or "<name>" for one."""
+    def outputs(self, only_current=False, comp=None, comp_note="", name=None):
+        """What to save: [{file, text, label, gaps}], every curve with data as "<name> <label>.txt", or "<name>.txt"
+        for one (name: in place of the name typed in the window). A curve marked "target" (the target line that
+        auto_read found) is left out, unless only_current and it is the selected curve. No label has a special case:
+        auto_read's one curve "Average" is "<name>.txt"; with a second curve that the user adds, the files are
+        "<name> Average.txt" and "<name> L.txt"."""
         safe = lambda s: re.sub(r'[<>:"/\\|?*]', "_", s).strip()
-        name = safe(self.v["name"] or self.src_name) or "Traced graph"
-        lst = [self.curves[self.cur]] if only_current else [c for c in self.curves if self.has_data(c)]
+        name = safe((self.v["name"] if name is None else name) or self.src_name) or "Traced graph"
+        lst = [self.curves[self.cur]] if only_current else \
+            [c for c in self.curves if self.has_data(c) and not c.get("target")]
         if not lst or not any(map(self.has_data, lst)):
             raise ValueError("Trace a curve first.")
         outs = []
@@ -1216,3 +1267,10 @@ class Tracer:
         if (not k or k == "dashed") and self.ta["enabled"]:
             self.v["dashed"] = bool(self.ta["dashed_found"])
         self.fit_settings()
+
+
+def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
+    """A picture of a graph from a CrinGraph website read with no help (ui/trace_auto.py: its docstring says how, and
+    what comes back). Imported here at its first use: the app's start stays light."""
+    from ui import trace_auto
+    return trace_auto.auto_read(rgb, ocr_words, jpeg, name)
