@@ -35,6 +35,7 @@ from .apo import Apo
 
 TRIAL_FILE = "_trying.txt"
 COMPARE_FILE = "_compare.txt"  # (the on/off hotkey's "off": a pre-amp alone, the EQ's loudness)
+_UPDATED = ("filters", "preamp", "graphic", "changed", "source")  # (what update_profile changes in a profile's record)
 
 
 def shown(rec):
@@ -201,7 +202,10 @@ class Switcher:
         file = textfile.safe_name(name, "EQ", 80) + ".txt"
         n = 2
         while os.path.exists(os.path.join(self.apo.profiles, file)):
-            file, n = textfile.safe_name(f"{name} {n}", "EQ", 80) + ".txt", n + 1
+            # (the number after the cut: safe_name("<name of 77 or more> 2", 80) cut it off, so each try gave the
+            # same file name and this never ended, with the window stopped)
+            suffix = f" {n}"
+            file, n = textfile.safe_name(name, "EQ", 80 - len(suffix)) + suffix + ".txt", n + 1
         os.makedirs(self.apo.profiles, exist_ok=True)
         textfile.write_atomic(os.path.join(self.apo.profiles, file), raw)
         pid = uuid.uuid4().hex[:10]
@@ -212,22 +216,85 @@ class Switcher:
         self._tell("profiles")
         return pid
 
-    def update_profile(self, pid, path):
-        """A profile's EQ replaced by this file's (Make an EQ's EQ by hand, begun from it): its name, the devices that
-        have it and where it's switched on stay; Equalizer APO reads its file again, so they hear it at once. Raises
-        eqfile.NotAnEqFile (said as it is) or OSError."""
+    def update_profile(self, pid, path, source=None):
+        """A profile's EQ replaced by this file's (a result of Make an EQ, or its EQ by hand begun from it): its name,
+        its file's name, the devices that have it and where it's switched on stay; Equalizer APO reads its file again,
+        so they hear it at once. source: the profile's new "From" file (None: it stays). Returns what restore_profile
+        needs to undo it. Raises eqfile.NotAnEqFile (said as it is) or OSError. Every read comes before the first
+        write, so a refusal changes nothing; a save that fails puts the file and the record back first."""
         p = self.s["profiles"].get(pid)
         if not p:
             raise OSError("The profile is not there.")
         self._require_writable()
         raw, info = eqfile.read_eq(path)
+        file = os.path.join(self.apo.profiles, p["file"])
+        try:
+            with open(file, "rb") as fh:
+                old = fh.read()
+        except FileNotFoundError:  # (a profile whose file is gone: the update makes it again, Undo removes it)
+            old = None
+        before = {"raw": old, "written": raw, "rec": {k: p[k] for k in _UPDATED if k in p}}
+        kept = dict(p)
         os.makedirs(self.apo.profiles, exist_ok=True)
-        textfile.write_atomic(os.path.join(self.apo.profiles, p["file"]), raw)
+        textfile.write_atomic(file, raw)
         p.update(filters=info["filters"], preamp=info["preamp"], graphic=info["graphic"],
                  changed=time.strftime("%Y-%m-%d %H:%M"))
-        self.save()
+        if source:
+            p["source"] = source
+        self._save_or_put_back(p, kept, file, old)
         self.apply()
         self._tell("profiles")
+        return before
+
+    def restore_profile(self, pid, before):
+        """Undo of update_profile: the profile's file (byte for byte) and its record as they were (before: what
+        update_profile returned). Returns "" (done), "deleted" (the profile is gone) or "changed" (its file isn't what
+        the update wrote: left as it is, so that other change isn't lost). Raises OSError."""
+        p = self.s["profiles"].get(pid)
+        if not p:
+            return "deleted"
+        self._require_writable()
+        file = os.path.join(self.apo.profiles, p["file"])
+        try:
+            with open(file, "rb") as fh:
+                now = fh.read()
+        except FileNotFoundError:
+            now = None
+        if now != before["written"]:
+            return "changed"
+        kept = dict(p)
+        if before["raw"] is None:
+            os.remove(file)
+        else:
+            textfile.write_atomic(file, before["raw"])
+        for k in _UPDATED:
+            if k in before["rec"]:
+                p[k] = before["rec"][k]
+            else:
+                p.pop(k, None)
+        self._save_or_put_back(p, kept, file, now)
+        self.apply()
+        self._tell("profiles")
+        return ""
+
+    def _save_or_put_back(self, p, kept, file, raw):
+        """The settings saved after a profile's file was written (update_profile, restore_profile); when the save
+        fails, the profile's record (kept) and its file (raw: its bytes before, None: it had none) as they were, then
+        the error raised: else its devices would play the new file while the settings on the disk and the page (no
+        Undo) said the old one."""
+        try:
+            self.save()
+        except OSError:
+            p.clear()
+            p.update(kept)
+            try:
+                if raw is None:
+                    os.remove(file)
+                else:
+                    textfile.write_atomic(file, raw)
+            except OSError:
+                pass
+            raise
 
     def rename_profile(self, pid, name):
         name = (name or "").strip()[:80]
@@ -285,6 +352,11 @@ class Switcher:
 
     def used_by(self, pid):
         return [shown(d) for d in self.s["devices"].values() if pid in d["profiles"]]
+
+    def on_for(self, pid):
+        """The keys of the devices that have this profile switched on (not only in their list: used_by gives both), in
+        the order of the lists of devices (device_sort_key)."""
+        return sorted((k for k, d in self.s["devices"].items() if d["active"] == pid), key=self.device_sort_key)
 
     # ---------------------------------------------------------------- a device's profiles
     def add_to_device(self, key, pid, switch_on=True, at=None, last=False):
@@ -365,7 +437,8 @@ class Switcher:
         if not self.record(key):
             raise OSError("AutoEQ Studio does not know this device.")
         os.makedirs(self.apo.profiles, exist_ok=True)
-        textfile.write_atomic(self.trial_path(), apo_text)
+        # (the text's own line ends: text mode made its CRLF CR CR LF)
+        textfile.write_atomic(self.trial_path(), apo_text, newline="")
         self.trial = {"key": key, "name": name, "until": time.time() + minutes * 60}
         self._clear_compare(key)
         self.apply()
@@ -377,7 +450,7 @@ class Switcher:
         if not self.trial:
             return False
         self._require_writable()
-        textfile.write_atomic(self.trial_path(), apo_text)
+        textfile.write_atomic(self.trial_path(), apo_text, newline="")
         return True
 
     def end_trial(self, keep=False):

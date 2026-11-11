@@ -38,6 +38,11 @@ def test_use_on_device(eq_screen, history_eq, check):
     check("ui: Use on device makes the result the device's profile, switched on, in APO's file",
           rec["active"] and sw.profile_name(rec["active"]) == "UI check" and "Include: profiles\\UI check.txt" in sw_text
           and "is on for Headset (EarPods)" in said[-1], (rec, said[-1:]))
+    with open(os.path.join(sw.apo.profiles, sw.profiles()[rec["active"]]["file"]), "rb") as fh:
+        raw = fh.read()
+    text = eq_screen.page._apo_text("Use on device")
+    check("ui: Use on device writes the profile's file byte for byte as Equalizer APO text (CRLF, not CR CR LF)",
+          text and raw == text.encode("utf-8") and b"\r\r\n" not in raw, raw[:120])
 
 
 def test_try_with_every_device_disconnected(eq_screen, check, monkeypatch):
@@ -62,12 +67,18 @@ def test_try_for_5_minutes(eq_screen, history_eq, check):
         raise RuntimeError("the stand-in device isn't connected: Try needs a connected device")
     # (lines 2613-2619: the Use on device menu filled, the EQ tried on the device, the trial ended)
     page._fill_use_menu()
-    sub = next((a.menu() for a in page.use_menu.actions() if a.menu() is not None), None)
+    # (by its title: the menu also has Update a profile, a submenu above it, once a profile exists)
+    sub = next((a.menu() for a in page.use_menu.actions()
+                if a.menu() is not None and a.text() == "Use for 5 minutes on"), None)
     profiles = len(sw.profiles())
     page.start_trial(key)
     swt = os.path.join(sw.apo.config, "AutoEQ Studio", "switcher.txt")
     on = (sw.trial and sw.trial["key"], "_trying.txt" in _read(swt), len(sw.profiles()))
+    with open(sw.trial_path(), "rb") as fh:
+        tried = fh.read()
     sw.end_trial()
+    check("try: the EQ for 5 minutes is written with its own CRLF line ends (not CR CR LF)",
+          b"Filter 1:" in tried and b"\r\n" in tried and b"\r\r\n" not in tried, tried[:120])
     # was eq_checks.py:2620
     check("try: Use on device › Try for 5 minutes on plays the result on that device (APO's file), not as a profile; "
           "its end puts the device's own EQ back", isinstance(sub, QMenu) and sub.actions() and on == (key, True, profiles)

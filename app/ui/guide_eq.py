@@ -364,14 +364,37 @@ def eq_steps(page):
         b = button(page.result_box, "Save filters")
         yield from api.click(b)
         yield from api.note("The app saves “New EQ”. (Demo: the app did not save a file.)", b, 1500)
-        api.say("Use on device: the EQ becomes the EQ of a device, and it is on (or you can use it for 5 minutes)")
+        api.say("Use on device: the EQ becomes a new profile of a device, or it goes into a profile that you have")
         yield from api.click(page.use_btn)
         from switcher.core import shown
+        from ui.eq_page_parts import update_row_words, use_menu_order
         sw = page.sw
-        names = [f"{shown(sw.record(d.key))}  ·  " + ("active" if d.key == sw.playing_key else "connected"
-                                                       if d.connected else "not connected") for d in sw.devices][:5]
-        m = yield from mock_menu(api, page.use_btn, (names or ["Headphones  ·  active"])
-                                 + [None, "Use for 5 minutes on ▸"])
+        # (the real menu's rows, in its sequence (one function for the two): the devices, then the profiles that are
+        # on, then Update a profile; the mock's rows have no keys' column; the words cut as the real menu cuts them)
+        keys, seen = use_menu_order(sw)
+        names = []
+        for k in keys[:5]:
+            d = sw.device(k)
+            names.append(f"{shown(sw.record(k))}  ·  " + ("active" if k == sw.playing_key else "connected"
+                                                          if d and d.connected else "not connected"))
+        page.use_menu.ensurePolished()
+        fm = page.use_menu.fontMetrics()
+        ups = []
+        for pid in seen[:2]:
+            text, where, _ = update_row_words(fm, sw.profiles()[pid]["name"],
+                                              [shown(sw.record(k)) for k in sw.on_for(pid)])
+            ups.append(f"{text}  ·  {where}")
+        rows = (names or ["Headphones  ·  active"]) + [None] + ups + ["Update a profile ▸", None, "Use for 5 minutes on ▸"]
+        # (only Use on device lit, and the typed name taken away, while its menu shows: with the Update rows the menu is
+        # wider, so at 1000 x 900 the card's only room is over File name, and the field's light and the typed “New EQ”
+        # showed over the card's words and buttons, 2026-11-11)
+        api.spot_to(page.use_btn)
+        api.untype(page.name_edit)
+        m = yield from mock_menu(api, page.use_btn, rows)
+        api.say("Update a profile: the EQ goes into a profile that you have, and the devices that have it on use the new "
+                "EQ immediately")
+        yield from point_at_menu_row(api, m, rows.index("Update a profile ▸"), hold=900)
+        api.say("A device: the EQ becomes its new profile, and it is on")
         yield from point_at_menu_row(api, m, 0)
         api.close(m)
         yield from api.note("It is the EQ of the device, and it is on. (Demo: the device did not change.)",
@@ -761,8 +784,10 @@ def eq_steps(page):
          "before": result_before, "after": result_after, "ready": has_curves,
          "text": lambda: "Two rows of buttons, below File name. The files: Save filters saves the file for your EQ app "
                          "with the File name, Copy copies the filters to the clipboard, and the folder opens. Then: Use "
-                         "on device makes the EQ the profile of a device and enables it (or uses it there for 5 "
-                         "minutes). Keep to compare adds it to your EQs to compare. Report makes an HTML page."
+                         "on device makes the EQ a new profile of a device and enables it. It can also update a profile "
+                         "that you have (the devices that have it on use the new EQ immediately), or use the EQ on a "
+                         "device for 5 minutes. Keep to compare adds it to your EQs to compare. Report makes an HTML "
+                         "page."
                          + example(),
          "demo": [{"run": save_demo, "say": "Give it a name, save it, or use it on a device"}]},
         {"chapter": "3 · Calculate and examine", "title": "Listen", "target": lambda: page.listen,

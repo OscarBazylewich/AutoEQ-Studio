@@ -2,6 +2,9 @@
 MODE_HINT, TICKS and file_base_name still import from ui/eq_page.py too.
 - FORMAT_NAMES: the files Save filters can write, by key; MODE_SHORT: each method's short name; MODE_HINT: the line
   beside Method; TICKS: the graph's frequencies
+- and_list(names): "A, B, and C" in a sentence; on_words(names): where a profile is on, for a menu's keys' column;
+  update_row_words(fm, name, names): an update row's two texts, cut to their room (the menu and the Guide);
+  use_menu_order(sw, own): Use on device's device rows and Update rows, in one sequence (the menu and the Guide)
 - label(text, role, wrap): a label, in one of the theme's text roles; set_note(lab, text): a note's words, the note
   hidden while it has none (so an empty one takes no room); hz(v): a frequency in Hz or kHz
 - combo_width(combo, text): the width a drop-down needs for text; SameWidth: empty room as wide as another widget
@@ -46,6 +49,60 @@ def set_note(lab, text):
 
 def hz(v):
     return f"{v / 1000:g} kHz" if v >= 1000 else f"{v:g} Hz"
+
+
+def and_list(names):
+    """Names in a sentence: "A", "A and B", "A, B, and C"."""
+    names = list(names)
+    if len(names) <= 2:
+        return " and ".join(names)
+    return ", ".join(names[:-1]) + ", and " + names[-1]
+
+
+def on_words(names):
+    """Where a profile is switched on, for a menu's keys' column (names: its devices, in Devices' order): "not on",
+    "on for A", "on for A and 2 more devices" (one name only, so two long Windows names don't make the menu wide)."""
+    if not names:
+        return "not on"
+    more = len(names) - 1
+    return f"on for {names[0]}" + (f" and {more} more device{'' if more == 1 else 's'}" if more else "")
+
+
+UPDATE_ROOM = 38  # (average characters for each of the two texts of an update row: about 600 px for the menu)
+
+
+def update_row_words(fm, name, names, quoted=True):
+    """The two texts of a row that updates a profile (Use on device's menu, and the Guide's picture of it):
+    Update “name” (quoted; the name only in the submenu) and on_words(names), each cut to UPDATE_ROOM average
+    characters of fm (the menu's QFontMetrics) with "…", so a long name doesn't make the menu wide (an automatic name
+    of 68 characters made it 958 px, a name of 80 wider than a 1366 px screen). The name is cut in the middle (the
+    end, "… 10f", tells automatic names apart); in the on words only the first device's name is cut, at its end, so
+    "and 1 more device" stays (cut at the end of the words, a usual Windows name such as "Speakers (Realtek(R) High
+    Definition Audio)" took the count away). Returns (the row's first text, its on words, True when the name was cut)."""
+    room = fm.averageCharWidth() * UPDATE_ROOM
+    words = "Update “{}”" if quoted else "{}"
+    short = fm.elidedText(name, Qt.ElideMiddle, room - fm.horizontalAdvance(words.format("")))
+    on = on_words(names)
+    if names and fm.horizontalAdvance(on) > room:
+        start, more = "on for ", on[len("on for ") + len(names[0]):]  # (more: " and N more devices", or "")
+        first = fm.elidedText(names[0], Qt.ElideRight, max(0, room - fm.horizontalAdvance(start + more)))
+        on = start + first + more
+    return words.format(short), on, short != name
+
+
+def use_menu_order(sw, own=None):
+    """Use on device's rows in one sequence, for its menu (ui/eq_page_result.py) and the Guide's picture of it
+    (ui/guide_eq.py): every device's key, as the Devices screen lists them (sw.device_sort_key: connected ones first,
+    then A to Z by the name shown, a nickname too), and the ids of the profiles that are on for them, in that sequence,
+    each one time (own: the profile the EQ came from, left out: it has its own row at the top). Returns (keys, ids)."""
+    keys = [d.key for d in sw.devices] + [k for k in sw.s["devices"] if not sw.device(k)]
+    keys.sort(key=sw.device_sort_key)
+    profiles, ids = sw.profiles(), []
+    for key in keys:
+        on = sw.record(key)["active"]
+        if on and on != own and on in profiles and on not in ids:
+            ids.append(on)
+    return keys, ids
 
 
 class Elided(QLabel):

@@ -225,13 +225,14 @@ def test_menus_drawn_with_the_real_submenu_arrow(eq_screen, check, monkeypatch):
 
     def pick(api, m, i, *a, **k):  # (each menu as the demo picks from it: shown for a while, laid out)
         if tasks.alive(m):
-            arrow = m.findChild(QLabel, "tourMockArrow")  # (the Guide's menu draws a submenu's: tour.Mock)
-            img = qt.picture(arrow) if arrow is not None else None
+            # (the Guide's menu draws a submenu's: tour.Mock; Use on device's has two, Update a profile and Use for 5
+            # minutes on)
+            arrows = m.findChildren(QLabel, "tourMockArrow")
             labels = [r for r in m.rows if isinstance(r, QLabel)]
             seen.append({"rows": [r.text() for r in labels],
                          "cut": [r.text() for r in labels if r.sizeHint().width() > r.width()],
-                         "arrow in": arrow is not None and arrow.parentWidget().text(),
-                         "arrow": img is not None and _chevron_right(img)})
+                         "arrow in": [a.parentWidget().text() for a in arrows],
+                         "arrow": bool(arrows) and all(_chevron_right(qt.picture(a)) for a in arrows)})
         yield from real_pick(api, m, i, *a, **k)
         if tasks.alive(m):  # (the row picked is pointed at now: how the menu is drawn, its corner and that row)
             img, r = qt.picture(m), m.row(i).geometry()
@@ -252,7 +253,9 @@ def test_menus_drawn_with_the_real_submenu_arrow(eq_screen, check, monkeypatch):
           all(ended and not errors for ended, errors in played.values()) and len(seen) >= 3
           and not any("▸" in row for s in seen for row in s["rows"]) and not any(s["cut"] for s in seen)
           and any("listener800" in row for s in seen for row in s["rows"])
-          and all(s["arrow in"] in ("Delete a preset", "Use for 5 minutes on") and s["arrow"] for s in seen)
+          and all(s["arrow in"] and set(s["arrow in"]) <= {"Delete a preset", "Update a profile", "Use for 5 minutes on"}
+                  and s["arrow"] for s in seen)
+          and any(s["arrow in"] == ["Update a profile", "Use for 5 minutes on"] for s in seen)
           and pictures[0] is not None and pictures[0] == pictures[1], (played, seen, pictures))
     # (2026-10-23, the restyle's last merge: these two demos drew their menus with the Guide's list, so they had a
     # drop-down's round corners and the accent's bar beside the row pointed at, where the real menus have neither;
@@ -262,6 +265,93 @@ def test_menus_drawn_with_the_real_submenu_arrow(eq_screen, check, monkeypatch):
           "corners, the row pointed at filled without the accent's bar beside it), not a drop-down's list",
           len(looks) >= 3 and all(x["kind"] == "menu" and x["corner"] == stroke and x["edge"] == x["fill"]
                                   for x in looks), (looks, stroke))
+
+
+def test_use_on_device_demo_rows_as_the_real_menu(eq_screen, check, monkeypatch, tmp_path):
+    # (2026-11-11: the demo's Update rows came in the sequence of the profiles, or of Windows' device names, where the
+    # real menu has the sequence of its device rows (a nickname too); nothing checked the two, or the cut words)
+    import copy
+    import os
+    from PySide6.QtCore import QPoint, QRect
+    from PySide6.QtWidgets import QLabel
+    from switcher import devices as D
+    from ui import guide_eq, tasks
+    page, sw = eq_screen.page, eq_screen.sw
+    key, speakers = "Headset|EarPods", "Speakers|Realtek(R) High Definition Audio"
+    eps = [D.Endpoint("{5}", "Headset", "EarPods", D.ACTIVE, True),
+           D.Endpoint("{6}", "Speakers", "Realtek(R) High Definition Audio", D.ACTIVE, True),
+           D.Endpoint("{7}", "TV", "NVIDIA", D.ACTIVE, True)]
+    long_name = "Daily, a profile with a long name that the menu cuts in the middle, as the Guide does"[:80]
+    headset = copy.deepcopy(sw.record(key))
+    seen = []
+    real_pick = guide_eq.point_at_menu_row
+
+    def pick(api, m, i, *a, **k):  # (the demo's Use on device menu, and the real one filled at the same time)
+        rows = [r.text() for r in m.rows if isinstance(r, QLabel)]
+        first = any(r.startswith("Update “") for r in rows) and len(seen) < runs[0]
+        if first:
+            page._fill_use_menu()
+            real = [a.text().replace("&&", "&").replace("\t", "  ·  ") for a in page.use_menu.actions()
+                    if not a.isSeparator() and a.menu() is None]
+            seen.append({"mock": rows, "real": real})
+        yield from real_pick(api, m, i, *a, **k)
+        if first and tasks.alive(m):  # (the row pointed at: what the tour draws over its card, the lit parts and the
+            # words a demo typed, 2026-11-11: the wider menu put the card over File name and its typed “New EQ”)
+            t = api.t
+            card = t.bubble.geometry()
+            typed = [QRect(e[0].mapTo(t.win, QPoint(0, 0)), e[0].size()) for e in t.typed]
+            seen[-1]["over the card"] = [r.getRect() for r in list(t.holes) + typed if r.intersects(card)]
+            seen[-1]["card, menu"] = (card.getRect(), m.geometry().getRect())
+    runs = [0]
+    monkeypatch.setattr(guide_eq, "point_at_menu_row", pick)
+    monkeypatch.setattr(sw, "_endpoints", lambda: list(eps))
+    sw.refresh(quiet=True)
+    made = []
+    try:
+        # (made in the opposite sequence: the profiles' own sequence is not the menu's)
+        for name, on in (("Zeta", "TV|NVIDIA"), (long_name, speakers), ("Night", key)):
+            path = os.path.join(str(tmp_path), f"{len(made)}.txt")
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write("Preamp: -3 dB\nFilter 1: ON PK Fc 1000 Hz Gain 3 dB Q 1\n")
+            made.append(sw.import_profile(path, name))
+            sw.add_to_device(on, made[-1], switch_on=True)
+        played = []
+        for nickname in ("", "A TV"):  # (with a nickname, TV is first in the real menu: A to Z by the name shown)
+            sw.set_nickname("TV|NVIDIA", nickname)
+            runs[0] += 1
+            played.append(_play(eq_screen, "Save it, or use it on a device"))
+    finally:
+        sw.set_nickname("TV|NVIDIA", "")
+        for pid in made:
+            sw.remove_profile(pid)
+        monkeypatch.undo()
+        sw.refresh(quiet=True)
+        for k in [k for k in sw.s["devices"] if k != key]:
+            del sw.s["devices"][k]
+        sw.s["devices"][key] = headset
+        sw.apply()
+    ok = len(seen) == 2
+    for s in seen:
+        ups = lambda rows: [r for r in rows if r.startswith("Update “")]
+        devices = lambda rows: rows[:3]
+        s["same"] = (ups(s["mock"]) == ups(s["real"])[:2] and len(ups(s["mock"])) == 2
+                     and devices(s["mock"]) == devices(s["real"]))
+        s["cut"] = any(r.startswith("Update “Daily, a") and "…" in r for r in ups(s["mock"]))
+        ok = ok and s["same"]
+    ok = ok and seen[0]["cut"]  # (the long name: on the second device, an Update row of the first play)
+    check("guide: the Use on device demo's device rows and Update rows are the real menu's, in its sequence (the "
+          "profiles made in the opposite sequence; a device with a nickname first), with the same words, a long name "
+          "cut as the menu cuts it",
+          ok and all(e and not err for e, err in played)
+          and seen[0]["mock"][:3] == ["Headset (EarPods)  ·  active",
+                                      "Speakers (Realtek(R) High Definition Audio)  ·  connected",
+                                      "TV (NVIDIA)  ·  connected"]
+          and seen[1]["mock"][0] == "A TV  ·  connected" and seen[1]["mock"][3].startswith("Update “Zeta”"),
+          (played, seen))
+    check("guide: while the Use on device demo points at its wide menu, nothing that the Guide draws over its card "
+          "(a lit part, a typed name) is under the card",
+          len(seen) == 2 and all(s.get("over the card") == [] for s in seen)
+          and seen[0]["card, menu"][1][2] > 1000 - 400, seen)  # (the menu wider than the room beside a card)
 
 
 def _chevron_right(img):

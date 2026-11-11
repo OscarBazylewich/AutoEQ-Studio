@@ -105,10 +105,15 @@ def test_from_a_profile_then_update_it(eq_screen, tmp_path, check):
     _start(page, "Graphic one")
     page._fill_use_menu()
     refused = next(a for a in page.use_menu.actions() if a.text().startswith("Update “Graphic one”"))
+    # (its row in Update a profile, the submenu of all profiles, is off too; a device row, a new profile, stays on)
+    sub = next(a.menu() for a in page.use_menu.actions() if a.menu() is not None and a.text() == "Update a profile")
+    in_sub = next(a for a in sub.actions() if a.text().startswith("Graphic one	"))
     check("by hand: a profile with parts an EQ here can't show (a graphic EQ) can't be updated from it (said why); "
           "using it as a new profile stays open",
           not refused.isEnabled() and "graphic EQ" in refused.toolTip() and sw.profiles().get(graphic)
-          and any(a.isEnabled() and "Headset" in a.text() for a in page.use_menu.actions()), refused.toolTip())
+          and not in_sub.isEnabled() and "graphic EQ" in in_sub.toolTip()
+          and any(a.isEnabled() and a.text().startswith("Headset") for a in page.use_menu.actions()),
+          (refused.toolTip(), in_sub.toolTip()))
 
 
 def test_a_copy_of_the_eq_shown(eq_screen, check):
