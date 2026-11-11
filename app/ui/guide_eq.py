@@ -620,7 +620,8 @@ def eq_steps(page):
                  "downloads an online measurement and uses the average of its files (left, right, seatings). Add… adds "
                  "your files from this PC (L and R, or more than one seating). Some databases do not let other "
                  "programs download their files. For their entries, Use opens the website in your browser and the app "
-                 "waits for a picture of the graph. Copy a picture of the graph. The tracer then shows the traced "
+                 "waits for a picture of the graph. Copy a picture of the graph, or click Screenshot on the website. "
+                 "The tracer then shows the traced "
                  "curve on the picture. If the curve is correct, click Add as measurement.",
          "demo": [{"click": lambda: button(page.measurement_box, "Find…"),
                    "say": "Click Find… on the Measurement row (or press /)", "then": find_meas_demo}]},

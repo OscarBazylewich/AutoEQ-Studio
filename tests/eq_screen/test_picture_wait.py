@@ -97,7 +97,10 @@ def flow(eq_screen, monkeypatch):
     page = eq_screen.page
     QApplication.clipboard().clear()
     monkeypatch.setattr(picture_wait, "SETTLE_MS", 30)
+    monkeypatch.setattr(picture_wait, "POLL_MS", 30)
     monkeypatch.setattr(trace_core, "auto_read", stand_in())
+    folder = picture_wait.downloads_folder()
+    had = set(os.listdir(folder)) if os.path.isdir(folder) else set()
     pk = Picker(page, "measurement")
     pk.show()
     eq_screen.wait_for(lambda: not pk.db.get("loading") and pk.db.get("items"), 120)
@@ -118,6 +121,8 @@ def flow(eq_screen, monkeypatch):
     pk.deleteLater()
     QApplication.clipboard().clear()
     qt.pump(50)
+    for name in (set(os.listdir(folder)) if os.path.isdir(folder) else set()) - had:  # (the test's own files)
+        os.remove(os.path.join(folder, name))
 
 
 def _use(f):
@@ -315,6 +320,119 @@ def test_one_wait_at_a_time(eq_screen, flow, check):
     again = page.trace_from_website(flow["row"]["id"], over=pk, say=pk.footer.say)
     check("website flow: a second call while the wait window is open shows that window and starts nothing",
           not again and page.picture_wait is wait and len(qt.OPENED_URLS) == n)
+
+
+# ---------------------------------------------------------------- the Downloads folder (the session's stand-in)
+def _downloads():
+    from ui import picture_wait
+    return picture_wait.downloads_folder()
+
+
+def _stamps(folder):
+    return {e.name: (e.stat().st_mtime_ns, e.stat().st_size) for e in os.scandir(folder)}
+
+
+def test_downloads_folder_is_the_test_folder(eq_screen, flow, monkeypatch, check):
+    from PySide6.QtWidgets import QLabel
+    from helpers import session
+    from ui import picture_wait
+    folder = _downloads()
+    wait, _o = _use(flow)
+    shown = os.path.normpath(folder) in wait.where.text() and "Screenshot" in " ".join(
+        lab.text() for lab in wait.findChildren(QLabel))
+    check("website flow: the wait window shows the Downloads folder that it looks at (the session's stand-in)",
+          folder and session.inside(folder) and shown, (folder, wait.where.text()))
+    monkeypatch.delenv("AUTOEQSTUDIO_DOWNLOADS")
+    copy = picture_wait.downloads_folder()
+    check("website flow: a test copy of the app (AUTOEQSTUDIO_ROOT) with no Downloads stand-in looks at no folder",
+          os.environ.get("AUTOEQSTUDIO_ROOT") and copy == "", copy)
+
+
+def test_old_file_does_not_end_wait(eq_screen, flow, check):
+    folder = _downloads()
+    _graph().save(os.path.join(folder, "old graph.png"))
+    wait, _o = _use(flow)
+    qt.pump(600)
+    check("website flow: a picture file that was in Downloads before does not end the wait",
+          not _closed(wait) and wait.got is None and flow["pk"].isVisible())
+
+
+def test_new_file_ends_wait(eq_screen, flow, check):
+    from ui import picture_wait
+    folder = _downloads()
+    old, pending, tries = picture_wait.folder_pictures(folder), {}, {}
+    path = os.path.join(folder, "Screenshot of the graph.png")
+    _graph().save(path)
+    first = picture_wait.new_picture(folder, old, pending, tries)
+    second = picture_wait.new_picture(folder, old, pending, tries)
+    check("website flow: a new picture file in Downloads is read after two equal looks (the first look only notes it)",
+          first[0] is None and second[0] is not None and not second[0].isNull() and second[1] is False,
+          (first, second))
+    os.remove(path)
+    page = flow["page"]
+    wait, _o = _use(flow)
+    qt.wait_for(lambda: wait._old is not None, 10)
+    _graph().save(path)
+    came = _picture_came(page)
+    check("website flow: a new picture file in Downloads ends the wait, and the tracer opens with it",
+          came and _closed(wait) and not flow["pk"].isVisible() and page.tracer.entry["name"] == ENTRY, came)
+
+
+def test_file_not_complete(eq_screen, flow, check):
+    from PySide6.QtCore import QBuffer, QByteArray, QIODevice
+    from ui import picture_wait
+    folder = _downloads()
+    data = QByteArray()
+    buf = QBuffer(data)
+    buf.open(QIODevice.WriteOnly)
+    _graph().save(buf, "PNG")
+    whole = bytes(data)
+    path = os.path.join(folder, "half.png")
+    old, pending, tries = picture_wait.folder_pictures(folder), {}, {}
+    with open(path, "wb") as fh:
+        fh.write(whole[:len(whole) // 2])
+    half = [picture_wait.new_picture(folder, old, pending, tries)[0] for _ in range(3)]
+    with open(path, "wb") as fh:
+        fh.write(whole)
+    full = [picture_wait.new_picture(folder, old, pending, tries)[0] for _ in range(2)]
+    check("website flow: a file that is not complete (half of a PNG) does not end the wait, the complete file does",
+          all(h is None for h in half) and full[0] is None and full[1] is not None and tries.get("half.png", 0) == 0,
+          (half, full, tries))
+    os.remove(path)
+    old, pending, tries = picture_wait.folder_pictures(folder), {}, {}
+    with open(path, "wb") as fh:
+        fh.write(whole[:100])
+    looks = [picture_wait.new_picture(folder, old, pending, tries)[0] for _ in range(picture_wait.READ_TRIES + 2)]
+    check("website flow: a file that does not read as a picture is tried some looks, then it is old",
+          all(x is None for x in looks) and old.get("half.png") is not None and "half.png" not in pending, (old, pending))
+
+
+def test_not_picture_files(eq_screen, flow, check):
+    folder = _downloads()
+    wait, _o = _use(flow)
+    qt.wait_for(lambda: wait._old is not None, 10)
+    for name in ("graph.pdf", "graph.png.crdownload", "graph.png.part"):
+        with open(os.path.join(folder, name), "wb") as fh:
+            fh.write(b"0" * 5000)
+    qt.pump(500)
+    check("website flow: a new file that is not a picture (.pdf, .crdownload, .part) does not end the wait",
+          not _closed(wait) and wait.got is None)
+
+
+def test_look_changes_nothing(eq_screen, flow, check):
+    from ui import picture_wait
+    folder = _downloads()
+    _graph().save(os.path.join(folder, "a.png"))
+    with open(os.path.join(folder, "b.png"), "wb") as fh:
+        fh.write(b"not a picture")
+    before = _stamps(folder)
+    old, pending, tries = {}, {}, {}
+    for _ in range(picture_wait.READ_TRIES + 3):
+        picture_wait.new_picture(folder, old, pending, tries)
+    wait, _o = _use(flow)
+    qt.pump(400)
+    check("website flow: the look changes nothing in the folder (names, sizes and times are the same after)",
+          _stamps(folder) == before, (before, _stamps(folder)))
 
 
 # ---------------------------------------------------------------- the tracer with an entry

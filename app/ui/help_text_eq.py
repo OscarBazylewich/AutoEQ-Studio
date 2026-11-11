@@ -646,10 +646,11 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'body': ['Hangout.Audio does not let other programs download its files, and the app obeys '
                                     'that limit. The app has no browser in it and does not get the data of the '
                                     'website. Your browser shows the graph, and the app reads only a picture of it.',
-                                    'While the app waits, it looks at the clipboard. It uses only a picture that is '
-                                    'new after it started to wait. Paste the picture uses the picture that is on the '
-                                    'clipboard at this time. When you click Cancel, or after 10 minutes, the app '
-                                    'stops.',
+                                    'While the app waits, it looks at the clipboard and at the names of the picture '
+                                    'files in your Downloads folder. It uses only a picture that is new after it '
+                                    'started to wait. It does not change or delete a file. Paste the picture uses the '
+                                    'picture that is on the clipboard at this time. When you click Cancel, or after 10 '
+                                    'minutes, the app stops.',
                                     'The tracer finds the axes and the curve automatically and opens on 3 Save. The '
                                     'result is one measurement: the average of the left and right curves. Compare the '
                                     'traced curve with the picture before you add it. A small picture, or a second '
