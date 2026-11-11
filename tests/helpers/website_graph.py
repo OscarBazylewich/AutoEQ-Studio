@@ -8,7 +8,7 @@ come back with the picture.
 
 website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, one_curve=False, offset_db=0.0,
               colours=("#1a48a0", "#0d357d"), db_range=(40, 80), db_step=5, legend_xy=(500, 285), extra=(),
-              target_fn=None, db_words=None) -> (QImage, truth)
+              target_fn=None, db_words=None, target_dash=None) -> (QImage, truth)
 truth: "plot" {x0, x1, y0, y1} (the grid's edges), "avg" f(Hz) -> dB (the true average of the channels), "chans"
 [f, f], "tgt" f or None, "x" f(Hz) -> column, "y" f(dB) -> row, "hz" f(column) -> Hz, "db" f(row) -> dB, "words"
 [{text, x0, y0, x1, y1}] (the true labels with their boxes), "db_rows" (the rows of the dB grid lines, top first),
@@ -56,7 +56,7 @@ def label_of(f, first=False, last=False):
 
 def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, one_curve=False, offset_db=0.0,
                   colours=("#1a48a0", "#0d357d"), db_range=(40, 80), db_step=5, legend_xy=(500, 285), extra=(),
-                  target_fn=None, db_words=None):
+                  target_fn=None, db_words=None, target_dash=None):
     """plot_w: the grid's width in pixels. target: None, "solid" or "dashed". page: a page around the graph.
     decade: the labels' power of ten against 20 Hz .. 20 kHz (0: correct labels; 1: every label ten times too high).
     labels False: no labels at all. one_curve: only the left channel. offset_db: added to the right channel (two
@@ -66,7 +66,8 @@ def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, o
     units lower). extra: [(f(Hz) -> dB, color)], more measurements drawn after the channels. target_fn: the target
     line's curve in place of the default one. db_words: {true dB value: text} in place of the dB labels' own text
     in truth["words"] (the picture does not change: a stand-in for a text reader that reads wrongly; "": the label
-    is not in truth["words"], not read)."""
+    is not in truth["words"], not read). target_dash: the dashed target's dash and gap lengths in the graph's units
+    (None: (6, 3))."""
     if QGuiApplication.instance() is None:  # (with no application, Qt's fonts stop the process with no error)
         raise RuntimeError("website_graph draws with Qt: make a QGuiApplication first (in a test: the qapp fixture).")
     s = plot_w / 770.0  # (a CrinGraph graph is 800 x 346 units: the plot from 15 to 785, the grid lines from 10 to 327)
@@ -201,7 +202,7 @@ def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, o
         g.drawPath(pp)
     tfn = target_fn or _target
     if target:
-        path(tfn, "#9e9ea3", 2.3, [6, 3] if target == "dashed" else None)
+        path(tfn, "#9e9ea3", 2.3, list(target_dash or (6, 3)) if target == "dashed" else None)
     right = (lambda f: _right(f) + offset_db) if offset_db else _right
     chans = [_left] if one_curve else [_left, right]
     for fn, col in zip(chans, colours):
