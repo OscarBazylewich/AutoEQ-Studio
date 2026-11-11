@@ -64,7 +64,8 @@ def read(qapp, module_monkeypatch):
 
 def fresh(monkeypatch, w=1000, jpeg=None, words=None, edit=None, **kw):
     """A new read of a look-alike (not the cache): words(truth) -> the words that the stand-in gives; edit(rgb, truth)
-    changes the picture before the read. Returns (truth, rgb, AutoRead)."""
+    changes the picture before the read. Returns (truth, rgb, AutoRead). (The test asks for the qapp fixture: the
+    look-alike draws with Qt.)"""
     img, truth = website_graph(plot_w=w, **kw)
     rgb = as_rgb(img, jpeg)
     if edit:
@@ -212,16 +213,44 @@ def test_target(read, check, kind, jpeg):
           ea and ea[0] < 0.1 and ea[1] < 0.5, ea)
 
 
-def test_target_where_the_band_hides_it(monkeypatch, check):
+def test_target_where_the_band_hides_it(qapp, monkeypatch, check):
     cross = lambda f: wg._iem(f) + 3.5 * math.sin(math.log2(f) * 3.1)  # noqa: E731 (crosses the curve many times)
+    near = lambda f: (wg._left(f) + wg._right(f)) / 2 - 1.5  # noqa: E731 (1.5 dB under the curve)
     for w, jpeg, kw, what in ((1000, 60, {"target": "dashed", "target_fn": cross}, "a dashed target that crosses the "
                                "curve many times, JPEG 60"),
                               (600, 60, {"target": "dashed"}, "600 px, dashed, JPEG 60"),
-                              (1000, None, {"target": "solid"}, "1000 px, solid")):
+                              (1000, None, {"target": "solid"}, "1000 px, solid"),
+                              (800, 50, {"target": "solid", "page": True}, "a page, 800 px, solid, JPEG 50"),
+                              (800, 50, {"target": "dashed", "page": True}, "a page, 800 px, dashed, JPEG 50"),
+                              (600, None, {"target": "dashed", "target_fn": near}, "600 px, dashed, 1.5 dB under the "
+                               "curve"),
+                              (800, 60, {"target": "solid", "target_fn": lambda f: 62.5}, "a level target at the "
+                               "band's edge, 800 px, JPEG 60")):
         truth, _rgb, r = fresh(monkeypatch, w, jpeg, **kw)
-        e = errors(r.target_points, truth["tgt"])
+        e = errors(r.target_points, truth["tgt"], 20, 20000)
         check(f"a target line that the band hides: no target, or the target is less than 1 dB from the true target at "
               f"each point ({what})", r.target is None or (e and e[1] < 1), e)
+    # the rule itself: no target point in a column where the band hides the line, or between two parts of the line
+    # far apart; a target that crosses the curve many times (a PNG: the target is found)
+    seen = []
+    real = trace_auto.find_target
+
+    def keep(*a):
+        seen.append(real(*a))
+        return seen[-1]
+    monkeypatch.setattr(trace_auto, "find_target", keep)
+    truth, _rgb, r = fresh(monkeypatch, 1000, None, target="dashed", target_fn=cross)
+    tg = seen[-1]
+    k = r.tracer.calib()
+    width = r.tracer.box["x1"] - r.tracer.box["x0"]
+    xs = sorted(tg["ys"]) if tg else []
+    far = [(a, b) for a, b in zip(xs, xs[1:]) if b - a > max(12, int(0.02 * width))]
+    at = {int(round(k.x_at(f))) for f, _v in r.target_points or []}
+    check("a target that crosses the curve: it is found, some columns are hidden, and two parts of it are far apart",
+          r.target is not None and tg and len(tg["hidden"]) >= 20 and far, (tg and len(tg["hidden"]), far))
+    check("a target that crosses the curve: no target point is in a hidden column, and the columns between two parts "
+          "far apart are hidden", tg and not (set(xs) & tg["hidden"]) and not (at & tg["hidden"])
+          and all(set(range(a + 1, b)) <= tg["hidden"] for a, b in far), (set(xs) & tg["hidden"], at & tg["hidden"]))
 
 
 def test_no_target(read, check):
@@ -323,7 +352,7 @@ def test_not_a_graph(qapp, check):
            "noise 900 x 1600": rng.integers(0, 256, (900, 1600, 3), dtype=np.uint8),
            "a 1-D array": np.zeros(100, np.uint8), "a 2-D (gray) array": np.full((300, 400), 200, np.uint8),
            "an empty picture": np.zeros((0, 0, 3), np.uint8), "RGBA, not a graph": np.full((300, 400, 4), 255, np.uint8),
-           "two channels": np.zeros((300, 400, 2), np.uint8)}
+           "two channels": np.zeros((300, 400, 2), np.uint8), "None": None, "a list of words": ["a", "b"]}
     for what, rgb in odd.items():
         try:
             fp = trace_auto.find_plot(rgb)
@@ -371,7 +400,7 @@ def _erase_curve(cols):
     return edit
 
 
-def test_trace_curve_and_gaps_fail(monkeypatch, check):
+def test_trace_curve_and_gaps_fail(qapp, monkeypatch, check):
     at = lambda f, n: lambda truth: range(int(truth["x"](f)), int(truth["x"](f)) + n)  # noqa: E731
     _t, _rgb, r = fresh(monkeypatch, edit=_erase_curve(at(700, 12)))
     words = (reason(r, "trace_gaps") or "").split()
@@ -386,7 +415,7 @@ def test_trace_curve_and_gaps_fail(monkeypatch, check):
           and 92 <= int(words[5]) <= 95 and " ".join(words[6:]) == "% of the width of the grid.", reason(r, "trace_curve"))
 
 
-def test_grid_check_fails(monkeypatch, check):
+def test_grid_check_fails(qapp, monkeypatch, check):
     def edit(rgb, truth):
         y0, y1 = int(truth["plot"]["y0"]) - 2, int(truth["plot"]["y1"]) + 3
         for f in (300, 400, 3000, 4000):
@@ -397,8 +426,19 @@ def test_grid_check_fails(monkeypatch, check):
           "axes_grid" in failed(r) and reason(r, "axes_grid") == "The app found only 21 of the 25 frequency grid lines "
           "of a graph from the website.", (failed(r), reason(r, "axes_grid")))
 
+    def moved(rgb, truth):
+        y0, y1 = int(truth["plot"]["y0"]) - 2, int(truth["plot"]["y1"]) + 3
+        x = int(round(truth["x"](3000)))
+        part = rgb[y0:y1, x - 2:x + 3].copy()
+        rgb[y0:y1, x - 2:x + 3] = CREAM
+        rgb[y0:y1, x + 1:x + 6] = part
+    _t, _rgb, r = fresh(monkeypatch, edit=moved)
+    check("the grid line of 3 kHz 3 pixels from its place (all 25 lines found, but one is too far): the grid check fails "
+          "(only 24 of the 25 in their positions)", "axes_grid" in failed(r) and reason(r, "axes_grid") == "The app found "
+          "only 24 of the 25 frequency grid lines of a graph from the website.", (failed(r), reason(r, "axes_grid")))
 
-def test_hz_labels_fail(monkeypatch, check):
+
+def test_hz_labels_fail(qapp, monkeypatch, check):
     def only(n):
         def words(truth):
             hz = [w for w in truth["words"] if is_hz(truth, w)]
@@ -437,7 +477,7 @@ def _db(truth, keep):
     return out
 
 
-def test_db_labels(monkeypatch, check):
+def test_db_labels(qapp, monkeypatch, check):
     cases = (({60: "60"}, False, "The app read only one dB label. It set 5 dB between grid lines.", ("80", "40")),
              ({70: "10", 75: "15"}, False, "Only 2 dB labels agree with the grid lines (5 dB between grid lines). The "
               "app must have 3 or more labels that agree.", None),
@@ -459,7 +499,7 @@ def test_db_labels(monkeypatch, check):
               (got, failed(r), r.tracer.v["d1"], r.tracer.v["d2"]))
 
 
-def test_db_labels_each_by_itself(monkeypatch, check):
+def test_db_labels_each_by_itself(qapp, monkeypatch, check):
     """read_db reads each label's part by itself (3 copies side by side) when the strip of all labels is not enough."""
     img, truth = website_graph(plot_w=1000)
     rgb = as_rgb(img)
@@ -477,9 +517,22 @@ def test_db_labels_each_by_itself(monkeypatch, check):
           and asked.count(1) == len(trace_auto.TREATMENTS), (db and len(db["pairs"]), asked[:8]))
 
 
-def test_db_range(monkeypatch, check):
-    check("a usual dB axis: its span, its lowest and highest values are constants",
-          trace_auto.DB_SPAN == (15, 120) and (trace_auto.DB_LOWEST, trace_auto.DB_HIGHEST) == (10, 130))
+def test_db_range(qapp, monkeypatch, check):
+    check("a usual dB axis: its smallest span, its lowest and highest values are constants",
+          trace_auto.DB_MIN_SPAN == 15 and (trace_auto.DB_LOWEST, trace_auto.DB_HIGHEST) == (10, 130))
+    _t, _rgb, r = fresh(monkeypatch, words=lambda truth: _db(truth, {v: f"{v + 60}" for v in range(40, 81, 5)}))
+    check("all dB labels read 60 dB too high (they agree): the dB range check fails, its highest value is not usual",
+          reason(r, "axes_db_range") == "The dB axis is 100 dB to 140 dB. This range is not usual for a graph of an IEM "
+          "or headphone." and "axes_db_labels" not in failed(r), (reason(r, "axes_db_range"), failed(r)))
+    _t, _rgb, r = fresh(monkeypatch, words=lambda truth: _db(truth, {v: f"{120 - v}" for v in range(40, 81, 5)}))
+    check("dB labels that rise downwards (a dB axis always falls downwards): they do not agree, the label check fails",
+          reason(r, "axes_db_labels") == "The dB labels that the app read do not agree with each other." and not r.ok,
+          (reason(r, "axes_db_labels"), failed(r)))
+    half = {60: "60", 65: "65", 70: "70", 45: "47.5", 50: "52.5", 75: "77.5"}
+    _t, _rgb, r = fresh(monkeypatch, words=lambda truth: _db(truth, half))
+    check("3 dB labels at their grid lines and 3 half-way between two grid lines: the 3 do not agree, too many "
+          "against", reason(r, "axes_db_labels") == "3 dB labels agree with the grid lines (5 dB between grid lines), "
+          "and 3 do not. Too many labels do not agree." and not r.ok, reason(r, "axes_db_labels"))
     _t, _rgb, r = fresh(monkeypatch, words=lambda truth: _db(truth, {v: f"{v - 60}" for v in range(40, 81, 5)}))
     check("all dB labels read 60 dB too low (they agree): the dB range check fails, its values are not usual",
           reason(r, "axes_db_range") == "The dB axis is -20 dB to 20 dB. This range is not usual for a graph of an IEM "
@@ -494,7 +547,7 @@ def test_db_range(monkeypatch, check):
           "to 95 dB." and "axes_db_range" not in failed(r), reason(r, "axes_db_range"))
 
 
-def test_band_check(monkeypatch, check):
+def test_band_check(qapp, monkeypatch, check):
     _t, _rgb, r = fresh(monkeypatch, offset_db=-6.5)
     x = float(reason(r, "trace_band").split()[5])
     check("channels about 7 dB apart (6 to 9): the band check fails and gives the width",
@@ -510,30 +563,43 @@ def test_band_check(monkeypatch, check):
 
 
 # ---------------------------------------------------------------- the review's cases of the curve
-def test_channel_cut_from_the_band(monkeypatch, check):
+def test_channel_cut_from_the_band(qapp, monkeypatch, check):
     truth, _rgb, r = fresh(monkeypatch, 1000, 60, colours=ORANGE)
     e = errors(r.points, truth["avg"])
     check("orange channels, JPEG 60: the second channel is kept where it breaks from the band, the curve is less than "
           "0.5 dB from the true average at each point", r.ok and e and e[1] < 0.5, (failed(r), e))
 
 
-def test_channel_out_of_the_grid(monkeypatch, check):
+def test_channel_out_of_the_grid(qapp, monkeypatch, check):
     for kw in ({"db_range": (50, 90)}, {"db_range": (50, 76), "db_step": 2}):
         truth, _rgb, r = fresh(monkeypatch, **kw)
         e = errors(r.points, truth["avg"])
         check(f"one channel goes below the grid: the read fails, or the curve is less than 0.5 dB from the true average "
               f"({kw})", not r.ok or (e and e[1] < 0.5), (r.ok, failed(r), e))
+    # one line near the grid's edge where the other channel would be past the edge (1000 px; and 600 px, JPEG 60)
+    for w, jpeg, kw in ((600, 60, {"db_range": (46, 76), "db_step": 2, "offset_db": -3}),
+                        (1000, None, {"db_range": (40, 70), "offset_db": -3}),
+                        (1000, None, {"db_range": (50, 76), "db_step": 2, "offset_db": -3})):
+        truth, _rgb, r = fresh(monkeypatch, w, jpeg, **kw)
+        e = errors(r.points, truth["avg"], 20, 20000)
+        check(f"channels 3 dB apart, one of them past the grid's edge: the read fails, or the curve is less than 0.5 dB "
+              f"from the true average ({w} px, {kw})", not r.ok or (e and e[1] < 0.5), (r.ok, failed(r), e))
 
 
-def test_faded_ends(monkeypatch, check):
+def test_faded_ends(qapp, monkeypatch, check):
     for off in (-3, 3):
         truth, _rgb, r = fresh(monkeypatch, offset_db=off)
         e = errors(r.points, truth["avg"], 20, 20000)
         check(f"channels 3 dB apart: at the faded ends the curve is the average of both, less than 0.5 dB at each "
               f"point ({off:+} dB)", r.ok and e and e[1] < 0.5, (failed(r), e))
+    # an axis of 80 dB: the channels 1 to 1.5 dB apart at 20 kHz are 2 line widths apart or less, but 1 dB or more
+    truth, _rgb, r = fresh(monkeypatch, db_range=(20, 100), db_step=10, offset_db=3)
+    e = errors(r.points, truth["avg"], 20, 20000)
+    check("an axis of 20 to 100 dB, channels about 1 dB apart at the right end, one of them faded: the read fails, or "
+          "the curve is less than 0.5 dB from the true average", not r.ok or (e and e[1] < 0.5), (r.ok, failed(r), e))
 
 
-def test_legend_on_the_curve(monkeypatch, check):
+def test_legend_on_the_curve(qapp, monkeypatch, check):
     for xy, one in (((650, 236), True), ((300, 150), False)):
         truth, _rgb, r = fresh(monkeypatch, legend_xy=xy, one_curve=one)
         e = errors(r.points, truth["avg"])
@@ -548,7 +614,160 @@ def test_legend_on_the_curve(monkeypatch, check):
               not r.ok or (e and e[1] < 1), (r.ok, e))
 
 
-def test_steps_check(monkeypatch, check):
+def test_legend_words_at_600_px(qapp, monkeypatch, check):
+    """At 600 px a word of the legend is one piece of 2 to 3 % of the grid's width (the second review, M1)."""
+    for xy in ((300, 212), (300, 196), (590, 84), (300, 120), (650, 188), (650, 84)):
+        truth, _rgb, r = fresh(monkeypatch, 600, legend_xy=xy)
+        e = errors(r.points, truth["avg"], 20, 20000)
+        check(f"the legend's words near the curve at 600 px: the read fails, or the curve is less than 0.5 dB from the "
+              f"true average at each point ({xy})", not r.ok or (e and e[1] < 0.5), (r.ok, failed(r), e))
+
+
+BLUE = (26, 72, 160)
+
+
+def _band_of(*pieces):
+    """band() of a drawn picture: cream, a blue line in rows 100 to 102 from column 10 to 789, and more blue
+    [(rows, columns)] (slices). Returns band's result."""
+    rgb = np.full((300, 800, 3), CREAM, np.uint8)
+    rgb[100:103, 10:790] = BLUE
+    for rs, cs in pieces:
+        rgb[rs, cs] = BLUE
+    return trace_auto.band(rgb, {"x0": 10.0, "x1": 789.0, "y0": 10, "y1": 290}, CREAM, BLUE)
+
+
+def test_near_pieces(check):
+    """band() keeps a piece of the band's color near the band only when it has the form of a line, and only where the
+    widest piece is one line (the other channel, cut from the band by a JPEG break)."""
+    at = lambda b, x: float(b["bot"][x - b["x0"]])  # noqa: E731 (the band's bottom edge at a column)
+    b = _band_of((slice(120, 123), slice(300, 361)))
+    check("a near line of 61 pixels: a part of the band", abs(at(b, 330) - 122.5) < 0.6, at(b, 330))
+    def word(a, b, every):
+        """Letters: three level strokes from column a to b, and an upright stroke in each `every` column."""
+        return [(slice(120, 128), slice(c, c + 1)) for c in range(a, b, every)] + \
+            [(slice(r, r + 2), slice(a, b)) for r in (120, 123, 126)]
+    b = _band_of(*word(300, 361, 2))
+    check(f"a near 'word' of 61 pixels (one run in half of its columns, under {trace_auto.NEAR_LONG_PX} pixels: "
+          f"{trace_auto.NEAR_ONE_RUN[0]:g} or more): not a part of the band", abs(at(b, 331) - 102.5) < 0.6, at(b, 331))
+    b = _band_of(*word(300, 401, 6))
+    check(f"a near line of text of 101 pixels (one run in a sixth of its columns: {trace_auto.NEAR_ONE_RUN[1]:g} or "
+          f"more): not a part of the band", abs(at(b, 332) - 102.5) < 0.6, at(b, 332))
+    # (a line in rows 120 to 122; in each even column also rows 124 and 125, in each odd column row 123: one piece)
+    b = _band_of(*[(slice(120, 123), slice(300, 401))] + [(slice(124, 126), slice(c, c + 1)) for c in range(300, 401, 2)]
+                 + [(slice(123, 124), slice(c, c + 1)) for c in range(301, 401, 2)])
+    check("a near line of 101 pixels with two runs in half of its columns (as a JPEG breaks a line): a part of the band",
+          abs(at(b, 351) - 123.5) < 0.6, at(b, 351))
+    b = _band_of((slice(115, 131), slice(300, 361)))
+    check("a near block 16 rows high (more than 4 line widths): not a part of the band", abs(at(b, 330) - 102.5) < 0.6,
+          at(b, 330))
+    b = _band_of((slice(120, 123), slice(300, 320)))
+    check(f"a near line of 20 pixels (under {trace_auto.NEAR_PIECE_PX}: a word of a small picture): not a part of the "
+          f"band", abs(at(b, 310) - 102.5) < 0.6, at(b, 310))
+    two = [(slice(105, 108), slice(280, 381)), (slice(100, 108), slice(280, 281))]  # (a second line, joined to it)
+    b = _band_of(*two, (slice(120, 123), slice(300, 361)))
+    check("a near line where the band has its two lines: a second measurement, not a part of the band",
+          abs(at(b, 330) - 107.5) < 0.6, at(b, 330))
+
+
+def test_short_part_between_gaps(qapp, monkeypatch, check):
+    """short_parts(): a part of the curve of 1 or 2 columns with no curve on its two sides is left out."""
+    top = np.full(100, 50.0)
+    top[40:50] = np.nan
+    top[52:62] = np.nan  # (columns 50 and 51 between two gaps of 10)
+    top[80] = np.nan
+    check("2 columns between two gaps: those columns; a gap with a long part on each side, and the ends: none",
+          list(np.flatnonzero(trace_auto.short_parts(top))) == [50, 51],
+          np.flatnonzero(trace_auto.short_parts(top)))
+    top[50:53] = 50.0
+    check("3 columns between two gaps: none", not trace_auto.short_parts(top).any())
+    # the look-alike: one channel at the grid's bottom edge, a column between two cut parts (the dip at 10.7 kHz)
+    truth, _rgb, r = fresh(monkeypatch, 1000, db_range=(50, 90), offset_db=3)
+    e = errors(r.points, truth["avg"], 20, 20000)
+    check("channels 3 dB apart, one at the grid's bottom edge (axis 50 to 90 dB): the read fails, or the curve is less "
+          "than 0.5 dB from the true average", not r.ok or (e and e[1] < 0.5), (r.ok, failed(r), e))
+
+
+def test_lost_channel_rule(check):
+    """lost_channel(): one line where the band was two lines apart, and not in their middle."""
+    n = 500  # (a grid 500 pixels wide)
+    one = slice(200, 240)  # (the columns with one line)
+    top, c1 = np.full(n, 100.0), np.full(n, 101.5)
+    bot, runs, c2 = np.full(n, 123.0), np.full(n, 2), np.full(n, 121.5)
+    bot[one], runs[one], c2[one] = 103.0, 1, 101.5
+    got = trace_auto.lost_channel(top, bot, runs, c1, c2, 3.0)
+    check("two lines 20 rows apart, then the first line only for 40 columns: those 40 columns",
+          list(np.flatnonzero(got)) == list(range(200, 240)), np.flatnonzero(got))
+    jb, jc1, jc2 = np.full(n, 123.0), c1.copy(), np.full(n, 121.5)
+    jc1[one], jc2[one] = 111.5, 111.5
+    got = trace_auto.lost_channel(top, jb, runs, jc1, jc2, 3.0)
+    check("two lines that join into one high run (a steep part): in the middle and as high as both, no column",
+          not got.any(), np.flatnonzero(got))
+    nb, nc2 = np.full(n, 106.0), np.full(n, 104.5)
+    nb[one], nc2[one] = 103.0, 101.5
+    got = trace_auto.lost_channel(top, nb, runs, c1, nc2, 1.0)
+    check(f"two lines only 3 rows apart (under {trace_auto.LOST_APART:g} of the width, 4 rows): no column",
+          not got.any(), np.flatnonzero(got))
+    nb2, nc22 = bot.copy(), c2.copy()
+    nb2[240:], nc22[240:] = 108.0, 106.5  # (after the stretch, the two lines only 5 rows apart)
+    got = trace_auto.lost_channel(top, nb2, runs, c1, nc22, 3.0)
+    check("two lines 20 rows apart, one line for 40 columns, then two lines 5 rows apart (1.5 line widths or more): "
+          "those 40 columns only", list(np.flatnonzero(got)) == list(range(200, 240)), np.flatnonzero(got))
+    fb, fr, fc2 = bot.copy(), runs.copy(), c2.copy()
+    fb[215], fr[215], fc2[215] = 123.0, 2, 121.5  # (the lost line comes back for one column: a fading line)
+    got = trace_auto.lost_channel(top, fb, fr, c1, fc2, 3.0)
+    check("the second line back for one column only (a fading line comes and goes): still those 40 columns",
+          list(np.flatnonzero(got)) == list(range(200, 240)), np.flatnonzero(got))
+    hb, ht = bot.copy(), top.copy()
+    ht[one], hb[one] = 92.0, 112.0  # (one run from 92 to 112: not the middle, but as high as both lines)
+    got = trace_auto.lost_channel(ht, hb, runs, c1, c2, 3.0)
+    check("one run off the middle but as high as two lines with the space between them (text over a line): no column",
+          not got.any(), np.flatnonzero(got))
+    mt, mb, m1, m2 = top.copy(), bot.copy(), c1.copy(), np.full(n, 121.5)
+    mt[one], mb[one], m1[one], m2[one] = 109.0, 114.0, 111.5, 111.5  # (one line in the middle of the two)
+    got = trace_auto.lost_channel(mt, mb, runs, m1, m2, 3.0)
+    check("one line in the middle of the two lines: no column", not got.any(), np.flatnonzero(got))
+    got = trace_auto.lost_channel(top, nb, runs, c1, nc2, 1.0, 2.0)
+    check(f"the same with 2 rows for each dB (3 rows: 1.5 dB, {trace_auto.LOST_DB:g} dB or more): those 40 columns",
+          list(np.flatnonzero(got)) == list(range(200, 240)), np.flatnonzero(got))
+    got = trace_auto.lost_channel(top, nb, runs, c1, nc2, 1.0, 4.0)
+    check("the same with 4 rows for each dB (3 rows: under 1 dB): no column", not got.any(), np.flatnonzero(got))
+
+
+def test_text_beside_a_steep_part(check):
+    """flat_beside_steep(): one edge of the band level (text) where the other moves fast (a steep part)."""
+    x = np.arange(100, dtype=float)
+    top = 50 + 4 * x
+    bot = top + 3
+    flat = top.copy()
+    flat[40:46] = flat[40]
+    got = trace_auto.flat_beside_steep(flat, bot, 1.5)
+    check("the top edge level for 6 columns where the curve moves 4 rows for each column: those columns, and 3 on each "
+          "side", got[41:45].all() and not got[:35].any() and not got[52:].any(), np.flatnonzero(got))
+    check("a steep curve with no text: no column", not trace_auto.flat_beside_steep(top, bot, 1.5).any())
+    t2 = 50 + 2 * x
+    b2 = t2 + 4
+    t2[39:42] = t2[40]
+    b2[41] += 2.5
+    check("a JPEG break: the top edge level for 3 columns and the bottom edge 3.2 rows a column there, on a curve that "
+          "moves 2 rows a column (under 2 line widths in 9 columns): no column",
+          not trace_auto.flat_beside_steep(t2, b2, 1.5).any(), np.flatnonzero(trace_auto.flat_beside_steep(t2, b2, 1.5)))
+    check("a level curve: no column", not trace_auto.flat_beside_steep(np.full(100, 50.0), np.full(100, 53.0), 1.5).any())
+
+
+def test_one_channel_on_a_stretch(qapp, monkeypatch, check):
+    """Channels 3 dB apart and JPEG: the band can lose a channel on a stretch at the steep part near 8 to 10 kHz (the
+    second review, M2)."""
+    for w, colours, off, jpeg in ((1000, ("#00a8c6", "#0087a0"), 3, 60), (1000, ("#74a9f7", "#5c93e6"), -3, 40),
+                                  (1000, ("#e84393", "#c2337a"), 3, 60), (1000, ("#00a8c6", "#0087a0"), 3, 40),
+                                  (1400, ORANGE, -3, 40)):
+        truth, _rgb, r = fresh(monkeypatch, w, jpeg, colours=colours, offset_db=off)
+        e = errors(r.points, truth["avg"], 20, 20000)
+        check(f"channels 3 dB apart, JPEG: the read fails, or the curve is less than 0.5 dB from the true average at each "
+              f"point ({w} px, {colours[0]}, {off:+} dB, JPEG {jpeg})", not r.ok or (e and e[1] < 0.5),
+              (r.ok, failed(r), e))
+
+
+def test_steps_check(qapp, monkeypatch, check):
     """trace_steps fails for a short rise of the band's height (text) and for a channel that goes suddenly."""
     n = 1000  # (a grid 1000 pixels wide: a step of text is 2 to 12 columns)
     b = {"x0": 0, "lw": 2.0, "top": np.full(n, 100.0), "bot": np.full(n, 104.0), "runs": np.ones(n, int),
@@ -586,7 +805,7 @@ def test_steps_check(monkeypatch, check):
           (failed(r), reason(r, "trace_steps")))
 
 
-def test_two_measurements(monkeypatch, check):
+def test_two_measurements(qapp, monkeypatch, check):
     """trace_single has two rules: a second hue on half of the columns or more, and a second line in a strong color."""
     for what, fn, col in (("a red curve on 57 % of the width only (the hue rule; too short for a second line)",
                            lambda f: wg._iem(f) + 5 if f < 1500 else -100, "#c0392b"),
@@ -596,13 +815,22 @@ def test_two_measurements(monkeypatch, check):
         check(f"a second measurement in another color: the one-measurement check fails ({what})",
               "trace_single" in failed(r) and reason(r, "trace_single").startswith("The picture has more than one "
                                                                                    "measurement."), failed(r))
+    # a second measurement in a near color, 3 dB from the first and crossing it, JPEG 60 (the second review, S1): its
+    # pieces near the band are not the band's other channel (the band has its two channels there)
+    near = lambda f: wg._iem(f) + 3 * math.sin(math.log2(f) * 0.5)  # noqa: E731
+    _truth, _rgb, r = fresh(monkeypatch, 1000, 60, extra=[(near, "#5a48c0")])
+    check("a second measurement in a near color (#5a48c0) beside the two channels: the one-measurement check fails",
+          "trace_single" in failed(r) and not r.ok, failed(r))
 
 
-def test_orange_curve_is_one_measurement(monkeypatch, check):
+def test_orange_curve_is_one_measurement(qapp, monkeypatch, check):
     for jpeg in (None, 90):
         _truth, _rgb, r = fresh(monkeypatch, 1000, jpeg, colours=ORANGE)
         check(f"orange channels: a dB grid line is not a second line, the one-measurement check passes "
               f"({'JPEG 90' if jpeg else 'PNG'})", r.ok and "trace_single" not in failed(r), failed(r))
+        # (follow() goes along a dB grid line from a pale pixel of the orange text: on a grid row, not a target)
+        check(f"orange channels: a dB grid line is not a target line ({'JPEG 90' if jpeg else 'PNG'})",
+              r.target is None and len(r.tracer.curves) == 1, [c["label"] for c in r.tracer.curves])
 
 
 # ---------------------------------------------------------------- the tracer's part
@@ -624,7 +852,7 @@ def test_outputs(read, check):
           [o["file"] for o in named])
 
 
-def test_traced_again_is_a_measurement(monkeypatch, check):
+def test_traced_again_is_a_measurement(qapp, monkeypatch, check):
     _truth, _rgb, r = fresh(monkeypatch, 1000, 60, target="dashed")
     t = Tracer()
     t.take(r.tracer)
@@ -767,21 +995,28 @@ def _stand_in_words(seen, k, copies, w, h):
 def test_read_strip(monkeypatch, check):
     """read_strip with a stand-in ocr_words: the part enlarged k times with 24 px of edge, the words back at their
     place in the picture."""
-    rgb = np.full((60, 200, 3), 240, np.uint8)
-    rgb[20:30, 40:60] = (20, 20, 20)  # (a dark mark in the part: 10 rows, 20 columns)
+    paper, ink = (250, 228, 190), (40, 70, 170)  # (a blue mark on a cream background: a color in each)
+    rgb = np.full((60, 200, 3), paper, np.uint8)
+    rgb[20:30, 40:60] = ink  # (the mark in the part: 10 rows, 20 columns)
     x0, y0, x1, y1 = 30, 10, 130, 40  # (the part)
-    for k, gray, copies in ((1, False, 1), (4, False, 1), (1, True, 1), (4, True, 1), (4, True, 3)):
+    for k, gray, copies in ((1, False, 1), (4, False, 1), (4, False, 3), (1, True, 1), (4, True, 1), (4, True, 3)):
         seen = {}
         got = REAL_READ_STRIP(rgb, _stand_in_words(seen, k, copies, x1 - x0, y1 - y0), x0, y0, x1, y1, k, gray, copies)
         h, w = (y1 - y0) * k, (x1 - x0) * k
         width = w + 2 * 24 + (copies - 1) * (w + max(8, h // 2))
-        big = seen["big"]
+        big = seen["big"].astype(int)
         dark = big[24 + 15 * k, 24 + 20 * k]
         light = big[24 + 2 * k, 24 + 80 * k]
         what = f"k = {k}, {'gray' if gray else 'color'}, {copies} {'copies' if copies > 1 else 'copy'}"
-        check(f"read_strip gives the reader the part enlarged k times with 24 px of edge ({what})",
-              seen["shape"] == (h + 48, width, 3) and dark.max() < 100 and light.min() > 200
-              and (not gray or (big[..., 0] == big[..., 2]).all()), (seen["shape"], dark, light))
+        grays = bool((big[..., 0] == big[..., 1]).all() and (big[..., 1] == big[..., 2]).all())
+        if gray:
+            look = dark.max() < 60 and light.min() > 230 and grays
+        else:
+            look = max(abs(dark - ink)) <= 8 and max(abs(light - paper)) <= 8 and not grays \
+                and max(abs(big[0, 0] - paper)) <= 8  # (the edge and the space between copies: the background)
+        check(f"read_strip gives the reader the part enlarged k times with 24 px of edge: gray gives dark text on white "
+              f"(equal red, green and blue), color gives the picture's own colors ({what})",
+              seen["shape"] == (h + 48, width, 3) and look, (seen["shape"], dark, light, grays))
         check(f"read_strip gives each word at its place in the picture ({what})",
               len(got) == copies and all(abs(g["x0"] - 40) < 1e-6 and abs(g["x1"] - 60) < 1e-6 and abs(g["y0"] - 20) < 1e-6
                                          and abs(g["y1"] - 30) < 1e-6 for g in got)
@@ -831,6 +1066,19 @@ def test_font_missing(qapp, monkeypatch, check):
         err = str(e)
     check("the look-alike raises a clear error when Qt does not find its font", "QT_QPA_FONTDIR" in err
           and "Consolas" in err, err)
+
+    class NoApp:
+        @staticmethod
+        def instance():
+            return None
+    monkeypatch.setattr(wg, "QGuiApplication", NoApp)
+    try:
+        website_graph(plot_w=600)
+        err = ""
+    except RuntimeError as e:
+        err = str(e)
+    check("the look-alike raises a clear error when there is no Qt application (Qt would stop the process)",
+          "QGuiApplication" in err and "qapp" in err, err)
 
 
 def test_time(read, check):

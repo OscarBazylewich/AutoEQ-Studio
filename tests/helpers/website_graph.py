@@ -13,7 +13,8 @@ truth: "plot" {x0, x1, y0, y1} (the grid's edges), "avg" f(Hz) -> dB (the true a
 [f, f], "tgt" f or None, "x" f(Hz) -> column, "y" f(dB) -> row, "hz" f(column) -> Hz, "db" f(row) -> dB, "words"
 [{text, x0, y0, x1, y1}] (the true labels with their boxes), "db_rows" (the rows of the dB grid lines, top first),
 "scale". All positions are in pixel index coordinates (the center of pixel i is at i: the painter's coordinate minus
-0.5), as the tracer's. Qt must find Consolas (QT_QPA_FONTDIR with the offscreen platform): else RuntimeError.
+0.5), as the tracer's. Qt must have an application (QGuiApplication.instance(): in a test, the qapp fixture) and find
+Consolas (QT_QPA_FONTDIR with the offscreen platform): else RuntimeError.
 as_rgb(qimage, jpeg=None) -> H x W x 3 uint8 (through a JPEG of that quality in memory when jpeg is a number)
 truth_reader(truth) -> a stand-in for trace_auto.read_strip: the true words whose middle is in the part asked for
 """
@@ -21,8 +22,8 @@ import math
 
 import numpy as np
 from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QPointF, QRectF, Qt
-from PySide6.QtGui import (QBrush, QColor, QFont, QFontInfo, QFontMetricsF, QImage, QLinearGradient, QPainter,
-                           QPainterPath, QPen)
+from PySide6.QtGui import (QBrush, QColor, QFont, QFontInfo, QFontMetricsF, QGuiApplication, QImage, QLinearGradient,
+                           QPainter, QPainterPath, QPen)
 
 TICKS = [m * d for d in (10, 100, 1000) for m in (2, 3, 4, 5, 6, 8, 10, 15)] + [20000]
 CREAM = "#fff7ea"
@@ -66,6 +67,8 @@ def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, o
     line's curve in place of the default one. db_words: {true dB value: text} in place of the dB labels' own text
     in truth["words"] (the picture does not change: a stand-in for a text reader that reads wrongly; "": the label
     is not in truth["words"], not read)."""
+    if QGuiApplication.instance() is None:  # (with no application, Qt's fonts stop the process with no error)
+        raise RuntimeError("website_graph draws with Qt: make a QGuiApplication first (in a test: the qapp fixture).")
     s = plot_w / 770.0  # (a CrinGraph graph is 800 x 346 units: the plot from 15 to 785, the grid lines from 10 to 327)
     gw, gh = round(800 * s), round(346 * s)
     ox, oy = (round(275 * s), round(105 * s)) if page else (0, 0)

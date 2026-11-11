@@ -20,11 +20,19 @@ Every limit here was measured (2026-11-10) on three real pictures and on a drawn
 (tests\\helpers\\website_graph.py): see .claude\\notes\\benchmarks\\BENCHMARKS.md.
 
 Known limits (the picture alone cannot tell; ok can be True with a curve that is not correct):
-- A second measurement in exactly the color of the first is read as its left and right channel: the curve is the
-  middle of the two measurements (trace_band fails only when they are more than MAX_BAND_DB apart).
-- Text in the curve's color across a steep part of the curve (the legend over the curve) can move the curve there by
-  up to about 1.3 dB (the look-alike, 1000 px): band() keeps only the rows that continue the band, and trace_steps
-  fails for a large step, but text that lies along the line cannot be told from it.
+- A second measurement in the color of the first, or in a near color that touches the band (measured on the
+  look-alike: #1a48a0, #0d357d, #1a88a0, #3a48c0, #1f4faa, #2a58b0, #1a68a0, #104090, 3 dB from the first), is read
+  as a part of the band: the curve is the middle of all of them, 1.5 to 1.7 dB off (trace_band fails only when they
+  are more than MAX_BAND_DB apart). Where its pieces are apart from the band, trace_single fails.
+- Text in the curve's color on the curve (the legend over the curve) can move the curve there: band() keeps only the
+  rows that continue the band, leaves out the columns where level text touches a steep part, and trace_steps fails
+  for a large step, but text that lies along the line cannot be told from it. The look-alike, 144 legend places for
+  each size, ok=True: the largest error 1.25 dB at 600 px (22 places above 0.5 dB), 1.28 dB at 800 px (28), 1.30 dB
+  at 1000 px (21), 1.09 dB at 1400 px (10).
+- Three or more dB labels that the text reader reads wrongly by the same amount (60, 65, 70 read as 80, 85, 90) agree
+  with each other: the dB axis is then wrong by that amount (a test of the curve's level would also fail the graphs
+  that other websites set to other levels).
+- A target line that touches the band in a JPEG can move the curve there by about 0.5 dB at one point.
 """
 import collections
 import math
@@ -46,6 +54,25 @@ MAX_GAP = 0.01      # of the grid's width: the longest part with no curve
 MAX_BAND_DB = 6.0   # the difference between the two channels that 9 of 10 columns must stay under
 STEP_TEXT = 4.0     # a short rise of the band's height, in line widths (height_steps; real pictures: under 3)
 STEP_LINE = 2.5     # two lines this far apart, in line widths, that become one line suddenly (height_steps)
+# A near piece of the band's color that band() keeps (the other channel, cut from the band by a JPEG break): at least
+# this many pixels wide, one run of rows in this share of its columns (under NEAR_LONG_PX wide, and from there), and
+# each column at most this many line widths high (less its slope); and the widest piece one run of rows in this share
+# of the piece's columns (it lost the channel there). The legend's words of a 600 px graph are pieces of 16 to 19
+# pixels with one run in 62 to 81 % of their columns (at 800 px and more each letter is a piece); the channels' pieces
+# were 22 pixels or more with 83 to 100 % at 1000 px, but 46 to 84 % for pieces of 97 to 244 pixels at 1000 and
+# 1400 px, JPEG 60 and 75 (a JPEG breaks a line of 4 pixels into two runs); the widest piece had one run in 94 to
+# 100 % of their columns (a second measurement in a near color: 0 to 68 % for most of its pieces). Measured on the
+# look-alike, JPEG 8 to PNG (the piece of 22 pixels, JPEG 8, is left out)
+NEAR_PIECE_PX = 24
+NEAR_LONG_PX = 72
+NEAR_ONE_RUN = (0.85, 0.4)
+NEAR_THICK = 4.0
+NEAR_ALONE = 0.8
+# Two lines of the band this far apart, in dB, that become one line: lost_channel() leaves those columns out (nearer
+# lines: the error of the middle is under half of that); with no dB axis, this share of the grid's width (about
+# 0.8 dB on a website's usual 40 dB axis). And at least 1.5 line widths (two lines, not one line's edge)
+LOST_DB = 1.0
+LOST_APART = 0.008
 MAX_PEAKS = 150     # (more line positions than this: not a graph; the fit's time grows with the cube of the count)
 # The ways a part of the picture is given to the text reader, in turn: (enlarged so many times, as dark text on white)
 TREATMENTS = [(4, False), (6, True), (8, False), (3, True), (5, False), (8, True)]
@@ -55,9 +82,10 @@ LABEL_TREATMENTS = [(10, True), (8, True), (7, True), (4, False)]
 LABEL_COPIES = 3
 MIN_LABELS = 3      # labels that agree, for each axis (and at most one against for each 3 that agree)
 DB_STEPS = (-5, -10, -2.5, -2, -1)  # dB between grid lines (the first one wins when two fit equally)
-# A usual dB axis of a graph of an IEM or headphone (SPL): its span, and the lowest and highest values on it
-# (CrinGraph's graphs show about 40 to 80 dB; a scale of 10 dB to 130 dB holds all usual levels)
-DB_SPAN = (15, 120)
+# A usual dB axis of a graph of an IEM or headphone (SPL): its smallest span, and the lowest and highest values on it
+# (CrinGraph's graphs show about 40 to 80 dB; a scale of 10 dB to 130 dB holds all usual levels, so the span is
+# also at most 120 dB)
+DB_MIN_SPAN = 15
 DB_LOWEST, DB_HIGHEST = 10, 130
 # Letters that the text reader gives for digits of the website's font (a zero with a line through it, and 5, 1, 8)
 LOOSE = str.maketrans({"e": "0", "o": "0", "O": "0", "Q": "0", "@": "0", "ø": "0", "Ø": "0", "s": "5",
@@ -183,7 +211,7 @@ def find_plot(rgb):
     "fit" {"a", "b", "hits", "err", ...}, "vx" (the column peaks), "hy" [(row, height)] (the dB grid lines), "bg",
     "noise", "d" (each pixel's distance from the background)}, or {"ok": False, "why": "grid" | "ticks"}. It never
     raises, for a picture of any size."""
-    if rgb.ndim != 3 or rgb.shape[2] < 3:
+    if getattr(rgb, "ndim", 0) != 3 or rgb.shape[2] < 3:  # (also None, or a list: not an array)
         return {"ok": False, "why": "grid", "n": 0}
     H, W = rgb.shape[:2]
     min_len = max(40, int(H * 0.15))
@@ -534,6 +562,33 @@ def _gap_to(rows, ref):
     return [max(0, ref[x][0] - b, a - ref[x][1]) for x, (a, b) in rows.items() if x in ref]
 
 
+def _piece_cols(lab, sl, i):
+    """{column (in the part): (runs of rows, height less the move of its middle from the column before, height of
+    the first run)} of piece i (lab's label i + 1)."""
+    m = lab[sl[i]] == i + 1
+    out, last = {}, None
+    for j in range(m.shape[1]):
+        rs = runs(m[:, j])
+        if not rs:
+            last = None
+            continue
+        h, c = rs[-1][1] - rs[0][0], (rs[-1][1] + rs[0][0]) / 2
+        out[sl[i][1].start + j] = (len(rs), h - (abs(c - last) if last is not None else 0.0), rs[0][1] - rs[0][0])
+        last = c
+    return out
+
+
+def _piece_form(cols):
+    """The form of a piece from _piece_cols: (the share of its columns that have one run of rows, the 90th percentile
+    of the columns' height less their slope, the 10th percentile of the height of the first run). A line has one run
+    in almost each column, as high as the line's width and its slope; a word has two or three runs in many columns
+    (the strokes of its letters)."""
+    if len(cols) < 2:
+        return 0.0, math.inf, 1.0
+    v = np.array(list(cols.values()), float)
+    return float(np.mean(v[:, 0] == 1)), float(np.percentile(v[:, 1], 90)), float(np.percentile(v[:, 2], 10))
+
+
 def _continued(solid, memory, long):
     """The solid rows of each column that continue the band: a run of rows stays when it overlaps the rows of the
     band in the last `memory` columns before it (moved by the band's slope, plus 2 rows and half the slope), and only
@@ -597,14 +652,89 @@ def _continued(solid, memory, long):
     return both
 
 
-def band(rgb, plot, bg, colour):
+def lost_channel(top, bot, nruns, c1, c2, lw, px_db=None):
+    """The columns where the band lost one of its two channels (a JPEG break at a steep part): the band was two lines
+    apart for 3 columns (1.5 line widths, and LOST_DB with px_db pixels for each dB, else LOST_APART of the width, or
+    more: nearer lines give a small error), and in the next column the two lines are not there (one line, or two runs
+    of one line nearer than 0.6 times as far apart), with the band's middle not in the middle of the two lines (two
+    lines that join at a steep part make one high run with its middle between them) and the band only as high as one
+    line; from there until the two lines are there again (in 3 columns, two runs 1.5 line widths or 0.6 times as far
+    apart: a text or a junk run can start it, with lines that are nearer after it), or to the end of the band. Done from the left and from the right. Returns a bool array (band() leaves these columns out: a
+    gap is better than the middle of one channel)."""
+    n = len(nruns)
+    fin = np.isfinite(c1) & np.isfinite(top) & np.isfinite(bot)
+    two = fin & (nruns >= 2) & (c2 - c1 >= max(1.5 * lw, LOST_DB * px_db if px_db else LOST_APART * n))
+    out = np.zeros(n, bool)
+    for way in (1, -1):
+        order = list(range(n)) if way == 1 else list(range(n - 1, -1, -1))
+        i = 3
+        while i < n:
+            x = order[i]
+            p = [order[i - 3], order[i - 2], order[i - 1]]  # (the 3 columns before, on this way)
+            if not (fin[x] and two[p].all()):
+                i += 1
+                continue
+            sep = float(np.median((c2 - c1)[p]))
+            back = lambda j, order=order, sep=sep: j < n and fin[order[j]] and nruns[order[j]] >= 2 and \
+                c2[order[j]] - c1[order[j]] >= min(0.6 * sep, 1.5 * lw)  # noqa: E731
+            middle = (c1[p[2]] + c2[p[2]]) / 2 + ((c1[p[2]] + c2[p[2]]) - (c1[p[0]] + c2[p[0]])) / 4
+            one_line = float(np.median((bot - top)[p])) - sep  # (the height of one of the two lines)
+            if back(i) or abs((top[x] + bot[x]) / 2 - middle) < 0.3 * sep or bot[x] - top[x] >= one_line + 0.5 * sep:
+                i += 1
+                continue
+            e = i
+            while e < n and fin[order[e]] and not (back(e) and back(e + 1) and back(e + 2)):
+                e += 1  # (until 3 columns with both lines: a fading line comes and goes)
+            for j in range(i, e):
+                out[order[j]] = True
+            i = e + 1
+    return out
+
+
+def flat_beside_steep(top, bot, lw):
+    """The columns where one edge of the band is flat (it moves 1 row or less in 3 columns) and the other moves 2 line
+    widths or more for each column (in the 9 columns around them): the flat edge is a line of text (the legend's
+    words are level) that touches the curve at a steep part; the two channels of a measurement are almost parallel,
+    so both of their edges move. With 3 columns on each side (where the text's end touches the line). Returns a bool
+    array (band() leaves these columns out). (The slope of 9 columns: a JPEG break can make an edge flat for 3
+    columns where the curve moves 1.2 line widths for each column.)"""
+    n = len(top)
+    out = np.zeros(n, bool)
+    for x in range(4, n - 4):
+        t, b = top[x - 1:x + 2], bot[x - 1:x + 2]
+        if not (np.isfinite(t).all() and np.isfinite(b).all()):
+            continue
+        kt, kb = abs(top[x + 4] - top[x - 4]) / 8, abs(bot[x + 4] - bot[x - 4]) / 8  # (NaN: not compared)
+        if (np.ptp(t) <= 1 and kb >= 2 * lw) or (np.ptp(b) <= 1 and kt >= 2 * lw):
+            out[max(0, x - 3):x + 4] = True
+    return out
+
+
+def short_parts(top):
+    """The columns of each part of the curve of 1 or 2 columns with no curve on its two sides (top: NaN where there is
+    no curve): not a part that the app can trust (between two cuts; measured at the grid's edge: one column between
+    two gaps of 10 made a gap of 21 two gaps of 10, and the curve 0.5 dB off there). Returns a bool array."""
+    out = np.zeros(len(top), bool)
+    for a, b in runs(np.isfinite(top)):
+        if b - a <= 2 and 0 < a and b < len(top):
+            out[a:b] = True
+    return out
+
+
+def band(rgb, plot, bg, colour, px_db=None):
     """The measurement curve(s) of one color as a band: at each column its top and bottom edge (between pixels: a
     pixel's center is its index) and the middle. Returns {"x0", "top", "bot", "mid", "first", "c1", "c2", "runs",
-    "lw", "cut", "cover", "pieces"} or None: arrays over the grid's columns from x0, NaN where there is no curve
-    (first: the bottom edge of the first line; c1, c2: the middles of the first and the last line, runs: the count of
-    lines in the column; lw: the line's width; cut: {"edge", "text", "ends"}, the columns left out for each reason).
-    Columns are left out where the band is at the grid's top or bottom row (a channel can go past it), where text in
-    the curve's color touches the band, and at the faded ends until both lines are there."""
+    "lw", "cut", "full_top", "full_bot", "cover", "pieces"} or None: arrays over the grid's columns from x0, NaN where
+    there is no curve (first: the bottom edge of the first line; c1, c2: the middles of the first and the last line;
+    runs: the count of lines in the column; lw: the line's width; cut: {"edge", "ends", "lost", "text", "alone",
+    "clipped"},
+    the count of columns left out for each reason, and of the columns where rows were cut off (clipped: text that
+    touches the curve, _continued); full_top, full_bot: the edges before the columns were left out (where the band
+    hides a target line); cover: each pixel's share of the color; pieces: the count of pieces kept). Columns are left
+    out where the band is one line near the grid's top or bottom row (a channel can go past it: edge),
+    at the faded ends until both lines are there (ends), where one channel is lost on a stretch (lost_channel), where
+    text touches the curve at a steep part (flat_beside_steep: text), and each part of 1 or 2 columns between columns
+    with no curve (alone). px_db: the pixels for each dB (from the dB labels), or None."""
     x0, x1, y0, y1 = int(math.floor(plot["x0"])), int(math.ceil(plot["x1"])) + 1, int(plot["y0"]), int(plot["y1"]) + 1
     x0, x1 = max(0, x0), min(rgb.shape[1], x1)
     part = rgb[y0:y1, x0:x1].astype(np.float32)
@@ -625,22 +755,37 @@ def band(rgb, plot, bg, colour):
     spans = [s[1].stop - s[1].start for s in sl]
     wide = x1 - x0
     # the widest piece, the wide pieces, the pieces that continue it at the left and right (a faded end, a break at a
-    # JPEG block), and the pieces of 2 % or more near it (the other channel, cut from it by a break); this leaves out
-    # the legend's text (each letter is a piece under 1 % wide) and the logo
+    # JPEG block), and the near pieces that have the form of a line (the other channel, cut from it by a break); this
+    # leaves out the legend's text (each letter is a piece under 1 % wide; a word of a small picture can be one piece
+    # of 2 to 3 %, but not of NEAR_PIECE_PX and with one run in most columns) and the logo
     order = np.argsort(spans)[::-1]
     keep = np.zeros(n + 1, bool)
     main = order[0]
     keep[main + 1] = True
     mrows = _piece_rows(lab, sl, main)
     near = 0.15 * (y1 - y0)
+    mcols = lw_main = None
     for i in order[1:]:
         if spans[i] < 0.02 * wide:
             break
         if spans[i] >= 0.25 * wide or sl[i][1].start >= sl[main][1].stop - 2 or sl[i][1].stop <= sl[main][1].start + 2:
             keep[i + 1] = True
             continue
+        if spans[i] < NEAR_PIECE_PX:
+            continue
         gaps = _gap_to(_piece_rows(lab, sl, i), mrows)
-        if len(gaps) >= 0.5 * spans[i] and float(np.median(gaps)) <= near:
+        if not (len(gaps) >= 0.5 * spans[i] and float(np.median(gaps)) <= near):
+            continue
+        if mcols is None:
+            mcols = _piece_cols(lab, sl, main)
+            lw_main = max(1.0, _piece_form(mcols)[2])
+        cols = _piece_cols(lab, sl, i)
+        one, thick, _first = _piece_form(cols)
+        # (and where the widest piece is one run of rows: where it has two, the two channels are there, and a third
+        # line near them is a second measurement in a near color, not a channel)
+        alone = [mcols[x][0] == 1 for x in cols if x in mcols]
+        least = NEAR_ONE_RUN[0] if spans[i] < NEAR_LONG_PX else NEAR_ONE_RUN[1]
+        if one >= least and thick <= NEAR_THICK * lw_main and alone and np.mean(alone) >= NEAR_ALONE:
             keep[i + 1] = True
     own = keep[lab]
     own = ndimage.binary_dilation(own, np.ones((3, 3), bool)) & (cover > 0.08)  # with its soft edge pixels
@@ -681,7 +826,7 @@ def band(rgb, plot, bg, colour):
             c2[x] = c1[x]
     traced = np.isfinite(top)
     lw = float(np.percentile((first - top)[traced], 10)) if traced.any() else 1.0
-    cut = {"edge": 0, "ends": 0, "clipped": clipped}
+    cut = {"edge": 0, "ends": 0, "lost": 0, "text": 0, "alone": 0, "clipped": clipped}
     full_top, full_bot = top.copy(), bot.copy()  # (before the cuts: where the band hides a target line)
 
     def drop(m, why):
@@ -690,11 +835,11 @@ def band(rgb, plot, bg, colour):
         for a_ in (top, bot, first, c1, c2):
             a_[m] = np.nan
         nruns[m] = 0
-    # at the grid's first or last row: a part of the band can be past it (a channel that goes out of the grid)
+    # at the grid's first or last row a part of the band can be past it (a channel that goes out of the grid): near
+    # those columns, one line where the other channel (as far away as the lines are apart beside it) would be past the
+    # grid's edge is left out (the other channel is out of the grid there). (The columns at the row themselves stay:
+    # measured on 492 look-alikes, leaving them out made 23 correct curves fail and no wrong curve fail.)
     at_edge = (top < y0 - 0.5 + lw) | (bot > y1 - 0.5 - lw)
-    drop(at_edge, "edge")
-    # near those columns, one line where the other channel (as far away as the lines are apart beside it) would be
-    # past the grid's edge: the other channel is out of the grid there
     zone = max(4, int(0.05 * wide))
     edge_cols = np.flatnonzero(at_edge)
     if len(edge_cols):
@@ -720,12 +865,16 @@ def band(rgb, plot, bg, colour):
         if len(ref) < 4 or np.median(nruns[ref]) < 2:
             continue
         sep = float(np.median((c2 - c1)[ref]))
-        if sep < 2 * lw:
+        # (2 line widths apart; with a dB axis of many dB, LOST_DB as lost_channel, and at least 1.5 line widths)
+        if sep < (min(2 * lw, max(1.5 * lw, LOST_DB * px_db)) if px_db else 2 * lw):
             continue
         for x in idx[:n_end]:
             if nruns[x] >= 2 and c2[x] - c1[x] >= 0.5 * sep:
                 break
             drop(np.arange(c.shape[1]) == x, "ends")
+    drop(flat_beside_steep(top, bot, lw), "text")  # (first: it looks at 9 columns, lost_channel at 3)
+    drop(lost_channel(top, bot, nruns, c1, c2, lw, px_db), "lost")
+    drop(short_parts(top), "alone")
     return {"x0": x0, "top": top, "bot": bot, "mid": (top + bot) / 2, "first": first, "c1": c1, "c2": c2,
             "runs": nruns, "lw": lw, "cut": cut, "full_top": full_top, "full_bot": full_bot, "cover": c,
             "pieces": int(keep.sum())}
@@ -834,8 +983,10 @@ def _smooth_parts(xs, ys, lw, width):
 def find_target(t, top, bot, lw):
     """A second line: followed with the Tracer's own follow() (as a dashed line: it continues where the measurement
     hides it), with a color tolerance under its distance from the grid's color. Returns {"ys": {column: y},
-    "hidden" (the columns where the band hides the line: not in ys), "colour" (the median of the line's pixels),
-    "strong" (a strong color: a second measurement, not a target)} or None. A line on a dB grid row is not one.
+    "hidden" (the columns with no point: where the band hides the line, 1.5 line widths beside those, the grid's
+    faded ends, each part of 2 % of the width or more on a dB grid row, and each part of 2 % or more with no line),
+    "colour" (the median of the line's pixels), "strong" (a strong color: a second measurement, not a target)} or
+    None.
     (Tracer.trace_at is not usable here: it took the color of the measurement near the target line.)"""
     box = t.box
     width = box["x1"] - box["x0"]
@@ -864,9 +1015,6 @@ def find_target(t, top, bot, lw):
         cols = np.array(sorted(g))
         gy = np.array([g[k] for k in cols])
         inside = np.isfinite(top[cols]) & (gy >= top[cols] - 1.5) & (gy <= bot[cols] + 1.5)
-        # (a dB grid line followed as a dashed line, from a pale pixel of text: most of its columns on a grid row)
-        if rows and float(np.mean([min(abs(y - r) for r in rows) <= 1.5 for y in gy])) > 0.5:
-            continue
         if cols[-1] - cols[0] >= 0.85 * width and len(cols) >= 0.35 * width and inside.mean() <= 0.5:
             # the line's color: the median of its pixels (not the seed's pixel only)
             yi = np.clip(np.round(gy).astype(int), 0, t.H - 1)
@@ -886,20 +1034,44 @@ def find_target(t, top, bot, lw):
             # (the band's faded ends hide the line too: there the band's first and last columns stand for it)
             bt, bb = top.copy(), bot.copy()
             fin = np.flatnonzero(np.isfinite(top))
+            fade = max(3, int(0.015 * width))
             if len(fin):
-                fade = max(3, int(0.015 * width))
                 bt[max(0, fin[0] - fade):fin[0]], bb[max(0, fin[0] - fade):fin[0]] = top[fin[0]], bot[fin[0]]
                 bt[fin[-1] + 1:fin[-1] + 1 + fade], bb[fin[-1] + 1:fin[-1] + 1 + fade] = top[fin[-1]], bot[fin[-1]]
             near = lambda x, y, bt=bt, bb=bb, m=m: np.isfinite(bt[x]) and bt[x] - m <= y <= bb[x] + m
             in_band = np.array([near(x, y) for x, y in zip(cols, gy)], bool)
             hidden = {int(x) for x in cols[good & in_band]}
             vx, vy = _smooth_parts(cols[good & ~in_band], gy[good & ~in_band], lw, width)
-            long_gap = max(12, int(0.02 * width))
             for (xa, ya), (xb, yb) in zip(zip(vx[:-1], vy[:-1]), zip(vx[1:], vy[1:])):
                 for x in range(int(xa) + 1, int(xb)):
-                    if xb - xa > long_gap or near(x, ya + (yb - ya) * (x - xa) / (xb - xa)):
+                    if near(x, ya + (yb - ya) * (x - xa) / (xb - xa)):
                         hidden.add(x)
+            # beside the hidden columns (where the line comes out from under the band, follow() can stay on the band's
+            # soft pixels: measured 1.4 dB off at 2.4 line widths from the band) and at the grid's faded ends (the
+            # line is faded there too: measured 1.2 dB off at 21 Hz): no points either
+            side = max(2, int(math.ceil(1.5 * lw)))
+            hx = np.array(sorted(hidden), int)
+            for x in vx:
+                x = int(x)
+                if (len(hx) and np.abs(hx - x).min() <= side) or not box["x0"] + fade <= x <= box["x1"] - fade:
+                    hidden.add(x)
             ys = {int(x): float(y) for x, y in zip(vx, vy) if int(x) not in hidden}
+            # a part on a dB grid row for 2 % of the width or more is the grid's line, not the line: follow() can go
+            # onto it, or onto its soft edge in a JPEG, where the band hides the target line (measured: a level target
+            # in the band's edge, 800 px, JPEG 60: the whole target 2.4 px from a grid row, 3.5 dB off), or from a pale
+            # pixel of text (orange channels, 1000 px: a grid line was a target)
+            long_gap = max(12, int(0.02 * width))
+            on = [x for x in sorted(ys) if rows and min(abs(ys[x] - r) for r in rows) <= max(1.0, 1.5 * lw)]
+            for part in np.split(np.array(on, int), np.flatnonzero(np.diff(on) > 3) + 1) if on else []:
+                if part[-1] - part[0] >= long_gap:
+                    for x in part:
+                        del ys[int(x)]
+                        hidden.add(int(x))
+            # then each long part with no point (2 % of the width)
+            kx = sorted(ys)
+            for xa, xb in zip(kx, kx[1:]):
+                if xb - xa > long_gap:
+                    hidden.update(range(xa + 1, xb))
             if strong or len(ys) >= 0.2 * width:
                 return {"ys": ys, "hidden": hidden, "colour": tuple(int(round(v)) for v in colour),
                         "strong": strong}
@@ -944,17 +1116,21 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
     """A picture of a graph from a CrinGraph website (the whole page or the graph only; H x W x 3 uint8, already
     scaled to trace_core.MAX_PIXELS) read with no help: see the module's docstring. ocr_words: ui.ocr.words, or None
     (no label is read); an error from it (ocr.Unavailable) becomes a reason. The caller's array is not changed.
-    Never raises for a picture that is not a graph: the check "axes_plot" fails, and the Tracer has the whole picture,
+    Never raises for a picture that is not a graph (also None, or an array of 1, 2 or 4 dimensions): the check
+    "axes_plot" fails, and the Tracer has the whole picture,
     loaded as Tracer.load does. Returns AutoRead(ok, tracer, checks, curve, target, points, target_points, plot,
     seconds): ok when every check passes; tracer: a new Tracer (never None); checks: [Check(name, ok, reason)];
     curve: tracer.curves[0] when it has data; target: the curve marked "target" or None; points and target_points:
     [(Hz, dB)] or None (the dB axis is not known); plot: the crop's box in the picture {"x0", "y0", "x1", "y1"} or
     None. Runs in the caller's thread and touches no window."""
     t0 = time.perf_counter()
-    rgb = np.asarray(rgb)
-    if rgb.ndim == 3 and rgb.shape[2] > 3:
-        rgb = rgb[..., :3]  # (RGBA: the color channels)
-    rgb = np.ascontiguousarray(rgb, np.uint8)
+    try:
+        rgb = np.asarray(rgb)
+        if rgb.ndim == 3 and rgb.shape[2] > 3:
+            rgb = rgb[..., :3]  # (RGBA: the color channels)
+        rgb = np.ascontiguousarray(rgb, np.uint8)
+    except (TypeError, ValueError):
+        rgb = np.zeros((0, 0, 3), np.uint8)  # (None, or no array of numbers: not a picture)
     checks = []
 
     def add(key, ok, text):
@@ -1036,7 +1212,7 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
         add("axes_db_labels", False, "The app cannot read the dB labels. A larger picture can help.")
     if d_at and len(rows) >= 2:
         lo, hi = round(d_at(rows[-1]), 2) + 0.0, round(d_at(rows[0]), 2) + 0.0  # (+ 0.0: no "-0")
-        usual = DB_SPAN[0] <= hi - lo <= DB_SPAN[1] and DB_LOWEST <= lo and hi <= DB_HIGHEST
+        usual = DB_MIN_SPAN <= hi - lo and DB_LOWEST <= lo and hi <= DB_HIGHEST
         add("axes_db_range", usual, f"The dB axis is {lo:g} dB to {hi:g} dB." + (
             "" if usual else " This range is not usual for a graph of an IEM or headphone."))
     else:
@@ -1068,7 +1244,7 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
 
     # the measurement: the band of its color, and the middle of the band
     mc = measurement_colour(rgb, plot)
-    b = band(rgb, plot, plot["bg"], mc["colour"]) if mc else None
+    b = band(rgb, plot, plot["bg"], mc["colour"], 1 / abs(db_slope) if d_at and db_slope else None) if mc else None
     if not b or not np.isfinite(b["top"]).any():
         add("trace_curve", False, "The app did not find a curve in a strong color.")
         return result(t, crop=crop_box)
