@@ -118,15 +118,17 @@ class EqFiles:
         if self.svc is None or md is None:
             return False
         from ui.trace_window import IMAGE_SUFFIXES
+        # (a better picture after a poor automatic read of a picture from a website keeps its entry, as the same
+        # paste in the tracer: TraceWindow.kept_entry)
         for u in md.urls() if md.hasUrls() else []:
             if u.isLocalFile() and os.path.splitext(u.toLocalFile())[1].lower() in IMAGE_SUFFIXES:
                 self.open_trace()
-                self.tracer.open_file(u.toLocalFile())
+                self.tracer.open_file(u.toLocalFile(), self.tracer.kept_entry())
                 return True
         if md.hasImage():
             from PySide6.QtGui import QImage
             self.open_trace()
-            self.tracer.load_image(QImage(md.imageData()))
+            self.tracer.load_image(QImage(md.imageData()), entry=self.tracer.kept_entry())
             return True
         return False
 
@@ -150,27 +152,33 @@ class EqFiles:
             wait.raise_()
             wait.activateWindow()
             return False
+        from ui import bubble
         r = self.svc.call("/api/db/entry", {"id": entry_id})  # (the lists in memory: no internet)
-        if r.get("error"):
-            say(r["error"])
+        if r.get("error"):  # ("do this first": update the lists. A bubble, its words whole: Find…'s line cut them)
+            bubble.tell(None, r["error"], near=over)
             return False
-        entry = r["entry"]
+        from ui.picture_wait import PictureWait, clean_entry
+        entry = clean_entry(r["entry"])  # (its words come from a website's list: each on one line)
         import net
-        if net.offline():
-            say("Offline: to open this entry on its website, change to Online (top right).")
+        if net.offline():  # (the words fit Find…'s line at its opening width)
+            say("Offline: to open this entry, change to Online (top right).")
             return False
         tw = getattr(self, "tracer", None)
-        if tw is not None and any(map(tw.t.has_data, tw.t.curves)) and not tw.added:
-            # (the new picture replaces the one in the tracer, and the user is then in the browser)
-            say("The tracer has curves that you did not add. Add them or remove the picture in the tracer. Then "
-                "select the entry again.")
+        n = tw.unadded_curves() if tw is not None else 0
+        if n:
+            # (the new picture replaces the one in the tracer, and the user is then in the browser: "do this first",
+            # a bubble at the control that was used, UI-RULES 25. The automatic read's own curves do not stop it.)
+            bubble.tell(None, (
+                "The tracer has a curve that you did not add. To keep it, add it in the tracer. To remove it, click "
+                "Remove image in the tracer. Then select the entry again." if n == 1 else
+                "The tracer has curves that you did not add. To keep them, add them in the tracer. To remove them, "
+                "click Remove image in the tracer. Then select the entry again."), near=over)
             return False
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QDesktopServices
         if not QDesktopServices.openUrl(QUrl(entry.get("link") or "")):
             say("Windows cannot open the website of this entry.")
             return False
-        from ui.picture_wait import PictureWait
         wait = self.picture_wait = PictureWait(over, entry)
         wait.finished.connect(lambda _code: self._wait_done(wait, entry, over, say))
         wait.open()  # (window modal on `over`; it does not block)
@@ -185,8 +193,7 @@ class EqFiles:
         wait.deleteLater()
         if got is None:
             if timed_out:
-                say("The app found no new picture in 10 minutes and stopped. To start again, select the entry "
-                    "again.", 60000)
+                say("No new picture came in 10 minutes. Select the entry again.", 60000)  # (whole in Find…'s line)
             return
         over.reject()
         img, jpeg = got

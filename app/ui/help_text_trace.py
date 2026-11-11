@@ -18,7 +18,8 @@ HELP_TRACE = {'#tr-auto-on': ["The app adjusts the tracer's settings for the ima
  '#tr-dashed': 'The app follows dashed or dotted curves across their spaces.',
  '#tr-comp': ['The app adds a target to the curve, for a graph that shows the difference from a target.',
               'compensated'],
- '#tr-target-line': 'Adds the target line of the picture as a target. You give its name first.'}
+ '#tr-target-line': ['Adds the target line of the picture as a target. You give its name first.', 'tracer',
+                     'databases']}
 
 SETTINGS_TRACE = [{'title': 'Trace a graph image',
                    'items': [{'key': '#tr-auto-on',
@@ -87,4 +88,5 @@ SETTINGS_TRACE = [{'title': 'Trace a graph image',
                                        'shows only when the app found a target line in a picture from a website.',
                                        'Add as measurement does not add the target line. If you change the target line '
                                        '(for example, you erase a part of it or rename it), it becomes a measurement '
-                                       'curve. To add it as a target, select it, then click Add as target.']}]}]
+                                       'curve. To add it as a target, select it. Then click Add as target. To remove '
+                                       'it from the measurement, click its ✕ (Remove curve) on 2 Trace.']}]}]

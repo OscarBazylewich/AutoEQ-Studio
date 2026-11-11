@@ -105,7 +105,7 @@ HELP_EQ = {'slot:target': ['The curve that you want for your earphone.', 'target
                 'databases'],
  '#pk-f-sure': ['Hides the items with a rig that the app is not sure of.', 'rig-tags'],
  '#pk-f-dl': 'Hides the entries that the app cannot download.',
- '#pw-paste': 'Uses the picture that is on the clipboard at this time.',
+ '#pw-paste': ['Uses the picture that is on the clipboard at this time.', 'tracer', 'databases'],
  '#cmp-q': 'The model to find.',
  '#cmp-rig': ['The rig that your target was made for.', 'rig', 'rig-conversion'],
  '#hist-this': ['Only the EQs for the selected measurement.', 'history'],
@@ -658,8 +658,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'picture automatically, the tracer opens on the tab where your input is '
                                     'necessary. A message gives the cause.',
                                     'The measurement gets the name of the entry and the rig of its database. If the '
-                                    'picture is not a graph, copy a new picture and paste it in the tracer. The tracer '
-                                    'keeps the name and the rig of the entry.']},
+                                    'picture is not a graph, copy a new picture of the graph. Then paste it in the '
+                                    'tracer. The tracer keeps the name and the rig of the entry.']},
                           {'key': '#cmp-q',
                            'title': 'Model (which measurement to use)',
                            'body': ['The model to find. Each word must be in a name. Thus, with a smaller number of '

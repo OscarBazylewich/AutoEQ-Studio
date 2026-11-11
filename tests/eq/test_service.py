@@ -573,3 +573,31 @@ def test_files_add_source(fresh_studio, eq_cfg, check):
     finally:
         names = [n for n in os.listdir(inputs.folder("measurement")) if n.startswith(("Traced one", "Traced two"))]
         service.files_remove({"kind": "measurement", "names": names, "settings": eq_cfg})
+
+
+def test_files_add_source_of_a_wrong_type(fresh_studio, eq_cfg, check):
+    """A "source" of a wrong type (only a caller that is not the app's window sends one): examined before the file is
+    written, ignored, and the add continues as an add with no source (no error after the file was written)."""
+    bad = {"a list": {"site_url": ["x"]}, "a dict": {"site_url": {"x": 1}}, "a number": 5}
+    seen = {}
+    try:
+        for i, (what, src) in enumerate(bad.items()):
+            name = f"Odd source {i}.txt"
+            try:
+                r = service.files_add({"kind": "measurement", "files": [{"name": name, "content": CURVE}],
+                                       "settings": eq_cfg, "source": src})
+                seen[what] = (r.get("names"), name in rigs.sources())
+            except Exception as e:  # noqa: BLE001 - the fault this test is for
+                seen[what] = ("error", str(e))
+        check("service: /api/files/add with a source of a wrong type (a list, a dict, a number) adds the file with no "
+              "source record, and gives no error", all(v == ([f"Odd source {i}.txt"], False)
+                                                        for i, v in enumerate(seen.values())), seen)
+        src = {"site_url": HANGOUT, "site": "Hangout.Audio IEMs (Crinacle, 5128)", "name": ["not", "text"], "rig": 5}
+        service.files_add({"kind": "measurement", "files": [{"name": "Odd source 9.txt", "content": CURVE}],
+                           "settings": eq_cfg, "source": src})
+        rec = rigs.sources().get("Odd source 9.txt")
+        check("service: /api/files/add records only the text values of a source", rec == {"site_url": HANGOUT,
+                                                                                           "site": src["site"]}, rec)
+    finally:
+        names = [n for n in os.listdir(inputs.folder("measurement")) if n.startswith("Odd source")]
+        service.files_remove({"kind": "measurement", "names": names, "settings": eq_cfg})

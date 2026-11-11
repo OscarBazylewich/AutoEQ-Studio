@@ -121,8 +121,7 @@ def start_trace(tw):
         kept = {"v": dict(t.v), "ta": {k: (set(v) if isinstance(v, set) else dict(v) if isinstance(v, dict) else v)
                                          for k, v in t.ta.items()}}
         img, _s = sample_image()
-        tw.entry = None  # (the sample is not a picture from a website)
-        tw.load_image(img, "Sample graph")
+        tw.load_image(img, "Sample graph")  # (no entry: not a picture from a website, its entry goes)
         tw.sample_open = True
 
         def close():

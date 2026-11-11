@@ -128,6 +128,7 @@ def flow(eq_screen, monkeypatch):
 def _use(f):
     """Find…'s Use on the website entry's row: the wait window (or None) and the links opened."""
     n = len(qt.OPENED_URLS)
+    _LAST_USE["since"] = _token(f["page"])
     f["pk"].use_row(f["row"])
     qt.pump(50)
     return getattr(f["page"], "picture_wait", None), qt.OPENED_URLS[n:]
@@ -149,16 +150,31 @@ def _closed(wait):
     return not tasks.alive(wait) or not wait.isVisible()
 
 
-def _picture_came(page, sec=20):
-    """The tracer has the picture and its automatic read has ended."""
+def _token(page):
+    """The tracer's count of pictures and reads (graph_token: each new picture adds to it), -1 with no tracer."""
+    tw = getattr(page, "tracer", None)
+    return tw.graph_token if tw is not None else -1
+
+
+_LAST_USE = {"since": None}  # (_token() at the last _use: a picture there from before does not count)
+
+
+def _picture_came(page, sec=20, since=None):
+    """The tracer has the picture and its automatic read has ended (since: _token() before the picture was given, so
+    that a picture there from before does not count; by default, the one of the last _use)."""
+    since = _LAST_USE["since"] if since is None else since
     return qt.wait_for(lambda: getattr(page, "tracer", None) is not None and page.tracer.t.has_image
-                       and not page.tracer.reading_graph, sec)
+                       and not page.tracer.reading_graph and (since is None or page.tracer.graph_token > since), sec)
 
 
 # ---------------------------------------------------------------- Find… and the wait window
 def test_use_opens_link_and_waits(eq_screen, flow, check):
     from PySide6.QtWidgets import QLabel
+    from helpers.dialogs import DIALOGS
+    asked = len(DIALOGS.asked)
     wait, opened = _use(flow)
+    qt.pump(300)  # (a download, if one started, has its answer by now)
+    errors = [a for a in DIALOGS.asked[asked:] if a[0] in ("warning", "critical")]
     shown = wait is not None and wait.isVisible()
     words = " ".join(lab.text() for lab in wait.findChildren(QLabel)) if wait is not None else ""
     check("website flow: Use on a website entry opens its link in the browser and shows the wait window with the "
@@ -167,6 +183,9 @@ def test_use_opens_link_and_waits(eq_screen, flow, check):
           (opened, shown, words[:200]))
     check("website flow: the wait window is window modal on Find… and does not block (Find… stays open)",
           shown and wait.isModal() and flow["pk"].isVisible(), shown)
+    check("website flow: after Use on a website entry, Find… started no download behind the wait window (no error "
+          "message, its message line empty)", shown and not errors and not flow["pk"].busy and _said(flow["pk"]) == "",
+          (errors, flow["pk"].busy, _said(flow["pk"])))
 
 
 def test_old_picture_does_not_end_wait(eq_screen, flow, check):
@@ -214,13 +233,14 @@ def test_paste_takes_old_picture(eq_screen, flow, check):
     _copy(_graph())
     wait, _o = _use(flow)
     btn = wait.paste_btn
-    main = (btn.isDefault(), btn.property("help_key"), btn.text())
+    main = (btn.isDefault(), btn.property("help_key"), btn.text(), "F1" not in btn.toolTip())
     btn.click()
     came = _picture_came(page)
     check("website flow: Paste the picture takes the picture that was there before", came and _closed(wait)
           and page.tracer.entry["name"] == ENTRY, came)
-    check("website flow: Paste the picture is the main button (the accent, Enter's) and has its help",
-          main == (True, "#pw-paste", "Paste the picture"), main)
+    check("website flow: Paste the picture is the main button (the accent, Enter's) and has its help (its tooltip "
+          "does not name F1: F1 does nothing in this window)", main == (True, "#pw-paste", "Paste the picture", True),
+          main)
 
 
 def test_paste_with_nothing(eq_screen, flow, check):
@@ -274,7 +294,8 @@ def test_time_limit(eq_screen, flow, monkeypatch, check):
     wait, _o = _use(flow)
     gone = qt.wait_for(lambda: _closed(wait), 10)
     check("website flow: after the time limit the wait window closes and Find…'s line says so",
-          gone and pk.isVisible() and "no new picture in 10 minutes" in _said(pk), _said(pk))
+          gone and pk.isVisible() and _said(pk) == "No new picture came in 10 minutes. Select the entry again.",
+          _said(pk))
 
 
 def test_offline(eq_screen, flow, monkeypatch, check):
@@ -287,6 +308,65 @@ def test_offline(eq_screen, flow, monkeypatch, check):
           and pk.isVisible(), (opened, _said(pk)))
 
 
+ONE_CURVE = ("The tracer has a curve that you did not add. To keep it, add it in the tracer. To remove it, click Remove "
+             "image in the tracer. Then select the entry again.")
+CURVES = ("The tracer has curves that you did not add. To keep them, add them in the tracer. To remove them, click "
+          "Remove image in the tracer. Then select the entry again.")
+
+
+def _told():
+    """The words of the "do this first" bubble in sight (ui.bubble.tell), or ""."""
+    from ui import bubble
+    b = bubble.last("tell")
+    return b.text.text() if b is not None and b.isVisible() else ""
+
+
+def _close_bubble():
+    from ui import bubble
+    b = bubble.last("tell")
+    if b is not None:
+        b.hide()
+
+
+def test_no_browser_says_so(eq_screen, flow, monkeypatch, check):
+    from PySide6.QtGui import QDesktopServices
+    pk = flow["pk"]
+    monkeypatch.setattr(QDesktopServices, "openUrl", staticmethod(lambda url: False))
+    wait, _o = _use(flow)
+    check("website flow: when Windows cannot open the link, Find…'s line says so and no wait starts",
+          wait is None and _said(pk) == "Windows cannot open the website of this entry.", _said(pk))
+
+
+def test_messages_fit_finds_line(eq_screen, flow, monkeypatch, check):
+    """Each message of the flow in Find…'s line is whole at Find…'s opening width (900 px): the line cuts a longer
+    one at its edge."""
+    import net
+    from PySide6.QtGui import QDesktopServices, QFontMetrics
+    from ui import picture_wait
+    pk = flow["pk"]
+    pk.resize(900, pk.height())
+    qt.pump(100)
+    said = {}
+    monkeypatch.setattr(net, "offline", lambda: True)
+    _use(flow)
+    said["offline"] = _said(pk)
+    monkeypatch.setattr(net, "offline", lambda: False)
+    monkeypatch.setattr(picture_wait, "TIMEOUT_MS", 200)
+    wait, _o = _use(flow)
+    qt.wait_for(lambda: wait is not None and _closed(wait), 10)
+    said["time limit"] = _said(pk)
+    with monkeypatch.context() as m:
+        m.setattr(QDesktopServices, "openUrl", staticmethod(lambda url: False))
+        _use(flow)
+        said["no browser"] = _said(pk)
+    line = pk.footer.line.text
+    fm = QFontMetrics(line.font())
+    wide = {k: (fm.horizontalAdvance(t), line.width()) for k, t in said.items()}
+    check("website flow: each message in Find…'s line fits it at Find…'s opening width (900 px)",
+          pk.width() == 900 and all(t for t in said.values()) and all(w <= room for w, room in wide.values()),
+          (said, wide))
+
+
 def test_tracer_with_curves_not_added(eq_screen, flow, check):
     page, pk = flow["page"], flow["pk"]
     page.open_trace()
@@ -295,10 +375,19 @@ def test_tracer_with_curves_not_added(eq_screen, flow, check):
     qt.wait_for(lambda: not tw.reading, 60)
     tw.t.curves[0]["ys"][100:200] = 300.0  # (a traced part)
     tw.close()
+    _close_bubble()
     wait, opened = _use(flow)
-    check("website flow: the tracer with curves that were not added stops the flow with a message",
-          not opened and wait is None and "curves that you did not add" in _said(pk)
-          and "select the entry again" in _said(pk) and tw.t.src_name == "Mine", (opened, _said(pk)))
+    told = _told()
+    check("website flow: the tracer with a curve that was not added stops the flow with a bubble (UI-RULES 25) that "
+          "names Remove image, in the words for one curve", not opened and wait is None and told == ONE_CURVE
+          and _said(pk) == "" and tw.t.src_name == "Mine", (opened, told, _said(pk)))
+    tw.t.add_curve()
+    tw.t.curves[1]["ys"][300:400] = 250.0
+    _close_bubble()
+    wait, opened = _use(flow)
+    check("website flow: with more than one curve, the bubble has the words for more than one curve",
+          not opened and wait is None and _told() == CURVES, _told())
+    _close_bubble()
     tw.added = True
     wait, opened = _use(flow)
     check("website flow: after the add of the tracer's curves, the flow starts", opened == [LINK] and wait is not None
@@ -308,9 +397,10 @@ def test_tracer_with_curves_not_added(eq_screen, flow, check):
 def test_entry_route_error_said(eq_screen, flow, check):
     page, pk = flow["page"], flow["pk"]
     n = len(qt.OPENED_URLS)
+    _close_bubble()
     started = page.trace_from_website("no-such-entry", over=pk, say=lambda t, ms=10000: pk.footer.say(t, ms))
-    check("website flow: an entry that is not in the lists says so in the caller's line, nothing opens",
-          not started and len(qt.OPENED_URLS) == n and "not there" in _said(pk), _said(pk))
+    check("website flow: an entry that is not in the lists says so in a bubble (its words whole), nothing opens",
+          not started and len(qt.OPENED_URLS) == n and "not there" in _told() and _said(pk) == "", (_told(), _said(pk)))
 
 
 def test_one_wait_at_a_time(eq_screen, flow, check):
@@ -338,14 +428,22 @@ def test_downloads_folder_is_the_test_folder(eq_screen, flow, monkeypatch, check
     from ui import picture_wait
     folder = _downloads()
     wait, _o = _use(flow)
-    shown = os.path.normpath(folder) in wait.where.text() and "Screenshot" in " ".join(
+    shown = wait.path is not None and wait.path.text() == os.path.normpath(folder) and "Screenshot" in " ".join(
         lab.text() for lab in wait.findChildren(QLabel))
     check("website flow: the wait window shows the Downloads folder that it looks at (the session's stand-in)",
-          folder and session.inside(folder) and shown, (folder, wait.where.text()))
+          folder and session.inside(folder) and shown, (folder, wait.path and wait.path.text()))
+    root, data = os.environ.get("AUTOEQSTUDIO_ROOT"), os.environ.get("AUTOEQSTUDIO_DATA")
     monkeypatch.delenv("AUTOEQSTUDIO_DOWNLOADS")
     copy = picture_wait.downloads_folder()
     check("website flow: a test copy of the app (AUTOEQSTUDIO_ROOT) with no Downloads stand-in looks at no folder",
-          os.environ.get("AUTOEQSTUDIO_ROOT") and copy == "", copy)
+          root and copy == "", copy)
+    monkeypatch.delenv("AUTOEQSTUDIO_ROOT")
+    monkeypatch.setenv("AUTOEQSTUDIO_DATA", data or "x")
+    only_data = picture_wait.downloads_folder()
+    monkeypatch.setenv("AUTOEQSTUDIO_DOWNLOADS", folder)
+    check("website flow: a process with only AUTOEQSTUDIO_DATA set (a test copy, as userfiles.py's rule) looks at no "
+          "folder unless AUTOEQSTUDIO_DOWNLOADS is set", only_data == "" and picture_wait.downloads_folder() == folder,
+          only_data)
 
 
 def test_old_file_does_not_end_wait(eq_screen, flow, check):
@@ -435,13 +533,262 @@ def test_look_changes_nothing(eq_screen, flow, check):
           _stamps(folder) == before, (before, _stamps(folder)))
 
 
+def _png(img=None):
+    """The bytes of a PNG file (the sample graph, or img)."""
+    from PySide6.QtCore import QBuffer, QByteArray, QIODevice
+    data = QByteArray()
+    buf = QBuffer(data)
+    buf.open(QIODevice.WriteOnly)
+    (img if img is not None else _graph()).save(buf, "PNG")
+    return bytes(data)
+
+
+def _plain(w, h):
+    from PySide6.QtGui import QColor, QImage
+    img = QImage(w, h, QImage.Format_RGB888)
+    img.fill(QColor("white"))
+    return img
+
+
+def test_error_at_the_first_look(eq_screen, flow, monkeypatch, check):
+    """An error of the first look (a drive that does not answer at that moment) must not make each old picture new."""
+    folder = _downloads()
+    _graph().save(os.path.join(folder, "holiday 2019.png"))
+    real, failed = os.scandir, []
+
+    def scandir(path="."):
+        if os.path.normcase(os.path.normpath(str(path))) == os.path.normcase(os.path.normpath(folder)) and not failed:
+            failed.append(path)
+            raise PermissionError(13, "The device does not answer", str(path))
+        return real(path)
+    monkeypatch.setattr(os, "scandir", scandir)
+    wait, _o = _use(flow)
+    known = qt.wait_for(lambda: wait._old is not None, 10)
+    qt.pump(500)
+    check("website flow: an error at the first look keeps the old files not known until a look is successful: an old "
+          "picture does not end the wait", failed and known and "holiday 2019.png" in wait._old and not _closed(wait)
+          and wait.got is None, (failed, wait._old))
+
+
+def test_folder_look_with_no_answer(eq_screen, flow, check):
+    from ui import picture_wait
+    folder = _downloads()
+    missing = os.path.join(folder, "not there")
+    pending, tries = {}, {}
+    check("website flow: a folder that is not there gives no list (not known), and a look with no list of old files "
+          "changes nothing", picture_wait.folder_pictures(missing) is None and picture_wait.folder_pictures("") is None
+          and picture_wait.new_picture(folder, None, pending, tries) == (None, False) and not pending,
+          (picture_wait.folder_pictures(missing), pending))
+
+
+def test_file_that_another_program_holds(eq_screen, flow, monkeypatch, check):
+    """A stand-in for a file that a different program holds with no sharing: it does not open (and Qt reads nothing)
+    for 7 looks, then it reads. Each look while it is held is not a try."""
+    import builtins
+    from PySide6.QtGui import QImage
+    from ui import picture_wait
+    folder = _downloads()
+    old, pending, tries = picture_wait.folder_pictures(folder), {}, {}
+    path = os.path.join(folder, "held.png")
+    with open(path, "wb") as fh:
+        fh.write(_png())
+    held = [True]
+    same = lambda p: os.path.normcase(os.path.abspath(str(p))) == os.path.normcase(os.path.abspath(path))  # noqa: E731
+
+    def held_open(p, *a, **k):
+        if held[0] and same(p):
+            raise PermissionError(13, "The file is in use by a different program", str(p))
+        return builtins.open(p, *a, **k)
+    monkeypatch.setattr(picture_wait, "open", held_open, raising=False)
+    monkeypatch.setattr(picture_wait, "QImage", lambda *a: QImage() if held[0] and a and same(a[0]) else QImage(*a))
+    during = [picture_wait.new_picture(folder, old, pending, tries)[0] for _ in range(8)]
+    counted = dict(tries)
+    held[0] = False
+    after = [picture_wait.new_picture(folder, old, pending, tries)[0] for _ in range(2)]
+    check("website flow: a file that a different program holds for 7 looks is not a try, and it is read after",
+          all(x is None for x in during) and not counted and "held.png" not in old and after[0] is not None
+          and not after[0].isNull(), (during, counted, after, old.get("held.png")))
+
+
+def test_folder_rules(eq_screen, flow, check):
+    """Short checks of the look's rules with new_picture directly."""
+    from ui import picture_wait
+    folder = _downloads()
+    check("website flow: a picture less than 200 px high is not a graph (400 x 199), 400 x 200 is",
+          not picture_wait.big_enough(_plain(400, 199)) and picture_wait.big_enough(_plain(400, 200)))
+    old, pending, tries = picture_wait.folder_pictures(folder), {}, {}
+    for name in ("graph.png.crdownload", "graph.png.part"):  # (a real PNG, under the browser's names for a download)
+        with open(os.path.join(folder, name), "wb") as fh:
+            fh.write(_png())
+    looks = [picture_wait.new_picture(folder, old, pending, tries)[0] for _ in range(3)]
+    check("website flow: a real PNG under the name .crdownload or .part (a download that is not complete) is not used",
+          all(x is None for x in looks) and not pending, (looks, pending))
+    small = os.path.join(folder, "icon.png")
+    _plain(299, 400).save(small)
+    looks = [picture_wait.new_picture(folder, old, pending, tries)[0] for _ in range(2)]
+    check("website flow: a small picture file in Downloads does not end the wait, and it is old after its first read",
+          all(x is None for x in looks) and "icon.png" in old and "icon.png" not in pending and not tries,
+          (looks, old.get("icon.png"), tries))
+    a, b = os.path.join(folder, "first.png"), os.path.join(folder, "second.png")
+    _plain(500, 300).save(a)
+    _plain(700, 300).save(b)
+    t = time.time()
+    os.utime(a, (t - 60, t - 60))  # (the older of the two)
+    os.utime(b, (t, t))
+    looks = [picture_wait.new_picture(folder, old, pending, tries)[0] for _ in range(2)]
+    check("website flow: two new pictures in one look: the newest is used", looks[0] is None and looks[1] is not None
+          and looks[1].width() == 700, [x and x.width() for x in looks])
+    old, pending, tries = picture_wait.folder_pictures(folder), {}, {}
+    _plain(640, 360).save(a)  # (the old file "first.png" changes: a new picture under an old name)
+    looks = [picture_wait.new_picture(folder, old, pending, tries)[0] for _ in range(2)]
+    check("website flow: an old file that changed (the same name) is a new picture", looks[0] is None
+          and looks[1] is not None and looks[1].width() == 640, [x and x.width() for x in looks])
+
+
+def test_jpeg_file_flag(eq_screen, flow, monkeypatch, check):
+    from ui import trace_core
+    calls = []
+    monkeypatch.setattr(trace_core, "auto_read", stand_in(calls=calls))
+    folder = _downloads()
+    wait, _o = _use(flow)
+    qt.wait_for(lambda: wait._old is not None, 10)
+    _graph().save(os.path.join(folder, "graph.jpg"), "JPG", 95)
+    came = _picture_came(flow["page"])
+    check("website flow: a .jpg file in Downloads goes to the automatic read as a JPEG (its settings depend on it)",
+          came and calls and calls[0]["jpeg"] is True and flow["page"].tracer.t.ta["jpeg"] is True, calls)
+
+
+def test_copied_picture_file(eq_screen, flow, tmp_path, check):
+    from PySide6.QtCore import QMimeData, QUrl
+    from PySide6.QtWidgets import QApplication
+    path = str(tmp_path / "copied graph.png")
+    _graph().save(path)
+    wait, _o = _use(flow)
+    md = QMimeData()
+    md.setUrls([QUrl.fromLocalFile(path)])
+    QApplication.clipboard().setMimeData(md)
+    came = _picture_came(flow["page"])
+    check("website flow: a picture file copied in File Explorer (its name on the clipboard) ends the wait",
+          came and _closed(wait) and flow["page"].tracer.entry["name"] == ENTRY, came)
+
+
+def test_ctrl_v_in_the_wait_window(eq_screen, flow, check):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    _copy(_graph())
+    wait, _o = _use(flow)
+    wait.activateWindow()
+    qt.pump(50)
+    QTest.keyClick(wait, Qt.Key_V, Qt.ControlModifier)
+    came = _picture_came(flow["page"])
+    check("website flow: Ctrl+V in the wait window takes the picture on the clipboard", came and _closed(wait), came)
+
+
+LONG_PATHS = (r"C:\Users\maximilian.mustermann\OneDrive\Dokumente\Eigene_Dateien\Internet\Browser\Downloads",
+              r"C:\Users\maximilian.mustermann\OneDrive\Dokumente\Eigene_Dateien\Internet\Browser\Heruntergeladene"
+              r"_Bilder\Downloads")
+
+
+def _cut(wait):
+    """The labels of the wait window whose words do not all show: wrapped words with less height than they need or
+    a word wider than the label, a label past the window's right edge, the path line drawn wider than its room."""
+    from PySide6.QtCore import QPoint, QRect, Qt
+    from PySide6.QtGui import QFontMetrics
+    from PySide6.QtWidgets import QLabel
+    from ui.picture_wait import PathLine
+    bad = []
+    for lab in wait.findChildren(QLabel):
+        if not lab.isVisible() or not lab.text():
+            continue
+        fm = QFontMetrics(lab.font())
+        right = lab.mapTo(wait, QPoint(lab.width(), 0)).x()
+        if right > wait.width():
+            bad.append(("past the edge", lab.text()[:30], right, wait.width()))
+        if isinstance(lab, PathLine):
+            if fm.horizontalAdvance(lab.shown_text()) > lab.contentsRect().width():
+                bad.append(("path", lab.shown_text()))
+        elif lab.wordWrap():
+            need = fm.boundingRect(QRect(0, 0, lab.width(), 10000), Qt.TextWordWrap, lab.text())
+            if need.width() > lab.width() or lab.height() < lab.heightForWidth(lab.width()) - 1:
+                bad.append(("cut", lab.text()[:30], need.width(), lab.width(), lab.height()))
+    return bad
+
+
+def test_long_downloads_path(eq_screen, flow, monkeypatch, check):
+    from ui.picture_wait import PictureWait
+    seen = {}
+    for path in LONG_PATHS:
+        monkeypatch.setenv("AUTOEQSTUDIO_DOWNLOADS", path)  # (not there: nothing is read)
+        wait = PictureWait(flow["pk"], {"name": ENTRY, "site": SITE})
+        wait.open()
+        qt.pump(200)
+        wait.paste()  # (with its note too)
+        qt.pump(100)
+        seen[len(path)] = (_cut(wait), wait.path.shown_text(), wait.path.toolTip() == path, wait.width())
+        wait.reject()
+        wait.deleteLater()
+    qt.pump(50)
+    check("website flow: a long Downloads path with no space (91 and 115 characters): no word of the window is cut, "
+          "nothing goes past its right edge, and the path is cut in its middle with “…” (its tooltip whole)",
+          sorted(seen) == [91, 115] and all(not v[0] and "…" in v[1] and v[2] and v[3] <= 640 for v in seen.values()),
+          seen)
+
+
+def test_screen_reader(eq_screen, flow, monkeypatch, check):
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QDialog, QPushButton
+    from helpers import paths
+    a11y = paths.import_tool("a11y")
+
+    def tab_order(win, first):
+        """The controls that Tab goes to, from `first`, one round."""
+        out, w = [], first
+        for _ in range(50):
+            if w is None or (out and w is first):
+                break
+            if w.isVisible() and w.isEnabled() and w.focusPolicy() & Qt.TabFocus and win.isAncestorOf(w):
+                out.append(w.accessibleName() or getattr(w, "text", lambda: "")())
+            w = w.nextInFocusChain()
+        return out
+    wait, _o = _use(flow)
+    qt.pump(100)
+    desc = wait.accessibleDescription()
+    first = wait.focusWidget() or wait.paste_btn
+    order = tab_order(wait, first)
+    check("website flow: a screen reader reads the wait window's heading and steps (its description), each control "
+          "has a name, and Tab goes from Paste the picture to Cancel",
+          f"“{ENTRY}”" in desc and "Windows + Shift + S" in desc and "Maximize the window" in desc
+          and not a11y.unnamed(wait) and not a11y.unreachable(wait)
+          and order[:2] == ["Paste the picture (a picture from the website)", "Cancel"], (desc, order))
+    wait.reject()
+    came, tw = _traced(flow, monkeypatch, stand_in(target=True))
+    seen = {}
+
+    def look(dlg):
+        from PySide6.QtWidgets import QLineEdit
+        dlg.show()
+        qt.pump(100)
+        box = dlg.findChild(QLineEdit)
+        seen.update(unnamed=a11y.unnamed(dlg), unreachable=a11y.unreachable(dlg), order=tab_order(dlg, box),
+                    buttons=[b.text() for b in dlg.findChildren(QPushButton)])
+        dlg.hide()
+        return QDialog.Rejected
+    monkeypatch.setattr(QDialog, "exec", look)
+    tw.add_target_line()
+    check("website flow: the name box of Add the target line as target… has a name for each control, and Tab goes "
+          "from the box to Add to Cancel", came and not seen.get("unnamed") and not seen.get("unreachable")
+          and seen.get("order", [])[:3] == ["Name of the target", "Add", "Cancel"]
+          and tw.save_line.accessibleName(), seen)
+
+
 # ---------------------------------------------------------------- the tracer with an entry
 def _traced(f, monkeypatch, fake):
     from ui import trace_core
     monkeypatch.setattr(trace_core, "auto_read", fake)
+    since = _token(f["page"])
     _use(f)
     _copy(_graph())
-    came = _picture_came(f["page"])
+    came = _picture_came(f["page"], since=since)
     return came, f["page"].tracer
 
 
@@ -505,6 +852,13 @@ def test_not_a_graph(eq_screen, flow, monkeypatch, check):
     check("website flow: a picture that is not a graph (axes_plot), the tracer shows 1 Axes with the reason and reads "
           "the labels as for any picture", came and tw.pages.currentIndex() == 0 and calls
           and "did not find the grid" in tw.status.text(), (tw.pages.currentIndex(), calls, tw.status.text()))
+    qt.wait_for(lambda: not tw.reading, 60)
+    check("website flow: for a picture that is not a graph, the words tell the user to copy a new picture and paste "
+          "it (not to correct a step), and 1 Axes has one message (the label read's)",
+          tw.status.text() == "The app cannot trace this picture automatically. The app did not find the grid of a "
+          "graph in this picture. Copy a new picture of the graph. Then paste it in the tracer (Ctrl+V)."
+          and "automatically" not in tw.axis_note.text() and "3 Save" not in tw.axis_note.text(),
+          (tw.status.text(), tw.axis_note.text()))
 
 
 def test_error_of_the_read(eq_screen, flow, monkeypatch, check):
@@ -513,9 +867,13 @@ def test_error_of_the_read(eq_screen, flow, monkeypatch, check):
     real = trace_window.TraceWindow.read_labels
     monkeypatch.setattr(trace_window.TraceWindow, "read_labels", lambda self: (calls.append(1), real(self)))
     came, tw = _traced(flow, monkeypatch, stand_in(error="made-up failure"))
-    check("website flow: an error of the automatic read gives 1 Axes and today's label read",
-          came and tw.pages.currentIndex() == 0 and calls and "made-up failure" in tw.status.text()
-          and tw.read_ok is False and tw.entry["name"] == ENTRY, (tw.pages.currentIndex(), calls, tw.status.text()))
+    check("website flow: an error of the automatic read gives 1 Axes and today's label read, the entry's name stays",
+          came and tw.pages.currentIndex() == 0 and calls and tw.read_ok is False and tw.entry["name"] == ENTRY
+          and tw.t.src_name == NAME, (tw.pages.currentIndex(), calls, tw.t.src_name))
+    check("website flow: after an error of the read, no Python words on the screen, and the words name 1 Axes and "
+          "2 Trace", tw.status.text() == "The app cannot trace this picture automatically. Do the steps 1 Axes and "
+          "2 Trace manually. Then go to 3 Save." and "made-up failure" not in tw.status.text() + tw.axis_note.text(),
+          tw.status.text())
 
 
 def test_paste_after_poor_picture_keeps_entry(eq_screen, flow, monkeypatch, check):
@@ -535,6 +893,38 @@ def test_paste_after_poor_picture_keeps_entry(eq_screen, flow, monkeypatch, chec
           tw.entry is None and tw.t.src_name != NAME, (tw.entry, tw.t.src_name))
 
 
+class _Drop:
+    """A stand-in for Qt's drop event: its data only."""
+
+    def __init__(self, md):
+        self.md = md
+
+    def mimeData(self):
+        return self.md
+
+
+def test_other_ways_keep_the_entry(eq_screen, flow, monkeypatch, check):
+    """After a poor read, a better picture dropped on the tracer or pasted on the Make an EQ page keeps the entry, as
+    the same paste in the tracer."""
+    from PySide6.QtCore import QMimeData
+    from ui import trace_core
+    page = flow["page"]
+    came, tw = _traced(flow, monkeypatch, stand_in(ok=False, fail="axes_hz_labels"))
+    md = QMimeData()
+    md.setImageData(_graph())
+    tw.dropEvent(_Drop(md))
+    again = qt.wait_for(lambda: not tw.reading_graph and tw.read_ok is not None, 20)
+    check("website flow: a picture dropped on the tracer after a poor one keeps the entry",
+          came and again and tw.entry and tw.entry["name"] == ENTRY and tw.t.src_name == NAME,
+          (tw.entry, tw.t.src_name))
+    monkeypatch.setattr(trace_core, "auto_read", stand_in())
+    _copy(_graph())
+    page.paste_picture()  # (Ctrl+V on the Make an EQ page: the main window was the active window)
+    came2 = qt.wait_for(lambda: not tw.reading_graph and tw.read_ok is True, 20)
+    check("website flow: a picture pasted on the Make an EQ page after a poor read keeps the entry (as in the tracer)",
+          came2 and tw.entry and tw.entry["name"] == ENTRY and tw.t.src_name == NAME, (tw.entry, tw.t.src_name))
+
+
 def test_entry_cleared(eq_screen, flow, monkeypatch, check):
     from ui import guide
     came, tw = _traced(flow, monkeypatch, stand_in())
@@ -542,16 +932,166 @@ def test_entry_cleared(eq_screen, flow, monkeypatch, check):
     removed = tw.entry is None and not tw.added and tw.read_ok is None
     flow["pk"].show()
     came2, tw = _traced(flow, monkeypatch, stand_in())
-    tw.close()
-    closed = tw.entry is None
     flow["page"].open_trace()  # (the Guide runs on a window in sight)
     tw.remove_image()
     tw.entry = {"name": "Left over", "tag": "X"}  # (as if one were left: the Guide's sample must not keep it)
     tour = guide.start_trace(tw)
     sample = (tw.entry, tw.t.src_name)
     tour.end()
-    check("website flow: Remove image, the window's close and the Guide's sample clear the entry",
-          came and came2 and removed and closed and sample == (None, "Sample graph"), (removed, closed, sample))
+    check("website flow: Remove image and the Guide's sample clear the entry",
+          came and came2 and removed and sample == (None, "Sample graph"), (removed, sample))
+
+
+def test_close_keeps_the_entry(eq_screen, fresh_studio, flow, monkeypatch, check):
+    """The entry belongs to the picture: the tracer closed and opened again still adds it with the website and the
+    source record (also with a name that the user typed). A close during the read is the same."""
+    from eq import paths as eq_paths
+    from eq import rigs
+    page = flow["page"]
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    tw.close()
+    page.open_trace()
+    tw.name.setText("My IEM")
+    tw.t.v["name"] = "My IEM"
+    tw.save("measurement")
+    with open(os.path.join(eq_paths.MEAS_DIR, "My IEM.txt"), encoding="utf-8") as fh:
+        first = fh.readline().strip()
+    rec = rigs.sources().get("My IEM.txt") or {}
+    check("website flow: the tracer closed and opened again: Add as measurement still names the website and the link, "
+          "and records the source (the rig, also with a name that the user typed)",
+          came and first == f"* Traced from {NAME} with AutoEQ Studio (a picture from {SITE}: {LINK})"
+          and rec.get("name") == ENTRY and rigs.file_rig("My IEM.txt") == ("5128", True), (first, rec))
+    monkeypatch.setattr(trace_core, "auto_read", stand_in(delay=1.0))
+    flow["pk"].show()
+    _use(flow)
+    _copy(_graph())
+    qt.wait_for(lambda: tw.reading_graph, 10)
+    tw.close()  # (while the read runs: its answer comes into the closed window)
+    done = qt.wait_for(lambda: not tw.reading_graph and tw.read_ok is not None, 20)
+    check("website flow: the tracer closed while the read runs: the read's own curves do not stop a new Use",
+          done and any(map(tw.t.has_data, tw.t.curves)) and tw.unadded_curves() == 0, tw.unadded_curves())
+    page.open_trace()
+    tw.name.setText("My IEM 2")
+    tw.t.v["name"] = "My IEM 2"
+    tw.save("measurement")
+    rec = rigs.sources().get("My IEM 2.txt") or {}
+    check("website flow: the tracer closed while the read runs, then opened: the add records the source",
+          done and tw.read_ok is True and rec.get("name") == ENTRY and rigs.file_rig("My IEM 2.txt") == ("5128", True),
+          (done, rec))
+
+
+def test_close_then_a_picture_of_yours(eq_screen, flow, monkeypatch, check):
+    page = flow["page"]
+    came, tw = _traced(flow, monkeypatch, stand_in(ok=False, fail="axes_hz_labels"))
+    kept = tw.kept_entry() is not None
+    tw.close()
+    page.open_trace()
+    _copy(_graph())
+    tw.paste()
+    qt.wait_for(lambda: not tw.reading_graph, 20)
+    check("website flow: after the close of the tracer, an unrelated picture pasted in it gets no entry (also after a "
+          "poor read)", came and kept and tw.entry is None and tw.t.src_name != NAME, (kept, tw.entry, tw.t.src_name))
+
+
+def test_read_curves_do_not_stop_use(eq_screen, flow, monkeypatch, check):
+    """A picture from a website whose curves only the automatic read made: a new Use replaces it with no message (the
+    tracer closed with its ✕, a different entry). A curve that the user changed stops it with the bubble."""
+    page, pk = flow["page"], flow["pk"]
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    tw.close()
+    pk.q.setText("gate")
+    pk.render()
+    pk.finish_list()
+    other = next((r for r in _rows(pk) if r.get("link") and r["name"] == "Tangzu XuanWu Gate"), None)
+    pk.show()
+    _close_bubble()
+    n = len(qt.OPENED_URLS)
+    since = _token(page)
+    pk.use_row(other)
+    qt.pump(50)
+    wait = page.picture_wait
+    check("website flow: Use, the read OK, the tracer closed with ✕, Use on a different entry: the wait window opens",
+          came and other is not None and wait is not None and wait.isVisible() and len(qt.OPENED_URLS) == n + 1
+          and not _told(), (other, wait, _told()))
+    _copy(_graph())
+    came2 = _picture_came(page, since=since) and tw.entry["name"] == "Tangzu XuanWu Gate"
+    tw.t.cur = 0
+    tw.smooth()  # (the user changes the curve)
+    pk.show()
+    _close_bubble()
+    n = len(qt.OPENED_URLS)
+    pk.use_row(other)
+    qt.pump(50)
+    check("website flow: Use while the tracer has a curve that the user changed: the bubble shows, no browser opens",
+          came2 and _told() == ONE_CURVE and len(qt.OPENED_URLS) == n and page.picture_wait is None,
+          (came2, _told(), qt.OPENED_URLS[n:], tw.entry, tw.t.undo_stack and len(tw.t.undo_stack)))
+
+
+def test_added_flags_go_with_a_new_picture(eq_screen, fresh_studio, flow, monkeypatch, check):
+    """After an add, a new picture is not "added": its curves stop a new Use; and a pasted picture after an add gets
+    no entry."""
+    came, tw = _traced(flow, monkeypatch, stand_in(ok=False, fail="trace_band"))
+    tw.t.cur = 0
+    tw.t.push_undo()
+    tw.t.curves[0]["ys"][100:200] = 300.0  # (a curve by hand)
+    tw.save("measurement")
+    added = tw.added
+    _copy(_graph())
+    tw.paste()
+    qt.wait_for(lambda: not tw.reading_graph, 20)
+    no_entry = tw.entry is None and tw.t.src_name != NAME and not tw.added
+    tw.t.curves[0]["ys"][100:200] = 300.0  # (the user traces on the new picture)
+    flow["pk"].show()
+    _close_bubble()
+    wait, opened = _use(flow)
+    check("website flow: after an add, a pasted picture gets no entry, and its new curves stop a new Use",
+          came and added and no_entry and not opened and wait is None and _told() == ONE_CURVE,
+          (added, no_entry, opened, _told()))
+
+
+def test_new_picture_during_the_read(eq_screen, flow, monkeypatch, check):
+    """A new picture, or Remove image, while the automatic read runs: the old read's answer is dropped."""
+    page = flow["page"]
+    monkeypatch.setattr(trace_core, "auto_read", stand_in(delay=1.0))
+    _use(flow)
+    _copy(_graph())
+    qt.wait_for(lambda: getattr(page, "tracer", None) is not None and page.tracer.reading_graph, 10)
+    tw = page.tracer
+    tw.load_image(_graph().copy(0, 0, 800, 500), "Mine")
+    qt.pump(1600)  # (the old read's answer comes meanwhile)
+    check("website flow: a new picture during the automatic read: the old read does not replace it, its name is "
+          "correct, and the stage and the side panel accept input", tw.t.src_name == "Mine" and tw.t.W == 800
+          and tw.entry is None and tw.read_ok is None and tw.stage.isEnabled() and tw.side_scroll.isEnabled(),
+          (tw.t.src_name, tw.t.W, tw.stage.isEnabled(), tw.side_scroll.isEnabled()))
+    flow["pk"].show()
+    _use(flow)
+    _copy(_graph())
+    qt.wait_for(lambda: tw.reading_graph, 10)
+    tw.remove_image()
+    qt.pump(1600)
+    check("website flow: Remove image during the automatic read: the picture does not come back, and the stage and "
+          "the side panel accept input", not tw.t.has_image and tw.entry is None and tw.stage.isEnabled()
+          and tw.side_scroll.isEnabled(), (tw.t.has_image, tw.t.src_name))
+
+
+def test_keys_during_the_read(eq_screen, flow, monkeypatch, check):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    page = flow["page"]
+    monkeypatch.setattr(trace_core, "auto_read", stand_in(delay=1.5))
+    _use(flow)
+    _copy(_graph())
+    qt.wait_for(lambda: getattr(page, "tracer", None) is not None and page.tracer.reading_graph, 10)
+    tw = page.tracer
+    for key in (Qt.Key_A, Qt.Key_Delete, Qt.Key_S):
+        QTest.keyClick(tw, key)
+    qt.pump(50)
+    unchanged = tw.reading_graph and not any(map(tw.t.has_data, tw.t.curves)) and not tw.t.undo_stack
+    _copy(_graph().copy(0, 0, 800, 500))
+    QTest.keyClick(tw, Qt.Key_V, Qt.ControlModifier)
+    qt.pump(100)
+    check("website flow: while the automatic read runs, the keys A, Delete and S change nothing, and Ctrl+V loads a "
+          "new picture", unchanged and tw.t.W == 800 and not tw.reading_graph, (unchanged, tw.t.W))
 
 
 def test_add_as_measurement(eq_screen, fresh_studio, flow, monkeypatch, check):
@@ -584,6 +1124,41 @@ def test_add_as_measurement(eq_screen, fresh_studio, flow, monkeypatch, check):
           (second, rig2, rigs.file_rig("My own name.txt")))
 
 
+CHANGED_LINE = ("You changed the curve “Target”. Thus, it is a measurement curve: Add as measurement also adds it. To "
+                "add it as a target, select it. Then click Add as target. To remove it from the measurement, click its "
+                "✕ (Remove curve) on 2 Trace.")
+
+
+def _values(path):
+    """The (Hz, dB) rows of a curve file (the lines that are numbers)."""
+    import re
+    out = []
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            parts = re.split(r"[\s,;]+", line.strip())
+            try:
+                out.append((float(parts[0]), float(parts[1])))
+            except (ValueError, IndexError):
+                continue
+    return out
+
+
+def _sample_db(which):
+    """f(Hz) -> dB of a curve of the sample graph (its pixel points through the graph's axes): "target", or a
+    channel's index."""
+    _img, s = _sample()
+    pts = s["target"] if which == "target" else s["curves"][which]
+    lf = np.array([math.log10(20) + (x - SL) / (SW - SL - SR) * 3 for x, _y in pts])
+    db = np.array([HI - (y - ST) / (SH - ST - SB) * (HI - LO) for _x, y in pts])
+    return lambda f: float(np.interp(math.log10(f), lf, db))
+
+
+def _error(rows, fn, lo=30, hi=15000):
+    """(mean, largest) difference in dB of rows against fn, from lo to hi Hz."""
+    d = [abs(db - fn(f)) for f, db in rows if lo <= f <= hi]
+    return (float(np.mean(d)), float(np.max(d))) if d else (99.0, 99.0)
+
+
 def test_target_line(eq_screen, fresh_studio, flow, monkeypatch, check):
     from eq import rigs
     from ui import window_parts
@@ -599,6 +1174,7 @@ def test_target_line(eq_screen, fresh_studio, flow, monkeypatch, check):
           [o["file"] for o in outs] == [NAME + ".txt"], [o["file"] for o in outs])
     asked = []
     monkeypatch.setattr(window_parts, "ask_text", lambda *a: (asked.append(a), ("My target", True))[1])
+    cur = tw.t.cur
     tw.add_target_line()
     qt.wait_for(lambda: page.inputs.get("active_target") == "My target.txt", 30)
     rec = rigs.sources().get("My target.txt") or {}
@@ -607,14 +1183,22 @@ def test_target_line(eq_screen, fresh_studio, flow, monkeypatch, check):
           asked and asked[0][3] == f"Target from {NAME}" and page.inputs.get("active_target") == "My target.txt"
           and rec.get("name") == "My target" and rec.get("site_url") == "https://graph.hangout.audio/iem/5128/",
           (asked, page.inputs.get("active_target"), rec))
+    from eq import paths as eq_paths
+    saved = _values(os.path.join(eq_paths.TARGET_DIR, "My target.txt"))
+    err_tgt, err_meas = _error(saved, _sample_db("target")), _error(saved, _sample_db(0))
+    check("website flow: the saved target file has the values of the picture's target line (not of the measurement "
+          "curve), and the selected curve is the same after the add",
+          len(saved) > 50 and err_tgt[0] <= 0.3 and err_meas[0] > 1.0 and tw.t.cur == cur,
+          (len(saved), err_tgt, err_meas, tw.t.cur, cur))
     i = next(i for i, c in enumerate(tw.t.curves) if c.get("target"))
     tw.t.cur = i
     tw.t.smooth()  # (the user changes the target line: it is a measurement curve)
     tw.changed()
     tw.show_tab(2)
     check("website flow: a target line that the user changed loses its button, and 3 Save says that it is a "
-          "measurement curve", not tw.save_line.isVisible() and "You changed the curve “Target”" in tw.save_note.text()
-          and len(tw.outputs()) == 2, tw.save_note.text())
+          "measurement curve and how to keep it out of the measurement",
+          not tw.save_line.isVisible() and tw.save_note.text() == CHANGED_LINE and len(tw.outputs()) == 2,
+          tw.save_note.text())
 
 
 def test_rename_of_target_line(eq_screen, flow, monkeypatch, check):
@@ -633,6 +1217,59 @@ def test_no_target_line(eq_screen, flow, monkeypatch, check):
     came, tw = _traced(flow, monkeypatch, stand_in())
     check("website flow: no target line, the button is not shown", came and not tw.save_line.isVisible()
           and "target line" not in tw.save_note.text())
+
+
+def test_website_graph_is_not_compensated(eq_screen, flow, monkeypatch, check):
+    """"The graph shows" selected for a picture before (a difference from a target) does not stay for a picture from a
+    website: the app would add that target to the website's curve."""
+    page = flow["page"]
+    page.open_trace()
+    tw = page.tracer
+    tw.load_image(_graph(), "Mine")
+    targets = [tw.comp.itemData(i) for i in range(tw.comp.count()) if tw.comp.itemData(i)]
+    if targets:
+        tw.comp.setCurrentIndex(tw.comp.findData(targets[0]))
+    before = tw.comp.currentData()
+    qt.wait_for(lambda: not tw.reading, 60)
+    tw.close()
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    outs = tw.outputs()
+    plain = tw.t.outputs(False, None, tw.source_note())
+    first = outs[0]["text"].splitlines()[0]
+    check("website flow: a compensation selected for a picture before, then a picture from a website: “The graph "
+          "shows” is the response, and the file has no target added (its first line, its values)",
+          came and before and tw.comp.currentData() == "" and "the app added this target" not in first
+          and outs[0]["text"] == plain[0]["text"], (before, tw.comp.currentData(), first))
+
+
+def test_line_end_in_entry_name(eq_screen, flow, monkeypatch, check):
+    """An entry's words come from a website's list: a line end in its name must not make data lines in the file."""
+    page = flow["page"]
+    entry = page.svc.call("/api/db/entry", {"id": flow["row"]["id"]})["entry"]
+    page.open_trace()
+    tw = page.tracer
+    tw.load_image(_graph(), entry=dict(entry, name="Evil\n20 99\n30 99", site="Site\r\nX"))
+    qt.wait_for(lambda: not tw.reading_graph and tw.read_ok is not None, 20)
+    text = tw.outputs()[0]["text"]
+    lines = text.splitlines()
+    data_from_name = [ln for ln in lines if ln.strip() in ("20 99", "30 99 (Hangout 5128) with AutoEQ Studio")
+                      or ln.startswith(("20 99", "30 99"))]
+    check("website flow: a line end in the entry's name: the file has one comment line and no data line from the name, "
+          "and the name box has one line", sum(ln.startswith("*") for ln in lines) == 1 and not data_from_name
+          and lines[0].startswith("* Traced from Evil 20 99 30 99 (Hangout 5128)") and "Site X" in lines[0]
+          and "\n" not in tw.name.text() and "\n" not in tw.save_note.text(), (lines[:3], tw.name.text()))
+
+
+def test_users_picture_after_read_drops_its_note(eq_screen, flow, monkeypatch, check):
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    _copy(_graph().copy(0, 0, 800, 500))
+    tw.paste()  # (after a read that was OK: a picture of yours)
+    qt.wait_for(lambda: not tw.reading, 60)
+    tw.t.curves[0]["ys"][100:200] = 300.0  # (the user traces a curve)
+    tw.changed()
+    tw.show_tab(2)
+    check("website flow: a picture of yours after a traced one: 3 Save's note no longer names the website's graph",
+          came and tw.auto_note == "" and "The app traced the graph" not in tw.save_note.text(), tw.save_note.text())
 
 
 def test_wait_window_light_and_dark(eq_screen, flow, tmp_path, check):
@@ -675,19 +1312,46 @@ def test_tracer_front_when_not_active(eq_screen, flow, monkeypatch, check):
     check("website flow: when the app is not the active program, the taskbar button of the tracer flashes and a tray "
           "message says where the picture is", came and alerts == [tw] and trays
           and trays[0][0] == "AutoEQ Studio has the picture" and f"“{ENTRY}”" in trays[0][1], (alerts, trays))
+    alerts.clear()
+    trays.clear()
+    monkeypatch.setattr(QApplication, "applicationState", staticmethod(lambda: Qt.ApplicationActive))
+    flow["pk"].show()
+    came2, tw = _traced(flow, monkeypatch, stand_in())
+    check("website flow: when the app is the active program, no flash and no tray message", came2 and not alerts
+          and not trays, (alerts, trays))
 
 
 @pytest.mark.timeout(300)
-def test_real_read_from_the_clipboard(eq_screen, flow, monkeypatch, check):
+def test_real_read_from_the_clipboard(eq_screen, fresh_studio, flow, monkeypatch, check):
+    from eq import paths as eq_paths
+    from eq import rigs
     from helpers.website_graph import truth_reader, website_graph
     from ui import trace_auto
+    page = flow["page"]
     monkeypatch.setattr(trace_core, "auto_read", REAL_AUTO_READ)
     img, truth = website_graph(plot_w=1000, target="solid")
     monkeypatch.setattr(trace_auto, "read_strip", truth_reader(truth))
     _use(flow)
     _copy(img)
-    came = _picture_came(flow["page"], 120)
-    tw = flow["page"].tracer
+    came = _picture_came(page, 120)
+    tw = page.tracer
     check("website flow: a drawn graph of the website from the clipboard goes to 3 Save (the real automatic read)",
           came and tw.read_ok is True and tw.pages.currentIndex() == 2 and tw.save_line.isVisible()
           and [o["file"] for o in tw.outputs()] == [NAME + ".txt"], (came, tw.read_ok, tw.status.text()))
+    tw.save_meas.click()  # (Add as measurement)
+    loaded = qt.wait_for(lambda: page.curves is not None and page.curves.get("name") == NAME, 60)
+    path = os.path.join(eq_paths.MEAS_DIR, NAME + ".txt")
+    first = ""
+    if os.path.isfile(path):
+        with open(path, encoding="utf-8") as fh:
+            first = fh.readline().strip()
+    rec = rigs.sources().get(NAME + ".txt") or {}
+    used = [m["name"] for m in page.inputs["measurements"] if m["included"]]
+    err = _error(_values(path), truth["avg"], 20, 20000) if os.path.isfile(path) else (99.0, 99.0)
+    check("website flow: the real read, then Add as measurement: the file in the inputs folder with the entry's name, "
+          "in use, its first line names the website and the link, the source record and the rig, and its values agree "
+          "with the graph (mean error 0.1 dB or less, largest 0.5 dB or less)",
+          loaded and used == [NAME + ".txt"]
+          and first == f"* Traced from {NAME} with AutoEQ Studio (a picture from {SITE}: {LINK})"
+          and rec.get("name") == ENTRY and rigs.file_rig(NAME + ".txt") == ("5128", True)
+          and err[0] <= 0.1 and err[1] <= 0.5, (loaded, used, first, rec, err))

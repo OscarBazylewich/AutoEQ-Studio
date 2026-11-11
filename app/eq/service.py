@@ -231,12 +231,17 @@ def files_add(body):
         files = [(text_of(body, "name"), text_of(body, "content"))]
     kind = inputs.guess_kind(files[0][0]) if body.get("kind") in (None, "", "auto") else kind_of(body)
     where = inputs.folder(kind)
+    # (a trace of a database entry, the tracer's picture from a website: examined before a file is written, so that
+    # a source of a wrong type never gives an error after the add. Only its text values are kept; one that is not of
+    # a known database is ignored, and the add is an add with no source.)
+    src = body.get("source")
+    src = {k: v for k, v in src.items() if isinstance(v, str)} if isinstance(src, dict) else None
+    if not (src and isinstance(src.get("site_url"), str) and databases.find_site(src["site_url"])):
+        src = None
     had = set(os.listdir(where)) if os.path.isdir(where) else set()
     names = inputs.add_files(kind, files)
-    src = body.get("source")
-    if isinstance(src, dict) and databases.find_site(src.get("site_url")):
-        # (a trace of a database entry, the tracer's picture from a website: its rig is known later, also for a
-        # name that the user changed or "… (2).txt")
+    if src:
+        # (its rig is known later, also for a name that the user changed or "… (2).txt")
         rigs.record_source(names, src)
     else:
         # (new files: not the database a file of that name once came from; one the app already had keeps its record)

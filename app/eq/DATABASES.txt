@@ -96,6 +96,6 @@ HOW EACH IS INTEGRATED (checked 23 September 2026)
     measurement files to anything but its own graph page (HTTP 403 Forbidden). The app doesn't try to get round
     that. Its entries show in searches with "trace from the website ↗". To use one of its entries, click Use in
     Find…. The app opens the entry in your browser (the share link squig.link itself uses), waits for a picture of
-    the graph and traces it. "Which measurement to use?" lists them with links that do the same. The app makes no
-    request to the website for this.
+    the graph and traces it. "Which measurement to use?" lists them with links that do the same. The app does not
+    download data from the website for this.
   Lists refresh every few days; new models in these databases appear by themselves.

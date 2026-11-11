@@ -7,11 +7,22 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
 - the side: Automatic settings (switch, Why these settings), 1 Axes (the four values, Snap to
   gridlines, Follow every gridline, Find axes again, Read labels), 2 Trace (Click curve, Draw, Erase, Move; the curves
   with their names; Add a curve; Auto trace; colour tolerance; dashed lines; Smooth, Undo, Redo, Clear), 3 Save
-  (name, points per octave, what the graph shows, the range; Add as measurement, Add as target, Save .txt…)
+  (name, points per octave, what the graph shows, the range; Add as measurement, Add as target, Save .txt…; Add the
+  target line as target…, shown only with a target line that the automatic read found)
 - keys: T D E H tools, A Auto trace, S Smooth, F fit, + - zoom, Delete clears, Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y,
   arrows move a selected line (Shift: 10 px), Ctrl+V pastes a picture; a key of a tab's control shows that tab first
-  (the tools, A, S, Delete, Undo and Redo: 2 Trace; the arrows: 1 Axes)
+  (the tools, A, S, Delete, Undo and Redo: 2 Trace; the arrows: 1 Axes). While the automatic read runs, no key
+  changes the tracer (only Ctrl+V: a new picture), and the picture and the side take no input.
 - the message line (what the tracer did, the tool's words) under the side, in sight on every tab
+- a picture from a website (Find…'s Use on an entry that the app cannot download, ui/eq_page_files.py's
+  trace_from_website): load_image(..., entry=) with its database entry (its words on one line: picture_wait's
+  clean_entry). The name is the entry's with its tag; "The graph shows" goes to the response (not compensated);
+  read_graph runs trace_core.auto_read in a thread and take_read takes its answer: all checks OK, 3 Save with the
+  traced curve (and the target line, marked); else the tab of the first check that failed, with its reason. The add
+  names the website in the file's first line and sends the entry as the source record (its rig). The entry belongs
+  to the picture: it stays when the window closes, but a new picture after the close does not take it (kept_entry);
+  Remove image and a new picture clear it. unadded_curves(): the curves that the user traced or changed and did not
+  add (a new picture from a website stops for them; the automatic read's own curves do not count).
 sample_image() draws AutoEQ Local's sample graph (an IEM's two channels and a dashed target) for checks and the tour.
 
 The look is Windows 11's, as the rest of the app (2026-10-23): the picture on a card, the tools as one group, Windows
@@ -48,8 +59,18 @@ SIDE = 500  # (the settings' width: room for 10.5 pt text, "the actual response 
 RADIUS = 8  # (the picture's card: a card's corners, as theme_sheet's)
 HINTS = {"trace": "Click a curve to follow it.", "draw": "Drag along the curve to make a line manually.",
          "erase": "Drag a box around a part of the traced line to remove it.", "pan": "Drag to move the picture."}
+# (the automatic read of a picture from a website: the picture is not a graph; the read stopped with an error)
+NOT_GRAPH = "Copy a new picture of the graph. Then paste it in the tracer (Ctrl+V)."
+READ_ERROR = ("The app cannot trace this picture automatically. Do the steps 1 Axes and 2 Trace manually. Then "
+              "go to 3 Save.")  # (no-break spaces: a tab's name stays on one line)
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".jfif", ".webp", ".bmp", ".gif", ".tif", ".tiff")
 IMAGES = "Images (*.png *.jpg *.jpeg *.jfif *.webp *.bmp *.gif *.tif *.tiff)"
+
+
+def clean_entry_of(entry):
+    """picture_wait.clean_entry (looked up at the call: that module is the wait window's)."""
+    from ui.picture_wait import clean_entry
+    return clean_entry(entry)
 
 
 def _no_focus(root):
@@ -643,6 +664,8 @@ class TraceWindow(QWidget):
         self.reading_graph = False
         self.graph_token = 0
         self.auto_note = ""  # (3 Save's note after an automatic read that passed)
+        self.was_closed = False  # (closed since the last picture: a new picture does not take the entry)
+        self.renamed = False  # (a curve renamed by the user since the last picture: the user's work)
         st = page.sw.s.get("trace") or {}
         if isinstance(st.get("enabled"), bool):
             self.t.ta["enabled"] = st["enabled"]
@@ -1101,7 +1124,8 @@ class TraceWindow(QWidget):
             self.saved_note = False
             self.save_note.setText(need or (
                 f"You changed the curve “{changed_line['label']}”. Thus, it is a measurement curve: Add as measurement "
-                "also adds it. To add it as a target, select it, then click Add as target." if changed_line else
+                "also adds it. To add it as a target, select it. Then click Add as target. To remove it from the "
+                "measurement, click its ✕ (Remove curve) on 2 Trace." if changed_line else  # (a tab's name whole)
                 self.auto_note))
         colour = cur and cur["colour"]
         self.swatch.setVisible(bool(colour))
@@ -1153,6 +1177,7 @@ class TraceWindow(QWidget):
             def renamed(s, c=c, pick=pick, x=x, i=i):
                 c["label"] = s.strip()
                 _name_curve_buttons(pick, x, c["label"], i)
+                self.renamed = True  # (the user's work: unadded_curves)
                 if c.get("target"):  # (a renamed target line is a measurement curve: the core does not see a rename)
                     self.t.user_edit(i)
                     self.update_ui()
@@ -1211,17 +1236,34 @@ class TraceWindow(QWidget):
 
     def kept_entry(self):
         """The entry a picture pasted or dropped here keeps: the present one only when nothing was added from the
-        picture before and its automatic read was not OK (the user gives a better picture of the same graph)."""
-        return self.entry if self.entry and not self.added and self.read_ok is False else None
+        picture before, its automatic read was not OK (the user gives a better picture of the same graph) and the
+        window was not closed since (after a close, a new picture is a picture of yours)."""
+        return self.entry if (self.entry and not self.added and self.read_ok is False
+                              and not self.was_closed) else None
+
+    def unadded_curves(self):
+        """The number of curves with data that the user traced or changed and did not add: a new picture from a
+        website would replace them (Find…'s Use stops for them). A picture from a website whose curves only the
+        automatic read made, with no change by the user (no undo or redo step, no rename), has none: a new Use
+        replaces it."""
+        t = self.t
+        n = sum(map(t.has_data, t.curves))
+        if not n or self.added:
+            return 0
+        if self.entry and self.read_ok is not None and not (t.undo_stack or t.redo_stack or self.renamed):
+            return 0
+        return n
 
     def load_image(self, qimg, name="Traced graph", jpeg=False, entry=None):
         """A picture into the tracer. entry: the database entry of a picture from a website (/api/db/entry's): its
-        name with its tag is the picture's name, and the automatic read (read_graph) replaces the label read."""
+        name with its tag is the picture's name, "The graph shows" goes to the response (a website's graph is not
+        compensated), and the automatic read (read_graph) replaces the label read."""
         self.sample_open = False  # (a picture of yours: the Guide's sample, set again by the Guide, isn't on any more)
-        self.entry = entry
+        self.entry = clean_entry_of(entry)  # (its words on one line: they go into the file's first line)
         self.added = False
         self.read_ok = None
         self.auto_note = ""
+        self.was_closed = self.renamed = False
         self.graph_token += 1  # (an automatic read still running for the picture before is dropped)
         self._reading_graph(False)
         if entry:
@@ -1246,18 +1288,21 @@ class TraceWindow(QWidget):
         self.saved_note = False
         self.status.setText(HINTS[self.tool])
         self.fill_comp()
+        if entry:  # (the selection of the picture before must not add a target to the website's curve)
+            self.comp.setCurrentIndex(0)
         self.show_values()
         self.changed()
         self.read_graph() if entry else self.read_labels()
 
     def entry_name(self):
         """The name of a picture from a website: the entry's name and its database's tag, as a downloaded entry's."""
-        e = self.entry or {}
+        e = clean_entry_of(self.entry) or {}
         return f"{e.get('name', '')} ({e.get('tag', '')})" if e.get("tag") else e.get("name", "")
 
     def source_note(self):
-        """The part of a traced file's first line that names the website and the entry's link."""
-        e = self.entry
+        """The part of a traced file's first line that names the website and the entry's link (on one line: a line
+        end in a list's words would make data lines)."""
+        e = clean_entry_of(self.entry)
         return f" (a picture from {e.get('site')}: {e.get('link')})" if e and e.get("link") else ""
 
     def _reading_graph(self, on):
@@ -1288,11 +1333,10 @@ class TraceWindow(QWidget):
             if token != self.graph_token:  # (another picture, or the picture removed, meanwhile)
                 return
             self._reading_graph(False)
-            if err is not None:
+            if err is not None:  # (its traceback is in the app's log: tasks.background wrote it; no Python words here)
                 self.read_ok = False
                 self.show_tab(0)
-                self.status.setText(f"The app cannot trace this picture automatically ({err}). Correct this step. "
-                                    "Then go to 3 Save.")
+                self.status.setText(READ_ERROR)
                 self.read_labels()
                 return
             self.take_read(res, entry)
@@ -1319,9 +1363,13 @@ class TraceWindow(QWidget):
             self.show_tab(2)
         else:
             first = next(c for c in r.checks if not c.ok)
-            text = f"The app cannot trace this picture automatically. {first.reason} Correct this step. Then go to 3 Save."
+            not_graph = first.name == "axes_plot"
+            # (not a graph: nothing to correct on a step, a new picture is necessary; the label read then gives 1 Axes
+            # its own note, as for any picture)
+            text = f"The app cannot trace this picture automatically. {first.reason} " + (
+                NOT_GRAPH if not_graph else "Correct this step. Then go to 3 Save.")
             axes = first.name.startswith("axes")
-            if axes:
+            if axes and not not_graph:
                 t.axis_note = t.detect_note = text  # (also on 1 Axes; a label read starts from it)
             self.show_tab(0 if axes else 1)
             self.status.setText(text)
@@ -1339,6 +1387,7 @@ class TraceWindow(QWidget):
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
             return
         self.entry, self.added, self.read_ok, self.auto_note = None, False, None, ""
+        self.was_closed = self.renamed = False
         self.graph_token += 1  # (an automatic read still running is dropped)
         self._reading_graph(False)
         t.unload()
@@ -1378,7 +1427,9 @@ class TraceWindow(QWidget):
         self.load_image(img, entry=self.kept_entry())
 
     def closeEvent(self, e):
-        self.entry = None  # (the next picture is a picture of yours, unless it comes from a website again)
+        # (the entry belongs to the picture, which stays: an add after the window opens again still names the website
+        # and records the source. The next picture is a picture of yours, unless it comes from a website again.)
+        self.was_closed = True
         super().closeEvent(e)
 
     # ---------------------------------------------------------------- axes

@@ -10,21 +10,28 @@ While it shows, it waits for the first new picture:
   but gives none. A picture smaller than MIN_SIZE (an icon) does not count.
 - the Downloads folder (the website's Screenshot button saves a file there): downloads_folder() gives it, and each
   POLL_MS one look in a thread (ui.tasks.background; a look that is not complete stops the next one from a start)
-  only reads it: os.scandir, stat and QImage, never a write, a rename or a delete. The first look lists the old
-  picture files {name: (time of change, size)}. A new file (a new name, or a new time or size) is read only when two
-  looks in sequence gave the same time and size, and the size is more than 0 (browsers write to a .crdownload or
-  .part name first: not picture suffixes). A file that does not read as a picture is tried again, READ_TRIES looks
-  at most; then it is old. More than one new file: the newest first. No folder, or an error: no message, the
-  clipboard still works. A test copy (AUTOEQSTUDIO_ROOT) with no AUTOEQSTUDIO_DOWNLOADS looks at no folder.
+  only reads it: os.scandir, stat, an open for reading and QImage, never a write, a rename or a delete. The first
+  successful look lists the old picture files {name: (time of change, size)}: until then (no folder yet, an error)
+  no file is new, so an old picture never ends the wait. A new file (a new name, or a new time or size) is read only
+  when two looks in sequence gave the same time and size, and the size is more than 0 (browsers write to a
+  .crdownload or .part name first: not picture suffixes). A file that another program holds (it does not open) is
+  read again at the next look; one that opens and does not read as a picture is tried again, READ_TRIES looks at
+  most; then it is old. More than one new file: the newest first. No folder, or an error: no message, the clipboard
+  still works. A test copy (AUTOEQSTUDIO_ROOT or AUTOEQSTUDIO_DATA set, as userfiles.py's) with no
+  AUTOEQSTUDIO_DOWNLOADS looks at no folder. The folder shows in a line of its own, cut in its middle with "…" when
+  it is longer than the line (its tooltip has all of it).
 - "Paste the picture" (Enter, Ctrl+V): the picture that is on the clipboard at that time, old or new.
 - TIMEOUT_MS: the wait stops (timed_out).
 `got` is (QImage, jpeg) when a picture came; the dialog then closes with accept(). done() stops everything first (the
 signal disconnected, the timers stopped), so a late copy does nothing. Its parent is the window that asked: given
-before it shows (the tests' stray watch).
+before it shows (the tests' stray watch). A screen reader reads the heading and the steps as the dialog's description.
+one_line() and clean_entry(): an entry's words come from a website's list, so a line end or a control character in
+them becomes a space before they go into a window or a file's first line.
 """
 import os
+import re
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtGui import QImage, QKeySequence, QShortcut
 from PySide6.QtWidgets import QApplication, QDialog, QGridLayout, QLabel, QVBoxLayout, QWidget
 
@@ -38,6 +45,18 @@ READ_TRIES = 5        # looks that try to read a new file that is not (yet) a pi
 TIMEOUT_MS = 600_000  # the wait stops (10 minutes)
 MIN_SIZE = (300, 200)  # a smaller picture is not a graph (a copied icon)
 JPEG_SUFFIXES = (".jpg", ".jpeg", ".jfif")
+_CONTROL = re.compile(r"[\s\x00-\x1f\x7f-\x9f]+")  # (line ends, tabs and the other control characters)
+
+
+def one_line(text):
+    """text with each run of line ends, control characters and spaces as one space (an entry's words come from a
+    website's list: a line end in a name made data lines in a traced file's first line)."""
+    return _CONTROL.sub(" ", text).strip() if isinstance(text, str) else text
+
+
+def clean_entry(entry):
+    """A copy of a database entry with its words on one line each (one_line), or None."""
+    return {k: one_line(v) for k, v in entry.items()} if entry else None
 
 
 def big_enough(img):
@@ -46,22 +65,23 @@ def big_enough(img):
 
 def downloads_folder():
     """The folder that the wait looks at: AUTOEQSTUDIO_DOWNLOADS (the tests' stand-in) first; a test copy of the app
-    (AUTOEQSTUDIO_ROOT set) without it looks at none (""), so that it never reads the user's real folder; else the
-    Downloads folder that Windows gives."""
+    (AUTOEQSTUDIO_ROOT or AUTOEQSTUDIO_DATA set: userfiles.py's rule) without it looks at none (""), so that it never
+    reads the user's real folder; else the Downloads folder that Windows gives."""
     if os.environ.get("AUTOEQSTUDIO_DOWNLOADS"):
         return os.environ["AUTOEQSTUDIO_DOWNLOADS"]
-    if os.environ.get("AUTOEQSTUDIO_ROOT"):
+    if os.environ.get("AUTOEQSTUDIO_ROOT") or os.environ.get("AUTOEQSTUDIO_DATA"):
         return ""
     from PySide6.QtCore import QStandardPaths
     return QStandardPaths.writableLocation(QStandardPaths.DownloadLocation) or ""
 
 
 def folder_pictures(folder):
-    """{name: (st_mtime_ns, st_size)} of the picture files in the folder; {} with no folder. Read only."""
+    """{name: (st_mtime_ns, st_size)} of the picture files in the folder; None with no folder, a folder that is not
+    there or an error of the look (not known: not "no files", which would make each old file new). Read only."""
     from ui.trace_window import IMAGE_SUFFIXES
-    out = {}
     if not folder:
-        return out
+        return None
+    out = {}
     try:
         with os.scandir(folder) as found:
             for e in found:
@@ -69,15 +89,28 @@ def folder_pictures(folder):
                     st = e.stat()
                     out[e.name] = (st.st_mtime_ns, st.st_size)
     except OSError:
-        return {}
+        return None
     return out
+
+
+def _opens(path):
+    """The file opens for reading (a different program that holds it with no sharing, a browser or a scanner, stops
+    this; the read is then not a try)."""
+    try:
+        with open(path, "rb"):
+            return True
+    except OSError:
+        return False
 
 
 def new_picture(folder, old, pending, tries):
     """One look at the folder (it runs in a thread): (QImage or None, jpeg). old: {name: stamp} of the files that do
-    not count; pending: {name: stamp} of the new files at the last look; tries: {name: reads that gave no picture}.
-    The caller's three dicts are changed here (the caller does not touch them while a look runs). Read only."""
+    not count (None: not known yet, nothing is new); pending: {name: stamp} of the new files at the last look; tries:
+    {name: reads that gave no picture}. The caller's three dicts are changed here (the caller does not touch them
+    while a look runs). A look with an error changes nothing. Read only."""
     now = folder_pictures(folder)
+    if now is None or old is None:
+        return None, False
     ready = []
     for name, stamp in now.items():
         if old.get(name) == stamp:
@@ -91,7 +124,10 @@ def new_picture(folder, old, pending, tries):
     for name in [n for n in pending if n not in now]:
         del pending[name]
     for _t, name in sorted(ready, reverse=True):  # (the newest first)
-        img = QImage(os.path.join(folder, name))
+        path = os.path.join(folder, name)
+        if not _opens(path):  # (held by a different program: read again at the next look, not a try)
+            continue
+        img = QImage(path)
         if not img.isNull() and big_enough(img):
             return img, os.path.splitext(name)[1].lower() in JPEG_SUFFIXES
         tries[name] = tries.get(name, 0) + 1
@@ -122,6 +158,33 @@ def clipboard_picture():
     return None, False
 
 
+class PathLine(QLabel):
+    """A folder's path on one line that never makes the window wider: cut in its middle with "…" when it is longer
+    than its room (a long Downloads path with no space went out at the dialog's right edge, and cut the steps above
+    it). text() and the tooltip have all of it."""
+
+    def __init__(self, path):
+        super().__init__(path)
+        self.setToolTip(path)
+        self.setTextInteractionFlags(Qt.NoTextInteraction)
+
+    def sizeHint(self):
+        return QSize(0, super().sizeHint().height())
+
+    def minimumSizeHint(self):
+        return QSize(0, super().minimumSizeHint().height())
+
+    def shown_text(self):
+        """The path as drawn: all of it, or its start and end with "…" between."""
+        return self.fontMetrics().elidedText(self.text(), Qt.ElideMiddle, max(0, self.contentsRect().width()))
+
+    def paintEvent(self, e):
+        from PySide6.QtWidgets import QStylePainter
+        p = QStylePainter(self)
+        p.drawItemText(self.contentsRect(), int(self.alignment().value), self.palette(), self.isEnabled(),
+                       self.shown_text(), self.foregroundRole())
+
+
 class PictureWait(QDialog):
     """The wait window (see the module's docstring). entry: /api/db/entry's ("name", "site", …)."""
 
@@ -145,12 +208,15 @@ class PictureWait(QDialog):
         v = QVBoxLayout(body)
         v.setContentsMargins(24, 24, 24, 20)  # (Windows 11's dialog padding)
         v.setSpacing(8)
+        entry = clean_entry(entry) or {}
+        self.entry = entry
         head = QLabel(f"The app waits for a picture of “{entry.get('name', '')}”…")
         head.setWordWrap(True)
         theme.mark(head, role="heading")
         v.addWidget(head)
-        v.addWidget(self._words(f"Your browser shows this entry on {entry.get('site', 'its website')}. Give the app "
-                                "a picture of its graph:"))
+        intro = (f"Your browser shows this entry on {entry.get('site') or 'its website'}. Give the app a picture of its "
+                 "graph:")
+        v.addWidget(self._words(intro))
         steps = QGridLayout()  # (a step's number in a column of its own: its words wrap under its words)
         steps.setHorizontalSpacing(6)
         steps.setVerticalSpacing(6)
@@ -161,15 +227,27 @@ class PictureWait(QDialog):
         v.addLayout(steps)
         self.where = muted(self.where_text())
         v.addWidget(self.where)
+        self.path = None
+        if self.folder:  # (the folder in a line of its own: a long path with no space is cut in its middle)
+            self.path = PathLine(os.path.normpath(self.folder))
+            theme.mark(self.path, role="muted")
+            v.addWidget(self.path)
         self.note = QLabel("")  # (M2: no picture on the clipboard)
         self.note.setWordWrap(True)
         self.note.hide()
         v.addWidget(self.note)
         outer.addWidget(body, 1)
         band, self.paste_btn = dialog_band(self, "Paste the picture", self.paste)
-        self.paste_btn.setToolTip("Uses the picture that is on the clipboard at this time (also Ctrl+V).")
         help_window.tag(self.paste_btn, "#pw-paste")
+        # (set after tag(): no "F1 opens Help." in it, F1 does nothing in this window, as Find…'s "Available to
+        # download")
+        self.paste_btn.setToolTip("Uses the picture that is on the clipboard at this time (also Ctrl+V).")
         outer.addWidget(band)
+        # (a screen reader: the focus is on Paste the picture when the window opens, and the words are labels only)
+        self.setAccessibleName(self.windowTitle())
+        self.setAccessibleDescription(" ".join(
+            [head.text(), intro] + [f"{n + 1}. {s}" for n, s in enumerate(self.steps())] + [self.where.text()]
+            + ([self.path.text()] if self.path is not None else [])).replace("\n", " "))
         QShortcut(QKeySequence.Paste, self, self.paste)
         self._settle = QTimer(self, singleShot=True, timeout=self._read_clipboard)
         self._limit = QTimer(self, singleShot=True, timeout=self._time_up)
@@ -192,8 +270,8 @@ class PictureWait(QDialog):
     def where_text(self):
         if not self.folder:
             return "The app uses the first new picture on the clipboard."
-        return (f"The app uses the first new picture on the clipboard or in {os.path.normpath(self.folder)}. It only "
-                "reads the files of that folder.")
+        return ("The app uses the first new picture on the clipboard or in the folder below. It only reads the files of "
+                "that folder.")
 
     # ---------------------------------------------------------------- the wait
     def showEvent(self, e):
@@ -284,7 +362,7 @@ class PictureWait(QDialog):
         """Paste the picture (Enter, Ctrl+V): the picture on the clipboard at this time, old or new."""
         img, jpeg = clipboard_picture()
         if img is None:
-            self.note.setText("There is no picture on the clipboard. Copy a picture of the graph first.")
+            self.note.setText("There is no picture on the clipboard. First, copy a picture of a graph.")  # (the tracer's)
             self.note.show()
             self.adjustSize()  # (its room for the note)
             return
