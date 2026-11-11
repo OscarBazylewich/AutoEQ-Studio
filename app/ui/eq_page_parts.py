@@ -2,6 +2,7 @@
 MODE_HINT, TICKS and file_base_name still import from ui/eq_page.py too.
 - FORMAT_NAMES: the files Save filters can write, by key; MODE_SHORT: each method's short name; MODE_HINT: the line
   beside Method; TICKS: the graph's frequencies
+- and_list(names): "A, B, and C" in a sentence; on_words(names): where a profile is on, for a menu's keys' column
 - label(text, role, wrap): a label, in one of the theme's text roles; set_note(lab, text): a note's words, the note
   hidden while it has none (so an empty one takes no room); hz(v): a frequency in Hz or kHz
 - combo_width(combo, text): the width a drop-down needs for text; SameWidth: empty room as wide as another widget
@@ -46,6 +47,23 @@ def set_note(lab, text):
 
 def hz(v):
     return f"{v / 1000:g} kHz" if v >= 1000 else f"{v:g} Hz"
+
+
+def and_list(names):
+    """Names in a sentence: "A", "A and B", "A, B, and C"."""
+    names = list(names)
+    if len(names) <= 2:
+        return " and ".join(names)
+    return ", ".join(names[:-1]) + ", and " + names[-1]
+
+
+def on_words(names):
+    """Where a profile is switched on, for a menu's keys' column (names: its devices, in Devices' order): "not on",
+    "on for A", "on for A and 2 more devices" (one name only, so two long Windows names don't make the menu wide)."""
+    if not names:
+        return "not on"
+    more = len(names) - 1
+    return f"on for {names[0]}" + (f" and {more} more device{'' if more == 1 else 's'}" if more else "")
 
 
 class Elided(QLabel):

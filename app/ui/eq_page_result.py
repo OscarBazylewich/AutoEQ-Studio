@@ -1,7 +1,7 @@
 """Make an EQ's run and result (a part of EqPage, ui/eq_page.py): Run (Retry, Cancel) and its progress, the result
 shown (its numbers, Number of filters, All results…, Compare…; Queue… on Make the EQ), the EQs that you made, the
-filters being edited (Table, Sliders, Add filter, Sort, Undo all), Save filters, Report, and Use on device (or Try for
-5 minutes on).
+filters being edited (Table, Sliders, Add filter, Sort, Undo all), Save filters, Report, and Use on device (a new
+profile of a device; Update a profile: into a profile you have, with Undo; or Use for 5 minutes on).
 By hand (Make the EQ's second way, set_way: its tab beside Automatically): an EQ of your own, begun empty, from an EQ
 file (Equalizer APO's lines, a Room EQ Wizard export, a Peace preset: read as Equalizer APO plays them,
 eq\\eqtext.py), from pasted lines, from a device's profile or as a copy of the EQ shown (Start from, then Start). It's a
@@ -18,7 +18,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 import textfile
 from ui import bubble
-from ui.eq_page_parts import MODE_SHORT, file_base_name, modal
+from ui.eq_page_parts import MODE_SHORT, and_list, file_base_name, modal, on_words
 
 # By hand's Start from: an EQ's sources in the order every such list has (.claude/notes/UI-RULES.md 16), each with the
 # note under the box; then each device's profile ("profile:<id>"; "profile:" when there's none yet)
@@ -726,16 +726,9 @@ class EqResult:
             return
         m.setToolTipsVisible(True)
         pid = run.get("profile")
-        if pid in self.sw.profiles():  # (an EQ by hand from a profile: back into it, or as a new one below)
-            name = self.sw.profile_name(pid)
-            a = m.addAction(f"Update “{name}”" + ("" if run.get("left_out") else "  ·  its devices keep it"))
-            if run.get("left_out"):
-                a.setEnabled(False)
-                a.setToolTip("Its file has items that this EQ cannot show (" + " · ".join(run["left_out"]) + "): use this "
-                             "EQ as a new profile below")
-            else:
-                a.setToolTip("The profile changes to this EQ: you hear it immediately on the devices that have it on")
-                a.triggered.connect(lambda _=False, pid=pid: self.update_profile(pid))
+        profiles = self.sw.profiles()
+        if pid in profiles:  # (an EQ by hand from a profile: back into it, or as a new one below)
+            self._update_row(m, pid, f"Update “{profiles[pid]['name']}”")
             m.addSeparator()
         from switcher.core import shown
         keys = [d.key for d in self.sw.devices] + [k for k in self.sw.s["devices"] if not self.sw.device(k)]
@@ -748,6 +741,19 @@ class EqResult:
             a.triggered.connect(lambda _=False, k=key: self.use_on(k))
         if not keys:
             m.addAction("No playback devices").setEnabled(False)
+        if profiles:  # (into a profile you have: the ones that are on, one click; all of them, A to Z, in a submenu)
+            m.addSeparator()
+            rows = []
+            flat = keys  # (every device's; for connected ones only: [k for k in keys if (d := self.sw.device(k)) and d.connected])
+            for key in flat:
+                on = self.sw.record(key)["active"]
+                if on and on != pid and on in profiles and on not in rows:
+                    rows.append(on)
+                    self._update_row(m, on, f"Update “{profiles[on]['name']}”")
+            u = m.addMenu("Update a profile")
+            u.setToolTipsVisible(True)
+            for other, p in sorted(profiles.items(), key=lambda x: x[1]["name"].lower()):
+                self._update_row(u, other, p["name"])
         live = [d.key for d in self.sw.devices if d.connected]
         if live:  # (hear it in every app for a few minutes before keeping it)
             m.addSeparator()
@@ -758,6 +764,25 @@ class EqResult:
                 a.setToolTip("The EQ plays in all apps for 5 minutes. Then, if you do not select Keep it, the device "
                              "uses its usual EQ again.")
                 a.triggered.connect(lambda _=False, k=key: self.start_trial(k))
+
+    def _update_row(self, menu, pid, text):
+        """One row that puts the EQ shown into this profile (Use on device): its words, where it's on in the keys'
+        column, what it does in its tooltip; off for the profile this EQ came from when it can't show all of it."""
+        from switcher.core import shown
+        from ui.window_parts import profile_line
+        run, _ = self.current()
+        on = [shown(self.sw.record(k)) for k in self.sw.on_for(pid)]
+        a = menu.addAction(f"{text}	{on_words(on)}".replace("&", "&&"))  # (Qt reads one "&" as a key's mark)
+        if pid == run.get("profile") and run.get("left_out"):
+            a.setEnabled(False)
+            a.setToolTip("Its file has items that this EQ cannot show (" + " · ".join(run["left_out"]) + "): use this "
+                         "EQ as a new profile below")
+            return a
+        who = f"{and_list(on)} use{'s' if len(on) == 1 else ''} it immediately." if on else             "No device has this profile on."
+        a.setToolTip(f"The profile changes to this EQ. {who} Its EQ at this time: "
+                     f"{profile_line(self.sw.profiles()[pid])}.")
+        a.triggered.connect(lambda _=False, pid=pid: self.update_profile(pid))
+        return a
 
     def _apo_text(self, title):
         """The EQ shown, as Equalizer APO text (as edited, with its pre-amp), or None (said)."""
@@ -813,20 +838,46 @@ class EqResult:
         self.status(f"“{self.sw.profile_name(pid)}” is on for {shown(rec)}.{extra}", 10000)
 
     def update_profile(self, pid):
-        """The EQ shown (by hand, read from this profile) written back into it: its name and devices stay, and the
-        devices that have it switched on hear it at once (Equalizer APO reads the file again)."""
+        """The EQ shown (a result, or an EQ by hand begun from this profile) written into a profile that you have: its
+        name, its file's name and its devices stay, and the devices that have it switched on hear it at once (Equalizer
+        APO reads the file again). No question first: the message has Undo (20 s, Ctrl+Z), which puts the old file and
+        record back. From a different result, the profile's From becomes that result's name (as Use on device's new
+        profiles); its own EQ by hand keeps it."""
+        from switcher.core import shown
+        run, _ = self.current()
         text = self._apo_text("Update the profile")
         if text is None:
             return
         name = self.sw.profile_name(pid) or "EQ"
+        own = pid == run.get("profile")  # (this EQ came from the profile: its From stays)
+        file_name = name if own else (self.name_edit.text().strip() or self.auto_name())[:80]
         try:
-            self._with_temp_file(text, name, lambda path: self.sw.update_profile(pid, path))
+            before = self._with_temp_file(text, file_name, lambda path: self.sw.update_profile(
+                pid, path, source=None if own else os.path.abspath(path)))
         except (OSError, ValueError) as e:
             QMessageBox.warning(self, "Update the profile", str(e))
             return
-        used = self.sw.used_by(pid)
-        self.status(f"The app updated “{name}”." + (f" You hear it immediately on {', '.join(used)} (where it is "
-                                                  "on)." if used else ""), 10000)
+        keys = self.sw.on_for(pid)
+        on = [shown(self.sw.record(k)) for k in keys]
+        words = f"The app updated “{name}”. " + (f"{and_list(on)} use{'s' if len(on) == 1 else ''} the new EQ "
+                                                 "immediately." if on else "No device has it on.")
+        held = [x["key"] for x in (self.sw.trial, self.sw.compare) if x]
+        if any(k in held for k in keys):
+            words += " A device with an EQ for 5 minutes, or with its EQ off to compare, uses the new EQ after that."
+        if on and not self.sw.apo.includes_studio():
+            words += " Equalizer APO does not use AutoEQ Studio: click Add AutoEQ Studio to APO… on the Devices screen."
+
+        def undo():
+            now = self.sw.profile_name(pid) or name  # (renamed meanwhile: its name now)
+            try:
+                why = self.sw.restore_profile(pid, before)
+            except OSError as e:
+                QMessageBox.warning(self, "Update the profile", str(e))
+                return
+            self.status({"": f"“{now}” has its previous EQ again.",
+                         "deleted": f"You deleted “{now}” in Profiles: Undo is not possible.",
+                         "changed": f"The file of “{now}” changed after the update: Undo is not possible."}[why])
+        self.status(words, undo=undo)
 
     @staticmethod
     def _with_temp_file(text, name, fn):

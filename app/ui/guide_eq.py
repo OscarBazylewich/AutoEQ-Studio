@@ -364,14 +364,22 @@ def eq_steps(page):
         b = button(page.result_box, "Save filters")
         yield from api.click(b)
         yield from api.note("The app saves “New EQ”. (Demo: the app did not save a file.)", b, 1500)
-        api.say("Use on device: the EQ becomes the EQ of a device, and it is on (or you can use it for 5 minutes)")
+        api.say("Use on device: the EQ becomes a new profile of a device, or it goes into a profile that you have")
         yield from api.click(page.use_btn)
         from switcher.core import shown
+        from ui.eq_page_parts import on_words
         sw = page.sw
         names = [f"{shown(sw.record(d.key))}  ·  " + ("active" if d.key == sw.playing_key else "connected"
                                                        if d.connected else "not connected") for d in sw.devices][:5]
-        m = yield from mock_menu(api, page.use_btn, (names or ["Headphones  ·  active"])
-                                 + [None, "Use for 5 minutes on ▸"])
+        # (the real menu's rows: a profile that is on, then Update a profile; the mock's rows have no keys' column)
+        ups = [f"Update “{p['name']}”  ·  " + on_words([shown(sw.record(k)) for k in sw.on_for(pid)])
+               for pid, p in sw.profiles().items() if sw.on_for(pid)][:2]
+        rows = (names or ["Headphones  ·  active"]) + [None] + ups + ["Update a profile ▸", None, "Use for 5 minutes on ▸"]
+        m = yield from mock_menu(api, page.use_btn, rows)
+        api.say("Update a profile: the EQ goes into a profile that you have, and the devices that have it on use the new "
+                "EQ immediately")
+        yield from point_at_menu_row(api, m, rows.index("Update a profile ▸"), hold=900)
+        api.say("A device: the EQ becomes its new profile, and it is on")
         yield from point_at_menu_row(api, m, 0)
         api.close(m)
         yield from api.note("It is the EQ of the device, and it is on. (Demo: the device did not change.)",
@@ -761,8 +769,10 @@ def eq_steps(page):
          "before": result_before, "after": result_after, "ready": has_curves,
          "text": lambda: "Two rows of buttons, below File name. The files: Save filters saves the file for your EQ app "
                          "with the File name, Copy copies the filters to the clipboard, and the folder opens. Then: Use "
-                         "on device makes the EQ the profile of a device and enables it (or uses it there for 5 "
-                         "minutes). Keep to compare adds it to your EQs to compare. Report makes an HTML page."
+                         "on device makes the EQ a new profile of a device and enables it. It can also update a profile "
+                         "that you have (the devices that have it on use the new EQ immediately), or use the EQ on a "
+                         "device for 5 minutes. Keep to compare adds it to your EQs to compare. Report makes an HTML "
+                         "page."
                          + example(),
          "demo": [{"run": save_demo, "say": "Give it a name, save it, or use it on a device"}]},
         {"chapter": "3 · Calculate and examine", "title": "Listen", "target": lambda: page.listen,

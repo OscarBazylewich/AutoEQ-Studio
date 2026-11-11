@@ -225,13 +225,14 @@ def test_menus_drawn_with_the_real_submenu_arrow(eq_screen, check, monkeypatch):
 
     def pick(api, m, i, *a, **k):  # (each menu as the demo picks from it: shown for a while, laid out)
         if tasks.alive(m):
-            arrow = m.findChild(QLabel, "tourMockArrow")  # (the Guide's menu draws a submenu's: tour.Mock)
-            img = qt.picture(arrow) if arrow is not None else None
+            # (the Guide's menu draws a submenu's: tour.Mock; Use on device's has two, Update a profile and Use for 5
+            # minutes on)
+            arrows = m.findChildren(QLabel, "tourMockArrow")
             labels = [r for r in m.rows if isinstance(r, QLabel)]
             seen.append({"rows": [r.text() for r in labels],
                          "cut": [r.text() for r in labels if r.sizeHint().width() > r.width()],
-                         "arrow in": arrow is not None and arrow.parentWidget().text(),
-                         "arrow": img is not None and _chevron_right(img)})
+                         "arrow in": [a.parentWidget().text() for a in arrows],
+                         "arrow": bool(arrows) and all(_chevron_right(qt.picture(a)) for a in arrows)})
         yield from real_pick(api, m, i, *a, **k)
         if tasks.alive(m):  # (the row picked is pointed at now: how the menu is drawn, its corner and that row)
             img, r = qt.picture(m), m.row(i).geometry()
@@ -252,7 +253,9 @@ def test_menus_drawn_with_the_real_submenu_arrow(eq_screen, check, monkeypatch):
           all(ended and not errors for ended, errors in played.values()) and len(seen) >= 3
           and not any("▸" in row for s in seen for row in s["rows"]) and not any(s["cut"] for s in seen)
           and any("listener800" in row for s in seen for row in s["rows"])
-          and all(s["arrow in"] in ("Delete a preset", "Use for 5 minutes on") and s["arrow"] for s in seen)
+          and all(s["arrow in"] and set(s["arrow in"]) <= {"Delete a preset", "Update a profile", "Use for 5 minutes on"}
+                  and s["arrow"] for s in seen)
+          and any(s["arrow in"] == ["Update a profile", "Use for 5 minutes on"] for s in seen)
           and pictures[0] is not None and pictures[0] == pictures[1], (played, seen, pictures))
     # (2026-10-23, the restyle's last merge: these two demos drew their menus with the Guide's list, so they had a
     # drop-down's round corners and the accent's bar beside the row pointed at, where the real menus have neither;

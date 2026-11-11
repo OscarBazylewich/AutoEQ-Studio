@@ -35,6 +35,7 @@ from .apo import Apo
 
 TRIAL_FILE = "_trying.txt"
 COMPARE_FILE = "_compare.txt"  # (the on/off hotkey's "off": a pre-amp alone, the EQ's loudness)
+_UPDATED = ("filters", "preamp", "graphic", "changed", "source")  # (what update_profile changes in a profile's record)
 
 
 def shown(rec):
@@ -212,22 +213,64 @@ class Switcher:
         self._tell("profiles")
         return pid
 
-    def update_profile(self, pid, path):
-        """A profile's EQ replaced by this file's (Make an EQ's EQ by hand, begun from it): its name, the devices that
-        have it and where it's switched on stay; Equalizer APO reads its file again, so they hear it at once. Raises
-        eqfile.NotAnEqFile (said as it is) or OSError."""
+    def update_profile(self, pid, path, source=None):
+        """A profile's EQ replaced by this file's (a result of Make an EQ, or its EQ by hand begun from it): its name,
+        its file's name, the devices that have it and where it's switched on stay; Equalizer APO reads its file again,
+        so they hear it at once. source: the profile's new "From" file (None: it stays). Returns what restore_profile
+        needs to undo it. Raises eqfile.NotAnEqFile (said as it is) or OSError. Every read comes before the first
+        write, so a refusal changes nothing."""
         p = self.s["profiles"].get(pid)
         if not p:
             raise OSError("The profile is not there.")
         self._require_writable()
         raw, info = eqfile.read_eq(path)
+        file = os.path.join(self.apo.profiles, p["file"])
+        try:
+            with open(file, "rb") as fh:
+                old = fh.read()
+        except FileNotFoundError:  # (a profile whose file is gone: the update makes it again, Undo removes it)
+            old = None
+        before = {"raw": old, "written": raw, "rec": {k: p[k] for k in _UPDATED if k in p}}
         os.makedirs(self.apo.profiles, exist_ok=True)
-        textfile.write_atomic(os.path.join(self.apo.profiles, p["file"]), raw)
+        textfile.write_atomic(file, raw)
         p.update(filters=info["filters"], preamp=info["preamp"], graphic=info["graphic"],
                  changed=time.strftime("%Y-%m-%d %H:%M"))
+        if source:
+            p["source"] = source
         self.save()
         self.apply()
         self._tell("profiles")
+        return before
+
+    def restore_profile(self, pid, before):
+        """Undo of update_profile: the profile's file (byte for byte) and its record as they were (before: what
+        update_profile returned). Returns "" (done), "deleted" (the profile is gone) or "changed" (its file isn't what
+        the update wrote: left as it is, so that other change isn't lost). Raises OSError."""
+        p = self.s["profiles"].get(pid)
+        if not p:
+            return "deleted"
+        self._require_writable()
+        file = os.path.join(self.apo.profiles, p["file"])
+        try:
+            with open(file, "rb") as fh:
+                now = fh.read()
+        except FileNotFoundError:
+            now = None
+        if now != before["written"]:
+            return "changed"
+        if before["raw"] is None:
+            os.remove(file)
+        else:
+            textfile.write_atomic(file, before["raw"])
+        for k in _UPDATED:
+            if k in before["rec"]:
+                p[k] = before["rec"][k]
+            else:
+                p.pop(k, None)
+        self.save()
+        self.apply()
+        self._tell("profiles")
+        return ""
 
     def rename_profile(self, pid, name):
         name = (name or "").strip()[:80]
@@ -285,6 +328,11 @@ class Switcher:
 
     def used_by(self, pid):
         return [shown(d) for d in self.s["devices"].values() if pid in d["profiles"]]
+
+    def on_for(self, pid):
+        """The keys of the devices that have this profile switched on (not only in their list: used_by gives both), in
+        the order of the lists of devices (device_sort_key)."""
+        return sorted((k for k, d in self.s["devices"].items() if d["active"] == pid), key=self.device_sort_key)
 
     # ---------------------------------------------------------------- a device's profiles
     def add_to_device(self, key, pid, switch_on=True, at=None, last=False):
