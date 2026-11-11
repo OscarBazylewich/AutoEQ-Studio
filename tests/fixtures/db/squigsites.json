@@ -14,6 +14,12 @@
    "url": "https://earphonesarchive.squig.link/"
   },
   {
+   "name": "Hangout.Audio (5128)",
+   "type": "5128",
+   "group": "5128",
+   "url": "https://graph.hangout.audio/iem/5128/"
+  },
+  {
    "name": "Precogvision",
    "type": "IEMs",
    "group": "iem",

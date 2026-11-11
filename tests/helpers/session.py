@@ -27,8 +27,8 @@ from ctypes import wintypes
 from helpers import checks
 from helpers import paths as project
 
-FOLDER_VARS = ("AUTOEQSTUDIO_ROOT", "AUTOEQSTUDIO_DATA", "AUTOEQSTUDIO_DOCUMENTS", "AUTOEQSTUDIO_APO_CONFIG",
-               "AUTOEQSTUDIO_APO_INSTALL", "AUTOEQSTUDIO_OLD_SETTINGS")
+FOLDER_VARS = ("AUTOEQSTUDIO_ROOT", "AUTOEQSTUDIO_DATA", "AUTOEQSTUDIO_DOCUMENTS", "AUTOEQSTUDIO_DOWNLOADS",
+               "AUTOEQSTUDIO_APO_CONFIG", "AUTOEQSTUDIO_APO_INSTALL", "AUTOEQSTUDIO_OLD_SETTINGS")
 LOG_VARS = ("AUTOEQSTUDIO_CHECK_LOG", "AUTOEQSTUDIO_TEST_OUT")  # (the runner's: a child never writes into its log)
 REAL_VARS = ("USERPROFILE", "HOME", "APPDATA", "LOCALAPPDATA", "TEMP", "TMP", "ProgramFiles", "ProgramFiles(x86)")
 PREFIX = "aeqs-tests-"
@@ -251,6 +251,7 @@ def prepare():
     env.update(TEMP=tmp, TMP=tmp, USERPROFILE=home, HOME=home, APPDATA=os.path.join(home, "AppData", "Roaming"),
                LOCALAPPDATA=os.path.join(home, "AppData", "Local"), AUTOEQSTUDIO_ROOT=studio,
                AUTOEQSTUDIO_DATA=data, AUTOEQSTUDIO_DOCUMENTS=os.path.join(home, "Documents"),
+               AUTOEQSTUDIO_DOWNLOADS=os.path.join(home, "Downloads"),  # (Windows' own answer ignores USERPROFILE)
                AUTOEQSTUDIO_APO_CONFIG=apo_config, AUTOEQSTUDIO_OLD_SETTINGS=os.path.join(root, "old", "settings.json"),
                AUTOEQSTUDIO_NO_MESSAGE_BOX="1", AUTOEQSTUDIO_TEST_SESSION=root, QT_QPA_PLATFORM="offscreen",
                PYTHONDONTWRITEBYTECODE="1", PYTHONIOENCODING="utf-8")
@@ -279,8 +280,8 @@ def inside(path, folder=None):
 # (without one it uses the real one, and "start.py --uninstall" would take AutoEQ Studio's line out of your
 # config.txt) and EQ Switcher's settings (a stand-in). Any of the other folders it's given must be there too.
 COPY_REQUIRED = ("AUTOEQSTUDIO_DATA", "AUTOEQSTUDIO_APO_CONFIG", "AUTOEQSTUDIO_OLD_SETTINGS")
-COPY_INSIDE_IF_SET = ("AUTOEQSTUDIO_ROOT", "AUTOEQSTUDIO_DOCUMENTS", "AUTOEQSTUDIO_APO_INSTALL", "USERPROFILE", "HOME",
-                      "APPDATA", "LOCALAPPDATA", "TEMP", "TMP")
+COPY_INSIDE_IF_SET = ("AUTOEQSTUDIO_ROOT", "AUTOEQSTUDIO_DOCUMENTS", "AUTOEQSTUDIO_DOWNLOADS", "AUTOEQSTUDIO_APO_INSTALL",
+                      "USERPROFILE", "HOME", "APPDATA", "LOCALAPPDATA", "TEMP", "TMP")
 
 
 def copy_env_problem(app_dir, env):

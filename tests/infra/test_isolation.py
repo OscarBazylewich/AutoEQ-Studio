@@ -30,7 +30,8 @@ def _short(path):
 def test_every_folder_in_the_session(check):
     env = os.environ
     places = {k: env.get(k) for k in ("AUTOEQSTUDIO_ROOT", "AUTOEQSTUDIO_DATA", "AUTOEQSTUDIO_DOCUMENTS",
-                                      "AUTOEQSTUDIO_APO_CONFIG", "AUTOEQSTUDIO_OLD_SETTINGS", "TEMP", "TMP",
+                                      "AUTOEQSTUDIO_DOWNLOADS", "AUTOEQSTUDIO_APO_CONFIG",
+                                      "AUTOEQSTUDIO_OLD_SETTINGS", "TEMP", "TMP",
                                       "USERPROFILE", "HOME", "APPDATA", "LOCALAPPDATA")}
     places.update(gettempdir=tempfile.gettempdir(), home=os.path.expanduser("~"))
     outside = {k: v for k, v in places.items() if not v or not session.inside(v)}
