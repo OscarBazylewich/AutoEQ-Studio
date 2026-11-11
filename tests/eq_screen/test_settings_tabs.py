@@ -85,3 +85,18 @@ def test_adjust_graph_in_the_theme(one_set, check):
     # (pyqtgraph's own gray axes: the other graphs have the theme's)
     check("adjust: the target's graph has the axes of the page's graphs (the theme's colour)",
           all(v == (want, want) for v in got.values()), (want, got))
+
+
+def test_layout_list_rows_are_short(one_set, check):
+    # (the user, 2026-11-10: each of the 23 EQ apps read "EQ apps (Your EQ app): FxSound")
+    from ui.eq_settings import layout_words
+    box = one_set.page.settings.adv_form.fields["best_fit.layout"].box
+    rows = [box.itemText(k) for k in range(box.count())]
+    words = [layout_words({"name": n, "group": g}) for n, g in
+             (("FxSound", "EQ apps (Your EQ app)"), ("Parametric filters", "Any"), ("10-band graphic EQ", "Graphic EQ"),
+              ("Your bands", "Graphic EQ"))]
+    check("more settings: a row of the Layout list is the layout's name (an EQ app: the app's name only; a graphic EQ "
+          "whose name does not say so: “Graphic EQ: ” first)",
+          words == ["FxSound", "Parametric filters", "10-band graphic EQ", "Graphic EQ: Your bands"]
+          and "FxSound" in rows and "Graphic EQ: Your bands" in rows and not [r for r in rows if "EQ apps" in r],
+          (words, rows))

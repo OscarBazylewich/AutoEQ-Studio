@@ -81,6 +81,16 @@ class OwnFiltersWindow(QDialog):
         return done
 
 
+def layout_words(layout):
+    """A layout's row in the Layout list: its name. Only a graphic EQ whose name does not say so has its group first
+    ("Graphic EQ: Your bands"). An EQ app's row is the app's name only (the user, 2026-11-10: "EQ apps (Your EQ app): "
+    before each of 23 names was text to read past)."""
+    name = layout["name"]
+    if layout["group"] == "Graphic EQ" and "graphic" not in name.casefold():
+        return f"Graphic EQ: {name}"
+    return name
+
+
 def _adjust_part(part):
     """One part of Adjust…'s window (make_adjust_window's namespace) by its old attribute name: the window is made at
     the first use of one (EqSettings.adjust)."""
@@ -164,8 +174,7 @@ class EqSettings:
         # ---------------------------------------------------------------- More settings (in two halves), a tab for
         # each section (the user's words, 2026-11-08: less height), a method's own only with that method
         self.adv = Fold("More settings", sub=True)
-        layouts = [(l["key"], f"{l['group']}: {l['name']}" if l["group"] not in ("Any",) else l["name"])
-                   for l in m.get("layouts", [])]
+        layouts = [(l["key"], layout_words(l)) for l in m.get("layouts", [])]
         load_mine = QPushButton("Load an EQ file…")
         load_mine.clicked.connect(self.load_your_filters)
         self.mine_note = QLabel()
