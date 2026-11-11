@@ -205,9 +205,10 @@ def test_target(read, check, kind, jpeg):
           and t.curves[1]["label"] == "Target" and not t.curves[0].get("target") and t.cur == 0 and r.ok,
           f"{[(c['label'], c.get('target')) for c in t.curves]}, cur {t.cur}, {failed(r)}")
     e = errors(r.target_points, truth["tgt"])
-    # (0.8 of the span: where the band hides the target line, at the left end, there are no points, finding A9)
+    # (0.79 of the span: where the band hides the target line, at the left end, there are no points, finding A9; and
+    # none in the first and last 3 columns of each traced part, trace_auto.target_ends)
     check(f"website graph with a target: the target curve is less than 0.4 dB from the true target (mean), 1 dB at "
-          f"the worst point, on 80 % of the width ({kind})", e and e[0] < 0.4 and e[1] < 1 and e[2] >= 0.8, e)
+          f"the worst point, on 79 % of the width ({kind})", e and e[0] < 0.4 and e[1] < 1 and e[2] >= 0.79, e)
     ea = errors(r.points, truth["avg"])
     check(f"website graph with a target: the average curve stays less than 0.1 dB from the true average ({kind})",
           ea and ea[0] < 0.1 and ea[1] < 0.5, ea)
@@ -251,6 +252,28 @@ def test_target_where_the_band_hides_it(qapp, monkeypatch, check):
     check("a target that crosses the curve: no target point is in a hidden column, and the columns between two parts "
           "far apart are hidden", tg and not (set(xs) & tg["hidden"]) and not (at & tg["hidden"])
           and all(set(range(a + 1, b)) <= tg["hidden"] for a, b in far), (set(xs) & tg["hidden"], at & tg["hidden"]))
+
+
+def test_target_off_the_line(qapp, monkeypatch, check):
+    """The third review's targets that were wrong with ok=True (SHOULD FIX 1): follow() went from the line onto text
+    far from the band (30 dB), or past a part's end (1 to 3 dB). No target, or each point 1.0 dB or less from the
+    true target."""
+    avg = lambda f: (wg._left(f) + wg._right(f)) / 2  # noqa: E731
+    for w, jpeg, kind, fn, what in ((700, 30, "dashed", lambda f: avg(f) - 1, "dashed, 1 dB under the curve, 700 px, "
+                                     "JPEG 30: gray text at the top right"),
+                                    (500, 50, "solid", lambda f: avg(f) + 1, "solid, 1 dB over the curve, 500 px, JPEG "
+                                     "50: one point after a part's end"),
+                                    (1200, 30, "dashed", lambda f: avg(f) - 2, "dashed, 2 dB under the curve, 1200 px, "
+                                     "JPEG 30"),
+                                    (700, 30, "solid", lambda f: 61.0, "solid, level at 61 dB, 700 px, JPEG 30")):
+        truth, _rgb, r = fresh(monkeypatch, w, jpeg, target=kind, target_fn=fn)
+        e = [abs(v - truth["tgt"](f)) for f, v in r.target_points or [] if 20 <= f <= 20000]
+        check(f"a target line near the band or near text: no target, or each target point 1.0 dB or less from the "
+              f"true target ({what})", r.target is None or (e and max(e) <= 1.0), (r.target is None, e and max(e)))
+    ys = {x: 50.0 for x in list(range(100, 160)) + list(range(200, 205)) + list(range(400, 470))}
+    check("target_ends: the first and last 3 columns of each part (parts apart by more than 1 % of 1000 columns)",
+          trace_auto.target_ends(ys, 1000) == [100, 101, 102, 157, 158, 159, 200, 201, 202, 203, 204, 400, 401, 402,
+                                                467, 468, 469], trace_auto.target_ends(ys, 1000))
 
 
 def test_no_target(read, check):
@@ -576,14 +599,32 @@ def test_channel_out_of_the_grid(qapp, monkeypatch, check):
         e = errors(r.points, truth["avg"])
         check(f"one channel goes below the grid: the read fails, or the curve is less than 0.5 dB from the true average "
               f"({kw})", not r.ok or (e and e[1] < 0.5), (r.ok, failed(r), e))
-    # one line near the grid's edge where the other channel would be past the edge (1000 px; and 600 px, JPEG 60)
+    # one line near the grid's edge where the other channel would be past the edge (1000 px; and 600 px, JPEG 60); and
+    # a channel under the grid's bottom row at 9.8 to 10.8 kHz (the third review: 1.08 dB with ok=True before)
     for w, jpeg, kw in ((600, 60, {"db_range": (46, 76), "db_step": 2, "offset_db": -3}),
                         (1000, None, {"db_range": (40, 70), "offset_db": -3}),
-                        (1000, None, {"db_range": (50, 76), "db_step": 2, "offset_db": -3})):
+                        (1000, None, {"db_range": (50, 76), "db_step": 2, "offset_db": -3}),
+                        (900, None, {"db_range": (48, 72), "db_step": 2})):
         truth, _rgb, r = fresh(monkeypatch, w, jpeg, **kw)
         e = errors(r.points, truth["avg"], 20, 20000)
-        check(f"channels 3 dB apart, one of them past the grid's edge: the read fails, or the curve is less than 0.5 dB "
-              f"from the true average ({w} px, {kw})", not r.ok or (e and e[1] < 0.5), (r.ok, failed(r), e))
+        check(f"a channel past the grid's edge: the read fails, or the curve is less than 0.5 dB from the true average "
+              f"({w} px, {kw})", not r.ok or (e and e[1] < 0.5), (r.ok, failed(r), e))
+
+
+def test_one_line_at_the_grid_edge(check):
+    """band()'s edge rule: one line near the columns where the band touches the grid's bottom row is left out only
+    when the other channel (as far away as the two lines beside it) would be past the grid's edge."""
+    def edge_cut(one_rows):
+        rgb = np.full((300, 800, 3), CREAM, np.uint8)
+        rgb[278:281, 10:400] = BLUE  # (two lines, the second at the grid's bottom row: 8 rows between the middles)
+        rgb[286:289, 10:400] = BLUE
+        rgb[one_rows, 400:790] = BLUE  # (then one line)
+        return trace_auto.band(rgb, {"x0": 10.0, "x1": 789.0, "y0": 10, "y1": 290}, CREAM, BLUE)["cut"]["edge"]
+    far, near = edge_cut(slice(250, 253)), edge_cut(slice(282, 285))
+    check("one line 39 rows from the grid's bottom edge (more than the distance of the two lines and a line width): "
+          "not left out", far == 0, far)
+    check("one line 7 rows from the grid's bottom edge (under the distance of the two lines and a line width): the "
+          "columns near the edge columns (5 % of the width) left out", 35 <= near <= 40, near)
 
 
 def test_faded_ends(qapp, monkeypatch, check):
@@ -599,6 +640,34 @@ def test_faded_ends(qapp, monkeypatch, check):
           "the curve is less than 0.5 dB from the true average", not r.ok or (e and e[1] < 0.5), (r.ok, failed(r), e))
 
 
+def test_faded_end_rule(check):
+    """faded_ends(): the columns at an end of the band that are one line, where the band inside is two lines apart."""
+    n = 500  # (the end zone: 3 % of 500, 15 columns)
+    top, c1 = np.full(n, 100.0), np.full(n, 101.5)
+    runs = np.full(n, 2)
+    runs[:10] = 1  # (the first 10 columns: one line, the other channel faded)
+
+    def ends(apart, lw=3.0, px_db=None, split=None):
+        c2 = np.where(runs >= 2, c1 + apart, c1)
+        r = runs.copy()
+        if split is not None:  # (a JPEG splits the one line into two runs `split` rows apart in columns 4 and 5)
+            r[4:6], c2[4:6] = 2, c1[4:6] + split
+        return list(np.flatnonzero(trace_auto.faded_ends(top, r, c1, c2, lw, px_db)))
+    check("two lines 7 rows apart (more than 2 line widths of 3 rows), the first 10 columns one line: those columns",
+          ends(7.0) == list(range(10)), ends(7.0))
+    check("two lines 5.4 rows apart (under 2 line widths): no column", ends(5.4) == [], ends(5.4))
+    check("two lines 7 rows apart with 8 rows for each dB (under 1 dB, but 2 line widths or more): those columns",
+          ends(7.0, px_db=8.0) == list(range(10)), ends(7.0, px_db=8.0))
+    check("two lines 5 rows apart with 2 rows for each dB (1 dB or more, and 1.5 line widths or more, under 2): those "
+          "columns", ends(5.0, px_db=2.0) == list(range(10)), ends(5.0, px_db=2.0))
+    check("two lines 4 rows apart with 2 rows for each dB (1 dB or more, but under 1.5 line widths): no column",
+          ends(4.0, px_db=2.0) == [], ends(4.0, px_db=2.0))
+    check("the one line split into two runs 2 rows apart (under half the distance) in 2 columns: still those columns",
+          ends(7.0, split=2.0) == list(range(10)), ends(7.0, split=2.0))
+    check("two lines again at column 4 (half the distance or more): the columns before it only",
+          ends(7.0, split=4.0) == list(range(4)), ends(7.0, split=4.0))
+
+
 def test_legend_on_the_curve(qapp, monkeypatch, check):
     for xy, one in (((650, 236), True), ((300, 150), False)):
         truth, _rgb, r = fresh(monkeypatch, legend_xy=xy, one_curve=one)
@@ -612,6 +681,17 @@ def test_legend_on_the_curve(qapp, monkeypatch, check):
         check(f"the legend's text across a steep part of the curve: the read fails, or the curve is less than 1 dB from "
               f"the true average (a known limit: under 0.5 dB is not always possible) ({xy})",
               not r.ok or (e and e[1] < 1), (r.ok, e))
+
+
+def test_legend_known_limit(qapp, monkeypatch, check):
+    """The legend's words along a steep part at 700 px (the third review, MUST FIX 2): a known limit of trace_auto
+    (its docstring gives the largest error for each size). The error must not become larger than that number."""
+    for xy in ((680, 220), (680, 184)):
+        truth, _rgb, r = fresh(monkeypatch, 700, legend_xy=xy)
+        e = _worst(truth, r)
+        check(f"the legend's words along a steep part at 700 px: the read fails, or the curve is 1.56 dB or less from "
+              f"the true average (the known limit, to 0.01 dB) ({xy})", not r.ok or (e is not None and round(e, 2) <= 1.56),
+              (r.ok, e))
 
 
 def test_legend_words_at_600_px(qapp, monkeypatch, check):
@@ -667,6 +747,23 @@ def test_near_pieces(check):
     b = _band_of(*two, (slice(120, 123), slice(300, 361)))
     check("a near line where the band has its two lines: a second measurement, not a part of the band",
           abs(at(b, 330) - 107.5) < 0.6, at(b, 330))
+    # (the band has two lines in 18 of the near line's 61 columns: one line in 70 %, under NEAR_ALONE)
+    third = [(slice(105, 108), slice(301, 319)), (slice(100, 108), slice(300, 301))]
+    b = _band_of(*third, (slice(120, 123), slice(300, 361)))
+    check(f"a near line where the band has two lines in 30 % of its columns (one line in {trace_auto.NEAR_ALONE:g} "
+          f"or more of them is necessary): not a part of the band", abs(at(b, 340) - 102.5) < 0.6, at(b, 340))
+    b = _band_of((slice(200, 203), slice(300, 361)))
+    check("a line of 61 pixels 98 rows from the band (more than 0.15 of the grid's height): not a part of the band",
+          abs(at(b, 330) - 102.5) < 0.6, at(b, 330))
+    b = _band_of((slice(120, 123), slice(300, 330)))
+    check(f"a near line of 30 pixels ({trace_auto.NEAR_PIECE_PX} or more: a channel's piece after a JPEG break): a "
+          f"part of the band", abs(at(b, 315) - 122.5) < 0.6, at(b, 315))
+    # (a line of 50 pixels with a second run of rows in 14 of its columns, joined to it in its first column: one run
+    # in 72 % of its columns; the legend's words had 62 to 81 %, the channels' pieces 83 to 100 %)
+    b = _band_of((slice(120, 123), slice(300, 350)), (slice(125, 127), slice(301, 315)),
+                 (slice(120, 127), slice(300, 301)))
+    check(f"a near piece of 50 pixels with one run in 72 % of its columns (under {trace_auto.NEAR_ONE_RUN[0]:g}): not "
+          f"a part of the band", abs(at(b, 340) - 102.5) < 0.6, at(b, 340))
 
 
 def test_short_part_between_gaps(qapp, monkeypatch, check):
@@ -678,6 +775,10 @@ def test_short_part_between_gaps(qapp, monkeypatch, check):
     check("2 columns between two gaps: those columns; a gap with a long part on each side, and the ends: none",
           list(np.flatnonzero(trace_auto.short_parts(top))) == [50, 51],
           np.flatnonzero(trace_auto.short_parts(top)))
+    end = np.full(100, 50.0)
+    end[2:12] = np.nan
+    check("2 columns at the band's first column, before a gap: those columns (an end is no better than a gap)",
+          list(np.flatnonzero(trace_auto.short_parts(end))) == [0, 1], np.flatnonzero(trace_auto.short_parts(end)))
     top[50:53] = 50.0
     check("3 columns between two gaps: none", not trace_auto.short_parts(top).any())
     # the look-alike: one channel at the grid's bottom edge, a column between two cut parts (the dip at 10.7 kHz)
@@ -712,6 +813,12 @@ def test_lost_channel_rule(check):
     got = trace_auto.lost_channel(top, nb2, runs, c1, nc22, 3.0)
     check("two lines 20 rows apart, one line for 40 columns, then two lines 5 rows apart (1.5 line widths or more): "
           "those 40 columns only", list(np.flatnonzero(got)) == list(range(200, 240)), np.flatnonzero(got))
+    nb3, nc23 = bot.copy(), c2.copy()
+    nb3[240:], nc23[240:] = 107.0, 105.5  # (after the stretch, two runs only 4 rows apart: under 1.5 line widths)
+    got = trace_auto.lost_channel(top, nb3, runs, c1, nc23, 3.0)
+    check("two lines 20 rows apart, one line for 40 columns, then two runs 4 rows apart (under 1.5 line widths: the "
+          "edges of one line): from column 200 to the end", list(np.flatnonzero(got)) == list(range(200, n)),
+          np.flatnonzero(got)[-3:])
     fb, fr, fc2 = bot.copy(), runs.copy(), c2.copy()
     fb[215], fr[215], fc2[215] = 123.0, 2, 121.5  # (the lost line comes back for one column: a fading line)
     got = trace_auto.lost_channel(top, fb, fr, c1, fc2, 3.0)
@@ -731,6 +838,101 @@ def test_lost_channel_rule(check):
           list(np.flatnonzero(got)) == list(range(200, 240)), np.flatnonzero(got))
     got = trace_auto.lost_channel(top, nb, runs, c1, nc2, 1.0, 4.0)
     check("the same with 4 rows for each dB (3 rows: under 1 dB): no column", not got.any(), np.flatnonzero(got))
+    # (two runs 3 rows apart, 1 row for each dB: LOST_DB, but under 1.5 line widths: the edge of one line)
+    eb, ec2 = np.full(n, 106.0), np.full(n, 104.5)
+    eb[one], ec2[one] = 103.0, 101.5
+    got = trace_auto.lost_channel(top, eb, runs, c1, ec2, 3.0, 1.0)
+    check("two runs 3 rows apart (1 dB with 1 row for each dB, but under 1.5 line widths of 3 rows): no column",
+          not got.any(), np.flatnonzero(got))
+    tb, tc1, tc2 = bot.copy(), c1.copy(), c2.copy()
+    tb[one], tc1[one], tc2[one] = 109.0, 104.5, 104.5  # (one line, 9 rows high: a JPEG makes a line thicker)
+    got = trace_auto.lost_channel(top, tb, runs, tc1, tc2, 3.0)
+    check("the first line only, 3 line widths high (higher than one line, but under one line and half the distance): "
+          "those 40 columns", list(np.flatnonzero(got)) == list(range(200, 240)), np.flatnonzero(got))
+    ot, ob, o1 = top.copy(), bot.copy(), c1.copy()
+    ot[one], ob[one], o1[one] = 102.0, 105.0, 103.5  # (one line 8 rows from the middle: 0.4 of the distance)
+    oc2 = c2.copy()
+    oc2[one] = 103.5
+    got = trace_auto.lost_channel(ot, ob, runs, o1, oc2, 3.0)
+    check("one line 0.4 of the distance from the middle of the two lines (0.3 or more): those 40 columns",
+          list(np.flatnonzero(got)) == list(range(200, 240)), np.flatnonzero(got))
+
+
+def _steep(n=300, lost=200):
+    """lost_channel's arrays of two steep lines (6 rows for each column, each 22 rows high, their middles 40 rows
+    apart) where the first line is lost from column `lost` to the end: (top, bot, runs, c1, c2)."""
+    x = np.arange(n, dtype=float)
+    top, bot, c1, c2 = 6 * x, 6 * x + 62, 6 * x + 11, 6 * x + 51
+    runs = np.full(n, 2)
+    top[lost:], c1[lost:], runs[lost:] = 6 * x[lost:] + 40, c2[lost:], 1
+    return top, bot, runs, c1, c2
+
+
+def test_lost_channel_at_a_gap_and_a_junk_run(check):
+    """lost_channel() (the third review, MUST FIX 1 and 3): a channel lost after a short gap, after a junk run, and
+    two runs of one line that do not end the lost stretch; each way (from the left and from the right)."""
+    n = 500
+    top, c1 = np.full(n, 100.0), np.full(n, 101.5)
+    bot, runs, c2 = np.full(n, 123.0), np.full(n, 2), np.full(n, 121.5)
+    bot[200:], runs[200:], c2[200:] = 103.0, 1, 101.5  # (the first line only, from column 200 to the end)
+    for a in (top, bot, c1, c2):
+        a[195:200] = np.nan  # (no curve in 5 columns: under MAX_GAP of the width, 0.01 x 500)
+    runs[195:200] = 0
+    got = trace_auto.lost_channel(top, bot, runs, c1, c2, 3.0)
+    check("two lines, a gap of 5 columns (under MAX_GAP of the width), then the first line only to the end: those "
+          "columns", list(np.flatnonzero(got)) == list(range(200, n)), np.flatnonzero(got)[:5])
+    slope = 2 * np.arange(n)  # (the same, the lines 2 rows lower in each next column: the middle at the real column)
+    got = trace_auto.lost_channel(top + slope, bot + slope, runs, c1 + slope, c2 + slope, 3.0)
+    check("the same on lines that fall 2 rows for each column: those columns", list(np.flatnonzero(got)) ==
+          list(range(200, n)), np.flatnonzero(got)[:5])
+    for a in (top, bot, c1, c2):
+        a[190:200] = np.nan
+    runs[190:200] = 0
+    got = trace_auto.lost_channel(top, bot, runs, c1, c2, 3.0)
+    check("the same with a gap of 10 columns (more than MAX_GAP of the width): no column", not got.any(),
+          np.flatnonzero(got)[:5])
+    # a junk run in the last column with two lines (a JPEG at a steep part): the middle of the two lines comes from
+    # the median of the 3 columns before, not from the last one only
+    top, bot, runs, c1, c2 = _steep()
+    c2[199], runs[199] = c2[199] + 20, 3
+    for way, arrays in (("from the left", (top, bot, runs, c1, c2)),
+                        ("from the right", tuple(a[::-1].copy() for a in (top, bot, runs, c1, c2)))):
+        got = trace_auto.lost_channel(*arrays, 3.0)
+        want = list(range(200, 300)) if way == "from the left" else list(range(0, 100))
+        check(f"two steep lines, a junk run under the second one in the last column, then the second line only to the "
+              f"end: those columns ({way})", list(np.flatnonzero(got)) == want, np.flatnonzero(got)[:5])
+    # the second line split into two runs 15 rows apart by a JPEG (nearer than its height of 22 rows): the lost stretch
+    # goes on
+    top, bot, runs, c1, c2 = _steep()
+    c1[260:263], c2[260:263], runs[260:263] = c2[260:263] - 7, c2[260:263] + 8, 2
+    got = trace_auto.lost_channel(top, bot, runs, c1, c2, 3.0)
+    check("the one line split into two runs 15 rows apart (nearer than one line's height) for 3 columns: the lost "
+          "stretch goes on to the end", list(np.flatnonzero(got)) == list(range(200, 300)), np.flatnonzero(got)[-5:])
+
+
+def _worst(truth, r, lo=20, hi=20000):
+    """The largest difference in dB of the curve's points from the true average between lo and hi Hz (None: no
+    points there)."""
+    e = [abs(v - truth["avg"](f)) for f, v in r.points or [] if lo <= f <= hi]
+    return max(e) if e else None
+
+
+def test_lost_channel_look_alikes(qapp, monkeypatch, check):
+    """The look-alikes of the third review where one channel is lost after a gap in the band (MUST FIX 1) or after a
+    junk run (MUST FIX 3)."""
+    for w, jpeg, kw in ((1600, 30, {"colours": ("#74a9f7", "#5c93e6"), "offset_db": -4}),
+                        (900, 85, {"colours": ("#a4b000", "#7d8700"), "offset_db": 4})):
+        truth, _rgb, r = fresh(monkeypatch, w, jpeg, **kw)
+        e = _worst(truth, r)
+        check(f"a channel lost after a gap in the band: the read fails, or the curve is 0.5 dB or less from the true "
+              f"average ({w} px, JPEG {jpeg}, {kw['colours'][0]}, {kw['offset_db']:+} dB)",
+              not r.ok or (e is not None and e <= 0.5), (r.ok, failed(r), e))
+    truth, _rgb, r = fresh(monkeypatch, 1600, 30, colours=ORANGE, offset_db=-2)
+    e8, e = _worst(truth, r, 8000, 9000), _worst(truth, r)
+    # (elsewhere a JPEG of quality 30 moves the curve by up to 0.6 dB at a point: a known limit of trace_auto)
+    check("a channel lost for 2 columns after a junk run (1600 px, JPEG 30, orange, -2 dB): the read fails, or the "
+          "curve is 0.5 dB or less from the true average from 8 to 9 kHz, and 0.6 dB or less at each point",
+          not r.ok or (e8 is not None and e8 <= 0.5 and e <= 0.6), (r.ok, failed(r), e8, e))
 
 
 def test_text_beside_a_steep_part(check):
@@ -744,6 +946,11 @@ def test_text_beside_a_steep_part(check):
     check("the top edge level for 6 columns where the curve moves 4 rows for each column: those columns, and 3 on each "
           "side", got[41:45].all() and not got[:35].any() and not got[52:].any(), np.flatnonzero(got))
     check("a steep curve with no text: no column", not trace_auto.flat_beside_steep(top, bot, 1.5).any())
+    flat_b = bot.copy()
+    flat_b[40:46] = flat_b[45]
+    got = trace_auto.flat_beside_steep(top, flat_b, 1.5)
+    check("the bottom edge level for 6 columns where the curve moves 4 rows for each column (text under the curve): "
+          "those columns", got[41:45].all() and not got[:35].any() and not got[52:].any(), np.flatnonzero(got))
     t2 = 50 + 2 * x
     b2 = t2 + 4
     t2[39:42] = t2[40]
