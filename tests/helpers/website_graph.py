@@ -6,12 +6,14 @@ gray text in the plot, small gray text at the top right, two near curves of one 
 their names in the curve's color, and, when asked, a gray target line and a page around the graph. The true curves
 come back with the picture.
 
-website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, one_curve=False, offset_db=0.0)
-    -> (QImage, truth)
+website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, one_curve=False, offset_db=0.0,
+              colours=("#1a48a0", "#0d357d"), db_range=(40, 80), db_step=5, legend_xy=(500, 285), extra=(),
+              target_fn=None, db_words=None) -> (QImage, truth)
 truth: "plot" {x0, x1, y0, y1} (the grid's edges), "avg" f(Hz) -> dB (the true average of the channels), "chans"
 [f, f], "tgt" f or None, "x" f(Hz) -> column, "y" f(dB) -> row, "hz" f(column) -> Hz, "db" f(row) -> dB, "words"
-[{text, x0, y0, x1, y1}] (the true labels with their boxes), "scale". All positions are in pixel index coordinates
-(the center of pixel i is at i: the painter's coordinate minus 0.5), as the tracer's.
+[{text, x0, y0, x1, y1}] (the true labels with their boxes), "db_rows" (the rows of the dB grid lines, top first),
+"scale". All positions are in pixel index coordinates (the center of pixel i is at i: the painter's coordinate minus
+0.5), as the tracer's. Qt must find Consolas (QT_QPA_FONTDIR with the offscreen platform): else RuntimeError.
 as_rgb(qimage, jpeg=None) -> H x W x 3 uint8 (through a JPEG of that quality in memory when jpeg is a number)
 truth_reader(truth) -> a stand-in for trace_auto.read_strip: the true words whose middle is in the part asked for
 """
@@ -19,7 +21,8 @@ import math
 
 import numpy as np
 from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QPointF, QRectF, Qt
-from PySide6.QtGui import QBrush, QColor, QFont, QFontMetricsF, QImage, QLinearGradient, QPainter, QPainterPath, QPen
+from PySide6.QtGui import (QBrush, QColor, QFont, QFontInfo, QFontMetricsF, QImage, QLinearGradient, QPainter,
+                           QPainterPath, QPen)
 
 TICKS = [m * d for d in (10, 100, 1000) for m in (2, 3, 4, 5, 6, 8, 10, 15)] + [20000]
 CREAM = "#fff7ea"
@@ -50,11 +53,19 @@ def label_of(f, first=False, last=False):
     return t + "Hz" if first or last else t
 
 
-def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, one_curve=False, offset_db=0.0):
+def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, one_curve=False, offset_db=0.0,
+                  colours=("#1a48a0", "#0d357d"), db_range=(40, 80), db_step=5, legend_xy=(500, 285), extra=(),
+                  target_fn=None, db_words=None):
     """plot_w: the grid's width in pixels. target: None, "solid" or "dashed". page: a page around the graph.
     decade: the labels' power of ten against 20 Hz .. 20 kHz (0: correct labels; 1: every label ten times too high).
     labels False: no labels at all. one_curve: only the left channel. offset_db: added to the right channel (two
-    channels far apart)."""
+    channels far apart). colours: the left and right channel's colors (the legend's too). db_range (bottom, top) and
+    db_step: the dB axis (the span a multiple of the step; a curve outside it is drawn past the grid's last line).
+    legend_xy: the place of the legend's first line, in the graph's units (the left channel's name; the right one 15
+    units lower). extra: [(f(Hz) -> dB, color)], more measurements drawn after the channels. target_fn: the target
+    line's curve in place of the default one. db_words: {true dB value: text} in place of the dB labels' own text
+    in truth["words"] (the picture does not change: a stand-in for a text reader that reads wrongly; "": the label
+    is not in truth["words"], not read)."""
     s = plot_w / 770.0  # (a CrinGraph graph is 800 x 346 units: the plot from 15 to 785, the grid lines from 10 to 327)
     gw, gh = round(800 * s), round(346 * s)
     ox, oy = (round(275 * s), round(105 * s)) if page else (0, 0)
@@ -65,11 +76,16 @@ def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, o
     g.setRenderHint(QPainter.Antialiasing)
     g.setRenderHint(QPainter.TextAntialiasing)
     words = []
+    vb, vt = db_range
 
     def font(px, bold=False, family="Consolas"):
         f = QFont(family)
         f.setPixelSize(max(5, round(px * s)))
         f.setBold(bold)
+        if QFontInfo(f).family() != family:
+            g.end()
+            raise RuntimeError(f"Qt did not find the font {family}. Set QT_QPA_FONTDIR to C:\\Windows\\Fonts (the tests "
+                               "do this in helpers\\session.py).")
         return f
 
     def text(x, y, t, col, f, align="left", keep=False):
@@ -105,7 +121,7 @@ def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, o
         g.drawLine(QPointF(275 * s, (oy / s + 346 + 62) * s), QPointF(Wd, (oy / s + 346 + 62) * s))
 
     X = lambda f: ox + (15 + 770 * math.log10(f / 20) / 3) * s
-    Y = lambda v: oy + (20.9 + (80 - v) / 40 * 302.1) * s
+    Y = lambda v: oy + (20.9 + (vt - v) / (vt - vb) * 302.1) * s
     top, bot = oy + 10 * s, oy + 327 * s
     g.setClipRect(QRectF(ox, oy, gw, gh))
 
@@ -116,7 +132,8 @@ def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, o
     for f in TICKS:
         g.setPen(QPen(QColor("#9a8f7c"), vwidth(f) * s))
         g.drawLine(QPointF(X(f), top), QPointF(X(f), bot))
-    for v in range(40, 81, 5):
+    db_values = [vb + i * db_step for i in range(int(round((vt - vb) / db_step)) + 1)]
+    for v in db_values:
         g.setPen(QPen(QColor("#cdbfa6"), 1.6 * s))
         g.drawLine(QPointF(X(20), Y(v)), QPointF(X(20000), Y(v)))
 
@@ -134,14 +151,19 @@ def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, o
         text(ox + 762 * s, oy + (27 + i * 14) * s, t, "#9c958a", font(12), "right")
     g.setPen(Qt.NoPen)
     g.setBrush(QColor("#b98f62"))
-    g.drawRoundedRect(QRectF(ox + 4 * s, Y(60) - 12 * s, 10 * s, 24 * s), 4 * s, 4 * s)  # (the handle on the axis)
+    g.drawRoundedRect(QRectF(ox + 4 * s, Y((vb + vt) / 2) - 12 * s, 10 * s, 24 * s), 4 * s, 4 * s)  # (the axis' handle)
 
     # the labels: dB inside the plot at the left, just above its line; Hz under the plot, at its tick
     if labels:
         k = 10 ** decade
         f9 = font(9.5)
-        for v in range(40, 81, 5):
-            text(X(20) + 3 * s, Y(v) - 2 * s, str(v), "#3a332b", f9, keep=True)
+        for v in db_values:
+            text(X(20) + 3 * s, Y(v) - 2 * s, f"{v:g}", "#3a332b", f9, keep=True)
+            if db_words and v in db_words:
+                if db_words[v]:
+                    words[-1]["text"] = db_words[v]
+                else:
+                    words.pop()  # ("": the label is not read)
         faint = {30, 40, 60, 80, 150}
         for i, f in enumerate(TICKS):
             t = label_of(f * k, i == 0, i == len(TICKS) - 1)
@@ -174,16 +196,20 @@ def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, o
         for f in fq[1:]:
             pp.lineTo(QPointF(X(f), Y(fn(f))))
         g.drawPath(pp)
+    tfn = target_fn or _target
     if target:
-        path(_target, "#9e9ea3", 2.3, [6, 3] if target == "dashed" else None)
+        path(tfn, "#9e9ea3", 2.3, [6, 3] if target == "dashed" else None)
     right = (lambda f: _right(f) + offset_db) if offset_db else _right
     chans = [_left] if one_curve else [_left, right]
-    for fn, col in zip(chans, ("#1a48a0", "#0d357d")):
+    for fn, col in zip(chans, colours):
+        path(fn, col, 2.3)
+    for fn, col in extra:
         path(fn, col, 2.3)
     fb = font(9.5, True)
-    text(ox + 500 * s, oy + 285 * s, "Sample IEM (L)", "#1a48a0", fb)
+    lx, ly = legend_xy
+    text(ox + lx * s, oy + ly * s, "Sample IEM (L)", colours[0], fb)
     if not one_curve:
-        text(ox + 500 * s, oy + 300 * s, "Sample IEM (R)", "#0d357d", fb)
+        text(ox + lx * s, oy + (ly + 15) * s, "Sample IEM (R)", colours[1], fb)
     if target:
         text(ox + 500 * s, oy + 270 * s, "Sample Target", "#9e9ea3", fb)
     g.end()
@@ -191,9 +217,10 @@ def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, o
     xi = lambda f: X(f) - 0.5
     yi = lambda v: Y(v) - 0.5
     return img, {"plot": {"x0": xi(20), "x1": xi(20000), "y0": top - 0.5, "y1": bot - 0.5}, "avg": avg,
-                 "chans": chans, "tgt": _target if target else None, "x": xi, "y": yi,
+                 "chans": chans, "tgt": tfn if target else None, "x": xi, "y": yi,
                  "hz": lambda x: 20 * 10 ** ((x - xi(20)) / (xi(20000) - xi(20)) * 3),
-                 "db": lambda y: 80 - (y - yi(80)) / (yi(40) - yi(80)) * 40, "words": words, "scale": s}
+                 "db": lambda y: vt - (y - yi(vt)) / (yi(vb) - yi(vt)) * (vt - vb), "words": words, "scale": s,
+                 "db_rows": [yi(v) for v in db_values[::-1]]}
 
 
 def as_rgb(img, jpeg=None):
@@ -216,7 +243,7 @@ def as_rgb(img, jpeg=None):
 def truth_reader(truth):
     """A stand-in for trace_auto.read_strip (the same arguments): the true words whose middle is in the part asked
     for, so that a test does not depend on the text reader of the PC."""
-    def read_strip(rgb, ocr_words, x0, y0, x1, y1, k, gray):
-        return [dict(w) for w in truth["words"]
+    def read_strip(rgb, ocr_words, x0, y0, x1, y1, k, gray, copies=1):
+        return [dict(w, copy=i) if copies > 1 else dict(w) for i in range(copies) for w in truth["words"]
                 if x0 <= (w["x0"] + w["x1"]) / 2 <= x1 and y0 <= (w["y0"] + w["y1"]) / 2 <= y1]
     return read_strip

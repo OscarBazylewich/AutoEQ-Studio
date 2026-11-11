@@ -18,6 +18,13 @@ auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph") does it all:
 
 Every limit here was measured (2026-11-10) on three real pictures and on a drawn look-alike
 (tests\\helpers\\website_graph.py): see .claude\\notes\\benchmarks\\BENCHMARKS.md.
+
+Known limits (the picture alone cannot tell; ok can be True with a curve that is not correct):
+- A second measurement in exactly the color of the first is read as its left and right channel: the curve is the
+  middle of the two measurements (trace_band fails only when they are more than MAX_BAND_DB apart).
+- Text in the curve's color across a steep part of the curve (the legend over the curve) can move the curve there by
+  up to about 1.3 dB (the look-alike, 1000 px): band() keeps only the rows that continue the band, and trace_steps
+  fails for a large step, but text that lies along the line cannot be told from it.
 """
 import collections
 import math
@@ -27,6 +34,7 @@ import time
 import numpy as np
 from scipy import ndimage
 
+from ui import ocr
 from ui.trace_core import INK, Tracer, db_num, fmt_hz, hz_num, join_words
 
 # The frequency ticks of a CrinGraph graph (its graphtool.js: 2, 3, 4, 5, 6, 8, 10, 15 in each decade, and 20 kHz)
@@ -36,9 +44,21 @@ LOGT = np.log10(np.array(TICKS, float) / 20.0)  # 0 .. 3
 MIN_TRACED = 0.97   # of the grid's width: the curve must be on this much of it
 MAX_GAP = 0.01      # of the grid's width: the longest part with no curve
 MAX_BAND_DB = 6.0   # the difference between the two channels that 9 of 10 columns must stay under
+STEP_TEXT = 4.0     # a short rise of the band's height, in line widths (height_steps; real pictures: under 3)
+STEP_LINE = 2.5     # two lines this far apart, in line widths, that become one line suddenly (height_steps)
 MAX_PEAKS = 150     # (more line positions than this: not a graph; the fit's time grows with the cube of the count)
 # The ways a part of the picture is given to the text reader, in turn: (enlarged so many times, as dark text on white)
 TREATMENTS = [(4, False), (6, True), (8, False), (3, True), (5, False), (8, True)]
+# The same for each dB label by itself, when the strip of all dB labels did not give sufficient labels: 3 copies of
+# the label side by side (measured on the real pictures: the most labels read, and no label read wrongly)
+LABEL_TREATMENTS = [(10, True), (8, True), (7, True), (4, False)]
+LABEL_COPIES = 3
+MIN_LABELS = 3      # labels that agree, for each axis (and at most one against for each 3 that agree)
+DB_STEPS = (-5, -10, -2.5, -2, -1)  # dB between grid lines (the first one wins when two fit equally)
+# A usual dB axis of a graph of an IEM or headphone (SPL): its span, and the lowest and highest values on it
+# (CrinGraph's graphs show about 40 to 80 dB; a scale of 10 dB to 130 dB holds all usual levels)
+DB_SPAN = (15, 120)
+DB_LOWEST, DB_HIGHEST = 10, 130
 # Letters that the text reader gives for digits of the website's font (a zero with a line through it, and 5, 1, 8)
 LOOSE = str.maketrans({"e": "0", "o": "0", "O": "0", "Q": "0", "@": "0", "ø": "0", "Ø": "0", "s": "5",
                        "S": "5", "t": "1", "l": "1", "I": "1", "i": "1", "|": "1", "B": "8"})
@@ -163,9 +183,11 @@ def find_plot(rgb):
     "fit" {"a", "b", "hits", "err", ...}, "vx" (the column peaks), "hy" [(row, height)] (the dB grid lines), "bg",
     "noise", "d" (each pixel's distance from the background)}, or {"ok": False, "why": "grid" | "ticks"}. It never
     raises, for a picture of any size."""
+    if rgb.ndim != 3 or rgb.shape[2] < 3:
+        return {"ok": False, "why": "grid", "n": 0}
     H, W = rgb.shape[:2]
     min_len = max(40, int(H * 0.15))
-    if H < min_len or W < 40 or rgb.ndim != 3 or rgb.shape[2] < 3:
+    if H < min_len or W < 40:
         return {"ok": False, "why": "grid", "n": 0}
     rgb = rgb[..., :3]
     bg = background(rgb)
@@ -252,28 +274,57 @@ def db_loose(s):
     return db_num(s.translate(LOOSE))
 
 
-def read_strip(rgb, ocr_words, x0, y0, x1, y1, k, gray):
+def read_strip(rgb, ocr_words, x0, y0, x1, y1, k, gray, copies=1):
     """The words in a part of the picture, in picture coordinates: the part enlarged k times (cubic), as dark text on
-    white when gray, with 24 px of edge, given to ocr_words. (The tests replace this function.)"""
+    white when gray, with 24 px of edge, given to ocr_words. copies > 1: that many copies of the part side by side,
+    with the background's color between them and around them (the text reader often reads no word of two digits
+    alone, but reads a line of them); the words of each copy come back at the part's own place, a word across two
+    copies is left out. (The tests replace this function.)"""
     H, W = rgb.shape[:2]
     x0, y0, x1, y1 = max(0, int(x0)), max(0, int(y0)), min(W, int(math.ceil(x1))), min(H, int(math.ceil(y1)))
     if x1 - x0 < 8 or y1 - y0 < 4:
         return []
     a = rgb[y0:y1, x0:x1].astype(np.float32)
-    k = max(1.0, min(k, 6000 / max(x1 - x0, y1 - y0)))
+    k = max(1.0, min(k, 6000 / max(x1 - x0, y1 - y0) / max(1, copies)))
+    bgc = np.median(a.reshape(-1, 3), axis=0)
     # one 2-D zoom for each channel (a 3-D zoom with the factor 1 on the colors was 7 times slower)
     if gray:
-        bgc = np.median(a.reshape(-1, 3), axis=0)
         dd = np.sqrt(((a - bgc) ** 2).sum(2))
         dd = np.clip(dd / max(40.0, float(np.percentile(dd, 99.5))), 0, 1)
         one = np.clip(ndimage.zoom(255 * (1 - dd), k, order=3), 0, 255).astype(np.uint8)
         big = np.repeat(one[..., None], 3, axis=2)
+        fill = np.full(3, 255, np.uint8)
     else:
         big = np.stack([np.clip(ndimage.zoom(a[..., c], k, order=3), 0, 255).astype(np.uint8) for c in range(3)], axis=2)
+        fill = np.clip(np.round(bgc), 0, 255).astype(np.uint8)
     pad = 24
-    big = np.pad(big, ((pad, pad), (pad, pad), (0, 0)), mode="edge")
-    return [dict(w, x0=x0 + (w["x0"] - pad) / k, x1=x0 + (w["x1"] - pad) / k,
-                 y0=y0 + (w["y0"] - pad) / k, y1=y0 + (w["y1"] - pad) / k) for w in ocr_words(big)]
+    if copies <= 1:
+        big = np.pad(big, ((pad, pad), (pad, pad), (0, 0)), mode="edge")
+        return [dict(w, x0=x0 + (w["x0"] - pad) / k, x1=x0 + (w["x1"] - pad) / k,
+                     y0=y0 + (w["y0"] - pad) / k, y1=y0 + (w["y1"] - pad) / k) for w in ocr_words(big)]
+    h, cw = big.shape[:2]
+    step = cw + max(8, h // 2)  # (from one copy to the next, in the enlarged picture)
+    out = np.empty((h + 2 * pad, step * (copies - 1) + cw + 2 * pad, 3), np.uint8)
+    out[:] = fill
+    for i in range(copies):
+        out[pad:pad + h, pad + i * step:pad + i * step + cw] = big
+    words = []
+    for w in ocr_words(out):
+        i = int(((w["x0"] + w["x1"]) / 2 - pad) // step)
+        dx = pad + i * step
+        if not 0 <= i < copies or w["x0"] < dx - 2 or w["x1"] > dx + cw + 2:
+            continue  # (outside the copies, or across two of them)
+        words.append(dict(w, x0=x0 + (w["x0"] - dx) / k, x1=x0 + (w["x1"] - dx) / k,
+                          y0=y0 + (w["y0"] - pad) / k, y1=y0 + (w["y1"] - pad) / k, copy=i))
+    return words
+
+
+def join_copies(ws):
+    """join_words for each copy of a part by itself (read_strip's "copy": the copies are at one place)."""
+    out = []
+    for i in sorted({w.get("copy", 0) for w in ws}):
+        out += join_words([w for w in ws if w.get("copy", 0) == i])
+    return out
 
 
 def votes(seen, a, b):
@@ -321,43 +372,78 @@ def read_hz(rgb, ocr_words, plot):
     return good
 
 
+def labels_ok(agree, against):
+    """The rule for the labels of one axis: 3 or more agree, and at most one for each 3 that agree does not."""
+    return agree >= MIN_LABELS and against <= agree / 3
+
+
+def row_votes(cands):
+    """The vote of each dB grid row: the values read there the most times (a strict reading before a loose one with
+    the same count). {row: [readings]}; two or more readings when the vote is equal."""
+    rows = {}
+    for q in cands:
+        rows.setdefault(round(q["p"]), []).append(q)
+    out = {}
+    for r, qs in rows.items():
+        top = max(q["n"] for q in qs)
+        win = [q for q in qs if q["n"] == top]
+        if len(win) > 1 and any(q["strict"] for q in win):
+            win = [q for q in win if q["strict"]]
+        out[r] = win
+    return out
+
+
 def db_fit(cands, gap):
-    """dB = v0 + step * (rows from a label): the step (5, 10, 2.5, 2 or 1 dB between grid lines, always falling
-    downwards: a label read wrongly must not make a rising axis) and start that most labels agree with."""
+    """dB = v0 + step * (rows from a label): the step (DB_STEPS: always falling downwards, a label read wrongly must
+    not make a rising axis) and start that the most grid rows agree with. Each row has one vote (row_votes): it
+    agrees when all of its vote agrees, it is against when its vote has a strict reading that does not agree (a
+    reading that only the loose letters make a number is never against: the reader gave "oos" for "65"). Returns
+    {"pairs" (one reading for each row that agrees), "against", "rows", "step", "k", "v0", "wrong"}; with fewer than
+    2 rows that agree, "pairs" is [] and "single" is the reading of the one row that was read (None for 0 rows or
+    for rows that do not agree with each other)."""
+    rows = row_votes(cands)
     best = None
-    for c in cands:
-        for step in (-5, -10, -2.5, -2, -1):
-            f = lambda p, c=c, step=step: c["v"] + step * (p - c["p"]) / gap
-            inl = {}
-            for q in cands:
-                if abs(f(q["p"]) - q["v"]) < 0.26 * abs(step):
-                    if round(q["p"]) not in inl or q["n"] > inl[round(q["p"])]["n"]:
-                        inl[round(q["p"])] = q
-            if best is None or len(inl) > len(best["pairs"]):
-                best = {"pairs": sorted(inl.values(), key=lambda q: q["p"]), "step": step, "c": c}
+    for win in rows.values():
+        for c in win:
+            for step in DB_STEPS:
+                f = lambda p, c=c, step=step: c["v"] + step * (p - c["p"]) / gap
+                agree, against = [], 0
+                for qs in rows.values():
+                    ok = [q for q in qs if abs(f(q["p"]) - q["v"]) < 0.26 * abs(step)]
+                    if len(ok) == len(qs):
+                        agree.append(max(ok, key=lambda q: q["n"]))
+                    elif any(q["strict"] for q in qs if q not in ok):
+                        against += 1
+                if best is None or (len(agree), -against) > (len(best["pairs"]), -best["against"]):
+                    best = {"pairs": sorted(agree, key=lambda q: q["p"]), "step": step, "against": against}
     if not best or len(best["pairs"]) < 2:
-        return {"pairs": [], "single": max(cands, key=lambda q: q["n"]) if cands else None, "wrong": cands}
+        one = list(rows.values())[0] if len(rows) == 1 else []
+        return {"pairs": [], "single": one[0] if len(one) == 1 else None, "against": 0, "rows": len(rows),
+                "wrong": cands}
     pr = best["pairs"]
     # least squares of dB against the row over the labels that agree
     k, v0 = np.polyfit(np.array([q["p"] for q in pr]), np.array([q["v"] for q in pr]), 1)
-    best.update(k=float(k), v0=float(v0), wrong=[q for q in cands if q not in pr])
+    best.update(k=float(k), v0=float(v0), rows=len(rows), wrong=[q for q in cands if q not in pr])
     return best
 
 
 def read_db(rgb, ocr_words, plot):
-    """The dB labels inside the grid at its left edge (each one just above its grid line). Returns db_fit's result
-    with "tries", or None when the grid has fewer than 3 dB grid lines."""
+    """The dB labels inside the grid at its left edge (each one just above its grid line). First the strip of all
+    labels (TREATMENTS); when that does not give labels that pass (labels_ok), each label's part by itself
+    (LABEL_TREATMENTS, LABEL_COPIES copies side by side). All readings vote, for each grid row (db_fit). Returns
+    db_fit's result with "tries", or None when the grid has fewer than 3 dB grid lines."""
     lines = sorted(q[0] for q in plot["hy"])
     if len(lines) < 3:
         return None
     gap = float(np.median(np.diff(lines)))
     x0, x1 = plot["x0"], plot["x1"]
+    xb = x0 + 0.07 * (x1 - x0)
     seen = {}
-    best = None
-    for tries, (k, gray) in enumerate(TREATMENTS, 1):
-        k = k * 600.0 / max(600.0, x1 - x0)
-        ws = read_strip(rgb, ocr_words, x0 + 1, plot["y0"], x0 + 0.07 * (x1 - x0), plot["y1"], max(1.0, k), gray)
-        for w in join_words(ws):
+
+    def take(ws):
+        """One reading of the text reader: each value read at a row counts once."""
+        got = {}
+        for w in join_copies(ws):
             v = db_loose(w["text"])
             if v is None:
                 continue
@@ -366,11 +452,35 @@ def read_db(rgb, ocr_words, plot):
             if not below:
                 continue
             r = min(below, key=lambda r: abs(r - yc))
-            seen.setdefault((round(r), v), {"p": r, "v": v, "n": 0, "w": w, "strict": db_num(w["text"]) is not None})["n"] += 1
+            q = got.setdefault((round(r), v), {"p": r, "v": v, "w": w, "strict": False})
+            q["strict"] = q["strict"] or db_num(w["text"]) is not None
+        for key, q in got.items():
+            s = seen.setdefault(key, dict(q, n=0))
+            s["n"] += 1
+            s["strict"] = s["strict"] or q["strict"]
+
+    def done(best):
+        return labels_ok(len(best["pairs"]), best["against"])
+
+    best, tries = None, 0
+    for k, gray in TREATMENTS:
+        tries += 1
+        k = k * 600.0 / max(600.0, x1 - x0)
+        take(read_strip(rgb, ocr_words, x0 + 1, plot["y0"], xb, plot["y1"], max(1.0, k), gray))
         best = db_fit(list(seen.values()), gap)
-        best["tries"] = tries
-        if len(best["pairs"]) >= 3:
+        if done(best):
             break
+    else:
+        # (each label by itself: the reader reads more of the small labels so, measured on the real pictures)
+        for k, gray in LABEL_TREATMENTS:
+            tries += 1
+            k = k * 600.0 / max(600.0, x1 - x0)
+            for r in lines:
+                take(read_strip(rgb, ocr_words, x0 + 1, r - 0.7 * gap, xb, r, max(1.0, k), gray, LABEL_COPIES))
+            best = db_fit(list(seen.values()), gap)
+            if done(best):
+                break
+    best["tries"] = tries
     return best
 
 
@@ -407,10 +517,94 @@ def measurement_colour(rgb, plot):
     return {"colour": tuple(float(v) for v in np.median(px, axis=0)), "share": share, "hue": h, "second": second}
 
 
+def _piece_rows(lab, sl, i):
+    """{column (in the part): (first row, last row)} of piece i (lab's label i + 1)."""
+    s = sl[i]
+    m = lab[s] == i + 1
+    out = {}
+    for j in range(m.shape[1]):
+        r = np.flatnonzero(m[:, j])
+        if len(r):
+            out[s[1].start + j] = (int(r[0]) + s[0].start, int(r[-1]) + s[0].start)
+    return out
+
+
+def _gap_to(rows, ref):
+    """The rows between a piece and the reference rows, in the columns of both: a list (0 where they overlap)."""
+    return [max(0, ref[x][0] - b, a - ref[x][1]) for x, (a, b) in rows.items() if x in ref]
+
+
+def _continued(solid, memory, long):
+    """The solid rows of each column that continue the band: a run of rows stays when it overlaps the rows of the
+    band in the last `memory` columns before it (moved by the band's slope, plus 2 rows and half the slope), and only
+    its part within them; at the first column, and after a column with no run that continues, all runs stay. A run
+    that does not continue the band but continues itself (in each next column) for `long` columns is a line too (the
+    other channel, after a faded end or a break): it stays from its first column. Done from the left and from the
+    right: a row stays when it stays both ways. Text that touches the curve starts a new run in a column beside the
+    band, or makes a run longer than the band's rows, for a letter's width only: it goes."""
+    H, W = solid.shape
+    both = np.ones_like(solid)
+    for way, order in ((1, range(W)), (-1, range(W - 1, -1, -1))):
+        ok = np.zeros_like(solid)
+        last = []  # [(column, first row, last row)] of the columns kept just before
+        tracks = []  # runs that do not continue the band, each [(column, start, end)] in sequence
+        for x in order:
+            rs = runs(solid[:, x])
+            tracks = [tr for tr in tracks if tr[-1][0] == x - way]
+            if not rs:
+                continue
+            last = [q for q in last if abs(x - q[0]) <= memory]
+            if len(last) >= 2:
+                # the slope (rows for each column to the right): of the edge that moved less (a line that goes or
+                # comes back moves the other edge)
+                (xa, aa, ba), (xb, ab, bb) = last[-2], last[-1]
+                s = min((ab - aa) / (xb - xa), (bb - ba) / (xb - xa), key=abs)
+            else:
+                s = 0.0
+            g = 2 + 0.5 * abs(s)
+            if last:
+                step = s * way  # (the rows that the middle moves from one column to the next, on this way)
+                lo = min(a + s * (x - q) for q, a, _ in last) + min(0.0, step) - g
+                hi = max(b + s * (x - q) for q, _, b in last) + max(0.0, step) + g
+                keep = [(max(a, int(math.ceil(lo))), min(b - 1, int(math.floor(hi))) + 1) for a, b in rs
+                        if b - 1 >= lo and a <= hi]
+                keep = [(a, b) for a, b in keep if b > a]
+            else:
+                keep = []
+            if not keep:
+                keep = rs
+            for a, b in keep:
+                ok[a:b, x] = True
+            # the runs (or parts) left out: each continues a track of the column before, or starts one
+            for a, b in rs:
+                part = [(a, b)] if not any(ka < b and a < kb for ka, kb in keep) else \
+                    [(p, q) for p, q in ((a, keep[0][0]), (keep[-1][1], b)) if q - p > 0 and a <= p and q <= b]
+                for p, q in part:
+                    tr = next((tr for tr in tracks if tr[-1][0] == x - way and tr[-1][1] - 1 <= q and p <= tr[-1][2] + 1
+                               and len(tr) < long), None)
+                    if tr is None:
+                        tracks.append([(x, p, q)])
+                    else:
+                        tr.append((x, p, q))
+                        if len(tr) >= long:
+                            for tx, tp, tq in tr:
+                                ok[tp:tq, tx] = True
+                            keep = keep + [(p, q)]
+            keep.sort()
+            tracks = [tr for tr in tracks if len(tr) < long]
+            last.append((x, keep[0][0], keep[-1][1] - 1))
+        both &= ok
+    return both
+
+
 def band(rgb, plot, bg, colour):
     """The measurement curve(s) of one color as a band: at each column its top and bottom edge (between pixels: a
-    pixel's center is its index) and the middle. Returns {"x0", "top", "bot", "mid", "cover", "pieces"} (arrays over
-    the grid's columns from x0, NaN where there is no curve) or None."""
+    pixel's center is its index) and the middle. Returns {"x0", "top", "bot", "mid", "first", "c1", "c2", "runs",
+    "lw", "cut", "cover", "pieces"} or None: arrays over the grid's columns from x0, NaN where there is no curve
+    (first: the bottom edge of the first line; c1, c2: the middles of the first and the last line, runs: the count of
+    lines in the column; lw: the line's width; cut: {"edge", "text", "ends"}, the columns left out for each reason).
+    Columns are left out where the band is at the grid's top or bottom row (a channel can go past it), where text in
+    the curve's color touches the band, and at the faded ends until both lines are there."""
     x0, x1, y0, y1 = int(math.floor(plot["x0"])), int(math.ceil(plot["x1"])) + 1, int(plot["y0"]), int(plot["y1"]) + 1
     x0, x1 = max(0, x0), min(rgb.shape[1], x1)
     part = rgb[y0:y1, x0:x1].astype(np.float32)
@@ -429,22 +623,39 @@ def band(rgb, plot, bg, colour):
         return None
     sl = ndimage.find_objects(lab)
     spans = [s[1].stop - s[1].start for s in sl]
-    # the widest piece, the wide pieces, and the pieces that continue it at the left and right (a faded end, a break
-    # at a JPEG block); this leaves out the legend's text and the logo
+    wide = x1 - x0
+    # the widest piece, the wide pieces, the pieces that continue it at the left and right (a faded end, a break at a
+    # JPEG block), and the pieces of 2 % or more near it (the other channel, cut from it by a break); this leaves out
+    # the legend's text (each letter is a piece under 1 % wide) and the logo
     order = np.argsort(spans)[::-1]
     keep = np.zeros(n + 1, bool)
     main = order[0]
     keep[main + 1] = True
+    mrows = _piece_rows(lab, sl, main)
+    near = 0.15 * (y1 - y0)
     for i in order[1:]:
-        if spans[i] >= 0.25 * (x1 - x0) or spans[i] >= 0.02 * (x1 - x0) and (
-                sl[i][1].start >= sl[main][1].stop - 2 or sl[i][1].stop <= sl[main][1].start + 2):
+        if spans[i] < 0.02 * wide:
+            break
+        if spans[i] >= 0.25 * wide or sl[i][1].start >= sl[main][1].stop - 2 or sl[i][1].stop <= sl[main][1].start + 2:
+            keep[i + 1] = True
+            continue
+        gaps = _gap_to(_piece_rows(lab, sl, i), mrows)
+        if len(gaps) >= 0.5 * spans[i] and float(np.median(gaps)) <= near:
             keep[i + 1] = True
     own = keep[lab]
     own = ndimage.binary_dilation(own, np.ones((3, 3), bool)) & (cover > 0.08)  # with its soft edge pixels
     c = np.where(own, cover, 0.0)
-    top = np.full(c.shape[1], np.nan)
-    bot = np.full(c.shape[1], np.nan)
-    first = np.full(c.shape[1], np.nan)
+    # in each column only the rows that continue the band of the columns beside it (text in the curve's color that
+    # touches the curve is a part of its piece: here it goes); with the soft pixels next to the rows that stay
+    solid = c > 0.5
+    stay = _continued(solid, max(4, int(0.006 * wide)), max(6, int(0.015 * wide)))
+    near_stay = ndimage.binary_dilation(stay, np.ones((7, 1), bool))
+    clipped = int((solid.any(0) & (solid & ~stay).any(0)).sum())
+    c = np.where(stay | (~solid & near_stay), c, 0.0)
+    nan = lambda: np.full(c.shape[1], np.nan)
+    top, bot, first, c1, c2 = nan(), nan(), nan(), nan(), nan()
+    nruns = np.zeros(c.shape[1], int)
+    rows = np.arange(c.shape[0], dtype=float)
     for x in range(c.shape[1]):
         col = c[:, x]
         nz = np.flatnonzero(col > 0.5)
@@ -454,12 +665,110 @@ def band(rgb, plot, bg, colour):
         # the edge between pixels: from the first solid pixel and the two outside it, by how much of each is covered
         top[x] = a + 0.5 - float(col[max(0, a - 2):a + 1].sum()) + y0
         bot[x] = b - 0.5 + float(col[b:b + 3].sum()) + y0
-        # the bottom edge of the first solid run (two channels apart: the band is two lines, this is one of them)
+        # the lines (two channels apart: the band is two lines): the bottom edge of the first one, and the middle of
+        # the first and the last one (with their soft edges, up to the next line)
         brk = np.flatnonzero(np.diff(nz) > 1)
         e, nxt = (nz[brk[0]], nz[brk[0] + 1]) if len(brk) else (b, b + 3)
         first[x] = e - 0.5 + float(col[e:min(e + 3, nxt)].sum()) + y0
-    return {"x0": x0, "top": top, "bot": bot, "mid": (top + bot) / 2, "first": first, "cover": c,
+        nruns[x] = len(brk) + 1
+        s0, s1 = max(0, a - 2), (min(e + 3, nxt) if len(brk) else b + 3)
+        c1[x] = float((col[s0:s1] * rows[s0:s1]).sum() / col[s0:s1].sum()) + y0
+        if len(brk):
+            la = nz[brk[-1] + 1]
+            s0, s1 = max(nz[brk[-1]] + 1, la - 2), b + 3
+            c2[x] = float((col[s0:s1] * rows[s0:s1]).sum() / col[s0:s1].sum()) + y0
+        else:
+            c2[x] = c1[x]
+    traced = np.isfinite(top)
+    lw = float(np.percentile((first - top)[traced], 10)) if traced.any() else 1.0
+    cut = {"edge": 0, "ends": 0, "clipped": clipped}
+    full_top, full_bot = top.copy(), bot.copy()  # (before the cuts: where the band hides a target line)
+
+    def drop(m, why):
+        m = m & np.isfinite(top)
+        cut[why] += int(m.sum())
+        for a_ in (top, bot, first, c1, c2):
+            a_[m] = np.nan
+        nruns[m] = 0
+    # at the grid's first or last row: a part of the band can be past it (a channel that goes out of the grid)
+    at_edge = (top < y0 - 0.5 + lw) | (bot > y1 - 0.5 - lw)
+    drop(at_edge, "edge")
+    # near those columns, one line where the other channel (as far away as the lines are apart beside it) would be
+    # past the grid's edge: the other channel is out of the grid there
+    zone = max(4, int(0.05 * wide))
+    edge_cols = np.flatnonzero(at_edge)
+    if len(edge_cols):
+        two = np.flatnonzero(nruns >= 2)
+        out = np.zeros(c.shape[1], bool)
+        for x in np.flatnonzero(np.isfinite(top) & (nruns == 1)):
+            if not len(two) or np.abs(edge_cols - x).min() > zone:
+                continue
+            near_two = two[np.abs(two - x) <= zone]
+            if not len(near_two):
+                continue
+            sep = float(np.median((c2 - c1)[near_two]))
+            room = min(c1[x] - (y0 - 0.5), (y1 - 0.5) - c1[x])  # (from the line to the nearer edge)
+            out[x] = room < sep + lw
+        drop(out, "edge")
+    # the faded ends: where the two channels are apart and one is faded more than the other, the band there is one
+    # line. Where the band just inside the end zone (3 % of the width) is two lines apart, cut back from the end to
+    # the first column with both lines (their middles at least half as far apart as there)
+    n_end = max(3, int(0.03 * wide))
+    for direction in (1, -1):
+        idx = np.flatnonzero(np.isfinite(top))[::direction]
+        ref = idx[n_end:n_end + 10]
+        if len(ref) < 4 or np.median(nruns[ref]) < 2:
+            continue
+        sep = float(np.median((c2 - c1)[ref]))
+        if sep < 2 * lw:
+            continue
+        for x in idx[:n_end]:
+            if nruns[x] >= 2 and c2[x] - c1[x] >= 0.5 * sep:
+                break
+            drop(np.arange(c.shape[1]) == x, "ends")
+    return {"x0": x0, "top": top, "bot": bot, "mid": (top + bot) / 2, "first": first, "c1": c1, "c2": c2,
+            "runs": nruns, "lw": lw, "cut": cut, "full_top": full_top, "full_bot": full_bot, "cover": c,
             "pieces": int(keep.sum())}
+
+
+def height_steps(b):
+    """Sudden steps of the band's height that are left after band() (b: its result): [(column of the picture,
+    kind)]. "text": a run of 2 to L columns (L: 1.2 % of the width) higher than the columns on both sides of it by
+    STEP_TEXT line widths or more (text that touches the curve; the curves of the real pictures stay under 3 line
+    widths). "line": where the band was two lines STEP_LINE line widths or more apart, one line only from the next
+    column or the one after it, for L columns or more, in the place of one of the two lines, and the band's height
+    falls (a channel that is lost; two lines that meet come nearer to each other first, two lines that join at a steep
+    part keep the height)."""
+    top, bot, runs, c1, c2, lw = b["top"], b["bot"], b["runs"], b["c1"], b["c2"], b["lw"]
+    h = bot - top
+    n = len(h)
+    L = max(3, int(0.012 * n))
+    ok = np.isfinite(h)
+    out = []
+    for a in range(1, n - 2):
+        if not (ok[a - 1] and ok[a]):
+            continue
+        for k in range(2, L + 1):
+            e = a + k
+            if e >= n or not (ok[e - 1] and ok[e]):
+                break
+            if h[a:e].min() - max(h[a - 1], h[e]) >= STEP_TEXT * lw:
+                out.append((a + b["x0"], "text"))
+                break
+    for x in range(3, n - L):
+        before = range(x - 3, x)
+        if not all(ok[j] and runs[j] >= 2 and c2[j] - c1[j] >= STEP_LINE * lw for j in before):
+            continue
+        for s in (x, x + 1):
+            after = range(s, s + L)
+            # (the band's height falls by half the distance between the lines, or more: where two lines join at a
+            # steep part of the curve, it does not)
+            if s + L <= n and all(ok[j] and runs[j] == 1 for j in after) and \
+                    h[s] <= h[x - 1] - 0.5 * (c2[x - 1] - c1[x - 1]) and \
+                    min(abs(c1[s] - c1[x - 1]), abs(c1[s] - c2[x - 1])) <= lw:
+                out.append((s + b["x0"], "line"))
+                break
+    return out
 
 
 def target_seeds(t, top, bot, lw):
@@ -490,15 +799,49 @@ def target_seeds(t, top, bot, lw):
     return out
 
 
+def _smooth_parts(xs, ys, lw, width):
+    """The points (columns xs, rows ys, in sequence) of a smooth line, without the parts that jump off it: cut where
+    two points next to each other are more than 2 + 2 line widths + 0.3 of their distance apart in rows, or more than
+    2 % of the width apart in columns; the longest part stays, then each other part (the longest first) whose end is
+    near the line of the 10 nearest points that stay (3 rows + a line width + 15 % of the distance), and that is near
+    them (2 % of the width) or long itself (3 % of the width: a short part far away, such as a label, is not the
+    line). Returns (xs, ys)."""
+    if len(xs) < 3:
+        return xs, ys
+    jump = (np.abs(np.diff(ys)) > 2 + 2 * lw + 0.3 * np.diff(xs)) | (np.diff(xs) > max(8, 0.02 * width))
+    cut = np.flatnonzero(jump) + 1
+    parts = [(int(a), int(b)) for a, b in zip(np.concatenate(([0], cut)), np.concatenate((cut, [len(xs)])))]
+    parts.sort(key=lambda p: xs[p[0]] - xs[p[1] - 1])
+    keep = [parts[0]]
+    for a, b in parts[1:]:
+        ix = np.concatenate([np.arange(p, q) for p, q in keep])
+        kx, ky = xs[ix], ys[ix]
+        end = min((a, b - 1), key=lambda e: float(np.min(np.abs(kx - xs[e]))))  # (the end next to the line)
+        near = np.argsort(np.abs(kx - xs[end]))[:10]
+        if np.ptp(kx[near]) > 0:
+            k1, k0 = np.polyfit(kx[near], ky[near], 1)
+            pred = k1 * xs[end] + k0
+        else:
+            pred = float(np.mean(ky[near]))
+        dist = float(np.min(np.abs(kx[near] - xs[end])))
+        if abs(ys[end] - pred) <= 3 + lw + 0.15 * dist and (
+                dist <= max(8, 0.02 * width) or xs[b - 1] - xs[a] >= max(10, 0.03 * width)):
+            keep.append((a, b))
+    ix = np.sort(np.concatenate([np.arange(p, q) for p, q in keep]))
+    return xs[ix], ys[ix]
+
+
 def find_target(t, top, bot, lw):
     """A second line: followed with the Tracer's own follow() (as a dashed line: it continues where the measurement
     hides it), with a color tolerance under its distance from the grid's color. Returns {"ys": {column: y},
-    "colour", "strong" (a strong color: a second measurement, not a target)} or None. (Tracer.trace_at is not usable
-    here: it took the color of the measurement near the target line.)"""
+    "hidden" (the columns where the band hides the line: not in ys), "colour" (the median of the line's pixels),
+    "strong" (a strong color: a second measurement, not a target)} or None. A line on a dB grid row is not one.
+    (Tracer.trace_at is not usable here: it took the color of the measurement near the target line.)"""
     box = t.box
     width = box["x1"] - box["x0"]
     if not t.grid_x or width < 10:
         return None
+    rows = [line["pos"] for line in t.h_lines]
     # the grid's color: the median at the frequency grid lines
     gc = np.median(np.concatenate([t.px[box["y0"]:box["y1"], int(round(g["p"]))] for g in t.grid_x]), axis=0)
     tried = []
@@ -521,8 +864,45 @@ def find_target(t, top, bot, lw):
         cols = np.array(sorted(g))
         gy = np.array([g[k] for k in cols])
         inside = np.isfinite(top[cols]) & (gy >= top[cols] - 1.5) & (gy <= bot[cols] + 1.5)
+        # (a dB grid line followed as a dashed line, from a pale pixel of text: most of its columns on a grid row)
+        if rows and float(np.mean([min(abs(y - r) for r in rows) <= 1.5 for y in gy])) > 0.5:
+            continue
         if cols[-1] - cols[0] >= 0.85 * width and len(cols) >= 0.35 * width and inside.mean() <= 0.5:
-            return {"ys": g, "colour": tuple(int(v) for v in c), "strong": float(c.max() - c.min()) >= 50}
+            # the line's color: the median of its pixels (not the seed's pixel only)
+            yi = np.clip(np.round(gy).astype(int), 0, t.H - 1)
+            pix = t.px[yi, cols].astype(np.float32)
+            colour = np.median(pix, axis=0)
+            strong = float(colour.max() - colour.min()) >= 50
+            # the columns where the line is: its color (the median) within follow()'s tolerance in the pixel or the one
+            # above or below; then the parts of the line between its jumps: the longest one, and the ones that
+            # continue it (follow() can go onto the labels' or the grid's soft pixels, or onto the measurement where
+            # the line is under it; the line itself is smooth)
+            best = np.min([np.sqrt(((t.px[np.clip(yi + d, 0, t.H - 1), cols].astype(np.float32) - colour) ** 2).sum(1))
+                           for d in (-1, 0, 1)], axis=0)
+            good = best <= tol
+            # where the band hides the line (the line in the band, or between two columns on the two sides of it),
+            # and across a long part with no line: no points there (points() would join the two sides straight)
+            m = max(1.5, lw)
+            # (the band's faded ends hide the line too: there the band's first and last columns stand for it)
+            bt, bb = top.copy(), bot.copy()
+            fin = np.flatnonzero(np.isfinite(top))
+            if len(fin):
+                fade = max(3, int(0.015 * width))
+                bt[max(0, fin[0] - fade):fin[0]], bb[max(0, fin[0] - fade):fin[0]] = top[fin[0]], bot[fin[0]]
+                bt[fin[-1] + 1:fin[-1] + 1 + fade], bb[fin[-1] + 1:fin[-1] + 1 + fade] = top[fin[-1]], bot[fin[-1]]
+            near = lambda x, y, bt=bt, bb=bb, m=m: np.isfinite(bt[x]) and bt[x] - m <= y <= bb[x] + m
+            in_band = np.array([near(x, y) for x, y in zip(cols, gy)], bool)
+            hidden = {int(x) for x in cols[good & in_band]}
+            vx, vy = _smooth_parts(cols[good & ~in_band], gy[good & ~in_band], lw, width)
+            long_gap = max(12, int(0.02 * width))
+            for (xa, ya), (xb, yb) in zip(zip(vx[:-1], vy[:-1]), zip(vx[1:], vy[1:])):
+                for x in range(int(xa) + 1, int(xb)):
+                    if xb - xa > long_gap or near(x, ya + (yb - ya) * (x - xa) / (xb - xa)):
+                        hidden.add(x)
+            ys = {int(x): float(y) for x, y in zip(vx, vy) if int(x) not in hidden}
+            if strong or len(ys) >= 0.2 * width:
+                return {"ys": ys, "hidden": hidden, "colour": tuple(int(round(v)) for v in colour),
+                        "strong": strong}
     return None
 
 
@@ -531,11 +911,32 @@ def _count(n, one, more):
     return f"{n} {one if n == 1 else more}"
 
 
-def _agree_words(n, m, what, more=""):
+def _agree_words(n, m, what, more="", ok=True):
     """'3 frequency labels agree with the grid lines, and 1 does not.' (a count of one in the singular; more: words
-    after "the grid lines")"""
+    after "the grid lines"). Not ok (labels_ok): 'Only 2 ... The app must have 3 or more labels that agree.', or
+    with too many against, '... Too many labels do not agree.'"""
     s = _count(n, f"{what} label agrees", f"{what} labels agree") + " with the grid lines" + more
-    return s + (f", and {m} {'does' if m == 1 else 'do'} not." if m else ".")
+    s += f", and {m} {'does' if m == 1 else 'do'} not." if m else "."
+    if ok:
+        return s
+    if n < MIN_LABELS:
+        return f"Only {s} The app must have {MIN_LABELS} or more labels that agree."
+    return s + " Too many labels do not agree."
+
+
+def _read_labels(fn, rgb, ocr_words, plot):
+    """fn(rgb, ocr_words, plot) (read_hz or read_db), with the text reader's errors caught. Returns (result, why_not):
+    why_not None when the labels were read; else the words after "The app did not read the ... labels." ("" with no
+    text reader; the user text of ocr.Unavailable as a sentence of its own; a fixed sentence for other errors)."""
+    if ocr_words is None:
+        return None, ""
+    try:
+        return fn(rgb, ocr_words, plot), None
+    except ocr.Unavailable as e:
+        why = str(e).strip()
+        return None, (" " + why[:1].upper() + why[1:] + ("" if why.endswith((".", "!", "?")) else ".")) if why else ""
+    except Exception:  # noqa: BLE001 - any other error of the text reader: a fixed reason, no error
+        return None, " The text reader of Windows gave an error."
 
 
 # ---------------------------------------------------------------- all of it
@@ -550,6 +951,9 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
     [(Hz, dB)] or None (the dB axis is not known); plot: the crop's box in the picture {"x0", "y0", "x1", "y1"} or
     None. Runs in the caller's thread and touches no window."""
     t0 = time.perf_counter()
+    rgb = np.asarray(rgb)
+    if rgb.ndim == 3 and rgb.shape[2] > 3:
+        rgb = rgb[..., :3]  # (RGBA: the color channels)
     rgb = np.ascontiguousarray(rgb, np.uint8)
     checks = []
 
@@ -565,7 +969,7 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
         add("axes_plot", False, "The app did not find the grid of a graph in this picture." if plot["why"] == "grid"
             else "The app found grid lines, but their positions are not the positions of a graph from the website.")
         t = Tracer()
-        if rgb.ndim == 3 and rgb.shape[0] and rgb.shape[1]:
+        if rgb.ndim == 3 and rgb.shape[2] == 3 and rgb.shape[0] and rgb.shape[1]:
             t.load(rgb.copy(), name, jpeg)
         return result(t)
     H, W = rgb.shape[:2]
@@ -583,28 +987,20 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
     add("axes_grid", grid_ok, f"{fit['hits']} of 25 frequency grid lines are in the positions of a graph from the website."
         if grid_ok else f"The app found only {good_lines} of the 25 frequency grid lines of a graph from the website.")
 
-    # the labels (on the whole picture: the positions are those of find_plot)
-    hz = db = None
-    why_not = None  # (the labels were not read: "" with no cause, else the cause)
-    if ocr_words is None:
-        why_not = ""
-    else:
-        try:
-            hz = read_hz(rgb, ocr_words, plot)
-            db = read_db(rgb, ocr_words, plot)
-        except Exception as e:  # noqa: BLE001 - ocr.Unavailable, or any error of the text reader: a reason, no error
-            why_not = str(e).strip()
-    cause = f" ({why_not})" if why_not else ""
+    # the labels (on the whole picture: the positions are those of find_plot), each axis in its own try: an error at
+    # the dB labels does not lose the frequency labels
+    hz, hz_not = _read_labels(read_hz, rgb, ocr_words, plot)
+    db, db_not = _read_labels(read_db, rgb, ocr_words, plot)
     shift = hz["shift"] if hz else None
     n_agree = len(hz["agree"]) if hz and shift is not None else 0
     n_against = hz["against"] if hz and shift is not None else 0
-    hz_ok = n_agree >= 3 and n_against <= n_agree / 3
-    if why_not is not None:
-        add("axes_hz_labels", False, "The app did not read the frequency labels." + cause)
+    hz_ok = labels_ok(n_agree, n_against)
+    if hz_not is not None:
+        add("axes_hz_labels", False, "The app did not read the frequency labels." + hz_not)
     elif not n_agree:
         add("axes_hz_labels", False, "The app cannot read the frequency labels. A larger picture can help.")
     else:
-        add("axes_hz_labels", hz_ok, _agree_words(n_agree, n_against, "frequency"))
+        add("axes_hz_labels", hz_ok, _agree_words(n_agree, n_against, "frequency", ok=hz_ok))
     k10 = 10.0 ** shift if hz_ok else 1.0
     f1, f2 = 20 * k10, 20000 * k10
     if not hz_ok:
@@ -620,28 +1016,29 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
     d_at, db_slope, db_words = None, None, []
     if db and len(db["pairs"]) >= 2:
         pr = db["pairs"]
-        # (a label that only the loose letters make a number counts when it agrees, never against)
-        against = len({round(q["p"]) for q in db["wrong"] if q["strict"]} - {round(q["p"]) for q in pr})
         v0, db_slope = db["v0"], db["k"]
         d_at = lambda p: v0 + db_slope * p
         db_words = [q["w"] for q in pr]
-        add("axes_db_labels", len(pr) > against,
-            _agree_words(len(pr), against, "dB", f" ({abs(db['step']):g} dB between grid lines)"))
+        db_ok = labels_ok(len(pr), db["against"])
+        add("axes_db_labels", db_ok,
+            _agree_words(len(pr), db["against"], "dB", f" ({abs(db['step']):g} dB between grid lines)", db_ok))
     elif db and db.get("single") and len(rows) >= 2:
         q, gap = db["single"], float(np.median(np.diff(rows)))
         db_slope = -5 / gap
         d_at = lambda p: q["v"] + db_slope * (p - q["p"])
         db_words = [q["w"]]
         add("axes_db_labels", False, "The app read only one dB label. It set 5 dB between grid lines.")
-    elif why_not is not None:
-        add("axes_db_labels", False, "The app did not read the dB labels." + cause)
+    elif db and db.get("rows", 0) >= 2:
+        add("axes_db_labels", False, "The dB labels that the app read do not agree with each other.")
+    elif db_not is not None:
+        add("axes_db_labels", False, "The app did not read the dB labels." + db_not)
     else:
         add("axes_db_labels", False, "The app cannot read the dB labels. A larger picture can help.")
     if d_at and len(rows) >= 2:
-        lo, hi = round(d_at(rows[-1]), 2), round(d_at(rows[0]), 2)
-        span = abs(hi - lo)
-        add("axes_db_range", 15 <= span <= 120, f"The dB axis is {lo:g} dB to {hi:g} dB." + (
-            "" if 15 <= span <= 120 else " This range is not usual for a graph of an IEM or headphone."))
+        lo, hi = round(d_at(rows[-1]), 2) + 0.0, round(d_at(rows[0]), 2) + 0.0  # (+ 0.0: no "-0")
+        usual = DB_SPAN[0] <= hi - lo <= DB_SPAN[1] and DB_LOWEST <= lo and hi <= DB_HIGHEST
+        add("axes_db_range", usual, f"The dB axis is {lo:g} dB to {hi:g} dB." + (
+            "" if usual else " This range is not usual for a graph of an IEM or headphone."))
     else:
         d_at = None
         add("axes_db_range", False, "The app does not know the dB axis.")
@@ -675,11 +1072,16 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
     if not b or not np.isfinite(b["top"]).any():
         add("trace_curve", False, "The app did not find a curve in a strong color.")
         return result(t, crop=crop_box)
-    top = np.full(t.W, np.nan)
-    bot = np.full(t.W, np.nan)
     xs = np.arange(len(b["mid"])) + b["x0"] - cx0
     keep = (xs >= 0) & (xs < t.W)
-    top[xs[keep]], bot[xs[keep]] = b["top"][keep] - cy0, b["bot"][keep] - cy0
+
+    def crop_cols(a, dy=-cy0):
+        out = np.full(t.W, np.nan)
+        out[xs[keep]] = a[keep] + dy
+        return out
+    top, bot, c1, c2 = crop_cols(b["top"]), crop_cols(b["bot"]), crop_cols(b["c1"]), crop_cols(b["c2"])
+    runs = crop_cols(b["runs"].astype(float), 0)
+    lw = b["lw"]
     curve = t.curves[0]
     curve["ys"][:] = (top + bot) / 2
     curve["colour"] = tuple(int(round(v)) for v in mc["colour"])
@@ -696,24 +1098,28 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
     add("trace_gaps", gap <= MAX_GAP * pw, "All of the curve is traced." if gap <= MAX_GAP * pw else
         f"A part of the curve that is {_count(gap, 'pixel', 'pixels')} wide is not traced.")
     traced = np.flatnonzero(np.isfinite(top))
-    thick = (bot - top)[traced]
-    # the line's width: the 10th percentile of the first line's width (where the channels touch, the band's width;
-    # where they are apart, one channel's line: with two channels apart everywhere the band's width would be all
-    # of the difference)
-    one = np.full(t.W, np.nan)
-    one[xs[keep]] = b["first"][keep] - b["top"][keep]
-    lw = float(np.percentile(one[traced], 10))
+    # the difference between the channels at each column: where they are apart (two lines), the distance between the
+    # middles of the two lines (the same for either channel the higher one: the edges of a lighter line are thinner);
+    # where they touch (one line), the band's height over one line's width (lw: the 10th percentile of the first
+    # line's width, from band)
+    apart = np.where(runs[traced] >= 2, c2[traced] - c1[traced], np.clip((bot - top)[traced] - lw, 0, None))
     if d_at:
-        extra = np.clip(thick - lw, 0, None)
-        e90 = round(float(np.percentile(extra, 90)) * abs(db_slope), 1)
+        e90 = round(float(np.percentile(apart, 90)) * abs(db_slope), 1)
         add("trace_band", e90 <= MAX_BAND_DB,
             f"The difference between the left and right channels is {e90:.1f} dB or less on most of the curve."
             if e90 <= MAX_BAND_DB else f"The band of curves is {e90:.1f} dB wide. It can contain more than one measurement.")
     else:
         add("trace_band", False, "The app cannot measure the difference between the channels, because it does not "
             "know the dB axis.")
+    steps = height_steps(b)
+    if steps:
+        at = fmt_hz(20 * k10 * 10 ** ((steps[0][0] - fit["a"]) / fit["b"]))
+        add("trace_steps", False, f"The height of the band of curves changes suddenly at {at}. Text in the color of "
+            "the curve, or a channel that the app did not find, can cause this.")
+    else:
+        add("trace_steps", True, "The height of the band of curves has no sudden steps.")
     # a second line: the target line (gray), or one more measurement (a strong color: not one device)
-    tg = find_target(t, top, bot, lw)
+    tg = find_target(t, crop_cols(b["full_top"]), crop_cols(b["full_bot"]), lw)
     target = None
     if tg and not tg["strong"]:
         target = t.new_curve(1)
@@ -732,7 +1138,11 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
             add("trace_points", False, str(e))
         if target is not None:
             try:
-                target_points = t.points(target["ys"])[0]
+                # (no points where the band hides the target line: points() would join its two sides with a straight
+                # line there)
+                k = t.calib()
+                target_points = [(f, v) for f, v in t.points(target["ys"])[0]
+                                 if int(round(k.x_at(f))) not in tg["hidden"]] or None
             except ValueError:
                 target_points = None  # (the target is not a part of the checks)
     return result(t, curve if Tracer.has_data(curve) else None, target, points, target_points, crop_box)

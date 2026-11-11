@@ -315,6 +315,7 @@ class Tracer:
         self.cal = {"y1": 0.0, "y2": 0.0, "x1": 0.0, "x2": 0.0}
         self.bg = (255, 255, 255)
         self.dbg = None
+        self.axis_note = self.detect_note = ""  # (detect() sets them; take() copies them, also from a tracer with no picture)
         self._match = {}
         self.label_token = getattr(self, "label_token", 0) + 1  # (a label reading still running is ignored)
 
