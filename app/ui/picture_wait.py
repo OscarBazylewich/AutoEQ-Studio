@@ -25,8 +25,10 @@ While it shows, it waits for the first new picture:
 `got` is (QImage, jpeg) when a picture came; the dialog then closes with accept(). done() stops everything first (the
 signal disconnected, the timers stopped), so a late copy does nothing. Its parent is the window that asked: given
 before it shows (the tests' stray watch). A screen reader reads the heading and the steps as the dialog's description.
-one_line() and clean_entry(): an entry's words come from a website's list, so a line end or a control character in
-them becomes a space before they go into a window or a file's first line.
+one_line() and clean_entry(): an entry's words come from a website's list, so a line end, a control character or a
+format character (a direction mark, a zero-width space) in them becomes a space before they go into a window or a
+file's first line. They show as plain text (never rich text), and the heading shows NAME_MAX characters of the name at
+most (heading_name). The window is as high as its words need (fit_height: also on a small screen at 150 %).
 """
 import os
 import re
@@ -45,13 +47,29 @@ READ_TRIES = 5        # looks that try to read a new file that is not (yet) a pi
 TIMEOUT_MS = 600_000  # the wait stops (10 minutes)
 MIN_SIZE = (300, 200)  # a smaller picture is not a graph (a copied icon)
 JPEG_SUFFIXES = (".jpg", ".jpeg", ".jfif")
-_CONTROL = re.compile(r"[\s\x00-\x1f\x7f-\x9f]+")  # (line ends, tabs and the other control characters)
-
+NAME_MAX = 80  # (the characters of an entry's name in the heading: then "…", the whole name in its tooltip)
+WIDTH, PAD = 520, 24  # (the words' width at least, and the dialog's padding: Windows 11's)
+# (line ends, tabs and the other control characters; the format characters: zero-width spaces and joiners, the
+# direction marks and overrides, the word joiner and the isolates, the byte order mark)
+_CONTROL = re.compile(r"[\s\x00-\x1f\x7f-\x9f\U0000200b-\U0000200f\U0000202a-\U0000202e\U00002060-\U00002069"
+                      r"\U0000feff]+")
 
 def one_line(text):
-    """text with each run of line ends, control characters and spaces as one space (an entry's words come from a
-    website's list: a line end in a name made data lines in a traced file's first line)."""
+    """text with each run of line ends, control characters, format characters and spaces as one space (an entry's
+    words come from a website's list: a line end in a name made data lines in a traced file's first line, and a
+    right-to-left override showed the name and the words after it in reverse)."""
     return _CONTROL.sub(" ", text).strip() if isinstance(text, str) else text
+
+
+def heading_name(name, fm, room):
+    """An entry's name for the wait window's heading: NAME_MAX characters at most (then "…"), and on one line when a
+    word of it (with the quotation marks) is wider than the line (a damaged list's name of 500 characters cut the
+    window's words). fm: the heading's font metrics; room: the line's width."""
+    shown = name if len(name) <= NAME_MAX else name[:NAME_MAX].rstrip() + "…"
+    marks = fm.horizontalAdvance("“”…")
+    if any(fm.horizontalAdvance(w) + marks > room for w in shown.split(" ")):
+        shown = fm.elidedText(shown, Qt.ElideRight, room - marks)
+    return shown
 
 
 def clean_entry(entry):
@@ -204,14 +222,14 @@ class PictureWait(QDialog):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
         body = QWidget()
-        body.setMinimumWidth(520)  # (the words wrap at this width at least)
+        body.setMinimumWidth(WIDTH)  # (the words wrap at this width at least)
         v = QVBoxLayout(body)
-        v.setContentsMargins(24, 24, 24, 20)  # (Windows 11's dialog padding)
+        v.setContentsMargins(PAD, PAD, PAD, 20)  # (Windows 11's dialog padding)
         v.setSpacing(8)
         entry = clean_entry(entry) or {}
         self.entry = entry
-        head = QLabel(f"The app waits for a picture of “{entry.get('name', '')}”…")
-        head.setWordWrap(True)
+        # (the entry's words are plain text: a name with "<b>" or "<img>" from a list showed bold or a picture)
+        self.head = head = self._words("")
         theme.mark(head, role="heading")
         v.addWidget(head)
         intro = (f"Your browser shows this entry on {entry.get('site') or 'its website'}. Give the app a picture of its "
@@ -237,6 +255,12 @@ class PictureWait(QDialog):
         self.note.hide()
         v.addWidget(self.note)
         outer.addWidget(body, 1)
+        head.ensurePolished()  # (the heading's font, from the style sheet: its width decides the name's length)
+        name = entry.get("name", "")
+        shown = heading_name(name, head.fontMetrics(), WIDTH - 2 * PAD)
+        head.setText(f"The app waits for a picture of “{shown}”…")
+        if shown != name:
+            head.setToolTip(name)
         band, self.paste_btn = dialog_band(self, "Paste the picture", self.paste)
         help_window.tag(self.paste_btn, "#pw-paste")
         # (set after tag(): no "F1 opens Help." in it, F1 does nothing in this window, as Find…'s "Available to
@@ -256,6 +280,7 @@ class PictureWait(QDialog):
     @staticmethod
     def _words(text):
         lab = QLabel(text)
+        lab.setTextFormat(Qt.PlainText)  # (never rich text: the intro has the site's name from a list)
         lab.setWordWrap(True)
         return lab
 
@@ -270,14 +295,22 @@ class PictureWait(QDialog):
     def where_text(self):
         if not self.folder:
             return "The app uses the first new picture on the clipboard."
-        return ("The app uses the first new picture on the clipboard or in the folder below. It only reads the files of "
-                "that folder.")
+        return ("The app uses the first new picture on the clipboard or in the Downloads folder. It only reads the files "
+                "of this folder:")
 
     # ---------------------------------------------------------------- the wait
     def showEvent(self, e):
         super().showEvent(e)
+        self.fit_height()
         if not self._started:
             self.start()
+
+    def fit_height(self):
+        """The window as high as its words need at its width: Qt's own size (adjustSize, the first showing) is two
+        thirds of the screen at most, and on a small screen at 150 % that cut the last line of step 2. (The size hint's
+        height is for the size hint's width: at a different width, a label of wrapped words needs more or less.)"""
+        h = self.heightForWidth(self.width())
+        self.resize(self.width(), h if h > 0 else self.sizeHint().height())
 
     def start(self):
         """The signal, the looks at the folder (the first one at once: the old files) and the time limit (one time;
@@ -364,6 +397,6 @@ class PictureWait(QDialog):
         if img is None:
             self.note.setText("There is no picture on the clipboard. First, copy a picture of a graph.")  # (the tracer's)
             self.note.show()
-            self.adjustSize()  # (its room for the note)
+            self.fit_height()  # (its room for the note)
             return
         self._take(img, jpeg)

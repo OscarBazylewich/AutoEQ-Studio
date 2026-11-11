@@ -165,14 +165,17 @@ class EqFiles:
             return False
         tw = getattr(self, "tracer", None)
         n = tw.unadded_curves() if tw is not None else 0
-        if n:
+        if n or (tw is not None and tw.changed_axes()):
             # (the new picture replaces the one in the tracer, and the user is then in the browser: "do this first",
-            # a bubble at the control that was used, UI-RULES 25. The automatic read's own curves do not stop it.)
+            # a bubble at the control that was used, UI-RULES 25. The automatic read's own curves do not stop it.
+            # With no curve, the user's work is on 1 Axes: words that are true for it.)
             bubble.tell(None, (
                 "The tracer has a curve that you did not add. To keep it, add it in the tracer. To remove it, click "
                 "Remove image in the tracer. Then select the entry again." if n == 1 else
                 "The tracer has curves that you did not add. To keep them, add them in the tracer. To remove them, "
-                "click Remove image in the tracer. Then select the entry again."), near=over)
+                "click Remove image in the tracer. Then select the entry again." if n else
+                "The tracer has a picture that you changed. To remove it, click Remove image in the tracer. Then "
+                "select the entry again."), near=over)
             return False
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QDesktopServices

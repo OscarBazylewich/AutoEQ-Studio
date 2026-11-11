@@ -27,6 +27,13 @@ LINK = "https://graph.hangout.audio/iem/5128/?share=Gate"
 SITE = "Hangout.Audio IEMs (Crinacle, 5128)"
 # (the sample graph's grid: trace_window.sample_image's L, R, T, B, width, height, lo and hi dB)
 SL, SR, ST, SB, SW, SH, LO, HI = 96, 40, 76, 84, 1200, 720, 40, 90
+NB = "\N{NO-BREAK SPACE}"  # (between a tab's number and its name in the tracer's words)
+WHERE = ("The app uses the first new picture on the clipboard or in the Downloads folder. It only reads the files of "
+         "this folder:")
+# (the format characters that an entry's words must not keep: zero-width spaces and joiners, direction marks and
+# overrides, the word joiner and the isolates, the byte order mark)
+FORMAT = [chr(c) for c in (*range(0x200B, 0x2010), *range(0x202A, 0x202F), *range(0x2060, 0x206A), 0xFEFF)]
+NOT_GRAPH_WORDS = "Copy a new picture of the graph. Then paste it in the tracer (Ctrl+V)."
 
 
 def _rows(pk):
@@ -429,7 +436,7 @@ def test_downloads_folder_is_the_test_folder(eq_screen, flow, monkeypatch, check
     folder = _downloads()
     wait, _o = _use(flow)
     shown = wait.path is not None and wait.path.text() == os.path.normpath(folder) and "Screenshot" in " ".join(
-        lab.text() for lab in wait.findChildren(QLabel))
+        lab.text() for lab in wait.findChildren(QLabel)) and wait.where.text() == WHERE
     check("website flow: the wait window shows the Downloads folder that it looks at (the session's stand-in)",
           folder and session.inside(folder) and shown, (folder, wait.path and wait.path.text()))
     root, data = os.environ.get("AUTOEQSTUDIO_ROOT"), os.environ.get("AUTOEQSTUDIO_DATA")
@@ -730,8 +737,8 @@ def test_long_downloads_path(eq_screen, flow, monkeypatch, check):
     qt.pump(50)
     check("website flow: a long Downloads path with no space (91 and 115 characters): no word of the window is cut, "
           "nothing goes past its right edge, and the path is cut in its middle with “…” (its tooltip whole)",
-          sorted(seen) == [91, 115] and all(not v[0] and "…" in v[1] and v[2] and v[3] <= 640 for v in seen.values()),
-          seen)
+          sorted(seen) == [91, 115] and all(not v[0] and "…" in v[1] and v[2] and v[3] <= 640 for v in seen.values())
+          and all(v[1].startswith("C:\\") and v[1].endswith("Downloads") for v in seen.values()), seen)
 
 
 def test_screen_reader(eq_screen, flow, monkeypatch, check):
@@ -760,6 +767,9 @@ def test_screen_reader(eq_screen, flow, monkeypatch, check):
           f"“{ENTRY}”" in desc and "Windows + Shift + S" in desc and "Maximize the window" in desc
           and not a11y.unnamed(wait) and not a11y.unreachable(wait)
           and order[:2] == ["Paste the picture (a picture from the website)", "Cancel"], (desc, order))
+    check("website flow: the wait window's description has the folder words and the folder's path, and the window "
+          "has its name for a screen reader", f"{WHERE} {os.path.normpath(_downloads())}" in desc
+          and wait.accessibleName() == "Picture from the website", (desc, wait.accessibleName()))
     wait.reject()
     came, tw = _traced(flow, monkeypatch, stand_in(target=True))
     seen = {}
@@ -840,7 +850,7 @@ def test_trace_check_failed(eq_screen, flow, monkeypatch, check):
     came, tw = _traced(flow, monkeypatch, stand_in(ok=False, fail="trace_band"))
     check("website flow: a check of the curve not OK, the tracer shows 2 Trace with the reason",
           came and tw.pages.currentIndex() == 1 and "The reason of this check." in tw.status.text()
-          and "Then go to 3 Save." in tw.status.text(), (tw.pages.currentIndex(), tw.status.text()))
+          and f"Then go to 3{NB}Save." in tw.status.text(), (tw.pages.currentIndex(), tw.status.text()))
 
 
 def test_not_a_graph(eq_screen, flow, monkeypatch, check):
@@ -871,8 +881,8 @@ def test_error_of_the_read(eq_screen, flow, monkeypatch, check):
           came and tw.pages.currentIndex() == 0 and calls and tw.read_ok is False and tw.entry["name"] == ENTRY
           and tw.t.src_name == NAME, (tw.pages.currentIndex(), calls, tw.t.src_name))
     check("website flow: after an error of the read, no Python words on the screen, and the words name 1 Axes and "
-          "2 Trace", tw.status.text() == "The app cannot trace this picture automatically. Do the steps 1 Axes and "
-          "2 Trace manually. Then go to 3 Save." and "made-up failure" not in tw.status.text() + tw.axis_note.text(),
+          "2 Trace", tw.status.text() == f"The app cannot trace this picture automatically. Do the steps 1{NB}Axes and "
+          f"2{NB}Trace manually. Then go to 3{NB}Save." and "made-up failure" not in tw.status.text() + tw.axis_note.text(),
           tw.status.text())
 
 
@@ -1126,7 +1136,7 @@ def test_add_as_measurement(eq_screen, fresh_studio, flow, monkeypatch, check):
 
 CHANGED_LINE = ("You changed the curve “Target”. Thus, it is a measurement curve: Add as measurement also adds it. To "
                 "add it as a target, select it. Then click Add as target. To remove it from the measurement, click its "
-                "✕ (Remove curve) on 2 Trace.")
+                f"✕ (Remove curve) on 2{NB}Trace.")
 
 
 def _values(path):
@@ -1258,6 +1268,245 @@ def test_line_end_in_entry_name(eq_screen, flow, monkeypatch, check):
           "and the name box has one line", sum(ln.startswith("*") for ln in lines) == 1 and not data_from_name
           and lines[0].startswith("* Traced from Evil 20 99 30 99 (Hangout 5128)") and "Site X" in lines[0]
           and "\n" not in tw.name.text() and "\n" not in tw.save_note.text(), (lines[:3], tw.name.text()))
+    # (a right-to-left override showed the name in reverse; the other format characters are not visible)
+    from ui.picture_wait import PictureWait
+    rlo = "Gate\N{RIGHT-TO-LEFT OVERRIDE}gnp.exe"
+    tw.load_image(_graph(), entry=dict(entry, name=rlo, site="Site\N{ZERO WIDTH SPACE}\N{LEFT-TO-RIGHT MARK}"))
+    qt.wait_for(lambda: not tw.reading_graph and tw.read_ok is not None, 20)
+    out = tw.outputs()[0]
+    wait = PictureWait(flow["pk"], dict(entry, name=rlo))
+    shown = {"heading": wait.head.text(), "top row": tw.file_lab.whole, "name box": tw.name.text(),
+             "file name": out["file"], "first line": out["text"].splitlines()[0]}
+    wait.deleteLater()
+    marked = {k: v for k, v in shown.items() if any(c in v for c in FORMAT)}
+    check("website flow: a right-to-left override (U+202E) and the other format characters in the entry's words: no "
+          "such character in the heading of the wait window, the top row, the name box, the file name and its first "
+          "line", not marked and "Gate gnp.exe" in shown["heading"] and shown["file name"].startswith("Gate gnp.exe"),
+          {k: ascii(v) for k, v in shown.items()})
+
+
+def test_entry_words_on_one_line(eq_screen, flow, monkeypatch, check):
+    """A tab, U+0085, a C1 and a C0 control character and spaces at the ends of an entry's words: one line, through
+    one_line, the wait window itself, and the flow from the route to the tray message."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication
+    from ui.picture_wait import PictureWait, one_line
+    words = [one_line(t) for t in (" Gate\tX\N{NEXT LINE}Y\x9bZ\x07 ", "\x00Gate\x7f")]
+    fmt = [one_line(f"A{c}B") for c in FORMAT]
+    check("website flow: one_line makes a tab, U+0085, a C1 and a C0 control character and each format character one "
+          "space, and removes the spaces at the ends", words == ["Gate X Y Z", "Gate"] and fmt == ["A B"] * len(FORMAT),
+          (words, [ascii(f) for f in fmt if f != "A B"]))
+    wait = PictureWait(flow["pk"], {"name": "Gate\tX\N{NEXT LINE}Y", "site": SITE})
+    head = wait.head.text()
+    wait.deleteLater()
+    check("website flow: the wait window puts the entry's words on one line (also when its caller did not)",
+          head == "The app waits for a picture of “Gate X Y”…", ascii(head))
+    page = flow["page"]
+    real = page.svc.call
+
+    def call(route, body=None):
+        r = real(route, body)
+        if route == "/api/db/entry" and r.get("entry"):
+            r = dict(r, entry=dict(r["entry"], name="Gate\tX\N{NEXT LINE}Y\x9b"))
+        return r
+    monkeypatch.setattr(page.svc, "call", call)
+    trays = []
+    monkeypatch.setattr(QApplication, "applicationState", staticmethod(lambda: Qt.ApplicationInactive))
+    monkeypatch.setattr(QApplication, "alert", staticmethod(lambda w, ms=0: None))
+
+    class _Win:
+        class app:
+            @staticmethod
+            def tray_message(title, text):
+                trays.append(text)
+    monkeypatch.setattr(page, "window", lambda: _Win)
+    wait, _o = _use(flow)
+    heading = wait.head.text() if wait is not None else ""
+    _copy(_graph())
+    came = _picture_came(page)
+    check("website flow: a name with a tab, U+0085 and a C1 control character through Find…'s Use: the heading of the "
+          "wait window, the tracer's name and the tray message have it on one line",
+          came and heading == "The app waits for a picture of “Gate X Y”…" and trays
+          and trays[0] == "The tracer shows the graph of “Gate X Y”. Go to the window of the tracer."
+          and page.tracer.t.src_name == f"Gate X Y ({TAG})", (ascii(heading), [ascii(t) for t in trays]))
+
+
+def test_entry_words_are_plain_text(eq_screen, flow, check):
+    """An entry's words from a list with "<b>" or "<img>": shown as these characters (plain text), not as bold words
+    or a picture, in the wait window and in the tracer."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QLabel
+    from ui.picture_wait import PictureWait
+    html, site = "<b>Gate</b> & <img src=x>", "<i>Site</i>"
+    wait = PictureWait(flow["pk"], {"name": html, "site": site})
+    labels = {lab.text(): lab.textFormat() for lab in wait.findChildren(QLabel) if html in lab.text() or site in lab.text()}
+    wait.deleteLater()
+    check("website flow: the heading and the intro of the wait window show the entry's words as plain text",
+          len(labels) == 2 and all(f == Qt.PlainText for f in labels.values()), labels)
+    page = flow["page"]
+    entry = page.svc.call("/api/db/entry", {"id": flow["row"]["id"]})["entry"]
+    page.open_trace()
+    tw = page.tracer
+    tw.load_image(_graph(), entry=dict(entry, name=html))
+    qt.wait_for(lambda: not tw.reading_graph and tw.read_ok is not None, 20)
+    tw.show_tab(2)
+    qt.pump(50)
+    top, note = tw.file_lab, tw.save_note
+    check("website flow: the tracer's top row and the note of 3 Save show the entry's words as plain text",
+          top.textFormat() == Qt.PlainText and html in top.whole and note.textFormat() == Qt.PlainText
+          and f"“{html}”" in note.text(), (top.textFormat(), top.whole, note.textFormat(), note.text()))
+
+
+def test_long_entry_name(eq_screen, flow, check):
+    """A name of 500 characters (a damaged list): the heading shows NAME_MAX characters at most, then "…", the whole
+    name in its tooltip, and no word of the window is cut."""
+    from ui.picture_wait import NAME_MAX, PictureWait
+    seen = {}
+    for name in ("A" * 500, "Word " * 100, ENTRY):
+        wait = PictureWait(flow["pk"], {"name": name, "site": SITE})
+        wait.open()
+        qt.pump(200)
+        wait.paste()  # (with its note too)
+        qt.pump(100)
+        head = wait.head.text()
+        shown = head[len("The app waits for a picture of “"):-len("”…")]
+        seen[name[:5]] = (wait.width(), _cut(wait), len(shown), shown.endswith("…"), wait.head.toolTip())
+        wait.reject()
+        wait.deleteLater()
+    qt.pump(50)
+    long_ok = all(v[0] == 520 and not v[1] and v[2] <= NAME_MAX + 1 and v[3] for k, v in seen.items() if k != ENTRY[:5])
+    check("website flow: a name of 500 characters, with no space and with spaces: the window is 520 px wide, no label "
+          "is cut, the heading has 80 characters of the name at most and “…”, its tooltip has the whole name",
+          long_ok and seen["AAAAA"][4] == "A" * 500 and seen["Word "][4] == ("Word " * 100).strip(),
+          {k: v[:4] for k, v in seen.items()})
+    check("website flow: a usual name is whole in the heading, with no tooltip",
+          seen[ENTRY[:5]][2] == len(ENTRY) and seen[ENTRY[:5]][4] == "", seen[ENTRY[:5]])
+
+
+def test_window_as_high_as_its_words(eq_screen, flow, check):
+    """The wait window is as high as its words need at its width, also when that is more than two thirds of the
+    screen (Qt's limit for adjustSize: on a small screen at 150 %, it cut the last line of step 2)."""
+    from ui.picture_wait import PictureWait
+    seen = {}
+    for site in (SITE, " ".join(["Site"] * 600)):
+        wait = PictureWait(flow["pk"], {"name": ENTRY, "site": site})
+        wait.open()
+        qt.pump(200)
+        first = (wait.height(), wait.heightForWidth(wait.width()))
+        wait.paste()  # (M2: the note makes the window higher)
+        qt.pump(100)
+        after = (wait.height(), wait.heightForWidth(wait.width()), wait.note.isVisible())
+        seen[len(site)] = (first, after, wait.screen().availableGeometry().height() * 2 // 3, _cut(wait))
+        wait.reject()
+        wait.deleteLater()
+    qt.pump(50)
+    check("website flow: the wait window is as high as its words need at its width when it opens and after the note "
+          "(M2), also past two thirds of the screen, and no line is cut",
+          all(f[0] == f[1] and a[0] == a[1] > f[0] and a[2] and not cut for f, a, _lim, cut in seen.values())
+          and max(v[1][0] for v in seen.values()) > max(v[2] for v in seen.values()), seen)
+
+
+def test_page_paste_of_a_picture_file(eq_screen, flow, monkeypatch, tmp_path, check):
+    """The Make an EQ page's paste: a picture file copied in File Explorer after a poor read keeps the entry; a picture
+    after a read that was OK gets none."""
+    from PySide6.QtCore import QMimeData, QUrl
+    from PySide6.QtWidgets import QApplication
+    from ui import trace_core
+    page = flow["page"]
+    came, tw = _traced(flow, monkeypatch, stand_in(ok=False, fail="axes_hz_labels"))
+    path = str(tmp_path / "better graph.png")
+    _graph().save(path)
+    monkeypatch.setattr(trace_core, "auto_read", stand_in())
+    md = QMimeData()
+    md.setUrls([QUrl.fromLocalFile(path)])
+    QApplication.clipboard().setMimeData(md)
+    since = _token(page)
+    page.paste_picture()
+    again = _picture_came(page, since=since) and tw.read_ok is True
+    check("website flow: a picture file copied in File Explorer and pasted on the Make an EQ page after a poor read "
+          "keeps the entry", came and again and tw.entry and tw.entry["name"] == ENTRY and tw.t.src_name == NAME,
+          (again, tw.entry, tw.t.src_name))
+    _copy(_graph())
+    since = _token(page)
+    page.paste_picture()
+    qt.wait_for(lambda: tw.graph_token > since and not tw.reading_graph and not tw.reading, 60)
+    check("website flow: after a read that was OK, a picture pasted on the Make an EQ page gets no entry",
+          tw.graph_token > since and tw.entry is None and tw.t.src_name != NAME, (tw.entry, tw.t.src_name))
+
+
+def test_white_picture_one_message(eq_screen, flow, monkeypatch, check):
+    """A picture that is not a graph and has no labels (white): 1 Axes has one message (the label read's), not also
+    the status line's words."""
+    from ui import trace_core
+    monkeypatch.setattr(trace_core, "auto_read", stand_in(ok=False, fail="axes_plot"))
+    page = flow["page"]
+    _use(flow)
+    _copy(_plain(900, 500))
+    came = _picture_came(page)
+    tw = page.tracer
+    qt.wait_for(lambda: not tw.reading, 60)
+    note, status = tw.axis_note.text(), tw.status.text()
+    check("website flow: a white picture that is not a graph: the status line tells the user to copy a new picture, "
+          "and the note of 1 Axes does not repeat it", came and NOT_GRAPH_WORDS in status
+          and "automatically" not in note and "Copy a new picture" not in note and "3" not in note, (status, note))
+
+
+ONE_CHANGE = ("The tracer has a picture that you changed. To remove it, click Remove image in the tracer. Then select "
+              "the entry again.")
+
+
+def test_users_work_stops_use(eq_screen, flow, monkeypatch, check):
+    """The user's work on a picture from a website after its read: a rename, a redo step, a typed axis value, a moved
+    line. A read that was OK and no change: none. Remove image clears the rename and the close."""
+    from PySide6.QtWidgets import QLineEdit
+    pk = flow["pk"]
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    none = (tw.unadded_curves(), tw.changed_axes(), tw.users_work())
+    tw.show_tab(1)
+    box = next(b for b in tw.curves_box.findChildren(QLineEdit) if b.text() == "Average")
+    box.setText("Avg")
+    box.textEdited.emit("Avg")
+    renamed = (tw.renamed, tw.unadded_curves())
+    tw.close()
+    flags = (tw.renamed, tw.was_closed)
+    tw.remove_image()
+    cleared = (tw.renamed, tw.was_closed)
+    check("website flow: a read that was OK and no change is not the user's work; a rename is; Remove image clears the "
+          "rename and the close", came and none == (0, False, False) and renamed == (True, 1)
+          and flags == (True, True) and cleared == (False, False), (none, renamed, flags, cleared))
+    pk.show()
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    tw.t.cur = 0
+    tw.smooth()
+    tw.undo()
+    redo = (bool(tw.t.undo_stack), bool(tw.t.redo_stack), tw.unadded_curves())
+    check("website flow: smooth, then undo: the redo step is the user's work (the curve stops a new Use)",
+          came and redo == (False, True, 1), redo)
+    tw.remove_image()
+    pk.show()
+    came, tw = _traced(flow, monkeypatch, stand_in(ok=False, fail="axes_db_labels"))
+    tw.show_tab(0)
+    tw.boxes["d1"].setText("95")
+    tw.boxes["d1"].textEdited.emit("95")
+    typed = (tw.t.typed["d"], tw.unadded_curves())
+    pk.show()
+    _close_bubble()
+    wait, opened = _use(flow)
+    check("website flow: a failed read (axes_db_labels), a typed Top value, then Use: no wait window, the bubble for "
+          "the curve", came and typed == (True, 1) and wait is None and not opened and _told() == ONE_CURVE,
+          (typed, wait, opened, _told()))
+    tw.t.curves[0]["ys"][:] = np.nan  # (as a read that traced no curve)
+    tw.changed()
+    _close_bubble()
+    wait, opened = _use(flow)
+    typed_only = (tw.unadded_curves(), tw.changed_axes(), _told())
+    tw.t.typed = {"d": False, "f": False}
+    no_change = tw.changed_axes()
+    tw.t.move_line("y1", tw.t.cal["y1"] + 3)  # (the user drags the top red line)
+    moved = tw.changed_axes()
+    check("website flow: no curve, but a typed value or a moved line: Use stops with words for a changed picture",
+          typed_only == (0, True, ONE_CHANGE) and wait is None and not opened and not no_change and moved,
+          (typed_only, no_change, moved))
 
 
 def test_users_picture_after_read_drops_its_note(eq_screen, flow, monkeypatch, check):

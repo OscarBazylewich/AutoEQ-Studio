@@ -22,7 +22,9 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   names the website in the file's first line and sends the entry as the source record (its rig). The entry belongs
   to the picture: it stays when the window closes, but a new picture after the close does not take it (kept_entry);
   Remove image and a new picture clear it. unadded_curves(): the curves that the user traced or changed and did not
-  add (a new picture from a website stops for them; the automatic read's own curves do not count).
+  add (a new picture from a website stops for them; the automatic read's own curves do not count, but a curve of it
+  is the user's work after a typed axis value or a moved line); changed_axes(): no curve, but axes that the user
+  changed (it stops too). The entry's words show as plain text (never rich text).
 sample_image() draws AutoEQ Local's sample graph (an IEM's two channels and a dashed target) for checks and the tour.
 
 The look is Windows 11's, as the rest of the app (2026-10-23): the picture on a card, the tools as one group, Windows
@@ -61,8 +63,10 @@ HINTS = {"trace": "Click a curve to follow it.", "draw": "Drag along the curve t
          "erase": "Drag a box around a part of the traced line to remove it.", "pan": "Drag to move the picture."}
 # (the automatic read of a picture from a website: the picture is not a graph; the read stopped with an error)
 NOT_GRAPH = "Copy a new picture of the graph. Then paste it in the tracer (Ctrl+V)."
-READ_ERROR = ("The app cannot trace this picture automatically. Do the steps 1 Axes and 2 Trace manually. Then "
-              "go to 3 Save.")  # (no-break spaces: a tab's name stays on one line)
+NBSP = "\N{NO-BREAK SPACE}"  # (between a tab's number and its name: the name stays on one line)
+READ_ERROR = (f"The app cannot trace this picture automatically. Do the steps 1{NBSP}Axes and 2{NBSP}Trace manually. "
+              f"Then go to 3{NBSP}Save.")
+CORRECT_STEP = f"Correct this step. Then go to 3{NBSP}Save."  # (after a check of the automatic read that is not OK)
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".jfif", ".webp", ".bmp", ".gif", ".tif", ".tiff")
 IMAGES = "Images (*.png *.jpg *.jpeg *.jfif *.webp *.bmp *.gif *.tif *.tiff)"
 
@@ -111,6 +115,7 @@ class _Elided(QLabel):
 
     def __init__(self):
         super().__init__("")
+        self.setTextFormat(Qt.PlainText)  # (a name from a website's list with "<b>" or "<img>" showed bold or a picture)
         self.whole = ""
 
     def setText(self, text):
@@ -1042,6 +1047,7 @@ class TraceWindow(QWidget):
         g.addLayout(line_row, 5, 0, 1, 4)
         self.save_line.hide()
         self.save_note = _Note()
+        self.save_note.setTextFormat(Qt.PlainText)  # (it names an entry of a website's list: never rich text)
         g.addWidget(self.save_note, 6, 0, 1, 4)
         g.setColumnStretch(3, 1)
         return box
@@ -1125,7 +1131,7 @@ class TraceWindow(QWidget):
             self.save_note.setText(need or (
                 f"You changed the curve “{changed_line['label']}”. Thus, it is a measurement curve: Add as measurement "
                 "also adds it. To add it as a target, select it. Then click Add as target. To remove it from the "
-                "measurement, click its ✕ (Remove curve) on 2 Trace." if changed_line else  # (a tab's name whole)
+                f"measurement, click its ✕ (Remove curve) on 2{NBSP}Trace." if changed_line else  # (a tab's name whole)
                 self.auto_note))
         colour = cur and cur["colour"]
         self.swatch.setVisible(bool(colour))
@@ -1241,18 +1247,32 @@ class TraceWindow(QWidget):
         return self.entry if (self.entry and not self.added and self.read_ok is False
                               and not self.was_closed) else None
 
+    def users_work(self):
+        """The user changed the picture's curves or axes since it came: an undo or redo step (a curve traced or
+        changed), a curve renamed, a value typed on 1 Axes, a red or blue line moved. (Each new picture, the automatic
+        read's take() and a label read set the typed and moved flags back, so they are the user's own after the read.)"""
+        t = self.t
+        return bool(t.undo_stack or t.redo_stack or self.renamed or any(t.typed.values()) or any(t.moved.values()))
+
     def unadded_curves(self):
         """The number of curves with data that the user traced or changed and did not add: a new picture from a
         website would replace them (Find…'s Use stops for them). A picture from a website whose curves only the
-        automatic read made, with no change by the user (no undo or redo step, no rename), has none: a new Use
-        replaces it."""
+        automatic read made, with no work of the user (users_work: no undo or redo step, no rename, no typed axis value,
+        no moved line), has none: a new Use replaces it."""
         t = self.t
         n = sum(map(t.has_data, t.curves))
         if not n or self.added:
             return 0
-        if self.entry and self.read_ok is not None and not (t.undo_stack or t.redo_stack or self.renamed):
+        if self.entry and self.read_ok is not None and not self.users_work():
             return 0
         return n
+
+    def changed_axes(self):
+        """A picture from a website with no curve, whose axes the user changed after the automatic read (a typed
+        value, a moved line; the read told the user to correct that step): a new Use would replace that work too."""
+        t = self.t
+        return bool(self.entry and self.read_ok is not None and t.has_image and not any(map(t.has_data, t.curves))
+                    and (any(t.typed.values()) or any(t.moved.values())))
 
     def load_image(self, qimg, name="Traced graph", jpeg=False, entry=None):
         """A picture into the tracer. entry: the database entry of a picture from a website (/api/db/entry's): its
@@ -1367,7 +1387,7 @@ class TraceWindow(QWidget):
             # (not a graph: nothing to correct on a step, a new picture is necessary; the label read then gives 1 Axes
             # its own note, as for any picture)
             text = f"The app cannot trace this picture automatically. {first.reason} " + (
-                NOT_GRAPH if not_graph else "Correct this step. Then go to 3 Save.")
+                NOT_GRAPH if not_graph else CORRECT_STEP)
             axes = first.name.startswith("axes")
             if axes and not not_graph:
                 t.axis_note = t.detect_note = text  # (also on 1 Axes; a label read starts from it)
