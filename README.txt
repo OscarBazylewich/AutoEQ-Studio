@@ -172,7 +172,7 @@ One column, from the top to the bottom:
   slope becomes its Q). An EQ here has peaking filters and shelf filters. Thus, the app removes other filter types, a
   graphic EQ or a convolution, and it tells you.
   If the EQ started from a profile, Use on device › Update puts it into that profile again. "Edit in Make an EQ" in
-  Profiles does the same.
+  Profiles does the same. Use on device can also put a result into a profile that you have (Update a profile).
   Close (on the right side of its title) shows the result that was there before the manual EQ, or no result. If you
   changed the EQ, it stays in "EQs that you made", and you can open it again. If it is empty, it closes. If it has no
   changes, it closes, and Undo in the message can open it again.
@@ -196,10 +196,12 @@ One column, from the top to the bottom:
     - File name, then:
     Save filters       writes the files that your EQ app uses into the Saved EQs folder
     Copy               copies the filters to the clipboard, as Equalizer APO text
-    Use on device      makes this EQ a profile of a device and enables it on that device (refer to Devices). Or
-                       "Use for 5 minutes on" a device: the EQ operates in all apps. Then click Keep it (the bar at
-                       the top, or the menu of the tray icon). If you do not, the device gets its EQ again
-                       automatically.
+    Use on device      makes this EQ a new profile of a device and enables it on that device (refer to Devices). Or
+                       "Update a profile" (and the rows Update "name"): the EQ goes into a profile that you have.
+                       The profile keeps its name and its devices, and the devices that have it on use the new EQ.
+                       The message tells you which devices use it immediately, and it has Undo. Or "Use for 5
+                       minutes on" a device: the EQ operates in all apps. Then click Keep it (the bar at the top, or
+                       the menu of the tray icon). If you do not, the device gets its EQ again automatically.
     Keep to compare    adds it to the EQs to compare of this IEM (on the graph as a dashed line, and in Listen)
     Report             an HTML page with the graph and the filters (Save filters also writes it, if you select it
                        in More settings)
@@ -306,8 +308,9 @@ Studio\profiles"). Thus, if you change the file that you imported, the profile d
 The buttons of Profiles are above its table: first Import EQ files… and Open the profiles folder, then a line and the
 buttons for one profile (they are enabled when you select a profile). "Edit in Make an EQ" opens the selected profile
 there as a manual EQ. When you change its filters, Use on device › Update puts it into the profile again (its devices
-keep it, and you hear the change immediately). Rename… gives it a different name, and Delete… (the last button)
-deletes its file, after a message.
+keep it, and you hear the change immediately). The rows Update "name" and "Update a profile" of Use on device put the
+EQ of a result into a profile that you have. Rename… gives the selected profile a different name, and Delete… (the
+last button) deletes its file, after a message.
 
 Devices: your playback devices, with their Windows names ("Headset (EarPods)"), connected devices first, from A to Z.
 A green dot: active. Your Windows accent color (blue at first): connected. Gray: not connected.
