@@ -51,13 +51,20 @@ largest difference from the true average, and the count of points (of about 470)
    grid at the top next to the gray text 4.00 dB at 52 points (500 px, PNG), over the top grid line 1.47 dB at 1 point
    (81.2 dB, 800 px, PNG), steep (13 dB for each decade) and dashed 1.09 dB at 1 point (1300 px, JPEG 30).
 10. With few points left the target is None (the user adds it): 65 of 176 targets near or across the curve, 176 of 459
-   with ok=True in a second set, and each target whose parts are shorter than 2 % of the width.
+   with ok=True in a second set, and each target whose parts are shorter than 2 % of the width with gaps of 1 % or
+   more between them (48 of 48; with gaps of 0.8 %: 30 of 48). Also 12 of 16 targets in a pale color.
 11. A noisy picture (random noise with a standard deviation of 6 or 10 levels; 2 look-alikes) fails trace_single,
    which is not the true cause.
 12. Some correct JPEG pictures fail trace_curve or trace_gaps (lost_channel, the text rule): of 2,040 with the channels
    1 to 6 dB apart, 897 give a correct curve with ok=True; of 1,890 in light colors, 495. The user traces the others.
 13. A real page of 800 px (JPEG, a grid of 503 px) gives ok=False: the text reader reads one dB label and no frequency
    label. One read at 1000 px with the text reader: 0.3 to 0.9 s.
+14. A dashed target line 1 dB from a dB grid line in a JPEG: in a gap between dashes, a target point is on the grid
+   line: 1.06 dB at 2 of 180 points (dashes of 10 with gaps of 5, 1100 px, JPEG 30), 1 of 40 look-alikes.
+15. On a drawn band only (not found on 13,557 look-alikes): the two channels more than 0.15 of the grid's height apart,
+   each a piece of less than 25 % of the width beside the widest piece: band() keeps one of them ("apart" 0.179).
+16. A solid target with two level parts (52 and 72 dB, 1600 px, JPEG 60; 1 of 455 with level parts) fails
+   axes_db_labels, which is not the true cause: the dB rows are found two by two in the same position.
 """
 import collections
 import math
@@ -1169,7 +1176,7 @@ def find_target(t, top, bot, lw):
             colour = np.median(pix, axis=0)
             if float(np.sqrt(((colour - np.asarray(t.bg, np.float32)) ** 2).sum())) < 25:
                 continue  # (the background's color: JPEG marks beside a grid line or the band, not a line)
-            strong =float(colour.max() - colour.min()) >= 50
+            strong = float(colour.max() - colour.min()) >= 50
             # the columns where the line is: its color (the median) within follow()'s tolerance in the pixel or the one
             # above or below; then the parts of the line between its jumps: the longest one, and the ones that
             # continue it (follow() can go onto the labels' or the grid's soft pixels, or onto the measurement where

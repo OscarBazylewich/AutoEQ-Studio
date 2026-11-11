@@ -1578,3 +1578,55 @@ def test_real_reader(qapp, monkeypatch, check):
     r = trace_core.auto_read(as_rgb(img), ocr.words, False, "Sample IEM")
     check(names[2], "axes_hz_range" in failed(r) and "200 Hz to 200 kHz" in reason(r, "axes_hz_range"),
           (failed(r), reason(r, "axes_hz_range")))
+
+
+# ---- the limits of round 5's rules, each from its two sides
+def test_apart_limit(qapp, monkeypatch, check):
+    """trace_single fails at an "apart" of 0.2 or more, and passes below (the limit from the two sides)."""
+    real = trace_auto.band
+    for apart, single in ((0.19, True), (0.21, False)):
+        def band(*a, _apart=apart, **k):
+            b = real(*a, **k)
+            if b is not None:
+                b["apart"] = _apart
+            return b
+        monkeypatch.setattr(trace_auto, "band", band)
+        _truth, _rgb, r = fresh(monkeypatch, 1000, None)
+        check(f"band()'s apart is {apart}: trace_single {'passes' if single else 'fails'}",
+              ("trace_single" not in failed(r)) == single, failed(r))
+
+
+def test_apart_form_and_grid_row(check):
+    """band()'s "apart": a line 6 rows from a dB grid row is apart, a block 30 rows thick is not."""
+    rgb = np.full((300, 800, 3), CREAM, np.uint8)
+    rgb[100:103, 10:790] = BLUE
+    rgb[206:209, 300:460] = BLUE
+    b = trace_auto.band(rgb, {"x0": 10.0, "x1": 789.0, "y0": 10, "y1": 290, "hy": [(200.0, 1.0)]}, CREAM, BLUE)
+    check("a line of 160 columns 6 rows under a dB grid row: apart", abs(b["apart"] - 160 / 780) < 0.01, b["apart"])
+    b = _band_of((slice(190, 220), slice(300, 460)))
+    check("a block of 160 columns that is 30 rows thick (not a line): not apart", b["apart"] == 0, b["apart"])
+
+
+def test_rows_fitted_again(check):
+    """uniform_rows(): a level line near a grid line does not move the rows, and grid lines 0.6 pixels up and down
+    stay in the fit."""
+    true = [40.0 + 50.0 * i for i in range(5)]
+    got = trace_auto.uniform_rows([(r, 100.0) for r in true] + [(146.0, 100.0)])
+    check("5 grid lines 50 pixels apart and a level line 6 pixels under the third: the 5 rows, each 0.1 pixels or "
+          "less from its grid line", len(got) == 5 and max(abs(g[0] - t) for g, t in zip(got, true)) <= 0.1, got)
+    got = trace_auto.uniform_rows([(40.0 + 50.0 * i + (0.6 if i % 2 else -0.6), 100.0) for i in range(9)])
+    check("9 grid lines 0.6 pixels up and down in turn: 9 rows, each 0.35 pixels or less from the middle position",
+          len(got) == 9 and max(abs(g[0] - (40.0 + 50.0 * i)) for i, g in enumerate(got)) <= 0.35, got)
+
+
+def test_piece_not_kept_gives_no_rows(check):
+    """band(): a word that is not kept beside the widest piece does not give its rows to the distance test."""
+    rgb = np.full((300, 800, 3), CREAM, np.uint8)
+    rgb[100:103, 10:490] = BLUE  # (the widest piece)
+    rgb[104:107, 500:700] = BLUE  # (a wide piece beside it)
+    rgb[200:206, 520:580] = BLUE  # (a word of 60 columns, 94 rows under the wide piece: not kept)
+    rgb[110:113, 530:570] = BLUE  # (a piece of 40 columns, 4 rows under the wide piece and 87 rows over the word)
+    b = trace_auto.band(rgb, {"x0": 10.0, "x1": 789.0, "y0": 10, "y1": 290}, CREAM, BLUE)
+    bot = float(b["full_bot"][550 - b["x0"]])
+    check("a piece near the wide piece, in the columns of a word that is not kept: a part of the band",
+          abs(bot - 112.5) < 0.6 and b["pieces"] == 3, (bot, b["pieces"]))
