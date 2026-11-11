@@ -140,8 +140,8 @@ HELP_EQ = {'slot:target': ['The curve that you want for your earphone.', 'target
  '#hand-close': ['Shows the result before this manual EQ again, or no result.', 'by-hand'],
  '#use-try': ['Uses the EQ on a device for 5 minutes, in all apps. Then click Keep it, or the device uses its previous '
               'EQ.', 'q-try', 'set-use-update'],
- '#use-update': ['Puts the EQ into a profile that you have. The devices that have that profile on use the new EQ '
-                 'immediately.', 'set-use-try', 'set-prof-edit']}
+ '#use-update': ['Puts the EQ into a profile that you have. The devices that have that profile on use the new EQ.',
+                 'set-use-try', 'set-prof-edit']}
 
 SETTINGS_EQ = [{'title': 'Select and calculate',
                 'items': [{'key': 'slot:target',

@@ -392,7 +392,7 @@ def eq_steps(page):
         api.untype(page.name_edit)
         m = yield from mock_menu(api, page.use_btn, rows)
         api.say("Update a profile: the EQ goes into a profile that you have, and the devices that have it on use the new "
-                "EQ immediately")
+                "EQ")
         yield from point_at_menu_row(api, m, rows.index("Update a profile ▸"), hold=900)
         api.say("A device: the EQ becomes its new profile, and it is on")
         yield from point_at_menu_row(api, m, 0)
@@ -785,7 +785,7 @@ def eq_steps(page):
          "text": lambda: "Two rows of buttons, below File name. The files: Save filters saves the file for your EQ app "
                          "with the File name, Copy copies the filters to the clipboard, and the folder opens. Then: Use "
                          "on device makes the EQ a new profile of a device and enables it. It can also update a profile "
-                         "that you have (the devices that have it on use the new EQ immediately), or use the EQ on a "
+                         "that you have (the devices that have it on use the new EQ), or use the EQ on a "
                          "device for 5 minutes. Keep to compare adds it to your EQs to compare. Report makes an HTML "
                          "page."
                          + example(),
