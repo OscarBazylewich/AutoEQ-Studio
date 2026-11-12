@@ -1307,7 +1307,7 @@ def test_line_end_in_entry_name(eq_screen, flow, monkeypatch, check):
     marked = {k: v for k, v in shown.items() if any(c in v for c in FORMAT)}
     check("website flow: a right-to-left override (U+202E) and the other format characters in the entry's words: no "
           "such character in the heading of the wait window, the top row, the name box, the file name and its first "
-          "line", not marked and "Gate gnp.exe" in shown["heading"] and shown["file name"].startswith("Gate gnp.exe"),
+          "line", not marked and "Gategnp.exe" in shown["heading"] and shown["file name"].startswith("Gategnp.exe"),
           {k: ascii(v) for k, v in shown.items()})
 
 
@@ -1319,9 +1319,10 @@ def test_entry_words_on_one_line(eq_screen, flow, monkeypatch, check):
     from ui.picture_wait import PictureWait, one_line
     words = [one_line(t) for t in (" Gate\tX\N{NEXT LINE}Y\x9bZ\x07 ", "\x00Gate\x7f")]
     fmt = [one_line(f"A{c}B") for c in FORMAT]
-    check("website flow: one_line makes a tab, U+0085, a C1 and a C0 control character and each format character one "
-          "space, and removes the spaces at the ends", words == ["Gate X Y Z", "Gate"] and fmt == ["A B"] * len(FORMAT),
-          (words, [ascii(f) for f in fmt if f != "A B"]))
+    # (2026-11-11: a format character has no width, so it goes with no space: this check had "A B")
+    check("website flow: one_line makes a tab, U+0085, a C1 and a C0 control character one space, removes each format "
+          "character with no space, and removes the spaces at the ends", words == ["Gate X Y Z", "Gate"]
+          and fmt == ["AB"] * len(FORMAT), (words, [ascii(f) for f in fmt if f != "AB"]))
     wait = PictureWait(flow["pk"], {"name": "Gate\tX\N{NEXT LINE}Y", "site": SITE})
     head = wait.head.text()
     wait.deleteLater()
@@ -1355,6 +1356,37 @@ def test_entry_words_on_one_line(eq_screen, flow, monkeypatch, check):
           came and heading == "The app waits for a picture of “Gate X Y”…" and trays
           and trays[0] == "The tracer shows the graph of “Gate X Y”. Go to the window of the tracer."
           and page.tracer.t.src_name == f"Gate X Y ({TAG})", (ascii(heading), [ascii(t) for t in trays]))
+
+
+def test_zero_width_character_in_a_word(eq_screen, flow, check):
+    """A character with no width in a word of an entry's name (a zero-width space, a joiner, a direction mark, the
+    byte order mark, a soft hyphen) goes with no space: the name showed as "Ga te" (2026-11-11). A line end, a tab
+    and a control character still become one space."""
+    from ui.picture_wait import PictureWait, clean_entry, one_line
+    no_width = [*FORMAT, chr(0xAD), chr(0x061C), chr(0x180E)]  # (also the soft hyphen, two marks of other scripts)
+    words = {ascii(c): one_line(f"Ga{c}te") for c in no_width}
+    spaces = {ascii(c): one_line(f"Ga{c}te") for c in ("\n", "\r\n", "\t", chr(0x85), chr(0x2028), chr(0x9B),
+                                                        chr(0x07), "\N{ZERO WIDTH SPACE} \N{ZERO WIDTH SPACE}")}
+    name = "Truthear Ga\N{ZERO WIDTH SPACE}te\N{ZERO WIDTH JOINER}"
+    wait = PictureWait(flow["pk"], {"name": name, "site": "Site\N{LEFT-TO-RIGHT MARK}s"})
+    head = wait.head.text()
+    intro = wait.accessibleDescription()
+    wait.deleteLater()
+    page = flow["page"]
+    entry = page.svc.call("/api/db/entry", {"id": flow["row"]["id"]})["entry"]
+    page.open_trace()
+    tw = page.tracer
+    tw.load_image(_graph(), entry=dict(entry, name=name))
+    qt.wait_for(lambda: not tw.reading_graph and tw.read_ok is not None, 20)
+    shown = (tw.file_lab.whole, tw.name.text(), tw.outputs()[0]["file"], clean_entry({"name": name})["name"])
+    check("website flow: a character with no width in a word goes with no space (each format character, the soft "
+          "hyphen)", all(v == "Gate" for v in words.values()), {k: ascii(v) for k, v in words.items() if v != "Gate"})
+    check("website flow: a line end, a tab, U+0085, U+2028 and a control character in a word become one space",
+          all(v == "Ga te" for v in spaces.values()), {k: ascii(v) for k, v in spaces.items()})
+    check("website flow: a name with a zero-width space and a joiner: the wait window, the tracer's top row, the Name "
+          "box and the file name show “Truthear Gate”", "“Truthear Gate”" in head and "Sites" in intro
+          and shown[0] == shown[1] == f"Truthear Gate ({TAG})" and shown[2].startswith("Truthear Gate (")
+          and shown[3] == "Truthear Gate", (ascii(head), [ascii(v) for v in shown]))
 
 
 def test_entry_words_are_plain_text(eq_screen, flow, check):

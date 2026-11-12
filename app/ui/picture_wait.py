@@ -26,15 +26,16 @@ While it shows, it waits for the first new picture:
 `got` is (QImage, jpeg) when a picture came; the dialog then closes with accept(). done() stops everything first (the
 signal disconnected, the timers stopped), so a late copy does nothing. Its parent is the window that asked: given
 before it shows (the tests' stray watch). A screen reader reads the heading and the steps as the dialog's description.
-one_line() and clean_entry(): an entry's words come from a website's list, so a line end, a control character or a
-format character (a direction mark, a zero-width space) in them becomes a space before they go into a window or a
-file's first line. They show as plain text (never rich text; in a tooltip too: plain_tip), and the heading shows
+one_line() and clean_entry(): an entry's words come from a website's list, so a line end or a control character in
+them becomes a space, and a format character (a direction mark, a zero-width space) goes, before they go into a
+window or a file's first line. They show as plain text (never rich text; in a tooltip too: plain_tip), and the heading shows
 NAME_MAX characters of the name at most (heading_name: also the tracer's note on 3 Save). The window is as high as its
 words need (fit_height: also on a small screen at 150 %).
 """
 import html
 import os
 import re
+import unicodedata
 
 from PySide6 import QtGui
 from PySide6.QtCore import QSize, Qt, QTimer
@@ -53,17 +54,22 @@ MIN_SIZE = (300, 200)  # a smaller picture is not a graph (a copied icon)
 JPEG_SUFFIXES = (".jpg", ".jpeg", ".jfif")
 NAME_MAX = 80  # (the characters of an entry's name in the heading: then "…", the whole name in its tooltip)
 WIDTH, PAD = 520, 24  # (the words' width at least, and the dialog's padding: Windows 11's)
-# (line ends, tabs and the other control characters; the format characters: zero-width spaces and joiners, the
-# direction marks and overrides, the word joiner and the isolates, the byte order mark)
-_CONTROL = re.compile(r"[\s\x00-\x1f\x7f-\x9f\U0000200b-\U0000200f\U0000202a-\U0000202e\U00002060-\U00002069"
-                      r"\U0000feff]+")
+# (line ends, tabs and the other control characters: each run becomes one space)
+_CONTROL = re.compile(r"[\s\x00-\x1f\x7f-\x9f]+")
 
 
 def one_line(text):
-    """text with each run of line ends, control characters, format characters and spaces as one space (an entry's
-    words come from a website's list: a line end in a name made data lines in a traced file's first line, and a
-    right-to-left override showed the name and the words after it in reverse)."""
-    return _CONTROL.sub(" ", text).strip() if isinstance(text, str) else text
+    """text with no format character (Unicode's category Cf: the zero-width spaces and joiners, the direction marks
+    and overrides, the word joiner and the isolates, the byte order mark, the soft hyphen …: removed with no space,
+    as they have no width; a space showed in a word, "Ga te", 2026-11-11), and each run of line ends, control
+    characters and spaces as one space (an entry's words come from a website's list: a line end in a name made data
+    lines in a traced file's first line, and a right-to-left override showed the name and the words after it in
+    reverse)."""
+    if not isinstance(text, str):
+        return text
+    # (also U+2065: not given yet, in the block of the invisible format characters)
+    kept = "".join(c for c in text if unicodedata.category(c) != "Cf" and not "\N{WORD JOINER}" <= c <= chr(0x206F))
+    return _CONTROL.sub(" ", kept).strip()
 
 
 def heading_name(name, fm, room):
