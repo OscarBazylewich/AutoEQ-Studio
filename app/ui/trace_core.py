@@ -65,16 +65,18 @@ def _js_round(v):
 
 
 def longest_runs(b):
-    """The longest run of True in each row of a 2-D boolean array."""
+    """The longest run of True in each row of a 2-D boolean array. (The edges of the runs in each row come in pairs,
+    a start and then its end; the longest of each row by reduceat: np.maximum.at took 2 times as long on a large
+    picture, 2026-11-11.)"""
     n, length = b.shape
-    p = np.zeros((n, length + 2), np.int8)
+    p = np.zeros((n, length + 2), np.bool_)
     p[:, 1:-1] = b
-    d = np.diff(p, axis=1)
-    sr, sc = np.nonzero(d == 1)
-    _er, ec = np.nonzero(d == -1)
+    r, c = np.nonzero(p[:, 1:] != p[:, :-1])
     out = np.zeros(n, np.int64)
-    if len(sr):
-        np.maximum.at(out, sr, ec - sc)
+    if len(r):
+        sr, lengths = r[0::2], c[1::2] - c[0::2]
+        first = np.flatnonzero(np.r_[True, sr[1:] != sr[:-1]])  # (the first run of each row with runs)
+        out[sr[first]] = np.maximum.reduceat(lengths, first)
     return out
 
 
@@ -317,6 +319,9 @@ class Tracer:
         self.dbg = None
         self.axis_note = self.detect_note = ""  # (detect() sets them; take() copies them, also from a tracer with no picture)
         self._match = {}
+        # (the user's typed values and moved lines were for the picture before: they go with it)
+        self.typed = {"d": False, "f": False}
+        self.moved = {"d": False, "f": False}
         self.label_token = getattr(self, "label_token", 0) + 1  # (a label reading still running is ignored)
 
     @property
@@ -347,7 +352,8 @@ class Tracer:
         return note
 
     def take(self, other):
-        """The state of another Tracer (auto_read's result, made in a thread) taken on the window's thread, with
+        """The state of another Tracer (auto_read's result, or a picture that it loaded: trace_window.prepared; made in
+        a thread) taken on the window's thread, with
         TAKE_COPIED, TAKE_KEPT and TAKE_RESET above: the picture, its axes and curves are copied, the user's
         selections stay, undo and redo start again. `other` is not used after this.
         The caller's duties: the result's picture is a crop, so after take() the window sets its stage's picture from
@@ -369,20 +375,24 @@ class Tracer:
         self.fit_settings()
 
     def squared_colour_distance(self, ys, xs, c):
-        """Squared colour distance of pixels (arrays of rows and columns, or slices) from colour c."""
-        p = self.px[ys, xs].astype(np.int32)
-        return ((p - np.asarray(c, np.int32)) ** 2).sum(-1)
+        """Squared colour distance of pixels (arrays of rows and columns, or slices) from colour c. (A table of the 256
+        squares for each channel: the same values in a third of the time of the sum of the squares, 2026-11-11.)"""
+        p = self.px[ys, xs]
+        sq = (np.arange(256, dtype=np.int32)[:, None] - np.asarray(c, np.int32)) ** 2
+        return sq[p[..., 0], 0] + sq[p[..., 1], 1] + sq[p[..., 2], 2]
 
     def background(self):
         """The most common colour (in coarse bins), as the average of the pixels in that bin (not the bin's middle:
         white would be read as 248 grey, and every picture as noisier than it is)."""
         step = max(1, int(math.sqrt(self.W * self.H / 250000)))
-        s = self.px[::step, ::step].reshape(-1, 3).astype(np.int64)
+        s = self.px[::step, ::step].reshape(-1, 3)  # (uint8: the mean is the same, without a copy in int64)
         if not len(s):
             return (255, 255, 255)
-        keys = (s[:, 0] >> 4) << 8 | (s[:, 1] >> 4) << 4 | s[:, 2] >> 4
-        k = np.bincount(keys).argmax()
-        return tuple(int(_js_round(v)) for v in s[keys == k].mean(0))
+        keys = (s[:, 0] >> 4).astype(np.int32) << 8 | (s[:, 1] >> 4).astype(np.int32) << 4 | s[:, 2] >> 4
+        count = np.bincount(keys)
+        k = count.argmax()
+        # (each channel's sum in the bins: exact for whole numbers, so the mean is the same as of the pixels in bin k)
+        return tuple(int(_js_round(np.bincount(keys, weights=s[:, i])[k] / count[k])) for i in range(3))
 
     def find_lines(self, horizontal):
         """Rows (or columns) mostly covered by drawn pixels, grouped into lines; also pale ones that run unbroken

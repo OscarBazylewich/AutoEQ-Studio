@@ -14,6 +14,10 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   (the tools, A, S, Delete, Undo and Redo: 2 Trace; the arrows: 1 Axes). While the automatic read runs, no key
   changes the tracer (only Ctrl+V: a new picture), and the picture and the side take no input.
 - the message line (what the tracer did, the tool's words) under the side, in sight on every tab
+- the load of a picture (load_image): one of SYNC_PIXELS or less at once; a larger one in a thread (prepared: the
+  scale, picture_mark, the stage's QImage and Tracer.load in a new Tracer, which Tracer.take then takes), while
+  `loading` is True: the status line says so, and the picture, the side and Guide take no input. A new picture or
+  Remove image meanwhile wins (load_token); a close meanwhile counts as a close after the picture came.
 - a picture from a website (Find…'s Use on an entry that the app cannot download, ui/eq_page_files.py's
   trace_from_website): load_image(..., entry=) with its database entry (its words on one line: picture_wait's
   clean_entry). The name is the entry's with its tag; "The graph shows" goes to the response (not compensated);
@@ -73,6 +77,10 @@ NBSP = "\N{NO-BREAK SPACE}"  # (between a tab's number and its name: the name st
 READ_ERROR = (f"The app cannot trace this picture automatically. Do the steps 1{NBSP}Axes and 2{NBSP}Trace manually. "
               f"Then go to 3{NBSP}Save.")
 CORRECT_STEP = f"Correct this step. Then go to 3{NBSP}Save."  # (after a check of the automatic read that is not OK)
+# (a picture of more pixels than this loads in a thread: its load stopped the window for 286 ms at 3840 x 2160 and
+# 580 ms at 16 MP; a smaller one loads at once, measured 40 ms or less, 2026-11-11: .claude/notes/benchmarks)
+SYNC_PIXELS = 1_000_000
+LOADING = "The app opens the picture…"  # (the status line while a large picture loads)
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".jfif", ".webp", ".bmp", ".gif", ".tif", ".tiff")
 IMAGES = "Images (*.png *.jpg *.jpeg *.jfif *.webp *.bmp *.gif *.tif *.tiff)"
 
@@ -201,6 +209,32 @@ def rgb_of(img):
     p.end()
     a = np.frombuffer(out.constBits(), np.uint8, count=out.bytesPerLine() * H).reshape(H, out.bytesPerLine())
     return a[:, :W * 3].reshape(H, W, 3).copy()
+
+
+def stage_image(rgb):
+    """An RGB array (H x W x 3) as the QImage that the stage draws (its own copy of the pixels)."""
+    h, w = rgb.shape[:2]
+    buf = np.ascontiguousarray(rgb)
+    return QImage(buf.data, w, h, w * 3, QImage.Format_RGB888).copy()
+
+
+def prepared(qimg, name, jpeg, v, ta):
+    """The slow part of a load, with no window (in a thread for a picture of more than SYNC_PIXELS): the picture as
+    RGB (rgb_of), its picture_mark, the stage's QImage, and a new Tracer that loaded it, from copies of the window's
+    values v and automatic settings ta (the window's Tracer.take then takes its state: the same state as a load in
+    the window's Tracer). Returns {"rgb", "mark", "qimg", "tracer", "error"}: error is what Tracer.load raised."""
+    import traceback
+    rgb = rgb_of(qimg)
+    t = tc.Tracer()
+    t.v.update(v)
+    t.ta.update(ta)
+    out = {"rgb": rgb, "mark": picture_mark(rgb), "qimg": stage_image(rgb), "tracer": t, "error": None}
+    try:
+        t.load(rgb, name, jpeg)
+    except Exception as e:  # noqa: BLE001 - a picture whose axes trip the reader: said by the window
+        traceback.print_exc()
+        out["error"] = e
+    return out
 
 
 def sample_image():
@@ -353,10 +387,10 @@ class Stage(QWidget):
             zl.addWidget(b)
             self.zoom_btns[key] = b
 
-    def set_image(self, rgb):
-        h, w = rgb.shape[:2]
-        self._buf = np.ascontiguousarray(rgb)
-        self.qimg = QImage(self._buf.data, w, h, w * 3, QImage.Format_RGB888).copy()
+    def set_image(self, rgb, qimg=None):
+        """The picture to show: rgb (H x W x 3), or qimg, its QImage that stage_image() made (in the thread of a
+        load)."""
+        self.qimg = qimg if qimg is not None else stage_image(rgb)
         self.drag = self.hover = self.sel_line = None
         self.fit()
         self.update_empty()
@@ -683,10 +717,13 @@ class TraceWindow(QWidget):
         self.added = False
         self.read_ok = None
         self.reading_graph = False
+        self.loading = False  # (a large picture loads in a thread: load_image)
+        self.load_token = 0  # (the last load_image: a late answer of a load before it is dropped)
         self.picture_mark = None  # (picture_mark() of the picture that came)
         self.graph_token = 0
         self.auto_note = ""  # (3 Save's note after an automatic read that passed)
         self.was_closed = False  # (closed since the last picture: a new picture does not take the entry)
+        self.closes = self.load_closes = 0  # (the closes of the window; the count when the last load started)
         self.renamed = False  # (a curve renamed by the user since the last picture: the user's work)
         st = page.sw.s.get("trace") or {}
         if isinstance(st.get("enabled"), bool):
@@ -1302,9 +1339,41 @@ class TraceWindow(QWidget):
     def load_image(self, qimg, name="Traced graph", jpeg=False, entry=None):
         """A picture into the tracer. entry: the database entry of a picture from a website (/api/db/entry's): its
         name with its tag is the picture's name, "The graph shows" goes to the response (a website's graph is not
-        compensated), and the automatic read (read_graph) replaces the label read."""
-        rgb = rgb_of(qimg)
-        mark = picture_mark(rgb)
+        compensated), and the automatic read (read_graph) replaces the label read.
+        A picture of SYNC_PIXELS or less loads at once. A larger one loads in a thread (prepared): until it is there,
+        `loading` is True, the status line says so, and the picture and the side take no input, as during the
+        automatic read (the picture before stays in sight). A new picture or Remove image meanwhile wins: the late
+        answer is not taken."""
+        self.load_token += 1
+        token = self.load_token
+        self.load_closes = self.closes  # (a close while it loads is a close after the picture came)
+        shown = self.entry_name(entry) if entry else name
+        t = self.t
+        v, ta = dict(t.v), dict(t.ta, manual=set(t.ta["manual"]), notes=dict(t.ta["notes"]))
+        if qimg.width() * qimg.height() <= SYNC_PIXELS:
+            self._set_loading(False)
+            self.picture_loaded(token, prepared(qimg, shown, jpeg, v, ta), None, name, entry)
+            return
+        self._set_loading(True)
+        self.status.setText(LOADING)
+        tasks.background(lambda: prepared(qimg, shown, jpeg, v, ta),
+                         lambda res, err: self.picture_loaded(token, res, err, name, entry), owner=self)
+
+    def _set_loading(self, on):
+        self.loading = on
+        self._inputs()
+
+    def picture_loaded(self, token, res, err, name, entry):
+        """The answer of a load (prepared's dict, or err: what stopped it) into the window, as load_image's
+        docstring says; dropped when a new picture or Remove image came after it (token)."""
+        if token != self.load_token:
+            return
+        self._set_loading(False)
+        if err is not None:  # (its traceback is in the app's log: tasks.background wrote it)
+            self.status.setText(HINTS[self.tool])  # (the picture before stays)
+            QMessageBox.warning(self, "Trace", f"The app cannot open this picture ({err}).")
+            return
+        rgb, mark = res["rgb"], res["mark"]
         if ((entry is None or entry is self.entry) and self.entry and self.t.has_image and mark == self.picture_mark
                 and not self.added and (self.read_ok is not None or self.reading_graph)):
             # (the picture that the tracer has from the website, again: Ctrl+V after the screen copy, the key two
@@ -1318,16 +1387,16 @@ class TraceWindow(QWidget):
         self.added = False
         self.read_ok = None
         self.auto_note = ""
-        self.was_closed = self.renamed = False
+        self.was_closed = self.closes != self.load_closes
+        self.renamed = False
         self.graph_token += 1  # (an automatic read still running for the picture before is dropped)
         self._reading_graph(False)
         if entry:
             name = self.entry_name()
-        try:
-            self.t.load(rgb, name, jpeg)
-        except Exception as e:  # noqa: BLE001 - a picture whose axes trip the reader: said, the tracer left empty
-            import traceback
-            traceback.print_exc()
+        e = res["error"]
+        if e is None:
+            self.t.take(res["tracer"])  # (Tracer.load's state, made by prepared)
+        else:  # (a picture whose axes trip the reader: said, the tracer left empty)
             self.t.unload()
             self.stage.clear_image()
             self.show_name()
@@ -1338,7 +1407,7 @@ class TraceWindow(QWidget):
         h, w = rgb.shape[:2]
         self.show_name(name if name != "Traced graph" else "Pasted picture", (w, h))
         self.show_tab(0)  # (a new picture: its axes first)
-        self.stage.set_image(rgb)
+        self.stage.set_image(rgb, res["qimg"])
         self.saved_note = False
         self.status.setText(HINTS[self.tool])
         self.fill_comp()
@@ -1348,9 +1417,10 @@ class TraceWindow(QWidget):
         self.changed()
         self.read_graph() if entry else self.read_labels()
 
-    def entry_name(self):
-        """The name of a picture from a website: the entry's name and its database's tag, as a downloaded entry's."""
-        e = clean_entry_of(self.entry) or {}
+    def entry_name(self, entry=None):
+        """The name of a picture from a website (entry: the window's when None): the entry's name and its database's
+        tag, as a downloaded entry's."""
+        e = clean_entry_of(entry if entry is not None else self.entry) or {}
         return f"{e.get('name', '')} ({e.get('tag', '')})" if e.get("tag") else e.get("name", "")
 
     def source_note(self):
@@ -1363,8 +1433,13 @@ class TraceWindow(QWidget):
         """While the automatic read runs, the picture and the side take no input (take() then replaces the tracer's
         state: the user's work would go)."""
         self.reading_graph = on
+        self._inputs()
+
+    def _inputs(self):
+        """The picture, the side and Guide take input only while no automatic read runs and no picture loads."""
+        busy = self.reading_graph or self.loading
         for w in (self.stage, self.side_scroll, self.guide_btn):
-            w.setEnabled(not on)
+            w.setEnabled(not busy)
 
     def read_graph(self):
         """The automatic read of a picture from a website (trace_core.auto_read) off the window's thread; its answer
@@ -1460,7 +1535,13 @@ class TraceWindow(QWidget):
         return SIDE - inset - self.side_scroll.verticalScrollBar().sizeHint().width()
 
     def remove_image(self):
+        """Remove image: the picture and its curves go (a question first when it has curves). A picture that loads
+        meanwhile is dropped first: the question is about the picture in sight."""
         t = self.t
+        if self.loading:
+            self.load_token += 1
+            self._set_loading(False)
+            self.status.setText(HINTS[self.tool])
         if not t.has_image:
             return
         if any(map(t.has_data, t.curves)) and QMessageBox.question(  # (No the default: the curves can't be had back)
@@ -1472,9 +1553,8 @@ class TraceWindow(QWidget):
         self.was_closed = self.renamed = False
         self.graph_token += 1  # (an automatic read still running is dropped)
         self._reading_graph(False)
-        t.unload()
+        t.unload()  # (also the typed values and moved lines: trace_core)
         t.v.update(d1="", d2="", f1="", f2="", name="")
-        t.typed = {"d": False, "f": False}
         t.ta.update(notes={}, dashed_found=False, last_ocr=None, last_trace=None)
         if t.ta["enabled"] and not t.is_your_value("dashed"):
             t.v["dashed"] = False
@@ -1512,6 +1592,7 @@ class TraceWindow(QWidget):
         # (the entry belongs to the picture, which stays: an add after the window opens again still names the website
         # and records the source. The next picture is a picture of yours, unless it comes from a website again.)
         self.was_closed = True
+        self.closes += 1
         super().closeEvent(e)
 
     # ---------------------------------------------------------------- axes
@@ -1829,8 +1910,9 @@ class TraceWindow(QWidget):
         st = self.stage
         typing = isinstance(QApplication.focusWidget(), (QLineEdit, QComboBox))
         key, mods = e.key(), e.modifiers()
-        if self.reading_graph and not (mods & Qt.ControlModifier and key == Qt.Key_V):
-            return super().keyPressEvent(e)  # (the automatic read runs: no key changes the tracer, but a new picture)
+        if (self.reading_graph or self.loading) and not (mods & Qt.ControlModifier and key == Qt.Key_V):
+            # (the automatic read runs or a picture loads: no key changes the tracer, but a new picture)
+            return super().keyPressEvent(e)
         if key == Qt.Key_Space and not typing:
             if not e.isAutoRepeat():
                 st.space = True
