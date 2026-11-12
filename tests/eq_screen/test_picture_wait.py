@@ -1588,7 +1588,7 @@ def test_white_picture_one_message(eq_screen, flow, monkeypatch, check):
           and "automatically" not in note and "Copy a new picture" not in note and "3" not in note, (status, note))
 
 
-ONE_CHANGE = ("The tracer has a picture that you changed. To remove it, click Remove image in the tracer. Then select "
+ONE_CHANGE = ("The tracer has a picture with your changes. To remove it, click Remove image in the tracer. Then select "
               "the entry again.")
 
 
@@ -1598,7 +1598,7 @@ def test_users_work_stops_use(eq_screen, flow, monkeypatch, check):
     from PySide6.QtWidgets import QLineEdit
     pk = flow["pk"]
     came, tw = _traced(flow, monkeypatch, stand_in())
-    none = (tw.unadded_curves(), tw.changed_axes(), tw.users_work())
+    none = (tw.unadded_curves(), tw.changed_picture(), tw.users_work())
     tw.show_tab(1)
     box = next(b for b in tw.curves_box.findChildren(QLineEdit) if b.text() == "Average")
     box.setText("Avg")
@@ -1636,11 +1636,11 @@ def test_users_work_stops_use(eq_screen, flow, monkeypatch, check):
     tw.changed()
     _close_bubble()
     wait, opened = _use(flow)
-    typed_only = (tw.unadded_curves(), tw.changed_axes(), _told())
+    typed_only = (tw.unadded_curves(), tw.changed_picture(), _told())
     tw.t.typed = {"d": False, "f": False}
-    no_change = tw.changed_axes()
+    no_change = tw.changed_picture()
     tw.t.move_line("y1", tw.t.cal["y1"] + 3)  # (the user drags the top red line)
-    moved = tw.changed_axes()
+    moved = tw.changed_picture()
     check("website flow: no curve, but a typed value or a moved line: Use stops with words for a changed picture",
           typed_only == (0, True, ONE_CHANGE) and wait is None and not opened and not no_change and moved,
           (typed_only, no_change, moved))
@@ -1648,7 +1648,8 @@ def test_users_work_stops_use(eq_screen, flow, monkeypatch, check):
 
 def test_moved_line_and_users_picture(eq_screen, flow, monkeypatch, check):
     """After a read that was OK, a moved line with a curve there is the user's work (the curve stops a new Use). A
-    picture of the user (no entry) with a typed axis value and no curve is not a changed picture from a website."""
+    picture of the user (no entry) with a typed axis value and no curve is a changed picture too (2026-11-11: it was
+    replaced with no message; this test held that before)."""
     came, tw = _traced(flow, monkeypatch, stand_in())
     before = tw.unadded_curves()
     tw.t.move_line("y1", tw.t.cal["y1"] + 3)  # (the user drags the top red line)
@@ -1668,9 +1669,97 @@ def test_moved_line_and_users_picture(eq_screen, flow, monkeypatch, check):
     for c in tw.t.curves:  # (no curve)
         c["ys"][:] = np.nan
     tw.t.typed["d"] = True  # (a typed dB value)
-    users = (tw.entry, tw.t.has_image, any(map(tw.t.has_data, tw.t.curves)), tw.changed_axes())
-    check("website flow: a picture of the user (no entry) with a typed axis value and no curve: not a changed picture "
-          "from a website", users == (None, True, False, False), users)
+    users = (tw.entry, tw.t.has_image, any(map(tw.t.has_data, tw.t.curves)), tw.changed_picture())
+    check("website flow: a picture of the user (no entry) with a typed axis value and no curve: a changed picture "
+          "(a new Use stops for it)", users == (None, True, False, True), users)
+
+
+def _change(tw, what):
+    """A change of the user on 3 Save, as its signals come from a click or a key: the Name box, "The graph shows",
+    "Points in each octave" or the range to save."""
+    tw.show_tab(2)
+    if what == "name":
+        tw.name.setText("My name")
+        tw.name.textEdited.emit("My name")
+    elif what == "comp":
+        tw.comp.activated.emit(0)  # (the user selects a row of the list: also the one that it had)
+    elif what == "ppo":
+        i = tw.ppo.findData(24)
+        tw.ppo.setCurrentIndex(i)
+        tw.ppo.activated.emit(i)
+    else:
+        tw.boxes["fmin"].setText("30")
+        tw.boxes["fmin"].textEdited.emit("30")
+
+
+def _no_curve(tw):
+    for c in tw.t.curves:
+        c["ys"][:] = np.nan
+    tw.changed()
+
+
+def test_changes_of_3_save_stop_use(eq_screen, flow, monkeypatch, check):
+    """A changed Name box, "The graph shows", "Points in each octave" or range to save is the user's work: a new Use
+    stops for it, with a curve (the words for the curve) and with no curve (the words for a changed picture), for a
+    picture from a website and for a picture of the user. The values that the automatic read and the automatic
+    settings set are not the user's work, and a picture with no change is replaced. (2026-11-11: these changes did
+    not count, and a new Use replaced them with no message.)"""
+    pk = flow["pk"]
+    kinds = ("name", "comp", "ppo", "range")
+    seen = {}
+    for what in kinds:
+        came, tw = _traced(flow, monkeypatch, stand_in())
+        before = (tw.unadded_curves(), tw.changed_picture(), tw.users_work(), set(tw.edited))
+        _change(tw, what)
+        with_curve = (tw.unadded_curves(), tw.users_work())
+        _no_curve(tw)
+        no_curve = tw.changed_picture()
+        pk.show()
+        _close_bubble()
+        wait, opened = _use(flow)
+        seen[("entry", what)] = (came, before, with_curve, no_curve, wait is None and not opened, _told())
+        _close_bubble()
+        if wait is not None:  # (Use did not stop: the wait closed, for the next step)
+            wait.reject()
+        tw.remove_image()
+        pk.show()
+    for what in kinds:
+        page = flow["page"]
+        page.open_trace()
+        tw = page.tracer
+        tw.load_image(_graph().copy(0, 0, 900, 600), "Mine")  # (a picture of yours: no entry)
+        qt.wait_for(lambda tw=tw: not tw.reading and not tw.loading, 60)
+        _no_curve(tw)
+        before = (tw.entry, tw.changed_picture(), tw.users_work())
+        _change(tw, what)
+        _close_bubble()
+        wait, opened = _use(flow)
+        seen[("yours", what)] = (before, tw.changed_picture(), wait is None and not opened, _told())
+        _close_bubble()
+        if wait is not None:
+            wait.reject()
+        tw.remove_image()
+        pk.show()
+    tw.load_image(_graph().copy(0, 0, 900, 600), "Mine")
+    qt.wait_for(lambda: not tw.reading and not tw.loading, 60)
+    _no_curve(tw)
+    tw.make_auto(None)  # (the automatic settings set the values of 3 Save again)
+    unchanged = (tw.changed_picture(), tw.users_work(), set(tw.edited))
+    wait, opened = _use(flow)
+    replaced = wait is not None and bool(opened)
+    if wait is not None:
+        wait.reject()
+    check("website flow: after a read that was OK, a changed Name box, “The graph shows”, “Points in each octave” or "
+          "range to save is the user's work: with the curve, Use stops with the words for the curve; with no curve, "
+          "with the words for a changed picture", all(
+              v[0] and v[1] == (0, False, False, set()) and v[2] == (1, True) and v[3] and v[4] and v[5] == ONE_CHANGE
+              for k, v in seen.items() if k[0] == "entry"), {k: v for k, v in seen.items() if k[0] == "entry"})
+    check("website flow: a picture of the user (no entry, no curve) with each of these changes: Use stops with the "
+          "words for a changed picture", all(v[0] == (None, False, False) and v[1] and v[2] and v[3] == ONE_CHANGE
+                                             for k, v in seen.items() if k[0] == "yours"),
+          {k: v for k, v in seen.items() if k[0] == "yours"})
+    check("website flow: a picture of the user with no change (the automatic settings set its values): not the user's "
+          "work, and Use replaces it", unchanged == (False, False, set()) and replaced, (unchanged, replaced))
 
 
 def test_file_pasted_on_page_after_good_read(eq_screen, flow, monkeypatch, tmp_path, check):

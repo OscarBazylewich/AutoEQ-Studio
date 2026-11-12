@@ -32,8 +32,8 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   target is the first button of 3 Save's row, in the accent, until the picture changes (show_save_row; the mark is
   not in the source record). unadded_curves(): the curves that the user traced or changed and did not add (a new
   picture from a website stops for them; the automatic read's own curves do not count, but a curve of it is the user's
-  work after a typed axis value or a moved line); changed_axes(): no curve, but axes that the user changed (it stops
-  too). The entry's words show as plain text (never rich text; the top row's tooltip too: picture_wait.plain_tip), and
+  work after users_work: a typed axis value, a moved line, a changed value of 3 Save …); changed_picture(): no
+  curve, but users_work, also on a picture of the user (it stops too). The entry's words show as plain text (never rich text; the top row's tooltip too: picture_wait.plain_tip), and
   3 Save's note has 80 characters of the name at most (picture_wait.heading_name: a long name does not make the side
   wider).
 sample_image() draws AutoEQ Local's sample graph (an IEM's two channels and a dashed target) for checks and the tour.
@@ -748,6 +748,7 @@ class TraceWindow(QWidget):
         self.was_closed = False  # (closed since the last picture: a new picture does not take the entry)
         self.closes = self.load_closes = 0  # (the closes of the window; the count when the last load started)
         self.renamed = False  # (a curve renamed by the user since the last picture: the user's work)
+        self.edited = set()  # (3 Save's values that the user changed since the last picture: user_edited)
         st = page.sw.s.get("trace") or {}
         if isinstance(st.get("enabled"), bool):
             self.t.ta["enabled"] = st["enabled"]
@@ -1063,7 +1064,7 @@ class TraceWindow(QWidget):
         g.addWidget(_label("Name", wrap=False), 0, 0)
         self.name = QLineEdit()
         self.name.setToolTip(help_of("#tr-name"))
-        self.name.textEdited.connect(lambda s: self.t.v.__setitem__("name", s))
+        self.name.textEdited.connect(self.name_typed)
         g.addWidget(self.name, 0, 1, 1, 3)
         g.addWidget(_label("Points in each octave", wrap=False), 1, 0)
         self.ppo = SearchCombo()
@@ -1077,6 +1078,7 @@ class TraceWindow(QWidget):
         g.addWidget(_label("The graph shows", wrap=False), 2, 0)
         self.comp = SearchCombo()
         self.comp.setToolTip(help_of("#tr-comp"))
+        self.comp.activated.connect(lambda _i: self.user_edited("comp"))  # (the user's selection only)
         self.comp.setMinimumContentsLength(16)  # (a long target name doesn't widen the side)
         self.comp.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
         g.addWidget(self.comp, 2, 1, 1, 3)
@@ -1345,18 +1347,25 @@ class TraceWindow(QWidget):
                               and not self.was_closed) else None
 
     def users_work(self):
-        """The user changed the picture's curves or axes since it came: an undo or redo step (a curve traced or
-        changed), a curve renamed, a value typed on 1 Axes, a red or blue line moved. (Each new picture, the automatic
+        """The user changed the picture's curves, axes or 3 Save's values since it came: an undo or redo step (a curve
+        traced or changed), a curve renamed, a value typed on 1 Axes, a red or blue line moved, or (`edited`) the Name
+        box, "The graph shows", "Points in each octave" or the range to save changed. (Each new picture, the automatic
         read's take() and a label read set the typed and moved flags back, so they are the user's own after the
-        read.)"""
+        read; the automatic read and the automatic settings set the values of 3 Save with no signal of the user:
+        they are not in `edited`. A changed name, setting or range did not count, and a new Use replaced it with no
+        message, 2026-11-11.)"""
         t = self.t
-        return bool(t.undo_stack or t.redo_stack or self.renamed or any(t.typed.values()) or any(t.moved.values()))
+        return bool(t.undo_stack or t.redo_stack or self.renamed or self.edited or any(t.typed.values())
+                    or any(t.moved.values()))
+
+    def user_edited(self, what):
+        """A value of 3 Save that the user changed (what: "name", "comp", "ppo" or "range"): users_work."""
+        self.edited.add(what)
 
     def unadded_curves(self):
         """The number of curves with data that the user traced or changed and did not add: a new picture from a
         website would replace them (Find…'s Use stops for them). A picture from a website whose curves only the
-        automatic read made, with no work of the user (users_work: no undo or redo step, no rename, no typed axis value,
-        no moved line), has none: a new Use replaces it."""
+        automatic read made, with no work of the user (users_work), has none: a new Use replaces it."""
         t = self.t
         n = sum(map(t.has_data, t.curves))
         if not n or self.added:
@@ -1365,12 +1374,15 @@ class TraceWindow(QWidget):
             return 0
         return n
 
-    def changed_axes(self):
-        """A picture from a website with no curve, whose axes the user changed after the automatic read (a typed
-        value, a moved line; the read told the user to correct that step): a new Use would replace that work too."""
+    def changed_picture(self):
+        """A picture with no curve that the user changed (users_work: a typed axis value, a moved line, a changed
+        value of 3 Save …): a new Use would replace that work too. For a picture from a website, only after its
+        automatic read (the read told the user to correct a step); a picture of the user too (it was replaced with no
+        message, 2026-11-11). A picture with no change is replaced."""
         t = self.t
-        return bool(self.entry and self.read_ok is not None and t.has_image and not any(map(t.has_data, t.curves))
-                    and (any(t.typed.values()) or any(t.moved.values())))
+        if not t.has_image or any(map(t.has_data, t.curves)) or (self.entry and self.read_ok is None):
+            return False
+        return self.users_work()
 
     def load_image(self, qimg, name="Traced graph", jpeg=False, entry=None):
         """A picture into the tracer. entry: the database entry of a picture from a website (/api/db/entry's): its
@@ -1426,6 +1438,7 @@ class TraceWindow(QWidget):
         self.auto_note = ""
         self.was_closed = self.closes != self.load_closes
         self.renamed = False
+        self.edited = set()
         self.graph_token += 1  # (an automatic read still running for the picture before is dropped)
         self._reading_graph(False)
         if entry:
@@ -1589,6 +1602,7 @@ class TraceWindow(QWidget):
         self.show_save_row()
         self.picture_mark = None
         self.was_closed = self.renamed = False
+        self.edited = set()
         self.graph_token += 1  # (an automatic read still running is dropped)
         self._reading_graph(False)
         t.unload()  # (also the typed values and moved lines: trace_core)
@@ -1656,6 +1670,7 @@ class TraceWindow(QWidget):
             t.fit_settings()
         else:
             t.mark_your_value(key)
+            self.user_edited("range")
         self.show_values()  # (points per octave and the range follow the axes' values; the box typed in is left be)
         self.render_auto_settings()
         self.update_ui()
@@ -1777,7 +1792,12 @@ class TraceWindow(QWidget):
         self.t.mark_your_value("dashed")
         self.render_auto_settings()
 
+    def name_typed(self, text):
+        self.t.v["name"] = text
+        self.user_edited("name")
+
     def ppo_changed(self, _i):
+        self.user_edited("ppo")
         self.t.v["ppo"] = self.ppo.currentData()
         self.t.mark_your_value("ppo")
         self.render_auto_settings()
