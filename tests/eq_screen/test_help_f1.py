@@ -2,8 +2,10 @@
 Sources over Find…, Which measurement and History. F1 on a tagged control opens its entry in Help, and Help is then
 usable: in front of the window (the top one of the windows that block the others), with input, and the window under
 it stays open and takes input again when Help closes. Before, the main window's F1 was a QShortcut, which Qt does not
-give while such a window is open: F1 did nothing there. Also: F1 in a text box and in a drop-down's list does not
-stop their other keys.
+give while such a window is open: F1 did nothing there. Since 2026-11-12 such a window gets a shortcut F1 of its
+own when the focus goes into it (not an event filter on the application: it made each event slower). Also: F1 in a
+text box, a drop-down's list and a menu does not stop their other keys; Help open before Find… comes in front with
+F1; the window under Help closes by itself (the wait gets a picture): Help then blocks nothing.
 
 The page here has no main window (helpers.eqpage): a stand-in with the main window's own F1 code (ui.window's
 F1Anywhere and Window.help_here) is made on it. The main window's F1 itself: tests\\ui\\test_help_f1.py."""
@@ -16,16 +18,20 @@ from helpers import qt
 
 @pytest.fixture(scope="module")
 def f1(eq_screen):
-    """The main window's F1 (ui.window.F1Anywhere, Window.help_here) on a stand-in window, as the app installs it."""
-    from PySide6.QtWidgets import QApplication, QWidget
+    """The main window's F1 (ui.window.F1Anywhere, Window.help_here) on a stand-in window, as the app makes it. The
+    stand-in is shown, as the main window is: Qt gives an application shortcut only from a window in sight."""
+    from PySide6.QtWidgets import QMainWindow
     from ui import window
-    stand_in = QWidget()
+    stand_in = QMainWindow()
     stand_in.open_help = window.Window.open_help
     stand_in.help_here = types.MethodType(window.Window.help_here, stand_in)
     watch = window.F1Anywhere(stand_in)
-    QApplication.instance().installEventFilter(watch)
+    stand_in.resize(200, 100)
+    stand_in.show()
+    page_window = eq_screen.page.window()
+    page_window.activateWindow()
+    qt.pump(50)
     yield watch
-    QApplication.instance().removeEventFilter(watch)
     qt.close(stand_in)
 
 
@@ -42,22 +48,23 @@ def _press_f1(widget):
     qt.pump(50)
 
 
-def _f1_on(control, dialog):
+def _f1_on(control, dialog, close_first=True):
     """F1 on `control` of `dialog` (the top window that blocks the others): what Help shows and whether it is usable,
-    then Help closed and the window under it as it is then."""
+    then Help closed and the window under it as it is then. close_first=False: a Help that is open stays open."""
     from PySide6.QtCore import Qt
     from PySide6.QtTest import QTest
     from PySide6.QtWidgets import QApplication
     from ui import help_window
     hw = _help()
-    if hw is not None:
+    if hw is not None and close_first:
         hw.close()
     want = help_window.entry_of_widget(control)
     _press_f1(control)
     hw = _help()
     seen = {"entry": want, "help shown": hw is not None and hw.isVisible(),
             "at the entry": getattr(hw, "page_now", None) == want,
-            "help on top (takes input)": QApplication.activeModalWidget() is hw, "window under it open": dialog.isVisible()}
+            "help on top (takes input)": QApplication.activeModalWidget() is hw,
+            "window under it open": dialog.isVisible()}
     if hw is not None and hw.isVisible():
         hw.q.setFocus()
         QTest.keyClicks(hw.q, "rig")
@@ -272,5 +279,107 @@ def test_f1_in_help_over_find(eq_screen, f1, check):
         qt.pump(50)
         return out + (QApplication.activeModalWidget() is pk,)
     seen = _during(Picker(eq_screen.page, "measurement"), steps)
-    check("F1: F1 in Help, opened over Find…, keeps Help shown and the top window (with input); closed, Find… is the top "
-          "window again", seen == (True, True, True), seen)
+    check("F1: F1 in Help, opened over Find…, keeps Help shown and the top window (with input); closed, Find… is the "
+          "top window again", seen == (True, True, True), seen)
+
+
+def test_f1_of_a_window_that_blocks(eq_screen, f1, check):
+    # (Find…'s own F1, made when the focus goes into it: one, an application shortcut as the main window's (so it also
+    # works from a drop-down's list or a menu of Find…), which a held F1 gives once)
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QShortcut
+    from ui.picker import Picker
+
+    def steps(pk):
+        pk.q.setFocus()
+        qt.pump(50)
+        return [(s.context() == Qt.ApplicationShortcut, s.autoRepeat()) for s in pk.findChildren(QShortcut)
+                if s.key().toString() == "F1"]
+    seen = _during(Picker(eq_screen.page, "measurement"), steps)
+    check("F1: Find… gets one F1 of its own, an application shortcut, which a held F1 gives once",
+          seen == [(True, False)], seen)
+
+
+def test_help_open_before_find(eq_screen, f1, check):
+    # (Help open as a window of its own, then Find… opens and blocks it: F1 in Find… brings Help in front, with input)
+    from PySide6.QtCore import Qt
+    from ui import help_window
+    from ui.picker import Picker
+    hw = help_window.open_at(None)
+    qt.pump(50)
+    before = hw.isVisible() and hw.windowModality() == Qt.NonModal
+    seen = _during(Picker(eq_screen.page, "measurement"), lambda pk: _f1_on(pk.f_sure, pk, close_first=False))
+    seen["Help open before Find…, it blocks nothing"] = before
+    check("F1: with Help open before Find… opens, F1 in Find… opens the entry in Help, in front and with input; "
+          "Find… stays open", seen.get("ok") and before, seen)
+
+
+def test_one_help_for_each_f1(eq_screen, f1, monkeypatch, check):
+    # (Help opened over Find… has an F1 of its own. Open again as a window of its own, its F1 and the main window's
+    # are two shortcuts for one key, which Qt gives as "ambiguous": F1 must still open Help, one time)
+    from PySide6.QtGui import QShortcut
+    from PySide6.QtWidgets import QWidget
+    from ui import help_window
+    from ui.picker import Picker
+    _during(Picker(eq_screen.page, "measurement"), lambda pk: _f1_on(pk.f_sure, pk))
+    hw = _help()
+    seen = {"Help has its own F1": hw.findChild(QShortcut, f1.NAME) is not None}
+    real, calls = help_window.open_at, []
+    monkeypatch.setattr(help_window, "open_at", lambda entry=None: (calls.append(entry), real(entry))[1])
+    real(None)
+    qt.pump(50)
+    _press_f1(hw.q)
+    seen["F1 in Help (a window of its own)"] = len(calls)
+    calls.clear()
+    ctl = next(w for w in eq_screen.page.findChildren(QWidget) if w.property("help_key") and w.isVisible()
+               and help_window.entry_of_widget(w))
+    ctl.window().activateWindow()  # (the page in front, Help open behind it)
+    qt.pump(50)
+    _press_f1(ctl)
+    seen["F1 in the page, Help open"] = calls == [help_window.entry_of_widget(ctl)]
+    monkeypatch.undo()
+    hw.close()
+    qt.pump(50)
+    check("F1: with Help open as a window of its own after it blocked Find…, F1 in Help and F1 in the page each open "
+          "Help one time", seen == {"Help has its own F1": True, "F1 in Help (a window of its own)": 1,
+                                   "F1 in the page, Help open": True}, seen)
+
+
+@pytest.mark.parametrize("f1_in_help", [False, True], ids=["F1 in the wait", "then F1 in Help too"])
+def test_help_when_the_wait_ends(eq_screen, f1, f1_in_help, check):
+    # (Help over the wait for a picture; the wait gets a picture and closes by itself, then Find… under it closes, as
+    # the page does then: Help stays open and blocks nothing, so each window takes input again. Before 2026-11-12, Help
+    # blocked the others until it closed: the tracer then got no input)
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication
+    from ui.picker import Picker
+    from ui.picture_wait import PictureWait
+    out = {}
+
+    def steps(pk):
+        wait = PictureWait(pk, {"name": "Truthear Gate", "site": "Hangout.Audio 5128"})
+        wait.open()
+        qt.pump(50)
+        try:
+            _press_f1(wait.paste_btn)
+            hw = _help()
+            if f1_in_help:  # (F1 in Help itself: Help stays over the same window)
+                _press_f1(hw.q)
+            out["Help over the wait"] = QApplication.activeModalWidget() is hw
+            wait.accept()
+            qt.pump(100)
+            out["wait closed: Help shown, over Find…"] = hw.isVisible() and QApplication.activeModalWidget() is hw
+        finally:
+            qt.close(wait)
+        pk.reject()
+        qt.pump(100)
+        out["Find… closed: Help shown"] = hw.isVisible()
+        out["Find… closed: no window blocks the others"] = QApplication.activeModalWidget() is None \
+            and hw.windowModality() == Qt.NonModal
+        hw.close()
+        qt.pump(50)
+    _during(Picker(eq_screen.page, "measurement"), steps)
+    check("F1: Help opened over the wait for a picture stays open when the wait and then Find… close by themselves, "
+          "and then blocks nothing (each window takes input again)",
+          out == {"Help over the wait": True, "wait closed: Help shown, over Find…": True,
+                  "Find… closed: Help shown": True, "Find… closed: no window blocks the others": True}, out)
