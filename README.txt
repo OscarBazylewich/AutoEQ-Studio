@@ -257,6 +257,11 @@ that you change is your value (↺ makes it automatic again).
 Keys: T D E H the tools, A Trace automatically, S Make smooth, F Show all, + and - zoom, Delete clears the curve,
 Ctrl+Z undo. The mouse wheel zooms, and the right button (or Space) moves the picture. On a touch screen, two fingers
 zoom and move the picture. With one finger, a tap traces and a finger that moves drags.
+A graph from a website: some databases do not let other programs download their files. Find… shows "trace from the
+website ↗" for their entries. Use then opens the website in your browser, and the app waits for a picture of the
+graph. Copy a picture of the graph (Windows + Shift + S), or click Screenshot on the website. The tracer traces the
+picture automatically and shows the curve on the picture, on 3 Save. Compare the curve with the picture. If they
+agree, click Add as measurement. If the tracer cannot trace the picture, it shows the step that you must correct.
 If Windows has no text reader for your language, you type the values (Settings > Time & language > Language: add
 English with its "optical character recognition").
 
