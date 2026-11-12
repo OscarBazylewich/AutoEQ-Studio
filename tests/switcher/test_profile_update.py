@@ -9,6 +9,7 @@ on_for gives the devices a profile is switched on for, not those that only have 
 that fails puts the update (or its Undo) back and raises. A long name (77 to 80 characters) whose file is there gets a
 second file and the import ends (also Keep it). On a stand-in APO folder in the test's own folder."""
 import os
+import re
 
 import pytest
 
@@ -298,7 +299,9 @@ def test_a_long_name_two_times_gives_two_files(sw, check, monkeypatch):
           "characters or fewer (the number is after the cut), and the import ends",
           all(len(set(f)) == 2 and all(x.endswith(".txt") and len(x) <= 84 and os.path.isfile(os.path.join(
               sw.apo.profiles, x)) for x in f) for f in seen.values())
-          and seen[80][1][-6:] in (" 2.txt", " 3.txt"), seen)  # (" 2": the file of the 79 before it)
+          and all(re.search(r" \(2\)( \d)?\.txt$", f[1]) for f in seen.values()), seen)
+    # (since 2026-11-11 the " (2)" of the second name stays after the cut, and a number follows it when the cut
+    # names are the same: before, the cut took "(2)" away, so the 80 got " 2" or " 3")
 
 
 def test_keep_it_with_a_long_name_ends(sw, check, monkeypatch):
@@ -315,3 +318,21 @@ def test_keep_it_with_a_long_name_ends(sw, check, monkeypatch):
     check("core: Keep it of an EQ for 5 minutes with a name of 80 characters, when a profile has that file name, "
           "makes a second file and ends",
           len(files) == 2 and files[0] != files[1] and sw.record(KEY)["active"] == kept, (kept, files))
+
+
+def test_long_names_with_a_period_give_short_files_that_keep_their_start(sw, check):
+    # (2026-11-11: textfile.safe_name kept the text after the last period as an extension, so these files had
+    # 179 to 208 characters or lost the middle of the name)
+    names = ["Sennheiser HD 600 Harman in-ear v2.1 - best fit 10 filters and more words for the length",
+             "abcdefghij.klmnopqrst " * 5, "W" * 77 + "A (2)", LONG[:77]]
+    files = []
+    for name in names:
+        for _ in range(2):
+            pid = sw.import_profile(_write(os.path.join(sw.top, "In.txt"), NEW), name)
+            files.append(sw.profiles()[pid]["file"])
+    check("core: long names with a period give files of 84 characters or fewer that start as the name",
+          all(len(f) <= 84 and f.endswith(".txt") for f in files)
+          and all(f[:40] == n[:40] for f, n in zip(files, [n for n in names for _ in range(2)])), files)
+    check("core: the two imports of each name give two different files", len(set(files)) == len(files), files)
+    check("core: no file name ends in an open bracket (\" (.txt\", \" (2.txt\")",
+          not any(re.search(r"\(\d*\.txt$", f) for f in files), files)

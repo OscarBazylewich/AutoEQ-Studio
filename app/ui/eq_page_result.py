@@ -915,7 +915,8 @@ class EqResult:
     @staticmethod
     def _with_temp_file(text, name, fn):
         """fn(path) with the EQ's text in a file of its own for a moment (a profile is made from a file)."""
-        path = os.path.join(tempfile.mkdtemp(prefix="autoeq-studio-"), textfile.safe_name(name, "EQ", 80) + ".txt")
+        file = textfile.safe_name(name, "EQ", 80, keep_ext=False) + ".txt"
+        path = os.path.join(tempfile.mkdtemp(prefix="autoeq-studio-"), file)
         try:
             textfile.write_atomic(path, text, newline="")  # (its own CRLF: text mode wrote CR CR LF into profiles)
             return fn(path)

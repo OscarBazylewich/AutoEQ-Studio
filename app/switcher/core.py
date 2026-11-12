@@ -43,6 +43,15 @@ def shown(rec):
     return (rec.get("nickname") or rec["label"]) if rec else ""
 
 
+def _file_name(name, suffix):
+    """A profile's file in APO's profiles folder: the name made safe, at most 80 characters before ".txt", with the
+    number of a second name of the same words (" (2)", from _unique_name) and suffix (" 2") after the cut, so a
+    cut never ends in " (" or "(2" and two numbered names keep two files."""
+    m = re.fullmatch(r"(.*\S)( \(\d+\))", name, re.S)
+    head, tail = (m.group(1), m.group(2)) if m and len(name) + len(suffix) > 80 else (name, "")
+    return textfile.safe_name(head, "EQ", 80 - len(tail + suffix), keep_ext=False) + tail + suffix + ".txt"
+
+
 DEFAULTS = {"profiles": {}, "devices": {}, "notify": True, "hotkey": "Ctrl+Alt+E", "autostart": False,
             "told_tray": False, "offline": False, "page": "eq", "onoff_hotkey": "Ctrl+Alt+Space",
             "onoff_matched": True}
@@ -199,13 +208,12 @@ class Switcher:
         self._require_writable()
         raw, info = eqfile.read_eq(path)
         name = self._unique_name((name or eqfile.name_from_file(path)).strip() or "EQ")
-        file = textfile.safe_name(name, "EQ", 80) + ".txt"
+        file = _file_name(name, "")
         n = 2
         while os.path.exists(os.path.join(self.apo.profiles, file)):
             # (the number after the cut: safe_name("<name of 77 or more> 2", 80) cut it off, so each try gave the
             # same file name and this never ended, with the window stopped)
-            suffix = f" {n}"
-            file, n = textfile.safe_name(name, "EQ", 80 - len(suffix)) + suffix + ".txt", n + 1
+            file, n = _file_name(name, f" {n}"), n + 1
         os.makedirs(self.apo.profiles, exist_ok=True)
         textfile.write_atomic(os.path.join(self.apo.profiles, file), raw)
         pid = uuid.uuid4().hex[:10]

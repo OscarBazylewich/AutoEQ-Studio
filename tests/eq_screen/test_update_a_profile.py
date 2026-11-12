@@ -182,7 +182,7 @@ def test_a_calculated_result_updates_a_profile(eq_screen, result, tmp_path, chec
               "Headset (EarPods) uses the new EQ immediately" in message and "Speakers" not in message and offered,
               message)
         check("update a profile: the profile's From becomes the result's name",
-              source == textfile.safe_name(result_name, "EQ", 80) + ".txt", (source, result_name))
+              source == textfile.safe_name(result_name, "EQ", 80, keep_ext=False) + ".txt", (source, result_name))
         eq_screen.undo()
         check("update a profile: Undo puts the profile's file back byte for byte, with its old counts and From, and "
               "says so",
