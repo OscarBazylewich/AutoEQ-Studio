@@ -188,7 +188,8 @@ def test_picture_that_cannot_be_read(eq_screen, monkeypatch, tmp_path, check):
         tw.load_image(_large(), "Large graph")
         _settled(tw)
     said = DIALOGS.asked[asked:]
-    failed = (tw.loading, tw.t.has_image, tw.file_lab.whole, tw.stage.isEnabled(), tw.side_scroll.isEnabled())
+    failed = (tw.loading, tw.t.has_image, tw.file_lab.whole, tw.stage.isEnabled(), tw.side_scroll.isEnabled(),
+              tw.status.text() == trace_window.LOADING)
     path = tmp_path / "not a picture.png"
     path.write_text("These are words, not a picture.", encoding="utf-8")
     asked = len(DIALOGS.asked)
@@ -196,8 +197,8 @@ def test_picture_that_cannot_be_read(eq_screen, monkeypatch, tmp_path, check):
     not_picture = DIALOGS.asked[asked:]
     tw.close()
     check("tracer: a large picture whose load fails (in its thread): the message says so, the tracer is empty and "
-          "takes input", len(said) == 1 and "cannot read the axes of this picture (no axes)" in said[0][1]
-          and failed == (False, False, "No picture", True, True), (said, failed))
+          "takes input, and the status line no longer says that it opens the picture", len(said) == 1
+          and "cannot read the axes of this picture (no axes)" in said[0][1] and failed == (False, False, "No picture", True, True, False), (said, failed))
     check("tracer: a file that is not a picture: the message says so", len(not_picture) == 1
           and "cannot read this file as a picture" in not_picture[0][1], not_picture)
 

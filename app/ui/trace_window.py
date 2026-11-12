@@ -1451,6 +1451,7 @@ class TraceWindow(QWidget):
             self.stage.clear_image()
             self.show_name()
             self.changed()
+            self.status.setText(HINTS[self.tool])  # (not "The app opens the picture…" of a large picture)
             QMessageBox.warning(self, "Trace", f"The app cannot read the axes of this picture ({e}). Send the picture "
                                 "and data\\app.log. Then we can correct the problem.")
             return
