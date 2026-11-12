@@ -76,15 +76,33 @@ def read_fr(path):
     return normalize_fr(read(path))
 
 
-def safe_name(name, fallback="file", max_len=150):
+_EXT = re.compile(r"\.[A-Za-z][A-Za-z0-9]{0,4}$")  # a file's extension: ".txt", ".csv", ".json" (not ".1 - best fit")
+_CUT_END = " .-,(["  # what a cut name may not end in: "…A (" of "…A (2)", a dash or a comma left alone
+
+
+def _reserved(name):
+    return name.split(".")[0].rstrip(" ").upper() in RESERVED  # ("CON .txt" and "CON.anything" are the console too)
+
+
+def safe_name(name, fallback="file", max_len=150, keep_ext=True):
     """A file name Windows accepts: no \\ / : * ? " < > | or control characters, no trailing dots or spaces, not a
-    reserved device name (CON, NUL, COM1…), and not too long."""
+    reserved device name (CON, NUL, COM1…), and at most max_len characters. A name that is too long keeps its start
+    (and its extension, a short one of letters and digits after the last period, when keep_ext): never a long text
+    after a period ("v2.1 - best fit") taken for the extension. keep_ext=False: the caller adds the extension, so
+    the whole name is the part that can be cut ("HD 600 Mk.II"). A cut name does not end in " (" or " -"."""
     name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", name or "").strip().rstrip(". ")
-    stem, dot, ext = name.rpartition(".") if "." in name else (name, "", "")
-    if stem.split(".")[0].rstrip(" ").upper() in RESERVED:  # ("CON .txt" is the console too)
+    if _reserved(name):
         name = "_" + name
     if len(name) > max_len:  # (well within Windows' 260-character paths, with the app's folder in front)
-        name = name[:max_len - len(dot + ext)].rstrip(". ") + dot + ext
+        m = _EXT.search(name) if keep_ext else None
+        ext = m.group(0) if m and 0 < m.start() and len(m.group(0)) < max_len else ""
+        room = max_len - len(ext)
+        cut = name[:room].rstrip(_CUT_END)
+        if not cut:  # (a name of only "(", "-", "." … before its extension: the fallback, not ".txt" with no name)
+            cut = (fallback or "file")[:room].rstrip(_CUT_END)
+        if _reserved(cut + ext):  # (the cut can leave "CON" alone: "CON" and spaces before the rest)
+            cut = ("_" + cut)[:room].rstrip(_CUT_END)
+        name = cut + ext
     return name or fallback
 
 

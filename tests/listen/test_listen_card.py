@@ -538,3 +538,24 @@ def test_add_buttons_symbol(card, check):
           seen == [("The selected EQ", "Add the selected EQ", True), ("From an EQ file…", "Add from an EQ file…", True),
                    ("Paste filters…", "Add filters that you paste…", True)] and pointed == adds,
           (seen, [b.text() if b is not None else None for b in pointed]))
+
+
+def test_empty_list_tells_how_to_add_an_eq(card, check):
+    # (2026-11-12: the line said "use a button below this text", with no word about what the buttons do)
+    from PySide6.QtWidgets import QLabel
+
+    from helpers import qt
+    lis = card.lis
+    kept = lis.pins
+    try:
+        lis.pins = []
+        lis.render_pins()
+        qt.pump(50)
+        said = [w.text() for w in lis.pins_box.findChildren(QLabel) if w.isVisible() and w.text() != "■"]
+    finally:
+        lis.pins = kept
+        lis.render_pins()
+        qt.pump(50)
+    check("listen: with no EQs to compare, one line tells the two ways to get one (Keep to compare, or add an EQ "
+          "with a button below the line)",
+          said == ["No EQs. Keep the result (Keep to compare), or add an EQ with a button below this text."], said)

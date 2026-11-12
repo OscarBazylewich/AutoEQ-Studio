@@ -139,10 +139,12 @@ HELP_EQ = {'slot:target': ['The curve that you want for your earphone.', 'target
  '#hand-start': ['Starts a manual EQ from the item in Start from (with Start…, you select the file or paste the lines '
                  'first).', 'by-hand'],
  '#hand-close': ['Shows the result before this manual EQ again, or no result.', 'by-hand'],
+ '#use-device': ['Uses the EQ on a device: as a new profile of the device, in a profile that you have (Update a '
+                 'profile), or for 5 minutes.', 'set-use-update', 'set-use-try'],
  '#use-try': ['Uses the EQ on a device for 5 minutes, in all apps. Then click Keep it, or the device uses its previous '
-              'EQ.', 'q-try', 'set-use-update'],
- '#use-update': ['Puts the EQ into a profile that you have. The devices that have that profile on use the new EQ.',
-                 'set-use-try', 'set-prof-edit']}
+              'EQ.', 'q-try', 'set-use-device', 'set-use-update'],
+ '#use-update': ['Puts the EQ into a profile that you have. The profile keeps its name and its devices. Help tells '
+                 'when each device uses the new EQ.', 'set-use-device', 'set-use-try', 'set-prof-edit']}
 
 SETTINGS_EQ = [{'title': 'Select and calculate',
                 'items': [{'key': 'slot:target',
@@ -170,9 +172,10 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'title': 'Your EQ app',
                            'body': ['The app or device that will use the EQ. The EQ stays in its limits (the number of '
                                     'bands, the gain, Q and frequency ranges, the sliders of a graphic EQ). Save '
-                                    'filters writes the file that the app imports. The line below tells how to load '
-                                    'the EQ, with a link to the source of its limits. Not in the list, or not sure: no '
-                                    'limits, and an Equalizer APO file, which many apps can read.']},
+                                    'filters writes the file that the app imports. The ⓘ after the label Your EQ app '
+                                    'tells how to load the EQ, with a link to the source of its limits. Not in the '
+                                    'list, or '
+                                    'not sure: no limits, and an Equalizer APO file, which many apps can read.']},
                           {'key': 'slot:method',
                            'title': 'EQ method',
                            'body': ['How the app finds the filters. Best fit (for all EQ apps) adjusts them directly '
@@ -381,8 +384,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                 'items': [{'key': 'site_sweep.filter_rows',
                            'title': 'Filter rows to try',
                            'body': ['The numbers of filter rows to try, for example 4-10 or 4, 6, 8. The app tries '
-                                    'each number with each set of values from the lists below. Error and selection selects '
-                                    'the best result.']},
+                                    'each number with each set of values from the lists that follow. Error and '
+                                    'selection selects the best result.']},
                           {'key': 'site_sweep.freq_low',
                            'title': 'Frequency from',
                            'body': ['The start of the “Frequency Range”, for all the settings to try.']},

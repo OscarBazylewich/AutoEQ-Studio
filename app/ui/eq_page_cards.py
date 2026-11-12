@@ -645,7 +645,7 @@ class EqCards:
         self.use_menu = QMenu(self.use_btn)
         self.use_menu.aboutToShow.connect(self._fill_use_menu)
         self.use_btn.setMenu(self.use_menu)
-        help_window.tag(self.use_btn, "#use-try")
+        help_window.tag(self.use_btn, "#use-device")  # (its 3 functions: a new profile, Update, for 5 minutes)
         self.report_btn = report = QPushButton("Report")
         icons.put(report, "report")  # (every button in the row with its symbol, UI-RULES 9)
         report.setToolTip("An HTML page with the graph and the filters, in your browser (also in your Saved EQs folder)")

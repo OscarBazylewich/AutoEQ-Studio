@@ -26,8 +26,8 @@ INSTALL IT (the usual procedure)
 "AutoEQ Studio Setup <version>.exe" (in releases\, from "Make installer.bat") installs AutoEQ Studio, the same as
 other Windows apps. It installs only for you, without an administrator password (Equalizer APO lets each person on
 the PC change its settings). It goes in AppData\Local\Programs\AutoEQ Studio, with its Python: you do not install or
-download other items. It adds a Start menu shortcut (and a desktop shortcut, if you select it), and an item in
-Settings > Apps > Installed apps, with its version and Uninstall.
+download other items. It adds a Start menu shortcut (and a desktop shortcut, if you select it). It also adds an item
+in Settings > Apps > Installed apps, with its version and Uninstall.
 If Windows shows "Windows protected your PC" (the installer has no digital signature), click "More info". Then
 click "Run anyway".
 An installed copy keeps none of your files in the program folder (an update replaces that folder):
@@ -41,9 +41,9 @@ To move all your data from a copy that you started from its folder:
   2. In the installed copy, load that backup.
 Update: start a newer Setup. It closes AutoEQ Studio first (or tells you to close it), and keeps your files and
 settings.
-Uninstall (Installed apps > AutoEQ Studio > Uninstall): it removes AutoEQ Studio from Equalizer APO (each device
-gets the initial settings of APO) and from Start with Windows. Then you select if it also deletes your settings,
-History and downloaded curves. Documents\AutoEQ Studio always stays.
+Uninstall (Installed apps > AutoEQ Studio > Uninstall): it removes AutoEQ Studio from Equalizer APO and from Start
+with Windows. Each device gets the initial settings of APO. Then you select if it also deletes your settings, History
+and downloaded curves. Documents\AutoEQ Studio always stays.
 Only one AutoEQ Studio can operate at a time. Before you start the installed copy, stop the copy from its folder:
   1. In the Settings of that copy, clear the Start with Windows tick box.
   2. Right-click its tray icon.
@@ -64,9 +64,9 @@ your files to that folder. It does not replace a file: if a different file has t
 (2) after its name. Then the app starts again. Do not use a folder in the program folder of AutoEQ Studio, because
 an update or a new copy can delete your files.
 A previous version of AutoEQ Studio kept them in its folder (inputs\target, inputs\measurement, output\, presets\).
-The first time that Make an EQ opens, it can move them: Move them, Select a different folder…, or Not at this time
-(it shows this message again the next time). Backups from before and after this change use the same names. Thus,
-each version can load them.
+The first time that Make an EQ opens, it can move them: Move them, Select a different folder…, or Not at this time.
+After Not at this time, the message shows again the next time. Backups from before and after this change use the
+same names. Thus, each version can load them.
 
 START IT FROM ITS FOLDER
 ------------------------
@@ -90,10 +90,10 @@ You can go to each control with Tab (in the top bar, go to the screens with the 
 for a screen reader.
 
 Guide: the 31 steps to make an EQ on Make an EQ (select, the settings, calculate, examine, save, listen and more),
-the same as the Guide of AutoEQ Local. Each step highlights a part of the screen, tells you about it and shows it in
-a short demo. In a demo, a pointer opens Find…, types a name, selects a row and shows it on the graph. It also opens
-a list and selects an item. Or it types the target adjustments while the target changes on the graph (the graph
-stays at the top while the page scrolls). A demo also shows how the app calculates, and the curve with the EQ.
+as in AutoEQ Local. Each step highlights a part of the screen, tells you about it and shows it in a short demo. In a
+demo, a pointer opens Find…, types a name, selects a row and shows it on the graph. It also opens a list and selects
+an item. Or it types the target adjustments while the target changes on the graph (the graph stays at the top while
+the page scrolls). A demo also shows how the app calculates, and the curve with the EQ.
 Before you calculate, the steps of the result show an example result from your files.
 The card of the Guide has:
   - "3 of 31" at the top: a list of all the steps (Go to a step). Below the list: "Play all steps" (all the Guide,
@@ -122,23 +122,25 @@ online databases, the same as AutoEQ Local). The EQs of your devices change with
 MAKE AN EQ
 ----------
 One column, from the top to the bottom:
-- Target and Measurement (one card, a row for each): the files in the app, from A to Z (numbers in their sequence:
-  "IEM 2" before "IEM 10"). A measurement is a set: left and right, or more than one seating. Add… adds files from this
-  PC. Find… (or the / key) searches the app, this PC and the online databases:
+- Target and Measurement (one card, a row for each): the files in the app, from A to Z. Numbers are in their
+  sequence ("IEM 2" before "IEM 10"). A measurement is a set: left and right, or more than one seating. Add… adds
+  files from this PC. Find… (or the / key) searches the app, this PC and the online databases:
     - Preview shows a curve on the graph (dotted line). "Hide previews" removes the previews.
     - Use selects the curve. Undo, at the bottom of the window, gives you the previous curve again.
     - ⋯ (in the rows of the app) has the other commands: Show files, Move to Measurement and Delete….
     - The tabs above the results show the number of items in each source.
-    - Sources… selects where Find… looks, with a tab for each part: the folders of this PC, the online databases (on
-      or off) and more squig.link databases. You add a squig.link database from a list or with its URL.
+    - Sources… selects where Find… looks, with a tab for each part. The parts are the folders of this PC, the online
+      databases (on or off) and more squig.link databases. You add a squig.link database from a list or with its URL.
     - The results are from A to Z in each part. The Rig, Type and Source lists are from A to Z. They have a search
       box at the top: type a part of a name to find it.
   "Other measurements of this model…" sorts all the measurements of your IEM for the target (Which measurement to
-  use). Adjust… (on the Target row) opens a window: tilt, bass, half-tilt, ear gain, treble and air, one row for each.
+  use).
+  Adjust… (on the Target row) opens a window: tilt, bass, half-tilt, ear gain, treble and air, one row for each.
   Value: − and + (or ↑ ↓ and the mouse wheel in the box), and the graph of the window shows each change. Then Hz and Q
-  (gray while the value is 0). "Clear the adjustments" changes them to 0. "Save as a target…" saves the adjusted
-  target as your target and uses it. The adjustments go to 0, because they are in the new target. Undo, at the bottom
-  of the window, gives you all of this again. Below the Target row, the app shows the adjustments that you made.
+  (gray while the value is 0). Below the Target row, the app shows the adjustments that you made.
+  "Clear the adjustments" changes them to 0. "Save as a target…" saves the adjusted target as your target and uses
+  it. The adjustments go to 0, because they are in the new target. Undo, at the bottom of the window, gives you all
+  of this again.
 - The graph: your measurement (orange), the target (dashed line) and, after you calculate, the measurement with the
   EQ (blue). Below it, the EQ graph shows the EQ (pink: above 0 it adds gain, below 0 it removes gain). "Error
   without EQ": the difference between the measurement and the target with no EQ. Above the graph:
@@ -149,25 +151,26 @@ One column, from the top to the bottom:
   When the pointer is on the graph, the graph shows its values at that position. The app does not calculate the
   error at the gray ends. If the app changed a target for a different rig, a band shows the possible error of that
   change.
-  History… (near the title of the graph) has the EQs that you saved or copied: Show opens one, and its ⋯ has Copy,
+  History… (near the title of the graph) has the EQs that you saved or copied. Show opens one, and its ⋯ has Copy,
   Keep to compare and Remove from the history.
-- Make the EQ: first Your EQ app, for the two tabs (the EQ stays in its limits, and Save writes its file: the ⓘ after
-  its label shows them). Then select how to make the EQ, on two tabs: Automatically or Manually (it opens on the tab
-  that you selected last). Below the tabs: Settings and More settings (click to open or close them), then Calculate or
-  Start.
+- Make the EQ: first Your EQ app, for the two tabs. The EQ stays in its limits, and Save writes its file (the ⓘ
+  after its label shows them). Then select how to make the EQ, on two tabs: Automatically or Manually (it opens on
+  the tab that you selected last). Below the tabs: Settings and More settings (click to open or close them), then
+  Calculate or Start.
   Automatically: the method, Settings to try and Calculate. The methods are Best fit for EQ apps, and the Website
   methods for the AutoEQ of squig.link. Settings to try shows the number of EQs that the app tries, and the time that
-  is necessary on this PC (its tooltip shows the settings).
+  is necessary on this PC. Its tooltip shows the settings.
   Best fit adds filters one at a time. It keeps the minimum number of filters for the same sound as the target. The
   same sound is a difference of 0.25 dB or less at all frequencies, as the ear hears it. The line below the numbers
-  of the result tells you this. If the limits of your EQ app stop this, the line shows the error and its frequencies.
+  of the result tells you this. If the limits of your EQ app stop this, the line shows the error and its
+  frequencies.
   "Queue…" makes EQs for more than one IEM or target, one after the other (select them). It saves each EQ and keeps
   it in History.
   Manually: you make the EQ. Start from: an empty EQ, a copy of the selected EQ, an EQ file, pasted filters or a
   device's profile. An EQ file can be from Equalizer APO, AutoEq, squig.link, Room EQ Wizard ("Export filter settings
   as text") or Peace (a preset). Then click Start. The manual EQ is on the result card, the same as a calculated EQ.
-  Thus, all the parts below operate for it. A measurement and a target are optional (if you select them, the graph
-  shows your IEM with the EQ, and its error).
+  Thus, all the parts of the result card operate for it.
+  A measurement and a target are optional (if you select them, the graph shows your IEM with the EQ, and its error).
   The app reads files as Equalizer APO plays them (a shelf at its corner frequency moves to its center frequency, a
   slope becomes its Q). An EQ here has peaking filters and shelf filters. Thus, the app removes other filter types, a
   graphic EQ or a convolution, and it tells you.
@@ -179,18 +182,20 @@ One column, from the top to the bottom:
 - Settings and More settings (in Make the EQ, click to open or close them): the values of the automatic settings, or
   your values. Each label is above its box. "About these settings" (click to open it) tells you how the app adjusts
   each value. A value that you change shows "your value", and ↺ makes it automatic again. More settings has a tab for
-  each part (the tab of a method shows only with that method). All lists are from A to Z (numbers in their sequence,
-  and a "Select…" item stays at the top). A list with more than 15 items (More settings › Layout, the Source list of
-  Find…, …) opens with a search box at the top. Best fit can start from your filters (More settings › Best fit: type
-  them, or use "Edit as a table…" or "Load an EQ file…"). The graph shows them as "With your filters".
+  each part (the tab of a method shows only with that method).
+  All lists are from A to Z (numbers in their sequence, and a "Select…" item stays at the top). A list with more than
+  15 items (More settings › Layout, the Source list of Find…, …) opens with a search box at the top. Best fit can
+  start from your filters (More settings › Best fit). Type them, or use "Edit as a table…" or "Load an EQ file…".
+  The graph shows them as "With your filters".
 - Your result:
     - The error, the pre-amp, the maximum gain and the maximum Q.
     - "EQs that you made": open a different EQ that you made.
     - "Number of filters": the best result for each number of filters. "All results…" shows each result that the
-      app tried, with a grid of the error for each filter count and maximum Q. "Compare…" shows two EQs at the same
-      time: this EQ and an EQ with a different number of filters, from a different # or from History.
-    - The filters, to edit: a table, or Sliders (a graphic EQ: each slider shows the gain of its filter from 0 dB, on
-      a dB scale). It also has Undo all and Calculate from these filters. When the graph is not on the screen, a
+      app tried, with a grid of the error for each filter count and maximum Q. "Compare…" shows this EQ and a second
+      EQ at the same time. The second EQ has a different number of filters, or it is from a different # or from
+      History.
+    - The filters, to edit: a table, or Sliders (a graphic EQ). Each slider shows the gain of its filter from 0 dB, on
+      a dB scale. It also has Undo all and Calculate from these filters. When the graph is not on the screen, a
       copy of the graph is above the page while you edit. The copy is not on the control that you change. If you
       clear "Show the graph while you edit", the copy does not show.
     - File name, then:
@@ -201,8 +206,9 @@ One column, from the top to the bottom:
                        the top, or the menu of the tray icon). If you do not, the device gets its EQ again
                        automatically.
     Update a profile   (in the menu of Use on device, also the rows Update "name") puts the EQ into a profile that
-                       you have. The profile keeps its name and its devices, and the devices that have it on use
-                       the new EQ. The message tells you which devices use it immediately, and it has Undo.
+                       you have. The profile keeps its name and its devices. The message tells you when each device
+                       uses the new EQ (a maximum of 3 names for each group, and the number of other devices). It
+                       has Undo.
     Keep to compare    adds it to the EQs to compare of this IEM (on the graph as a dashed line, and in Listen)
     Report             an HTML page with the graph and the filters (Save filters also writes it, if you select it
                        in More settings)
@@ -213,15 +219,14 @@ One column, from the top to the bottom:
     - Drag a handle left or right to change its frequency.
     - Drag it up or down to change its gain.
     - Turn the mouse wheel on it to change its Q.
-    - Right-click it for Peak, Low shelf, High shelf and Remove (the On tick box of the table turns a filter off).
+    - Right-click it for Peak, Low shelf, High shelf and Remove (the On tick box of the table disables a filter).
     - Double-click where there is no handle to add a filter.
   The curves, the numbers, the table and Listen change while you drag. The scale does not change until you release
-  the handle. If you use an EQ on a device for 5 minutes (Use for 5 minutes on), each change goes to that device
-  while you edit, in all apps.
+  the handle. With Use for 5 minutes on, each change goes to that device while you edit, in all apps.
 - Listen: listen to the EQ through your IEM or headphone. Start with a low volume. Play plays music (short, the app
   makes it, and it starts again at the end). It can also play pink noise, white noise, a sweep, a tone (the graph
   shows its frequency) or your audio file. You hear it through the version that you select: EQ off, the selected EQ
-  (edited) or one of your EQs to compare (keys 1-9 change it).
+  (edited) or one of your EQs to compare. Keys 1-9 change the version.
   Same level gives them all the same loudness. Thus, you compare the EQ, not the volume. Hide the names hides the
   name of each version until you click Show the names. "A different version in each ear" puts one version in each
   ear. Also click Interchange, because your left ear and your right ear are not the same.
@@ -240,9 +245,10 @@ One column, from the top to the bottom:
 
 TRACE A GRAPH (Trace a graph image…, near the title of the graph)
 -----------------------------------------------------------------
-Use the tracer if the measurement of an IEM or headphone is only a picture (a data sheet, or a screenshot from a
-website). Open, drag or paste (Ctrl+V) the picture, and it becomes a measurement or a target. If you paste or drag a
-picture on Make an EQ, the tracer also opens with it. The tabs 1 Axes, 2 Trace and 3 Save show one step at a time.
+If the measurement of an IEM or headphone is only a picture, use the tracer. The picture can be a data sheet, or a
+screenshot from a website. Open, drag or paste (Ctrl+V) the picture, and it becomes a measurement or a target. If you
+paste or drag a picture on Make an EQ, the tracer also opens with it. The tabs 1 Axes, 2 Trace and 3 Save show one
+step at a time.
 1. Axes: the app finds the grid lines and reads the numbers on the axes with the text reader of Windows. The two red
    lines (dB) and the two blue lines (Hz) are on grid lines, with their values. Examine them on the picture. If a
    value is not correct, drag the line to a different grid line or type the value.
@@ -264,8 +270,8 @@ picture of the graph.
   1. Press Windows + Shift + S. Then select the area of the graph. Or click Screenshot on the website.
   2. The tracer traces the picture automatically and shows the curve on the picture, on 3 Save. Compare the curve
      with the picture.
-  3. If they agree, click Add as measurement. If the tracer cannot trace the picture, it shows the step that you
-     must correct.
+  3. If they agree, click Add as measurement. For an entry from Find a target, the tracer tells you to click Add as
+     target. If the tracer cannot trace the picture, it shows the step that you must correct.
 If Windows has no text reader for your language, you type the values (Settings > Time & language > Language: add
 English with its "optical character recognition").
 
@@ -314,18 +320,20 @@ A profile is a copy of an EQ file in the Equalizer APO format. The EQ file can b
   - A file that you saved in the Editor of APO.
 Use on device does this in one step, from the result of Make an EQ. The profiles are in APO's config folder ("AutoEQ
 Studio\profiles"). Thus, if you change the file that you imported, the profile does not change: import it again.
-The buttons of Profiles are above its table: first Import EQ files… and Open the profiles folder, then a line and the
-buttons for one profile (they are enabled when you select a profile). "Edit in Make an EQ" opens the selected profile
-there as a manual EQ. When you change its filters, Use on device › Update puts it into the profile again (its devices
-keep it, and you hear the change immediately). The rows Update "name" and "Update a profile" of Use on device put the
-EQ of a result into a profile that you have. Rename… gives the selected profile a different name, and Delete… (the
-last button) deletes its file, after a message.
+The buttons of Profiles are above its table. Import EQ files… and Open the profiles folder are first. A line and the
+buttons for one profile follow them. These buttons are enabled when you select a profile.
+"Edit in Make an EQ" opens the selected profile there as a manual EQ. When you change its filters, Use on device ›
+Update puts it into the profile again, and its devices keep it. A device with an EQ for 5 minutes, or with its EQ
+off to compare, uses the change after that, unless you click Keep it. If Equalizer APO uses AutoEQ Studio, all
+other connected devices with Equalizer APO use the change immediately. The rows Update "name" and "Update a
+profile" of Use on device put the EQ of a result into a profile that you have. Rename… gives the selected profile
+a different name, and Delete… (the last button) deletes its file, after a message.
 
 Devices: your playback devices, with their Windows names ("Headset (EarPods)"), connected devices first, from A to Z.
 A green dot: active. Your Windows accent color (blue at first): connected. Gray: not connected.
-Select a device to give it profiles ("Add a profile": a profile, Import EQ files… or Make an EQ), and select the
+Select a device to give it profiles ("Add a profile": a profile, Import EQ files… or Make an EQ). Then select the
 profile that is on, or Off. The ✕ of a profile removes it from the device (Undo is in the message near the ✕).
-Rename… (in the card with the name of the device) gives the device your name for it ("Dongle – KZ"), and all screens
+Rename… (in the card with the name of the device) gives the device your name for it ("Dongle – KZ"). All screens
 show this name. During an EQ for 5 minutes, the card shows that EQ as selected.
 The line below its EQ tells you if Equalizer APO uses the EQ (✓ in green). If APO does not use it, a warning bar
 shows the cause: AutoEQ Studio gets this information from Equalizer APO. Examine again shows all that it found.
@@ -352,12 +360,13 @@ If Windows does not accept a key (a different program uses it), Settings tells y
 
 On/off hotkey (Settings, Ctrl+Alt+Space at first): it disables the EQ of the active device. Then you can compare
 the EQ with no EQ, on all sound. When you press the hotkey again, it enables the EQ again (the menu of the tray icon
-also has it: "EQ off, to compare"). With Same level (on at first), "off" has the same loudness as the EQ, with a
-lower volume. The app measures the loudness as Listen does: pink noise, as the ear hears it. Thus, the EQ is not
-better only because it has more loudness. The notification shows the difference in dB.
+also has it: "EQ off, to compare").
+With Same level (on at first), "off" has the same loudness as the EQ, with a lower volume. The app measures the
+loudness as Listen does: pink noise, as the ear hears it. Thus, the EQ is not better only because it has more
+loudness. The notification shows the difference in dB.
 The app does not save this condition: if you select an EQ for the device, or start AutoEQ Studio again, the EQ is
-on again. A bar at the top of the window shows when the EQ is off, with "Enable it again" (the same as the bar of
-"EQ for 5 minutes"). If no EQ is on, the hotkey enables the last EQ of the device.
+on again. When the EQ is off, a bar at the top of the window shows it, with "Enable it again". This bar is the same
+as the bar of "EQ for 5 minutes". If no EQ is on, the hotkey enables the last EQ of the device.
 
 Start with Windows (Settings): the app starts in the tray when Windows starts. Startup apps in Task Manager shows it
 as "AutoEQ Studio" (a copy of pythonw.exe of Python with that name, in the .venv\Scripts folder). An item with the
@@ -365,9 +374,9 @@ name "pythonw" there is from EQ Switcher, and Add to APO can disable it.
 
 In the tray, the app uses a small quantity of memory: it does not load Make an EQ there. After you use Make an EQ one
 time, the window prepares it when the window opens. It does this when you do not use the keyboard or the mouse for
-a short time. Thus, its
-tab opens quickly. The window then uses some hundreds of MB more. When you close the window to the tray, it releases
-that memory to Windows after 30 s. Then Task Manager shows some MB.
+a short time. Thus, its tab opens quickly.
+The window then uses some hundreds of MB more. When you close the window to the tray, it releases that memory to
+Windows after 30 s. Then Task Manager shows some MB.
 
 
 BACKUP
@@ -416,8 +425,9 @@ downloads\          curves from the online databases. app\tools\download_all.py 
                     (Use uses the copy here), and not again in This PC
 samples\            example curves
 data\               your settings (settings.json) and their log (app.log, each line with its date): the errors, if
-                    there are errors. data\eq\: the settings of Make an EQ, History (history.json), EQs to compare
-                    (listen.json), the source of each of your files (sources.json: its rig) and the database lists
+                    there are errors. data\eq\ has the settings of Make an EQ, History (history.json) and EQs to
+                    compare (listen.json). It also has the source of each file (sources.json: its rig) and the
+                    database lists
 (Your targets, measurements, saved EQs and presets: Documents\AutoEQ Studio, refer to YOUR FILES.)
 .venv\              the Python packages (AutoEQ Studio.bat makes it). If this folder is in OneDrive or its path is
                     long, they go in %LOCALAPPDATA%\AutoEQ Studio\venv (the black window tells you). If OneDrive
