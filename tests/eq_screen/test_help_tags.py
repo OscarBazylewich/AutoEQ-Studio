@@ -93,8 +93,14 @@ def test_update_words_are_true_for_each_device(check):
     check("help: the long help of Update a profile gives each condition first, and says “immediately” only with it",
           items == ["If Equalizer APO does not use AutoEQ Studio, no device uses the new EQ immediately. The devices "
                     "use it after you click Add AutoEQ Studio to APO… on the Devices screen.",
-                    "While a device uses an EQ for 5 minutes, or has its EQ off to compare, it does not change. If "
-                    "you do not click Keep it, the device uses the new EQ after that.",
+                    # (2026-11-12: Keep it makes the EQ for 5 minutes a new profile that is on, so that device does
+                    # not use the new EQ after the 5 minutes: the two states are said apart, as switcher.core does.
+                    # Do not keep it stops the EQ for 5 minutes before the 5 minutes: "when it stops", not "after")
+                    "While a device uses an EQ for 5 minutes, it does not change. If you click Keep it, the EQ for 5 "
+                    "minutes becomes a new profile of the device, and this profile is on. If you do not click Keep "
+                    "it, the device uses the new EQ when the EQ for 5 minutes stops.",
+                    "While a device has its EQ off to compare, it does not change. When its EQ is on again, the "
+                    "device uses the new EQ.",
                     "A device that is not connected uses the new EQ when you connect it.",
                     "A device on which Equalizer APO is not installed does not use the EQ (refer to Devices).",
                     "In all other conditions, a connected device uses the new EQ immediately."]

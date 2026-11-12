@@ -81,12 +81,15 @@ def _by_id():
 
 
 def open_at(entry_id=None):
-    """The Help window (made once), at an entry."""
+    """The Help window (made once), at an entry, in front. A minimized Help comes back as it was (maximized or not):
+    show(), raise_() and activateWindow() kept it minimized, so F1 and the Help button seemed to do nothing (the same
+    fault as the tracer's, eq_page_files.EqFiles.open_trace, 2026-11-12)."""
     global _window
     if _window is None:
         _window = HelpWindow()
     _modal_over_modal(_window)
     _window.show()
+    _window.setWindowState(_window.windowState() & ~Qt.WindowMinimized)
     _window.raise_()
     _window.activateWindow()
     if entry_id:
@@ -137,7 +140,9 @@ def _watch_under(win, over):
 
 def _under_gone(win):
     """The window under Help closed by itself while Help blocks the others: Help is shown again over the next window
-    that blocks the others, or as a window of its own when there is none (then each window takes input again)."""
+    that blocks the others, or as a window of its own when there is none (then each window takes input again). A
+    Help that you minimized stays minimized as a window of its own (nothing asked for it); over a window that it
+    blocks, it comes back (else that window takes no input, and nothing on the screen tells why)."""
     import shiboken6
     from PySide6.QtWidgets import QApplication
     if not shiboken6.isValid(win) or not win.isVisible() or win.windowModality() == Qt.NonModal:
@@ -148,6 +153,8 @@ def _under_gone(win):
     win.setWindowModality(Qt.ApplicationModal if over is not None else Qt.NonModal)
     _watch_under(win, over)
     win.show()
+    if over is not None:
+        win.setWindowState(win.windowState() & ~Qt.WindowMinimized)
     win.raise_()
     win.activateWindow()
 

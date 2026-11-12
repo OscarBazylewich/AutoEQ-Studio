@@ -81,3 +81,42 @@ def test_f1_in_the_hotkey_boxes(devices_window, qapp, check):
     check("F1: in each hotkey box of Settings, F1 is recorded as the hotkey (as before 2026-11-11), and Help does not "
           "open", seen == {n: {"typed": ["F1"], "said": ["F1"], "help shown": False}
                            for n in ("hotkey", "on/off hotkey")}, seen)
+
+
+def test_a_minimized_help_comes_back(devices_window, qapp, check):
+    # (2026-11-12: open_at showed, raised and activated Help, but a minimized Help stayed minimized: F1 and the Help
+    # button seemed to do nothing. The same fault as the tracer's, eq_page_files.EqFiles.open_trace)
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QWidget
+    from helpers import qt
+    from ui import help_window
+    win = devices_window.win
+    ctl = next(w for w in win.findChildren(QWidget) if w.property("help_key") and w.isVisible()
+               and help_window.entry_of_widget(w))
+    seen = {}
+    for way, maximized in (("F1", False), ("the Help button", False), ("F1", True), ("the Help button", True)):
+        hw = help_window.open_at(None)
+        hw.setWindowState(Qt.WindowMaximized if maximized else Qt.WindowNoState)
+        qt.pump(50)
+        hw.setWindowState(hw.windowState() | Qt.WindowMinimized)
+        qt.pump(50)
+        before = hw.isMinimized()
+        win.activateWindow()  # (the main window in front, as when you press F1 there)
+        qt.pump(50)
+        if way == "F1":
+            ctl.setFocus()
+            QTest.keyClick(ctl, Qt.Key_F1)
+        else:
+            win.help_btn.click()
+        qt.pump(50)
+        seen[f"{way}, maximized {maximized}"] = (before, hw.isVisible(), hw.isMinimized(), hw.isMaximized())
+        hw.setWindowState(Qt.WindowNoState)
+        hw.close()
+        qt.pump(50)
+    check("Help: a minimized Help comes back with F1 and with the Help button, in view and not minimized; a maximized "
+          "Help comes back maximized",
+          seen == {"F1, maximized False": (True, True, False, False),
+                   "the Help button, maximized False": (True, True, False, False),
+                   "F1, maximized True": (True, True, False, True),
+                   "the Help button, maximized True": (True, True, False, True)}, seen)

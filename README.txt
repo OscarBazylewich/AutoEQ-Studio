@@ -267,9 +267,11 @@ zoom and move the picture. With one finger, a tap traces and a finger that moves
 A graph from a website: some databases do not let other programs download their files. Find… shows "trace from the
 website ↗" for their entries. For such an entry, Use opens the website in your browser, and the app waits for a
 picture of the graph.
-  1. Press Windows + Shift + S. Then select the area of the graph. Or click Screenshot on the website.
-  2. The tracer traces the picture automatically and shows the curve on the picture, on 3 Save. Compare the curve
-     with the picture.
+  1. If the website shows a window in front of the graph, close that window. Press Windows + Shift + S. Then select
+     the area of the graph. Or click Screenshot on the website.
+  2. The tracer traces the picture automatically and shows the curve on the picture, on 3 Save. If a curve goes
+     above or below the grid near an end of the frequency axis, the measurement does not include that part. The text
+     on 3 Save gives the frequencies. Compare the curve with the picture.
   3. If they agree, click Add as measurement. For an entry from Find a target, the tracer tells you to click Add as
      target. If the tracer cannot trace the picture, it shows the step that you must correct.
 If Windows has no text reader for your language, you type the values (Settings > Time & language > Language: add
@@ -323,11 +325,12 @@ Studio\profiles"). Thus, if you change the file that you imported, the profile d
 The buttons of Profiles are above its table. Import EQ files… and Open the profiles folder are first. A line and the
 buttons for one profile follow them. These buttons are enabled when you select a profile.
 "Edit in Make an EQ" opens the selected profile there as a manual EQ. When you change its filters, Use on device ›
-Update puts it into the profile again, and its devices keep it. A device with an EQ for 5 minutes, or with its EQ
-off to compare, uses the change after that, unless you click Keep it. If Equalizer APO uses AutoEQ Studio, all
-other connected devices with Equalizer APO use the change immediately. The rows Update "name" and "Update a
-profile" of Use on device put the EQ of a result into a profile that you have. Rename… gives the selected profile
-a different name, and Delete… (the last button) deletes its file, after a message.
+Update puts it into the profile again, and its devices keep it. If you do not click Keep it, a device with an EQ for
+5 minutes uses the change when the EQ for 5 minutes stops. A device with its EQ off to compare uses the change when
+its EQ is on again. If Equalizer APO uses AutoEQ Studio, all other connected devices with Equalizer APO use the change
+immediately.
+The rows Update "name" and "Update a profile" of Use on device put the EQ of a result into a profile that you have.
+Rename… gives the selected profile a different name, and Delete… (the last button) deletes its file, after a message.
 
 Devices: your playback devices, with their Windows names ("Headset (EarPods)"), connected devices first, from A to Z.
 A green dot: active. Your Windows accent color (blue at first): connected. Gray: not connected.

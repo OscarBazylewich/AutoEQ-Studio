@@ -332,6 +332,11 @@ def test_scale_and_copy_in_strips(qapp, monkeypatch, check):
         e[0] == "clip" and f[0] == "fill" and f[1] == e[1] and d == ("draw",)
         for e, f, d in zip(scale[0::3], scale[1::3], scale[2::3]))
     st = np.frombuffer(stage.constBits(), np.uint8, count=stage.bytesPerLine() * H).reshape(H, -1)[:, :W * 3]
+    # (the strips are small: 256 rows at most, so one draw or one look-up keeps the lock for a short time only;
+    # a STRIP_ROWS as large as the picture made one strip and passed the checks below, the verifier, 2026-11-12)
+    check("tracer: the strips have 256 rows at most (STRIP_ROWS, DISTANCE_ROWS), and this picture has 4 strips or more",
+          trace_window.STRIP_ROWS <= 256 and trace_core.DISTANCE_ROWS <= 256 and len(clips) >= 4,
+          (trace_window.STRIP_ROWS, trace_core.DISTANCE_ROWS, len(clips)))
     check("tracer: rgb_of draws the scale in strips of STRIP_ROWS rows at most, each strip made white in its own "
           "draw (no fill of all the picture), all rows once",
           len(clips) == -(-H // trace_window.STRIP_ROWS) and all(r <= trace_window.STRIP_ROWS for _y, r in rows)
@@ -432,3 +437,40 @@ def test_read_that_ends_during_a_load(eq_screen, monkeypatch, check):
     check("tracer: when the load fails, the picture before stays and its read goes in after the load",
           seen[True][1] == ("Gate (Site 1)", "Gate", True, False, True, True)
           and any("cannot open this picture" in s for s in seen[True][2]), seen[True][1:])
+
+
+def test_remove_image_no_during_a_load_takes_the_read(eq_screen, monkeypatch, dialogs, check):
+    """Remove image during a load, over a picture from a website with curves, and the answer No: the load is dropped,
+    the picture stays, and its automatic read that ended during the load goes in. (2026-11-12: in the code, no test
+    held it.)"""
+    from PySide6.QtWidgets import QMessageBox
+    tw = _tracer(eq_screen)
+    tw.remove_image()
+    entry = {"name": "Gate", "tag": "Site 1", "site": "Site", "link": "https://example.invalid/x"}
+    img, _s = sample_image()
+    read_gate, read_ended, load_gate = threading.Event(), threading.Event(), threading.Event()
+    with monkeypatch.context() as m:
+        _held_read(m, read_gate, read_ended)
+        _held_load(m, load_gate)
+        tw.load_image(img.copy(0, 0, 1199, 719), entry=entry)  # (small: at once; its read waits)
+        tw.t.curves[0]["ys"][100:120] = 60.0  # (a curve of the user: Remove image asks first)
+        tw.load_image(_large(), "Large graph")  # (its load waits for load_gate)
+        read_gate.set()
+        qt.wait_for(read_ended.is_set, 60)
+        qt.wait_for(lambda: tw.late_read is not None, 60)
+        during = (tw.loading, tw.read_ok, tw.late_read is not None)
+        dialogs.answer("question", QMessageBox.No)
+        asked = len(dialogs.asked)
+        tw.remove_image()
+        question = [a[1] for a in dialogs.asked[asked:]]
+        load_gate.set()
+        qt.wait_for(lambda: not tw.reading_graph and not getattr(tw, "reading", False), 60)
+        qt.pump(100)
+        after = (tw.loading, tw.t.has_image, tw.t.src_name, tw.entry and tw.entry["name"], tw.read_ok,
+                 tw.late_read is None, tw.pages.currentIndex())
+    tw.remove_image()
+    tw.close()
+    check("tracer: Remove image with No during a load: the load is dropped, the picture from the website stays, and "
+          "its read that ended during the load goes in (3 Save)",
+          during == (True, None, True) and question == ["Remove this picture and its traced curves?"]
+          and after == (False, True, "Gate (Site 1)", "Gate", True, True, 2), (during, question, after))

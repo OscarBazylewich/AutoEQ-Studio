@@ -804,22 +804,26 @@ class EqResult:
     def _on_sentences(self, keys, unused=None, short=False):
         """What the devices that have a profile on (keys) do after its update, a sentence for each group, true for
         each device (the same words in the message and in the row's tooltip, each sentence with "the new EQ", so no
-        "it" can be the EQ or the device): the ones that use it immediately, the ones with an EQ for 5 minutes or
-        their EQ off to compare (APO's file keeps that EQ for them), the ones not connected, and the ones without
-        Equalizer APO (as use_on says). When Equalizer APO doesn't include the app, no device uses it immediately: that
-        comes first, and the others use it "after that" (the ones not connected "after that, when you connect it"). ""
-        with no keys. unused: Equalizer APO does not include the app (None: read config.txt now; a menu reads it one
-        time for all its rows). short: each group as its first MESSAGE_NAMES names and "and N more devices"
-        (first_names), for the message, so 12 devices do not make it long; the tooltip names all of them."""
+        "it" can be the EQ or the device): the ones that use it immediately, the one with an EQ for 5 minutes, the one
+        with its EQ off to compare (APO's file keeps that EQ for them), the ones not connected, and the ones without
+        Equalizer APO (as use_on says). An EQ for 5 minutes and an EQ off to compare are said apart: Keep it makes the
+        EQ for 5 minutes a new profile that is on (switcher.core's end_trial), so that device uses the new EQ only if
+        you do not keep it; off to compare always ends with the profile on again (a device with both is said as the
+        EQ for 5 minutes, which plays under the compare). When Equalizer APO doesn't include the app, no device uses it
+        immediately: that comes first, and the others use it "after that" (the ones not connected "after that, when
+        you connect it"). "" with no keys. unused: Equalizer APO does not include the app (None: read config.txt now;
+        a menu reads it one time for all its rows). short: each group as its first MESSAGE_NAMES names and "and N more
+        devices" (first_names), for the message, so 12 devices do not make it long; the tooltip names all of them."""
         from switcher.core import shown
         if not keys:
             return ""
-        held = {x["key"] for x in (self.sw.trial, self.sw.compare) if x}
-        now, later, away, no_apo = [], [], [], []
+        tried = self.sw.trial["key"] if self.sw.trial else None
+        off = self.sw.compare["key"] if self.sw.compare else None
+        now, trying, comparing, away, no_apo = [], [], [], [], []
         for k in keys:
             d = self.sw.device(k)
-            (later if k in held else away if not (d and d.connected) else no_apo if not d.apo else now).append(
-                shown(self.sw.record(k)))
+            (trying if k == tried else comparing if k == off else away if not (d and d.connected)
+             else no_apo if not d.apo else now).append(shown(self.sw.record(k)))
         out, names = [], (lambda group: first_names(group, MESSAGE_NAMES)) if short else and_list
         if unused is None:
             unused = not self.sw.apo.includes_studio()
@@ -828,11 +832,14 @@ class EqResult:
         if now:
             out.append(f"{names(now)} {'uses' if len(now) == 1 else 'use'} the new EQ "
                        f"{'after that' if unused else 'immediately'}.")
-        if later:
-            one = len(later) == 1
-            out.append(f"{names(later)} {'has' if one else 'have'} an EQ for 5 minutes, or "
-                       f"{'its' if one else 'their'} EQ off to compare. {'It uses' if one else 'They use'} the new EQ "
-                       "after that.")
+        if trying:
+            one = len(trying) == 1
+            out.append(f"{names(trying)} {'has' if one else 'have'} an EQ for 5 minutes. If you do not click Keep it, "
+                       f"{names(trying)} {'uses' if one else 'use'} the new EQ after that.")
+        if comparing:
+            one = len(comparing) == 1
+            out.append(f"{names(comparing)} {'has its' if one else 'have their'} EQ off to compare. "
+                       f"{names(comparing)} {'uses' if one else 'use'} the new EQ after that.")
         if away:
             one = len(away) == 1
             out.append(f"{names(away)} {'uses' if one else 'use'} the new EQ {'after that, ' if unused else ''}"

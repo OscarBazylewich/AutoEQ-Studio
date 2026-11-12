@@ -1649,9 +1649,21 @@ def test_window_in_front_of_the_graph(eq_screen, flow, monkeypatch, check):
           "screen at 100 %, 125 %, 150 % and 175 %",
           all(seen[(s, True)][0] == seen[(s, False)][0] and not seen[(s, True)][1] and seen[(s, True)][3]
               for s in SCALED_ROOMS), {k: v[:2] + v[3:4] for k, v in seen.items()})
-    check("website flow: Help of Paste the picture tells it too, in a paragraph of 6 sentences or fewer",
-          "If the website shows a window in front of the graph, close that window before you copy the picture." in para
-          and len(sentences) <= 6, (len(sentences), para))
+    # (2026-11-12: the instruction was in the paragraph that tells what the app does not do: one subject in each
+    # paragraph, so it is a paragraph of its own)
+    check("website flow: Help of Paste the picture tells it too, in a paragraph of its own",
+          para == "If the website shows a window in front of the graph, close that window before you copy the picture."
+          and len(sentences) == 1, (len(sentences), para))
+    # (2026-11-12: a curve that goes out of the grid near an end of the frequency axis is traced only to a frequency
+    # before that end, trace_auto.out_parts: Help did not tell it. "Starts or stops at that frequency" was not exact
+    # (a curve out at 18.6 kHz gave points to 17.45 kHz): the part is not included, and 3 Save's text gives the values)
+    result = next((p for p in body if isinstance(p, str) and p.startswith("The tracer finds the axes")), "")
+    check("website flow: Help of Paste the picture tells that the measurement does not include the part where a curve "
+          "goes out of the grid, and that 3 Save gives the frequencies, in a paragraph of 6 sentences or fewer",
+          "If a curve goes above or below the grid near an end of the frequency axis, the measurement does not "
+          "include that part. The text on 3 Save gives the frequencies." in result
+          and "starts or stops at that frequency" not in result
+          and all(len([s for s in p.split(". ") if s.strip()]) <= 6 for p in body if isinstance(p, str)), result)
     check("website flow: the tooltip of Paste the picture ends in “F1 opens Help.”, as each tagged control's",
           all(v[4] == "Uses the picture that is on the clipboard at this time (also Ctrl+V).\nF1 opens Help."
               for v in seen.values()), {v[4] for v in seen.values()})
@@ -2635,3 +2647,66 @@ def test_find_in_its_modal_loop(eq_screen, monkeypatch, check):
     QApplication.clipboard().clear()
     check("website flow: Find… in its modal loop: Use on a website entry, a picture: Find… closes and the tracer has "
           "the entry and its read", ok, (came, seen, tw and tw.entry))
+
+
+def test_same_row_after_an_entry_with_an_other_row_before(eq_screen, flow, monkeypatch, check):
+    """A picture of the user with an other row of "The graph shows", then a picture from a website: the entry sets
+    row 0. The user selects row 0 again: no change of the user (the value before is row 0, not the row of the picture
+    before). (2026-11-12, the verifier's test: no test had a different row before an entry, so comp_value after the
+    entry's row 0 was not held.)"""
+    page = flow["page"]
+    page.open_trace()
+    tw = page.tracer
+    tw.load_image(_graph().copy(0, 0, 900, 600), "Mine")
+    qt.wait_for(lambda: not tw.reading and not tw.loading, 60)
+    inputs = dict(getattr(page, "inputs", None) or {})
+    monkeypatch.setattr(page, "inputs", dict(inputs, targets=list(inputs.get("targets", [])) + ["Stand-in.txt"]))
+    tw.fill_comp()
+    i = tw.comp.findData("Stand-in.txt")
+    tw.comp.setCurrentIndex(i)
+    tw.comp.activated.emit(i)
+    other = tw.comp.currentData()
+    _no_curve(tw)
+    tw.remove_image()
+    flow["pk"].show()
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    first = tw.comp.currentIndex()
+    _again(tw, "comp")
+    seen = (came, other != tw.comp.currentData(), first, tw.users_work())
+    check("website flow: after a picture with an other row of The graph shows, the entry's row 0 selected again is "
+          "no change of the user", seen == (True, True, 0, False), seen)
+
+
+def test_short_site_has_no_tooltip(eq_screen, flow, check):
+    # (2026-11-12: only a cut site was tested; the intro of a site that shows whole, or of no site, has no tooltip)
+    from ui.picture_wait import PictureWait
+    seen = {}
+    for key, site in (("a short site", SITE), ("no site", "")):
+        wait = PictureWait(flow["pk"], {"name": ENTRY, "site": site})
+        wait.open()
+        qt.pump(50)
+        seen[key] = (wait.intro.text(), wait.intro.toolTip())
+        wait.reject()
+        wait.deleteLater()
+    check("website flow: the intro of the wait window shows a short site whole, in quotation marks, with no tooltip; "
+          "with no site it says “its website”, with no tooltip",
+          seen == {"a short site": (f"Your browser shows this entry on “{SITE}”. Give the app a picture of its graph:",
+                                    ""),
+                   "no site": ("Your browser shows this entry on its website. Give the app a picture of its graph:",
+                               "")}, seen)
+
+
+def test_note_of_an_entry_with_no_site(eq_screen, flow, check):
+    # (2026-11-12: only entries with a site were tested; with no site, the note said: … of “name” from “”.)
+    page = flow["page"]
+    entry = page.svc.call("/api/db/entry", {"id": flow["row"]["id"]})["entry"]
+    entry = {k: v for k, v in entry.items() if k != "site"}
+    page.open_trace()
+    tw = page.tracer
+    tw.load_image(_graph().copy(0, 0, 1199, 719), entry=entry)
+    qt.wait_for(lambda: not tw.loading and not tw.reading_graph and tw.read_ok is not None, 20)
+    note = tw.save_note.text()
+    tw.remove_image()
+    # (only the start of the note: more words can come before "Compare the curve")
+    check("website flow: 3 Save's note for an entry with no site names the entry only, with no “from”",
+          note.startswith(f"The app traced the graph of “{ENTRY}”. ") and " from “" not in note, note[:80])

@@ -77,8 +77,11 @@ class F1Anywhere(QObject):
     """F1 in each window of the app, also one that blocks the others (Find…, Which measurement, Sources, History, the
     wait for a picture): the main window's help_here. The main window's F1 is an application shortcut, which Qt does
     not give while a window blocks it (F1 did nothing in Find…: the review, 2026-11-11). So a window that blocks the
-    others gets a shortcut F1 of its own when the focus goes into it: Python runs only on a change of the focus, not
-    on each event (an application event filter made each paint, timer and mouse event slower, 2026-11-12). A control
+    others gets a shortcut F1 of its own when it becomes the window with the focus (focusWindowChanged): Python runs
+    only then, not on each event (an application event filter made each paint, timer and mouse event slower,
+    2026-11-12). focusWindowChanged alone is enough (measured 2026-11-12: a window that blocks and has no control
+    that takes the focus, a second one over the first, the first again after the second closes); focusChanged, also
+    connected until then, added nothing but calls on each move of the focus in a window that has its F1. A control
     that takes F1 itself (the hotkey box of Settings) still gets it, and every other key goes on to its control.
     Two of these shortcuts that Qt gives at the same time (a menu or a drop-down's list is open: Qt then gives each
     one; Help open again as a window of its own; a window that blocks only a window of its own) are one F1:
@@ -90,9 +93,7 @@ class F1Anywhere(QObject):
         super().__init__(window)
         self.main = window
         self._shortcut(window)
-        app = QApplication.instance()
-        app.focusChanged.connect(self.put)
-        app.focusWindowChanged.connect(self.put)
+        QApplication.instance().focusWindowChanged.connect(self.put)
 
     def _shortcut(self, owner):
         s = QShortcut(QKeySequence(Qt.Key_F1), owner, context=Qt.ApplicationShortcut)

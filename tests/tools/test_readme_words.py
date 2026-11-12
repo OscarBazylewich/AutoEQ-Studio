@@ -58,5 +58,30 @@ def test_readme_words_of_update_and_the_filters(check):
           "the On tick box of the table disables a filter" in text and "turns a filter off" not in text
           and "(a maximum of 3 names for each group, and the number of other devices)" in text
           and "If Equalizer APO uses AutoEQ Studio, all other connected devices with Equalizer APO use the change "
-          "immediately." in text and "A device with an EQ for 5 minutes, or with its EQ off to compare, uses the "
-          "change after that, unless you click Keep it." in text, text[:0])
+          "immediately." in text and "If you do not click Keep it, a device with an EQ for 5 minutes uses the change "
+          "when the EQ for 5 minutes stops. A device with its EQ off to compare uses the change when its EQ is on "
+          "again." in text
+          # (2026-11-12: Keep it makes the EQ for 5 minutes a new profile, so "unless you click Keep it" was said of
+          # the compare too. Then "after the 5 minutes" was not exact: Do not keep it stops it before that time, and
+          # the condition comes first)
+          and "or with its EQ off to compare, uses the change after that" not in text
+          and "uses the change after the 5 minutes" not in text, text[:0])
+
+
+def test_readme_words_of_a_graph_from_a_website(check):
+    # (2026-11-12: a window of the website in front of the graph (at the first visit) gave a picture with no graph,
+    # and a curve that goes out of the grid near an end of the frequency axis is traced only to a frequency before
+    # that end: the measurement does not include that part, and 3 Save's text gives the values)
+    with open(os.path.join(paths.PROJECT, "README.txt"), encoding="utf-8") as fh:
+        raw = fh.read()
+    text = " ".join(raw.split())
+    check("readme: step 1 of a graph from a website closes a window in front of the graph first, and step 2 tells "
+          "that the measurement does not include the part out of the grid",
+          "1. If the website shows a window in front of the graph, close that window. Press Windows + Shift + S. Then "
+          "select the area of the graph. Or click Screenshot on the website." in text
+          and "If a curve goes above or below the grid near an end of the frequency axis, the measurement does not "
+          "include that part. The text on 3 Save gives the frequencies." in text
+          and "starts or stops at that frequency" not in text, text[:0])
+    check("readme: each line of README.txt has 120 characters or fewer, with LF line ends",
+          "\r" not in raw and all(len(line) <= 120 for line in raw.split("\n")),
+          [line for line in raw.split("\n") if len(line) > 120])

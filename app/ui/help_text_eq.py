@@ -659,8 +659,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'title': 'Paste the picture (a picture from the website)',
                            'body': ['Hangout.Audio does not let other programs download its files, and the app obeys '
                                     'that limit. The app has no browser in it and does not get the data of the '
-                                    'website. Your browser shows the graph, and the app reads only a picture of it. If '
-                                    'the website shows a window in front of the graph, close that window before you '
+                                    'website. Your browser shows the graph, and the app reads only a picture of it.',
+                                    'If the website shows a window in front of the graph, close that window before you '
                                     'copy the picture.',
                                     'While the app waits, it looks at the clipboard and at the names of the picture '
                                     'files in your Downloads folder. It uses only a picture that is new after it '
@@ -668,9 +668,12 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'picture that is on the clipboard at this time. The app waits for a maximum of 10 '
                                     'minutes, or until you click Cancel.',
                                     'The tracer finds the axes and the curve automatically and opens on 3 Save. The '
-                                    'result is one measurement: the average of the left and right curves. Compare the '
-                                    'traced curve with the picture before you add it. A small picture, or a second '
-                                    'curve in almost the same color, can cause errors. If the app cannot trace the '
+                                    'result is one measurement: the average of the left and right curves. If a curve '
+                                    'goes above or below the grid near an end of the frequency axis, the measurement '
+                                    'does not include that part. The text on 3 Save gives the frequencies. Compare '
+                                    'the traced curve with the picture before you add it.',
+                                    'A small picture, or a second curve in almost the same color, can cause errors. '
+                                    'If the app cannot trace the '
                                     'picture automatically, the tracer opens on the tab where your input is '
                                     'necessary. A message gives the cause.',
                                     'The measurement gets the name of the entry and the rig of its database. For an '

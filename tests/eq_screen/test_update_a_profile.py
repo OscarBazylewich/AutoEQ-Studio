@@ -280,8 +280,8 @@ def test_a_device_trying_an_eq_keeps_it(eq_screen, result, tmp_path, check):
           "running (APO's file still has _trying.txt); the message says that device uses the new EQ after that, not "
           "immediately",
           trial == KEY and "_trying.txt" in sw_text
-          and "Headset (EarPods) has an EQ for 5 minutes, or its EQ off to compare. It uses the new EQ after that."
-          in said[-1] and "immediately" not in said[-1], (trial, said[-1]))
+          and "Headset (EarPods) has an EQ for 5 minutes. If you do not click Keep it, Headset (EarPods) uses the "
+          "new EQ after that." in said[-1] and "immediately" not in said[-1], (trial, said[-1]))
 
 
 def test_a_device_with_its_eq_off_to_compare_keeps_it(eq_screen, result, tmp_path, check):
@@ -297,8 +297,8 @@ def test_a_device_with_its_eq_off_to_compare_keeps_it(eq_screen, result, tmp_pat
     check("update a profile: updating the profile of a device with its EQ off to compare leaves it off; the message "
           "says that device uses the new EQ after that, not immediately",
           off and off[0] == "off" and compare == KEY
-          and "Headset (EarPods) has an EQ for 5 minutes, or its EQ off to compare. It uses the new EQ after that."
-          in said[-1] and "immediately" not in said[-1], (off, compare, said[-1]))
+          and "Headset (EarPods) has its EQ off to compare. Headset (EarPods) uses the new EQ after that." in said[-1]
+          and "5 minutes" not in said[-1] and "immediately" not in said[-1], (off, compare, said[-1]))
 
 
 def test_apo_without_the_app_is_said(eq_screen, result, tmp_path, check, monkeypatch):
@@ -361,8 +361,7 @@ def test_apo_without_the_app_and_devices_not_used_now(eq_screen, result, tmp_pat
     line = "The EQ of the profile at this time: 1 filter, pre-amp -3 dB."
     away = D.Endpoint("{6}", "Speakers", "Realtek", D.UNPLUGGED, True)
     held = _without_the_app(eq_screen, tmp_path, monkeypatch, {KEY: "on"}, compare=KEY)
-    words = (f"{apo} Headset (EarPods) has an EQ for 5 minutes, or its EQ off to compare. It uses the new EQ after "
-             "that.")
+    words = f"{apo} Headset (EarPods) has its EQ off to compare. Headset (EarPods) uses the new EQ after that."
     check("update a profile: Equalizer APO without the app and a device with its EQ off to compare only: the APO "
           "sentence first, then the held sentence, in the message and the tooltip",
           held == (f"The app updated “Daily”. {words}", f"The profile changes to this EQ. {words} {line}", "off"), held)
@@ -622,10 +621,14 @@ def test_two_held_devices_are_said_in_the_plural(eq_screen, result, tmp_path, ch
             sw.compare_end()
     finally:
         _apart(sw, monkeypatch)
-    words = ("Headset (EarPods) and Speakers (Realtek) have an EQ for 5 minutes, or their EQ off to compare. They use "
-             "the new EQ after that.")
+    # (2026-11-12: the two were one sentence, "have an EQ for 5 minutes, or their EQ off to compare. They use the new
+    # EQ after that": untrue after Keep it, which makes the EQ for 5 minutes a new profile. Now a sentence for each)
+    words = ("Headset (EarPods) has an EQ for 5 minutes. If you do not click Keep it, Headset (EarPods) uses the new "
+             "EQ after that. Speakers (Realtek) has its EQ off to compare. Speakers (Realtek) uses the new EQ after "
+             "that.")
     check("update a profile: a device with an EQ for 5 minutes and a second with its EQ off to compare: the message "
-          "and the tooltip say “have … their … They use” (the plural), and nothing “immediately”",
+          "and the tooltip give a sentence for each (Keep it only with the EQ for 5 minutes), and nothing "
+          "“immediately”",
           off and off[0] == "off" and held == (KEY, KEY2) and message == f"The app updated “Daily”. {words}"
           and f"The profile changes to this EQ. {words} The EQ of the profile" in tip
           and "immediately" not in message + tip, (held, message, tip))
@@ -667,8 +670,8 @@ def test_the_groups_are_said_in_their_sequence(eq_screen, result, tmp_path, chec
             sw.compare_end()
     finally:
         _apart(sw, monkeypatch)
-    words = ("Monitor (Dell) uses the new EQ immediately. Headset (EarPods) has an EQ for 5 minutes, or its EQ off to "
-             "compare. It uses the new EQ after that. Speakers (Realtek) uses the new EQ when you connect it. Equalizer "
+    words = ("Monitor (Dell) uses the new EQ immediately. Headset (EarPods) has its EQ off to compare. Headset "
+             "(EarPods) uses the new EQ after that. Speakers (Realtek) uses the new EQ when you connect it. Equalizer "
              "APO is not installed on TV (NVIDIA) (refer to Devices).")
     check("update a profile: the message and the tooltip give the groups in this sequence: immediately, an EQ for 5 "
           "minutes or off to compare, not connected, no Equalizer APO (the held sentence in the tooltip too)",
@@ -891,3 +894,161 @@ def test_long_device_names_are_cut_in_their_rows(eq_screen, result, tmp_path, ch
           and "R&&D" in rows[1].text() and "R&&D" in trial[1].text(), (tips, [a.text() for a in rows + trial]))
     check("use on device: a short device name stays whole",
           short == ["Headset (EarPods)\tactive"], short)
+
+
+def _uses(sw, key):
+    """What APO's file of the app gives this device now: the file name in its section (None: no EQ), and its bytes."""
+    with open(os.path.join(sw.apo.own, "switcher.txt"), encoding="utf-8") as fh:
+        text = fh.read()
+    path = sw.eq_file(key)
+    name = os.path.basename(path) if path else None
+    return (name if name and name in text else None), (_bytes(path) if path else b"")
+
+
+@pytest.mark.parametrize("keep", [True, False], ids=["Keep it", "Do not keep it"])
+def test_the_message_is_true_after_keep_it(eq_screen, result, tmp_path, check, keep):
+    # (2026-11-12: the message said "has an EQ for 5 minutes, or its EQ off to compare. It uses the new EQ after that"
+    # for both states; after Keep it, the EQ for 5 minutes becomes a new profile that is on, and the device does not
+    # use the new EQ. The app's real switcher and its APO file on the tests' stand-in device)
+    page, sw, said = eq_screen.page, eq_screen.sw, eq_screen.said
+    ids = _profiles(sw, str(tmp_path), ("Daily", {KEY: "on"}))
+    tried = "Preamp: -1 dB\r\nFilter 1: ON PK Fc 250 Hz Gain -2 dB Q 2\r\n"
+    try:
+        page.start_trial(KEY)
+        sw.trial_update(tried)  # (the EQ for 5 minutes differs from the result that goes into the profile)
+        page._fill_use_menu()
+        _row(page.use_menu, "Update “Daily”").trigger()
+        message = said[-1]
+        new = _bytes(_file(sw, ids["Daily"]))
+    finally:
+        kept = sw.end_trial(keep=keep)
+    file, now = _uses(sw, KEY)
+    active = sw.record(KEY)["active"]
+    if keep:
+        check("update a profile: Keep it after the update: the device uses the EQ for 5 minutes as a new profile, not "
+              "the new EQ; the message says the condition (“If you do not click Keep it”) and not that it always uses "
+              "the new EQ",
+              kept and active == kept != ids["Daily"] and now == tried.encode("utf-8") and now != new
+              and file == sw.profiles()[kept]["file"]
+              and "Headset (EarPods) has an EQ for 5 minutes. If you do not click Keep it, Headset (EarPods) uses the "
+              "new EQ after that." in message and "or its EQ off to compare" not in message,
+              (kept, active, file, now[:80], message))
+    else:
+        check("update a profile: no Keep it after the update: the device uses the new EQ of the profile, as the "
+              "message says",
+              kept is None and active == ids["Daily"] and now == new and file == sw.profiles()[ids["Daily"]]["file"]
+              and "If you do not click Keep it, Headset (EarPods) uses the new EQ after that." in message,
+              (kept, active, file, message))
+
+
+def test_the_message_is_true_after_the_compare(eq_screen, result, tmp_path, check):
+    # (2026-11-12: with its EQ off to compare, the device uses the new EQ when its EQ is on again: no Keep it there)
+    page, sw, said = eq_screen.page, eq_screen.sw, eq_screen.said
+    ids = _profiles(sw, str(tmp_path), ("Daily", {KEY: "on"}))
+    try:
+        off = sw.compare_toggle(KEY)
+        page._fill_use_menu()
+        _row(page.use_menu, "Update “Daily”").trigger()
+        message = said[-1]
+        during = _uses(sw, KEY)[0]
+        on = sw.compare_toggle(KEY)
+    finally:
+        sw.compare_end()
+    file, now = _uses(sw, KEY)
+    check("update a profile: EQ off to compare, then on again: the device uses the new EQ of the profile, as the "
+          "message says (no Keep it in its words)",
+          off[0] == "off" and on[0] == "on" and during != "Daily.txt" and file == "Daily.txt"
+          and now == _bytes(_file(sw, ids["Daily"]))
+          and "Headset (EarPods) has its EQ off to compare. Headset (EarPods) uses the new EQ after that." in message
+          and "Keep it" not in message, (off, on, during, file, message))
+
+
+@pytest.mark.parametrize("keep", [True, False], ids=["Keep it", "Do not keep it"])
+def test_a_device_with_an_eq_for_5_minutes_and_its_eq_off_to_compare(eq_screen, result, tmp_path, check, keep):
+    # (2026-11-12, from the verification: the on/off hotkey while the EQ for 5 minutes plays gives one device both
+    # states. The message says it as the EQ for 5 minutes, which plays again when the compare ends; Keep it then
+    # keeps that EQ, and Do not keep it gives the new EQ of the profile)
+    page, sw, said = eq_screen.page, eq_screen.sw, eq_screen.said
+    ids = _profiles(sw, str(tmp_path), ("Daily", {KEY: "on"}))
+    tried = "Preamp: -1 dB\r\nFilter 1: ON PK Fc 250 Hz Gain -2 dB Q 2\r\n"
+    kept = None
+    try:
+        page.start_trial(KEY)
+        sw.trial_update(tried)
+        off = sw.compare_toggle(KEY)
+        both = (sw.trial and sw.trial["key"], sw.compare and sw.compare["key"])
+        page._fill_use_menu()
+        row = _row(page.use_menu, "Update “Daily”")
+        tip = row.toolTip()
+        row.trigger()
+        message = said[-1]
+        on = sw.compare_toggle(KEY)
+        between = _uses(sw, KEY)[0]
+        kept = sw.end_trial(keep=keep)
+    finally:
+        sw.compare_end()
+        if sw.trial:
+            sw.end_trial()
+    file, now = _uses(sw, KEY)
+    new = _bytes(_file(sw, ids["Daily"]))
+    words = ("Headset (EarPods) has an EQ for 5 minutes. If you do not click Keep it, Headset (EarPods) uses the new "
+             "EQ after that." in message and "off to compare" not in message
+             and "If you do not click Keep it" in tip and "off to compare" not in tip)
+    if keep:
+        uses = kept and now == tried.encode("utf-8") and now != new
+    else:
+        uses = kept is None and file == "Daily.txt" and now == new
+    check("update a profile: a device with an EQ for 5 minutes and its EQ off to compare at the same time: the message "
+          "and the tooltip say the EQ for 5 minutes only, the EQ for 5 minutes plays again after the compare, and the "
+          "device then uses what the message says (the EQ for 5 minutes after Keep it, else the new EQ)",
+          uses and words and off[0] == "off" and on[0] == "on" and both == (KEY, KEY) and between == "_trying.txt",
+          (both, message, tip, between, file, kept))
+
+
+def test_picture_of_the_longest_message(eq_screen, result, tmp_path, check, monkeypatch):
+    """The longest form of the held words (an EQ for 5 minutes on one device, the EQ off to compare on a second) in
+    the main window's message bubble (bubble.Messages), light and dark: the words show fully, in the window."""
+    from PySide6.QtWidgets import QMainWindow
+
+    from helpers import qt
+    from ui import bubble, winsys
+    page, sw, said = eq_screen.page, eq_screen.sw, eq_screen.said
+    _two_devices(sw, monkeypatch)
+    try:
+        _profiles(sw, str(tmp_path), ("Daily", {KEY: "on", KEY2: "on"}))
+        try:
+            page.start_trial(KEY)
+            sw.compare_toggle(KEY2)
+            page._fill_use_menu()
+            _row(page.use_menu, "Update “Daily”").trigger()
+            message = said[-1]
+        finally:
+            sw.end_trial()
+            sw.compare_end()
+    finally:
+        _apart(sw, monkeypatch)
+    host = QMainWindow()
+    host.resize(1100, 760)
+    host.show()
+    seen = []
+    try:
+        monkeypatch.setattr(winsys, "idle_ms", lambda: 10 ** 9)  # (no recent use: the bubble at the window's bottom)
+        messages = bubble.Messages(host)
+        for name, theme_on in (("light", qt.light), ("dark", qt.dark)):
+            theme_on(eq_screen.qapp)
+            messages.say(message, undo=lambda: None)
+            qt.pump(100)
+            b, label = messages.bubble, messages.text
+            path = str(tmp_path / f"update-message-two-groups-{name}.png")
+            host.grab().save(path)
+            seen.append((name, label.text() == message, label.heightForWidth(label.width()) <= label.height(),
+                         host.rect().contains(b.geometry()), b.undo_btn.isVisible(), path))
+    finally:
+        qt.light(eq_screen.qapp)
+        host.close()
+        host.deleteLater()
+        qt.pump(50)
+    check("update a profile: the longest message (two held groups) shows fully in its bubble in light and dark: all "
+          "words, no cut line, in the window, with Undo",
+          message.count("Headset (EarPods)") == 2 and message.count("Speakers (Realtek)") == 2
+          and all(s[1:5] == (True, True, True, True) for s in seen) and len(seen) == 2, (message, seen))
