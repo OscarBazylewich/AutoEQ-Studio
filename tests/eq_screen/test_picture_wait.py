@@ -250,14 +250,15 @@ def test_paste_takes_old_picture(eq_screen, flow, check):
     _copy(_graph())
     wait, _o = _use(flow)
     btn = wait.paste_btn
-    main = (btn.isDefault(), btn.property("help_key"), btn.text(), "F1" not in btn.toolTip())
+    main = (btn.isDefault(), btn.property("help_key"), btn.text(), btn.toolTip().endswith("\nF1 opens Help."))
     btn.click()
     came = _picture_came(page)
     check("website flow: Paste the picture takes the picture that was there before", came and _closed(wait)
           and page.tracer.entry["name"] == ENTRY, came)
+    # (2026-11-12: its tooltip names F1, as each tagged control's: F1 opens Help in a window that stops the other
+    # windows, fix/older-b)
     check("website flow: Paste the picture is the main button (the accent, Enter's) and has its help (its tooltip "
-          "does not name F1: F1 does nothing in this window)", main == (True, "#pw-paste", "Paste the picture", True),
-          main)
+          "ends in “F1 opens Help.”)", main == (True, "#pw-paste", "Paste the picture", True), main)
 
 
 def test_paste_with_nothing(eq_screen, flow, check):
