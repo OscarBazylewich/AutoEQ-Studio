@@ -1652,6 +1652,78 @@ def test_long_site_name(eq_screen, flow, monkeypatch, tmp_path, check):
           and "…”" in tray, tray[:200])
 
 
+class _Entry:
+    """A stand-in for os.DirEntry: a file, or a symbolic link to a picture file outside the folder (as is_file and
+    stat answer for it: True and the target's values when they follow the link, else False and the link's own)."""
+
+    def __init__(self, folder, name, link_to=None):
+        self.name, self.path, self.link_to = name, os.path.join(folder, name), link_to
+
+    def is_symlink(self):
+        return self.link_to is not None
+
+    def is_file(self, follow_symlinks=True):
+        return os.path.isfile(self.link_to) if self.link_to and follow_symlinks else self.link_to is None
+
+    def stat(self, follow_symlinks=True):
+        return os.stat(self.link_to if self.link_to and follow_symlinks else self.path if not self.link_to
+                       else os.path.dirname(self.path))
+
+
+def test_folder_look_does_not_follow_a_link(tmp_path, monkeypatch, check):
+    """A symbolic link with a picture's name in the Downloads folder is not a file of the folder: the look lists it
+    not, so the wait never reads the file outside the folder (the window says that it only reads the files of this
+    folder). This PC cannot make a link without a privilege: a stand-in for the directory entries, and a real link
+    when Windows lets the test make one."""
+    from ui import picture_wait
+    folder, outside = tmp_path / "Downloads", tmp_path / "outside"
+    folder.mkdir()
+    outside.mkdir()
+    secret = outside / "secret.png"
+    _plain(400, 300).save(str(secret))
+    _plain(400, 300).save(str(folder / "graph.png"))
+
+    class _Scan:
+        def __init__(self, entries):
+            self.entries = entries
+
+        def __enter__(self):
+            return iter(self.entries)
+
+        def __exit__(self, *a):
+            return False
+    entries = [_Entry(str(folder), "graph.png"), _Entry(str(folder), "link.png", link_to=str(secret))]
+    with monkeypatch.context() as m:
+        m.setattr(picture_wait.os, "scandir", lambda _f: _Scan(entries))
+        listed = picture_wait.folder_pictures(str(folder))
+        old = {}
+        pending, tries = {}, {}
+        first = picture_wait.new_picture(str(folder), old, pending, tries)
+        second = picture_wait.new_picture(str(folder), old, pending, tries)
+    check("website flow: the look at the folder lists a picture file and not a symbolic link with a picture's name "
+          "(a stand-in for the directory entries)", listed is not None and sorted(listed) == ["graph.png"], listed)
+    check("website flow: a new symbolic link never ends the wait (two looks: only the folder's own file is read)",
+          first[0] is None and second[0] is not None and "link.png" not in pending, (first, second, pending))
+
+
+def test_folder_look_with_a_real_link(tmp_path, check):
+    """The same with a real symbolic link, when Windows lets the test make one (it needs a privilege or the
+    developer mode: test_folder_look_does_not_follow_a_link is the test with no privilege)."""
+    from ui import picture_wait
+    folder, outside = tmp_path / "Downloads", tmp_path / "outside"
+    folder.mkdir()
+    outside.mkdir()
+    secret = outside / "secret.png"
+    _plain(400, 300).save(str(secret))
+    real = folder / "real-link.png"
+    try:
+        os.symlink(str(secret), str(real))
+    except (OSError, NotImplementedError) as e:
+        pytest.skip(f"Windows does not let this test make a symbolic link ({e}); the stand-in test holds the rule")
+    listed = picture_wait.folder_pictures(str(folder))
+    check("website flow: a real symbolic link with a picture's name is not listed", listed == {}, listed)
+
+
 def test_page_paste_of_a_picture_file(eq_screen, flow, monkeypatch, tmp_path, check):
     """The Make an EQ page's paste: a picture file copied in File Explorer after a poor read keeps the entry; a picture
     after a read that was OK gets none."""

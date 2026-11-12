@@ -123,7 +123,9 @@ def downloads_folder():
 
 def folder_pictures(folder):
     """{name: (st_mtime_ns, st_size)} of the picture files in the folder; None with no folder, a folder that is not
-    there or an error of the look (not known: not "no files", which would make each old file new). Read only."""
+    there or an error of the look (not known: not "no files", which would make each old file new). Read only. A
+    symbolic link is not a file of the folder (follow_symlinks=False: a link with a picture's name let the wait read
+    a file outside the folder, and the window says that it only reads the files of this folder, 2026-11-11)."""
     from ui.trace_window import IMAGE_SUFFIXES
     if not folder:
         return None
@@ -131,8 +133,8 @@ def folder_pictures(folder):
     try:
         with os.scandir(folder) as found:
             for e in found:
-                if e.name.lower().endswith(IMAGE_SUFFIXES) and e.is_file():
-                    st = e.stat()
+                if e.name.lower().endswith(IMAGE_SUFFIXES) and e.is_file(follow_symlinks=False):
+                    st = e.stat(follow_symlinks=False)
                     out[e.name] = (st.st_mtime_ns, st.st_size)
     except OSError:
         return None
