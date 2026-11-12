@@ -657,8 +657,9 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'curve in almost the same color, can cause errors. If the app cannot trace the '
                                     'picture automatically, the tracer opens on the tab where your input is '
                                     'necessary. A message gives the cause.',
-                                    'The measurement gets the name of the entry and the rig of its database. If you '
-                                    'opened the entry from Find a target, 3 Save tells you to click Add as target. If '
+                                    'The measurement gets the name of the entry and the rig of its database. For an '
+                                    'entry from Find a target, Add as target is the first button of 3 Save, and 3 Save '
+                                    'tells you to click it. If '
                                     'the picture is not a graph, copy a new picture of the graph. Then '
                                     'paste it in the tracer. The tracer keeps the name and the rig of the entry. If '
                                     'you paste the same picture again before you add a curve from it, the tracer keeps '

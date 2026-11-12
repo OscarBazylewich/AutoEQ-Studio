@@ -97,7 +97,8 @@ def trace_steps(tw):
          "before": tab(2),
          "text": "Add as measurement adds the curves to the app and uses them. Add as target saves the selected curve. "
                  "Save .txt… makes a file for other apps. If the app found a target line in a picture from a website, "
-                 "Add the target line as target… adds that line as a target.",
+                 "Add the target line as target… adds that line as a target. For an entry from Find a target, Add as "
+                 "target is the first button.",
          "demo": [{"click": lambda: tw.save_meas, "say": "It adds the curves to the app and uses them"},
                   {"at": lambda: tw.save_tgt, "say": "Or as a target"},
                   {"at": lambda: tw.download_btn, "say": "A .txt file for other apps"}]},

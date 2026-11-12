@@ -28,7 +28,8 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   Remove image and a new picture clear it. The same picture again (picture_mark: Ctrl+V after the screen copy, or the
   key two times or held, also after a close) while the tracer has its entry, nothing was added from it, and its read
   runs or ended (OK or not: the user's changes stay) changes nothing (the status line says so). With Find… for a
-  target ("Targets and measurements"), the entry has "as": "target" and 3 Save's note says Add as target (the mark is
+  target ("Targets and measurements"), the entry has "as": "target", 3 Save's note says Add as target, and Add as
+  target is the first button of 3 Save's row, in the accent, until the picture changes (show_save_row; the mark is
   not in the source record). unadded_curves(): the curves that the user traced or changed and did not add (a new
   picture from a website stops for them; the automatic read's own curves do not count, but a curve of it is the user's
   work after a typed axis value or a moved line); changed_axes(): no curve, but axes that the user changed (it stops
@@ -50,7 +51,7 @@ from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox, QFileDialog, QFrame, QGridLayout,
                                QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSlider,
-                               QStackedWidget, QToolButton, QVBoxLayout, QWidget)
+                               QStackedWidget, QStyle, QStyleOptionFrame, QToolButton, QVBoxLayout, QWidget)
 
 import textfile
 from ui import help_window, icons, tasks, theme
@@ -67,7 +68,10 @@ TOOLS = [("trace", "Click curve", "Click a curve to follow it (T)"),
          ("erase", "Erase", "Drag a box around the traced line to remove it (E)"),
          ("pan", "Move", "Drag to move the picture, or hold Space, or drag with the right mouse button (H)")]
 TOOL_SYMBOLS = {"trace": "trace", "draw": "pen", "erase": "erase", "pan": "move"}  # (icons.GLYPHS' names)
-SIDE = 500  # (the settings' width: room for 10.5 pt text, "the actual response (not compensated)" whole, symbols)
+# (the settings' width: room for 10.5 pt text, "the actual response (not compensated)" whole, symbols; 528, not 500:
+# 3 Save's row "Save from (Hz)" with two boxes as wide as "20000" and two "your value ↺" tags needs 513 px, also
+# with the side's scroll bar, 2026-11-11)
+SIDE = 528
 RADIUS = 8  # (the picture's card: a card's corners, as theme_sheet's)
 HINTS = {"trace": "Click a curve to follow it.", "draw": "Drag along the curve to make a line manually.",
          "erase": "Drag a box around a part of the traced line to remove it.", "pan": "Drag to move the picture."}
@@ -164,6 +168,25 @@ class _Elided(QLabel):
 
     def _fit(self):
         QLabel.setText(self, self.fontMetrics().elidedText(self.whole, Qt.ElideMiddle, max(0, self.width() - 2)))
+
+
+class _RangeBox(QLineEdit):
+    """A box of "Save from (Hz)": never narrower than its widest value, "20000", needs (at the smallest size of the
+    window the side's scroll bar took its room, and the "to" box cut the first pixels of "20000", 2026-11-11). The
+    width is the style's for that text, as QLineEdit's own size hint works it out."""
+    WIDEST = "20000"
+
+    def minimumSizeHint(self):
+        s = super().minimumSizeHint()
+        self.ensurePolished()
+        opt = QStyleOptionFrame()
+        self.initStyleOption(opt)
+        tm, cm = self.textMargins(), self.contentsMargins()
+        # (the text, 1 px for the cursor, QLineEdit's 2 px at each side, the text and contents margins)
+        w = (self.fontMetrics().horizontalAdvance(self.WIDEST) + 1 + 4 + tm.left() + tm.right() + cm.left()
+             + cm.right())
+        need = self.style().sizeFromContents(QStyle.CT_LineEdit, opt, QSize(w, s.height()), self).width()
+        return QSize(max(s.width(), need), s.height())
 
 
 def _dot(colour, size=16):
@@ -1059,7 +1082,8 @@ class TraceWindow(QWidget):
         g.addWidget(self.comp, 2, 1, 1, 3)
         g.addWidget(_label("Save from (Hz)", wrap=False), 3, 0)
         rng = QHBoxLayout()
-        self.fmin, self.fmax = QLineEdit(), QLineEdit()
+        rng.setSpacing(4)  # (not 6: two boxes as wide as "20000" and their tags fit the side with its scroll bar)
+        self.fmin, self.fmax = _RangeBox(), _RangeBox()
         for key, b in (("fmin", self.fmin), ("fmax", self.fmax)):
             b.setMaximumWidth(80)
             b.setToolTip(help_of("#tr-fmin") + f"\nPermitted: {self.limits.text('trace.save')}.")
@@ -1087,6 +1111,7 @@ class TraceWindow(QWidget):
         for b in (self.save_meas, self.save_tgt, self.download_btn):
             btns.addWidget(b)
         btns.addStretch(1)
+        self.save_btns = btns  # (show_save_row puts the main action first)
         g.addLayout(btns, 4, 0, 1, 4)
         # (the target line that the automatic read found in a picture from a website: a row of its own under the
         # buttons, shown only with such a line)
@@ -1194,6 +1219,17 @@ class TraceWindow(QWidget):
         for k in ("d1", "d2"):
             self.boxes[k].setPlaceholderText("type it" if img else "")
         self.stage.update()
+
+    def show_save_row(self):
+        """3 Save's row of buttons with the main action of the picture first, in the accent (UI-RULES 8): Add as
+        target for an entry from Find a target ("as": "target"), else Add as measurement. (3 Save's note told the user
+        to click Add as target while Add as measurement was the accent button, 2026-11-11.)"""
+        as_target = bool(self.entry and self.entry.get("as") == "target")
+        main, other = (self.save_tgt, self.save_meas) if as_target else (self.save_meas, self.save_tgt)
+        theme.mark(main, primary=True)
+        theme.mark(other, primary=False)
+        self.save_btns.insertWidget(0, main)
+        self.save_btns.insertWidget(1, other)
 
     def render_curves(self):
         lay, t = self.curves_lay, self.t
@@ -1384,6 +1420,7 @@ class TraceWindow(QWidget):
         self.picture_mark = mark
         self.sample_open = False  # (a picture of yours: the Guide's sample, set again by the Guide, isn't on any more)
         self.entry = clean_entry_of(entry)  # (its words on one line: they go into the file's first line)
+        self.show_save_row()
         self.added = False
         self.read_ok = None
         self.auto_note = ""
@@ -1549,6 +1586,7 @@ class TraceWindow(QWidget):
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
             return
         self.entry, self.added, self.read_ok, self.auto_note = None, False, None, ""
+        self.show_save_row()
         self.picture_mark = None
         self.was_closed = self.renamed = False
         self.graph_token += 1  # (an automatic read still running is dropped)
