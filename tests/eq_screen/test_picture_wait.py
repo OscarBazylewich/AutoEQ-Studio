@@ -1581,6 +1581,81 @@ def test_window_as_high_as_its_words(eq_screen, flow, monkeypatch, check):
           and any(a[0] > lim for _f, a, lim, _cut in seen.values()), seen)
 
 
+def test_window_never_higher_than_its_screen(eq_screen, flow, monkeypatch, check):
+    """On a screen with less room than the wait window needs (380 px stood in: the window with its note needs about
+    400 px), the window is not higher than that room (its title bar too), and it moves up into it."""
+    from PySide6.QtCore import QRect
+    from PySide6.QtGui import QScreen
+    from ui.picture_wait import PictureWait
+    with monkeypatch.context() as m:
+        m.setattr(QScreen, "availableGeometry", lambda self: QRect(0, 0, 1097, 380))
+        wait = PictureWait(flow["pk"], {"name": ENTRY, "site": SITE})
+        wait.open()
+        qt.pump(200)
+        wait.paste()  # (with its note: higher)
+        qt.pump(100)
+        from PySide6.QtWidgets import QStyle
+        bar = max(wait.frameGeometry().height() - wait.height(), wait.style().pixelMetric(QStyle.PM_TitleBarHeight))
+        seen = (wait.height(), wait.heightForWidth(wait.width()), wait.frameGeometry().top(),
+                wait.frameGeometry().bottom(), bar)
+        wait.reject()
+        wait.deleteLater()
+    check("website flow: on a screen with 380 px of room, the wait window is not higher than the room (with its title "
+          "bar), and all of it is in the room", seen[0] + seen[4] <= 380 < seen[1] + seen[4] and 0 <= seen[2]
+          and seen[3] <= 379, seen)
+
+
+# (a 1920 x 1080 laptop's room above the taskbar at 125 %, 150 % and 175 %, as Qt gives it)
+SCALED_ROOMS = {"100 %": None, "125 %": (1536, 825), "150 %": (1280, 672), "175 %": (1097, 569)}
+
+
+def test_window_in_front_of_the_graph(eq_screen, flow, monkeypatch, check):
+    """Step 1 tells the user to close a window of the website in front of the graph (at the first visit, a website
+    shows "Welcome to Squiglink" on top of the graph: the screen copy then had no graph, 2026-11-11), and Help
+    #pw-paste tells it too. The window is not wider for it, and no word is cut at 100 %, 125 %, 150 % and 175 % (the
+    room of each scale stood in). Also: Paste the picture's tooltip ends in "F1 opens Help." (help_window.tag), as
+    the other tagged controls' do."""
+    from PySide6.QtCore import QRect
+    from PySide6.QtGui import QScreen
+    from ui import help_window, picture_wait
+    from ui.picture_wait import FRONT_WINDOW, PictureWait
+    seen = {}
+    with monkeypatch.context() as m:
+        for scale, room in SCALED_ROOMS.items():
+            if room:
+                m.setattr(QScreen, "availableGeometry", lambda self, room=room: QRect(0, 0, *room))
+            for words in ("", FRONT_WINDOW):
+                m.setattr(picture_wait, "FRONT_WINDOW", words)
+                wait = PictureWait(flow["pk"], {"name": ENTRY, "site": SITE})
+                wait.open()
+                qt.pump(200)
+                wait.paste()  # (with its note: the highest form of the window)
+                qt.pump(100)
+                seen[(scale, bool(words))] = (wait.width(), _cut(wait), wait.steps()[0],
+                                              wait.height() + 32 <= wait.screen().availableGeometry().height(),
+                                              wait.paste_btn.toolTip())
+                wait.reject()
+                wait.deleteLater()
+    qt.pump(50)
+    body = help_window._by_id()[help_window.entry_for("#pw-paste")]["body"]
+    para = next((p for p in body if "in front of the graph" in p), "")
+    sentences = [s for s in para.replace("…", "").split(". ") if s.strip()]
+    step = "Maximize the window of your browser. Larger pictures give better results. " + FRONT_WINDOW
+    check("website flow: step 1 of the wait window tells the user to close a window of the website in front of the "
+          "graph", FRONT_WINDOW == "If the website shows a window in front of the graph, close that window."
+          and all(v[2] == step for k, v in seen.items() if k[1]), {k: v[2] for k, v in seen.items()})
+    check("website flow: the wait window is not wider with that sentence, no word is cut and it is in the room of its "
+          "screen at 100 %, 125 %, 150 % and 175 %",
+          all(seen[(s, True)][0] == seen[(s, False)][0] and not seen[(s, True)][1] and seen[(s, True)][3]
+              for s in SCALED_ROOMS), {k: v[:2] + v[3:4] for k, v in seen.items()})
+    check("website flow: Help of Paste the picture tells it too, in a paragraph of 6 sentences or fewer",
+          "If the website shows a window in front of the graph, close that window before you copy the picture." in para
+          and len(sentences) <= 6, (len(sentences), para))
+    check("website flow: the tooltip of Paste the picture ends in “F1 opens Help.”, as each tagged control's",
+          all(v[4] == "Uses the picture that is on the clipboard at this time (also Ctrl+V).\nF1 opens Help."
+              for v in seen.values()), {v[4] for v in seen.values()})
+
+
 def test_long_site_name(eq_screen, flow, monkeypatch, tmp_path, check):
     """A site name of 600 words or of 500 characters with no space (a damaged list): the wait window's intro, 3 Save's
     note and the tray message have NAME_MAX characters of it at most and "…" (the whole name in the intro's tooltip),

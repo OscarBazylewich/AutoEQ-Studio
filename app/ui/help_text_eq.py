@@ -645,7 +645,9 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'title': 'Paste the picture (a picture from the website)',
                            'body': ['Hangout.Audio does not let other programs download its files, and the app obeys '
                                     'that limit. The app has no browser in it and does not get the data of the '
-                                    'website. Your browser shows the graph, and the app reads only a picture of it.',
+                                    'website. Your browser shows the graph, and the app reads only a picture of it. If '
+                                    'the website shows a window in front of the graph, close that window before you '
+                                    'copy the picture.',
                                     'While the app waits, it looks at the clipboard and at the names of the picture '
                                     'files in your Downloads folder. It uses only a picture that is new after it '
                                     'started to wait. It does not change or delete a file. Paste the picture uses the '

@@ -56,6 +56,7 @@ MIN_SIZE = (300, 200)  # a smaller picture is not a graph (a copied icon)
 JPEG_SUFFIXES = (".jpg", ".jpeg", ".jfif")
 NAME_MAX = 80  # (the characters of an entry's name in the heading: then "…", the whole name in its tooltip)
 WIDTH, PAD = 520, 24  # (the words' width at least, and the dialog's padding: Windows 11's)
+FRONT_WINDOW = "If the website shows a window in front of the graph, close that window."  # (step 1: steps())
 # (line ends, tabs and the other control characters: each run becomes one space)
 _CONTROL = re.compile(r"[\s\x00-\x1f\x7f-\x9f]+")
 
@@ -316,10 +317,11 @@ class PictureWait(QDialog):
         if site and shown_site != f"“{site}”":
             self.intro.setToolTip(plain_tip(site))
         band, self.paste_btn = dialog_band(self, "Paste the picture", self.paste)
-        help_window.tag(self.paste_btn, "#pw-paste")
-        # (set after tag(): no "F1 opens Help." in it, F1 does nothing in this window, as Find…'s "Available to
-        # download")
+        # (set before tag(): tag() adds "F1 opens Help.", as for the other tagged controls. F1 opens Help in a window
+        # that blocks the others, as this one does, since F1 became a watch on the application's key presses,
+        # 2026-11-12)
         self.paste_btn.setToolTip("Uses the picture that is on the clipboard at this time (also Ctrl+V).")
+        help_window.tag(self.paste_btn, "#pw-paste")
         outer.addWidget(band)
         # (a screen reader: the focus is on Paste the picture when the window opens, and the words are labels only)
         self.setAccessibleName(self.windowTitle())
@@ -342,7 +344,9 @@ class PictureWait(QDialog):
         """The procedure, one step for each line."""
         copy = ("Press Windows + Shift + S. Then select the area of the graph. Windows copies the picture to the "
                 "clipboard.")
-        return ["Maximize the window of your browser. Larger pictures give better results.",
+        # (a website can show a window in front of its graph at the first visit, "Welcome to Squiglink": the screen
+        # copy then had no graph, 2026-11-11)
+        return ["Maximize the window of your browser. Larger pictures give better results. " + FRONT_WINDOW,
                 copy + "\nOr click Screenshot on the website. Your browser saves the picture in the Downloads folder."
                 if self.folder else copy]
 
@@ -363,8 +367,9 @@ class PictureWait(QDialog):
         """The window as high as its words need at its width: Qt's own size (adjustSize, the first showing) is two
         thirds of the screen at most, and on a small screen at 150 % that cut the last line of step 2. (The size hint's
         height is for the size hint's width: at a different width, a label of wrapped words needs more or less.) Not
-        higher than the room of its screen (its words have NAME_MAX characters of a name or a site at most), and
-        moved up when its bottom is past that room."""
+        higher than the room of its screen (its words have NAME_MAX characters of a name or a site at most; on a
+        screen with less room than the words need, the window has that room, but not less than its layout's minimum),
+        and moved up when its bottom is past that room."""
         h = self.heightForWidth(self.width())
         h = h if h > 0 else self.sizeHint().height()
         # (never higher than the room of its screen, with its title bar: the frame's, or the style's before it shows)
