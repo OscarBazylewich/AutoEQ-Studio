@@ -260,3 +260,42 @@ def test_guide_puts_the_tab_back(eq_screen, check):
     check("trace: the tracer's Guide shows a step's tab, and the tab that you had comes back when it closes (with "
           "your picture, and on the sample graph)", (during, yours, during_sample, sample_yours) == (2, 1, 0, 2),
           (during, yours, during_sample, sample_yours))
+
+
+def test_picture_with_no_entry(eq_screen, monkeypatch, check):
+    # (2026-11-11, the picture from a website: a picture of yours does what it did before, no automatic read)
+    from ui import trace_core
+    calls = []
+    monkeypatch.setattr(trace_core, "auto_read", lambda *a, **k: calls.append(a))
+    page = eq_screen.page
+    page.open_trace()
+    tw = page.tracer
+    img, _s = sample_image()
+    tw.load_image(img, "Sample IEM")
+    started = (tw.pages.currentIndex(), tw.reading, tw.reading_graph, tw.entry)
+    eq_screen.wait_for(lambda: not tw.reading, 60)
+    tw.close()
+    check("tracer: a picture with no entry does what it did (tab 1 Axes, the labels read, no automatic read)",
+          started == (0, True, False, None) and not calls and tw.t.src_name == "Sample IEM", (started, calls))
+
+
+def test_outputs_name_and_target_mark(eq_screen, check):
+    # (2026-11-11: outputs with a name in place of the Name box's; the target line that the automatic read marks is
+    # not in the measurement's files, unless it is the one curve asked for)
+    tw, _truth, _msgs = eqpage.open_traced_sample(eq_screen)
+    t = tw.t
+    t.v.update(d1="90", d2="40")
+    named = [o["file"] for o in tw.outputs(name="Another name")]
+    t.curves[1]["target"] = True
+    marked = [o["file"] for o in tw.outputs()]
+    t.cur = 1
+    one = [o["label"] for o in tw.outputs(True)]
+    tw.update_ui()
+    button = not tw.save_line.isHidden()  # (on 3 Save, a tab not in sight here)
+    t.curves[1].pop("target")
+    tw.update_ui()
+    tw.close()
+    check("tracer: outputs with a name use it", named and all(n.startswith("Another name ") for n in named), named)
+    check("tracer: a curve marked as target is not in the measurement's files (Add as target of that curve has it), "
+          "and Add the target line as target… shows for it", len(marked) == len(named) - 1 and one == [t.curves[1]["label"]]
+          and button, (marked, one, button))

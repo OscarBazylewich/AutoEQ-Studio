@@ -121,3 +121,19 @@ def test_averaged_name_is_windows_safe(sample_curves, monkeypatch, check):
     # was eq_checks.py:995
     check("compare: an averaged file's name is Windows-safe as add_file keeps it",
           avg_name == textfile.safe_name(avg_name) and avg_name.startswith("Bad_ name__"), avg_name)
+
+
+def test_link_entry_has_its_id(monkeypatch, check):
+    # (2026-11-11, the picture from a website: Which measurement's link starts the wait for a picture of that entry,
+    # by its id)
+    entry = {"kind": "measurement", "name": "Truthear Gate", "site": "Hangout.Audio IEMs (Crinacle, 5128)",
+             "site_url": "https://graph.hangout.audio/iem/5128/", "id": "abc123", "tag": "Hangout 5128",
+             "ref": {"file": "Gate"}, "link": "https://graph.hangout.audio/iem/5128/?share=Gate"}
+    monkeypatch.setattr(databases, "items", lambda: [entry])
+    monkeypatch.setattr(library, "status", lambda with_items=False: {"items": []})
+    links = []
+    cands = compare.candidates("Truthear Gate", links=links)
+    monkeypatch.undo()
+    check("compare: a link entry has its id (and is no candidate to download)",
+          not cands and [(lk["id"], lk["link"], lk["name"]) for lk in links] == [("abc123", entry["link"], entry["name"])],
+          (cands, links))

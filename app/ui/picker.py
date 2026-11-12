@@ -14,7 +14,8 @@ double-click too), then the bin apart (your own files: deleted for good, asked f
 its room, so every Use is in one column.
 
 Offline (net.py): the lists the app has are searched as usual; a curve downloaded before is used from this PC, any
-other online one says it needs the internet. A list-only database's entry opens on its site (online only).
+other online one says it needs the internet. A list-only database's entry opens on its site (online only), and the
+app waits for a picture of its graph for the tracer (the page's trace_from_website, ui/picture_wait.py).
 
 The look (Windows 11's, ui\\theme_sheet.py's find_windows part matches the names given here): a row's name in
 semibold (findRowName), ending in "…" when it's longer than its room (never cut mid-letter), the download mark as
@@ -31,8 +32,8 @@ Find… is kept within the screen's free room (ui\\window_parts.fit_to_screen, a
 """
 import os
 
-from PySide6.QtCore import QEvent, QRect, QSize, Qt, QTimer, QUrl
-from PySide6.QtGui import QDesktopServices, QFont, QFontMetrics
+from PySide6.QtCore import QEvent, QRect, QSize, Qt, QTimer
+from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import (QMenu, QButtonGroup, QCheckBox, QDialog, QHBoxLayout, QLabel, QLayout, QLineEdit,
                                QListWidget, QListWidgetItem, QMessageBox, QPushButton, QSizePolicy, QStyle,
                                QStyleOptionComboBox, QVBoxLayout, QWidget)
@@ -342,8 +343,8 @@ class Picker(QDialog):
         for w, key in ((self.anykind, "#pk-anykind"), (self.f_rig, "pk_filters"), (self.f_form, "pk_filters"),
                        (self.f_site, "pk_filters"), (self.f_sure, "#pk-f-sure"), (self.f_dl, "#pk-f-dl")):
             help_window.tag(w, key)
-        self.f_dl.setToolTip("Do not show the databases that are only in the list (other programs cannot download their "
-                             "files)")
+        self.f_dl.setToolTip("Do not show the entries that the app cannot download (the app traces them from a picture "
+                             "of the website)")
         self.f_dl.toggled.connect(lambda on: self.set_filter("dl", on))
         self.f_clear = QPushButton("Clear the selections")  # (always there, off with no filter on: it made the row jump)
         self.f_clear.clicked.connect(self.clear_filters)
@@ -820,9 +821,10 @@ class Picker(QDialog):
             other.setToolTip(f"Its group in the database: {'measurement' if self.kind == 'target' else 'target'}")
             h.addWidget(other)
         if r.get("link"):
-            ext = QLabel("open on the website ↗")
+            ext = QLabel("trace from the website ↗")
             theme.mark(ext, role="muted")
-            ext.setToolTip("Other programs cannot download the files of this website. Use opens it on the website.")
+            ext.setToolTip("Other programs cannot download the files of this website. Use opens the entry in your "
+                           "browser. Then the app waits for a picture of the graph and traces it.")
             h.addWidget(ext)
         elif r["src"] == "db":
             dl = QLabel(chr(int(icons.GLYPHS["download"], 16)))  # (Windows 11's symbol, from its icon font: findMark)
@@ -967,14 +969,9 @@ class Picker(QDialog):
     def use_row(self, r):
         if self.busy:
             return
-        if r.get("link"):
-            if net.offline():  # (said in this window's line, as every "Offline: …", UI-RULES 7)
-                self.footer.say("Offline: the entries of this database open on its website. To open it, change to Online (top "
-                                "right).", 10000)
-                return
-            QDesktopServices.openUrl(QUrl(r["link"]))
-            self.footer.say(f"Other programs cannot download the files of {r['sub'].split(' · ')[-1]}. The entry opened "
-                            "on its website.", 10000)
+        if r.get("link"):  # (the browser, then a wait for a picture of its graph: the page's, ui/picture_wait.py;
+            # offline and the other messages are said in this window's line, UI-RULES 7)
+            self.page.trace_from_website(r["id"], over=self, say=lambda t, ms=10000: self.footer.say(t, ms))
             return
         if r["src"] == "app":
             if r.get("device"):

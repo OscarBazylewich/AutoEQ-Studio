@@ -231,10 +231,21 @@ def files_add(body):
         files = [(text_of(body, "name"), text_of(body, "content"))]
     kind = inputs.guess_kind(files[0][0]) if body.get("kind") in (None, "", "auto") else kind_of(body)
     where = inputs.folder(kind)
+    # (a trace of a database entry, the tracer's picture from a website: examined before a file is written, so that
+    # a source of a wrong type never gives an error after the add. Only its text values are kept; one that is not of
+    # a known database is ignored, and the add is an add with no source.)
+    src = body.get("source")
+    src = {k: v for k, v in src.items() if isinstance(v, str)} if isinstance(src, dict) else None
+    if not (src and isinstance(src.get("site_url"), str) and databases.find_site(src["site_url"])):
+        src = None
     had = set(os.listdir(where)) if os.path.isdir(where) else set()
     names = inputs.add_files(kind, files)
-    # (new files: not the database a file of that name once came from; one the app already had keeps its record)
-    rigs.forget_source([n for n in names if n not in had])
+    if src:
+        # (its rig is known later, also for a name that the user changed or "… (2).txt")
+        rigs.record_source(names, src)
+    else:
+        # (new files: not the database a file of that name once came from; one the app already had keeps its record)
+        rigs.forget_source([n for n in names if n not in had])
     if kind == "target":
         cfg["files"]["active_target"] = names[0]
     else:
@@ -394,6 +405,14 @@ def db_refresh(body):
 def db_download(body):
     files, name, _ = _source_files(dict(body, src="db"))
     return {"name": name, "paths": files, "folder": os.path.dirname(files[0])}
+
+
+@route("/api/db/entry")
+def db_entry(body):
+    """One database entry by its id, from the lists in memory (no internet): its name, tag, website and link (the
+    picture from a website: ui/eq_page_files.py's trace_from_website)."""
+    it = databases.item(body.get("id"))
+    return {"entry": {k: it.get(k) for k in ("id", "kind", "name", "sub", "tag", "site", "site_url", "link")}}
 
 
 # ---------------------------------------------------------------- which measurement to use

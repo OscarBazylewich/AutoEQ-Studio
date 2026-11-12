@@ -1,7 +1,8 @@
 """Make an EQ's files (a part of EqPage, ui/eq_page.py): Target and Measurement filled from the app's files and
 chosen, Add… (files from this PC), Find… (ui/picker.py) and what it calls back (a file used or moved: said with
 Undo), a target saved as adjusted, a picture pasted or dropped (into the tracer, ui/trace_window.py) and Which
-measurement (ui/compare_window.py).
+measurement (ui/compare_window.py); an entry that the app cannot download traced from a picture of its website
+(trace_from_website: the browser, the wait for a picture, ui/picture_wait.py, then the tracer).
 EqFiles is a plain class (no __init__, no signals); EqPage (ui/eq_page.py) joins it with the other parts. (Qt's own
 handlers for a dropped picture stay in EqPage: they hand it to _picture_to_tracer here.)
 """
@@ -117,15 +118,17 @@ class EqFiles:
         if self.svc is None or md is None:
             return False
         from ui.trace_window import IMAGE_SUFFIXES
+        # (a better picture after a poor automatic read of a picture from a website keeps its entry, as the same
+        # paste in the tracer: TraceWindow.kept_entry)
         for u in md.urls() if md.hasUrls() else []:
             if u.isLocalFile() and os.path.splitext(u.toLocalFile())[1].lower() in IMAGE_SUFFIXES:
                 self.open_trace()
-                self.tracer.open_file(u.toLocalFile())
+                self.tracer.open_file(u.toLocalFile(), self.tracer.kept_entry())
                 return True
         if md.hasImage():
             from PySide6.QtGui import QImage
             self.open_trace()
-            self.tracer.load_image(QImage(md.imageData()))
+            self.tracer.load_image(QImage(md.imageData()), entry=self.tracer.kept_entry())
             return True
         return False
 
@@ -138,6 +141,86 @@ class EqFiles:
         self.tracer.show()
         self.tracer.raise_()
         self.tracer.activateWindow()
+
+    # ---------------------------------------------------------------- a picture from a website (ui/picture_wait.py)
+    def trace_from_website(self, entry_id, over, say):
+        """Find…'s Use (or Which measurement's link) on an entry that the app cannot download: the entry opens in the
+        user's browser, then the wait window on top of `over` waits for a picture of its graph, which goes to the
+        tracer. Returns whether the wait started. `say`: the message line of `over` (UI-RULES 7)."""
+        wait = getattr(self, "picture_wait", None)
+        if wait is not None and tasks.alive(wait) and wait.isVisible():  # (one wait at a time)
+            wait.raise_()
+            wait.activateWindow()
+            return False
+        from ui import bubble
+        r = self.svc.call("/api/db/entry", {"id": entry_id})  # (the lists in memory: no internet)
+        if r.get("error"):  # ("do this first": update the lists. A bubble, its words whole: Find…'s line cut them)
+            bubble.tell(None, r["error"], near=over)
+            return False
+        from ui.picture_wait import PictureWait, clean_entry
+        entry = clean_entry(r["entry"])  # (its words come from a website's list: each on one line)
+        import net
+        if net.offline():  # (the words fit Find…'s line at its opening width)
+            say("Offline: to open this entry, change to Online (top right).")
+            return False
+        tw = getattr(self, "tracer", None)
+        n = tw.unadded_curves() if tw is not None else 0
+        if n or (tw is not None and tw.changed_axes()):
+            # (the new picture replaces the one in the tracer, and the user is then in the browser: "do this first",
+            # a bubble at the control that was used, UI-RULES 25. The automatic read's own curves do not stop it.
+            # With no curve, the user's work is on 1 Axes: words that are true for it.)
+            bubble.tell(None, (
+                "The tracer has a curve that you did not add. To keep it, add it in the tracer. To remove it, click "
+                "Remove image in the tracer. Then select the entry again." if n == 1 else
+                "The tracer has curves that you did not add. To keep them, add them in the tracer. To remove them, "
+                "click Remove image in the tracer. Then select the entry again." if n else
+                "The tracer has a picture that you changed. To remove it, click Remove image in the tracer. Then "
+                "select the entry again."), near=over)
+            return False
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        if not QDesktopServices.openUrl(QUrl(entry.get("link") or "")):
+            say("Windows cannot open the website of this entry.")
+            return False
+        wait = self.picture_wait = PictureWait(over, entry)
+        wait.finished.connect(lambda _code: self._wait_done(wait, entry, over, say))
+        wait.open()  # (window modal on `over`; it does not block)
+        return True
+
+    def _wait_done(self, wait, entry, over, say):
+        """The wait window closed: with a picture, `over` closes (the tracer cannot get input under a modal window)
+        and the tracer opens with it once `over`'s own loop has ended; after the time limit, `over` says so."""
+        if getattr(self, "picture_wait", None) is wait:
+            self.picture_wait = None
+        got, timed_out = wait.got, wait.timed_out
+        wait.deleteLater()
+        if got is None:
+            if timed_out:
+                say("No new picture came in 10 minutes. Select the entry again.", 60000)  # (whole in Find…'s line)
+            return
+        over.reject()
+        img, jpeg = got
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, lambda: self._picture_from_website(entry, img, jpeg))
+
+    def _picture_from_website(self, entry, img, jpeg):
+        self.open_trace()
+        self.tracer.load_image(img, jpeg=jpeg, entry=entry)
+        self._tracer_to_front(entry)
+
+    def _tracer_to_front(self, entry):
+        """The tracer in front. Windows does not give the keyboard to a program that is not active (the browser is):
+        then the taskbar button flashes and a tray message (the main window's) says where the picture is."""
+        from PySide6.QtCore import Qt
+        from PySide6.QtWidgets import QApplication
+        tw = self.tracer
+        if QApplication.applicationState() == Qt.ApplicationActive:
+            return
+        QApplication.alert(tw)
+        app = getattr(self.window(), "app", None)
+        if app is not None and hasattr(app, "tray_message"):
+            app.tray_message("AutoEQ Studio has the picture", f"The tracer shows the graph of “{entry['name']}”. Go "
+                             "to the window of the tracer.")
 
     # ---------------------------------------------------------------- finding files (ui/picker.py)
     def find(self, kind):

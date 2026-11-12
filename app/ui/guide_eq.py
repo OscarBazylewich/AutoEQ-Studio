@@ -618,7 +618,9 @@ def eq_steps(page):
         {"chapter": "1 · Select", "title": "Select your IEM or headphone", "target": lambda: page.measurement_box,
          "text": "Find… searches by the name of the manufacturer or of the model. When you click Use, the app "
                  "downloads an online measurement and uses the average of its files (left, right, seatings). Add… adds "
-                 "your files from this PC (L and R, or more than one seating).",
+                 "your files from this PC (L and R, or more than one seating). Some databases do not let the app "
+                 "download their files. For their entries, Use opens the website, and the tracer makes the "
+                 "measurement from a picture of the graph.",
          "demo": [{"click": lambda: button(page.measurement_box, "Find…"),
                    "say": "Click Find… on the Measurement row (or press /)", "then": find_meas_demo}]},
         {"chapter": "1 · Select", "title": "Many results?", "target": lambda: page.measurement_box,

@@ -530,3 +530,74 @@ def test_compare_odd_queries(api, db_guard, eq_cfg, check):
     finally:  # (the database folders a download tried to make, taken away again)
         for name in (set(os.listdir(folder)) if os.path.isdir(folder) else set()) - before:
             shutil.rmtree(os.path.join(folder, name), ignore_errors=True)
+
+
+# ---------------------------------------------------------------- a picture from a website (2026-11-11)
+HANGOUT = "https://graph.hangout.audio/iem/5128/"
+
+
+def test_db_entry(api, db_guard, eq_cfg, check):
+    databases.refresh_now(databases.sites_for(eq_cfg))  # (the fixture's saved lists: no internet)
+    it = next(i for i in databases.items() if i.get("link") and i["name"] == "Truthear Gate")
+    r = api.call("/api/db/entry", {"id": it["id"]})
+    e = r.get("entry") or {}
+    check("service: /api/db/entry gives the entry's name, tag, website and link",
+          (e.get("id"), e.get("name"), e.get("tag"), e.get("site_url"), e.get("link"), e.get("kind"))
+          == (it["id"], "Truthear Gate", "Hangout 5128", HANGOUT, HANGOUT + "?share=Gate", "measurement")
+          and e.get("site") == it["site"] and set(e) == {"id", "kind", "name", "sub", "tag", "site", "site_url", "link"},
+          r)
+    bad = api.call("/api/db/entry", {"id": "no-such-entry"})
+    check("service: /api/db/entry with an id that is not there gives a plain error",
+          "not there" in bad.get("error", "") and "Traceback" not in json.dumps(bad), bad)
+
+
+def test_files_add_source(fresh_studio, eq_cfg, check):
+    src = {"site_url": HANGOUT, "site": "Hangout.Audio IEMs (Crinacle, 5128)", "name": "Truthear Gate",
+           "link": HANGOUT + "?share=Gate", "tag": "Hangout 5128", "id": "x"}
+    try:
+        r = service.files_add({"kind": "measurement", "files": [{"name": "Traced one.txt", "content": CURVE}],
+                               "settings": eq_cfg, "source": src})
+        rec = rigs.sources().get("Traced one.txt")
+        check("service: /api/files/add with a source records it (its six keys only)", r["names"] == ["Traced one.txt"]
+              and rec == {"site_url": HANGOUT, "site": src["site"], "name": "Truthear Gate"}, rec)
+        rigs.record_source(["Traced one (2).txt"], src)  # (an old record under the name that the next add gets)
+        r2 = service.files_add({"kind": "measurement", "settings": eq_cfg,
+                                "files": [{"name": "Traced one.txt", "content": CURVE.replace("\t8", "\t7")}]})
+        check("service: /api/files/add with no source forgets the record of a new file (as before)",
+              r2["names"] == ["Traced one (2).txt"] and "Traced one (2).txt" not in rigs.sources()
+              and "Traced one.txt" in rigs.sources(), (r2["names"], sorted(rigs.sources())))
+        service.files_add({"kind": "measurement", "files": [{"name": "Traced two.txt", "content": CURVE}],
+                           "settings": eq_cfg, "source": dict(src, site_url="https://unknown.example/")})
+        check("service: /api/files/add with a source of a database that the app does not know ignores it",
+              "Traced two.txt" not in rigs.sources(), rigs.sources().get("Traced two.txt"))
+    finally:
+        names = [n for n in os.listdir(inputs.folder("measurement")) if n.startswith(("Traced one", "Traced two"))]
+        service.files_remove({"kind": "measurement", "names": names, "settings": eq_cfg})
+
+
+def test_files_add_source_of_a_wrong_type(fresh_studio, eq_cfg, check):
+    """A "source" of a wrong type (only a caller that is not the app's window sends one): examined before the file is
+    written, ignored, and the add continues as an add with no source (no error after the file was written)."""
+    bad = {"a list": {"site_url": ["x"]}, "a dict": {"site_url": {"x": 1}}, "a number": 5}
+    seen = {}
+    try:
+        for i, (what, src) in enumerate(bad.items()):
+            name = f"Odd source {i}.txt"
+            try:
+                r = service.files_add({"kind": "measurement", "files": [{"name": name, "content": CURVE}],
+                                       "settings": eq_cfg, "source": src})
+                seen[what] = (r.get("names"), name in rigs.sources())
+            except Exception as e:  # noqa: BLE001 - the fault this test is for
+                seen[what] = ("error", str(e))
+        check("service: /api/files/add with a source of a wrong type (a list, a dict, a number) adds the file with no "
+              "source record, and gives no error", all(v == ([f"Odd source {i}.txt"], False)
+                                                        for i, v in enumerate(seen.values())), seen)
+        src = {"site_url": HANGOUT, "site": "Hangout.Audio IEMs (Crinacle, 5128)", "name": ["not", "text"], "rig": 5}
+        service.files_add({"kind": "measurement", "files": [{"name": "Odd source 9.txt", "content": CURVE}],
+                           "settings": eq_cfg, "source": src})
+        rec = rigs.sources().get("Odd source 9.txt")
+        check("service: /api/files/add records only the text values of a source", rec == {"site_url": HANGOUT,
+                                                                                           "site": src["site"]}, rec)
+    finally:
+        names = [n for n in os.listdir(inputs.folder("measurement")) if n.startswith("Odd source")]
+        service.files_remove({"kind": "measurement", "names": names, "settings": eq_cfg})

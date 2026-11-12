@@ -251,3 +251,24 @@ def test_closed_straight_after_a_tick(eq_screen, check):
         page.svc.call("/api/settings", {"settings": S})
     check("sources: closed straight after a database was switched off or on, it never reaches for its deleted tree",
           not new, (name, new))
+
+
+def test_browse_database_from_a_picture(eq_screen, check):
+    # (2026-11-11, the picture from a website: a database that does not let other programs download its files (the
+    # fixture's Hangout.Audio 5128 list) says that its entries come from a picture, not "only in the list")
+    from eq import databases
+    from ui.sources_window import Sources
+    page = eq_screen.page
+    page.svc.call("/api/db/refresh", {"settings": page.S})  # (offline: the saved lists)
+    qt.wait_for(lambda: not databases.status()["loading"] and databases.status()["count"], 120)
+    src = Sources(page)
+    try:
+        src._refresh_soon.stop()
+        src.poll()  # (the lists' status, drawn)
+        counts ={src.tree.topLevelItem(i).child(j).text(0): src.tree.topLevelItem(i).child(j).text(1)
+                  for i in range(src.tree.topLevelItemCount()) for j in range(src.tree.topLevelItem(i).childCount())}
+    finally:
+        qt.close(src)
+    hangout = counts.get("Hangout.Audio IEMs (Crinacle, 5128)", "")
+    check("sources: a database that the app traces from a picture says “· from a picture” after its count",
+          hangout.endswith(" · from a picture") and not any("only in the list" in c for c in counts.values()), hangout)

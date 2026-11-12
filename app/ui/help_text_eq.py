@@ -104,7 +104,8 @@ HELP_EQ = {'slot:target': ['The curve that you want for your earphone.', 'target
                 'rig-tags',
                 'databases'],
  '#pk-f-sure': ['Hides the items with a rig that the app is not sure of.', 'rig-tags'],
- '#pk-f-dl': 'Hides the items that open only on their website.',
+ '#pk-f-dl': 'Hides the entries that the app cannot download.',
+ '#pw-paste': ['Uses the picture that is on the clipboard at this time.', 'tracer', 'databases'],
  '#cmp-q': 'The model to find.',
  '#cmp-rig': ['The rig that your target was made for.', 'rig', 'rig-conversion'],
  '#hist-this': ['Only the EQs for the selected measurement.', 'history'],
@@ -638,8 +639,27 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'body': ['Hides the items with a rig that the app is not sure of (their tag has “?” at the end).']},
                           {'key': '#pk-f-dl',
                            'title': 'Available to download',
-                           'body': ['Hides the items that open only on their website (Hangout.Audio does not let other '
-                                    'programs download its files).']},
+                           'body': ['Hides the entries that the app cannot download. The app traces those entries from '
+                                    'a picture of their website.']},
+                          {'key': '#pw-paste',
+                           'title': 'Paste the picture (a picture from the website)',
+                           'body': ['Hangout.Audio does not let other programs download its files, and the app obeys '
+                                    'that limit. The app has no browser in it and does not get the data of the '
+                                    'website. Your browser shows the graph, and the app reads only a picture of it.',
+                                    'While the app waits, it looks at the clipboard and at the names of the picture '
+                                    'files in your Downloads folder. It uses only a picture that is new after it '
+                                    'started to wait. It does not change or delete a file. Paste the picture uses the '
+                                    'picture that is on the clipboard at this time. When you click Cancel, or after 10 '
+                                    'minutes, the app stops.',
+                                    'The tracer finds the axes and the curve automatically and opens on 3 Save. The '
+                                    'result is one measurement: the average of the left and right curves. Compare the '
+                                    'traced curve with the picture before you add it. A small picture, or a second '
+                                    'curve in almost the same color, can cause errors. If the app cannot trace the '
+                                    'picture automatically, the tracer opens on the tab where your input is '
+                                    'necessary. A message gives the cause.',
+                                    'The measurement gets the name of the entry and the rig of its database. If the '
+                                    'picture is not a graph, copy a new picture of the graph. Then paste it in the '
+                                    'tracer. The tracer keeps the name and the rig of the entry.']},
                           {'key': '#cmp-q',
                            'title': 'Model (which measurement to use)',
                            'body': ['The model to find. Each word must be in a name. Thus, with a smaller number of '

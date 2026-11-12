@@ -389,3 +389,50 @@ def test_labels_in_one_column(eq_screen, monkeypatch, check):
           "after them, in line, each beside its label",
           len(seen["labels"]) == 2 and len(set(seen["labels"].values())) == 1
           and seen["model's box"] == seen["rig's list"] and seen["rig's list beside its label"], seen)
+
+
+def test_website_link_starts_the_wait(eq_screen, monkeypatch, check):
+    # (2026-11-11, the picture from a website: a link of an entry that the app cannot download opens it in the
+    # browser (recorded, helpers.qt) and waits for a picture of its graph; the picture closes the window and goes to
+    # the tracer with the entry. Online stood in for net.offline() only: net.check() stays offline)
+    import net
+    from PySide6.QtWidgets import QApplication, QLabel
+    from eq import databases
+    from ui import picture_wait, tasks, trace_window
+    from ui.trace_window import sample_image
+    page = eq_screen.page
+    page.svc.call("/api/db/refresh", {"settings": page.S})  # (offline: the saved lists)
+    eq_screen.wait_for(lambda: any(it.get("link") for it in databases.items()), 120)
+    entry = next(it for it in databases.items() if it.get("link") and it["name"] == "Truthear Gate")
+    loaded = []
+    monkeypatch.setattr(trace_window.TraceWindow, "load_image",
+                        lambda self, img, name="Traced graph", jpeg=False, entry=None: loaded.append(entry))
+    monkeypatch.setattr(picture_wait, "SETTLE_MS", 30)
+    monkeypatch.setattr(net, "offline", lambda: False)
+    QApplication.clipboard().clear()
+    cw = _shown_with(page, monkeypatch)
+    try:
+        cw.data["links"] = [{"id": entry["id"], "name": entry["name"], "site": entry["site"], "rig": "B&K 5128",
+                             "link": entry["link"]}]
+        cw.render()
+        words = [lab.text() for lab in cw.findChildren(QLabel) if "Truthear Gate" in lab.text()]
+        n = len(qt.OPENED_URLS)
+        cw._open_site(entry["link"])
+        qt.pump(50)
+        wait = page.picture_wait
+        started = (qt.OPENED_URLS[n:], wait is not None and wait.isVisible() and wait.parent() is cw)
+        img, _s = sample_image()
+        QApplication.clipboard().setImage(img)
+        qt.wait_for(lambda: loaded, 20)
+        closed = (not tasks.alive(wait) or not wait.isVisible(), cw.isVisible())
+    finally:
+        qt.close(cw)
+        if getattr(page, "tracer", None) is not None:
+            page.tracer.close()
+        QApplication.clipboard().clear()
+    check("Which measurement: the links line says that the app waits for a picture of the graph",
+          words and "waits for a picture of its graph" in words[0], words)
+    check("Which measurement: a link of a website entry starts the wait (the browser, then the wait window on top)",
+          started == ([entry["link"]], True), started)
+    check("Which measurement: the window closes when the picture comes, and the tracer gets it with the entry",
+          closed == (True, False) and loaded and loaded[0]["name"] == "Truthear Gate", (closed, loaded))

@@ -70,8 +70,8 @@ DIRECTORY_PATH = os.path.join(paths.CACHE, "squigsites.json")
 RETRY_AFTER = 600  # seconds before squig.link's list is asked for again after a try that failed (offline, slow network)
 _dir_failed = {"at": 0.0}
 _TYPE_GROUP = {"IEMs": "iem", "5128": "5128", "Headphones": "hp", "Earbuds": "earbuds"}
-BROWSE_NOTE = ("{site} does not let other programs download its measurement files. Thus, the app can only show "
-               "them in the list, and opens them on the website.")
+BROWSE_NOTE = ("{site} does not let other programs download its measurement files. To use this entry, click Use in "
+               "Find…. The app opens it on the website and traces a picture of its graph.")
 
 _lock = threading.Lock()
 _state = {"loading": False, "sites": [], "items": [], "updated": None}
