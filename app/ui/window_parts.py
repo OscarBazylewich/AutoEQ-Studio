@@ -46,7 +46,8 @@ def fit_to_screen(window, size, smallest=None):
 class MessageLine(QWidget):
     """A window's message line (UI-RULES 24): what was just done, for SAID_MS, or with Undo beside it for UNDO_MS
     (clicked: the act put back, the line cleared). The main window's is at its bottom; another window's is in its
-    Footer. A long message never widens the window: it's cut at the edge, its tooltip whole."""
+    Footer. A long message never widens the window: it's cut at the edge, its tooltip whole (Find…'s line wraps to
+    more lines in place of the cut: picker.py)."""
 
     def __init__(self, role="muted"):
         super().__init__()
