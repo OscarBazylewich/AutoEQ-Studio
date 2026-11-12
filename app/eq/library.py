@@ -33,7 +33,7 @@ IN_APP = [os.path.normcase(paths.TARGET_DIR), os.path.normcase(paths.MEAS_DIR)] 
 
 _lock = threading.Lock()
 _state = {"scanning": False, "seen": 0, "found": 0, "cloud": 0, "folders": [], "finished": None, "items": [],
-          "error": "", "app_changes": 0}
+          "error": "", "app_changes": 0, "app_asked": 0, "app_shown": 0}
 _by_id = {}
 _sniffed = {}  # (the last search's {path: [mtime, size, sniff()]}, kept in memory for refresh_app)
 
@@ -204,7 +204,11 @@ def refresh_app():
     the last search that did not change are not read again (_sniffed, or its saved cache). A search that is running
     when this is done keeps these groups of the app's folders, not the ones it found (_scan). About 3 ms with 5,000
     files in the list and 21 in the app; a file not read before, about 1.4 ms more (measured 2026-11-11). A problem
-    on the disk never fails the change that called it: the list then waits for the next search."""
+    on the disk never fails the change that called it: the list then waits for the next search.
+    Two at the same time (Use in a background thread, an add on the window's thread): the one that started last
+    publishes, also when it ends first (it saw each change made before either started); the other one's groups are
+    dropped. No lock is held while the folders are read, so no caller waits for the other one's search (with a
+    search of 5,000 files in work: 0.9 to 7 ms a call, the longest 37 ms; measured 2026-11-12)."""
     try:
         _refresh_app()
     except Exception:  # noqa: BLE001 - (the file was added or removed: that must not give an error)
@@ -214,6 +218,8 @@ def refresh_app():
 
 def _refresh_app():
     with _lock:
+        _state["app_asked"] += 1
+        mine_no = _state["app_asked"]  # (this one's place: a later one saw a newer state of the folders)
         known = dict(_sniffed)
     if not known:  # (no search since the app started: the saved results of the last one)
         known = textfile.read_json(CACHE_PATH, {})
@@ -232,6 +238,9 @@ def _refresh_app():
     mine = _group(found)
     with _lock:
         _sniffed.update(fresh)
+        if mine_no < _state["app_shown"]:  # (one that started later published already: these groups are older)
+            return
+        _state["app_shown"] = mine_no
         _publish(_sort([g for g in _state["items"] if not g.get("in_app")] + mine))
         _state["app_changes"] += 1
 

@@ -37,9 +37,10 @@ def searched(fresh_studio, eq_cfg, db_guard, monkeypatch):
     _scan_ended()
     yield cfg
     shutil.rmtree(mine, ignore_errors=True)
-    for n in os.listdir(eq_paths.MEAS_DIR):
-        if n.startswith(MODEL):
-            os.remove(os.path.join(eq_paths.MEAS_DIR, n))
+    for folder in (eq_paths.MEAS_DIR, eq_paths.TARGET_DIR):
+        for n in os.listdir(folder):
+            if n.startswith(MODEL):
+                os.remove(os.path.join(folder, n))
 
 
 def _compared(cfg):
@@ -114,7 +115,8 @@ def test_search_running_keeps_a_file_added(searched, monkeypatch, check):
 
 def test_refresh_reads_only_new_files(searched, monkeypatch, check):
     cfg = searched
-    service.call("/api/files/add", {"kind": "measurement", "name": f"{MODEL} one.txt", "content": CURVE, "settings": cfg})
+    service.call("/api/files/add", {"kind": "measurement", "name": f"{MODEL} one.txt", "content": CURVE,
+                                    "settings": cfg})
     read, real = [], library.sniff
     monkeypatch.setattr(library, "sniff", lambda p: (read.append(os.path.basename(p)), real(p))[1])
     library.refresh_app()
@@ -138,3 +140,76 @@ def test_a_problem_never_fails_the_add(searched, monkeypatch, check):
     monkeypatch.undo()
     check("This PC: a problem while the app's folders are searched again never fails the add (the list waits for the "
           "next search)", r.get("name") == f"{MODEL} kept.txt" and "error" not in r, r.get("error") or r.get("name"))
+
+
+def test_saved_target_and_average_in_the_list_at_once(searched, monkeypatch, check):
+    # (the two routes that make a file of their own: Save as a target… of Adjust, and the average of Which measurement)
+    from eq import compare
+    cfg = searched
+    seen = {}
+    adjusted = dict(cfg, target_adjust=dict(cfg["target_adjust"], bass_gain=3.0))
+    r = service.call("/api/target/save", {"name": f"{MODEL} saved", "settings": adjusted})
+    seen["saved target"] = (r.get("error"), _listed())
+    monkeypatch.setattr(compare, "average", lambda keys, name: (f"{MODEL} avg.txt", CURVE, "711", ["a", "b"]))
+    r = service.call("/api/compare/average", {"keys": ["x", "y"], "settings": cfg})
+    monkeypatch.undo()
+    seen["average"] = (r.get("error"), _listed())
+    check("This PC: a target saved from Adjust and an average of Which measurement are in the list at once",
+          seen == {"saved target": (None, [f"{MODEL} saved"]), "average": (None, [f"{MODEL} avg", f"{MODEL} saved"])},
+          seen)
+
+
+def test_refreshed_list_in_name_order(searched, check):
+    # (Find… shows the list in its sequence: a file of the app between two of a folder of yours goes between them)
+    cfg = searched
+    mine = cfg["library"]["folders"][0]
+    for n in ("alpha", "gamma"):
+        with open(os.path.join(mine, f"{MODEL} {n}.txt"), "w", encoding="utf-8") as fh:
+            fh.write(CURVE)
+    library.start_scan(cfg, force=True)
+    _scan_ended()
+    service.call("/api/files/add", {"kind": "measurement", "name": f"{MODEL} beta.txt", "content": CURVE,
+                                    "settings": cfg})
+    items = library.status(with_items=True)["items"]
+    keys = [(g["name"].lower(), g["folder"].lower()) for g in items]
+    seen = {"ours": [g["name"] for g in items if g["name"].startswith(MODEL)], "sorted": keys == sorted(keys)}
+    check("This PC: after an add, the list is in the sequence of the names (a file of the app between two of a folder "
+          "of yours goes between them)",
+          seen == {"ours": [f"{MODEL} alpha", f"{MODEL} beta", f"{MODEL} gamma"], "sorted": True}, seen)
+
+
+def test_two_refreshes_at_once_keep_the_newer_list(searched, monkeypatch, check):
+    # (Use in a background thread and an add on the window's thread at the same time: the call that started first
+    # read the folders before the add, and ends last; its older groups must not replace the newer ones)
+    import threading
+    cfg = searched
+    real_walk = library._walk
+    roots = (library.paths.TARGET_DIR, library.paths.MEAS_DIR)
+    slow, read, go_on = {}, threading.Event(), threading.Event()
+
+    def walk(root, cb):
+        if threading.current_thread() is not slow.get("thread"):
+            yield from real_walk(root, cb)
+            return
+        if "seen" not in slow:  # (the folders as they are now, before the add; then it waits for the add)
+            slow["seen"] = {r: list(real_walk(r, cb)) for r in roots}
+            read.set()
+            go_on.wait(qt.time_limit(20))
+        yield from slow["seen"][root]
+    monkeypatch.setattr(library, "_walk", walk)
+    slow["thread"] = threading.Thread(target=library.refresh_app, daemon=True)
+    slow["thread"].start()
+    seen = {"first one read the folders": read.wait(qt.time_limit(20))}
+    service.call("/api/files/add", {"kind": "measurement", "name": f"{MODEL} new.txt", "content": CURVE,
+                                    "settings": cfg})
+    seen["the add did not wait for the first one"] = slow["thread"].is_alive()
+    seen["listed after the add"] = _listed()
+    go_on.set()
+    slow["thread"].join(qt.time_limit(20))
+    monkeypatch.undo()
+    seen["listed after the first one ended"] = _listed()
+    check("This PC: two searches of the app's folders at the same time: the one that started first and ends last does "
+          "not take out a file that the other one found; the add does not wait for the first one",
+          seen == {"first one read the folders": True, "the add did not wait for the first one": True,
+                   "listed after the add": [f"{MODEL} new"], "listed after the first one ended": [f"{MODEL} new"]},
+          seen)
