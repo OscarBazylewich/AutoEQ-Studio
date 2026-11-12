@@ -25,7 +25,8 @@ and bin); Files says Show files or Hide files (a chevron is a menu's: UI-RULES 1
 every list, laid out again whenever the window changes size. Narrower than its filters
 on one line (the Guide's frame for it), the filters take two lines, the ticks under the boxes (Lines); a box's choice
 too long for it ends in "…". How many there are where is said under the filters; the footer is every window's
-(window_parts.Footer: Sources… and Trace a graph image… at the left, the window's own message line, Close).
+(window_parts.Footer: Sources… and Trace a graph image… at the left, the window's own message line, Close); a message
+longer than its line goes on to more lines, never cut.
 
 Find… is kept within the screen's free room (ui\\window_parts.fit_to_screen, as every window of the app: a laptop at
 150 % has about 672 px above the taskbar), so its bottom row is never out of reach.
@@ -377,6 +378,10 @@ class Picker(QDialog):
         for b in (sources, trace):
             b.setAutoDefault(False)
         self.footer = Footer(self, [sources, trace])
+        # (its message line wraps its words onto more lines when they need them, as the status line above the list:
+        # at Find…'s smallest width, 680 px, the line has about 177 px between the buttons, and each message was cut
+        # there, "The app moved “Truthear Ga", 2026-11-11. Its tooltip has the whole message too)
+        self.footer.line.text.setWordWrap(True)
         v.addWidget(self.footer)
         self._later = QTimer(self, singleShot=True, interval=80, timeout=self.render)
         self._pending, self._more = [], QTimer(self, singleShot=True, interval=0, timeout=self._make_more)
