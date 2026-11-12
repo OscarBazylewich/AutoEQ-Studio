@@ -1598,9 +1598,12 @@ def test_long_site_name(eq_screen, flow, monkeypatch, tmp_path, check):
         wait.open()
         qt.pump(200)
         words = wait.intro.text()
-        shown = words[len("Your browser shows this entry on "):words.find(". Give the app")]
+        shown = words[len("Your browser shows this entry on “"):words.find("”. Give the app")]
+        # (the cut site in quotation marks: no "…" and then the period of the sentence, "Site….", 2026-11-12)
         seen[key] = (len(shown) <= NAME_MAX + 1 and shown.endswith("…"), wait.intro.toolTip() == site,
-                     wait.height() + 32 <= wait.screen().availableGeometry().height(), _cut(wait))
+                     wait.height() + 32 <= wait.screen().availableGeometry().height(), _cut(wait),
+                     words == f"Your browser shows this entry on “{shown}”. Give the app a picture of its graph:"
+                     and "…." not in words)
         for name, theme_on in (("light", qt.light), ("dark", qt.dark)):
             theme_on(eq_screen.qapp)
             qt.pump(100)
@@ -1613,8 +1616,10 @@ def test_long_site_name(eq_screen, flow, monkeypatch, tmp_path, check):
         tw.load_image(_graph().copy(0, 0, 1199, 719), entry=dict(entry, site=site))
         qt.wait_for(lambda tw=tw: not tw.loading and not tw.reading_graph and tw.read_ok is not None, 20)
         note = tw.save_note.text()
-        part = note[note.find(" from ") + 6:note.find(". Compare")]
-        seen[key + ", 3 Save"] = (len(part) <= NAME_MAX + 1 and part.endswith("…"), note[:60])
+        part = note[note.find(" from “") + 7:note.find("”. Compare")]
+        seen[key + ", 3 Save"] = (len(part) <= NAME_MAX + 1 and part.endswith("…"), "…." not in note
+                                  and note.startswith(f"The app traced the graph of “{ENTRY}” from “{part}”. Compare "
+                                                      "the curve with the picture."), note[:60])
         tw.remove_image()
     # (a small screen stood in: 450 px of room, the window low on it; it moves up into the room)
     monkeypatch.setattr(QScreen, "availableGeometry", lambda self: QRect(0, 0, 1097, 450))
@@ -1645,6 +1650,8 @@ def test_long_site_name(eq_screen, flow, monkeypatch, tmp_path, check):
           all(v[0] and v[1] and v[2] and not v[3] for k, v in seen.items() if "3 Save" not in k), seen)
     check("website flow: the same site on 3 Save's note: NAME_MAX characters and “…”",
           all(v[0] for k, v in seen.items() if "3 Save" in k), seen)
+    check("website flow: the cut site is in quotation marks in the intro and in 3 Save's note: no “…” and then the "
+          "period of the sentence", all(v[4] if "3 Save" not in k else v[1] for k, v in seen.items()), seen)
     check("website flow: on a screen with 450 px of room, the wait window low on it moves up: all of it is in the room",
           0 <= small[0] and small[1] <= 449 and small[2] <= 450, small)
     check("website flow: a name of 600 words in the tray message: NAME_MAX characters and “…”",

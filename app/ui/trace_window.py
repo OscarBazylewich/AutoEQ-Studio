@@ -1595,9 +1595,11 @@ class TraceWindow(QWidget):
             # (Find… for a target, "Targets and measurements": the user wants the entry's curve as a target; the
             # target line of the picture is then a second target, said apart from it)
             want_target = e.get("as") == "target"
-            self.auto_note = (f"The app traced the graph of “{self.note_name(e.get('name', ''))}” "
-                              f"from {self.note_name(e.get('site', ''))}. "
-                              "Compare the curve with the picture. If they agree, click "
+            # (the site in quotation marks: a cut site ended in "…" and then the period of the sentence, 2026-11-12)
+            site = e.get("site", "")
+            self.auto_note = (f"The app traced the graph of “{self.note_name(e.get('name', ''))}”"
+                              + (f" from “{self.note_name(site)}”. " if site else ". ")
+                              + "Compare the curve with the picture. If they agree, click "
                               + ("Add as target." if want_target else "Add as measurement.")
                               + ("" if r.target is None else
                                  " The picture also has a target line. Add the target line as target… adds that "

@@ -308,10 +308,12 @@ class PictureWait(QDialog):
         # (the site by the same rule: a site of 600 words made the window higher than the screen, 2026-11-11)
         site = entry.get("site") or ""
         self.intro.ensurePolished()
-        shown_site = heading_name(site, self.intro.fontMetrics(), WIDTH - 2 * PAD) if site else "its website"
+        # (the site in quotation marks: a cut site ended in "…" and then the period of the sentence, 2026-11-12)
+        shown_site = (f"“{heading_name(site, self.intro.fontMetrics(), WIDTH - 2 * PAD)}”" if site
+                      else "its website")
         intro = f"Your browser shows this entry on {shown_site}. Give the app a picture of its graph:"
         self.intro.setText(intro)
-        if site and shown_site != site:
+        if site and shown_site != f"“{site}”":
             self.intro.setToolTip(plain_tip(site))
         band, self.paste_btn = dialog_band(self, "Paste the picture", self.paste)
         help_window.tag(self.paste_btn, "#pw-paste")
