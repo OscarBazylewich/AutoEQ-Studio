@@ -197,11 +197,12 @@ One column, from the top to the bottom:
     Save filters       writes the files that your EQ app uses into the Saved EQs folder
     Copy               copies the filters to the clipboard, as Equalizer APO text
     Use on device      makes this EQ a new profile of a device and enables it on that device (refer to Devices). Or
-                       "Update a profile" (and the rows Update "name"): the EQ goes into a profile that you have.
-                       The profile keeps its name and its devices, and the devices that have it on use the new EQ.
-                       The message tells you which devices use it immediately, and it has Undo. Or "Use for 5
-                       minutes on" a device: the EQ operates in all apps. Then click Keep it (the bar at the top, or
-                       the menu of the tray icon). If you do not, the device gets its EQ again automatically.
+                       "Use for 5 minutes on" a device: the EQ operates in all apps. Then click Keep it (the bar at
+                       the top, or the menu of the tray icon). If you do not, the device gets its EQ again
+                       automatically.
+    Update a profile   (in the menu of Use on device, also the rows Update "name") puts the EQ into a profile that
+                       you have. The profile keeps its name and its devices, and the devices that have it on use
+                       the new EQ. The message tells you which devices use it immediately, and it has Undo.
     Keep to compare    adds it to the EQs to compare of this IEM (on the graph as a dashed line, and in Listen)
     Report             an HTML page with the graph and the filters (Save filters also writes it, if you select it
                        in More settings)
@@ -258,10 +259,13 @@ Keys: T D E H the tools, A Trace automatically, S Make smooth, F Show all, + and
 Ctrl+Z undo. The mouse wheel zooms, and the right button (or Space) moves the picture. On a touch screen, two fingers
 zoom and move the picture. With one finger, a tap traces and a finger that moves drags.
 A graph from a website: some databases do not let other programs download their files. Find… shows "trace from the
-website ↗" for their entries. Use then opens the website in your browser, and the app waits for a picture of the
-graph. Copy a picture of the graph (Windows + Shift + S), or click Screenshot on the website. The tracer traces the
-picture automatically and shows the curve on the picture, on 3 Save. Compare the curve with the picture. If they
-agree, click Add as measurement. If the tracer cannot trace the picture, it shows the step that you must correct.
+website ↗" for their entries. For such an entry, Use opens the website in your browser, and the app waits for a
+picture of the graph.
+  1. Press Windows + Shift + S. Then select the area of the graph. Or click Screenshot on the website.
+  2. The tracer traces the picture automatically and shows the curve on the picture, on 3 Save. Compare the curve
+     with the picture.
+  3. If they agree, click Add as measurement. If the tracer cannot trace the picture, it shows the step that you
+     must correct.
 If Windows has no text reader for your language, you type the values (Settings > Time & language > Language: add
 English with its "optical character recognition").
 

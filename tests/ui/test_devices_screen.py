@@ -414,3 +414,27 @@ def test_symbols_beside_the_device_screens_words(set_up_window, check, qapp):
           "the warning sign on the card saying APO isn't on the device",
           all(w in buttons and not buttons[w].icon().isNull() for w in want) and signs == [("Warning", "warn")],
           (sorted(buttons), [w for w in want if w in buttons and buttons[w].icon().isNull()], signs))
+
+
+def test_add_a_profile_menu_sorts_numbers_as_numbers(set_up_window, check, qapp, tmp_path):
+    """The menu of Add a profile lists the profiles A to Z with numbers as numbers (UI-RULES 22): EQ 2 before EQ 10.
+    The three profiles are removed at the end (the window is the file's own)."""
+    from PySide6.QtWidgets import QPushButton
+    win, sw = set_up_window.win, set_up_window.sw
+    made, rows = [], []
+    try:
+        for name in ("EQ 10", "EQ 2", "EQ 1"):
+            path = tmp_path / f"{name}.txt"
+            path.write_text("Preamp: -1 dB\nFilter 1: ON PK Fc 100 Hz Gain -2 dB Q 1\n", encoding="utf-8")
+            made.append(sw.import_profile(str(path), name))
+        win.render_device_panel()
+        qapp.processEvents()
+        add = [b for b in win.dev_panel.findChildren(QPushButton) if b.text() == "Add a profile" and b.isVisible()]
+        rows = [a.text() for a in add[-1].menu().actions()] if add else []
+    finally:
+        for pid in made:
+            sw.remove_profile(pid)
+        win.render_all()
+        qapp.processEvents()
+    check("devices: the menu of Add a profile sorts the profiles A to Z with numbers as numbers (EQ 2 before EQ 10)",
+          [r for r in rows if r.startswith("EQ ")] == ["EQ 1", "EQ 2", "EQ 10"], rows)

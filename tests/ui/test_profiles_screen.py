@@ -61,3 +61,24 @@ def test_edit_in_make_an_eq(set_up_window, qapp, check, monkeypatch):
           not win.prof_edit_btn.icon().isNull() and help_window.entry_of_widget(win.prof_edit_btn)
           and off_without == [] and kept == (True, True) and not told and shown == ["eq"] and len(asked) == 1,
           (off_without, kept, told, shown, asked))
+
+
+def test_profiles_sort_numbers_as_numbers(set_up_window, qapp, check, tmp_path):
+    """Profiles lists the profiles A to Z with numbers as numbers (UI-RULES 22): EQ 2 before EQ 10. The three profiles
+    are removed at the end (the window is the file's own)."""
+    win, sw = set_up_window.win, set_up_window.sw
+    made, names = [], []
+    try:
+        for name in ("EQ 10", "EQ 2", "EQ 1"):
+            path = tmp_path / f"{name}.txt"
+            path.write_text("Preamp: -1 dB\nFilter 1: ON PK Fc 100 Hz Gain -2 dB Q 1\n", encoding="utf-8")
+            made.append(sw.import_profile(str(path), name))
+        win.render_all()
+        names = [win.prof_table.item(r, 0).text() for r in range(win.prof_table.rowCount())]
+    finally:
+        for pid in made:
+            sw.remove_profile(pid)
+        win.render_all()
+        qapp.processEvents()
+    check("profiles: the profiles table sorts the names A to Z with numbers as numbers (EQ 2 before EQ 10)",
+          [n for n in names if n.startswith("EQ ")] == ["EQ 1", "EQ 2", "EQ 10"], names)

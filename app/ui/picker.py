@@ -971,7 +971,9 @@ class Picker(QDialog):
             return
         if r.get("link"):  # (the browser, then a wait for a picture of its graph: the page's, ui/picture_wait.py;
             # offline and the other messages are said in this window's line, UI-RULES 7)
-            self.page.trace_from_website(r["id"], over=self, say=lambda t, ms=10000: self.footer.say(t, ms))
+            # (an entry of the other group, "Targets and measurements": the tracer names the add that the user wants)
+            self.page.trace_from_website(r["id"], over=self, say=lambda t, ms=10000: self.footer.say(t, ms),
+                                         want=self.kind if r.get("other") else None)
             return
         if r["src"] == "app":
             if r.get("device"):

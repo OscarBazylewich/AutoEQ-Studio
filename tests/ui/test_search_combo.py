@@ -163,8 +163,12 @@ for mode, dark in (("dark", True), ("light", False)):
                 cut.append([c.itemText(i), c.shown_text()])
     narrow = combos[-1]
     narrow.setCurrentIndex(0)
+    narrow.setFixedWidth(narrow.sizeHint().width() - 3)  # (some pixels less than its widest choice needs)
+    for _ in range(3):
+        qapp.processEvents()
+    less3 = narrow.shown_text()
     narrow.setFixedWidth(120)
-    out[mode] = {"cut": cut, "narrow": narrow.shown_text()}
+    out[mode] = {"cut": cut, "narrow": narrow.shown_text(), "less3": less3}
     host.close()
 print(json.dumps(out))
 '''
@@ -181,3 +185,7 @@ def test_choice_whole_at_the_drop_downs_own_size(check):
           set(d) == {"dark", "light"} and all(
               m["cut"] == [] and m["narrow"].endswith("…") and whole.startswith(m["narrow"][:-1].rstrip())
               and 1 < len(m["narrow"]) < len(whole) for m in d.values()), d or out.stderr[-300:])
+    check("drop-down lists: made only 3 px narrower than its choice, a drop-down shows the choice with “…” at its end "
+          "(not the whole choice cut by the edge); light and dark",
+          set(d) == {"dark", "light"} and all(m["less3"].endswith("…") and m["less3"] != whole for m in d.values()),
+          d or out.stderr[-300:])

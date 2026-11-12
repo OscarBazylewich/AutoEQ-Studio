@@ -120,11 +120,12 @@ SETTINGS_DEVICES = [{'title': 'Devices',
                                          'the profile on uses the new EQ immediately. A device that has the profile '
                                          'only in its list does not change. A device that is not connected uses the new '
                                          'EQ when you connect it. A device on which Equalizer APO is not installed does '
-                                         'not use the EQ (refer to Devices). After an update from a different result, '
-                                         'the From column of Profiles shows the file name of that result.',
-                                         'The update occurs immediately when you click the row. The message has Undo '
-                                         'for 20 seconds (Ctrl+Z does the same). After Undo, the profile has its '
-                                         'previous EQ again. Undo is not possible after you delete the profile, or '
+                                         'not use the EQ (refer to Devices). After you update a profile from a '
+                                         'different result, the From column of Profiles shows the file name of that '
+                                         'result.',
+                                         'When you click the row, the app updates the profile immediately. The message '
+                                         'has Undo for 20 seconds (Ctrl+Z does the same). After Undo, the profile has '
+                                         'its previous EQ again. Undo is not possible after you delete the profile, or '
                                          'after its file changes again.',
                                          'If the result came from a profile (Edit in Make an EQ), Update “its name” is '
                                          'the first row of the menu. If the file of that profile has items that Make an '

@@ -50,3 +50,49 @@ def test_no_text_reader_said(eq_screen, monkeypatch, check):
     check("trace: with no text reader in Windows, the tracer says it couldn't read the axis labels, and why (the "
           "values are typed instead)", read and "The app cannot read the labels" in t.axis_note
           and "no text reader" in t.axis_note and "Type the values" in t.axis_note, t.axis_note)
+
+
+def test_one_read_at_a_time(monkeypatch, check):
+    """Windows' text reader does one read at a time: a second read while one runs fails ("Another RecognizeAsync
+    operation is already running!": the automatic read of a picture from a website and the label read of a pasted
+    picture can come at the same time). ocr.words lets one read run at a time. A stand-in for the reader's call fails
+    in the same way when two calls overlap (the real reader is not used: the same test on each PC)."""
+    import asyncio
+    import threading
+
+    import numpy as np
+    state = {"now": 0, "most": 0}
+    count = threading.Lock()
+
+    async def stand_in(rgb):
+        with count:
+            state["now"] += 1
+            state["most"] = max(state["most"], state["now"])
+            overlap = state["now"] > 1
+        try:
+            if overlap:
+                raise OSError("Another RecognizeAsync operation is already running!")
+            await asyncio.sleep(0.05)
+            return [{"text": "90", "x0": 0, "y0": 0, "x1": 10, "y1": 10}]
+        finally:
+            with count:
+                state["now"] -= 1
+    monkeypatch.setattr(ocr, "_get_engine", lambda: None)
+    monkeypatch.setattr(ocr, "_read", stand_in)
+    rgb = np.full((60, 80, 3), 255, np.uint8)
+    n = 6
+    start, res = threading.Barrier(n), [None] * n
+
+    def work(i):
+        start.wait()
+        try:
+            res[i] = len(ocr.words(rgb))
+        except OSError as e:
+            res[i] = str(e)
+    threads = [threading.Thread(target=work, args=(i,)) for i in range(n)]
+    for th in threads:
+        th.start()
+    for th in threads:
+        th.join(30)
+    check("trace: reads of the text reader from 6 threads at the same time run one after the other (no read fails "
+          "because a different read runs)", res == [1] * n and state["most"] == 1, (res, state))

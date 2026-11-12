@@ -6,6 +6,7 @@ words(rgb) -> [{"text", "x0", "y0", "x1", "y1"}] in the picture's pixels. Raises
 text here (no text reader language installed, or the winrt packages missing): the tracer then asks for the values.
 """
 import asyncio
+import threading
 
 import numpy as np
 
@@ -15,6 +16,7 @@ class Unavailable(RuntimeError):
 
 
 _engine = None
+_one = threading.Lock()  # (Windows' reader does one read at a time: a second one gives an error)
 
 
 def _get_engine():
@@ -59,4 +61,5 @@ def words(rgb):
     if rgb.shape[0] < 40 or rgb.shape[1] < 40:  # (Windows' reader refuses tiny pictures: padded with the edge colour)
         ph, pw = max(0, 40 - rgb.shape[0]), max(0, 40 - rgb.shape[1])
         rgb = np.pad(rgb, ((0, ph), (0, pw), (0, 0)), mode="edge")
-    return asyncio.run(_read(rgb))
+    with _one:
+        return asyncio.run(_read(rgb))

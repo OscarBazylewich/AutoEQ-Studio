@@ -226,7 +226,7 @@ def test_undo_after_delete_or_change(eq_screen, result, tmp_path, check):
     check("update a profile: Undo after the profile was deleted, or after its file changed, says it is not possible "
           "and changes nothing",
           "You deleted “Daily” in Profiles: Undo is not possible." in deleted and still_gone
-          and "The file of “Daily” changed after the update: Undo is not possible." in changed
+          and "The file of “Daily” changed after the app updated it: Undo is not possible." in changed
           and _bytes(_file(sw, ids["Daily"])) == changed_bytes, (deleted, changed))
 
 
@@ -698,3 +698,38 @@ def test_a_profile_on_only_for_a_device_that_windows_does_not_list(eq_screen, re
           gone and "Speakers (Realtek)\tnot connected" in rows and "Update “Daily”\ton for Speakers (Realtek)" in rows
           and f"The profile changes to this EQ. {words} The EQ of the profile" in tip
           and message == f"The app updated “Daily”. {words}", (gone, rows, tip, message))
+
+
+def test_submenu_sorts_numbers_as_numbers(eq_screen, result, tmp_path, check):
+    page, sw = eq_screen.page, eq_screen.sw
+    _profiles(sw, str(tmp_path), ("EQ 10", {}), ("EQ 2", {}), ("EQ 1", {KEY: "on"}), ("alpha", {}), ("Beta", {}))
+    page._fill_use_menu()
+    rows = [r.split("\t")[0] for r in _rows(_sub(page, "Update a profile"))]
+    check("update a profile: the submenu Update a profile sorts A to Z with numbers as numbers (EQ 2 before EQ 10)",
+          rows == ["alpha", "Beta", "EQ 1", "EQ 2", "EQ 10"], rows)
+
+
+def test_undo_after_a_rename_says_the_new_name(eq_screen, result, tmp_path, check):
+    page, sw, said = eq_screen.page, eq_screen.sw, eq_screen.said
+    ids = _profiles(sw, str(tmp_path), ("Daily", {KEY: "on"}))
+    page._fill_use_menu()
+    _row(page.use_menu, "Update “Daily”").trigger()
+    sw.rename_profile(ids["Daily"], "Evening")
+    eq_screen.undo()
+    check("update a profile: Undo of an update after a rename of the profile says its name at that time",
+          said[-1] == "“Evening” has its previous EQ again.", said[-1])
+
+
+def test_each_device_row_uses_its_device(eq_screen, result, tmp_path, check, monkeypatch):
+    page, sw = eq_screen.page, eq_screen.sw
+    _two_devices(sw, monkeypatch)
+    try:
+        _profiles(sw, str(tmp_path))
+        page._fill_use_menu()
+        rows = _rows(page.use_menu)
+        _row(page.use_menu, "Speakers (Realtek)").trigger()
+        on = {k: bool(sw.record(k)["active"]) for k in (KEY, KEY2)}
+    finally:
+        _apart(sw, monkeypatch)
+    check("use on device: the row of the second device makes the EQ the profile of that device, not of the first",
+          on == {KEY: False, KEY2: True}, (rows, on))
