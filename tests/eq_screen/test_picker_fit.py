@@ -104,3 +104,27 @@ def test_messages_whole(eq_screen, look, check):
         qapp.processEvents()
     check(f"Find… ({look}): each message of its message line is whole at 680, 900 and 1000 px (it wraps to more "
           "lines when it is longer than the line), and in the window", not bad, bad)
+
+
+def test_tabs_say_what_the_mark_means(eq_screen, check):
+    # (2026-11-12: "This PC  0…" looked like a cut label. The "…" says that This PC is still searched, or, as the
+    # number of All and Online databases, that the online lists still load: each tab's tooltip and its Help entry
+    # say so, and F1 on a tab opens that entry)
+    from ui import help_window
+    from ui.picker import SOURCES, Picker
+    pk = Picker(eq_screen.page, "measurement")
+    try:
+        tips = {name: pk.src_by_key[key].toolTip() for key, name in SOURCES}
+        entries = {name: help_window.entry_of_widget(pk.src_by_key[key]) for key, name in SOURCES}
+    finally:
+        qt.close(pk)
+    body = " ".join(b for b in help_window._by_id().get("set-pk-src", {}).get("body", []) if isinstance(b, str))
+    seen = {"tooltips say it": sorted(n for n, t in tips.items() if "“…”: the app continues to search this PC or to "
+                                      "load the online lists." in t and t.endswith("F1 opens Help.")),
+            "F1 entries": sorted(set(entries.values())),
+            "Help says it": "“…” after the number of This PC: the app continues to search this PC" in body
+            and "“…” as the number of All or Online databases: the app continues to load the online lists." in body}
+    check("Find…: the tooltip of each source tab and its Help entry say what “…” after a number means (This PC is "
+          "still searched, the online lists still load); F1 on a tab opens that entry",
+          seen == {"tooltips say it": sorted(n for _k, n in SOURCES), "F1 entries": ["set-pk-src"],
+                   "Help says it": True}, (seen, tips))
