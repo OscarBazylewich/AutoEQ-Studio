@@ -10,8 +10,8 @@ narrow as the Guide's (its filters on two lines, a long name ending in "…"), F
 Moved from eq_checks.py's ui_checks (lines 1380-1472), review_checks (1743-1763), review_low_checks (1862-1881) and
 order_checks (2324-2380), on one page (the eq_screen fixture), offline throughout.
 - The first eight are one chain, as there: one Find… window (the `find` fixture), its rows for "gate" made by the
-  fixture for all of them (each passes alone and in any sequence; Use has a window of its own). Its This PC rows are the studio's samples (This PC's search is set to them): the old run
-  found the user's own files there too.
+  fixture for all of them (each passes alone and in any sequence; Use has a window of its own). Its This PC rows are
+  the studio's samples (This PC's search is set to them): the old run found the user's own files there too.
 - The old checks from line 1528 on had a result on the card and a saved EQ in History (a run, Retry, Save, History's
   Show), and by the A to Z check the page also owned windows earlier checks had left there (Which measurement,
   Sources, the tracer, Compare…), whose drop-downs its sweep of every drop-down went through. Both are built here
@@ -116,6 +116,8 @@ def test_asks_only_for_the_counts(eq_screen, find, monkeypatch, check):
         def call(self, route, body=None):
             asked.append((route, bool((body or {}).get("items"))))
             return page.svc.call(route, body)
+    pk._load()  # (a list changed by a test before, in any sequence: Use adds a file to This PC's list, taken here)
+    eq_screen.wait_for(lambda: not pk._fetching, 10)
     pk._later.stop()  # (the search typed above: its own drawing, not the poll's)
     monkeypatch.setattr(pk, "svc", _Counting())
     monkeypatch.setattr(pk, "render", lambda: drawn.append(1))
