@@ -8,7 +8,9 @@ come back with the picture.
 
 website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, one_curve=False, offset_db=0.0,
               colours=("#1a48a0", "#0d357d"), db_range=(40, 80), db_step=5, legend_xy=(500, 285), extra=(),
-              target_fn=None, db_words=None, target_dash=None) -> (QImage, truth)
+              target_fn=None, db_words=None, target_dash=None, chan_fns=None, clip_db=False, top_logo=False)
+              -> (QImage, truth)
+STEEP_END: (left, right) channels with the forms of a real screen copy (steep peaks, out of the grid near 20 kHz)
 truth: "plot" {x0, x1, y0, y1} (the grid's edges), "avg" f(Hz) -> dB (the true average of the channels), "chans"
 [f, f], "tgt" f or None, "x" f(Hz) -> column, "y" f(dB) -> row, "hz" f(column) -> Hz, "db" f(row) -> dB, "words"
 [{text, x0, y0, x1, y1}] (the true labels with their boxes), "db_rows" (the rows of the dB grid lines, top first),
@@ -49,6 +51,35 @@ def _target(f):
     return 58.5 + 4.5 / (1 + (f / 110) ** 2) + 8.5 * math.exp(-(L2(f / 3000) ** 2) / 1.2) - 4 * max(0.0, L2(f / 9000))
 
 
+def _smooth(points):
+    """A smooth curve f(Hz) -> dB through [(Hz, dB)] (monotone cubic on log10 of the frequency: no overshoot between
+    the points, so each peak and dip is where its point is). Past the last point: the slope of the last part. (SciPy
+    is imported at the first call only.)"""
+    made = []
+
+    def fn(f):
+        if not made:
+            from scipy.interpolate import PchipInterpolator
+            made.append(PchipInterpolator(np.log10([p[0] for p in points]), [p[1] for p in points], extrapolate=True))
+        return float(made[0](math.log10(f)))
+    return fn
+
+
+# A made-up IEM with the forms of a real screen copy of the website (2026-11-11): the two channels 1 to 2 dB apart
+# below 8 kHz; from 8 to 16 kHz steep, narrow peaks and dips, the channels 5 to 13 dB apart for short parts and across
+# each other; the right channel (the lighter one) falls out of the grid at the bottom (below 40 dB) at about 18.7 kHz,
+# the left one at about 19.8 kHz. For website_graph(chan_fns=STEEP_END, clip_db=True).
+_STEEP_L = [(20, 66.0), (40, 64.6), (100, 60.3), (150, 58.6), (190, 60.3), (300, 58.0), (400, 56.8), (500, 58.4),
+            (700, 59.6), (1000, 61.4), (2000, 68.0), (2900, 70.9), (4000, 69.0), (5000, 68.6), (6500, 68.1),
+            (7600, 64.0), (9000, 56.5), (10600, 51.8), (12100, 64.0), (12800, 61.0), (15000, 51.5), (16700, 58.0),
+            (18000, 53.0), (19000, 46.0), (19800, 40.0), (20000, 38.5)]
+_STEEP_R = [(20, 65.8), (40, 64.4), (100, 60.0), (150, 58.2), (190, 59.2), (300, 56.6), (350, 55.8), (400, 57.0),
+            (500, 58.3), (700, 59.0), (1000, 60.9), (2000, 68.0), (3000, 70.2), (3500, 70.4), (4400, 71.6),
+            (5000, 68.6), (6000, 65.2), (6600, 65.0), (7200, 65.4), (7800, 63.5), (9000, 57.5), (10500, 55.3),
+            (11700, 65.0), (12900, 62.5), (14000, 65.3), (16600, 46.0), (18000, 50.5), (18700, 38.0), (20000, 20.0)]
+STEEP_END = (_smooth(_STEEP_L), _smooth(_STEEP_R))
+
+
 def label_of(f, first=False, last=False):
     t = f"{f / 1000:g}k" if f >= 1000 else f"{f:g}"
     return t + "Hz" if first or last else t
@@ -56,7 +87,7 @@ def label_of(f, first=False, last=False):
 
 def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, one_curve=False, offset_db=0.0,
                   colours=("#1a48a0", "#0d357d"), db_range=(40, 80), db_step=5, legend_xy=(500, 285), extra=(),
-                  target_fn=None, db_words=None, target_dash=None):
+                  target_fn=None, db_words=None, target_dash=None, chan_fns=None, clip_db=False, top_logo=False):
     """plot_w: the grid's width in pixels. target: None, "solid" or "dashed". page: a page around the graph.
     decade: the labels' power of ten against 20 Hz .. 20 kHz (0: correct labels; 1: every label ten times too high).
     labels False: no labels at all. one_curve: only the left channel. offset_db: added to the right channel (two
@@ -67,7 +98,10 @@ def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, o
     line's curve in place of the default one. db_words: {true dB value: text} in place of the dB labels' own text
     in truth["words"] (the picture does not change: a stand-in for a text reader that reads wrongly; "": the label
     is not in truth["words"], not read). target_dash: the dashed target's dash and gap lengths in the graph's units
-    (None: (6, 3))."""
+    (None: (6, 3)). chan_fns: (left, right) f(Hz) -> dB in place of the default channels (offset_db is added to the
+    right one; STEEP_END: the forms of a real screen copy). clip_db: the curves are not drawn out of the dB axis (above
+    its top grid line or below its bottom one), as on the website; False: they go on to the edge of the graph.
+    top_logo: a pale blue logo at the top right (as a rig maker's logo), and the small gray text left of it."""
     if QGuiApplication.instance() is None:  # (with no application, Qt's fonts stop the process with no error)
         raise RuntimeError("website_graph draws with Qt: make a QGuiApplication first (in a test: the qapp fixture).")
     s = plot_w / 770.0  # (a CrinGraph graph is 800 x 346 units: the plot from 15 to 785, the grid lines from 10 to 327)
@@ -152,7 +186,20 @@ def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, o
         g.drawLine(c + QPointF(math.cos(r), math.sin(r)) * 12 * s, c + QPointF(math.cos(r), math.sin(r)) * 26 * s)
     text(ox + 172 * s, oy + 300 * s, "graph.sample.audio", "#aaa091", font(28, True))
     for i, t in enumerate(("Sample data made for a test:", '"000" Coupler', "ABC 12345-6")):
-        text(ox + 762 * s, oy + (27 + i * 14) * s, t, "#9c958a", font(12), "right")
+        text(ox + (690 if top_logo else 762) * s, oy + (27 + i * 14) * s, t, "#9c958a", font(12), "right")
+    if top_logo:  # (a circle with lines across it and two letters, pale blue, and a name in gray under it)
+        c = QPointF(ox + 738 * s, oy + 38 * s)
+        g.setPen(QPen(QColor("#7aa7d4"), 1.2 * s))
+        g.setBrush(Qt.NoBrush)
+        g.drawEllipse(c, 16 * s, 16 * s)
+        g.drawEllipse(c, 7 * s, 16 * s)
+        for k in (-10, -5, 0, 5, 10):
+            g.drawLine(c + QPointF(-15 * s, k * s), c + QPointF(15 * s, k * s))
+        g.setPen(QPen(QColor("#7aa7d4"), 2.2 * s))
+        g.drawLine(c + QPointF(-30 * s, -3 * s), c + QPointF(30 * s, -3 * s))
+        text(ox + 712 * s, oy + 35 * s, "S", "#7aa7d4", font(9, True, "Arial"))
+        text(ox + 758 * s, oy + 35 * s, "A", "#7aa7d4", font(9, True, "Arial"))
+        text(c.x(), oy + 68 * s, "Sample & Co", "#a19c95", font(9, True, "Arial"), "mid")
     g.setPen(Qt.NoPen)
     g.setBrush(QColor("#b98f62"))
     g.drawRoundedRect(QRectF(ox + 4 * s, Y((vb + vt) / 2) - 12 * s, 10 * s, 24 * s), 4 * s, 4 * s)  # (the axis' handle)
@@ -201,14 +248,19 @@ def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, o
             pp.lineTo(QPointF(X(f), Y(fn(f))))
         g.drawPath(pp)
     tfn = target_fn or _target
+    if clip_db:  # (the curves only: from the top dB grid line to the bottom one)
+        g.setClipRect(QRectF(ox, Y(vt), gw, Y(vb) - Y(vt)))
     if target:
         path(tfn, "#9e9ea3", 2.3, list(target_dash or (6, 3)) if target == "dashed" else None)
-    right = (lambda f: _right(f) + offset_db) if offset_db else _right
-    chans = [_left] if one_curve else [_left, right]
+    left, right0 = chan_fns or (_left, _right)
+    right = (lambda f: right0(f) + offset_db) if offset_db else right0
+    chans = [left] if one_curve else [left, right]
     for fn, col in zip(chans, colours):
         path(fn, col, 2.3)
     for fn, col in extra:
         path(fn, col, 2.3)
+    if clip_db:
+        g.setClipRect(QRectF(ox, oy, gw, gh))
     fb = font(9.5, True)
     lx, ly = legend_xy
     text(ox + lx * s, oy + ly * s, "Sample IEM (L)", colours[0], fb)
@@ -217,7 +269,7 @@ def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, o
     if target:
         text(ox + 500 * s, oy + 270 * s, "Sample Target", "#9e9ea3", fb)
     g.end()
-    avg = _left if one_curve else (lambda f: (_left(f) + right(f)) / 2)
+    avg = left if one_curve else (lambda f: (left(f) + right(f)) / 2)
     xi = lambda f: X(f) - 0.5
     yi = lambda v: Y(v) - 0.5
     return img, {"plot": {"x0": xi(20), "x1": xi(20000), "y0": top - 0.5, "y1": bot - 0.5}, "avg": avg,
