@@ -116,11 +116,11 @@ def update_row_words(fm, name, names, quoted=True):
 
 def use_menu_order(sw, own=None):
     """Use on device's rows in one sequence, for its menu (ui/eq_page_result.py) and the Guide's picture of it
-    (ui/guide_eq.py): every device's key, as the Devices screen lists them (sw.device_sort_key: connected ones first,
-    then A to Z by the name shown, a nickname too), and the ids of the profiles that are on for them, in that sequence,
+    (ui/guide_eq.py): the keys of the devices that the Devices screen lists, in its sequence (sw.listed: connected ones
+    first, then A to Z by the name shown, a nickname too; a device that Windows does not list only with profiles, as
+    there: one that you removed is in neither), and the ids of the profiles that are on for them, in that sequence,
     each one time (own: the profile the EQ came from, left out: it has its own row at the top). Returns (keys, ids)."""
-    keys = [d.key for d in sw.devices] + [k for k in sw.s["devices"] if not sw.device(k)]
-    keys.sort(key=sw.device_sort_key)
+    keys = sw.listed()
     profiles, ids = sw.profiles(), []
     for key in keys:
         on = sw.record(key)["active"]

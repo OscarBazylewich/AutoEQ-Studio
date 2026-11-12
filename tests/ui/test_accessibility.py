@@ -5,12 +5,32 @@ The window as the old check saw it: after Set up, with one profile on the device
 (tests\\ui\\conftest.py's set_up_window, then Off). Unthemed, as there: the theme names a symbol button by its tooltip
 for a screen reader once it has been applied in a process, which would let this check pass more easily; so no test
 in this folder applies the theme in this process (the theme's tests do it in a Python of their own).
+A test of a different folder can apply the theme in the same pytest process before this file (2026-11-12: Make an
+EQ's eq_screen fixture, helpers.eqpage, as for tests\\eq_screen\\test_help_tags.py; the self-test runs the two folders
+in different processes). Then _unthemed (below, before the window is made) takes off the stylesheet and the theme's
+names for a screen reader (theme.building: the filter that gives them off) for this file, and puts them back after.
 """
 import pytest
 
 from helpers import paths
 
 COVERS = ("a11y",)  # (app\tools\a11y.py, imported by its name through helpers.paths.import_tool)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _unthemed(qapp):
+    # (autouse and of module scope: made before set_up_window's window, so no control of it gets a theme's name)
+    from ui import theme
+    sheet = qapp.styleSheet()
+    if not sheet:
+        yield
+        return
+    qapp.setStyleSheet("")
+    try:
+        with theme.building():
+            yield
+    finally:
+        qapp.setStyleSheet(sheet)
 
 
 def test_every_control_named_and_reachable(set_up_window, check, qapp):

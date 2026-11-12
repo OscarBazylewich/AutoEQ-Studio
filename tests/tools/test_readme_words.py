@@ -85,3 +85,12 @@ def test_readme_words_of_a_graph_from_a_website(check):
     check("readme: each line of README.txt has 120 characters or fewer, with LF line ends",
           "\r" not in raw and all(len(line) <= 120 for line in raw.split("\n")),
           [line for line in raw.split("\n") if len(line) > 120])
+
+
+def test_readme_words_of_remove_for_a_device(check):
+    # (2026-11-12: with Remove on the Devices screen, a device does not stay in the list for all time)
+    with open(os.path.join(paths.PROJECT, "README.txt"), encoding="utf-8") as fh:
+        text = " ".join(fh.read().split())
+    check("readme: a device stays in the list of AutoEQ Studio until you remove it, and Remove removes it from Devices",
+          "AutoEQ Studio keeps each device in its list after the first time, until you remove it." in text
+          and "Remove (after Rename…) removes a device that is not connected from Devices." in text, text[:0])

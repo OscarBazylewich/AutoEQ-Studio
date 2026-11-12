@@ -6,6 +6,9 @@ Settings (data\\settings.json):
 - devices: {key ("Headset|EarPods"): {"label" (Windows' name), "nickname" (yours, or none: shown(rec) is the name
   to show), "guids" (every endpoint seen for it), "profiles" [ids], "active" id or None}}. A device is remembered once seen, so its EQ is in APO's file even while it's not plugged in: plugging
   it in then switches by itself, with or without AutoEQ Studio running.
+- hidden_devices: [keys] of the devices that you removed (remove_device) while Windows still lists them, not
+  connected: no record, not in self.devices, until Windows shows them connected again (then a new device) or no
+  longer lists them.
 - notify (a notice when the EQ changes), hotkey ("Ctrl+Alt+E": switch the playing device's EQ), autostart,
   offline (the whole app: net.py), page (the screen the window shows).
 
@@ -21,6 +24,7 @@ loudness (switcher\\level.py, Listen's measure), so "off" isn't louder and the l
 Listeners (on_change) are told after every change, with what changed: "devices" (plugged in or out, another one
 playing), "profiles", "active" (an EQ switched), "settings", "apo".
 """
+import copy
 import os
 import re
 import time
@@ -110,6 +114,9 @@ class Switcher:
             if d.get("last") in ids:  # (the EQ it had before it was switched off: the on/off hotkey's way back)
                 devs[k]["last"] = d["last"]
         out["devices"] = devs
+        hidden = s.get("hidden_devices")  # (older settings have none; a damaged value: none hidden)
+        out["hidden_devices"] = list(hidden) if isinstance(hidden, list) and all(isinstance(k, str) for k in hidden) \
+            else []
         return out
 
     def save(self):
@@ -132,12 +139,18 @@ class Switcher:
     # ---------------------------------------------------------------- devices
     def refresh(self, quiet=False):
         """Read the devices again: new ones are remembered, endpoints seen are added to their device. Tells the
-        listeners when something they show changed (returns that too)."""
+        listeners when something they show changed (returns that too). A device that you removed (hidden_devices)
+        stays out while it is not connected; connected again, it is a new device; no longer in Windows' list, its key
+        goes from hidden_devices (as does a key that has a record again)."""
         devs = devices_mod.group(self._endpoints())
+        hidden = [k for k in self.s["hidden_devices"] if k not in self.s["devices"]
+                  and any(d.key == k and not d.connected for d in devs)]
+        changed_settings = hidden != self.s["hidden_devices"]
+        self.s["hidden_devices"] = hidden
+        devs = [d for d in devs if d.key not in hidden]
         playing = self._playing()
         key = next((d.key for d in devs if playing and playing in d.guids), None)
         before = [(d.key, d.connected, d.apo) for d in self.devices], self.playing_key
-        changed_settings = False
         for d in devs:
             rec = self.s["devices"].setdefault(d.key, {"label": d.label, "guids": [], "profiles": [], "active": None})
             new = [g for g in d.guids if g not in rec["guids"]]
@@ -167,6 +180,83 @@ class Switcher:
 
     def record(self, key):
         return self.s["devices"].get(key)
+
+    def listed(self):
+        """The keys of the lists of devices (the Devices screen, Use on device and its Guide picture: one list for
+        all, so a device is in each or in none): each device that Windows lists (not one that you removed), and each
+        one that Windows does not list but that has profiles, in the order of device_sort_key."""
+        keys = [d.key for d in self.devices]
+        keys += [k for k, d in self.s["devices"].items() if k not in keys and d["profiles"]]
+        return sorted(keys, key=self.device_sort_key)
+
+    def remove_device(self, key):
+        """A device off the lists (the Devices screen's Remove): its record goes (its profiles stay in Profiles and on
+        other devices), with its section in APO's file; while Windows still lists it, it is hidden (hidden_devices)
+        until it is connected again. Its EQ for 5 minutes and its EQ off to compare stop first. Returns what
+        restore_device needs, or None (nothing done): no record, a connected device, or read-only settings.
+        Windows' list is read again first: the last poll can be up to POLL_MS old, and a device connected since then
+        must stay (the listeners are told if it changed, so each list shows it connected)."""
+        self.refresh()
+        rec, d = self.record(key), self.device(key)
+        if not rec or self.read_only or (d and d.connected):
+            return None
+        if self.trial and self.trial["key"] == key:
+            self.end_trial()
+        self._clear_compare(key)
+        before = {"key": key, "rec": copy.deepcopy(rec), "order": list(self.s["devices"]), "hidden": bool(d)}
+        del self.s["devices"][key]
+        if d:
+            if key not in self.s["hidden_devices"]:
+                self.s["hidden_devices"].append(key)
+            self.devices = [x for x in self.devices if x.key != key]
+        if self.playing_key == key:  # (Windows names only a connected device as the default; a stand-in can do more)
+            self.playing_key = None
+        self.save()
+        self.apply(auto=True)  # (no EQ changed: with the settings set aside (hold), APO's file keeps the EQs)
+        self._tell("devices")
+        return before
+
+    def restore_device(self, before):
+        """Undo of remove_device (before: what it returned): the record as it was, in its place among the others,
+        with its profiles in their order, the one on, the last one and your name (a profile deleted meanwhile stays
+        out), and out of hidden_devices. Returns "" (done) or "back" (a record with that key is there again: the
+        device was connected meanwhile and is a new device; nothing changes). Raises OSError (read-only)."""
+        key = before["key"]
+        if key in self.s["devices"]:
+            return "back"
+        self._require_writable()
+        rec = copy.deepcopy(before["rec"])
+        rec["profiles"] = [i for i in rec["profiles"] if i in self.s["profiles"]]
+        if rec["active"] not in rec["profiles"]:
+            rec["active"] = None
+        if rec.get("last") not in rec["profiles"]:
+            rec.pop("last", None)
+        items = list(self.s["devices"].items())
+        items.insert(self._place(before["order"], key, [k for k, _ in items]), (key, rec))
+        self.s["devices"].clear()  # (the same dict, in the old sequence: APO's file lists the devices in it)
+        self.s["devices"].update(items)
+        if key in self.s["hidden_devices"]:
+            self.s["hidden_devices"].remove(key)
+        self.refresh(quiet=True)  # (Windows' list read again: a device that it lists is in self.devices again)
+        self.save()
+        self.apply(auto=True)
+        self._tell("devices")
+        return ""
+
+    @staticmethod
+    def _place(order, key, now):
+        """Where Undo puts key back in now (the keys of the records at this time): order is the keys at its removal.
+        After the nearest record before it that is there, and after each record that was not there at its removal
+        (one put back by an earlier Undo: two removals, then their Undos in either sequence, give the first order);
+        else before the nearest record after it; else last."""
+        at = order.index(key)
+        for k in reversed(order[:at]):
+            if k in now:
+                i = now.index(k) + 1
+                while i < len(now) and now[i] not in order:
+                    i += 1
+                return i
+        return next((now.index(k) for k in order[at + 1:] if k in now), len(now))
 
     def set_nickname(self, key, name):
         """Your name for a device (empty: Windows' name again)."""

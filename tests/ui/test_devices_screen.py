@@ -7,10 +7,15 @@ One window for the whole file (tests\\ui\\conftest.py's devices_window, then set
 Set up), its tests in the old checks' order: each one starts from the state the one before left, as the old checks
 did (the device's line keeps the last answer; the EQ choices count on the earlier tests putting things back).
 Then the screen's look in Windows 11's (the restyle, 2026-10-23): its rows, a profile's quiet ✕ (drawn in a Python of
-its own, themed), and the symbols beside its buttons' words.
+its own, themed), and the symbols beside its buttons' words. Last, Remove in a device's card (2026-11-12): it removes
+only a device that is not connected (for a connected one, a bubble at it tells why), Undo, the row selected after
+it, the lists of devices in agreement, and pictures of the card, the bubble and the message (in a Python of its own,
+themed). It is in this file, not in a file of its own, so a change
+to ui\\devices_screen.py chooses fewer than 25 test files (tests\\infra\\test_relevant.py).
 """
 import os
 import threading
+import types
 
 from helpers import qt, session, subproc
 
@@ -438,3 +443,342 @@ def test_add_a_profile_menu_sorts_numbers_as_numbers(set_up_window, check, qapp,
         qapp.processEvents()
     check("devices: the menu of Add a profile sorts the profiles A to Z with numbers as numbers (EQ 2 before EQ 10)",
           [r for r in rows if r.startswith("EQ ")] == ["EQ 1", "EQ 2", "EQ 10"], rows)
+
+
+# ---------------------------------------------------------------- Remove (a device), 2026-11-12
+# (after an update of Equalizer APO or a driver, Windows can give a device a new entry, and the old one stayed in
+# Devices for good: Remove removes only a device that is not connected, with Undo; the lists of devices agree.
+# For a connected device Remove stays on and a bubble at it tells why: UI-RULES 25)
+AWAY = "Headphones|Buds"  # (in Windows' list, not connected)
+GONE = "Headset|USB-C to 3.5mm Headphone Jack Adapter"  # (no longer in Windows' list)
+TIP = "Removes this device from Devices. Its profiles stay in Profiles."
+CONNECTED = "You can remove a device only when it is not connected."
+
+
+def _remove_profile(w, name):
+    path = os.path.join(w.top, name + ".txt")
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("Preamp: -3 dB\nFilter 1: ON PK Fc 1000 Hz Gain 3 dB Q 1\n")
+    return w.sw.import_profile(path, name)
+
+
+def _remove_button(win):
+    from PySide6.QtWidgets import QPushButton
+    return next((b for b in win.dev_panel.findChildren(QPushButton) if b.text() == "Remove" and b.isVisibleTo(win)),
+                None)
+
+
+def _select(win, qapp, key):
+    win.selected = key
+    win.render_devices()
+    qapp.processEvents()
+
+
+def _rows(win):
+    from PySide6.QtCore import Qt
+    return [win.dev_list.item(i).data(Qt.UserRole) for i in range(win.dev_list.count())]
+
+
+def _tell_bubble():
+    from ui import bubble
+    b = bubble.last("tell")
+    return b if b is not None and b.isVisible() else None
+
+
+def test_the_button_on_with_its_tooltip(devices_window, qapp, check):
+    w = devices_window
+    win = w.win
+    got = {}
+    for key in (KEY, AWAY):
+        _select(win, qapp, key)
+        b = _remove_button(win)
+        got[key] = b and (b.isEnabled(), b.toolTip().split("\n")[0], b.accessibleName(), b.property("help_key"))
+    check("devices: Remove is in the device's card, on for a connected device too (UI-RULES 25: a disabled button "
+          "cannot be reached with the keyboard), with one tooltip; its name for a screen reader names the device; F1 "
+          "opens its Help",
+          got == {KEY: (True, TIP, "Remove Headset (EarPods) from Devices", "#dev-remove"),
+                  AWAY: (True, TIP, "Remove Headphones (Buds) from Devices", "#dev-remove")}, got)
+
+
+def test_the_help_of_remove_in_ste_limits(check):
+    # (2026-11-12: a sentence of 31 words, "…not connected: a device that…", and a source line of 121 characters)
+    import re
+    from ui import help_text_devices as H
+    entry = next(i for s in H.SETTINGS_DEVICES for i in s["items"] if i["key"] == "#dev-remove")
+    texts = entry["body"] + [H.HELP_DEVICES["#dev-remove"]]
+    long = [s for t in texts for s in re.split(r"(?<=[.!?])\s+", t) if len(re.findall(r"[\w“”…'-]+", s)) > 25]
+    with open(H.__file__, encoding="utf-8") as fh:
+        source = fh.read()
+    part = source[source.index("'#dev-remove'"):]
+    part = part[:part.index("\n")] + "\n" + part[part.index("{'key': '#dev-remove'"):part.index("{'key': '#use-device'")]
+    wide = [line for line in part.split("\n") if len(line) > 120]
+    check("devices: each sentence of the Help of Remove has 25 words or fewer, and its source lines 120 characters or "
+          "fewer; the words say \"from Devices\" (one name), not \"from the list\"",
+          not long and not wide and "from the list" not in " ".join(texts)
+          and H.HELP_DEVICES["#dev-remove"] == "Removes a device that is not connected from Devices. Its profiles stay "
+                                               "in Profiles.", (long, wide))
+
+
+def test_a_connected_device_stays_and_a_bubble_tells_why(devices_window, qapp, check):
+    from PySide6.QtCore import Qt
+    from switcher import devices as D
+    from ui.devices_screen import DOT
+    w = devices_window
+    win, sw = w.win, w.sw
+    got = {}
+    try:
+        # (a connected device; then one that was connected after the last poll: its row said "Not connected")
+        for case, key in (("connected", KEY), ("connected since the poll", AWAY)):
+            _select(win, qapp, key)
+            row_before = win.dev_list.currentItem().data(DOT)
+            if case == "connected since the poll":
+                w.eps[1] = D.Endpoint("{1}", "Headphones", "Buds", D.ACTIVE, True)  # (plugged in, not polled yet)
+            _remove_button(win).click()
+            qt.pump(50)
+            tell = _tell_bubble()
+            current = win.dev_list.currentItem()
+            got[case] = (row_before, sw.record(key) is not None, key in _rows(win), sw.s["hidden_devices"],
+                         win.selected, current.data(Qt.UserRole) if current else None,
+                         current.data(DOT) if current else None, tell.text.text() if tell else None,
+                         tell is not None and tell.anchor is _remove_button(win))
+            if tell is not None:
+                tell.close_now()
+    finally:
+        w.eps[1] = D.Endpoint("{1}", "Headphones", "Buds", D.NOT_PRESENT, True)
+        sw.refresh()
+        win.render_all()
+    check("devices: a click on Remove for a connected device removes nothing, the device stays selected, and a "
+          "bubble at Remove tells why; the same for a device that was connected after the last poll (its row then "
+          "shows it connected)",
+          got == {"connected": ("playing", True, True, [], KEY, KEY, "playing", CONNECTED, True),
+                  "connected since the poll": ("away", True, True, [], AWAY, AWAY, "connected", CONNECTED, True)},
+          got)
+
+
+def test_remove_is_last_and_apart_in_the_card(devices_window, qapp, check):
+    from PySide6.QtWidgets import QPushButton
+    w = devices_window
+    win = w.win
+    _select(win, qapp, AWAY)
+    rem = _remove_button(win)
+    ren = next((b for b in win.dev_panel.findChildren(QPushButton) if b.text() == "Rename…"), None)
+    head = rem.parentWidget() if rem else None
+    got = rem and ren and (ren.parentWidget() is head, rem.geometry().left() - ren.geometry().right() - 1,
+                           head.layout().indexOf(rem) == head.layout().count() - 1)
+    check("devices: Remove comes after Rename… in the card, last and 12 px apart (UI-RULES 14)",
+          bool(got) and got[0] and got[1] == 12 and got[2], got)
+
+
+def test_a_click_removes_and_undo_puts_it_back(devices_window, qapp, check):
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication
+    w = devices_window
+    win, sw = w.win, w.sw
+    pid = _remove_profile(w, "Buds EQ")
+    sw.add_to_device(AWAY, pid)
+    sw.set_nickname(AWAY, "My buds")
+    rec = dict(sw.record(AWAY))
+    try:
+        _select(win, qapp, AWAY)
+        _remove_button(win).click()
+        qapp.processEvents()
+        off = (sw.record(AWAY), AWAY in _rows(win), win.selected, win.message.text.text(),
+               win.message.undo_btn.isVisibleTo(win), pid in sw.profiles(), list(sw.s["hidden_devices"]),
+               QApplication.focusWidget() is win.dev_list)  # (the clicked button went with the old panel)
+        win.message.undo_btn.click()
+        qapp.processEvents()
+        current = win.dev_list.currentItem()
+        back = (sw.record(AWAY) == rec, AWAY in _rows(win), win.selected,
+                current.data(Qt.UserRole) if current else None, list(sw.s["hidden_devices"]))
+    finally:
+        sw.remove_profile(pid)
+        sw.set_nickname(AWAY, "")
+        win.render_all()
+    check("devices: a click on Remove removes the device (its profile stays in Profiles) and selects the row at the "
+          "same place, with the keyboard in the list; the message names it, tells that it shows again when you "
+          "connect it, and has Undo; Undo puts it back as it was and selects it",
+          off == (None, False, KEY, "Removed “My buds” from Devices. It shows again when you connect it.", True, True,
+                  [AWAY], True) and back == (True, True, AWAY, AWAY, []), (off, back))
+
+
+def test_the_list_selects_the_row_at_the_same_place_or_the_last(devices_window, qapp, check):
+    w = devices_window
+    win, sw = w.win, w.sw
+    pid = _remove_profile(w, "Old dongle")
+    sw.s["devices"][GONE] = {"label": "Headset (USB-C to 3.5mm Headphone Jack Adapter)", "guids": ["{9}"],
+                             "profiles": [], "active": None}
+    sw.add_to_device(GONE, pid)
+    try:
+        win.render_all()
+        order = _rows(win)
+        _select(win, qapp, AWAY)
+        _remove_button(win).click()
+        qapp.processEvents()
+        middle = (win.selected, _rows(win), win.message.text.text())
+        _remove_button(win).click()  # (the row selected after it: now the last row)
+        qapp.processEvents()
+        last = (win.selected, _rows(win), win.message.text.text(), sw.record(GONE))
+    finally:
+        sw.remove_profile(pid)
+        sw.s["hidden_devices"].clear()
+        sw.refresh()
+        win.render_all()
+    check("devices: after a removal the list selects the row at the same place (or the last row) and the panel shows "
+          "it; a device that Windows does not list shows no more (the message has no more words for it)",
+          order == [KEY, AWAY, GONE] and middle == (GONE, [KEY, GONE], "Removed “Headphones (Buds)” from Devices. It "
+                                                                       "shows again when you connect it.")
+          and last == (KEY, [KEY], "Removed “Headset (USB-C to 3.5mm Headphone Jack Adapter)” from Devices.", None),
+          (order, middle, last))
+
+
+def test_undo_after_the_device_connected_again(devices_window, qapp, check):
+    from PySide6.QtCore import Qt
+    from switcher import devices as D
+    w = devices_window
+    win, sw = w.win, w.sw
+    _select(win, qapp, AWAY)
+    _remove_button(win).click()
+    qapp.processEvents()
+    w.eps[1] = D.Endpoint("{1}", "Headphones", "Buds", D.ACTIVE, True)  # (plugged in)
+    try:
+        sw.refresh()
+        win.message.undo_btn.click()
+        qapp.processEvents()
+        said = win.message.text.text()
+        current = win.dev_list.currentItem()
+        got = (said, sw.record(AWAY)["profiles"], AWAY in _rows(win), win.selected,
+               current.data(Qt.UserRole) if current else None)
+    finally:
+        w.eps[1] = D.Endpoint("{1}", "Headphones", "Buds", D.NOT_PRESENT, True)
+        sw.refresh()
+        win.render_all()
+    check("devices: Undo after the device was connected again (a new device) changes nothing and tells why; the list "
+          "selects that device (its row, not only the panel)",
+          got == ("You connected “Headphones (Buds)” again: Undo is not possible.", [], True, AWAY, AWAY), got)
+
+
+def test_use_on_device_and_the_tray_do_not_list_a_removed_device(devices_window, qapp, check):
+    from PySide6.QtCore import QCoreApplication, QEvent
+    from PySide6.QtWidgets import QMenu
+    from ui.app import App
+    from ui.eq_page_parts import use_menu_order
+    w = devices_window
+    win, sw = w.win, w.sw
+    sw.s["devices"]["Speakers|Old"] = {"label": "Speakers (Old)", "guids": ["{8}"], "profiles": [], "active": None}
+    win.render_all()
+    agree = (use_menu_order(sw)[0], _rows(win))  # (a device that Windows does not list, with no profiles: in neither)
+    _select(win, qapp, AWAY)
+    _remove_button(win).click()
+    qapp.processEvents()
+    keys, _ = use_menu_order(sw)
+    fake = types.SimpleNamespace(sw=sw, menu=QMenu(), win=win, on_onoff=lambda: None,
+                                 end_trial=lambda keep=False: None, quit=lambda: None)
+    try:
+        App.build_menu(fake)
+        tray = [a.text() for a in fake.menu.actions()]
+    finally:
+        fake.menu.deleteLater()
+        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+        del sw.s["devices"]["Speakers|Old"]
+        sw.s["hidden_devices"].clear()
+        sw.refresh()
+        win.render_all()
+    check("devices: Use on device lists the devices that the Devices screen lists, in its sequence (a device that "
+          "Windows does not list, with no profiles, in neither); a removed device is in neither, nor in the tray menu",
+          agree == ([KEY, AWAY], [KEY, AWAY]) and keys == [KEY] and "Headphones (Buds)" not in tray
+          and "Headset (EarPods)" in tray, (agree, keys, tray))
+
+
+# (after tests\ui\conftest.py's THEMED_WINDOW: a device that Windows does not list, with a long name and a profile;
+# its card and the window at the usual size and at the smallest size, the bubble after a click on Remove for the
+# connected device at the two sizes, then the message after Remove, dark and light)
+PICTURES = r'''
+from PySide6.QtWidgets import QPushButton
+from ui import bubble
+path = os.path.join(top, "Old.txt")
+with open(path, "w", encoding="utf-8") as fh:
+    fh.write("Preamp: -3 dB\n")
+pid = sw.import_profile(path, "Old dongle")
+GONE = "Headset|USB-C to 3.5mm Headphone Jack Adapter (a long name for a test of the width of the card)"
+sw.s["devices"][GONE] = {"label": "Headset (USB-C to 3.5mm Headphone Jack Adapter, a long name for a test of the "
+                                  "width of the card)", "guids": ["{9}"], "profiles": [], "active": None}
+sw.add_to_device(GONE, pid)
+pics = os.path.join(top, "pictures")
+os.makedirs(pics, exist_ok=True)
+out = {}
+
+
+def pump():
+    for _ in range(8):
+        qapp.processEvents()
+
+
+def button():
+    return next((b for b in win.dev_panel.findChildren(QPushButton) if b.text() == "Remove" and b.isVisibleTo(win)),
+                None)
+
+
+def inside(b):  # (the button whole: in its card, and in the window's sight)
+    head = b.parentWidget()
+    r = b.geometry()
+    at = b.mapTo(win, b.rect().topLeft())
+    return head.rect().contains(r) and 0 <= at.x() and at.x() + b.width() <= win.width()
+
+
+for mode in ("dark", "light"):
+    theme.apply(qapp, dark=mode == "dark", contrast=False)
+    for size, (wd, ht) in (("usual", (1180, 900)), ("smallest", (300, 300))):
+        win.resize(wd, ht)
+        win.selected = GONE
+        win.render_all()
+        pump()
+        b = button()
+        win.grab().save(os.path.join(pics, f"window-{mode}-{size}.png"))
+        if b is not None:
+            b.parentWidget().grab().save(os.path.join(pics, f"card-{mode}-{size}.png"))
+        ren = next(x for x in win.dev_panel.findChildren(QPushButton) if x.text() == "Rename…" and x.isVisible())
+        out[f"{mode} {size}"] = {"size": [win.width(), win.height()], "button": b is not None and inside(b),
+                                 "enabled": b is not None and b.isEnabled(),
+                                 "gap": b.geometry().left() - ren.geometry().right() - 1 if b else None}
+        win.selected = KEY  # (the connected device: Remove on, and a click tells why in a bubble at it)
+        win.render_all()
+        pump()
+        button().click()
+        pump()
+        tell = bubble.last("tell")
+        win.grab().save(os.path.join(pics, f"bubble-{mode}-{size}.png"))
+        shows = tell is not None and tell.isVisible()
+        out[f"{mode} {size} bubble"] = [tell.text.text() if shows else None, shows and tell.anchor is button(),
+                                        shows and win.rect().contains(tell.geometry()), sw.record(KEY) is not None]
+        if shows:
+            tell.close_now()
+    win.resize(1180, 900)
+    win.selected = GONE
+    win.render_all()
+    pump()
+    button().click()
+    pump()
+    win.grab().save(os.path.join(pics, f"message-{mode}.png"))
+    out[f"{mode} message"] = [win.message.text.text(), win.message.bubble.isVisible()]
+    win.message.undo_btn.click()
+    pump()
+    out[f"{mode} undo"] = [sw.record(GONE) is not None, win.selected == GONE]
+print(json.dumps(out))
+'''
+
+
+def test_pictures_of_the_card_and_the_message(themed_window, check, fake_apo, tmp_path):
+    out = subproc.run_python(themed_window + PICTURES, session.SESSION.app, str(tmp_path))
+    d = out.data or {}
+    pics = sorted(os.listdir(os.path.join(tmp_path, "pictures"))) if os.path.isdir(tmp_path / "pictures") else []
+    message = ("Removed “Headset (USB-C to 3.5mm Headphone Jack Adapter, a long name for a test of the width of the "
+               "card)” from Devices.")
+    check("devices: in dark and light, at the usual size and at the smallest size, Remove is whole in the card and in "
+          "the window with a long device name, 12 px after Rename…; for the connected device a click on it shows the "
+          "bubble at it, in the window, and removes nothing; the message after a removal shows its words; Undo puts "
+          "the device back and selects it; the pictures are saved",
+          all(d.get(f"{m} {s}", {}).get("button") and d[f"{m} {s}"]["enabled"] and d[f"{m} {s}"]["gap"] == 12
+              and d.get(f"{m} {s} bubble") == [CONNECTED, True, True, True]
+              for m in ("dark", "light") for s in ("usual", "smallest"))
+          and all(d.get(f"{m} message") == [message, True] and d.get(f"{m} undo") == [True, True]
+                  for m in ("dark", "light")) and len(pics) == 14, d or out.stderr[-600:])

@@ -338,14 +338,16 @@ Select a device to give it profiles ("Add a profile": a profile, Import EQ files
 profile that is on, or Off. The ✕ of a profile removes it from the device (Undo is in the message near the ✕).
 Rename… (in the card with the name of the device) gives the device your name for it ("Dongle – KZ"). All screens
 show this name. During an EQ for 5 minutes, the card shows that EQ as selected.
+Remove (after Rename…) removes a device that is not connected from Devices. Its profiles stay in Profiles, and the
+message has Undo. A device in the Windows list shows again when you connect it, with no profiles and with its EQ off.
 The line below its EQ tells you if Equalizer APO uses the EQ (✓ in green). If APO does not use it, a warning bar
 shows the cause: AutoEQ Studio gets this information from Equalizer APO. Examine again shows all that it found.
 A device can have more than one profile (for example, a USB-C dongle that you use with different IEMs). Select one
 from the menu of the tray icon or with the hotkey.
 
-AutoEQ Studio keeps each device in its list after the first time. Thus, a device can have its EQ before you connect
-it. Windows shows Bluetooth earbuds as two devices (music, and "Hands-Free" for the microphone). AutoEQ Studio uses
-them as one device, and its EQ is on for the two.
+AutoEQ Studio keeps each device in its list after the first time, until you remove it. Thus, a device can have its
+EQ before you connect it. Windows shows Bluetooth earbuds as two devices (music, and "Hands-Free" for the
+microphone). AutoEQ Studio uses them as one device, and its EQ is on for the two.
 
 
 THE TRAY ICON

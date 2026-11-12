@@ -13,6 +13,7 @@ HELP_DEVICES = {'#dev-check': ['Does Equalizer APO use the EQ of this device? Au
  '#files-folder': ['The folder for your targets, measurements, saved EQs and presets: Documents\\AutoEQ Studio, unless '
                    'you selected a different folder (Change…).', 'q-files'],
  '#dev-rename': 'Your name for this device. AutoEQ Studio shows this name, not the Windows name.',
+ '#dev-remove': 'Removes a device that is not connected from Devices. Its profiles stay in Profiles.',
  '#prof-edit': ['Make an EQ opens the filters of the selected profile, and you change them manually. Update saves them '
                 'in the profile.', 'by-hand', 'set-use-update'],
  '#hotkey': 'This hotkey changes the EQ of the active device: each EQ in sequence, then Off. It operates in all apps.',
@@ -103,6 +104,20 @@ SETTINGS_DEVICES = [{'title': 'Devices',
                                 'body': ['Your name for a device (for example, “Dongle – KZ”). AutoEQ Studio shows it '
                                          'in the list, the tray and the notifications. The Windows name stays below it. '
                                          'If the name is empty, the device has the Windows name again.']},
+                               {'key': '#dev-remove',
+                                'title': 'Remove (a device)',
+                                'body': ['Remove removes the selected device from Devices. You can remove a device '
+                                         'only when it is not connected. This is a device that is not in the Windows '
+                                         'list, or a device that the Windows list shows as not connected.',
+                                         'After an update of Equalizer APO or of Windows, the Windows list can show a '
+                                         'device again, with a different name. Then Devices shows the device two '
+                                         'times, and you can remove the one that is not connected.',
+                                         'The profiles of the device stay in Profiles and on the other devices. If the '
+                                         'device is in the Windows list, AutoEQ Studio does not show it until you '
+                                         'connect it again. Then it shows as a new device, with no profiles and with '
+                                         'its EQ off.',
+                                         'The message has Undo for 20 seconds. After Undo, the device has its '
+                                         'profiles, its EQ and your name for it again.']},
                                {'key': '#use-device',
                                 'title': 'Use on device (Make an EQ)',
                                 'body': ['Use on device is a button of the result in Make an EQ. Its menu has 3 types '

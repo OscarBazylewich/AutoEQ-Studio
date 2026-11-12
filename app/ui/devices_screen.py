@@ -1,8 +1,9 @@
 """The Devices screen of AutoEQ Studio's window (ui\\window.py): your playback devices (connected ones first, then A to
 Z by the name shown; the one playing has the green dot), and
 for the one chosen: its profiles, the one on (or Off), adding and taking off profiles, whether Equalizer APO is
-installed on it, your name for it (Rename…), and a line saying whether its EQ really plays (Equalizer APO asked by
-itself, switcher\\check.py; again when something changes; check_line() gives that line its words).
+installed on it, your name for it (Rename…), Remove (a device that is not connected off the lists, with Undo),
+and a line saying whether its EQ really plays (Equalizer APO asked by itself, switcher\\check.py; again when
+something changes; check_line() gives that line its words).
 DevicesScreen is one part of the window's class (Window, in ui\\window.py, is made of it, ProfilesScreen and
 SettingsScreen): a plain class whose methods work on the window, so they use the window's own things (sw, app,
 status(), the answers kept in _checks) and the Profiles part's import_files."""
@@ -10,7 +11,7 @@ import os
 import re
 import subprocess
 
-from PySide6.QtCore import QRect, QRectF, QSize, Qt
+from PySide6.QtCore import QRect, QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QIcon, QPainter
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QGroupBox, QHBoxLayout, QLabel,
                                QListWidget, QListWidgetItem, QMenu, QMessageBox, QPushButton, QRadioButton,
@@ -141,8 +142,8 @@ def check_line(ok, text):
 
 
 class DevicesScreen:
-    """The Devices screen's part of the window: the list of devices, the chosen one's panel, Rename…, and the line
-    saying whether its EQ plays. A plain class (no __init__, no signals): what it keeps (_checks, _checking,
+    """The Devices screen's part of the window: the list of devices, the chosen one's panel, Rename…, Remove, and the
+    line saying whether its EQ plays. A plain class (no __init__, no signals): what it keeps (_checks, _checking,
     _check_after, check_label) is made in Window.__init__."""
 
     # ---------------------------------------------------------------- Devices
@@ -185,10 +186,8 @@ class DevicesScreen:
     def render_devices(self):
         self.dev_list.blockSignals(True)
         self.dev_list.clear()
-        keys = [d.key for d in self.sw.devices]
-        keys += [k for k in self.sw.s["devices"] if k not in keys and self.sw.record(k)["profiles"]]  # (gone, but set)
-        keys.sort(key=self.sw.device_sort_key)  # (connected ones first, then A to Z by the name shown)
-        for key in keys:
+        # (Windows' devices and the ones gone but with profiles: connected ones first, then A to Z by the name shown)
+        for key in self.sw.listed():
             rec, d = self.sw.record(key), self.sw.device(key)
             where, eq = self._device_state(key)
             item = QListWidgetItem(f"{shown(rec)}\n{where} · {eq}")
@@ -246,6 +245,17 @@ class DevicesScreen:
         from ui import help_window
         help_window.tag(ren, "#dev-rename")
         hl.addWidget(ren, 0, Qt.AlignVCenter)
+        # (Remove last in its group, 12 px apart with the row's own spacing: UI-RULES 14; ✕ = Remove, UI-RULES 10)
+        hl.addSpacing(max(0, 12 - hl.spacing()))
+        rem = QPushButton("Remove")
+        icons.put(rem, "remove")
+        rem.setObjectName("devRemove")  # (the bubble of a refused removal points at it, after the redraw)
+        rem.setAccessibleName(f"Remove {shown(rec)} from Devices")
+        # (on for a connected device too: a click tells why in a bubble, UI-RULES 25)
+        rem.setToolTip("Removes this device from Devices. Its profiles stay in Profiles.")
+        rem.clicked.connect(lambda: self.remove_device(key))
+        help_window.tag(rem, "#dev-remove")
+        hl.addWidget(rem, 0, Qt.AlignVCenter)
         lay.addWidget(head)
 
         if d and not d.apo:
@@ -378,6 +388,39 @@ class DevicesScreen:
                 return
             self.sw.add_to_device(key, pid, switch_on=was_on, at=at, last=was_last)
         self.status(f"Removed “{name}” from this device.", undo=undo)
+
+    def remove_device(self, key):
+        """Remove in the device's card: a device that is not connected off the lists (switcher's remove_device: its
+        profiles stay), with Undo in the message (UI-RULES 20). The list then selects the row at the same place (or the
+        last row); Undo puts the device back and selects it again. A connected device stays: a bubble at Remove tells
+        why (UI-RULES 25: the button stays on)."""
+        rec = self.sw.record(key)
+        keys = self.sw.listed()
+        if not rec or key not in keys:
+            return
+        name, at, was = shown(rec), keys.index(key), self.selected
+        rest = [k for k in keys if k != key]
+        self.selected = rest[min(at, len(rest) - 1)] if rest else None  # (before the redraw that the removal starts)
+        before = self.sw.remove_device(key)  # (it reads Windows' list again first: a device connected since the poll)
+        if before is None:  # (connected, or read-only settings: nothing changed)
+            self.selected = was
+            self.render_devices()
+            d = self.sw.device(key)
+            if d and d.connected:  # (after the redraw's new Remove shows: a bubble at a hidden button closes)
+                QTimer.singleShot(0, self.dev_list, lambda: bubble.tell(
+                    self.dev_panel.findChild(QPushButton, "devRemove"),
+                    "You can remove a device only when it is not connected.", near=self.dev_list))
+            return
+
+        def undo():
+            self.selected = key
+            if self.sw.restore_device(before) == "back":
+                self.status(f"You connected “{name}” again: Undo is not possible.")
+            self.render_devices()
+        self.render_devices()
+        self.dev_list.setFocus()  # (the button went with the old panel: the keyboard and the message stay at the list)
+        self.status(f"Removed “{name}” from Devices." + (" It shows again when you connect it." if before["hidden"]
+                                                          else ""), undo=undo)
 
     def rename_device(self, key):
         from ui.window_parts import ask_text  # (looked up here: the tests answer it)
