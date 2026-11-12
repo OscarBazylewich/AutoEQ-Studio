@@ -8,7 +8,8 @@ list of entries), and its "Related" links open the others.
 - a row of the contents opens its entry when it becomes the current row (a click, the arrow keys) and on Enter; a
   long row goes on to more lines (WrappedRows)
 - open_at(id) opens the window at an entry (F1 on a setting: its entry), its group open and the entry selected
-One window for the whole app: opened again, it's brought back. Its look is Windows 11's, as the rest of the app: the
+One window for the whole app: opened again, it's brought back (opened from a window that blocks the others, as Find…,
+it blocks them too until it closes: _modal_over_modal). Its look is Windows 11's, as the rest of the app: the
 contents and the page as cards (theme_sheet.py's guide_and_help: #helpContents, #helpPage), the page's own words
 in the theme's colours (links in the accent's text colour; the entry asked for on a quiet fill with the accent's bar
 beside it, as a chosen row), drawn again when the theme changes.
@@ -84,12 +85,29 @@ def open_at(entry_id=None):
     global _window
     if _window is None:
         _window = HelpWindow()
+    _modal_over_modal(_window)
     _window.show()
     _window.raise_()
     _window.activateWindow()
     if entry_id:
         _window.show_entry(entry_id)
     return _window
+
+
+def _modal_over_modal(win):
+    """Help opened while a window that blocks the others is open (Find…, Which measurement, Sources, History, the
+    wait for a picture): Qt gives no input to a window outside that one, so Help showed but took no click or key.
+    Then Help blocks the others itself until it closes (in front, with input; the window under it stays open, and
+    takes input again when Help closes). Opened from a window that blocks nothing: a window of its own, as before.
+    Qt takes a window's modality only when it shows, so a Help that is open is shown again."""
+    from PySide6.QtWidgets import QApplication
+    over = QApplication.activeModalWidget()
+    if over is win:  # (F1 in Help itself, while it blocks the others: it stays so)
+        return
+    want = Qt.ApplicationModal if over is not None else Qt.NonModal
+    if win.windowModality() != want:
+        win.hide()
+        win.setWindowModality(want)
 
 
 class WrappedRows(QStyledItemDelegate):
