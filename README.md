@@ -37,10 +37,13 @@ It is a Windows desktop app (Python and Qt), not a website. It also operates wit
   In each trial, X is A or B at random. At the end, the app shows your result, and how frequently random selections get the same result or a better
   result.
 - **Graph tracer:** this tool changes a picture of a frequency response graph (for example, a data sheet or a
-  screenshot from a website) into a measurement. It reads the axes with the text reader of Windows.
+  screenshot from a website) into a measurement. It reads the axes with the text reader of Windows. Some databases
+  do not let other programs download their files. For their entries, the app opens the website in your browser. Then
+  it automatically traces a picture of the graph that you copy.
 - **Devices and the tray:** profiles for each device, a tray icon, a hotkey, notifications, and a test that shows if
   Equalizer APO uses the EQ. The on/off hotkey disables the EQ of the active device and enables it again, to compare.
-  “Off” has the same loudness as the EQ: only the sound is different.
+  “Off” has the same loudness as the EQ: only the sound is different. You can also update a profile with a new EQ.
+  The devices that have the profile on use the new EQ, and Undo is available.
 - **Help in the app:** the Guide with demos, and Help for each setting and each name in the app (F1 on a
   control). You can also use the app with a keyboard and with a screen reader.
 - **The colors, text and symbols of Windows 11:** light or dark, as in Windows, in your Windows accent color,
