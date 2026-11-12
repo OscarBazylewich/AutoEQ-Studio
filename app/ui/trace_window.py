@@ -24,7 +24,9 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   Remove image and a new picture clear it. unadded_curves(): the curves that the user traced or changed and did not
   add (a new picture from a website stops for them; the automatic read's own curves do not count, but a curve of it
   is the user's work after a typed axis value or a moved line); changed_axes(): no curve, but axes that the user
-  changed (it stops too). The entry's words show as plain text (never rich text).
+  changed (it stops too). The entry's words show as plain text (never rich text; the top row's tooltip too:
+  picture_wait.plain_tip), and 3 Save's note has 80 characters of the name at most (picture_wait.heading_name: a
+  long name does not make the side wider).
 sample_image() draws AutoEQ Local's sample graph (an IEM's two channels and a dashed target) for checks and the tour.
 
 The look is Windows 11's, as the rest of the app (2026-10-23): the picture on a card, the tools as one group, Windows
@@ -115,12 +117,14 @@ class _Elided(QLabel):
 
     def __init__(self):
         super().__init__("")
-        self.setTextFormat(Qt.PlainText)  # (a name from a website's list with "<b>" or "<img>" showed bold or a picture)
+        # (a name from a website's list with "<b>" or "<img>" showed bold or a picture)
+        self.setTextFormat(Qt.PlainText)
         self.whole = ""
 
     def setText(self, text):
+        from ui.picture_wait import plain_tip  # (the tooltip shows the name's characters, as the label does)
         self.whole = text or ""
-        self.setToolTip(self.whole)
+        self.setToolTip(plain_tip(self.whole))
         self.setAccessibleName(self.whole)
         self.updateGeometry()
         self._fit()
@@ -1250,7 +1254,8 @@ class TraceWindow(QWidget):
     def users_work(self):
         """The user changed the picture's curves or axes since it came: an undo or redo step (a curve traced or
         changed), a curve renamed, a value typed on 1 Axes, a red or blue line moved. (Each new picture, the automatic
-        read's take() and a label read set the typed and moved flags back, so they are the user's own after the read.)"""
+        read's take() and a label read set the typed and moved flags back, so they are the user's own after the
+        read.)"""
         t = self.t
         return bool(t.undo_stack or t.redo_stack or self.renamed or any(t.typed.values()) or any(t.moved.values()))
 
@@ -1375,8 +1380,9 @@ class TraceWindow(QWidget):
         self.read_ok = bool(r.ok)
         e = entry or {}
         if r.ok:
-            self.auto_note = (f"The app traced the graph of “{e.get('name', '')}” from {e.get('site', '')}. Compare the "
-                              "curve with the picture. If they agree, click Add as measurement."
+            self.auto_note = (f"The app traced the graph of “{self.note_name(e.get('name', ''))}” "
+                              f"from {e.get('site', '')}. "
+                              "Compare the curve with the picture. If they agree, click Add as measurement."
                               + (" The picture also has a target line. Add the target line as target… adds it as a "
                                  "target." if r.target is not None else ""))
             self.status.setText(HINTS[self.tool])
@@ -1397,6 +1403,25 @@ class TraceWindow(QWidget):
         self.changed()
         if not r.ok and r.checks and next(c for c in r.checks if not c.ok).name == "axes_plot":
             self.read_labels()  # (not a graph of the website: today's way for a picture)
+
+    def note_name(self, name):
+        """A name as 3 Save's note shows it: the wait window's rule for a long name (picture_wait.heading_name: 80
+        characters at most, and no word wider than the note). A name of 500 characters with no space, of an entry or
+        of a file, made the side wider than the window."""
+        from ui.picture_wait import heading_name
+        self.save_note.ensurePolished()  # (its font, from the style sheet)
+        return heading_name(name, self.save_note.fontMetrics(), self.note_room())
+
+    def note_room(self):
+        """The width of 3 Save's note when the side is at its narrowest (the side's scroll bar shows): the side's width
+        less the insets of the side and of 3 Save's card."""
+        card = self.save_note.parentWidget()
+        card.ensurePolished()
+        inset = 0
+        for m in (self.side_scroll.widget().layout().contentsMargins(), card.contentsMargins(),
+                  card.layout().contentsMargins()):
+            inset += m.left() + m.right()
+        return SIDE - inset - self.side_scroll.verticalScrollBar().sizeHint().width()
 
     def remove_image(self):
         t = self.t
@@ -1694,7 +1719,7 @@ class TraceWindow(QWidget):
             page.show_settings()
             page.load_curves()
         what = "the target" if kind == "target" else f"{len(names)} files of one measurement" if len(names) > 1 else "the measurement"
-        shown = "”, “".join(os.path.splitext(n)[0] for n in names)
+        shown = "”, “".join(self.note_name(os.path.splitext(n)[0]) for n in names)
         self.saved_note = True
         self.save_note.setText(f"The app saved {what} “{shown}”. To see it on the graph, close this window. "
                                "You can also trace more curves."
@@ -1755,7 +1780,8 @@ class TraceWindow(QWidget):
                 QMessageBox.warning(self, "Trace", f"The app cannot save {os.path.basename(path)}: {e}")
                 return
         if paths:  # (said here, under the buttons, as Add as measurement's: never in the window behind, UI-RULES 7)
-            self.save_note.setText(f"The app saved {', '.join(os.path.basename(p) for p in paths)}.")
+            files = ", ".join(self.note_name(os.path.basename(p)) for p in paths)
+            self.save_note.setText(f"The app saved {files}.")
             self.saved_note = True  # (kept until something changes, as "Saved as …": the next redraw wiped it at once)
             gaps = self.t.gaps_text(outs)
             if gaps:

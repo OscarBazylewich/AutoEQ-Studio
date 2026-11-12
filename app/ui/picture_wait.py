@@ -27,12 +27,15 @@ signal disconnected, the timers stopped), so a late copy does nothing. Its paren
 before it shows (the tests' stray watch). A screen reader reads the heading and the steps as the dialog's description.
 one_line() and clean_entry(): an entry's words come from a website's list, so a line end, a control character or a
 format character (a direction mark, a zero-width space) in them becomes a space before they go into a window or a
-file's first line. They show as plain text (never rich text), and the heading shows NAME_MAX characters of the name at
-most (heading_name). The window is as high as its words need (fit_height: also on a small screen at 150 %).
+file's first line. They show as plain text (never rich text; in a tooltip too: plain_tip), and the heading shows
+NAME_MAX characters of the name at most (heading_name: also the tracer's note on 3 Save). The window is as high as its
+words need (fit_height: also on a small screen at 150 %).
 """
+import html
 import os
 import re
 
+from PySide6 import QtGui
 from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtGui import QImage, QKeySequence, QShortcut
 from PySide6.QtWidgets import QApplication, QDialog, QGridLayout, QLabel, QVBoxLayout, QWidget
@@ -54,6 +57,7 @@ WIDTH, PAD = 520, 24  # (the words' width at least, and the dialog's padding: Wi
 _CONTROL = re.compile(r"[\s\x00-\x1f\x7f-\x9f\U0000200b-\U0000200f\U0000202a-\U0000202e\U00002060-\U00002069"
                       r"\U0000feff]+")
 
+
 def one_line(text):
     """text with each run of line ends, control characters, format characters and spaces as one space (an entry's
     words come from a website's list: a line end in a name made data lines in a traced file's first line, and a
@@ -70,6 +74,13 @@ def heading_name(name, fm, room):
     if any(fm.horizontalAdvance(w) + marks > room for w in shown.split(" ")):
         shown = fm.elidedText(shown, Qt.ElideRight, room - marks)
     return shown
+
+
+def plain_tip(text):
+    """A tooltip's words that show as their characters: Qt shows a tooltip that looks like rich text as rich text (a
+    name "<b>Gate</b> & <img src=x>" from a damaged list showed bold, with a picture), so such words go in escaped,
+    in <qt>; other words go in as they are. For the wait window's heading and the tracer's top row."""
+    return f"<qt>{html.escape(text)}</qt>" if QtGui.Qt.mightBeRichText(text) else text
 
 
 def clean_entry(entry):
@@ -232,8 +243,8 @@ class PictureWait(QDialog):
         self.head = head = self._words("")
         theme.mark(head, role="heading")
         v.addWidget(head)
-        intro = (f"Your browser shows this entry on {entry.get('site') or 'its website'}. Give the app a picture of its "
-                 "graph:")
+        intro = (f"Your browser shows this entry on {entry.get('site') or 'its website'}. "
+                 "Give the app a picture of its graph:")
         v.addWidget(self._words(intro))
         steps = QGridLayout()  # (a step's number in a column of its own: its words wrap under its words)
         steps.setHorizontalSpacing(6)
@@ -260,7 +271,7 @@ class PictureWait(QDialog):
         shown = heading_name(name, head.fontMetrics(), WIDTH - 2 * PAD)
         head.setText(f"The app waits for a picture of “{shown}”…")
         if shown != name:
-            head.setToolTip(name)
+            head.setToolTip(plain_tip(name))
         band, self.paste_btn = dialog_band(self, "Paste the picture", self.paste)
         help_window.tag(self.paste_btn, "#pw-paste")
         # (set after tag(): no "F1 opens Help." in it, F1 does nothing in this window, as Find…'s "Available to
@@ -295,8 +306,8 @@ class PictureWait(QDialog):
     def where_text(self):
         if not self.folder:
             return "The app uses the first new picture on the clipboard."
-        return ("The app uses the first new picture on the clipboard or in the Downloads folder. It only reads the files "
-                "of this folder:")
+        return ("The app uses the first new picture on the clipboard or in the Downloads folder. "
+                "It only reads the files of this folder:")
 
     # ---------------------------------------------------------------- the wait
     def showEvent(self, e):
@@ -395,7 +406,8 @@ class PictureWait(QDialog):
         """Paste the picture (Enter, Ctrl+V): the picture on the clipboard at this time, old or new."""
         img, jpeg = clipboard_picture()
         if img is None:
-            self.note.setText("There is no picture on the clipboard. First, copy a picture of a graph.")  # (the tracer's)
+            # (the tracer's words)
+            self.note.setText("There is no picture on the clipboard. First, copy a picture of a graph.")
             self.note.show()
             self.fit_height()  # (its room for the note)
             return
