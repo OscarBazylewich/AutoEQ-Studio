@@ -388,11 +388,14 @@ class Tracer:
         s = self.px[::step, ::step].reshape(-1, 3)  # (uint8: the mean is the same, without a copy in int64)
         if not len(s):
             return (255, 255, 255)
-        keys = (s[:, 0] >> 4).astype(np.int32) << 8 | (s[:, 1] >> 4).astype(np.int32) << 4 | s[:, 2] >> 4
+        q = s >> 4
+        keys = q[:, 0].astype(np.int32) << 8 | q[:, 1].astype(np.int32) << 4 | q[:, 2]
         count = np.bincount(keys)
         k = count.argmax()
-        # (each channel's sum in the bins: exact for whole numbers, so the mean is the same as of the pixels in bin k)
-        return tuple(int(_js_round(np.bincount(keys, weights=s[:, i])[k] / count[k])) for i in range(3))
+        here = keys == k
+        # (each channel's sum in bin k, a whole number: the mean is the same as the mean of those pixels)
+        return tuple(int(_js_round(int(np.add.reduce(s[:, i], where=here, dtype=np.int64)) / count[k]))
+                     for i in range(3))
 
     def find_lines(self, horizontal):
         """Rows (or columns) mostly covered by drawn pixels, grouped into lines; also pale ones that run unbroken
