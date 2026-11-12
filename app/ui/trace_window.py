@@ -1538,7 +1538,7 @@ class TraceWindow(QWidget):
             # target line of the picture is then a second target, said apart from it)
             want_target = e.get("as") == "target"
             self.auto_note = (f"The app traced the graph of “{self.note_name(e.get('name', ''))}” "
-                              f"from {e.get('site', '')}. "
+                              f"from {self.note_name(e.get('site', ''))}. "
                               "Compare the curve with the picture. If they agree, click "
                               + ("Add as target." if want_target else "Add as measurement.")
                               + ("" if r.target is None else

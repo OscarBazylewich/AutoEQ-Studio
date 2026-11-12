@@ -29,8 +29,10 @@ before it shows (the tests' stray watch). A screen reader reads the heading and 
 one_line() and clean_entry(): an entry's words come from a website's list, so a line end or a control character in
 them becomes a space, and a format character (a direction mark, a zero-width space) goes, before they go into a
 window or a file's first line. They show as plain text (never rich text; in a tooltip too: plain_tip), and the heading shows
-NAME_MAX characters of the name at most (heading_name: also the tracer's note on 3 Save). The window is as high as its
-words need (fit_height: also on a small screen at 150 %).
+NAME_MAX characters of the name at most (heading_name: also the tracer's note on 3 Save), and the intro the same of
+the site (short_words without a font: the tray message), the whole words in a tooltip. The window is as high as its
+words need (fit_height: also on a small screen at 150 %), never higher than the room of its screen, and moved up
+when its bottom is past that room.
 """
 import html
 import os
@@ -72,11 +74,19 @@ def one_line(text):
     return _CONTROL.sub(" ", kept).strip()
 
 
+def short_words(text):
+    """An entry's words (its name, its site) with NAME_MAX characters at most, then "…": where no font is known (a
+    tray message). In a window: heading_name, which also cuts a word wider than the line. The whole words go in a
+    tooltip (plain_tip)."""
+    return text if len(text) <= NAME_MAX else text[:NAME_MAX].rstrip() + "…"
+
+
 def heading_name(name, fm, room):
-    """An entry's name for the wait window's heading: NAME_MAX characters at most (then "…"), and on one line when a
-    word of it (with the quotation marks) is wider than the line (a damaged list's name of 500 characters cut the
-    window's words). fm: the heading's font metrics; room: the line's width."""
-    shown = name if len(name) <= NAME_MAX else name[:NAME_MAX].rstrip() + "…"
+    """An entry's name (or its site) for the wait window: NAME_MAX characters at most (then "…"), and on one line
+    when a word of it (with the quotation marks) is wider than the line (a damaged list's name of 500 characters cut
+    the window's words; a site of 600 words made the window higher than the screen). fm: the label's font metrics;
+    room: the line's width."""
+    shown = short_words(name)
     marks = fm.horizontalAdvance("“”…")
     if any(fm.horizontalAdvance(w) + marks > room for w in shown.split(" ")):
         shown = fm.elidedText(shown, Qt.ElideRight, room - marks)
@@ -265,9 +275,8 @@ class PictureWait(QDialog):
         self.head = head = self._words("")
         theme.mark(head, role="heading")
         v.addWidget(head)
-        intro = (f"Your browser shows this entry on {entry.get('site') or 'its website'}. "
-                 "Give the app a picture of its graph:")
-        v.addWidget(self._words(intro))
+        self.intro = self._words("")  # (its words below, with the heading's)
+        v.addWidget(self.intro)
         steps = QGridLayout()  # (a step's number in a column of its own: its words wrap under its words)
         steps.setHorizontalSpacing(6)
         steps.setVerticalSpacing(6)
@@ -294,6 +303,14 @@ class PictureWait(QDialog):
         head.setText(f"The app waits for a picture of “{shown}”…")
         if shown != name:
             head.setToolTip(plain_tip(name))
+        # (the site by the same rule: a site of 600 words made the window higher than the screen, 2026-11-11)
+        site = entry.get("site") or ""
+        self.intro.ensurePolished()
+        shown_site = heading_name(site, self.intro.fontMetrics(), WIDTH - 2 * PAD) if site else "its website"
+        intro = f"Your browser shows this entry on {shown_site}. Give the app a picture of its graph:"
+        self.intro.setText(intro)
+        if site and shown_site != site:
+            self.intro.setToolTip(plain_tip(site))
         band, self.paste_btn = dialog_band(self, "Paste the picture", self.paste)
         help_window.tag(self.paste_btn, "#pw-paste")
         # (set after tag(): no "F1 opens Help." in it, F1 does nothing in this window, as Find…'s "Available to
@@ -341,9 +358,22 @@ class PictureWait(QDialog):
     def fit_height(self):
         """The window as high as its words need at its width: Qt's own size (adjustSize, the first showing) is two
         thirds of the screen at most, and on a small screen at 150 % that cut the last line of step 2. (The size hint's
-        height is for the size hint's width: at a different width, a label of wrapped words needs more or less.)"""
+        height is for the size hint's width: at a different width, a label of wrapped words needs more or less.) Not
+        higher than the room of its screen (its words have NAME_MAX characters of a name or a site at most), and
+        moved up when its bottom is past that room."""
         h = self.heightForWidth(self.width())
-        self.resize(self.width(), h if h > 0 else self.sizeHint().height())
+        h = h if h > 0 else self.sizeHint().height()
+        # (never higher than the room of its screen, with its title bar: the frame's, or the style's before it shows)
+        screen = self.screen() or QApplication.primaryScreen()
+        if screen is not None:
+            from PySide6.QtWidgets import QStyle
+            bar = max(self.frameGeometry().height() - self.height(), self.style().pixelMetric(QStyle.PM_TitleBarHeight))
+            h = min(h, screen.availableGeometry().height() - bar)
+        self.resize(self.width(), h)
+        if screen is not None and self.isVisible():  # (its bottom on the screen: it went 1 px past at 150 %)
+            room, frame = screen.availableGeometry(), self.frameGeometry()
+            if frame.bottom() > room.bottom():
+                self.move(self.x(), max(room.top(), self.y() - (frame.bottom() - room.bottom())))
 
     def start(self):
         """The signal, the looks at the folder (the first one at once: the old files) and the time limit (one time;

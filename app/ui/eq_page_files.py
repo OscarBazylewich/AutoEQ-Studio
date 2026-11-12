@@ -221,8 +221,9 @@ class EqFiles:
         QApplication.alert(tw)
         app = getattr(self.window(), "app", None)
         if app is not None and hasattr(app, "tray_message"):
-            app.tray_message("AutoEQ Studio has the picture", f"The tracer shows the graph of “{entry['name']}”. Go "
-                             "to the window of the tracer.")
+            from ui.picture_wait import short_words  # (a name of 600 words: NAME_MAX characters, then "…")
+            app.tray_message("AutoEQ Studio has the picture", f"The tracer shows the graph of "
+                             f"“{short_words(entry['name'])}”. Go to the window of the tracer.")
 
     # ---------------------------------------------------------------- finding files (ui/picker.py)
     def find(self, kind):

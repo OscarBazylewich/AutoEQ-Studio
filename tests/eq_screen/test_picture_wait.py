@@ -1552,12 +1552,18 @@ def test_long_name_on_3_save(eq_screen, fresh_studio, flow, monkeypatch, tmp_pat
           {k: (len(v[2]), v[3], v[4]) for k, v in seen.items()})
 
 
-def test_window_as_high_as_its_words(eq_screen, flow, check):
+def test_window_as_high_as_its_words(eq_screen, flow, monkeypatch, check):
     """The wait window is as high as its words need at its width, also when that is more than two thirds of the
     screen (Qt's limit for adjustSize: on a small screen at 150 %, it cut the last line of step 2)."""
+    from PySide6.QtCore import QRect
+    from PySide6.QtGui import QScreen
     from ui.picture_wait import PictureWait
     seen = {}
-    for site in (SITE, " ".join(["Site"] * 600)):
+    # (2026-11-11: a site of 600 words made it higher than two thirds of the screen; the site is cut at NAME_MAX
+    # characters now, so a screen with 520 px of room is stood in: two thirds of it is less than the window needs)
+    for site, room in ((SITE, None), (SITE, 520)):
+        if room:
+            monkeypatch.setattr(QScreen, "availableGeometry", lambda self, room=room: QRect(0, 0, 1097, room))
         wait = PictureWait(flow["pk"], {"name": ENTRY, "site": site})
         wait.open()
         qt.pump(200)
@@ -1565,14 +1571,85 @@ def test_window_as_high_as_its_words(eq_screen, flow, check):
         wait.paste()  # (M2: the note makes the window higher)
         qt.pump(100)
         after = (wait.height(), wait.heightForWidth(wait.width()), wait.note.isVisible())
-        seen[len(site)] = (first, after, wait.screen().availableGeometry().height() * 2 // 3, _cut(wait))
+        seen[room] = (first, after, wait.screen().availableGeometry().height() * 2 // 3, _cut(wait))
         wait.reject()
         wait.deleteLater()
     qt.pump(50)
     check("website flow: the wait window is as high as its words need at its width when it opens and after the note "
           "(M2), also past two thirds of the screen, and no line is cut",
           all(f[0] == f[1] and a[0] == a[1] > f[0] and a[2] and not cut for f, a, _lim, cut in seen.values())
-          and max(v[1][0] for v in seen.values()) > max(v[2] for v in seen.values()), seen)
+          and any(a[0] > lim for _f, a, lim, _cut in seen.values()), seen)
+
+
+def test_long_site_name(eq_screen, flow, monkeypatch, tmp_path, check):
+    """A site name of 600 words or of 500 characters with no space (a damaged list): the wait window's intro, 3 Save's
+    note and the tray message have NAME_MAX characters of it at most and "…" (the whole name in the intro's tooltip),
+    and the window is never higher than the room of its screen (a site of 600 words made it higher than the screen,
+    2026-11-11). Pictures in light and dark."""
+    from PySide6.QtCore import QRect, Qt
+    from PySide6.QtGui import QScreen
+    from PySide6.QtWidgets import QApplication
+    from ui.picture_wait import NAME_MAX, PictureWait
+    page = flow["page"]
+    entry = page.svc.call("/api/db/entry", {"id": flow["row"]["id"]})["entry"]
+    seen = {}
+    for key, site in (("600 words", " ".join(["Site"] * 600)), ("500 characters", "S" * 500)):
+        wait = PictureWait(flow["pk"], {"name": ENTRY, "site": site})
+        wait.open()
+        qt.pump(200)
+        words = wait.intro.text()
+        shown = words[len("Your browser shows this entry on "):words.find(". Give the app")]
+        seen[key] = (len(shown) <= NAME_MAX + 1 and shown.endswith("…"), wait.intro.toolTip() == site,
+                     wait.height() + 32 <= wait.screen().availableGeometry().height(), _cut(wait))
+        for name, theme_on in (("light", qt.light), ("dark", qt.dark)):
+            theme_on(eq_screen.qapp)
+            qt.pump(100)
+            wait.grab().save(str(tmp_path / f"wait-long-site-{key.replace(' ', '-')}-{name}.png"))
+        qt.light(eq_screen.qapp)
+        wait.reject()
+        wait.deleteLater()
+        page.open_trace()
+        tw = page.tracer
+        tw.load_image(_graph().copy(0, 0, 1199, 719), entry=dict(entry, site=site))
+        qt.wait_for(lambda tw=tw: not tw.loading and not tw.reading_graph and tw.read_ok is not None, 20)
+        note = tw.save_note.text()
+        part = note[note.find(" from ") + 6:note.find(". Compare")]
+        seen[key + ", 3 Save"] = (len(part) <= NAME_MAX + 1 and part.endswith("…"), note[:60])
+        tw.remove_image()
+    # (a small screen stood in: 450 px of room, the window low on it; it moves up into the room)
+    monkeypatch.setattr(QScreen, "availableGeometry", lambda self: QRect(0, 0, 1097, 450))
+    wait = PictureWait(flow["pk"], {"name": ENTRY, "site": SITE})
+    wait.open()
+    qt.pump(200)
+    wait.move(wait.x(), 200)
+    wait.paste()  # (with its note: higher)
+    qt.pump(100)
+    small = (wait.frameGeometry().top(), wait.frameGeometry().bottom(), wait.height())
+    wait.reject()
+    wait.deleteLater()
+    monkeypatch.undo()
+    trays = []
+    monkeypatch.setattr(QApplication, "applicationState", staticmethod(lambda: Qt.ApplicationInactive))
+    monkeypatch.setattr(QApplication, "alert", staticmethod(lambda w, ms=0: None))
+
+    class _Win:
+        class app:
+            @staticmethod
+            def tray_message(title, text):
+                trays.append(text)
+    monkeypatch.setattr(page, "window", lambda: _Win)
+    page._tracer_to_front(dict(entry, name=" ".join(["Name"] * 600)))
+    tray = trays[0] if trays else ""
+    check("website flow: a site of 600 words or 500 characters: the wait window's intro has NAME_MAX characters of it "
+          "and “…”, its tooltip the whole site; the window is in the room of its screen and no word is cut",
+          all(v[0] and v[1] and v[2] and not v[3] for k, v in seen.items() if "3 Save" not in k), seen)
+    check("website flow: the same site on 3 Save's note: NAME_MAX characters and “…”",
+          all(v[0] for k, v in seen.items() if "3 Save" in k), seen)
+    check("website flow: on a screen with 450 px of room, the wait window low on it moves up: all of it is in the room",
+          0 <= small[0] and small[1] <= 449 and small[2] <= 450, small)
+    check("website flow: a name of 600 words in the tray message: NAME_MAX characters and “…”",
+          tray.startswith("The tracer shows the graph of “Name Name") and len(tray) < NAME_MAX + 80
+          and "…”" in tray, tray[:200])
 
 
 def test_page_paste_of_a_picture_file(eq_screen, flow, monkeypatch, tmp_path, check):
