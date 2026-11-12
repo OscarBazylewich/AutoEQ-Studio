@@ -14,6 +14,13 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   (the tools, A, S, Delete, Undo and Redo: 2 Trace; the arrows: 1 Axes). While the automatic read runs, no key
   changes the tracer (only Ctrl+V: a new picture), and the picture and the side take no input.
 - the message line (what the tracer did, the tool's words) under the side, in sight on every tab
+- the load of a picture (load_image): one of SYNC_PIXELS or less at once; a larger one in a thread (prepared: the
+  scale, picture_mark, the stage's QImage and Tracer.load in a new Tracer, which Tracer.take then takes), while
+  `loading` is True: the status line says so, and the picture, the side and Guide take no input. A new picture or
+  Remove image meanwhile wins (load_token); a close meanwhile counts as a close after the picture came; an automatic
+  read of the picture before that ends meanwhile waits for the load's end (late_read), and goes when the picture
+  changes. In the thread, no one call keeps Python's lock for long (the window's thread waits for it): rgb_of draws
+  in strips of STRIP_ROWS rows, stage_image copies with NumPy.
 - a picture from a website (Find…'s Use on an entry that the app cannot download, ui/eq_page_files.py's
   trace_from_website): load_image(..., entry=) with its database entry (its words on one line: picture_wait's
   clean_entry). The name is the entry's with its tag; "The graph shows" goes to the response (not compensated);
@@ -24,13 +31,14 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   Remove image and a new picture clear it. The same picture again (picture_mark: Ctrl+V after the screen copy, or the
   key two times or held, also after a close) while the tracer has its entry, nothing was added from it, and its read
   runs or ended (OK or not: the user's changes stay) changes nothing (the status line says so). With Find… for a
-  target ("Targets and measurements"), the entry has "as": "target" and 3 Save's note says Add as target (the mark is
+  target ("Targets and measurements"), the entry has "as": "target", 3 Save's note says Add as target, and Add as
+  target is the first button of 3 Save's row, in the accent, until the picture changes (show_save_row; the mark is
   not in the source record). unadded_curves(): the curves that the user traced or changed and did not add (a new
   picture from a website stops for them; the automatic read's own curves do not count, but a curve of it is the user's
-  work after a typed axis value or a moved line); changed_axes(): no curve, but axes that the user changed (it stops
-  too). The entry's words show as plain text (never rich text; the top row's tooltip too: picture_wait.plain_tip), and
-  3 Save's note has 80 characters of the name at most (picture_wait.heading_name: a long name does not make the side
-  wider).
+  work after users_work: a typed axis value, a moved line, a changed value of 3 Save …); changed_picture(): no
+  curve, but users_work, also on a picture of the user (it stops too). The entry's words show as plain text (never
+  rich text; the top row's tooltip too: picture_wait.plain_tip), and 3 Save's note has 80 characters of the name and
+  of the site at most (picture_wait.heading_name: a long name does not make the side wider).
 sample_image() draws AutoEQ Local's sample graph (an IEM's two channels and a dashed target) for checks and the tour.
 
 The look is Windows 11's, as the rest of the app (2026-10-23): the picture on a card, the tools as one group, Windows
@@ -46,7 +54,7 @@ from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox, QFileDialog, QFrame, QGridLayout,
                                QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSlider,
-                               QStackedWidget, QToolButton, QVBoxLayout, QWidget)
+                               QStackedWidget, QStyle, QStyleOptionFrame, QToolButton, QVBoxLayout, QWidget)
 
 import textfile
 from ui import help_window, icons, tasks, theme
@@ -63,7 +71,10 @@ TOOLS = [("trace", "Click curve", "Click a curve to follow it (T)"),
          ("erase", "Erase", "Drag a box around the traced line to remove it (E)"),
          ("pan", "Move", "Drag to move the picture, or hold Space, or drag with the right mouse button (H)")]
 TOOL_SYMBOLS = {"trace": "trace", "draw": "pen", "erase": "erase", "pan": "move"}  # (icons.GLYPHS' names)
-SIDE = 500  # (the settings' width: room for 10.5 pt text, "the actual response (not compensated)" whole, symbols)
+# (the settings' width: room for 10.5 pt text, "the actual response (not compensated)" whole, symbols; 528, not 500:
+# 3 Save's row "Save from (Hz)" with two boxes as wide as "20000" and two "your value ↺" tags needs 513 px, also
+# with the side's scroll bar, 2026-11-11)
+SIDE = 528
 RADIUS = 8  # (the picture's card: a card's corners, as theme_sheet's)
 HINTS = {"trace": "Click a curve to follow it.", "draw": "Drag along the curve to make a line manually.",
          "erase": "Drag a box around a part of the traced line to remove it.", "pan": "Drag to move the picture."}
@@ -73,6 +84,13 @@ NBSP = "\N{NO-BREAK SPACE}"  # (between a tab's number and its name: the name st
 READ_ERROR = (f"The app cannot trace this picture automatically. Do the steps 1{NBSP}Axes and 2{NBSP}Trace manually. "
               f"Then go to 3{NBSP}Save.")
 CORRECT_STEP = f"Correct this step. Then go to 3{NBSP}Save."  # (after a check of the automatic read that is not OK)
+# (a picture of more pixels than this loads in a thread: its load stopped the window for 286 ms at 3840 x 2160 and
+# 580 ms at 16 MP; a smaller one loads at once, measured 40 ms or less, 2026-11-11: .claude/notes/benchmarks)
+SYNC_PIXELS = 1_000_000
+# (rgb_of draws the scaled picture in strips of this many rows: each draw keeps Python's lock for 10 ms or less, at
+# 8000 x 6000 too; 256 rows took 42 ms in all at 6000 x 4000, one draw 40 ms, 2026-11-12)
+STRIP_ROWS = 256
+LOADING = "The app opens the picture…"  # (the status line while a large picture loads)
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".jfif", ".webp", ".bmp", ".gif", ".tif", ".tiff")
 IMAGES = "Images (*.png *.jpg *.jpeg *.jfif *.webp *.bmp *.gif *.tif *.tiff)"
 
@@ -158,6 +176,25 @@ class _Elided(QLabel):
         QLabel.setText(self, self.fontMetrics().elidedText(self.whole, Qt.ElideMiddle, max(0, self.width() - 2)))
 
 
+class _RangeBox(QLineEdit):
+    """A box of "Save from (Hz)": never narrower than its widest value, "20000", needs (at the smallest size of the
+    window the side's scroll bar took its room, and the "to" box cut the first pixels of "20000", 2026-11-11). The
+    width is the style's for that text, as QLineEdit's own size hint works it out."""
+    WIDEST = "20000"
+
+    def minimumSizeHint(self):
+        s = super().minimumSizeHint()
+        self.ensurePolished()
+        opt = QStyleOptionFrame()
+        self.initStyleOption(opt)
+        tm, cm = self.textMargins(), self.contentsMargins()
+        # (the text, 1 px for the cursor, QLineEdit's 2 px at each side, the text and contents margins)
+        w = (self.fontMetrics().horizontalAdvance(self.WIDEST) + 1 + 4 + tm.left() + tm.right() + cm.left()
+             + cm.right())
+        need = self.style().sizeFromContents(QStyle.CT_LineEdit, opt, QSize(w, s.height()), self).width()
+        return QSize(max(s.width(), need), s.height())
+
+
 def _dot(colour, size=16):
     """A curve's coloured dot (its trace's colour on the picture), for the button that selects it."""
     pm = QPixmap(size * 2, size * 2)  # (drawn at twice the size: sharp at 125 % and 150 %)
@@ -189,18 +226,54 @@ def _symbol_only(button, name):
 
 
 def rgb_of(img):
-    """A QImage as an RGB NumPy array (transparent parts on white), scaled down to MAX_PIXELS at most."""
+    """A QImage as an RGB NumPy array (transparent parts on white), scaled down to MAX_PIXELS at most. The scale is
+    drawn in strips of STRIP_ROWS rows of the result (a clip rectangle for each strip: the same pixels as one draw).
+    One draw kept Python's lock for 40 ms at 6000 x 4000 and 50 ms at 8000 x 6000 (QPainter does not let it go), and
+    the window's thread waited for it while a load ran in a thread, 2026-11-12. Each strip is made white first, in
+    the same draw: one fill of all the new picture kept the lock for 8 ms at 16 MP)."""
     w, h = img.width(), img.height()
     k = min(1.0, math.sqrt(tc.MAX_PIXELS / max(1, w * h)))
     W, H = max(1, round(w * k)), max(1, round(h * k))
     out = QImage(W, H, QImage.Format_RGB888)
-    out.fill(QColor("white"))
-    p = QPainter(out)
-    p.setRenderHint(QPainter.SmoothPixmapTransform)
-    p.drawImage(QRectF(0, 0, W, H), img)
-    p.end()
+    white = QColor("white")
+    for y in range(0, H, STRIP_ROWS):
+        p = QPainter(out)
+        p.setRenderHint(QPainter.SmoothPixmapTransform)
+        p.setClipRect(0, y, W, min(STRIP_ROWS, H - y))
+        p.fillRect(0, y, W, min(STRIP_ROWS, H - y), white)
+        p.drawImage(QRectF(0, 0, W, H), img)
+        p.end()
     a = np.frombuffer(out.constBits(), np.uint8, count=out.bytesPerLine() * H).reshape(H, out.bytesPerLine())
     return a[:, :W * 3].reshape(H, W, 3).copy()
+
+
+def stage_image(rgb):
+    """An RGB array (H x W x 3) as the QImage that the stage draws (its own copy of the pixels). NumPy copies the
+    pixels into the new QImage: QImage.copy kept Python's lock for 10 ms at 16 MP, 2026-11-12."""
+    h, w = rgb.shape[:2]
+    out = QImage(w, h, QImage.Format_RGB888)
+    dst = np.frombuffer(out.bits(), np.uint8, count=out.bytesPerLine() * h).reshape(h, out.bytesPerLine())
+    np.copyto(dst[:, :w * 3], np.asarray(rgb, np.uint8).reshape(h, w * 3))
+    return out
+
+
+def prepared(qimg, name, jpeg, v, ta):
+    """The slow part of a load, with no window (in a thread for a picture of more than SYNC_PIXELS): the picture as
+    RGB (rgb_of), its picture_mark, the stage's QImage, and a new Tracer that loaded it, from copies of the window's
+    values v and automatic settings ta (the window's Tracer.take then takes its state: the same state as a load in
+    the window's Tracer). Returns {"rgb", "mark", "qimg", "tracer", "error"}: error is what Tracer.load raised."""
+    import traceback
+    rgb = rgb_of(qimg)
+    t = tc.Tracer()
+    t.v.update(v)
+    t.ta.update(ta)
+    out = {"rgb": rgb, "mark": picture_mark(rgb), "qimg": stage_image(rgb), "tracer": t, "error": None}
+    try:
+        t.load(rgb, name, jpeg)
+    except Exception as e:  # noqa: BLE001 - a picture whose axes trip the reader: said by the window
+        traceback.print_exc()
+        out["error"] = e
+    return out
 
 
 def sample_image():
@@ -353,10 +426,10 @@ class Stage(QWidget):
             zl.addWidget(b)
             self.zoom_btns[key] = b
 
-    def set_image(self, rgb):
-        h, w = rgb.shape[:2]
-        self._buf = np.ascontiguousarray(rgb)
-        self.qimg = QImage(self._buf.data, w, h, w * 3, QImage.Format_RGB888).copy()
+    def set_image(self, rgb, qimg=None):
+        """The picture to show: rgb (H x W x 3), or qimg, its QImage that stage_image() made (in the thread of a
+        load)."""
+        self.qimg = qimg if qimg is not None else stage_image(rgb)
         self.drag = self.hover = self.sel_line = None
         self.fit()
         self.update_empty()
@@ -683,11 +756,19 @@ class TraceWindow(QWidget):
         self.added = False
         self.read_ok = None
         self.reading_graph = False
+        self.loading = False  # (a large picture loads in a thread: load_image)
+        self.load_token = 0  # (the last load_image: a late answer of a load before it is dropped)
+        self.late_read = None  # (an automatic read that ended while a picture loads: read_graph)
         self.picture_mark = None  # (picture_mark() of the picture that came)
         self.graph_token = 0
         self.auto_note = ""  # (3 Save's note after an automatic read that passed)
         self.was_closed = False  # (closed since the last picture: a new picture does not take the entry)
+        self.closes = self.load_closes = 0  # (the closes of the window; the count when the last load started)
         self.renamed = False  # (a curve renamed by the user since the last picture: the user's work)
+        # (3 Save's values that the user changed since the last picture, each with its value before the user's first
+        # change: user_edited; and the value of "The graph shows" before a selection of the user)
+        self.edited = {}
+        self.comp_value = ""
         st = page.sw.s.get("trace") or {}
         if isinstance(st.get("enabled"), bool):
             self.t.ta["enabled"] = st["enabled"]
@@ -1003,7 +1084,7 @@ class TraceWindow(QWidget):
         g.addWidget(_label("Name", wrap=False), 0, 0)
         self.name = QLineEdit()
         self.name.setToolTip(help_of("#tr-name"))
-        self.name.textEdited.connect(lambda s: self.t.v.__setitem__("name", s))
+        self.name.textEdited.connect(self.name_typed)
         g.addWidget(self.name, 0, 1, 1, 3)
         g.addWidget(_label("Points in each octave", wrap=False), 1, 0)
         self.ppo = SearchCombo()
@@ -1017,12 +1098,14 @@ class TraceWindow(QWidget):
         g.addWidget(_label("The graph shows", wrap=False), 2, 0)
         self.comp = SearchCombo()
         self.comp.setToolTip(help_of("#tr-comp"))
+        self.comp.activated.connect(self.comp_selected)  # (the user's selection only)
         self.comp.setMinimumContentsLength(16)  # (a long target name doesn't widen the side)
         self.comp.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
         g.addWidget(self.comp, 2, 1, 1, 3)
         g.addWidget(_label("Save from (Hz)", wrap=False), 3, 0)
         rng = QHBoxLayout()
-        self.fmin, self.fmax = QLineEdit(), QLineEdit()
+        rng.setSpacing(4)  # (not 6: two boxes as wide as "20000" and their tags fit the side with its scroll bar)
+        self.fmin, self.fmax = _RangeBox(), _RangeBox()
         for key, b in (("fmin", self.fmin), ("fmax", self.fmax)):
             b.setMaximumWidth(80)
             b.setToolTip(help_of("#tr-fmin") + f"\nPermitted: {self.limits.text('trace.save')}.")
@@ -1050,6 +1133,7 @@ class TraceWindow(QWidget):
         for b in (self.save_meas, self.save_tgt, self.download_btn):
             btns.addWidget(b)
         btns.addStretch(1)
+        self.save_btns = btns  # (show_save_row puts the main action first)
         g.addLayout(btns, 4, 0, 1, 4)
         # (the target line that the automatic read found in a picture from a website: a row of its own under the
         # buttons, shown only with such a line)
@@ -1157,6 +1241,17 @@ class TraceWindow(QWidget):
         for k in ("d1", "d2"):
             self.boxes[k].setPlaceholderText("type it" if img else "")
         self.stage.update()
+
+    def show_save_row(self):
+        """3 Save's row of buttons with the main action of the picture first, in the accent (UI-RULES 8): Add as
+        target for an entry from Find a target ("as": "target"), else Add as measurement. (3 Save's note told the user
+        to click Add as target while Add as measurement was the accent button, 2026-11-11.)"""
+        as_target = bool(self.entry and self.entry.get("as") == "target")
+        main, other = (self.save_tgt, self.save_meas) if as_target else (self.save_meas, self.save_tgt)
+        theme.mark(main, primary=True)
+        theme.mark(other, primary=False)
+        self.save_btns.insertWidget(0, main)
+        self.save_btns.insertWidget(1, other)
 
     def render_curves(self):
         lay, t = self.curves_lay, self.t
@@ -1272,18 +1367,48 @@ class TraceWindow(QWidget):
                               and not self.was_closed) else None
 
     def users_work(self):
-        """The user changed the picture's curves or axes since it came: an undo or redo step (a curve traced or
-        changed), a curve renamed, a value typed on 1 Axes, a red or blue line moved. (Each new picture, the automatic
-        read's take() and a label read set the typed and moved flags back, so they are the user's own after the
-        read.)"""
+        """The user changed the picture's curves, axes or 3 Save's values since it came: an undo or redo step (a curve
+        traced or changed), a curve renamed, a value typed on 1 Axes, a red or blue line moved, or (`edited`) the Name
+        box, "The graph shows", "Points in each octave" or the range to save changed: its value is not the value
+        before the user's first change of it (a row selected again, or a name typed back, is no change, 2026-11-12).
+        (Each new picture, the automatic read's take() and a label read set the typed and moved flags back, so they
+        are the user's own after the read; the automatic read and the automatic settings set the values of 3 Save
+        with no signal of the user: they are not in `edited`. A changed name, setting or range did not count, and a
+        new Use replaced it with no message, 2026-11-11.)"""
         t = self.t
-        return bool(t.undo_stack or t.redo_stack or self.renamed or any(t.typed.values()) or any(t.moved.values()))
+        return bool(t.undo_stack or t.redo_stack or self.renamed or any(t.typed.values()) or any(t.moved.values())
+                    or any(self.save_value(k) != was for k, was in self.edited.items()))
+
+    def user_edited(self, what, before):
+        """A value of 3 Save that the user changed (what: "name", "comp", "ppo" or "range"; before: its value before
+        this change, as save_value gives it): users_work compares the value with the one before the first change."""
+        self.edited.setdefault(what, before)
+
+    def save_value(self, what):
+        """A value of 3 Save as users_work compares it: the Name box, "The graph shows", "Points in each octave", or
+        the range to save as two numbers (a text that is not a number as it is)."""
+        tv = self.t.v
+
+        def number(x):
+            try:
+                return float(str(x).strip().replace(",", "."))
+            except ValueError:
+                return str(x)
+        if what == "range":
+            return number(tv["fmin"]), number(tv["fmax"])
+        if what == "comp":
+            return self.comp.currentData()
+        return tv[what]
+
+    def comp_selected(self, _i):
+        """A selection of the user in "The graph shows" (the same row again too)."""
+        self.user_edited("comp", self.comp_value)
+        self.comp_value = self.comp.currentData()
 
     def unadded_curves(self):
         """The number of curves with data that the user traced or changed and did not add: a new picture from a
         website would replace them (Find…'s Use stops for them). A picture from a website whose curves only the
-        automatic read made, with no work of the user (users_work: no undo or redo step, no rename, no typed axis value,
-        no moved line), has none: a new Use replaces it."""
+        automatic read made, with no work of the user (users_work), has none: a new Use replaces it."""
         t = self.t
         n = sum(map(t.has_data, t.curves))
         if not n or self.added:
@@ -1292,19 +1417,62 @@ class TraceWindow(QWidget):
             return 0
         return n
 
-    def changed_axes(self):
-        """A picture from a website with no curve, whose axes the user changed after the automatic read (a typed
-        value, a moved line; the read told the user to correct that step): a new Use would replace that work too."""
+    def changed_picture(self):
+        """A picture with no curve that the user changed (users_work: a typed axis value, a moved line, a changed
+        value of 3 Save …): a new Use would replace that work too. For a picture from a website, only after its
+        automatic read (the read told the user to correct a step); a picture of the user too (it was replaced with no
+        message, 2026-11-11). A picture with no change is replaced."""
         t = self.t
-        return bool(self.entry and self.read_ok is not None and t.has_image and not any(map(t.has_data, t.curves))
-                    and (any(t.typed.values()) or any(t.moved.values())))
+        if not t.has_image or any(map(t.has_data, t.curves)) or (self.entry and self.read_ok is None):
+            return False
+        return self.users_work()
 
     def load_image(self, qimg, name="Traced graph", jpeg=False, entry=None):
         """A picture into the tracer. entry: the database entry of a picture from a website (/api/db/entry's): its
         name with its tag is the picture's name, "The graph shows" goes to the response (a website's graph is not
-        compensated), and the automatic read (read_graph) replaces the label read."""
-        rgb = rgb_of(qimg)
-        mark = picture_mark(rgb)
+        compensated), and the automatic read (read_graph) replaces the label read.
+        A picture of SYNC_PIXELS or less loads at once. A larger one loads in a thread (prepared): until it is there,
+        `loading` is True, the status line says so, and the picture and the side take no input, as during the
+        automatic read (the picture before stays in sight). A new picture or Remove image meanwhile wins: the late
+        answer is not taken."""
+        self.load_token += 1
+        token = self.load_token
+        self.load_closes = self.closes  # (a close while it loads is a close after the picture came)
+        shown = self.entry_name(entry) if entry else name
+        t = self.t
+        v, ta = dict(t.v), dict(t.ta, manual=set(t.ta["manual"]), notes=dict(t.ta["notes"]))
+        if qimg.width() * qimg.height() <= SYNC_PIXELS:
+            self._set_loading(False)
+            self.picture_loaded(token, prepared(qimg, shown, jpeg, v, ta), None, name, entry)
+            return
+        self._set_loading(True)
+        self.status.setText(LOADING)
+        tasks.background(lambda: prepared(qimg, shown, jpeg, v, ta),
+                         lambda res, err: self.picture_loaded(token, res, err, name, entry), owner=self)
+
+    def _set_loading(self, on):
+        self.loading = on
+        self._inputs()
+
+    def picture_loaded(self, token, res, err, name, entry):
+        """The answer of a load (prepared's dict, or err: what stopped it) into the window, as load_image's
+        docstring says; dropped when a new picture or Remove image came after it (token). Then an automatic read
+        that ended during the load (late_read) is taken, only if its picture stays (graph_token)."""
+        if token != self.load_token:
+            return
+        late, self.late_read = self.late_read, None
+        self.take_picture(res, err, name, entry)
+        if late is not None:
+            late()
+
+    def take_picture(self, res, err, name, entry):
+        """picture_loaded's work: the picture (or the error) into the window."""
+        self._set_loading(False)
+        if err is not None:  # (its traceback is in the app's log: tasks.background wrote it)
+            self.status.setText(HINTS[self.tool])  # (the picture before stays)
+            QMessageBox.warning(self, "Trace", f"The app cannot open this picture ({err}).")
+            return
+        rgb, mark = res["rgb"], res["mark"]
         if ((entry is None or entry is self.entry) and self.entry and self.t.has_image and mark == self.picture_mark
                 and not self.added and (self.read_ok is not None or self.reading_graph)):
             # (the picture that the tracer has from the website, again: Ctrl+V after the screen copy, the key two
@@ -1315,42 +1483,47 @@ class TraceWindow(QWidget):
         self.picture_mark = mark
         self.sample_open = False  # (a picture of yours: the Guide's sample, set again by the Guide, isn't on any more)
         self.entry = clean_entry_of(entry)  # (its words on one line: they go into the file's first line)
+        self.show_save_row()
         self.added = False
         self.read_ok = None
         self.auto_note = ""
-        self.was_closed = self.renamed = False
+        self.was_closed = self.closes != self.load_closes
+        self.renamed = False
+        self.edited = {}
         self.graph_token += 1  # (an automatic read still running for the picture before is dropped)
         self._reading_graph(False)
         if entry:
             name = self.entry_name()
-        try:
-            self.t.load(rgb, name, jpeg)
-        except Exception as e:  # noqa: BLE001 - a picture whose axes trip the reader: said, the tracer left empty
-            import traceback
-            traceback.print_exc()
+        e = res["error"]
+        if e is None:
+            self.t.take(res["tracer"])  # (Tracer.load's state, made by prepared)
+        else:  # (a picture whose axes trip the reader: said, the tracer left empty)
             self.t.unload()
             self.stage.clear_image()
             self.show_name()
             self.changed()
+            self.status.setText(HINTS[self.tool])  # (not "The app opens the picture…" of a large picture)
             QMessageBox.warning(self, "Trace", f"The app cannot read the axes of this picture ({e}). Send the picture "
                                 "and data\\app.log. Then we can correct the problem.")
             return
         h, w = rgb.shape[:2]
         self.show_name(name if name != "Traced graph" else "Pasted picture", (w, h))
         self.show_tab(0)  # (a new picture: its axes first)
-        self.stage.set_image(rgb)
+        self.stage.set_image(rgb, res["qimg"])
         self.saved_note = False
         self.status.setText(HINTS[self.tool])
         self.fill_comp()
         if entry:  # (the selection of the picture before must not add a target to the website's curve)
             self.comp.setCurrentIndex(0)
+            self.comp_value = self.comp.currentData()
         self.show_values()
         self.changed()
         self.read_graph() if entry else self.read_labels()
 
-    def entry_name(self):
-        """The name of a picture from a website: the entry's name and its database's tag, as a downloaded entry's."""
-        e = clean_entry_of(self.entry) or {}
+    def entry_name(self, entry=None):
+        """The name of a picture from a website (entry: the window's when None): the entry's name and its database's
+        tag, as a downloaded entry's."""
+        e = clean_entry_of(entry if entry is not None else self.entry) or {}
         return f"{e.get('name', '')} ({e.get('tag', '')})" if e.get("tag") else e.get("name", "")
 
     def source_note(self):
@@ -1363,8 +1536,13 @@ class TraceWindow(QWidget):
         """While the automatic read runs, the picture and the side take no input (take() then replaces the tracer's
         state: the user's work would go)."""
         self.reading_graph = on
+        self._inputs()
+
+    def _inputs(self):
+        """The picture, the side and Guide take input only while no automatic read runs and no picture loads."""
+        busy = self.reading_graph or self.loading
         for w in (self.stage, self.side_scroll, self.guide_btn):
-            w.setEnabled(not on)
+            w.setEnabled(not busy)
 
     def read_graph(self):
         """The automatic read of a picture from a website (trace_core.auto_read) off the window's thread; its answer
@@ -1385,6 +1563,11 @@ class TraceWindow(QWidget):
 
         def done(res, err):
             if token != self.graph_token:  # (another picture, or the picture removed, meanwhile)
+                return
+            if self.loading:
+                # (a new picture loads: the read waits for the load's end, and goes when the picture changes. It went
+                # into the tracer during the load, with 3 Save and its own words in the status line, 2026-11-12)
+                self.late_read = lambda: done(res, err)
                 return
             self._reading_graph(False)
             if err is not None:  # (its traceback is in the app's log: tasks.background wrote it; no Python words here)
@@ -1412,9 +1595,11 @@ class TraceWindow(QWidget):
             # (Find… for a target, "Targets and measurements": the user wants the entry's curve as a target; the
             # target line of the picture is then a second target, said apart from it)
             want_target = e.get("as") == "target"
-            self.auto_note = (f"The app traced the graph of “{self.note_name(e.get('name', ''))}” "
-                              f"from {e.get('site', '')}. "
-                              "Compare the curve with the picture. If they agree, click "
+            # (the site in quotation marks: a cut site ended in "…" and then the period of the sentence, 2026-11-12)
+            site = e.get("site", "")
+            self.auto_note = (f"The app traced the graph of “{self.note_name(e.get('name', ''))}”"
+                              + (f" from “{self.note_name(site)}”. " if site else ". ")
+                              + "Compare the curve with the picture. If they agree, click "
                               + ("Add as target." if want_target else "Add as measurement.")
                               + ("" if r.target is None else
                                  " The picture also has a target line. Add the target line as target… adds that "
@@ -1437,8 +1622,18 @@ class TraceWindow(QWidget):
             self.status.setText(text)
         self.show_values()
         self.changed()
+        self.settle_layout()
         if not r.ok and r.checks and next(c for c in r.checks if not c.ok).name == "axes_plot":
             self.read_labels()  # (not a graph of the website: today's way for a picture)
+
+    def settle_layout(self):
+        """The layouts' requests done at once, before the window paints: after the automatic read, 3 Save's note had
+        19 to 38 px of the 76 px that it needs when it showed, and all of it only 2 or 3 turns of the event loop later
+        (about 10 ms; measured 2026-11-11), as each turn worked out one more level of the wrapped words' heights.
+        A few passes: each one can ask for one more."""
+        from PySide6.QtCore import QEvent
+        for _ in range(4):
+            QApplication.sendPostedEvents(None, QEvent.LayoutRequest)
 
     def note_name(self, name):
         """A name as 3 Save's note shows it: the wait window's rule for a long name (picture_wait.heading_name: 80
@@ -1460,21 +1655,33 @@ class TraceWindow(QWidget):
         return SIDE - inset - self.side_scroll.verticalScrollBar().sizeHint().width()
 
     def remove_image(self):
+        """Remove image: the picture and its curves go (a question first when it has curves). A picture that loads
+        meanwhile is dropped first: the question is about the picture in sight (an automatic read of it that ended
+        during the load goes in when it stays, late_read)."""
         t = self.t
+        late = None
+        if self.loading:
+            self.load_token += 1
+            late, self.late_read = self.late_read, None
+            self._set_loading(False)
+            self.status.setText(HINTS[self.tool])
         if not t.has_image:
             return
         if any(map(t.has_data, t.curves)) and QMessageBox.question(  # (No the default: the curves can't be had back)
                 self, "Remove image", "Remove this picture and its traced curves?",
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
+            if late is not None:
+                late()
             return
         self.entry, self.added, self.read_ok, self.auto_note = None, False, None, ""
+        self.show_save_row()
         self.picture_mark = None
         self.was_closed = self.renamed = False
+        self.edited = {}
         self.graph_token += 1  # (an automatic read still running is dropped)
         self._reading_graph(False)
-        t.unload()
+        t.unload()  # (also the typed values and moved lines: trace_core)
         t.v.update(d1="", d2="", f1="", f2="", name="")
-        t.typed = {"d": False, "f": False}
         t.ta.update(notes={}, dashed_found=False, last_ocr=None, last_trace=None)
         if t.ta["enabled"] and not t.is_your_value("dashed"):
             t.v["dashed"] = False
@@ -1512,12 +1719,14 @@ class TraceWindow(QWidget):
         # (the entry belongs to the picture, which stays: an add after the window opens again still names the website
         # and records the source. The next picture is a picture of yours, unless it comes from a website again.)
         self.was_closed = True
+        self.closes += 1
         super().closeEvent(e)
 
     # ---------------------------------------------------------------- axes
     def value_typed(self, key, lim):
         b, t = self.boxes[key], self.t
         text = b.text().strip().replace(",", ".")
+        before = self.save_value("range")  # (the range before this change: users_work)
         if text == "":
             t.v[key] = ""
             theme.mark(b, bad=False)
@@ -1537,6 +1746,7 @@ class TraceWindow(QWidget):
             t.fit_settings()
         else:
             t.mark_your_value(key)
+            self.user_edited("range", before)
         self.show_values()  # (points per octave and the range follow the axes' values; the box typed in is left be)
         self.render_auto_settings()
         self.update_ui()
@@ -1658,7 +1868,12 @@ class TraceWindow(QWidget):
         self.t.mark_your_value("dashed")
         self.render_auto_settings()
 
+    def name_typed(self, text):
+        self.user_edited("name", self.t.v["name"])
+        self.t.v["name"] = text
+
     def ppo_changed(self, _i):
+        self.user_edited("ppo", self.t.v["ppo"])
         self.t.v["ppo"] = self.ppo.currentData()
         self.t.mark_your_value("ppo")
         self.render_auto_settings()
@@ -1693,6 +1908,7 @@ class TraceWindow(QWidget):
             self.comp.addItem(f"Difference from {os.path.splitext(n)[0]}", n)
         self.comp.sort_items(pinned=1)  # ("the actual response" on top)
         self.comp.setCurrentIndex(max(0, self.comp.findData(was)))
+        self.comp_value = self.comp.currentData()  # (not a selection of the user: comp_selected)
 
     def compensation(self):
         """The graph was drawn relative to a target (compensated): that target's curve, to add back."""
@@ -1829,8 +2045,9 @@ class TraceWindow(QWidget):
         st = self.stage
         typing = isinstance(QApplication.focusWidget(), (QLineEdit, QComboBox))
         key, mods = e.key(), e.modifiers()
-        if self.reading_graph and not (mods & Qt.ControlModifier and key == Qt.Key_V):
-            return super().keyPressEvent(e)  # (the automatic read runs: no key changes the tracer, but a new picture)
+        if (self.reading_graph or self.loading) and not (mods & Qt.ControlModifier and key == Qt.Key_V):
+            # (the automatic read runs or a picture loads: no key changes the tracer, but a new picture)
+            return super().keyPressEvent(e)
         if key == Qt.Key_Space and not typing:
             if not e.isAutoRepeat():
                 st.space = True

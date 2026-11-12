@@ -133,14 +133,20 @@ class EqFiles:
         return False
 
     def open_trace(self):
-        """The tracer (one window, kept while the screen is open: what's traced stays when it's closed)."""
+        """The tracer (one window, kept while the screen is open: what's traced stays when it's closed), in front. A
+        minimized tracer comes back as it was (maximized or not): it stayed minimized when a new picture came,
+        2026-11-11. (Trace a graph image…, a picture pasted or dropped on the page and a picture from a website all
+        come here.)"""
+        from PySide6.QtCore import Qt
         from ui.trace_window import TraceWindow
         if getattr(self, "tracer", None) is None:
             self.tracer = TraceWindow(self)
-        self.tracer.fill_comp()
-        self.tracer.show()
-        self.tracer.raise_()
-        self.tracer.activateWindow()
+        tw = self.tracer
+        tw.fill_comp()
+        tw.show()
+        tw.setWindowState(tw.windowState() & ~Qt.WindowMinimized)
+        tw.raise_()
+        tw.activateWindow()
 
     # ---------------------------------------------------------------- a picture from a website (ui/picture_wait.py)
     def trace_from_website(self, entry_id, over, say, want=None):
@@ -167,16 +173,16 @@ class EqFiles:
             return False
         tw = getattr(self, "tracer", None)
         n = tw.unadded_curves() if tw is not None else 0
-        if n or (tw is not None and tw.changed_axes()):
+        if n or (tw is not None and tw.changed_picture()):
             # (the new picture replaces the one in the tracer, and the user is then in the browser: "do this first",
             # a bubble at the control that was used, UI-RULES 25. The automatic read's own curves do not stop it.
-            # With no curve, the user's work is on 1 Axes: words that are true for it.)
+            # With no curve, the user's work is on 1 Axes or 3 Save: words that are true for each change.)
             bubble.tell(None, (
                 "The tracer has a curve that you did not add. To keep it, add it in the tracer. To remove it, click "
                 "Remove image in the tracer. Then select the entry again." if n == 1 else
                 "The tracer has curves that you did not add. To keep them, add them in the tracer. To remove them, "
                 "click Remove image in the tracer. Then select the entry again." if n else
-                "The tracer has a picture that you changed. To remove it, click Remove image in the tracer. Then "
+                "The tracer has a picture with your changes. To remove it, click Remove image in the tracer. Then "
                 "select the entry again."), near=over)
             return False
         from PySide6.QtCore import QUrl
@@ -221,8 +227,9 @@ class EqFiles:
         QApplication.alert(tw)
         app = getattr(self.window(), "app", None)
         if app is not None and hasattr(app, "tray_message"):
-            app.tray_message("AutoEQ Studio has the picture", f"The tracer shows the graph of “{entry['name']}”. Go "
-                             "to the window of the tracer.")
+            from ui.picture_wait import short_words  # (a name of 600 words: NAME_MAX characters, then "…")
+            app.tray_message("AutoEQ Studio has the picture", f"The tracer shows the graph of "
+                             f"“{short_words(entry['name'])}”. Go to the window of the tracer.")
 
     # ---------------------------------------------------------------- finding files (ui/picker.py)
     def find(self, kind):

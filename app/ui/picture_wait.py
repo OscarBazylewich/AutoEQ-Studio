@@ -26,15 +26,18 @@ While it shows, it waits for the first new picture:
 `got` is (QImage, jpeg) when a picture came; the dialog then closes with accept(). done() stops everything first (the
 signal disconnected, the timers stopped), so a late copy does nothing. Its parent is the window that asked: given
 before it shows (the tests' stray watch). A screen reader reads the heading and the steps as the dialog's description.
-one_line() and clean_entry(): an entry's words come from a website's list, so a line end, a control character or a
-format character (a direction mark, a zero-width space) in them becomes a space before they go into a window or a
-file's first line. They show as plain text (never rich text; in a tooltip too: plain_tip), and the heading shows
-NAME_MAX characters of the name at most (heading_name: also the tracer's note on 3 Save). The window is as high as its
-words need (fit_height: also on a small screen at 150 %).
+one_line() and clean_entry(): an entry's words come from a website's list, so a line end or a control character in
+them becomes a space, and a format character (a direction mark, a zero-width space) goes, before they go into a
+window or a file's first line. They show as plain text (never rich text; in a tooltip too: plain_tip), and the
+heading shows NAME_MAX characters of the name at most (heading_name: also the tracer's note on 3 Save), and the
+intro the same of the site (short_words without a font: the tray message), the whole words in a tooltip. The
+window is as high as its words need (fit_height: also on a small screen at 150 %), never higher than the room of its
+screen, and moved up when its bottom is past that room.
 """
 import html
 import os
 import re
+import unicodedata
 
 from PySide6 import QtGui
 from PySide6.QtCore import QSize, Qt, QTimer
@@ -53,24 +56,38 @@ MIN_SIZE = (300, 200)  # a smaller picture is not a graph (a copied icon)
 JPEG_SUFFIXES = (".jpg", ".jpeg", ".jfif")
 NAME_MAX = 80  # (the characters of an entry's name in the heading: then "…", the whole name in its tooltip)
 WIDTH, PAD = 520, 24  # (the words' width at least, and the dialog's padding: Windows 11's)
-# (line ends, tabs and the other control characters; the format characters: zero-width spaces and joiners, the
-# direction marks and overrides, the word joiner and the isolates, the byte order mark)
-_CONTROL = re.compile(r"[\s\x00-\x1f\x7f-\x9f\U0000200b-\U0000200f\U0000202a-\U0000202e\U00002060-\U00002069"
-                      r"\U0000feff]+")
+FRONT_WINDOW = "If the website shows a window in front of the graph, close that window."  # (step 1: steps())
+# (line ends, tabs and the other control characters: each run becomes one space)
+_CONTROL = re.compile(r"[\s\x00-\x1f\x7f-\x9f]+")
 
 
 def one_line(text):
-    """text with each run of line ends, control characters, format characters and spaces as one space (an entry's
-    words come from a website's list: a line end in a name made data lines in a traced file's first line, and a
-    right-to-left override showed the name and the words after it in reverse)."""
-    return _CONTROL.sub(" ", text).strip() if isinstance(text, str) else text
+    """text with no format character (Unicode's category Cf: the zero-width spaces and joiners, the direction marks
+    and overrides, the word joiner and the isolates, the byte order mark, the soft hyphen …: removed with no space,
+    as they have no width; a space showed in a word, "Ga te", 2026-11-11), and each run of line ends, control
+    characters and spaces as one space (an entry's words come from a website's list: a line end in a name made data
+    lines in a traced file's first line, and a right-to-left override showed the name and the words after it in
+    reverse)."""
+    if not isinstance(text, str):
+        return text
+    # (also U+2065: not given yet, in the block of the invisible format characters)
+    kept = "".join(c for c in text if unicodedata.category(c) != "Cf" and not "\N{WORD JOINER}" <= c <= chr(0x206F))
+    return _CONTROL.sub(" ", kept).strip()
+
+
+def short_words(text):
+    """An entry's words (its name, its site) with NAME_MAX characters at most, then "…": where no font is known (a
+    tray message). In a window: heading_name, which also cuts a word wider than the line. The whole words go in a
+    tooltip (plain_tip)."""
+    return text if len(text) <= NAME_MAX else text[:NAME_MAX].rstrip() + "…"
 
 
 def heading_name(name, fm, room):
-    """An entry's name for the wait window's heading: NAME_MAX characters at most (then "…"), and on one line when a
-    word of it (with the quotation marks) is wider than the line (a damaged list's name of 500 characters cut the
-    window's words). fm: the heading's font metrics; room: the line's width."""
-    shown = name if len(name) <= NAME_MAX else name[:NAME_MAX].rstrip() + "…"
+    """An entry's name (or its site) for the wait window: NAME_MAX characters at most (then "…"), and on one line
+    when a word of it (with the quotation marks) is wider than the line (a damaged list's name of 500 characters cut
+    the window's words; a site of 600 words made the window higher than the screen). fm: the label's font metrics;
+    room: the line's width."""
+    shown = short_words(name)
     marks = fm.horizontalAdvance("“”…")
     if any(fm.horizontalAdvance(w) + marks > room for w in shown.split(" ")):
         shown = fm.elidedText(shown, Qt.ElideRight, room - marks)
@@ -107,7 +124,9 @@ def downloads_folder():
 
 def folder_pictures(folder):
     """{name: (st_mtime_ns, st_size)} of the picture files in the folder; None with no folder, a folder that is not
-    there or an error of the look (not known: not "no files", which would make each old file new). Read only."""
+    there or an error of the look (not known: not "no files", which would make each old file new). Read only. A
+    symbolic link is not a file of the folder (follow_symlinks=False: a link with a picture's name let the wait read
+    a file outside the folder, and the window says that it only reads the files of this folder, 2026-11-11)."""
     from ui.trace_window import IMAGE_SUFFIXES
     if not folder:
         return None
@@ -115,8 +134,8 @@ def folder_pictures(folder):
     try:
         with os.scandir(folder) as found:
             for e in found:
-                if e.name.lower().endswith(IMAGE_SUFFIXES) and e.is_file():
-                    st = e.stat()
+                if e.name.lower().endswith(IMAGE_SUFFIXES) and e.is_file(follow_symlinks=False):
+                    st = e.stat(follow_symlinks=False)
                     out[e.name] = (st.st_mtime_ns, st.st_size)
     except OSError:
         return None
@@ -259,9 +278,8 @@ class PictureWait(QDialog):
         self.head = head = self._words("")
         theme.mark(head, role="heading")
         v.addWidget(head)
-        intro = (f"Your browser shows this entry on {entry.get('site') or 'its website'}. "
-                 "Give the app a picture of its graph:")
-        v.addWidget(self._words(intro))
+        self.intro = self._words("")  # (its words below, with the heading's)
+        v.addWidget(self.intro)
         steps = QGridLayout()  # (a step's number in a column of its own: its words wrap under its words)
         steps.setHorizontalSpacing(6)
         steps.setVerticalSpacing(6)
@@ -288,11 +306,22 @@ class PictureWait(QDialog):
         head.setText(f"The app waits for a picture of “{shown}”…")
         if shown != name:
             head.setToolTip(plain_tip(name))
+        # (the site by the same rule: a site of 600 words made the window higher than the screen, 2026-11-11)
+        site = entry.get("site") or ""
+        self.intro.ensurePolished()
+        # (the site in quotation marks: a cut site ended in "…" and then the period of the sentence, 2026-11-12)
+        shown_site = (f"“{heading_name(site, self.intro.fontMetrics(), WIDTH - 2 * PAD)}”" if site
+                      else "its website")
+        intro = f"Your browser shows this entry on {shown_site}. Give the app a picture of its graph:"
+        self.intro.setText(intro)
+        if site and shown_site != f"“{site}”":
+            self.intro.setToolTip(plain_tip(site))
         band, self.paste_btn = dialog_band(self, "Paste the picture", self.paste)
-        help_window.tag(self.paste_btn, "#pw-paste")
-        # (set after tag(): no "F1 opens Help." in it, F1 does nothing in this window, as Find…'s "Available to
-        # download")
+        # (set before tag(): tag() adds "F1 opens Help.", as for the other tagged controls. F1 opens Help in a window
+        # that blocks the others, as this one does, since F1 became a watch on the application's key presses,
+        # 2026-11-12)
         self.paste_btn.setToolTip("Uses the picture that is on the clipboard at this time (also Ctrl+V).")
+        help_window.tag(self.paste_btn, "#pw-paste")
         outer.addWidget(band)
         # (a screen reader: the focus is on Paste the picture when the window opens, and the words are labels only)
         self.setAccessibleName(self.windowTitle())
@@ -315,7 +344,9 @@ class PictureWait(QDialog):
         """The procedure, one step for each line."""
         copy = ("Press Windows + Shift + S. Then select the area of the graph. Windows copies the picture to the "
                 "clipboard.")
-        return ["Maximize the window of your browser. Larger pictures give better results.",
+        # (a website can show a window in front of its graph at the first visit, "Welcome to Squiglink": the screen
+        # copy then had no graph, 2026-11-11)
+        return ["Maximize the window of your browser. Larger pictures give better results. " + FRONT_WINDOW,
                 copy + "\nOr click Screenshot on the website. Your browser saves the picture in the Downloads folder."
                 if self.folder else copy]
 
@@ -335,9 +366,23 @@ class PictureWait(QDialog):
     def fit_height(self):
         """The window as high as its words need at its width: Qt's own size (adjustSize, the first showing) is two
         thirds of the screen at most, and on a small screen at 150 % that cut the last line of step 2. (The size hint's
-        height is for the size hint's width: at a different width, a label of wrapped words needs more or less.)"""
+        height is for the size hint's width: at a different width, a label of wrapped words needs more or less.) Not
+        higher than the room of its screen (its words have NAME_MAX characters of a name or a site at most; on a
+        screen with less room than the words need, the window has that room, but not less than its layout's minimum),
+        and moved up when its bottom is past that room."""
         h = self.heightForWidth(self.width())
-        self.resize(self.width(), h if h > 0 else self.sizeHint().height())
+        h = h if h > 0 else self.sizeHint().height()
+        # (never higher than the room of its screen, with its title bar: the frame's, or the style's before it shows)
+        screen = self.screen() or QApplication.primaryScreen()
+        if screen is not None:
+            from PySide6.QtWidgets import QStyle
+            bar = max(self.frameGeometry().height() - self.height(), self.style().pixelMetric(QStyle.PM_TitleBarHeight))
+            h = min(h, screen.availableGeometry().height() - bar)
+        self.resize(self.width(), h)
+        if screen is not None and self.isVisible():  # (its bottom on the screen: it went 1 px past at 150 %)
+            room, frame = screen.availableGeometry(), self.frameGeometry()
+            if frame.bottom() > room.bottom():
+                self.move(self.x(), max(room.top(), self.y() - (frame.bottom() - room.bottom())))
 
     def start(self):
         """The signal, the looks at the folder (the first one at once: the old files) and the time limit (one time;

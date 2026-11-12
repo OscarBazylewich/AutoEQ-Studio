@@ -24,17 +24,18 @@ def trace_steps(tw):
     def trace_tab_traced():
         tw.show_tab(1)
         show_traces()
-    sample = (" This is a sample graph. It closes at the end of the Guide." if getattr(tw, "sample_open", False)
-              else "")
+    # (each step text has 6 sentences or fewer, with this note too: two texts had 7, 2026-11-12)
+    sample = " This sample graph closes at the end of the Guide." if getattr(tw, "sample_open", False) else ""
     steps = [
         {"chapter": "The parts of this window", "title": "How to trace a graph", "target": lambda: tw.stage,
-         "text": "Open a picture of a graph. Examine the axes that the app found. Trace the curve (Trace automatically "
-                 "does this). Save it as a measurement or a target. The tabs 1 Axes, 2 Trace and 3 Save show one step "
-                 "at a time. The app shows its messages under the settings, at the bottom right. The list of steps (at the "
-                 "top of this box) has Play all steps and the speed of the demos." + sample},
+         "text": "You trace a graph in 4 steps: you open a picture, examine the axes that the app found, trace the "
+                 "curve, and save it. Trace automatically traces the curve, and you save it as a measurement or a "
+                 "target. The tabs 1 Axes, 2 Trace and 3 Save show one step at a time. The app shows its messages "
+                 "below the settings, at the bottom right. The list of steps (at the top of this box) has Play all "
+                 "steps and the speed of the demos." + sample},
         {"chapter": "Picture", "title": "The picture", "target": lambda: tw.stage,
-         "text": "Drag a picture of a graph here, paste it (Ctrl+V), or click Open image…. Its name shows at the top. "
-                 "To remove an incorrect picture, click Remove image. Zoom in and out with the mouse wheel. Move the "
+         "text": "Click Open image…, drag a picture of a graph here, or paste it (Ctrl+V). Its name shows at the top, "
+                 "and Remove image removes an incorrect picture. Zoom in and out with the mouse wheel. Move the "
                  "picture with the right mouse button (or Space). F shows all the picture. The box at the top left "
                  "shows the frequency and dB at the mouse.",
          "demo": [{"at": lambda: tw.stage, "x": 0.5, "y": 0.5, "say": "Drag, paste or open a picture here"},
@@ -97,7 +98,11 @@ def trace_steps(tw):
          "before": tab(2),
          "text": "Add as measurement adds the curves to the app and uses them. Add as target saves the selected curve. "
                  "Save .txt… makes a file for other apps. If the app found a target line in a picture from a website, "
-                 "Add the target line as target… adds that line as a target.",
+                 "Add the target line as target… adds that line as a target. For an entry from Find a target, Add as "
+                 "target is the first button.",
+         # (the card keeps off what the words name under the row: the button of the target line and the note. It
+         # covered them with a picture from a website, 2026-11-11)
+         "avoid": lambda: [tw.save_note, tw.save_line],
          "demo": [{"click": lambda: tw.save_meas, "say": "It adds the curves to the app and uses them"},
                   {"at": lambda: tw.save_tgt, "say": "Or as a target"},
                   {"at": lambda: tw.download_btn, "say": "A .txt file for other apps"}]},

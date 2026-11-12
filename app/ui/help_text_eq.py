@@ -659,7 +659,9 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'title': 'Paste the picture (a picture from the website)',
                            'body': ['Hangout.Audio does not let other programs download its files, and the app obeys '
                                     'that limit. The app has no browser in it and does not get the data of the '
-                                    'website. Your browser shows the graph, and the app reads only a picture of it.',
+                                    'website. Your browser shows the graph, and the app reads only a picture of it. If '
+                                    'the website shows a window in front of the graph, close that window before you '
+                                    'copy the picture.',
                                     'While the app waits, it looks at the clipboard and at the names of the picture '
                                     'files in your Downloads folder. It uses only a picture that is new after it '
                                     'started to wait. It does not change or delete a file. Paste the picture uses the '
@@ -671,8 +673,9 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'curve in almost the same color, can cause errors. If the app cannot trace the '
                                     'picture automatically, the tracer opens on the tab where your input is '
                                     'necessary. A message gives the cause.',
-                                    'The measurement gets the name of the entry and the rig of its database. If you '
-                                    'opened the entry from Find a target, 3 Save tells you to click Add as target. If '
+                                    'The measurement gets the name of the entry and the rig of its database. For an '
+                                    'entry from Find a target, Add as target is the first button of 3 Save, and 3 Save '
+                                    'tells you to click it. If '
                                     'the picture is not a graph, copy a new picture of the graph. Then '
                                     'paste it in the tracer. The tracer keeps the name and the rig of the entry. If '
                                     'you paste the same picture again before you add a curve from it, the tracer keeps '
