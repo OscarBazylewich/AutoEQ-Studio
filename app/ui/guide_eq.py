@@ -776,8 +776,8 @@ def eq_steps(page):
          "before": result_before, "after": result_after, "ready": has_curves,
          "text": lambda: "Each filter has a handle on the EQ graph, below the graph, with the number from the table. "
                          "Drag it left or right for its frequency, and up or down for its gain. The mouse wheel on a "
-                         "handle changes its Q, and a right-click shows its type and Remove (On in the table turns a "
-                         "filter off). Double-click where there is no handle to add a filter. If you use the EQ "
+                         "handle changes its Q, and a right-click shows its type and Remove (On in the table disables "
+                         "a filter). Double-click where there is no handle to add a filter. If you use the EQ "
                          "on a device for 5 minutes, the device also plays each change."
                          + example(),
          "demo": lambda: drag_actions()},
@@ -785,7 +785,8 @@ def eq_steps(page):
          "target": lambda: [page.name_edit, page.formats_line, button(page.result_box, "Save filters"), page.use_btn],
          "before": result_before, "after": result_after, "ready": has_curves,
          "text": lambda: "Two rows of buttons, below File name. The files: Save filters saves the file for your EQ app "
-                         "with the File name. Copy copies the filters to the clipboard, and the folder opens. Then: "
+                         "with the File name. Copy copies the filters to the clipboard, and Open the Saved EQs folder "
+                         "opens that folder. Then: "
                          "Use on device makes the EQ a new profile of a device and enables it. It can also update a "
                          "profile that you have (the profile keeps its devices), or use the EQ on a device for 5 "
                          "minutes. Keep to compare adds it to your EQs to compare, and Report makes an HTML page."

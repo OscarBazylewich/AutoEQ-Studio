@@ -14,11 +14,15 @@ COVERS_FILES = ("app/ui/*.py",)  # (st-083 reads every ui file's help_window.tag
 def test_words_name_the_apps_controls(check):
     from ui.help_texts import WIKI
     words = json.dumps(WIKI, ensure_ascii=False)
-    gone = [w for w in ("ⓘ", "(top bar)", "Match loudness", "AutoEQ Local", "Settings › Sources", "Settings › App",
+    gone = [w for w in ("(top bar)", "Match loudness", "AutoEQ Local", "Settings › Sources", "Settings › App",
                         "Adjust next to", '"id": "presets"') if w in words]
+    # (2026-11-12: an ⓘ is now AutoEQ Studio's own control, bubble.InfoMark after a label (UI-RULES 127); Help names
+    # it only so, never as the ⓘ of AutoEQ Local's page)
+    if words.count("ⓘ") != len(re.findall(r"[Tt]he ⓘ after the label ", words)):
+        gone.append("ⓘ")
     # was selftest.py:880
-    check("help: its words name AutoEQ Studio's controls (no ⓘ, top bar, presets or browser of AutoEQ Local's page)",
-          not gone, gone)
+    check("help: its words name AutoEQ Studio's controls (an ⓘ only as the ⓘ after a label; no top bar, presets or "
+          "browser of AutoEQ Local's page)", not gone, gone)
 
 
 def test_links_and_f1_keys(check):

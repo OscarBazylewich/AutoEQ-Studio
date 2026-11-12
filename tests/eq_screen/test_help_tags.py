@@ -84,3 +84,32 @@ def test_update_words_are_true_for_each_device(check):
     check("help: the short help of Update a profile says what is true for each device, and Help gives the conditions",
           short == "Puts the EQ into a profile that you have. The profile keeps its name and its devices. Help tells "
                    "when each device uses the new EQ." and "have it on use the new" not in guide, (short,))
+    # (2026-11-12: only the short help was checked; the long help can lose its conditions, and the message rule)
+    from ui.help_text_devices import SETTINGS_DEVICES
+    body = next(e["body"] for g in SETTINGS_DEVICES for e in g["items"] if e["key"] == "#use-update")
+    text = " ".join(p for p in body if isinstance(p, str))
+    items = next(p for p in body if isinstance(p, list))
+    late = [s for s in " ".join(items).split(". ") if "immediately" in s]
+    check("help: the long help of Update a profile gives each condition first, and says “immediately” only with it",
+          items == ["If Equalizer APO does not use AutoEQ Studio, no device uses the new EQ immediately. The devices "
+                    "use it after you click Add AutoEQ Studio to APO… on the Devices screen.",
+                    "While a device uses an EQ for 5 minutes, or has its EQ off to compare, it does not change. It "
+                    "uses the new EQ after that, if you do not click Keep it.",
+                    "A device that is not connected uses the new EQ when you connect it.",
+                    "A device on which Equalizer APO is not installed does not use the EQ (refer to Devices).",
+                    "In all other conditions, a connected device uses the new EQ immediately."]
+          and all(s.startswith(("If ", "In all other conditions, ")) for s in late), (items, late))
+    check("help: the long help of Update a profile tells the rule of the message (a maximum of 3 names for each group)",
+          "The message after the update shows each group of devices with a maximum of 3 names, and the number of "
+          "other devices." in text and "first device of each group" not in text, text)
+
+
+def test_help_names_the_info_mark_of_your_eq_app(eq_screen, check):
+    # (2026-11-12: Help said “the line below” Your EQ app; the words are in the ⓘ after its label, bubble.InfoMark)
+    from ui import help_window
+    from ui.bubble import InfoMark
+    note = eq_screen.page.app_note
+    words = [str(e) for e in help_window._by_id().values() if "how to load the EQ" in str(e)]
+    check("help: each Help text about how to load the EQ names the ⓘ after the label Your EQ app, not a line below it",
+          isinstance(note, InfoMark) and len(words) == 3
+          and all("The ⓘ after the label Your EQ app tells" in w and "line below" not in w for w in words), words)

@@ -53,3 +53,14 @@ def test_guide_sentences_are_short(eq_screen, check):
     check("guide: each sentence of the steps and the demos of Make an EQ has 25 words or fewer",
           len(texts) > 100 and not long, long)
     check("guide: each step text of Make an EQ has 6 sentences or fewer", not many, many)
+
+
+def test_guide_words_of_the_filters_and_the_files(eq_screen, check):
+    # (2026-11-12: step 21 had "turns a filter off", a phrasal verb; step 22 told that Copy opens the folder, which
+    # the button Open the Saved EQs folder does)
+    from ui import guide_eq
+    texts = " ".join(t for _, kind, t in _texts(inspect.getsourcefile(guide_eq)) if kind == "text")
+    check("guide: On in the table disables a filter; Open the Saved EQs folder opens the folder, not Copy",
+          "(On in the table disables a filter)" in texts and "turns a filter off" not in texts
+          and "Copy copies the filters to the clipboard, and Open the Saved EQs folder opens that folder." in texts
+          and "and the folder opens" not in texts, texts[:0])

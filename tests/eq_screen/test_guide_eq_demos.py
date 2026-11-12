@@ -277,9 +277,11 @@ def test_use_on_device_demo_rows_as_the_real_menu(eq_screen, check, monkeypatch,
     from switcher import devices as D
     from ui import guide_eq, tasks
     page, sw = eq_screen.page, eq_screen.sw
-    key, speakers = "Headset|EarPods", "Speakers|Realtek(R) High Definition Audio"
+    # (2026-11-12: a device name wider than a row's room, so a Guide that does not cut its device rows fails)
+    dock = "Realtek(R) High Definition Audio, the second output of the dock"
+    key, speakers = "Headset|EarPods", "Speakers|" + dock
     eps = [D.Endpoint("{5}", "Headset", "EarPods", D.ACTIVE, True),
-           D.Endpoint("{6}", "Speakers", "Realtek(R) High Definition Audio", D.ACTIVE, True),
+           D.Endpoint("{6}", "Speakers", dock, D.ACTIVE, True),
            D.Endpoint("{7}", "TV", "NVIDIA", D.ACTIVE, True),
            D.Endpoint("{9}", "Zone", "Dell", D.ACTIVE, True)]  # (last, A to Z: the long name on for two devices)
     long_name = "Daily, a profile with a long name that the menu cuts in the middle, as the Guide does"[:80]
@@ -347,11 +349,13 @@ def test_use_on_device_demo_rows_as_the_real_menu(eq_screen, check, monkeypatch,
     ok = ok and seen[0]["cut"]  # (the long name: on the second device, an Update row of the first play)
     check("guide: the Use on device demo's device rows and Update rows are the real menu's, in its sequence (the "
           "profiles made in the opposite sequence; a device with a nickname first), with the same words, a long name "
-          "and the on words of two devices, the first with a long name, cut as the menu cuts them",
+          "and the on words of two devices, the first with a long name, cut as the menu cuts them (a long device name "
+          "too)",
           ok and all(e and not err for e, err in played)
-          and seen[0]["mock"][:4] == ["Headset (EarPods)  ·  active",
-                                      "Speakers (Realtek(R) High Definition Audio)  ·  connected",
-                                      "TV (NVIDIA)  ·  connected", "Zone (Dell)  ·  connected"]
+          and seen[0]["mock"][:4:2] == ["Headset (EarPods)  ·  active", "TV (NVIDIA)  ·  connected"]
+          and seen[0]["mock"][3] == "Zone (Dell)  ·  connected"
+          and seen[0]["mock"][1].startswith("Speakers (Realtek(R) Hi") and "…" in seen[0]["mock"][1]
+          and seen[0]["mock"][1].endswith("dock)  ·  connected")
           and seen[1]["mock"][0] == "A TV  ·  connected" and seen[1]["mock"][4].startswith("Update “Zeta”"),
           (played, seen))
     check("guide: while the Use on device demo points at its wide menu, nothing that the Guide draws over its card "

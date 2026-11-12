@@ -979,7 +979,7 @@ class Listen(QGroupBox):
         grid.setColumnStretch(1, 1)
         self.pins_lay.addWidget(table)
         if not self.pins:
-            empty = QLabel("No EQs. Keep the result (Keep to compare), or use a button below this text."
+            empty = QLabel("No EQs. Keep the result (Keep to compare), or add an EQ with a button below this text."
                            if self.pins_for else "Select a measurement. Each IEM has a different list.")
             theme.mark(empty, role="muted")
             grid.addWidget(empty, 0, 0, 1, 5)
