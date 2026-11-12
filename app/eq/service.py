@@ -251,6 +251,7 @@ def files_add(body):
     else:
         cfg["files"]["excluded"] = [n for n in cfg["files"]["excluded"] if n not in names]
     settings.save(cfg)
+    library.refresh_app()  # (This PC's list has it at once: Which measurement, Find…)
     return {"kind": kind, "name": names[0], "names": names, "settings": cfg, "inputs": inputs.state(cfg)}
 
 
@@ -285,6 +286,7 @@ def target_save(body):
     for k in ADJUST_GAINS:
         cfg["target_adjust"][k] = 0.0
     settings.save(cfg)
+    library.refresh_app()
     return {"name": fname, "settings": cfg, "before": before, "inputs": inputs.state(cfg)}
 
 
@@ -295,6 +297,7 @@ def files_remove(body):
         inputs.remove_file(kind_of(body), n)
     rigs.forget_source(names_of(body))
     settings.save(cfg)
+    library.refresh_app()  # (no longer offered by Which measurement or Find…)
     return {"inputs": inputs.state(cfg)}
 
 
@@ -308,6 +311,7 @@ def files_move(body):
     else:
         cfg["files"]["excluded"] = [n for n in cfg["files"]["excluded"] if n != name]
     settings.save(cfg)
+    library.refresh_app()
     return {"name": name, "settings": cfg, "inputs": inputs.state(cfg)}
 
 
@@ -357,6 +361,7 @@ def use(body):
     else:
         _use_measurements(cfg, names)
     settings.save(cfg)
+    library.refresh_app()
     return {"kind": kind, "name": name, "names": names, "created": created, "before": before, "settings": cfg,
             "inputs": inputs.state(cfg)}
 
@@ -463,6 +468,7 @@ def compare_average(body):
     rigs.record_source([name], {"name": name, "site": "average", "rig": rig, "of": of})
     _use_measurements(cfg, [name])
     settings.save(cfg)
+    library.refresh_app()
     return {"kind": "measurement", "name": os.path.splitext(name)[0], "names": [name], "created": created,
             "before": before, "settings": cfg, "inputs": inputs.state(cfg)}
 
