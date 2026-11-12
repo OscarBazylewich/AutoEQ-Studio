@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QFileDialog, QFrame, QHBoxLayo
 import paths
 from switcher import eqfile
 from ui import help_window, icons, theme
+from ui.search_combo import natural_key
 from ui.window_parts import EmptyText, muted, profile_line
 
 
@@ -130,7 +131,7 @@ class ProfilesScreen:
         chosen = self._selected_profile()  # (chosen again once the table is drawn again: its commands stay on)
         t.blockSignals(True)
         t.setRowCount(0)
-        for pid, p in sorted(self.sw.profiles().items(), key=lambda x: x[1]["name"].lower()):
+        for pid, p in sorted(self.sw.profiles().items(), key=lambda x: natural_key(x[1]["name"])):  # (UI-RULES 22)
             r = t.rowCount()
             t.insertRow(r)
             name = QTableWidgetItem(p["name"])

@@ -649,17 +649,20 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'While the app waits, it looks at the clipboard and at the names of the picture '
                                     'files in your Downloads folder. It uses only a picture that is new after it '
                                     'started to wait. It does not change or delete a file. Paste the picture uses the '
-                                    'picture that is on the clipboard at this time. When you click Cancel, or after 10 '
-                                    'minutes, the app stops.',
+                                    'picture that is on the clipboard at this time. The app waits for a maximum of 10 '
+                                    'minutes, or until you click Cancel.',
                                     'The tracer finds the axes and the curve automatically and opens on 3 Save. The '
                                     'result is one measurement: the average of the left and right curves. Compare the '
                                     'traced curve with the picture before you add it. A small picture, or a second '
                                     'curve in almost the same color, can cause errors. If the app cannot trace the '
                                     'picture automatically, the tracer opens on the tab where your input is '
                                     'necessary. A message gives the cause.',
-                                    'The measurement gets the name of the entry and the rig of its database. If the '
-                                    'picture is not a graph, copy a new picture of the graph. Then paste it in the '
-                                    'tracer. The tracer keeps the name and the rig of the entry.']},
+                                    'The measurement gets the name of the entry and the rig of its database. If you '
+                                    'opened the entry from Find a target, 3 Save tells you to click Add as target. If '
+                                    'the picture is not a graph, copy a new picture of the graph. Then '
+                                    'paste it in the tracer. The tracer keeps the name and the rig of the entry. If '
+                                    'you paste the same picture again before you add a curve from it, the tracer keeps '
+                                    'the result and your changes.']},
                           {'key': '#cmp-q',
                            'title': 'Model (which measurement to use)',
                            'body': ['The model to find. Each word must be in a name. Thus, with a smaller number of '

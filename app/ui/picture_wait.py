@@ -16,10 +16,11 @@ While it shows, it waits for the first new picture:
   when two looks in sequence gave the same time and size, and the size is more than 0 (browsers write to a
   .crdownload or .part name first: not picture suffixes). A file that another program holds (it does not open) is
   read again at the next look; one that opens and does not read as a picture is tried again, READ_TRIES looks at
-  most; then it is old. More than one new file: the newest first. No folder, or an error: no message, the clipboard
-  still works. A test copy (AUTOEQSTUDIO_ROOT or AUTOEQSTUDIO_DATA set, as userfiles.py's) with no
-  AUTOEQSTUDIO_DOWNLOADS looks at no folder. The folder shows in a line of its own, cut in its middle with "…" when
-  it is longer than the line (its tooltip has all of it).
+  most; then it is old. A JPEG file without its end mark (a program still writes it: Qt reads the part as a
+  picture) is tried again too, and after READ_TRIES looks it is taken as it is. More than one new file: the newest
+  first. No folder, or an error: no message, the clipboard still works. A test copy (AUTOEQSTUDIO_ROOT or
+  AUTOEQSTUDIO_DATA set, as userfiles.py's) with no AUTOEQSTUDIO_DOWNLOADS looks at no folder. The folder shows in a
+  line of its own, cut in its middle with "…" when it is longer than the line (its tooltip has all of it).
 - "Paste the picture" (Enter, Ctrl+V): the picture that is on the clipboard at that time, old or new.
 - TIMEOUT_MS: the wait stops (timed_out).
 `got` is (QImage, jpeg) when a picture came; the dialog then closes with accept(). done() stops everything first (the
@@ -132,6 +133,17 @@ def _opens(path):
         return False
 
 
+def _jpeg_whole(path):
+    """The JPEG file has its end mark (FF D9): Qt reads a file that is cut (a program still writes it) as a
+    picture, with gray below the cut."""
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(-2, os.SEEK_END)
+            return fh.read(2) == bytes((0xFF, 0xD9))
+    except OSError:
+        return False
+
+
 def new_picture(folder, old, pending, tries):
     """One look at the folder (it runs in a thread): (QImage or None, jpeg). old: {name: stamp} of the files that do
     not count (None: not known yet, nothing is new); pending: {name: stamp} of the new files at the last look; tries:
@@ -157,10 +169,14 @@ def new_picture(folder, old, pending, tries):
         if not _opens(path):  # (held by a different program: read again at the next look, not a try)
             continue
         img = QImage(path)
-        if not img.isNull() and big_enough(img):
-            return img, os.path.splitext(name)[1].lower() in JPEG_SUFFIXES
+        jpeg = os.path.splitext(name)[1].lower() in JPEG_SUFFIXES
         tries[name] = tries.get(name, 0) + 1
-        if not img.isNull() or tries[name] >= READ_TRIES:  # (a small picture, or not a picture: old from now on)
+        # (a JPEG with no end mark is not complete: tried again; after READ_TRIES looks it is taken as it is)
+        if not img.isNull() and big_enough(img) and (not jpeg or tries[name] >= READ_TRIES or _jpeg_whole(path)):
+            tries.pop(name, None)
+            return img, jpeg
+        small = not img.isNull() and not big_enough(img)
+        if small or tries[name] >= READ_TRIES:  # (a small picture, or not a picture: old from now on)
             old[name] = pending.pop(name)
             tries.pop(name, None)
     return None, False

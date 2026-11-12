@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QGroupBox, QH
 
 from switcher.core import shown
 from ui import bubble, icons, theme, theme_tokens
+from ui.search_combo import natural_key
 from ui.window_parts import EmptyText, ScreenArea, muted, profile_line, warning_card
 
 
@@ -313,7 +314,7 @@ class DevicesScreen:
         icons.put(add, "add")
         menu = QMenu(add)
         others = [(pid, p) for pid, p in self.sw.profiles().items() if pid not in rec["profiles"]]
-        for pid, p in sorted(others, key=lambda x: x[1]["name"].lower()):
+        for pid, p in sorted(others, key=lambda x: natural_key(x[1]["name"])):  # (UI-RULES 22)
             menu.addAction(p["name"], lambda pid=pid: self.sw.add_to_device(key, pid))
         if others:
             menu.addSeparator()

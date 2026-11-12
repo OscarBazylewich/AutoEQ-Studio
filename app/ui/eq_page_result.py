@@ -19,6 +19,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 import textfile
 from ui import bubble
 from ui.eq_page_parts import MODE_SHORT, and_list, file_base_name, modal, update_row_words, use_menu_order
+from ui.search_combo import natural_key
 
 # By hand's Start from: an EQ's sources in the order every such list has (.claude/notes/UI-RULES.md 16), each with the
 # note under the box; then each device's profile ("profile:<id>"; "profile:" when there's none yet)
@@ -747,7 +748,7 @@ class EqResult:
                 self._update_row(m, on)
             u = m.addMenu("Update a profile")
             u.setToolTipsVisible(True)
-            for other, _ in sorted(profiles.items(), key=lambda x: x[1]["name"].lower()):
+            for other, _ in sorted(profiles.items(), key=lambda x: natural_key(x[1]["name"])):  # (UI-RULES 22)
                 self._update_row(u, other, quoted=False)
         live = [d.key for d in self.sw.devices if d.connected]
         if live:  # (hear it in every app for a few minutes before keeping it)
@@ -907,7 +908,8 @@ class EqResult:
                 return
             self.status({"": f"“{now}” has its previous EQ again.",
                          "deleted": f"You deleted “{now}” in Profiles: Undo is not possible.",
-                         "changed": f"The file of “{now}” changed after the update: Undo is not possible."}[why])
+                         "changed": f"The file of “{now}” changed after the app updated it: Undo is not "
+                                    "possible."}[why])
         self.status(words, undo=undo)
 
     @staticmethod

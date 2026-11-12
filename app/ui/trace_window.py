@@ -21,12 +21,16 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   traced curve (and the target line, marked); else the tab of the first check that failed, with its reason. The add
   names the website in the file's first line and sends the entry as the source record (its rig). The entry belongs
   to the picture: it stays when the window closes, but a new picture after the close does not take it (kept_entry);
-  Remove image and a new picture clear it. unadded_curves(): the curves that the user traced or changed and did not
-  add (a new picture from a website stops for them; the automatic read's own curves do not count, but a curve of it
-  is the user's work after a typed axis value or a moved line); changed_axes(): no curve, but axes that the user
-  changed (it stops too). The entry's words show as plain text (never rich text; the top row's tooltip too:
-  picture_wait.plain_tip), and 3 Save's note has 80 characters of the name at most (picture_wait.heading_name: a
-  long name does not make the side wider).
+  Remove image and a new picture clear it. The same picture again (picture_mark: Ctrl+V after the screen copy, or the
+  key two times or held, also after a close) while the tracer has its entry, nothing was added from it, and its read
+  runs or ended (OK or not: the user's changes stay) changes nothing (the status line says so). With Find… for a
+  target ("Targets and measurements"), the entry has "as": "target" and 3 Save's note says Add as target (the mark is
+  not in the source record). unadded_curves(): the curves that the user traced or changed and did not add (a new
+  picture from a website stops for them; the automatic read's own curves do not count, but a curve of it is the user's
+  work after a typed axis value or a moved line); changed_axes(): no curve, but axes that the user changed (it stops
+  too). The entry's words show as plain text (never rich text; the top row's tooltip too: picture_wait.plain_tip), and
+  3 Save's note has 80 characters of the name at most (picture_wait.heading_name: a long name does not make the side
+  wider).
 sample_image() draws AutoEQ Local's sample graph (an IEM's two channels and a dashed target) for checks and the tour.
 
 The look is Windows 11's, as the rest of the app (2026-10-23): the picture on a card, the tools as one group, Windows
@@ -71,6 +75,14 @@ READ_ERROR = (f"The app cannot trace this picture automatically. Do the steps 1{
 CORRECT_STEP = f"Correct this step. Then go to 3{NBSP}Save."  # (after a check of the automatic read that is not OK)
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".jfif", ".webp", ".bmp", ".gif", ".tif", ".tiff")
 IMAGES = "Images (*.png *.jpg *.jpeg *.jfif *.webp *.bmp *.gif *.tif *.tiff)"
+
+
+def picture_mark(rgb):
+    """A mark that is the same only for the same picture: its size and two checksums of all its pixels (CRC-32 and
+    Adler-32: on the window's thread, measured 0.8 to 1.2 ms for 3840 x 2160, where blake2b took 28 to 31 ms)."""
+    import zlib
+    a = np.ascontiguousarray(rgb)
+    return a.shape, zlib.crc32(a), zlib.adler32(a)
 
 
 def clean_entry_of(entry):
@@ -671,6 +683,7 @@ class TraceWindow(QWidget):
         self.added = False
         self.read_ok = None
         self.reading_graph = False
+        self.picture_mark = None  # (picture_mark() of the picture that came)
         self.graph_token = 0
         self.auto_note = ""  # (3 Save's note after an automatic read that passed)
         self.was_closed = False  # (closed since the last picture: a new picture does not take the entry)
@@ -702,7 +715,7 @@ class TraceWindow(QWidget):
         head.addWidget(opn)
         head.addSpacing(12)  # (Remove set apart, as every row's: UI-RULES 14)
         self.remove_btn = QPushButton("Remove image")
-        self.remove_btn.setToolTip("Remove this picture (for example, an incorrect picture) and the curves that you traced on it")
+        self.remove_btn.setToolTip("Remove this picture (for example, an incorrect picture) and its traced curves")
         self.remove_btn.clicked.connect(self.remove_image)
         icons.put(self.remove_btn, "remove")
         head.addWidget(self.remove_btn)
@@ -1190,13 +1203,20 @@ class TraceWindow(QWidget):
                 self.renamed = True  # (the user's work: unadded_curves)
                 if c.get("target"):  # (a renamed target line is a measurement curve: the core does not see a rename)
                     self.t.user_edit(i)
+                    self.show_curves_note()
                     self.update_ui()
             name.textEdited.connect(renamed)
             lay.addWidget(row)
         _no_focus(self.curves_box)
+        self.show_curves_note()
+
+    def show_curves_note(self):
+        """2 Trace's note for more than one curve that Add as measurement saves (not the marked target line of a
+        picture from a website: that one is not saved with them)."""
+        t = self.t
         self.curves_note.setText("The app saves the curves as one device: one file for each curve, with its label in the name "
                                  "(for example, L and R)."
-                                 if sum(map(t.has_data, t.curves)) > 1 else "")
+                                 if sum(1 for c in t.curves if t.has_data(c) and not c.get("target")) > 1 else "")
 
     def eventFilter(self, obj, e):
         from PySide6.QtCore import QEvent
@@ -1283,6 +1303,16 @@ class TraceWindow(QWidget):
         """A picture into the tracer. entry: the database entry of a picture from a website (/api/db/entry's): its
         name with its tag is the picture's name, "The graph shows" goes to the response (a website's graph is not
         compensated), and the automatic read (read_graph) replaces the label read."""
+        rgb = rgb_of(qimg)
+        mark = picture_mark(rgb)
+        if ((entry is None or entry is self.entry) and self.entry and self.t.has_image and mark == self.picture_mark
+                and not self.added and (self.read_ok is not None or self.reading_graph)):
+            # (the picture that the tracer has from the website, again: Ctrl+V after the screen copy, the key two
+            # times, or after a close of the tracer. As a picture of yours it would replace the automatic result, the
+            # name and the rig; after a read that was not OK (kept_entry), a new read would remove the user's changes.)
+            self.say("The tracer has this picture.")
+            return
+        self.picture_mark = mark
         self.sample_open = False  # (a picture of yours: the Guide's sample, set again by the Guide, isn't on any more)
         self.entry = clean_entry_of(entry)  # (its words on one line: they go into the file's first line)
         self.added = False
@@ -1293,7 +1323,6 @@ class TraceWindow(QWidget):
         self._reading_graph(False)
         if entry:
             name = self.entry_name()
-        rgb = rgb_of(qimg)
         try:
             self.t.load(rgb, name, jpeg)
         except Exception as e:  # noqa: BLE001 - a picture whose axes trip the reader: said, the tracer left empty
@@ -1380,11 +1409,18 @@ class TraceWindow(QWidget):
         self.read_ok = bool(r.ok)
         e = entry or {}
         if r.ok:
+            # (Find… for a target, "Targets and measurements": the user wants the entry's curve as a target; the
+            # target line of the picture is then a second target, said apart from it)
+            want_target = e.get("as") == "target"
             self.auto_note = (f"The app traced the graph of “{self.note_name(e.get('name', ''))}” "
                               f"from {e.get('site', '')}. "
-                              "Compare the curve with the picture. If they agree, click Add as measurement."
-                              + (" The picture also has a target line. Add the target line as target… adds it as a "
-                                 "target." if r.target is not None else ""))
+                              "Compare the curve with the picture. If they agree, click "
+                              + ("Add as target." if want_target else "Add as measurement.")
+                              + ("" if r.target is None else
+                                 " The picture also has a target line. Add the target line as target… adds that "
+                                 "line as a target, not the Average curve." if want_target else
+                                 " The picture also has a target line. Add the target line as target… adds it as a "
+                                 "target."))
             self.status.setText(HINTS[self.tool])
             self.show_tab(2)
         else:
@@ -1428,10 +1464,11 @@ class TraceWindow(QWidget):
         if not t.has_image:
             return
         if any(map(t.has_data, t.curves)) and QMessageBox.question(  # (No the default: the curves can't be had back)
-                self, "Remove image", "Remove this picture and the curves that you traced on it?",
+                self, "Remove image", "Remove this picture and its traced curves?",
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
             return
         self.entry, self.added, self.read_ok, self.auto_note = None, False, None, ""
+        self.picture_mark = None
         self.was_closed = self.renamed = False
         self.graph_token += 1  # (an automatic read still running is dropped)
         self._reading_graph(False)
@@ -1685,7 +1722,7 @@ class TraceWindow(QWidget):
         """The source record of an add from a picture from a website (eq.service records it for the files: their rig
         is the database's), with `name`: the entry's for a measurement, the target's own for a target."""
         e = self.entry
-        return dict(e, name=name) if e and e.get("site_url") else None
+        return dict({k: v for k, v in e.items() if k != "as"}, name=name) if e and e.get("site_url") else None
 
     def save(self, kind, outs=None, title=None):
         """Into the app: a measurement (the traced curves as one device, made the one in use) or a target. outs: the
@@ -1810,7 +1847,8 @@ class TraceWindow(QWidget):
             self.redo() if key == Qt.Key_Y or mods & Qt.ShiftModifier else self.undo()
             return
         if ctrl and key == Qt.Key_V:
-            self.paste()
+            if not e.isAutoRepeat():  # (a held key: one paste)
+                self.paste()
             return
         if ctrl or mods & Qt.AltModifier:
             return super().keyPressEvent(e)

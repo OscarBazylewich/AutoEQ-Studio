@@ -143,7 +143,7 @@ class EqFiles:
         self.tracer.activateWindow()
 
     # ---------------------------------------------------------------- a picture from a website (ui/picture_wait.py)
-    def trace_from_website(self, entry_id, over, say):
+    def trace_from_website(self, entry_id, over, say, want=None):
         """Find…'s Use (or Which measurement's link) on an entry that the app cannot download: the entry opens in the
         user's browser, then the wait window on top of `over` waits for a picture of its graph, which goes to the
         tracer. Returns whether the wait started. `say`: the message line of `over` (UI-RULES 7)."""
@@ -159,6 +159,8 @@ class EqFiles:
             return False
         from ui.picture_wait import PictureWait, clean_entry
         entry = clean_entry(r["entry"])  # (its words come from a website's list: each on one line)
+        if want:  # ("target" or "measurement": Find… for the other kind; the tracer's note names that add)
+            entry["as"] = want
         import net
         if net.offline():  # (the words fit Find…'s line at its opening width)
             say("Offline: to open this entry, change to Online (top right).")

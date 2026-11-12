@@ -436,3 +436,45 @@ def test_website_link_starts_the_wait(eq_screen, monkeypatch, check):
           started == ([entry["link"]], True), started)
     check("Which measurement: the window closes when the picture comes, and the tracer gets it with the entry",
           closed == (True, False) and loaded and loaded[0]["name"] == "Truthear Gate", (closed, loaded))
+
+
+def test_website_link_messages_in_the_window_line(eq_screen, monkeypatch, check):
+    """The messages of the website flow for a link of Which measurement go into this window's own line (UI-RULES 7):
+    offline, and after the time limit of the wait."""
+    import net
+    from PySide6.QtWidgets import QApplication
+    from eq import databases
+    from ui import picture_wait, tasks
+    page = eq_screen.page
+    page.svc.call("/api/db/refresh", {"settings": page.S})  # (offline: the saved lists)
+    eq_screen.wait_for(lambda: any(it.get("link") for it in databases.items()), 120)
+    entry = next(it for it in databases.items() if it.get("link") and it["name"] == "Truthear Gate")
+    QApplication.clipboard().clear()
+    cw = _shown_with(page, monkeypatch)
+    said = {}
+    try:
+        cw.data["links"] = [{"id": entry["id"], "name": entry["name"], "site": entry["site"], "rig": "B&K 5128",
+                             "link": entry["link"]}]
+        cw.render()
+        n = len(qt.OPENED_URLS)
+        monkeypatch.setattr(net, "offline", lambda: True)
+        cw._open_site(entry["link"])
+        qt.pump(50)
+        said["offline"] = (cw.footer.line.text.text(), qt.OPENED_URLS[n:], getattr(page, "picture_wait", None))
+        monkeypatch.setattr(net, "offline", lambda: False)
+        monkeypatch.setattr(picture_wait, "TIMEOUT_MS", 200)
+        cw._open_site(entry["link"])
+        qt.pump(50)
+        wait = page.picture_wait
+        qt.wait_for(lambda: wait is not None and (not tasks.alive(wait) or not wait.isVisible()), 10)
+        qt.pump(50)
+        said["time limit"] = (cw.footer.line.text.text(), cw.isVisible())
+    finally:
+        qt.close(cw)
+        QApplication.clipboard().clear()
+    check("Which measurement: offline, a link of a website entry opens nothing and the window's line says how to go "
+          "online", said["offline"] == ("Offline: to open this entry, change to Online (top right).", [], None),
+          said["offline"])
+    check("Which measurement: after the time limit of the wait, the window's line says so and the window stays",
+          said["time limit"] == ("No new picture came in 10 minutes. Select the entry again.", True),
+          said["time limit"])
