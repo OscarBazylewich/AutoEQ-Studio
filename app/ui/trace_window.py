@@ -33,9 +33,9 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   not in the source record). unadded_curves(): the curves that the user traced or changed and did not add (a new
   picture from a website stops for them; the automatic read's own curves do not count, but a curve of it is the user's
   work after users_work: a typed axis value, a moved line, a changed value of 3 Save …); changed_picture(): no
-  curve, but users_work, also on a picture of the user (it stops too). The entry's words show as plain text (never rich text; the top row's tooltip too: picture_wait.plain_tip), and
-  3 Save's note has 80 characters of the name at most (picture_wait.heading_name: a long name does not make the side
-  wider).
+  curve, but users_work, also on a picture of the user (it stops too). The entry's words show as plain text (never
+  rich text; the top row's tooltip too: picture_wait.plain_tip), and 3 Save's note has 80 characters of the name and
+  of the site at most (picture_wait.heading_name: a long name does not make the side wider).
 sample_image() draws AutoEQ Local's sample graph (an IEM's two channels and a dashed target) for checks and the tour.
 
 The look is Windows 11's, as the rest of the app (2026-10-23): the picture on a card, the tools as one group, Windows

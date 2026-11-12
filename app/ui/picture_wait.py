@@ -28,11 +28,11 @@ signal disconnected, the timers stopped), so a late copy does nothing. Its paren
 before it shows (the tests' stray watch). A screen reader reads the heading and the steps as the dialog's description.
 one_line() and clean_entry(): an entry's words come from a website's list, so a line end or a control character in
 them becomes a space, and a format character (a direction mark, a zero-width space) goes, before they go into a
-window or a file's first line. They show as plain text (never rich text; in a tooltip too: plain_tip), and the heading shows
-NAME_MAX characters of the name at most (heading_name: also the tracer's note on 3 Save), and the intro the same of
-the site (short_words without a font: the tray message), the whole words in a tooltip. The window is as high as its
-words need (fit_height: also on a small screen at 150 %), never higher than the room of its screen, and moved up
-when its bottom is past that room.
+window or a file's first line. They show as plain text (never rich text; in a tooltip too: plain_tip), and the
+heading shows NAME_MAX characters of the name at most (heading_name: also the tracer's note on 3 Save), and the
+intro the same of the site (short_words without a font: the tray message), the whole words in a tooltip. The
+window is as high as its words need (fit_height: also on a small screen at 150 %), never higher than the room of its
+screen, and moved up when its bottom is past that room.
 """
 import html
 import os
