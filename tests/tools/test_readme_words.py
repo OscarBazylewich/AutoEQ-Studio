@@ -47,3 +47,16 @@ def test_readme_paragraphs_and_sentences(check):
     long = [(_words(s), s) for p in paras for s in _sentences(" ".join(p["lines"])) if _words(s) > 25]
     check("readme: each paragraph of README.txt has 6 sentences or fewer", len(paras) > 100 and not many, many)
     check("readme: each sentence of README.txt has 25 words or fewer", not long, long)
+
+
+def test_readme_words_of_update_and_the_filters(check):
+    # (2026-11-12: "turns a filter off" is a phrasal verb; the message after Update names a maximum of 3 devices for
+    # each group; a device with an EQ for 5 minutes or its EQ off to compare uses a change only after that)
+    with open(os.path.join(paths.PROJECT, "README.txt"), encoding="utf-8") as fh:
+        text = " ".join(fh.read().split())
+    check("readme: the On tick box disables a filter (no phrasal verb), and the message of Update has its rule",
+          "the On tick box of the table disables a filter" in text and "turns a filter off" not in text
+          and "(a maximum of 3 names for each group, and the number of other devices)" in text
+          and "If Equalizer APO uses AutoEQ Studio, a connected device with Equalizer APO uses the change immediately."
+          in text and "A device with an EQ for 5 minutes, or with its EQ off to compare, uses the change after that."
+          in text, text[:0])

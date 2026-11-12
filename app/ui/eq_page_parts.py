@@ -2,10 +2,10 @@
 MODE_HINT, TICKS and file_base_name still import from ui/eq_page.py too.
 - FORMAT_NAMES: the files Save filters can write, by key; MODE_SHORT: each method's short name; MODE_HINT: the line
   beside Method; TICKS: the graph's frequencies
-- and_list(names): "A, B, and C" in a sentence; first_names(names): "A and 2 more devices" (the on words, Update's
-  message); on_words(names): where a profile is on, for a menu's keys' column; row_name(fm, name): a device's or a
-  profile's name cut to a row's room; update_row_words(fm, name, names): an update row's two texts, cut to their room
-  (the menu and the Guide);
+- and_list(names): "A, B, and C" in a sentence; first_names(names, shown): "A and 2 more devices" (the on words),
+  "A, B, C, and 9 more devices" (Update's message); on_words(names): where a profile is on, for a menu's keys'
+  column; row_name(fm, name): a device's or a profile's name cut to a row's room; update_row_words(fm, name,
+  names): an update row's two texts, cut to their room (the menu and the Guide);
   use_menu_order(sw, own): Use on device's device rows and Update rows, in one sequence (the menu and the Guide)
 - label(text, role, wrap): a label, in one of the theme's text roles; set_note(lab, text): a note's words, the note
   hidden while it has none (so an empty one takes no room); hz(v): a frequency in Hz or kHz
@@ -61,18 +61,20 @@ def and_list(names):
     return ", ".join(names[:-1]) + ", and " + names[-1]
 
 
-NAMES_SHOWN = 1  # (the device names that on words and Update's message give before "and N more devices")
+NAMES_SHOWN = 1  # (the device names that a menu's on words give before "and N more devices": the menu stays narrow)
+MESSAGE_NAMES = 3  # (the device names of each group in the message after Update before "and N more devices")
 
 
-def first_names(names):
-    """Devices in a few words (names: in Devices' order): "A", or the first NAMES_SHOWN names and "and 1 more device"
-    / "and N more devices" for the others, so many long Windows names make neither a menu wide nor a message long
-    (Use on device's on words, and the message after Update)."""
+def first_names(names, shown=NAMES_SHOWN):
+    """Devices in a few words (names: in Devices' order): all of them when there are shown or fewer ("A", "A and B",
+    "A, B, and C", as and_list), else the first shown names and "1 more device" / "N more devices" for the others, in
+    the same list ("A and 2 more devices", "A, B, C, and 9 more devices"), so many long Windows names make neither a
+    menu wide nor a message long (Use on device's on words: NAMES_SHOWN; the message after Update: MESSAGE_NAMES)."""
     names = list(names)
-    if len(names) <= NAMES_SHOWN:
+    if len(names) <= shown:
         return and_list(names)
-    more = len(names) - NAMES_SHOWN
-    return ", ".join(names[:NAMES_SHOWN]) + f" and {more} more device{'' if more == 1 else 's'}"
+    more = len(names) - shown
+    return and_list(names[:shown] + [f"{more} more device{'' if more == 1 else 's'}"])
 
 
 def on_words(names):

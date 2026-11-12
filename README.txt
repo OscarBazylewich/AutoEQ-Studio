@@ -206,8 +206,9 @@ One column, from the top to the bottom:
                        the top, or the menu of the tray icon). If you do not, the device gets its EQ again
                        automatically.
     Update a profile   (in the menu of Use on device, also the rows Update "name") puts the EQ into a profile that
-                       you have. The profile keeps its name and its devices. The message tells you which devices
-                       use the new EQ immediately, and it has Undo.
+                       you have. The profile keeps its name and its devices. The message tells you when each device
+                       uses the new EQ (a maximum of 3 names for each group, and the number of other devices). It
+                       has Undo.
     Keep to compare    adds it to the EQs to compare of this IEM (on the graph as a dashed line, and in Listen)
     Report             an HTML page with the graph and the filters (Save filters also writes it, if you select it
                        in More settings)
@@ -218,7 +219,7 @@ One column, from the top to the bottom:
     - Drag a handle left or right to change its frequency.
     - Drag it up or down to change its gain.
     - Turn the mouse wheel on it to change its Q.
-    - Right-click it for Peak, Low shelf, High shelf and Remove (the On tick box of the table turns a filter off).
+    - Right-click it for Peak, Low shelf, High shelf and Remove (the On tick box of the table disables a filter).
     - Double-click where there is no handle to add a filter.
   The curves, the numbers, the table and Listen change while you drag. The scale does not change until you release
   the handle. With Use for 5 minutes on, each change goes to that device while you edit, in all apps.
@@ -322,10 +323,11 @@ Studio\profiles"). Thus, if you change the file that you imported, the profile d
 The buttons of Profiles are above its table. Import EQ files… and Open the profiles folder are first. A line and the
 buttons for one profile follow them. These buttons are enabled when you select a profile.
 "Edit in Make an EQ" opens the selected profile there as a manual EQ. When you change its filters, Use on device ›
-Update puts it into the profile again. Its devices keep it, and a connected device with Equalizer APO uses the change
-immediately. The rows Update "name" and "Update a profile" of Use on device put the EQ of a result into a profile
-that you have. Rename… gives the selected profile a different name, and Delete… (the last button) deletes its file,
-after a message.
+Update puts it into the profile again, and its devices keep it. If Equalizer APO uses AutoEQ Studio, a connected
+device with Equalizer APO uses the change immediately. A device with an EQ for 5 minutes, or with its EQ off to
+compare, uses the change after that. The rows Update "name" and "Update a profile" of Use on device put the EQ of a
+result into a profile that you have. Rename… gives the selected profile a different name, and Delete… (the last
+button) deletes its file, after a message.
 
 Devices: your playback devices, with their Windows names ("Headset (EarPods)"), connected devices first, from A to Z.
 A green dot: active. Your Windows accent color (blue at first): connected. Gray: not connected.

@@ -18,8 +18,8 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 import textfile
 from ui import bubble
-from ui.eq_page_parts import (MODE_SHORT, and_list, file_base_name, first_names, modal, row_name, update_row_words,
-                              use_menu_order)
+from ui.eq_page_parts import (MESSAGE_NAMES, MODE_SHORT, and_list, file_base_name, first_names, modal, row_name,
+                              update_row_words, use_menu_order)
 from ui.search_combo import natural_key
 
 # By hand's Start from: an EQ's sources in the order every such list has (.claude/notes/UI-RULES.md 16), each with the
@@ -809,8 +809,8 @@ class EqResult:
         Equalizer APO (as use_on says). When Equalizer APO doesn't include the app, no device uses it immediately: that
         comes first, and the others use it "after that" (the ones not connected "after that, when you connect it"). ""
         with no keys. unused: Equalizer APO does not include the app (None: read config.txt now; a menu reads it one
-        time for all its rows). short: each group as its first names and "and N more devices" (first_names, as the
-        menu's on words), for the message, so 12 devices do not make it long; the tooltip names all of them."""
+        time for all its rows). short: each group as its first MESSAGE_NAMES names and "and N more devices"
+        (first_names), for the message, so 12 devices do not make it long; the tooltip names all of them."""
         from switcher.core import shown
         if not keys:
             return ""
@@ -820,7 +820,7 @@ class EqResult:
             d = self.sw.device(k)
             (later if k in held else away if not (d and d.connected) else no_apo if not d.apo else now).append(
                 shown(self.sw.record(k)))
-        out, names = [], first_names if short else and_list
+        out, names = [], (lambda group: first_names(group, MESSAGE_NAMES)) if short else and_list
         if unused is None:
             unused = not self.sw.apo.includes_studio()
         if unused:  # (APO reads none of the app's files: as use_on says it)
