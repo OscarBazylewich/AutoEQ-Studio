@@ -24,6 +24,7 @@ import numpy as np
 INK = 60          # how far from the background colour a pixel must be to count as drawn
 FAINT = 16        # (pale gridlines that run unbroken across most of the picture still count)
 MAX_PIXELS = 16e6  # bigger pictures are scaled down
+DISTANCE_ROWS = 256  # (squared_colour_distance of a large area: strips of this many rows)
 GREY = 20  # a pixel whose channels differ by less than this is grey (measured on the sample graph as a JPEG of quality
 # 50 and 75: 99% of the grey target's pixels under 14, 1% of the orange and green lines' under 33). A curve's colour
 # picked from a JPEG may be tinted more: under GREY + 25 it's a grey curve, matched as plain grey
@@ -376,10 +377,19 @@ class Tracer:
 
     def squared_colour_distance(self, ys, xs, c):
         """Squared colour distance of pixels (arrays of rows and columns, or slices) from colour c. (A table of the 256
-        squares for each channel: the same values in a third of the time of the sum of the squares, 2026-11-11.)"""
+        squares for each channel: the same values in a third of the time of the sum of the squares, 2026-11-11.)
+        A large area goes in strips of DISTANCE_ROWS rows: NumPy keeps Python's lock while it looks up a table, and
+        one look-up of a picture of 16 MP stopped the window's thread for 16 ms while a load ran in a thread,
+        2026-11-12."""
         p = self.px[ys, xs]
         sq = (np.arange(256, dtype=np.int32)[:, None] - np.asarray(c, np.int32)) ** 2
-        return sq[p[..., 0], 0] + sq[p[..., 1], 1] + sq[p[..., 2], 2]
+        if p.ndim != 3 or p.shape[0] <= DISTANCE_ROWS:
+            return sq[p[..., 0], 0] + sq[p[..., 1], 1] + sq[p[..., 2], 2]
+        out = np.empty(p.shape[:2], np.int32)
+        for a in range(0, p.shape[0], DISTANCE_ROWS):
+            s = p[a:a + DISTANCE_ROWS]
+            out[a:a + DISTANCE_ROWS] = sq[s[..., 0], 0] + sq[s[..., 1], 1] + sq[s[..., 2], 2]
+        return out
 
     def background(self):
         """The most common colour (in coarse bins), as the average of the pixels in that bin (not the bin's middle:
@@ -388,13 +398,19 @@ class Tracer:
         s = self.px[::step, ::step].reshape(-1, 3)  # (uint8: the mean is the same, without a copy in int64)
         if not len(s):
             return (255, 255, 255)
-        q = s >> 4
-        keys = q[:, 0].astype(np.int32) << 8 | q[:, 1].astype(np.int32) << 4 | q[:, 2]
+        # (the bin of each pixel, 4 bits of each channel, from the channels one after the other and in place: the same
+        # keys in half the time of the int32 form, 9 to 5 ms at 1200 x 720, 2026-11-12)
+        ch = np.ascontiguousarray(s.T)
+        keys = (ch[0] >> 4).astype(np.uint16)
+        keys <<= 4
+        keys |= ch[1] >> 4
+        keys <<= 4
+        keys |= ch[2] >> 4
         count = np.bincount(keys)
         k = count.argmax()
         here = keys == k
         # (each channel's sum in bin k, a whole number: the mean is the same as the mean of those pixels)
-        return tuple(int(_js_round(int(np.add.reduce(s[:, i], where=here, dtype=np.int64)) / count[k]))
+        return tuple(int(_js_round(int(np.add.reduce(ch[i], where=here, dtype=np.int64)) / count[k]))
                      for i in range(3))
 
     def find_lines(self, horizontal):

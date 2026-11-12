@@ -17,7 +17,10 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
 - the load of a picture (load_image): one of SYNC_PIXELS or less at once; a larger one in a thread (prepared: the
   scale, picture_mark, the stage's QImage and Tracer.load in a new Tracer, which Tracer.take then takes), while
   `loading` is True: the status line says so, and the picture, the side and Guide take no input. A new picture or
-  Remove image meanwhile wins (load_token); a close meanwhile counts as a close after the picture came.
+  Remove image meanwhile wins (load_token); a close meanwhile counts as a close after the picture came; an automatic
+  read of the picture before that ends meanwhile waits for the load's end (late_read), and goes when the picture
+  changes. In the thread, no one call keeps Python's lock for long (the window's thread waits for it): rgb_of draws
+  in strips of STRIP_ROWS rows, stage_image copies with NumPy.
 - a picture from a website (Find…'s Use on an entry that the app cannot download, ui/eq_page_files.py's
   trace_from_website): load_image(..., entry=) with its database entry (its words on one line: picture_wait's
   clean_entry). The name is the entry's with its tag; "The graph shows" goes to the response (not compensated);
@@ -84,6 +87,9 @@ CORRECT_STEP = f"Correct this step. Then go to 3{NBSP}Save."  # (after a check o
 # (a picture of more pixels than this loads in a thread: its load stopped the window for 286 ms at 3840 x 2160 and
 # 580 ms at 16 MP; a smaller one loads at once, measured 40 ms or less, 2026-11-11: .claude/notes/benchmarks)
 SYNC_PIXELS = 1_000_000
+# (rgb_of draws the scaled picture in strips of this many rows: each draw keeps Python's lock for 10 ms or less, at
+# 8000 x 6000 too; 256 rows took 42 ms in all at 6000 x 4000, one draw 40 ms, 2026-11-12)
+STRIP_ROWS = 256
 LOADING = "The app opens the picture…"  # (the status line while a large picture loads)
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".jfif", ".webp", ".bmp", ".gif", ".tif", ".tiff")
 IMAGES = "Images (*.png *.jpg *.jpeg *.jfif *.webp *.bmp *.gif *.tif *.tiff)"
@@ -220,25 +226,35 @@ def _symbol_only(button, name):
 
 
 def rgb_of(img):
-    """A QImage as an RGB NumPy array (transparent parts on white), scaled down to MAX_PIXELS at most."""
+    """A QImage as an RGB NumPy array (transparent parts on white), scaled down to MAX_PIXELS at most. The scale is
+    drawn in strips of STRIP_ROWS rows of the result (a clip rectangle for each strip: the same pixels as one draw).
+    One draw kept Python's lock for 40 ms at 6000 x 4000 and 50 ms at 8000 x 6000 (QPainter does not let it go), and
+    the window's thread waited for it while a load ran in a thread, 2026-11-12. Each strip is made white first, in
+    the same draw: one fill of all the new picture kept the lock for 8 ms at 16 MP)."""
     w, h = img.width(), img.height()
     k = min(1.0, math.sqrt(tc.MAX_PIXELS / max(1, w * h)))
     W, H = max(1, round(w * k)), max(1, round(h * k))
     out = QImage(W, H, QImage.Format_RGB888)
-    out.fill(QColor("white"))
-    p = QPainter(out)
-    p.setRenderHint(QPainter.SmoothPixmapTransform)
-    p.drawImage(QRectF(0, 0, W, H), img)
-    p.end()
+    white = QColor("white")
+    for y in range(0, H, STRIP_ROWS):
+        p = QPainter(out)
+        p.setRenderHint(QPainter.SmoothPixmapTransform)
+        p.setClipRect(0, y, W, min(STRIP_ROWS, H - y))
+        p.fillRect(0, y, W, min(STRIP_ROWS, H - y), white)
+        p.drawImage(QRectF(0, 0, W, H), img)
+        p.end()
     a = np.frombuffer(out.constBits(), np.uint8, count=out.bytesPerLine() * H).reshape(H, out.bytesPerLine())
     return a[:, :W * 3].reshape(H, W, 3).copy()
 
 
 def stage_image(rgb):
-    """An RGB array (H x W x 3) as the QImage that the stage draws (its own copy of the pixels)."""
+    """An RGB array (H x W x 3) as the QImage that the stage draws (its own copy of the pixels). NumPy copies the
+    pixels into the new QImage: QImage.copy kept Python's lock for 10 ms at 16 MP, 2026-11-12."""
     h, w = rgb.shape[:2]
-    buf = np.ascontiguousarray(rgb)
-    return QImage(buf.data, w, h, w * 3, QImage.Format_RGB888).copy()
+    out = QImage(w, h, QImage.Format_RGB888)
+    dst = np.frombuffer(out.bits(), np.uint8, count=out.bytesPerLine() * h).reshape(h, out.bytesPerLine())
+    np.copyto(dst[:, :w * 3], np.asarray(rgb, np.uint8).reshape(h, w * 3))
+    return out
 
 
 def prepared(qimg, name, jpeg, v, ta):
@@ -742,6 +758,7 @@ class TraceWindow(QWidget):
         self.reading_graph = False
         self.loading = False  # (a large picture loads in a thread: load_image)
         self.load_token = 0  # (the last load_image: a late answer of a load before it is dropped)
+        self.late_read = None  # (an automatic read that ended while a picture loads: read_graph)
         self.picture_mark = None  # (picture_mark() of the picture that came)
         self.graph_token = 0
         self.auto_note = ""  # (3 Save's note after an automatic read that passed)
@@ -1413,9 +1430,17 @@ class TraceWindow(QWidget):
 
     def picture_loaded(self, token, res, err, name, entry):
         """The answer of a load (prepared's dict, or err: what stopped it) into the window, as load_image's
-        docstring says; dropped when a new picture or Remove image came after it (token)."""
+        docstring says; dropped when a new picture or Remove image came after it (token). Then an automatic read
+        that ended during the load (late_read) is taken, only if its picture stays (graph_token)."""
         if token != self.load_token:
             return
+        late, self.late_read = self.late_read, None
+        self.take_picture(res, err, name, entry)
+        if late is not None:
+            late()
+
+    def take_picture(self, res, err, name, entry):
+        """picture_loaded's work: the picture (or the error) into the window."""
         self._set_loading(False)
         if err is not None:  # (its traceback is in the app's log: tasks.background wrote it)
             self.status.setText(HINTS[self.tool])  # (the picture before stays)
@@ -1512,6 +1537,11 @@ class TraceWindow(QWidget):
         def done(res, err):
             if token != self.graph_token:  # (another picture, or the picture removed, meanwhile)
                 return
+            if self.loading:
+                # (a new picture loads: the read waits for the load's end, and goes when the picture changes. It went
+                # into the tracer during the load, with 3 Save and its own words in the status line, 2026-11-12)
+                self.late_read = lambda: done(res, err)
+                return
             self._reading_graph(False)
             if err is not None:  # (its traceback is in the app's log: tasks.background wrote it; no Python words here)
                 self.read_ok = False
@@ -1597,10 +1627,13 @@ class TraceWindow(QWidget):
 
     def remove_image(self):
         """Remove image: the picture and its curves go (a question first when it has curves). A picture that loads
-        meanwhile is dropped first: the question is about the picture in sight."""
+        meanwhile is dropped first: the question is about the picture in sight (an automatic read of it that ended
+        during the load goes in when it stays, late_read)."""
         t = self.t
+        late = None
         if self.loading:
             self.load_token += 1
+            late, self.late_read = self.late_read, None
             self._set_loading(False)
             self.status.setText(HINTS[self.tool])
         if not t.has_image:
@@ -1608,6 +1641,8 @@ class TraceWindow(QWidget):
         if any(map(t.has_data, t.curves)) and QMessageBox.question(  # (No the default: the curves can't be had back)
                 self, "Remove image", "Remove this picture and its traced curves?",
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
+            if late is not None:
+                late()
             return
         self.entry, self.added, self.read_ok, self.auto_note = None, False, None, ""
         self.show_save_row()

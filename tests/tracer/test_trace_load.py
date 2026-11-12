@@ -76,6 +76,9 @@ def test_large_picture_loads_in_a_thread(eq_screen, monkeypatch, check):
         return real_load(self, *a, **k)
     monkeypatch.setattr(trace_core.Tracer, "load", load_spy)
     monkeypatch.setattr(tw, "read_labels", lambda: None)  # (its answer would change the axes: not this test's)
+    # (the user's own settings go to the thread's Tracer: "Follow all grid lines" off and the automatic settings off)
+    tw.every.setChecked(False)
+    tw.auto_on.setChecked(False)
     img = _large()
     tw.load_image(img, "Large graph")
     during = (tw.loading, tw.status.text(), tw.stage.isEnabled(), tw.side_scroll.isEnabled(),
@@ -87,8 +90,14 @@ def test_large_picture_loads_in_a_thread(eq_screen, monkeypatch, check):
              tw.t.has_image, tw.t.src_name, tw.file_lab.whole, tw.pages.currentIndex())
     threads = {k: set(v) for k, v in where.items()}  # (before the reference load below, on this thread)
     ref = trace_core.Tracer()
+    ref.v["every"] = False
+    ref.ta["enabled"] = False
     real_load(ref, trace_window.rgb_of(img), "Large graph", False)
-    same = _state(tw.t) == _state(ref)
+    got, want = _state(tw.t), _state(ref)
+    same = got == want
+    settings = (tw.t.v["every"], tw.t.ta["enabled"])
+    tw.every.setChecked(True)  # (back to the defaults: the screen is the file's)
+    tw.auto_on.setChecked(True)
     tw.close()
     slow = ("rgb_of", "picture_mark", "stage_image", "Tracer.load")
     check("tracer: the slow steps of the load of a large picture (the scale, the mark, the stage's picture, "
@@ -99,7 +108,9 @@ def test_large_picture_loads_in_a_thread(eq_screen, monkeypatch, check):
           and tool == "trace", (during, tool))
     check("tracer: after the load, the tracer has the picture (its name, 1 Axes) and takes input again",
           came and after == (False, True, True, True, True, "Large graph", "Large graph", 0), after)
-    check("tracer: a picture loaded in a thread gives the same tracer as Tracer.load on the window's thread", same)
+    check("tracer: a picture loaded in a thread gives the same tracer as Tracer.load on the window's thread, with "
+          "the user's settings (Follow all grid lines off, the automatic settings off)",
+          same and settings == (False, False), (settings, got[10], want[10]))
 
 
 def test_small_picture_loads_at_once(eq_screen, check):
@@ -259,3 +270,165 @@ def test_remove_image_sets_typed_and_moved_back(eq_screen, check):
     check("tracer: Remove image sets the typed values and the moved lines back",
           was == ({"d": True, "f": False}, {"d": True, "f": True})
           and after == ({"d": False, "f": False}, {"d": False, "f": False}), (was, after))
+
+
+# ---------------------------------------------------------------- V1: no one call keeps Python's lock for long
+def test_scale_and_copy_in_strips(qapp, monkeypatch, check):
+    """The rules that keep the window's thread free while a load runs in a thread (they do not depend on the speed
+    of the PC): rgb_of draws the scaled picture in strips of STRIP_ROWS rows at most (each strip made white in its
+    own draw, no fill of all the picture), with the same pixels as one draw; stage_image copies the pixels with NumPy
+    (no QImage.copy); squared_colour_distance looks up DISTANCE_ROWS rows at most at a time. (One draw kept the lock
+    for 40 ms at 6000 x 4000, 2026-11-12.)"""
+    from PySide6.QtCore import QRectF
+    from PySide6.QtGui import QColor, QPainter
+    img, _s = sample_image()
+    big = img.scaled(1600, 1200, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+    monkeypatch.setattr(trace_core, "MAX_PIXELS", 1.5e6)  # (a scale down: 1600 x 1200 to 1414 x 1061)
+    W, H = 1414, 1061
+    ref = QImage(W, H, QImage.Format_RGB888)  # (one draw of all the picture: the pixels to compare)
+    ref.fill(QColor("white"))
+    p = QPainter(ref)
+    p.setRenderHint(QPainter.SmoothPixmapTransform)
+    p.drawImage(QRectF(0, 0, W, H), big)
+    p.end()
+    want = np.frombuffer(ref.constBits(), np.uint8, count=ref.bytesPerLine() * H).reshape(H, -1)[:, :W * 3]
+    events = []
+
+    class Painter(QPainter):
+        def setClipRect(self, *a):
+            events.append(("clip", tuple(a)))
+            return super().setClipRect(*a)
+
+        def fillRect(self, *a):
+            events.append(("fill", tuple(a[:4])))
+            return super().fillRect(*a)
+
+        def drawImage(self, *a):
+            events.append(("draw",))
+            return super().drawImage(*a)
+
+    class Image(QImage):
+        def fill(self, *a):
+            events.append(("fill all",))
+            return super().fill(*a)
+
+        def copy(self, *a):
+            events.append(("copy",))
+            return super().copy(*a)
+    monkeypatch.setattr(trace_window, "QPainter", Painter)
+    monkeypatch.setattr(trace_window, "QImage", Image)
+    got = trace_window.rgb_of(big)
+    scale = list(events)
+    events.clear()
+    stage = trace_window.stage_image(got)
+    copies = list(events)
+    monkeypatch.setattr(trace_window, "QPainter", QPainter)
+    monkeypatch.setattr(trace_window, "QImage", QImage)
+    clips = [e[1] for e in scale if e[0] == "clip"]
+    rows = sorted((c[1], c[3]) for c in clips)
+    covered = bool(rows) and rows[0][0] == 0 and sum(r for _y, r in rows) == H and all(
+        a[0] + a[1] == b[0] for a, b in zip(rows, rows[1:]))
+    each = len(scale) == 3 * len(clips) and all(
+        e[0] == "clip" and f[0] == "fill" and f[1] == e[1] and d == ("draw",)
+        for e, f, d in zip(scale[0::3], scale[1::3], scale[2::3]))
+    st = np.frombuffer(stage.constBits(), np.uint8, count=stage.bytesPerLine() * H).reshape(H, -1)[:, :W * 3]
+    check("tracer: rgb_of draws the scale in strips of STRIP_ROWS rows at most, each strip made white in its own "
+          "draw (no fill of all the picture), all rows once",
+          len(clips) == -(-H // trace_window.STRIP_ROWS) and all(r <= trace_window.STRIP_ROWS for _y, r in rows)
+          and covered and each and ("fill all",) not in scale, (rows, scale[:6]))
+    check("tracer: the strips give the same pixels as one draw of all the picture",
+          got.shape == (H, W, 3) and np.array_equal(got.reshape(H, -1), want), got.shape)
+    check("tracer: stage_image copies the pixels with NumPy (no QImage.copy), the same pixels",
+          copies == [] and np.array_equal(st, got.reshape(H, -1)), copies)
+
+    class Rows(np.ndarray):  # (records the rows of each channel that the look-up uses)
+        looked = []
+
+        def __getitem__(self, k):
+            r = super().__getitem__(k)
+            if isinstance(r, np.ndarray) and r.ndim == 2:
+                Rows.looked.append(r.shape[0])
+            return r
+    t = trace_core.Tracer()
+    px = got[:1000]
+    t.px = px.view(Rows)
+    colour = (250, 240, 230)
+    d = np.asarray(t.squared_colour_distance(slice(None), slice(None), colour))
+    plain = ((px.astype(np.int64) - np.array(colour)) ** 2).sum(-1)
+    check("tracer: squared_colour_distance of a large area looks up DISTANCE_ROWS rows at most at a time, with the "
+          "same values", bool(Rows.looked) and max(Rows.looked) <= trace_core.DISTANCE_ROWS
+          and np.array_equal(d, plain) and d.dtype == np.int32, (max(Rows.looked or [0]), d.dtype))
+
+
+# ---------------------------------------------------------------- V4: an automatic read that ends during a load
+def _held_read(monkeypatch, gate, ended):
+    """A stand-in for the automatic read: it waits for `gate`, then gives an OK read of the picture (the sample's
+    first channel as its curve). `ended` is set when it ends."""
+    from ui import trace_auto
+
+    def read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
+        gate.wait(60)
+        t = trace_core.Tracer()
+        t.load(np.array(rgb, np.uint8, copy=True), name, jpeg)
+        t.v.update(d1="90", d2="40")
+        t.auto_trace()
+        ended.set()
+        return trace_auto.AutoRead(True, t, [trace_auto.Check("trace_curve", True, "")], None, None, None, None,
+                                   None, 0.01)
+    monkeypatch.setattr(trace_core, "auto_read", read)
+
+
+def _held_load(monkeypatch, gate, fails=False):
+    """prepared of a large picture waits for `gate` (its load is in work until then); with fails, it raises."""
+    real = trace_window.prepared
+
+    def held(*a):
+        if a[0].width() * a[0].height() <= SYNC_PIXELS:  # (a small picture: at once, as before)
+            return real(*a)
+        gate.wait(60)
+        if fails:
+            raise MemoryError("stand-in")
+        return real(*a)
+    monkeypatch.setattr(trace_window, "prepared", held)
+
+
+def test_read_that_ends_during_a_load(eq_screen, monkeypatch, check):
+    """The automatic read of a picture from a website ends while a large picture loads: its result does not go into
+    the tracer during the load (no 3 Save, the status line still says that the app opens the picture), and it goes
+    when the new picture comes (graph_token). When the load fails, the picture before stays, and its read goes in
+    then. (2026-11-12: the read put its result into the tracer during the load, with 3 Save and its own words.)"""
+    from helpers.dialogs import DIALOGS
+    tw = _tracer(eq_screen)
+    tw.remove_image()
+    entry = {"name": "Gate", "tag": "Site 1", "site": "Site", "link": "https://example.invalid/x"}
+    img, _s = sample_image()
+    seen = {}
+    for fails in (False, True):
+        read_gate, read_ended, load_gate = threading.Event(), threading.Event(), threading.Event()
+        asked = len(DIALOGS.asked)
+        with monkeypatch.context() as m:
+            _held_read(m, read_gate, read_ended)
+            _held_load(m, load_gate, fails)
+            tw.load_image(img.copy(0, 0, 1199 - fails, 719), entry=entry)  # (small: at once; its read waits)
+            tw.load_image(_large(), "Large graph")  # (its load waits for load_gate)
+            read_gate.set()
+            qt.wait_for(read_ended.is_set, 60)
+            qt.wait_for(lambda: tw.late_read is not None or tw.read_ok is not None, 60)
+            during = (tw.loading, tw.status.text() == trace_window.LOADING, tw.read_ok, tw.pages.currentIndex(),
+                      "traced the graph" in tw.save_note.text(), tw.stage.isEnabled())
+            load_gate.set()
+            qt.wait_for(lambda: not tw.loading, 60)
+            qt.wait_for(lambda: not tw.reading_graph and not getattr(tw, "reading", False), 60)
+            after = (tw.t.src_name, tw.entry and tw.entry["name"], tw.read_ok, tw.reading_graph, tw.stage.isEnabled(),
+                     tw.late_read is None)
+        seen[fails] = (during, after, [a[1] for a in DIALOGS.asked[asked:]])
+        tw.remove_image()
+    tw.close()
+    check("tracer: an automatic read that ends while a large picture loads: nothing of it goes into the tracer during "
+          "the load", all(seen[f][0] == (True, True, None, 0, False, False) for f in (False, True)),
+          {f: seen[f][0] for f in (False, True)})
+    check("tracer: after the load, the new picture is in the tracer and the read of the picture before is dropped",
+          seen[False][1] == ("Large graph", None, None, False, True, True), seen[False][1])
+    check("tracer: when the load fails, the picture before stays and its read goes in after the load",
+          seen[True][1] == ("Gate (Site 1)", "Gate", True, False, True, True)
+          and any("cannot open this picture" in s for s in seen[True][2]), seen[True][1:])
