@@ -98,6 +98,8 @@ def safe_name(name, fallback="file", max_len=150, keep_ext=True):
         ext = m.group(0) if m and 0 < m.start() and len(m.group(0)) < max_len else ""
         room = max_len - len(ext)
         cut = name[:room].rstrip(_CUT_END)
+        if not cut:  # (a name of only "(", "-", "." … before its extension: the fallback, not ".txt" with no name)
+            cut = (fallback or "file")[:room].rstrip(_CUT_END)
         if _reserved(cut + ext):  # (the cut can leave "CON" alone: "CON" and spaces before the rest)
             cut = ("_" + cut)[:room].rstrip(_CUT_END)
         name = cut + ext

@@ -336,3 +336,19 @@ def test_long_names_with_a_period_give_short_files_that_keep_their_start(sw, che
     check("core: the two imports of each name give two different files", len(set(files)) == len(files), files)
     check("core: no file name ends in an open bracket (\" (.txt\", \" (2.txt\")",
           not any(re.search(r"\(\d*\.txt$", f) for f in files), files)
+
+
+def test_a_profile_file_is_cut_as_one_name_and_keeps_a_number_of_two_digits(sw, check):
+    # (2026-11-12: no check had a period near the end of a long name, or a number of two digits after the cut)
+    name = "y" * 100 + " HD 600 Mk.II"
+    pid = sw.import_profile(_write(os.path.join(sw.top, "In.txt"), NEW), name)
+    first = sw.profiles()[pid]["file"]
+    check("core: a long name with \"Mk.II\" at its end gives a file cut as one name (no \".II\" kept)",
+          first == "y" * 80 + ".txt", first)
+    long = "z" * 90
+    files = []
+    for _ in range(12):
+        pid = sw.import_profile(_write(os.path.join(sw.top, "In.txt"), NEW), long)
+        files.append(sw.profiles()[pid]["file"])
+    check("core: the twelfth import of a long name keeps \" (12)\" after the cut, and each file is different",
+          files[-1] == "z" * 75 + " (12).txt" and len(set(files)) == 12, files)

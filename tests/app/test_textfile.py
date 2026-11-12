@@ -79,6 +79,24 @@ def test_a_cut_name_keeps_its_extension_and_ends_correctly(check):
           mk == ("HD 600 Mk.II " + "y" * 100)[:80], mk)
     spaces = textfile.safe_name("CON" + " " * 200 + "x", max_len=150)
     check("files: a cut that leaves a reserved name gives a safe name", spaces == "_CON", spaces)
+    # (2026-11-12: "HD 600 Mk.II" at the start had no period near the end, so keep_ext had no effect in the check above)
+    mk2 = textfile.safe_name("y" * 100 + " HD 600 Mk.II", "EQ", 80, keep_ext=False)
+    check("files: keep_ext=False keeps no short text after a period at the end", mk2 == ("y" * 100)[:80], mk2)
+    mk3 = textfile.safe_name("y" * 100 + " HD 600 Mk.II", "EQ", 80)
+    check("files: keep_ext=True keeps a short extension of letters", mk3.endswith(".II") and len(mk3) == 80, mk3)
+    ext = "." + ("ab cd " * 7)[:39]  # (40 characters with spaces: not an extension)
+    wide = [textfile.safe_name("a" * 100 + ext, "EQ", 80), textfile.safe_name("a" * 100 + ".abcdefgh", "EQ", 80)]
+    check("files: a text after the last period with spaces, or of more than 5 characters, is not kept as an extension",
+          wide == ["a" * 80, "a" * 80], wide)
+
+
+def test_a_name_of_only_brackets_or_dashes_gets_the_fallback(check):
+    # (2026-11-12: a name of only "(" or "-" characters, longer than the limit, with ".txt", gave ".txt": no name)
+    got = [textfile.safe_name(c * 200 + ".txt", "EQ", 80) for c in "(-"]
+    check("files: a cut name of only \"(\" or \"-\" characters keeps its extension after the fallback name",
+          got == ["EQ.txt", "EQ.txt"], got)
+    plain = [textfile.safe_name(c * 200, "EQ", 80, keep_ext=False) for c in "(-"]
+    check("files: the same with no extension gives the fallback name", plain == ["EQ", "EQ"], plain)
 
 
 def test_short_names_are_as_before(check):
