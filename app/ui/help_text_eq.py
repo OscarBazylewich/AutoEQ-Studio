@@ -661,8 +661,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'opened the entry from Find a target, 3 Save tells you to click Add as target. If '
                                     'the picture is not a graph, copy a new picture of the graph. Then '
                                     'paste it in the tracer. The tracer keeps the name and the rig of the entry. If '
-                                    'you paste the same picture again before you add the curve, the tracer keeps the '
-                                    'result and your changes.']},
+                                    'you paste the same picture again before you add a curve from it, the tracer keeps '
+                                    'the result and your changes.']},
                           {'key': '#cmp-q',
                            'title': 'Model (which measurement to use)',
                            'body': ['The model to find. Each word must be in a name. Thus, with a smaller number of '

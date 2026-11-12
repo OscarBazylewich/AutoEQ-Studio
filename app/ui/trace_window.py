@@ -24,12 +24,13 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   Remove image and a new picture clear it. The same picture again (picture_mark: Ctrl+V after the screen copy, or the
   key two times or held, also after a close) while the tracer has its entry, nothing was added from it, and its read
   runs or ended (OK or not: the user's changes stay) changes nothing (the status line says so). With Find… for a
-  target ("Targets and measurements"), the entry has "as": "target" and 3 Save's note says Add as target (the mark is not in the source record). unadded_curves(): the curves that the user traced or changed and
-  did not add (a new picture from a website stops for them; the automatic read's own curves do not count, but a curve of
-  it is the user's work after a typed axis value or a moved line); changed_axes(): no curve, but axes that the user
-  changed (it stops too). The entry's words show as plain text (never rich text; the top row's tooltip too:
-  picture_wait.plain_tip), and 3 Save's note has 80 characters of the name at most (picture_wait.heading_name: a long
-  name does not make the side wider).
+  target ("Targets and measurements"), the entry has "as": "target" and 3 Save's note says Add as target (the mark is
+  not in the source record). unadded_curves(): the curves that the user traced or changed and did not add (a new
+  picture from a website stops for them; the automatic read's own curves do not count, but a curve of it is the user's
+  work after a typed axis value or a moved line); changed_axes(): no curve, but axes that the user changed (it stops
+  too). The entry's words show as plain text (never rich text; the top row's tooltip too: picture_wait.plain_tip), and
+  3 Save's note has 80 characters of the name at most (picture_wait.heading_name: a long name does not make the side
+  wider).
 sample_image() draws AutoEQ Local's sample graph (an IEM's two channels and a dashed target) for checks and the tour.
 
 The look is Windows 11's, as the rest of the app (2026-10-23): the picture on a card, the tools as one group, Windows
