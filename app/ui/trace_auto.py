@@ -1442,20 +1442,20 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
     if d_at:
         e90 = round(float(np.percentile(apart, 90)) * abs(db_slope), 1)
         add("trace_band", e90 <= MAX_BAND_DB,
-            f"The difference between the left and right channels is {e90:.1f} dB or less on most of the curve."
+            f"The difference between the left and right curves is {e90:.1f} dB or less on most of the curve."
             if e90 <= MAX_BAND_DB
-            else f"The left and right curves are {e90:.1f} dB apart. The picture can contain more than one "
-            "measurement.")
+            else f"The difference between the left and right curves is {e90:.1f} dB. The picture can contain more "
+            "than one measurement.")
     else:
-        add("trace_band", False, "The app cannot measure the difference between the channels, because it does not "
-            "know the dB axis.")
+        add("trace_band", False, "The app cannot measure the difference between the left and right curves, because "
+            "it does not know the dB axis.")
     steps = height_steps(b)
     if steps:
         at = fmt_hz(20 * k10 * 10 ** ((steps[0][0] - fit["a"]) / fit["b"]))
-        add("trace_steps", False, f"The distance between the left and right curves changes suddenly at {at}. Text "
-            "in the color of the curve, or a channel that the app did not find, can cause this.")
+        add("trace_steps", False, f"The difference between the left and right curves changes suddenly at {at}. "
+            "Text in the color of the curves, or a left or right curve that the app did not find, can cause this.")
     else:
-        add("trace_steps", True, "The distance between the left and right curves has no sudden steps.")
+        add("trace_steps", True, "The difference between the left and right curves has no sudden steps.")
     # a second line: the target line (gray), or one more measurement (a strong color: not one device)
     tg = find_target(t, crop_cols(b["full_top"]), crop_cols(b["full_bot"]), lw)
     target = None

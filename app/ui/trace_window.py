@@ -22,9 +22,9 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   names the website in the file's first line and sends the entry as the source record (its rig). The entry belongs
   to the picture: it stays when the window closes, but a new picture after the close does not take it (kept_entry);
   Remove image and a new picture clear it. The same picture again (picture_mark: Ctrl+V after the screen copy, or the
-  key two times or held) while the tracer has its entry and its read runs or was OK changes nothing (the status line
-  says so). With Find… for a target ("Targets and measurements"), the entry has "as": "target" and 3 Save's note says
-  Add as target (the mark is not in the source record). unadded_curves(): the curves that the user traced or changed and
+  key two times or held, also after a close) while the tracer has its entry, nothing was added from it, and its read
+  runs or ended (OK or not: the user's changes stay) changes nothing (the status line says so). With Find… for a
+  target ("Targets and measurements"), the entry has "as": "target" and 3 Save's note says Add as target (the mark is not in the source record). unadded_curves(): the curves that the user traced or changed and
   did not add (a new picture from a website stops for them; the automatic read's own curves do not count, but a curve of
   it is the user's work after a typed axis value or a moved line); changed_axes(): no curve, but axes that the user
   changed (it stops too). The entry's words show as plain text (never rich text; the top row's tooltip too:
@@ -78,7 +78,7 @@ IMAGES = "Images (*.png *.jpg *.jpeg *.jfif *.webp *.bmp *.gif *.tif *.tiff)"
 
 def picture_mark(rgb):
     """A mark that is the same only for the same picture: its size and two checksums of all its pixels (CRC-32 and
-    Adler-32: on the window's thread, measured 0.6 ms for 3840 x 2160, where blake2b took 31 ms)."""
+    Adler-32: on the window's thread, measured 0.8 to 1.2 ms for 3840 x 2160, where blake2b took 28 to 31 ms)."""
     import zlib
     a = np.ascontiguousarray(rgb)
     return a.shape, zlib.crc32(a), zlib.adler32(a)
@@ -1304,10 +1304,11 @@ class TraceWindow(QWidget):
         compensated), and the automatic read (read_graph) replaces the label read."""
         rgb = rgb_of(qimg)
         mark = picture_mark(rgb)
-        if (entry is None and self.entry and self.t.has_image and mark == self.picture_mark and not self.added
-                and not self.was_closed and (self.read_ok or self.reading_graph)):
-            # (the picture that the tracer has from the website, again: Ctrl+V after the screen copy, or the key
-            # two times. As a picture of yours it would replace the automatic result, the name and the rig.)
+        if ((entry is None or entry is self.entry) and self.entry and self.t.has_image and mark == self.picture_mark
+                and not self.added and (self.read_ok is not None or self.reading_graph)):
+            # (the picture that the tracer has from the website, again: Ctrl+V after the screen copy, the key two
+            # times, or after a close of the tracer. As a picture of yours it would replace the automatic result, the
+            # name and the rig; after a read that was not OK (kept_entry), a new read would remove the user's changes.)
             self.say("The tracer has this picture.")
             return
         self.picture_mark = mark

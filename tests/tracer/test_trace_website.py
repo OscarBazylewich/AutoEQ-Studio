@@ -630,7 +630,7 @@ def test_db_range(qapp, monkeypatch, check):
 
 def test_band_check(qapp, monkeypatch, check):
     _t, _rgb, r = fresh(monkeypatch, offset_db=-6.5)
-    x = float(reason(r, "trace_band").split()[6])
+    x = float(reason(r, "trace_band").split()[9])
     check("channels about 7 dB apart (6 to 9): the band check fails and gives the width",
           "trace_band" in failed(r) and 6 < x < 9, reason(r, "trace_band"))
     for off in (5, -5):
@@ -638,7 +638,7 @@ def test_band_check(qapp, monkeypatch, check):
         fs = [20 * 1000 ** (i / 999) for i in range(1000)]
         true = float(np.percentile([abs(truth["chans"][0](f) - truth["chans"][1](f)) for f in fs], 90))
         words = reason(r, "trace_band").split()
-        x = float(words[9] if words[0] == "The" and words[1] == "difference" else words[6])
+        x = float(words[9])
         check(f"the band check gives the true difference of the channels within 0.3 dB, the same for the higher one "
               f"left or right (offset {off:+} dB)", abs(x - true) <= 0.3, (x, round(true, 2), reason(r, "trace_band")))
 
@@ -1267,7 +1267,7 @@ def test_steps_check(qapp, monkeypatch, check):
     r = trace_core.auto_read(as_rgb(img), NO_WORDS, False, "Sample IEM")
     check("a band with a short step: the steps check fails, with the frequency of the step",
           failed(r) == ["trace_steps"]
-          and reason(r, "trace_steps").startswith("The distance between the left and right curves changes "
+          and reason(r, "trace_steps").startswith("The difference between the left and right curves changes "
                                                   "suddenly at "),
           (failed(r), reason(r, "trace_steps")))
 

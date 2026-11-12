@@ -151,6 +151,16 @@ def _graph():
     return img
 
 
+def _one_pixel_changed():
+    """The sample graph with one pixel in a different color: the same size, but a different picture (a better picture
+    of the same graph, as far as the tracer can know)."""
+    from PySide6.QtGui import QColor
+    img = _graph().copy()
+    c = img.pixelColor(5, 5)
+    img.setPixelColor(5, 5, QColor(255 - c.red(), 255 - c.green(), 255 - c.blue()))
+    return img
+
+
 def _closed(wait):
     """The wait window closed (and deleted: the page lets it go when it closes)."""
     from ui import tasks
@@ -894,7 +904,7 @@ def test_paste_after_poor_picture_keeps_entry(eq_screen, flow, monkeypatch, chec
     from ui import trace_core
     came, tw = _traced(flow, monkeypatch, stand_in(ok=False, fail="axes_hz_labels"))
     monkeypatch.setattr(trace_core, "auto_read", stand_in())
-    _copy(_graph())
+    _copy(_one_pixel_changed())  # (a better picture: the same pixels again are not read again)
     tw.paste()
     again = _picture_came(flow["page"])
     check("website flow: a picture pasted in the tracer after a poor one keeps the entry",
@@ -925,7 +935,7 @@ def test_other_ways_keep_the_entry(eq_screen, flow, monkeypatch, check):
     page = flow["page"]
     came, tw = _traced(flow, monkeypatch, stand_in(ok=False, fail="axes_hz_labels"))
     md = QMimeData()
-    md.setImageData(_graph())
+    md.setImageData(_one_pixel_changed())  # (a better picture: not the same pixels)
     tw.dropEvent(_Drop(md))
     again = qt.wait_for(lambda: not tw.reading_graph and tw.read_ok is not None, 20)
     check("website flow: a picture dropped on the tracer after a poor one keeps the entry",
@@ -1000,7 +1010,7 @@ def test_close_then_a_picture_of_yours(eq_screen, flow, monkeypatch, check):
     kept = tw.kept_entry() is not None
     tw.close()
     page.open_trace()
-    _copy(_graph())
+    _copy(_graph().copy(0, 0, 800, 500))  # (an unrelated picture: the same one again keeps the result)
     tw.paste()
     qt.wait_for(lambda: not tw.reading_graph, 20)
     check("website flow: after the close of the tracer, an unrelated picture pasted in it gets no entry (also after a "
@@ -1542,7 +1552,7 @@ def test_page_paste_of_a_picture_file(eq_screen, flow, monkeypatch, tmp_path, ch
     page = flow["page"]
     came, tw = _traced(flow, monkeypatch, stand_in(ok=False, fail="axes_hz_labels"))
     path = str(tmp_path / "better graph.png")
-    _graph().save(path)
+    _one_pixel_changed().save(path)  # (a better picture: not the same pixels)
     monkeypatch.setattr(trace_core, "auto_read", stand_in())
     md = QMimeData()
     md.setUrls([QUrl.fromLocalFile(path)])
@@ -1804,11 +1814,58 @@ def test_same_picture_again_keeps_the_result(eq_screen, flow, monkeypatch, check
           and tw.t.src_name == NAME and tw.pages.currentIndex() == 2 and len(tw.t.curves) == 2
           and all(map(tw.t.has_data, tw.t.curves)) and not DIALOGS.asked[asked:]
           and tw.status.text() == "The tracer has this picture.", after)
-    _copy(_graph().copy(0, 0, 800, 500))
+    since = tw.graph_token
+    _copy(_one_pixel_changed())
     _ctrl_v(tw)
     qt.wait_for(lambda: not tw.reading_graph and not tw.reading, 30)
-    check("website flow: a different picture pasted after a read that was OK is a picture of yours, as before",
-          tw.entry is None and tw.t.W == 800, (tw.entry, tw.t.W))
+    check("website flow: a different picture pasted after a read that was OK (the same size, one pixel different) is "
+          "a picture of yours, as before", tw.graph_token > since and tw.entry is None and tw.t.src_name != NAME,
+          (tw.graph_token - since, tw.entry, tw.t.src_name))
+
+
+def test_same_picture_after_a_close_keeps_the_result(eq_screen, flow, monkeypatch, check):
+    """The tracer closed and opened again, then Ctrl+V with the picture that it has from the website: the automatic
+    result, the entry and the name stay (Help #pw-paste: the same picture again keeps the result)."""
+    came, tw = _traced(flow, monkeypatch, stand_in(target=True))
+    tw.close()
+    flow["page"].open_trace()
+    since = tw.graph_token
+    _ctrl_v(tw)
+    qt.wait_for(lambda: not tw.reading_graph and not tw.reading, 30)
+    after = (tw.entry and tw.entry.get("name"), tw.t.src_name, tw.graph_token - since, tw.status.text())
+    check("website flow: after a close of the tracer, the same picture again keeps the automatic result, the entry "
+          "and the name", came and after == (ENTRY, NAME, 0, "The tracer has this picture.")
+          and all(map(tw.t.has_data, tw.t.curves)), after)
+
+
+def test_same_picture_after_an_add_is_a_picture_of_yours(eq_screen, fresh_studio, flow, monkeypatch, check):
+    """After Add as measurement, the same picture again is a picture of yours (Help #pw-paste: the result stays only
+    before you add the curve)."""
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    tw.save("measurement")
+    since = tw.graph_token
+    _ctrl_v(tw)
+    qt.wait_for(lambda: not tw.reading_graph and not tw.reading, 30)
+    check("website flow: after Add as measurement, the same picture again is a picture of yours (no entry)",
+          came and tw.graph_token > since and tw.entry is None and tw.t.src_name != NAME,
+          (tw.graph_token - since, tw.entry, tw.t.src_name))
+
+
+def test_same_picture_after_a_poor_read_keeps_the_users_change(eq_screen, flow, monkeypatch, check):
+    """A read that was not OK on 2 Trace, the user changes the curve, then Ctrl+V with the same picture: the picture
+    is not read again, and the change of the user stays."""
+    came, tw = _traced(flow, monkeypatch, stand_in(ok=False, fail="trace_band"))
+    qt.wait_for(lambda: not tw.reading, 30)
+    tw.t.cur = 0
+    tw.smooth()
+    before = (tw.graph_token, len(tw.t.undo_stack))
+    _ctrl_v(tw)
+    qt.wait_for(lambda: not tw.reading_graph and not tw.reading, 30)
+    after = (tw.graph_token, len(tw.t.undo_stack))
+    check("website flow: after a read that was not OK and a change of the user, the same picture again is not read "
+          "again and the change stays", came and before[1] == 1 and after == before and tw.entry
+          and tw.entry["name"] == ENTRY and tw.status.text() == "The tracer has this picture.",
+          (before, after, tw.status.text()))
 
 
 def test_ctrl_v_two_times_or_held_keeps_the_entry(eq_screen, flow, monkeypatch, check):
@@ -1821,7 +1878,7 @@ def test_ctrl_v_two_times_or_held_keeps_the_entry(eq_screen, flow, monkeypatch, 
         came, tw = _traced(flow, monkeypatch, stand_in(ok=False, fail="axes_plot"))
         qt.wait_for(lambda tw=tw: not tw.reading, 30)
         monkeypatch.setattr(trace_core, "auto_read", stand_in(delay=0.6))
-        _copy(_graph())
+        _copy(_one_pixel_changed())  # (a better picture: not the same pixels)
         _ctrl_v(tw)
         if how.startswith("two"):
             qt.pump(150)
@@ -1861,6 +1918,8 @@ def test_find_a_target_says_add_as_target(eq_screen, fresh_studio, flow, monkeyp
     from eq import rigs
     from ui.picker import Picker
     page = flow["page"]
+    page.reload_state()  # (fresh_studio puts the service's files and settings back: the page reads them again)
+    qt.pump(50)
     flow["pk"].hide()
     monkeypatch.setattr(trace_core, "auto_read", stand_in(target=True))
     pk = Picker(page, "target")
@@ -1892,9 +1951,9 @@ def test_find_a_target_says_add_as_target(eq_screen, fresh_studio, flow, monkeyp
           "Add as target, and says that the target line is a second target", row is not None and row.get("other")
           and came and "If they agree, click Add as target." in note and "Add as measurement" not in note
           and "Add the target line as target… adds that line as a target, not the Average curve." in note, note)
-    check("website flow: Find a target, Add as target makes the traced curve the target in use and adds no "
-          "measurement in use; the source record has no mark of the wanted add",
-          after[0] == NAME + ".txt" and set(after[1]) <= set(meas)  # (no new measurement in use)
+    check("website flow: Find a target, Add as target makes the traced curve the target in use and does not "
+          "change the measurements in use; the source record has no mark of the wanted add",
+          after[0] == NAME + ".txt" and meas and after[1] == meas  # (the measurements in use do not change)
           and body is not None and "as" not in body and record is not None and "as" not in record
           and record.get("name") == NAME, (after, meas, body, record))
 
