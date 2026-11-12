@@ -297,5 +297,5 @@ def test_outputs_name_and_target_mark(eq_screen, check):
     tw.close()
     check("tracer: outputs with a name use it", named and all(n.startswith("Another name ") for n in named), named)
     check("tracer: a curve marked as target is not in the measurement's files (Add as target of that curve has it), "
-          "and Add the target line as target… shows for it", len(marked) == len(named) - 1 and one == [t.curves[1]["label"]]
-          and button, (marked, one, button))
+          "and Add the target line as target… shows for it",
+          len(marked) == len(named) - 1 and one == [t.curves[1]["label"]] and button, (marked, one, button))
