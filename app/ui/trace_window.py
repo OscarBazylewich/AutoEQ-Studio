@@ -765,7 +765,10 @@ class TraceWindow(QWidget):
         self.was_closed = False  # (closed since the last picture: a new picture does not take the entry)
         self.closes = self.load_closes = 0  # (the closes of the window; the count when the last load started)
         self.renamed = False  # (a curve renamed by the user since the last picture: the user's work)
-        self.edited = set()  # (3 Save's values that the user changed since the last picture: user_edited)
+        # (3 Save's values that the user changed since the last picture, each with its value before the user's first
+        # change: user_edited; and the value of "The graph shows" before a selection of the user)
+        self.edited = {}
+        self.comp_value = ""
         st = page.sw.s.get("trace") or {}
         if isinstance(st.get("enabled"), bool):
             self.t.ta["enabled"] = st["enabled"]
@@ -1095,7 +1098,7 @@ class TraceWindow(QWidget):
         g.addWidget(_label("The graph shows", wrap=False), 2, 0)
         self.comp = SearchCombo()
         self.comp.setToolTip(help_of("#tr-comp"))
-        self.comp.activated.connect(lambda _i: self.user_edited("comp"))  # (the user's selection only)
+        self.comp.activated.connect(self.comp_selected)  # (the user's selection only)
         self.comp.setMinimumContentsLength(16)  # (a long target name doesn't widen the side)
         self.comp.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
         g.addWidget(self.comp, 2, 1, 1, 3)
@@ -1366,18 +1369,41 @@ class TraceWindow(QWidget):
     def users_work(self):
         """The user changed the picture's curves, axes or 3 Save's values since it came: an undo or redo step (a curve
         traced or changed), a curve renamed, a value typed on 1 Axes, a red or blue line moved, or (`edited`) the Name
-        box, "The graph shows", "Points in each octave" or the range to save changed. (Each new picture, the automatic
-        read's take() and a label read set the typed and moved flags back, so they are the user's own after the
-        read; the automatic read and the automatic settings set the values of 3 Save with no signal of the user:
-        they are not in `edited`. A changed name, setting or range did not count, and a new Use replaced it with no
-        message, 2026-11-11.)"""
+        box, "The graph shows", "Points in each octave" or the range to save changed: its value is not the value
+        before the user's first change of it (a row selected again, or a name typed back, is no change, 2026-11-12).
+        (Each new picture, the automatic read's take() and a label read set the typed and moved flags back, so they
+        are the user's own after the read; the automatic read and the automatic settings set the values of 3 Save
+        with no signal of the user: they are not in `edited`. A changed name, setting or range did not count, and a
+        new Use replaced it with no message, 2026-11-11.)"""
         t = self.t
-        return bool(t.undo_stack or t.redo_stack or self.renamed or self.edited or any(t.typed.values())
-                    or any(t.moved.values()))
+        return bool(t.undo_stack or t.redo_stack or self.renamed or any(t.typed.values()) or any(t.moved.values())
+                    or any(self.save_value(k) != was for k, was in self.edited.items()))
 
-    def user_edited(self, what):
-        """A value of 3 Save that the user changed (what: "name", "comp", "ppo" or "range"): users_work."""
-        self.edited.add(what)
+    def user_edited(self, what, before):
+        """A value of 3 Save that the user changed (what: "name", "comp", "ppo" or "range"; before: its value before
+        this change, as save_value gives it): users_work compares the value with the one before the first change."""
+        self.edited.setdefault(what, before)
+
+    def save_value(self, what):
+        """A value of 3 Save as users_work compares it: the Name box, "The graph shows", "Points in each octave", or
+        the range to save as two numbers (a text that is not a number as it is)."""
+        tv = self.t.v
+
+        def number(x):
+            try:
+                return float(str(x).strip().replace(",", "."))
+            except ValueError:
+                return str(x)
+        if what == "range":
+            return number(tv["fmin"]), number(tv["fmax"])
+        if what == "comp":
+            return self.comp.currentData()
+        return tv[what]
+
+    def comp_selected(self, _i):
+        """A selection of the user in "The graph shows" (the same row again too)."""
+        self.user_edited("comp", self.comp_value)
+        self.comp_value = self.comp.currentData()
 
     def unadded_curves(self):
         """The number of curves with data that the user traced or changed and did not add: a new picture from a
@@ -1463,7 +1489,7 @@ class TraceWindow(QWidget):
         self.auto_note = ""
         self.was_closed = self.closes != self.load_closes
         self.renamed = False
-        self.edited = set()
+        self.edited = {}
         self.graph_token += 1  # (an automatic read still running for the picture before is dropped)
         self._reading_graph(False)
         if entry:
@@ -1489,6 +1515,7 @@ class TraceWindow(QWidget):
         self.fill_comp()
         if entry:  # (the selection of the picture before must not add a target to the website's curve)
             self.comp.setCurrentIndex(0)
+            self.comp_value = self.comp.currentData()
         self.show_values()
         self.changed()
         self.read_graph() if entry else self.read_labels()
@@ -1648,7 +1675,7 @@ class TraceWindow(QWidget):
         self.show_save_row()
         self.picture_mark = None
         self.was_closed = self.renamed = False
-        self.edited = set()
+        self.edited = {}
         self.graph_token += 1  # (an automatic read still running is dropped)
         self._reading_graph(False)
         t.unload()  # (also the typed values and moved lines: trace_core)
@@ -1697,6 +1724,7 @@ class TraceWindow(QWidget):
     def value_typed(self, key, lim):
         b, t = self.boxes[key], self.t
         text = b.text().strip().replace(",", ".")
+        before = self.save_value("range")  # (the range before this change: users_work)
         if text == "":
             t.v[key] = ""
             theme.mark(b, bad=False)
@@ -1716,7 +1744,7 @@ class TraceWindow(QWidget):
             t.fit_settings()
         else:
             t.mark_your_value(key)
-            self.user_edited("range")
+            self.user_edited("range", before)
         self.show_values()  # (points per octave and the range follow the axes' values; the box typed in is left be)
         self.render_auto_settings()
         self.update_ui()
@@ -1839,11 +1867,11 @@ class TraceWindow(QWidget):
         self.render_auto_settings()
 
     def name_typed(self, text):
+        self.user_edited("name", self.t.v["name"])
         self.t.v["name"] = text
-        self.user_edited("name")
 
     def ppo_changed(self, _i):
-        self.user_edited("ppo")
+        self.user_edited("ppo", self.t.v["ppo"])
         self.t.v["ppo"] = self.ppo.currentData()
         self.t.mark_your_value("ppo")
         self.render_auto_settings()
@@ -1878,6 +1906,7 @@ class TraceWindow(QWidget):
             self.comp.addItem(f"Difference from {os.path.splitext(n)[0]}", n)
         self.comp.sort_items(pinned=1)  # ("the actual response" on top)
         self.comp.setCurrentIndex(max(0, self.comp.findData(was)))
+        self.comp_value = self.comp.currentData()  # (not a selection of the user: comp_selected)
 
     def compensation(self):
         """The graph was drawn relative to a target (compensated): that target's curve, to add back."""

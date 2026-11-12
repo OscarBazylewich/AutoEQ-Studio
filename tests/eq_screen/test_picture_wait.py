@@ -1863,14 +1863,20 @@ def _change(tw, what):
         tw.name.setText("My name")
         tw.name.textEdited.emit("My name")
     elif what == "comp":
-        tw.comp.activated.emit(0)  # (the user selects a row of the list: also the one that it had)
+        # (the user selects a different row: the same row again is no change, 2026-11-12)
+        if tw.comp.count() < 2:
+            tw.comp.addItem("Difference from Stand-in", "Stand-in.txt")
+        i = tw.comp.count() - 1 if tw.comp.currentIndex() != tw.comp.count() - 1 else 0
+        tw.comp.setCurrentIndex(i)
+        tw.comp.activated.emit(i)
     elif what == "ppo":
-        i = tw.ppo.findData(24)
+        i = tw.ppo.findData(12 if tw.ppo.currentData() != 12 else 24)  # (a different value)
         tw.ppo.setCurrentIndex(i)
         tw.ppo.activated.emit(i)
     else:
-        tw.boxes["fmin"].setText("30")
-        tw.boxes["fmin"].textEdited.emit("30")
+        value = "30" if tw.boxes["fmin"].text() != "30" else "40"
+        tw.boxes["fmin"].setText(value)
+        tw.boxes["fmin"].textEdited.emit(value)
 
 
 def _no_curve(tw):
@@ -1941,6 +1947,75 @@ def test_changes_of_3_save_stop_use(eq_screen, flow, monkeypatch, check):
           {k: v for k, v in seen.items() if k[0] == "yours"})
     check("website flow: a picture of the user with no change (the automatic settings set its values): not the user's "
           "work, and Use replaces it", unchanged == (False, False, set()) and replaced, (unchanged, replaced))
+
+
+def _again(tw, what):
+    """The user selects the row that a list has, or types a value and then the first value again (the same value as
+    before the user's action)."""
+    tw.show_tab(2)
+    if what in ("comp", "ppo"):
+        box = tw.comp if what == "comp" else tw.ppo
+        box.activated.emit(box.currentIndex())
+        return
+    box = tw.name if what == "name" else tw.boxes["fmin"]
+    first = box.text()
+    for text in ("70", first):  # (an other value, then the first one again)
+        box.setText(text)
+        box.textEdited.emit(text)
+
+
+def test_same_value_again_is_no_change(eq_screen, flow, monkeypatch, check):
+    """The same row of "The graph shows" or "Points in each octave" selected again, and a Name box or a range typed
+    and then typed back to its first value, are no change of the user: a new Use replaces the picture (2026-11-12:
+    each one counted as a change, and the bubble told of changes that were not there). With an entry after its read
+    (with its curve), and for a picture of the user (no curve)."""
+    seen = {}
+    for what in ("name", "comp", "ppo", "range"):
+        came, tw = _traced(flow, monkeypatch, stand_in())
+        _again(tw, what)
+        seen[("entry", what)] = (came, tw.users_work(), tw.unadded_curves(), tw.changed_picture())
+        tw.remove_image()
+        flow["pk"].show()
+    page = flow["page"]
+    for what in ("name", "comp", "ppo", "range"):
+        page.open_trace()
+        tw = page.tracer
+        tw.load_image(_graph().copy(0, 0, 900, 600), "Mine")
+        qt.wait_for(lambda tw=tw: not tw.reading and not tw.loading, 60)
+        _no_curve(tw)
+        _again(tw, what)
+        between = None
+        if what in ("name", "range"):  # (the value in between was a change)
+            box = tw.name if what == "name" else tw.boxes["fmin"]
+            first = box.text()
+            box.setText("71")
+            box.textEdited.emit("71")
+            between = tw.users_work()
+            box.setText(first)
+            box.textEdited.emit(first)
+        if what == "comp":  # (an other row, then the first row again)
+            if tw.comp.count() < 2:
+                tw.comp.addItem("Difference from Stand-in", "Stand-in.txt")
+            first = tw.comp.currentIndex()
+            other = tw.comp.count() - 1 if first != tw.comp.count() - 1 else 0
+            for i in (other, first):
+                tw.comp.setCurrentIndex(i)
+                tw.comp.activated.emit(i)
+                between = tw.users_work() if between is None else between
+        wait, opened = _use(flow)
+        seen[("yours", what)] = (tw.users_work(), tw.changed_picture(), between, wait is not None and bool(opened))
+        if wait is not None:
+            wait.reject()
+        tw.remove_image()
+        flow["pk"].show()
+    check("website flow: after a read that was OK, the same row selected again or a value typed back is no change "
+          "of the user", all(v == (True, False, 0, False) for k, v in seen.items() if k[0] == "entry"),
+          {k: v for k, v in seen.items() if k[0] == "entry"})
+    check("website flow: a picture of the user with the same row selected again or a value typed back: no change, "
+          "and Use replaces it (the value in between was a change)",
+          all(v[:2] == (False, False) and v[3] and v[2] in (None, True) for k, v in seen.items() if k[0] == "yours")
+          and all(seen[("yours", k)][2] is True for k in ("name", "comp", "range")),
+          {k: v for k, v in seen.items() if k[0] == "yours"})
 
 
 def test_file_pasted_on_page_after_good_read(eq_screen, flow, monkeypatch, tmp_path, check):
