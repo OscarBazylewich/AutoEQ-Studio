@@ -33,9 +33,9 @@ ui\\setup_dialog.py). ui\\window_parts.py has the small helpers they share.
 """
 import time
 
-from PySide6.QtCore import QEvent, Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QCursor, QDesktopServices, QGuiApplication, QKeySequence, QShortcut
-from PySide6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel, QMainWindow, QMenu, QPushButton,
+from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QHBoxLayout, QLabel, QMainWindow, QMenu, QPushButton,
                                QStackedWidget, QVBoxLayout, QWidget)
 
 import net
@@ -71,6 +71,42 @@ def online_mark(on):
 # (the start of the message that Make an EQ shows when its part cannot open: eq_page.py)
 NOT_OPENED = ("The EQ part cannot", "The EQ part did not")
 PAGES = [("eq", "Make an EQ"), ("devices", "Devices"), ("profiles", "Profiles"), ("settings", "Settings")]
+
+
+class F1Anywhere(QObject):
+    """F1 in each window of the app, also one that blocks the others (Find…, Which measurement, Sources, History, the
+    wait for a picture): the main window's help_here. The main window's F1 is an application shortcut, which Qt does
+    not give while a window blocks it (F1 did nothing in Find…: the review, 2026-11-11). So a window that blocks the
+    others gets a shortcut F1 of its own when the focus goes into it: Python runs only on a change of the focus, not
+    on each event (an application event filter made each paint, timer and mouse event slower, 2026-11-12). A control
+    that takes F1 itself (the hotkey box of Settings) still gets it, and every other key goes on to its control.
+    Two of these shortcuts that Qt gives at the same time (a menu or a drop-down's list is open: Qt then gives each
+    one; Help open again as a window of its own; a window that blocks only a window of its own) are one F1:
+    activatedAmbiguously does the same. A held F1 opens Help once."""
+
+    NAME = "f1Help"  # (the objectName of the shortcut of a window that blocks the others)
+
+    def __init__(self, window):
+        super().__init__(window)
+        self.main = window
+        self._shortcut(window)
+        app = QApplication.instance()
+        app.focusChanged.connect(self.put)
+        app.focusWindowChanged.connect(self.put)
+
+    def _shortcut(self, owner):
+        s = QShortcut(QKeySequence(Qt.Key_F1), owner, context=Qt.ApplicationShortcut)
+        s.setObjectName(self.NAME)
+        s.setAutoRepeat(False)
+        s.activated.connect(self.main.help_here)
+        s.activatedAmbiguously.connect(self.main.help_here)
+        return s
+
+    def put(self, *_):
+        """The top window that blocks the others has its F1 (made once for each window)."""
+        top = QApplication.activeModalWidget()
+        if top is not None and top.findChild(QShortcut, self.NAME, Qt.FindDirectChildrenOnly) is None:
+            self._shortcut(top)
 
 
 class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
@@ -204,8 +240,9 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.status_text = self.message.text
 
         sw.listeners.append(self._changed)
-        # F1 in any of the app's windows: Help, at the setting under the pointer (or the one being typed in)
-        QShortcut(QKeySequence(Qt.Key_F1), self, self.help_here, context=Qt.ApplicationShortcut)
+        # F1 in any of the app's windows, a modal one too: Help, at the setting under the pointer (or the one being
+        # typed in): F1Anywhere
+        self._f1 = F1Anywhere(self)
         net.on_change(lambda _off: self.render_online())
         self.render_all()
         self.show_page(sw.s.get("page") if sw.s.get("page") in self.pages else "eq", remember=False)
@@ -537,10 +574,15 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.tour = guide.start_eq(page)
 
     def help_here(self):
-        from PySide6.QtWidgets import QApplication
+        """F1: Help at the setting under the pointer, else at the one being typed in. While a window that blocks the
+        others is open (Find…, Sources…), the pointer counts only over that window: over the main window behind it,
+        F1 in Find… opened the entry of a setting that F1 was not for."""
         from ui import help_window
-        entry = help_window.entry_of_widget(QApplication.widgetAt(QCursor.pos())) or \
-            help_window.entry_of_widget(QApplication.focusWidget())
+        under = QApplication.widgetAt(QCursor.pos())
+        modal = QApplication.activeModalWidget()
+        if under is not None and modal is not None and under.window() is not modal and not modal.isAncestorOf(under):
+            under = None
+        entry = help_window.entry_of_widget(under) or help_window.entry_of_widget(QApplication.focusWidget())
         self.open_help(entry)
 
     def page(self):

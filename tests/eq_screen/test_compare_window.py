@@ -48,20 +48,22 @@ def _shown_with(page, monkeypatch, items=2):
 
 @pytest.fixture(scope="module")
 def which(eq_screen):
-    """Which measurement to use?, opened and shown as the old checks did (lines 1474-1476)."""
+    """Which measurement to use?, opened and shown as the old checks did (lines 1474-1476), then "gate" searched and
+    its answer waited for (up to 240 s, times the time factor, as the old check allowed). Made here, not in the first
+    test, so that each test of the chain passes alone and in any sequence (2026-11-11: Use failed when it ran first)."""
     from ui.compare_window import CompareWindow
     cw = CompareWindow(eq_screen.page)
     cw.show()
-    return {"cw": cw}
-
-
-@pytest.mark.timeout(900)  # (its answer is waited for up to 240 s, times the time factor, as the old check allowed)
-def test_ranks_the_measurements(eq_screen, which, check):
-    cw = which["cw"]
     cw.q.setText("gate")
     cw.search_measurements()
     compared = eq_screen.wait_for(lambda: cw.data is not None and not cw.busy, 240)
-    items = (cw.data or {}).get("items") or []
+    return {"cw": cw, "compared": compared, "data": cw.data}
+
+
+@pytest.mark.timeout(900)  # (the fixture waits for its answer: up to 240 s, times the time factor)
+def test_ranks_the_measurements(eq_screen, which, check):
+    cw, compared = which["cw"], which["compared"]
+    items = (which["data"] or {}).get("items") or []
     # was eq_checks.py:1481
     check("ui: Which measurement to use ranks the model's measurements for the target (each with its score and reasons)",
           compared and items and all("score" in c and c.get("reasons") is not None for c in items)
@@ -103,6 +105,7 @@ def test_says_when_nothing_could_be_loaded(eq_screen, monkeypatch, check):
           and "cannot load" in note and reasons and "no internet in the tests" in reasons[0], (status, note, reasons))
 
 
+@pytest.mark.timeout(900)  # (as above, when it runs first: the fixture waits for the answer)
 def test_use_puts_the_top_one_in_use(eq_screen, which, check):
     from PySide6.QtWidgets import QPushButton
     page, cw = eq_screen.page, which["cw"]
@@ -478,3 +481,58 @@ def test_website_link_messages_in_the_window_line(eq_screen, monkeypatch, check)
     check("Which measurement: after the time limit of the wait, the window's line says so and the window stays",
           said["time limit"] == ("No new picture came in 10 minutes. Select the entry again.", True),
           said["time limit"])
+
+
+def _link_pixels(label, colour, near=40):
+    """How many pixels of the label are near `colour` (each of red, green and blue within `near`)."""
+    from PySide6.QtGui import QColor
+    want, img = QColor(colour), qt.picture(label)
+    return sum(1 for y in range(img.height()) for x in range(0, img.width(), 2)
+               if max(abs(img.pixelColor(x, y).red() - want.red()), abs(img.pixelColor(x, y).green() - want.green()),
+                      abs(img.pixelColor(x, y).blue() - want.blue())) <= near)
+
+
+def test_links_take_the_theme_of_the_moment(eq_screen, monkeypatch, check):
+    # (2026-11-11, the review's note N6: made in light and changed to dark, the links line kept the light theme's dark
+    # blue on the dark background. A label's rich text keeps the colour that its links had when it was set)
+    import os
+    from helpers import session
+    from ui import theme
+    qapp, seen = eq_screen.qapp, {}
+    folder = os.path.join(session.SESSION.root, "pictures")
+    os.makedirs(folder, exist_ok=True)
+    try:
+        for first, then in (("light", "dark"), ("dark", "light")):
+            getattr(qt, first)(qapp)
+            qapp.processEvents()
+            colours = {}
+            cw = _shown_with(eq_screen.page, monkeypatch)
+            try:
+                cw.data["links"] = [{"id": "x1", "name": "Truthear Gate", "site": "Hangout.Audio 5128",
+                                     "rig": "B&K 5128", "link": "https://example.invalid/gate"}]
+                cw.render()
+                qt.pump(100)
+                colours[first] = theme.tokens()["accent_text"]
+                getattr(qt, then)(qapp)
+                qapp.processEvents()
+                qt.pump(100)
+                colours[then] = theme.tokens()["accent_text"]
+                lk = cw.links_line
+                cw.scroll.ensureWidgetVisible(lk)
+                qt.pump(50)
+                qt.picture(lk).save(os.path.join(folder, f"which-links-made-{first}-then-{then}.png"))
+                seen[f"made in {first}, then {then}"] = {
+                    "pixels in the link colour of " + then: _link_pixels(lk, colours[then]),
+                    "pixels in the link colour of " + first: _link_pixels(lk, colours[first])}
+            finally:
+                qt.close(cw)
+    finally:
+        qt.light(qapp)  # (the light theme back, whatever happened: every later test runs light)
+        qapp.processEvents()
+    # (the theme of the moment's colour: the link's whole letters; the other theme's: at most a few pixels at the edges
+    # of the letters, where the colour goes over to the background's)
+    ok = all(v[f"pixels in the link colour of {k.split(', then ')[1]}"] >= 20
+             and v[f"pixels in the link colour of {k.split(', then ')[1]}"]
+             >= 10 * v[f"pixels in the link colour of {k.split()[2].rstrip(',')}"] for k, v in seen.items())
+    check("Which measurement: the links of its links line take the link colour of the theme of the moment (made in "
+          "light then changed to dark, and the opposite)", len(seen) == 2 and ok, seen)

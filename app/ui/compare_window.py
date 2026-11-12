@@ -14,12 +14,13 @@ are listed in the fold "Not loaded (n)" under the measurements.
 
 The look (Windows 11's; theme_sheet's find_windows part matches the names given here): the chart on a card in the
 graph's own colours (blue the best one for your target, green the average: never the accent, which is Windows' and may be any
-colour), drawn again when the theme changes; a note to heed as a warning box (its symbol read as "Warning"); each
-measurement and each average a card (its words starting where every card's do), filled while the mouse is over it;
-the accent on one button only, the main action: the first average's when one is offered, else the first
-measurement's Use (Search is plain: Enter in the model's box runs it); an average's button under its ticks, after
-what it depends on. Its title is its button's words (Measurement's "Other measurements of this model…"); nothing
-found is said in the list; its footer is every window's (window_parts.Footer: Close).
+colour), drawn again when the theme changes (the links line's links too, in the theme's link colour); a note to heed
+as a warning box (its symbol read as "Warning"); each measurement and each average a card (its words starting where
+every card's do), filled while the mouse is over it; the accent on one button only, the main action: the first
+average's when one is offered, else the first measurement's Use (Search is plain: Enter in the model's box runs it);
+an average's button under its ticks, after what it depends on. Its title is its button's words (Measurement's "Other
+measurements of this model…"); nothing found is said in the list; its footer is every window's (window_parts.Footer:
+Close).
 Its size kept within the screen's free room (window_parts.fit_to_screen): on a short screen (a laptop at 150 %) the
 chart and the measurements' list give up height, so Close stays in sight.
 """
@@ -303,11 +304,9 @@ class CompareWindow(QDialog):
         if d.get("errors"):  # (a fold, as How the app sorts them: the UI audit, 2026-11-08)
             lay.addWidget(_not_loaded(d["errors"]))
         self.link_ids = {l["link"]: l["id"] for l in d.get("links") or [] if l.get("id")}
+        self.links_line = None
         if d.get("links"):
-            links = " · ".join(f"<a href='{l['link']}'>{_esc(l['name'])}</a> ({_esc(l['site'])}"
-                               f"{', ' + _esc(l['rig']) if l.get('rig') else ''})" for l in d["links"])
-            lk = QLabel("The app cannot download the measurements of these websites. Click a name to open it on its "
-                        "website. Then the app waits for a picture of its graph and traces it: " + links)
+            lk = self.links_line = QLabel(self._links_text())
             lk.setWordWrap(True)
             lk.setTextFormat(Qt.RichText)
             lk.linkActivated.connect(self._open_site)  # (offline: said in the window's line, UI-RULES 25)
@@ -315,6 +314,23 @@ class CompareWindow(QDialog):
         lay.addStretch(1)
         self.scroll.setWidget(body)
         self.draw()
+
+    def _links_text(self):
+        """The links line's words, its links in the theme's link colour of this moment. A label's rich text keeps the
+        colour that its links had when it was set: made in light and then changed to dark, they were dark blue on the
+        dark background (the review, 2026-11-11). Thus each theme change sets the words again (recolour)."""
+        colour = theme.tokens()["accent_text"]
+        links = " · ".join(f"<a href='{l['link']}' style='color: {colour}'>{_esc(l['name'])}</a> ({_esc(l['site'])}"
+                           f"{', ' + _esc(l['rig']) if l.get('rig') else ''})" for l in self.data["links"])
+        return ("The app cannot download the measurements of these websites. Click a name to open it on its website. "
+                "Then the app waits for a picture of its graph and traces it: " + links)
+
+    def recolour(self):
+        """What a theme change draws again: the chart, and the links line in the new theme's link colour."""
+        self.draw()
+        lk = getattr(self, "links_line", None)
+        if lk is not None and tasks.alive(lk):
+            lk.setText(self._links_text())
 
     def _row(self, i, c, main_action=False):
         """A measurement's card: its rank, name, where it's from, its reasons, its score and Use (main_action: the
@@ -581,16 +597,16 @@ class CompareWindow(QDialog):
 
 
 def _redraw_on_theme(window):
-    """The window's chart drawn again when Windows' theme or accent changes (its colours are drawn, not styled), for
-    as long as the window is there: held weakly, so a window closed and deleted never stays for it (theme.apply lets
-    go of a listener that raises RuntimeError)."""
+    """The window's chart and links drawn again when Windows' theme or accent changes (their colours are not styled),
+    for as long as the window is there: held weakly, so a window closed and deleted never stays for it (theme.apply
+    lets go of a listener that raises RuntimeError)."""
     ref = weakref.ref(window)
 
     def again():
         w = ref()
         if w is None or not tasks.alive(w):
             raise RuntimeError("Which measurement is closed")
-        w.draw()
+        w.recolour()
     theme.on_change(again)
 
 

@@ -99,6 +99,9 @@ HELP_EQ = {'slot:target': ['The curve that you want for your earphone.', 'target
  '#snd-left': 'The version that your left ear hears.',
  '#snd-right': 'The version that your right ear hears.',
  'snd_list': ['EQs that you want to compare on this IEM or headphone.', 'eqs-to-compare'],
+ '#pk-src': ['Shows the items of all sources or of one source, and their number. “…”: the app continues to search '
+             'this PC or to load the online lists.',
+             'databases'],
  '#pk-anykind': 'Also shows files of the other type.',
  'pk_filters': ['Shows only the items of one rig, type or source. To find one, type in its list.',
                 'rig-tags',
@@ -624,7 +627,15 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'pasted filters. To rename an EQ, edit its name. Each measurement has its list (up '
                                     'to 12 EQs), also after you close the app.']}]},
                {'title': 'Find curves, and History',
-                'items': [{'key': '#pk-anykind',
+                'items': [{'key': '#pk-src',
+                           'title': 'All, In the app, This PC, Online databases (tabs)',
+                           'body': ['All shows the items of each source. Each of the other tabs shows the items of '
+                                    'one source. The number after the name is the number of items that the tab shows '
+                                    'for the words in the search box and the selections.',
+                                    '“…” after the number of This PC: the app continues to search this PC, and the '
+                                    'number can change. “…” as the number of All or Online databases: the app '
+                                    'continues to load the online lists.']},
+                          {'key': '#pk-anykind',
                            'title': 'Targets and measurements',
                            'body': ['Also shows files that can be of the other type (a measurement when you select a '
                                     'target, or a target when you select a measurement). This helps if the app found '

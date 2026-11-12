@@ -8,7 +8,8 @@ list of entries), and its "Related" links open the others.
 - a row of the contents opens its entry when it becomes the current row (a click, the arrow keys) and on Enter; a
   long row goes on to more lines (WrappedRows)
 - open_at(id) opens the window at an entry (F1 on a setting: its entry), its group open and the entry selected
-One window for the whole app: opened again, it's brought back. Its look is Windows 11's, as the rest of the app: the
+One window for the whole app: opened again, it's brought back (opened from a window that blocks the others, as Find…,
+it blocks them too until it closes: _modal_over_modal). Its look is Windows 11's, as the rest of the app: the
 contents and the page as cards (theme_sheet.py's guide_and_help: #helpContents, #helpPage), the page's own words
 in the theme's colours (links in the accent's text colour; the entry asked for on a quiet fill with the accent's bar
 beside it, as a chosen row), drawn again when the theme changes.
@@ -84,12 +85,71 @@ def open_at(entry_id=None):
     global _window
     if _window is None:
         _window = HelpWindow()
+    _modal_over_modal(_window)
     _window.show()
     _window.raise_()
     _window.activateWindow()
     if entry_id:
         _window.show_entry(entry_id)
     return _window
+
+
+def _modal_over_modal(win):
+    """Help opened while a window that blocks the others is open (Find…, Which measurement, Sources, History, the
+    wait for a picture): Qt gives no input to a window outside that one, so Help showed but took no click or key.
+    Then Help blocks the others itself until it closes (in front, with input; the window under it stays open, and
+    takes input again when Help closes). Opened from a window that blocks nothing: a window of its own, as before.
+    Qt takes a window's modality only when it shows, so a Help that is open is shown again. The window under Help
+    can close by itself (the wait gets a picture): then Help goes back to a window of its own (_under_gone)."""
+    from PySide6.QtWidgets import QApplication
+    over = QApplication.activeModalWidget()
+    if over is win:  # (F1 in Help itself, while it blocks the others: it stays so, over the same window)
+        return
+    want = Qt.ApplicationModal if over is not None else Qt.NonModal
+    if win.windowModality() != want:
+        win.hide()
+        win.setWindowModality(want)
+    _watch_under(win, over)
+
+
+_under = []  # (the window under a Help that blocks the others: [its QWindow, the slot on its visibleChanged])
+
+
+def _watch_under(win, over):
+    """Help told when `over` (the window under it, or None) closes."""
+    while _under:
+        handle, slot = _under.pop()
+        try:
+            handle.visibleChanged.disconnect(slot)
+        except (RuntimeError, TypeError):  # (the window is gone already)
+            pass
+    handle = over.windowHandle() if over is not None else None
+    if handle is None:
+        return
+
+    def slot(visible):
+        if not visible:
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(0, lambda: _under_gone(win))  # (once Qt has taken it out of the windows that block)
+    handle.visibleChanged.connect(slot)
+    _under.append((handle, slot))
+
+
+def _under_gone(win):
+    """The window under Help closed by itself while Help blocks the others: Help is shown again over the next window
+    that blocks the others, or as a window of its own when there is none (then each window takes input again)."""
+    import shiboken6
+    from PySide6.QtWidgets import QApplication
+    if not shiboken6.isValid(win) or not win.isVisible() or win.windowModality() == Qt.NonModal:
+        _watch_under(win, None)
+        return
+    win.hide()  # (also out of the windows that block: the one under it shows)
+    over = QApplication.activeModalWidget()
+    win.setWindowModality(Qt.ApplicationModal if over is not None else Qt.NonModal)
+    _watch_under(win, over)
+    win.show()
+    win.raise_()
+    win.activateWindow()
 
 
 class WrappedRows(QStyledItemDelegate):
