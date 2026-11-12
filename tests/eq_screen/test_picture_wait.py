@@ -2341,6 +2341,39 @@ def test_guide_button_off_during_the_read(eq_screen, flow, monkeypatch, check):
           came and not during and tw.guide_btn.isEnabled(), during)
 
 
+def test_guide_save_step_keeps_off_the_target_line(eq_screen, flow, monkeypatch, tmp_path, check):
+    """The Guide's step Save of the tracer, with a picture from a website that has a target line: the Guide's card is
+    not on "Add the target line as target…" and 3 Save's note, which its words name (2026-11-11: it covered them).
+    Pictures in light and dark."""
+    from PySide6.QtCore import QRect
+    from ui import guide
+    came, tw = _traced(flow, monkeypatch, stand_in(target=True))
+    tw.show()
+    qt.pump(100)
+    t = guide.start_trace(tw)
+    t.all_chk.setChecked(False)
+    t.go_to_step(next(n for n, st in enumerate(t.steps) if st["title"] == "Save"))
+
+    def box(w):
+        return QRect(w.mapToGlobal(w.rect().topLeft()), w.size())
+    over = {}
+    for _ in range(30):  # (the card as the step's demo plays: the card moves with the pointer; 3 s)
+        qt.pump(100)
+        card = box(t.bubble)
+        for name, w in (("Add the target line as target…", tw.save_line), ("the note", tw.save_note)):
+            if card.intersects(box(w)):
+                over[name] = (card, box(w))
+    shown = (tw.save_line.isVisible(), tw.save_note.isVisible(), t.bubble.isVisible())
+    for name, theme_on in (("light", qt.light), ("dark", qt.dark)):
+        theme_on(eq_screen.qapp)
+        qt.pump(150)
+        tw.grab().save(str(tmp_path / f"guide-save-step-{name}.png"))
+    qt.light(eq_screen.qapp)
+    t.end()
+    check("website flow: the Guide's step Save keeps its card off Add the target line as target… and 3 Save's note",
+          came and shown == (True, True, True) and not any(over.values()), (shown, over, card))
+
+
 def test_empty_name_of_the_target_line_adds_nothing(eq_screen, fresh_studio, flow, monkeypatch, check):
     from eq import paths as eq_paths
     from ui import window_parts
