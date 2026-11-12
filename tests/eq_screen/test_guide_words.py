@@ -1,12 +1,10 @@
 """The words of the Guide of Make an EQ (ui\\guide_eq.py), read from its source: each sentence of each step's text and
-of each words of a demo (api.say, api.note, "say") has 25 words or fewer, and each step's text 6 sentences or fewer
+of the words of each demo (api.say, api.note, "say") has 25 words or fewer, and each step's text 6 sentences or fewer
 (ASD-STE100 rules 6.1 and 7.3; 2026-11-11: step 22 had a sentence of 29 words). The fixed parts of an f-string count;
-its values count as one word. No window: only the source is read."""
+its values count as one word. The source of the module that the page (the eq_screen fixture) loaded is read."""
 import ast
-import os
+import inspect
 import re
-
-from helpers import paths
 
 
 def _text(node):
@@ -47,8 +45,9 @@ def _words(sentence):
     return len(re.findall(r"[A-Za-z0-9][\w'’.,+×/-]*", sentence))
 
 
-def test_guide_sentences_are_short(check):
-    texts = _texts(os.path.join(paths.PROJECT_APP, "ui", "guide_eq.py"))
+def test_guide_sentences_are_short(eq_screen, check):
+    from ui import guide_eq
+    texts = _texts(inspect.getsourcefile(guide_eq))
     long = [(n, _words(s), s) for n, _, t in texts for s in _sentences(t) if _words(s) > 25]
     many = [(n, len(_sentences(t))) for n, kind, t in texts if kind == "text" and len(_sentences(t)) > 6]
     check("guide: each sentence of the steps and the demos of Make an EQ has 25 words or fewer",
