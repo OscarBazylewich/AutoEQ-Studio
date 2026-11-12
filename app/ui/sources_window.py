@@ -377,7 +377,8 @@ class Sources(QDialog):
             items = (res or {}).get("items") or []
             if err or not items:
                 self.dir_note.setText("The app cannot load squig.link's list (is there no connection?). Load it again "
-                                      "at a different time, or add a database with the URL of its page (below).")
+                                      "at a different time, or add a database with the URL of its page (the box below "
+                                      "the list).")
                 self.dir_empty.set_text("No list: the app cannot load it.")
                 return
             self.dir = items

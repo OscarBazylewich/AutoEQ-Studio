@@ -103,6 +103,18 @@ SETTINGS_DEVICES = [{'title': 'Devices',
                                 'body': ['Your name for a device (for example, “Dongle – KZ”). AutoEQ Studio shows it '
                                          'in the list, the tray and the notifications. The Windows name stays below it. '
                                          'If the name is empty, the device has the Windows name again.']},
+                               {'key': '#use-device',
+                                'title': 'Use on device (Make an EQ)',
+                                'body': ['Use on device is a button of the result in Make an EQ. Its menu has 3 types '
+                                         'of rows:',
+                                         ['A row with the name of a device makes the EQ a new profile of that device, '
+                                          'and the profile is on.',
+                                          'A row Update “name” puts the EQ into a profile that you have (refer to '
+                                          '“Update a profile (Use on device)”).',
+                                          'Use for 5 minutes on uses the EQ on a device for 5 minutes (refer to “Use '
+                                          'for 5 minutes on (Use on device)”).'],
+                                         'The menu cuts a long name in its middle (“…”). The tooltip of the row shows '
+                                         'all of the name.']},
                                {'key': '#use-try',
                                 'title': 'Use for 5 minutes on (Use on device)',
                                 'body': ['With this menu item, the device uses the EQ in all apps for 5 minutes, and '
@@ -115,10 +127,12 @@ SETTINGS_DEVICES = [{'title': 'Devices',
                                 'body': ['In the menu of Use on device, each row Update “name” puts the EQ of the '
                                          'result into a profile that you have. The row shows the first device that has '
                                          'the profile on, and the number of other devices. Its tooltip shows all of '
-                                         'them. Update a profile shows all your profiles.',
-                                         'The profile keeps its name, its file name, and its devices. A device that has '
-                                         'the profile on uses the new EQ immediately. A device that has the profile '
-                                         'only in its list does not change. A device that is not connected uses the new '
+                                         'them. The message after the update also shows the first device of each group '
+                                         'and the number of other devices. Update a profile shows all your profiles.',
+                                         'The profile keeps its name, its file name, and its devices. A connected '
+                                         'device that has the profile on uses the new EQ immediately, if Equalizer '
+                                         'APO uses AutoEQ Studio. A device that has the profile only in its list does '
+                                         'not change. A device that is not connected uses the new '
                                          'EQ when you connect it. A device on which Equalizer APO is not installed does '
                                          'not use the EQ (refer to Devices). After you update a profile from a '
                                          'different result, the From column of Profiles shows the file name of that '

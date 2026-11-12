@@ -367,18 +367,19 @@ def eq_steps(page):
         api.say("Use on device: the EQ becomes a new profile of a device, or it goes into a profile that you have")
         yield from api.click(page.use_btn)
         from switcher.core import shown
-        from ui.eq_page_parts import update_row_words, use_menu_order
+        from ui.eq_page_parts import row_name, update_row_words, use_menu_order
         sw = page.sw
         # (the real menu's rows, in its sequence (one function for the two): the devices, then the profiles that are
         # on, then Update a profile; the mock's rows have no keys' column; the words cut as the real menu cuts them)
         keys, seen = use_menu_order(sw)
+        page.use_menu.ensurePolished()
+        fm = page.use_menu.fontMetrics()
         names = []
         for k in keys[:5]:
             d = sw.device(k)
-            names.append(f"{shown(sw.record(k))}  ·  " + ("active" if k == sw.playing_key else "connected"
-                                                          if d and d.connected else "not connected"))
-        page.use_menu.ensurePolished()
-        fm = page.use_menu.fontMetrics()
+            names.append(f"{row_name(fm, shown(sw.record(k)))[0]}  ·  " + ("active" if k == sw.playing_key else
+                                                                          "connected" if d and d.connected else
+                                                                          "not connected"))
         ups = []
         for pid in seen[:2]:
             text, where, _ = update_row_words(fm, sw.profiles()[pid]["name"],
@@ -391,8 +392,7 @@ def eq_steps(page):
         api.spot_to(page.use_btn)
         api.untype(page.name_edit)
         m = yield from mock_menu(api, page.use_btn, rows)
-        api.say("Update a profile: the EQ goes into a profile that you have, and the devices that have it on use the new "
-                "EQ")
+        api.say("Update a profile: the EQ goes into a profile that you have, and the profile keeps its devices")
         yield from point_at_menu_row(api, m, rows.index("Update a profile ▸"), hold=900)
         api.say("A device: the EQ becomes its new profile, and it is on")
         yield from point_at_menu_row(api, m, 0)
@@ -670,10 +670,10 @@ def eq_steps(page):
         {"chapter": "2 · Settings", "title": "Automatic settings",
          "target": lambda: [st.fold.btn, st.fold.summary, st.auto_on, st.why_fold.btn], "before": about_open,
          "after": lambda: (about_close(), settings_close()),
-         "text": "Settings (a row in Make the EQ, above Calculate) has the settings that you can change: the automatic "
-                 "settings (adjusted for your files), the filters, and Error and selection. About these settings (a row "
-                 "that opens) tells you how the app adjusts each value. The app sets the other settings for you (More "
-                 "settings, below it).",
+         "text": "Settings (a row in Make the EQ, above Calculate) has the settings that you can change. They are the "
+                 "automatic settings (adjusted for your files), the filters, and Error and selection. About these "
+                 "settings (a row that opens) tells you how the app adjusts each value. The app sets the other "
+                 "settings for you (More settings, below it).",
          "demo": [{"at": lambda: st.fold.btn, "x": 0.1, "say": "Settings: the settings that you can change"},
                   {"at": lambda: st.auto_on, "x": 0.1,
                    "say": "They change with the measurement and the target that you selected"},
@@ -719,10 +719,10 @@ def eq_steps(page):
          "target": lambda: [page.way_btns["hand"], page.hand_source, page.hand_start],
          "before": hand_on, "after": hand_off,
          "text": "With Manually (the tab adjacent to Automatically), you make an EQ, and it shows as a result. Start from "
-                 "has an empty EQ, a copy of the selected EQ, an EQ file (Equalizer APO, AutoEq, Room EQ Wizard, "
-                 "Peace), pasted filters and profiles. After Start, you add and change its filters. "
-                 "Save filters, Use on device and Listen operate as for a calculated EQ. A measurement and a target are "
-                 "optional. Close shows the previous EQ again.",
+                 "has an empty EQ, a copy of the selected EQ, an EQ file, pasted filters and profiles. The EQ file can "
+                 "be from Equalizer APO, AutoEq, Room EQ Wizard or Peace. After Start, you add and change its filters, "
+                 "and Save filters, Use on device and Listen operate as for a calculated EQ. A measurement and a "
+                 "target are optional. Close shows the previous EQ again.",
          "demo": [{"click": lambda: page.way_btns["hand"], "say": "Click Manually", "then": manual_demo}]},
         {"chapter": "3 · Calculate and examine", "title": "Examine it on the graph", "target": lambda: page.plot,
          "ready": has_curves,
@@ -776,20 +776,19 @@ def eq_steps(page):
          "before": result_before, "after": result_after, "ready": has_curves,
          "text": lambda: "Each filter has a handle on the EQ graph, below the graph, with the number from the table. "
                          "Drag it left or right for its frequency, and up or down for its gain. The mouse wheel on a "
-                         "handle changes its Q, and a right-click shows its type and Remove (the On tick box of the table turns a "
-                         "filter off). Double-click "
-                         "where there is no handle to add a filter. If you use the EQ on a device for 5 minutes, the device also plays each change."
+                         "handle changes its Q, and a right-click shows its type and Remove (On in the table turns a "
+                         "filter off). Double-click where there is no handle to add a filter. If you use the EQ "
+                         "on a device for 5 minutes, the device also plays each change."
                          + example(),
          "demo": lambda: drag_actions()},
         {"chapter": "3 · Calculate and examine", "title": "Save it, or use it on a device",
          "target": lambda: [page.name_edit, page.formats_line, button(page.result_box, "Save filters"), page.use_btn],
          "before": result_before, "after": result_after, "ready": has_curves,
          "text": lambda: "Two rows of buttons, below File name. The files: Save filters saves the file for your EQ app "
-                         "with the File name, Copy copies the filters to the clipboard, and the folder opens. Then: Use "
-                         "on device makes the EQ a new profile of a device and enables it. It can also update a profile "
-                         "that you have (the devices that have it on use the new EQ), or use the EQ on a "
-                         "device for 5 minutes. Keep to compare adds it to your EQs to compare. Report makes an HTML "
-                         "page."
+                         "with the File name. Copy copies the filters to the clipboard, and the folder opens. Then: "
+                         "Use on device makes the EQ a new profile of a device and enables it. It can also update a "
+                         "profile that you have (the profile keeps its devices), or use the EQ on a device for 5 "
+                         "minutes. Keep to compare adds it to your EQs to compare, and Report makes an HTML page."
                          + example(),
          "demo": [{"run": save_demo, "say": "Give it a name, save it, or use it on a device"}]},
         {"chapter": "3 · Calculate and examine", "title": "Listen", "target": lambda: page.listen,
@@ -842,9 +841,10 @@ def eq_steps(page):
                   {"at": lambda: win.nav["settings"], "say": "The hotkeys: the next EQ, and EQ off and on to compare"}]},
         {"chapter": "More", "title": "Settings", "target": lambda: st.adv.btn,
          "text": "More settings (below Settings, in Make the EQ) has the settings that the app sets for you, with a tab "
-                 "for each part: Best fit's layout, limits, penalties and your filters, the lists of Website best "
-                 "settings (with that method only), the website settings, Saved files, History and This PC. A list of "
-                 "more than 15 items, for example Layout, opens with a search box. The Settings screen (top bar) has the location of your files, backups, Online / Offline "
+                 "for each part. The Best fit tab has its layout, limits, penalties and your filters. The Website best "
+                 "settings tab has its lists (with that method only). The other tabs are the website settings, Saved "
+                 "files, History and This PC. A list of more than 15 items, for example Layout, opens with a "
+                 "search box. The Settings screen (top bar) has the location of your files, backups, Online / Offline "
                  "and Start with Windows.",
          "demo": lambda: [{"at": lambda: st.adv.btn, "x": 0.1, "say": "More settings: the settings that the app sets for you"}]
          + ([{"at": lambda: win.nav["settings"], "say": "The settings of the app"}] if hasattr(win, "nav") else [])},
