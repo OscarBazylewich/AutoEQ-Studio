@@ -14,16 +14,24 @@ auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph") does it all:
    middle of the band at each column (one line: the line itself; two lines and one of them steep: the middle of the
    two lines, average_rows). A channel that goes out of the grid at its top or bottom (the website does not draw it
    past the dB axis) is traced to that point (steep_exit, out_parts): the columns after it have no value, and the
-   checks count them as out of the grid, not as not traced.
-5. A line in another color (the target line, gray, solid or dashed): a second curve "Target", marked "target": True.
+   checks count them as out of the grid, not as not traced. The curve must have values on MIN_IN_GRID of the grid's
+   width (90 %: a curve to 7.6 kHz only is not a measurement for an EQ; a part out of the grid in the middle counts
+   too, and there trace_gaps fails); the words of the ends out of the grid go to 3 Save's note too
+   (AutoRead.out_words). Where the website cuts the curves at the top or bottom dB grid line, one channel that goes
+   out in the middle leaves the other channel alone in the band: those columns are a part out of the grid too (when
+   they are 0.6 % of the width or more).
+5. A line in another color (the target line, gray, solid or dashed): a second curve "Target", marked "target": True;
+   none when the curve has values on less than MIN_TRACED of the grid's width, except when the curve passes
+   trace_curve and is out of the grid only at its ends (a bass roll-off under the grid).
 6. Checks: each one passes or fails, with a reason the user reads (in STE). The names start with "axes_" or "trace_"
    (the window opens the tab where the user can correct it).
 
-Every limit here was measured (2026-11-10 to 2026-11-12) on four real pictures (the fourth: a screen copy of a grid of
-1396 px, a channel out of the grid at 18.7 kHz) and on a drawn look-alike (tests\\helpers\\website_graph.py; the
-reviews' sets, 13,297 look-alikes of 420 to 2000 px, PNG and JPEG 85 to 20, with the stand-in for the text reader;
-STEEP_END for the forms of the screen copy): see .claude\\notes\\benchmarks\\BENCHMARKS.md. Items 10 (pale targets),
-14 and 16 were measured on b42d920 and not again.
+Every limit here was measured (2026-11-10 to 2026-11-12) on five real pictures (the fourth: a screen copy of a grid of
+1396 px, a channel out of the grid at 18.7 kHz; the fifth: the file of the website's Screenshot button, 2400 px) and
+on a drawn look-alike (tests\\helpers\\website_graph.py; the reviews' sets, 13,297 look-alikes of 420 to 2000 px, PNG
+and JPEG 85 to 20, with the stand-in for the text reader; STEEP_END for the forms of the screen copy): see
+.claude\\notes\\benchmarks\\BENCHMARKS.md. The pale targets of item 10, and items 14 and 16, were measured on b42d920
+and not again.
 
 Known limits (the picture alone cannot tell; ok can be True with a curve that is not correct). "N dB at P points": the
 largest difference from the true average, and the count of points (of about 470) more than 0.5 dB off (for a target:
@@ -33,7 +41,7 @@ largest difference from the true average, and the count of points (of about 470)
 2. The legend's words along the curve are a part of the band. PNG, of 120 places for each size: 500 px 2.19 dB at 11
    points, 700 px 1.22 at 5, 900 px 1.32 at 1, 1200 px 0.74 at 2, 1600 px 0.92 at 2. The channels 2 to 4 dB apart (of
    648): 2.50 dB at 9 points (500 px, PNG). An orange or pink legend (of 144): 0.77 dB at 1 point. On the steep peaks
-   of STEEP_END where the curves cross at 15 kHz: 1.87 dB at 2 points (1396 px), 1.57 dB at 2 points (1000 px).
+   of STEEP_END where the curves cross at 15 kHz: 1.79 dB at 2 points (1396 px), 1.43 dB at 3 points (1000 px).
 3. The same in a light color (olive, yellow, light blue) in a JPEG, the legend near the steep part at 9 to 19 kHz (of
    1,458): 3.84 dB at 11 points (olive, 500 px, JPEG 85), 2.27 dB at 55 points (700 px, JPEG 30, one channel lost).
    The legend at 7 places (of 1,890): 2.34 dB at 20 points (#f4a6c8, 700 px, JPEG 50).
@@ -54,12 +62,12 @@ largest difference from the true average, and the count of points (of about 470)
    under, a dB axis of 32 to 72 dB, 700 px, JPEG 30).
 9. The target line has no points where the band hides it, beside that, at each part's ends and on a short part. Its
    largest point error (of 884 near, across or level): 0.83 dB. Along gray text or 1 dB from its own name (of 144):
-   1.62 dB at 26 points (dashed, level 48.6 dB, 1000 px, PNG), 6 of 144 above 1 dB. Of 1,593 other forms: a target
-   that follows its own name, where the curve goes out of the grid at 9 kHz (a dB axis of 55 to 85 dB) 6.63 dB at 29
-   points (800 px, PNG; 2 of 1,593), out of the grid at the top next to the gray text 4.00 dB at 52 points (500 px,
-   PNG), over the top grid line 1.47 dB at 1 point (81.2 dB, 800 px, PNG), steep (13 dB for each decade) and dashed
-   1.09 dB at 1 point (1300 px, JPEG 30).
-10. With few points left the target is None (the user adds it): 65 of 176 targets near or across the curve, 175 of 458
+   1.62 dB at 26 points (dashed, level 48.6 dB, 1000 px, PNG), 6 of 144 above 1 dB. Of 1,593 other forms: out of the
+   grid at the top next to the gray text 4.00 dB at 52 points (500 px, PNG), over the top grid line 1.47 dB at 1 point
+   (81.2 dB, 800 px, PNG), steep (13 dB for each decade) and dashed 1.09 dB at 1 point (1300 px, JPEG 30). (A target
+   that follows its own name where the curve is out of the grid from 9 kHz, a dB axis of 55 to 85 dB: 6.63 dB at 29
+   points with all checks passed on e60c1da; now the curve check fails, and there is no target under MIN_TRACED.)
+10. With few points left the target is None (the user adds it): 67 of 176 targets near or across the curve, 175 of 458
    with ok=True in a second set, and each target whose parts are shorter than 2 % of the width with gaps of 1 % or
    more between them (48 of 48; with gaps of 0.8 %: 30 of 48). Also 12 of 16 targets in a pale color.
 11. A noisy picture (random noise with a standard deviation of 6 or 10 levels; 2 look-alikes) fails trace_single,
@@ -79,7 +87,11 @@ largest difference from the true average, and the count of points (of about 470)
    dB at 1 point (1396 px, JPEG 60).
 18. A part with no curve of up to 1 % of the width (MAX_GAP) is a straight line in the points: where the curve bends
    there, the line is off. The real screen copy has such a part of 7 columns at 15 kHz: a parabola through 3 columns
-   on each side is 0.34 dB from the straight line (the true error is not known).
+   on each side is 0.34 dB from the straight line (the true error is not known). The look-alike where the website
+   draws the curves past the bottom dB grid line (no cut), a dB axis of 45.5 to 85.5 dB with the right channel 3 dB
+   lower, or of 48.5 to 88.5 dB: ok=True, 0.57 to 0.66 dB at 2 to 4 points (800 and 1000 px; at 1396 px trace_gaps
+   fails). Where the website cuts the curves there, a part of less than 0.6 % of the width next to the edge is such a
+   line too (out_parts): 0.17 to 0.27 dB at 1 to 5 columns.
 """
 import collections
 import math
@@ -98,6 +110,9 @@ TICKS = [20, 30, 40, 50, 60, 80, 100, 150, 200, 300, 400, 500, 600, 800, 1000, 1
 LOGT = np.log10(np.array(TICKS, float) / 20.0)  # 0 .. 3
 MIN_TRACED = 0.97   # of the grid's width: the curve must be on this much of it
 MAX_GAP = 0.01      # of the grid's width: the longest part with no curve
+# of the grid's width: the curve must have values on this much of it, also where it goes out of the grid (a curve
+# to 7.7 kHz only is not a measurement for an EQ; see trace_curve in auto_read)
+MIN_IN_GRID = 0.9
 MAX_BAND_DB = 6.0   # the difference between the two channels that 9 of 10 columns must stay under
 STEP_TEXT = 4.0     # a short rise of the band's height, in line widths (height_steps; real pictures: under 3)
 STEP_LINE = 2.5     # two lines this far apart, in line widths, that become one line suddenly (height_steps)
@@ -142,7 +157,10 @@ LOOSE = str.maketrans({"e": "0", "o": "0", "O": "0", "Q": "0", "@": "0", "ø": "
                        "S": "5", "t": "1", "l": "1", "I": "1", "i": "1", "|": "1", "B": "8"})
 
 Check = collections.namedtuple("Check", "name ok reason")
-AutoRead = collections.namedtuple("AutoRead", "ok tracer checks curve target points target_points plot seconds")
+# (out_words: the sentences of trace_curve about the ends of the curve out of the grid, or "": 3 Save's note shows
+# them too)
+AutoRead = collections.namedtuple("AutoRead", "ok tracer checks curve target points target_points plot seconds "
+                                  "out_words", defaults=("",))
 
 
 # ---------------------------------------------------------------- small parts
@@ -658,7 +676,8 @@ def _continued(solid, memory, long, edges=None):
     band in the last `memory` columns before it (moved by the band's slope, plus 2 rows and half the slope), and only
     its part within them; at the first column, and after a column with no run that continues, all runs stay. A run
     that does not continue the band but continues itself (in each next column) for `long` columns is a line too (the
-    other channel, after a faded end or a break): it stays from its first column. Done from the left and from the
+    other channel, after a faded end or a break): it stays from its first column (a track continues where the whole
+    run touches it in the column before, also when only a part of the run is left out). Done from the left and from the
     right: a row stays when it stays both ways. Text that touches the curve starts a new run in a column beside the
     band, or makes a run longer than the band's rows, for a letter's width only: it goes.
     Each edge of the band that moves steadily (edge_slope: the edge of the whole run of solid rows that holds the kept
@@ -710,8 +729,11 @@ def _continued(solid, memory, long, edges=None):
                 part = [(a, b)] if not any(ka < b and a < kb for ka, kb in keep) else \
                     [(p, q) for p, q in ((a, keep[0][0]), (keep[-1][1], b)) if q - p > 0 and a <= p and q <= b]
                 for p, q in part:
+                    # (a track continues where the whole run touches its rows, not only the part left out: where
+                    # edge_slope keeps a part of a run, the part left out of a steep line was beside the track,
+                    # and the track of that line ended; a real picture, a JPEG, lost 6 columns at 17.7 to 18.8 kHz)
                     tr = next((tr for tr in tracks if tr[-1] is not None and tr[-1][0] == x - way
-                               and tr[-1][1] - 1 <= q and p <= tr[-1][2] + 1 and len(tr) < long), None)
+                               and tr[-1][1] - 1 <= b and a <= tr[-1][2] + 1 and len(tr) < long), None)
                     if tr is None:
                         tracks.append([(x, p, q)])
                     else:
@@ -977,17 +999,18 @@ def grid_edges(plot, y0, y1, solid=None):
 def band(rgb, plot, bg, colour, px_db=None):
     """The measurement curve(s) of one color as a band: at each column its top and bottom edge (between pixels: a
     pixel's center is its index) and the middle. Returns {"x0", "top", "bot", "mid", "first", "c1", "c2", "m1",
-    "m2", "mruns", "touch", "runs", "lw", "cut", "full_top", "full_bot", "cover", "pieces", "apart"} or None: arrays
-    over the grid's columns from x0, NaN where there is no curve (mid: the curve, average_rows; first: the bottom edge
-    of the first line; c1, c2: the middles of the first and the last line; m1, m2, mruns: the same with the breaks of
-    a JPEG closed, line_middles; touch: -1 or 1 where the band touched the grid's top or bottom edge before the cuts
-    (grid_edges), else 0; runs: the count of lines in the column; lw: the line's width; cut: {"edge", "exit", "ends",
-    "lost", "text", "alone", "clipped"}, the count of columns left out for each reason, and of the columns where rows
-    were cut off
-    (clipped: text that touches the curve, _continued); full_top, full_bot: the edges before the columns were left out
-    (where the band hides a target line); cover: each pixel's share of the color; pieces: the count of pieces kept;
-    apart: the share of the grid's columns with a piece of 2 % of the width or more that has the form of a line, is
-    not on a dB grid row and is not kept: a channel or one more measurement apart from the band).
+    "m2", "mruns", "touch", "runs", "lw", "cut", "clip", "full_top", "full_bot", "cover", "pieces", "apart"} or None:
+    arrays over the grid's columns from x0, NaN where there is no curve (mid: the curve, average_rows; first: the
+    bottom edge of the first line; c1, c2: the middles of the first and the last line; m1, m2, mruns: the same with
+    the breaks of a JPEG closed, line_middles; touch: -1 or 1 where the band touched the grid's top or bottom edge
+    before the cuts (grid_edges), else 0; clip: the edges (-1, 1: top, bottom) that are a dB grid line, where the
+    website cut the curves (no pixel past it); runs: the count of lines in the column; lw: the line's width; cut:
+    {"edge", "exit", "ends", "lost", "text", "alone", "clipped"}, the count of columns left out for each reason, and
+    of the columns where rows were cut off (clipped: text that touches the curve, _continued); full_top, full_bot: the
+    edges before the columns were left out (where the band hides a target line); cover: each pixel's share of the
+    color; pieces: the count of pieces kept; apart: the share of the grid's columns with a piece of 2 % of the width
+    or more that has the form of a line, is not on a dB grid row and is not kept: a channel or one more measurement
+    apart from the band).
     A piece beside the widest piece (2 % of the width or more, not wide: under 25 %) is kept when the median of its
     distances to the wide pieces and to the pieces kept beside it, in its columns, is 0.15 of the grid's height or
     less, or when none of them is in its columns.
@@ -1088,6 +1111,9 @@ def band(rgb, plot, bg, colour, px_db=None):
     # touches the curve is a part of its piece: here it goes); with the soft pixels next to the rows that stay
     solid = c > 0.5
     edges = grid_edges(plot, y0, y1, solid)
+    # (the edges where the website cut the curves: grid_edges gave the top or bottom dB grid line there)
+    hy = sorted(q[0] - y0 for q in plot.get("hy") or [])
+    clip = tuple(s for s, e, r in ((-1, edges[0], hy[:1]), (1, edges[1], hy[-1:])) if len(hy) >= 2 and e == r[0])
     stay = _continued(solid, max(4, int(0.006 * wide)), max(6, int(0.015 * wide)), edges)
     near_stay = ndimage.binary_dilation(stay, np.ones((7, 1), bool))
     clipped = int((solid.any(0) & (solid & ~stay).any(0)).sum())
@@ -1174,7 +1200,7 @@ def band(rgb, plot, bg, colour, px_db=None):
             "first": first,
             "c1": c1, "c2": c2, "m1": m1, "m2": m2, "mruns": mruns,
             "touch": np.where(full_top <= ea + 1.5, -1, np.where(full_bot >= eb - 1.5, 1, 0)),
-            "runs": nruns, "lw": lw, "cut": cut, "full_top": full_top, "full_bot": full_bot, "cover": c,
+            "runs": nruns, "lw": lw, "cut": cut, "clip": clip, "full_top": full_top, "full_bot": full_bot, "cover": c,
             "pieces": int(keep.sum()), "apart": float(far.mean())}
 
 
@@ -1251,15 +1277,18 @@ def average_rows(top, bot, nruns, c1, c2, lw, steep=None):
     return out
 
 
-def out_parts(inside, touch):
+def out_parts(inside, touch, clip=()):
     """The parts of the grid where the curve is out of the grid (above its top or below its bottom): inside, the
     columns with a curve; touch, -1 or 1 where the band touched the grid's top or bottom edge before band()'s cuts (0
-    where not, NaN where there is no band). An end part (from the first column to the first traced one, or from the
-    last traced one to the end) with a column that touches an edge: the curve went out there, and the columns have no
-    value (correct: they are not "not traced"). A part with no curve between two traced parts, with such a column
-    (the curve went out and came back: no value is correct there, and points() would join the two sides with a
-    straight line). Returns (ends, middle): [(first column, end column (not included), -1 or 1 (top or bottom), the
-    first and the last column that touches the edge)] each."""
+    where not, NaN where there is no band); clip, the edges (-1, 1: top, bottom) where the website cut the curves
+    (band()'s "clip"). An end part (from the first column to the first traced one, or from the last traced one to the
+    end) with a column that touches an edge: the curve went out there, and the columns have no value (correct: they
+    are not "not traced"). A part with no curve between two traced parts, with such a column (the curve went out and
+    came back: no value is correct there, and points() would join the two sides with a straight line); at an edge in
+    clip, also with such a column next to the part when the part is 0.6 % of the width or wider (one channel went
+    out of the grid there, and the band was the other channel only: band() left out those columns, and the curve was
+    0.72 dB off at 4 points across them, 1000 px). Returns (ends, middle): [(first column, end column (not
+    included), -1 or 1 (top or bottom), the first and the last column that touches the edge)] each."""
     cols = np.flatnonzero(inside)
     n = len(inside)
     if not len(cols):
@@ -1278,6 +1307,11 @@ def out_parts(inside, touch):
     for i in np.flatnonzero(np.diff(cols) > 1):
         a, e = cols[i] + 1, cols[i + 1]
         s = side(a, e)
+        if not s:
+            s = side(a - 1, e + 1)  # (the traced columns next to it, at an edge where the website cut the curves)
+            # (and only a gap of 0.6 % of the width or more: a gap of a few columns is a straight line that is
+            # nearly correct, 0.17 to 0.27 dB at 1 to 5 columns; the gaps that were wrong were 7 to 13 columns)
+            s = s if s and s[0] in clip and e - a >= 0.006 * n else None
         if s:
             middle.append((a, e) + s)
     return ends, middle
@@ -1568,12 +1602,15 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
     scaled to trace_core.MAX_PIXELS) read with no help: see the module's docstring. ocr_words: ui.ocr.words, or None
     (no label is read); an error from it (ocr.Unavailable) becomes a reason. The caller's array is not changed.
     Never raises for a picture that is not a graph (also None, or an array of 1, 2 or 4 dimensions): the check
-    "axes_plot" fails, and the Tracer has the whole picture,
-    loaded as Tracer.load does. Returns AutoRead(ok, tracer, checks, curve, target, points, target_points, plot,
-    seconds): ok when every check passes; tracer: a new Tracer (never None); checks: [Check(name, ok, reason)];
-    curve: tracer.curves[0] when it has data; target: the curve marked "target" or None; points and target_points:
-    [(Hz, dB)] or None (the dB axis is not known); plot: the crop's box in the picture {"x0", "y0", "x1", "y1"} or
-    None. Runs in the caller's thread and touches no window."""
+    "axes_plot" fails, and the Tracer has the whole picture, loaded as Tracer.load does. Returns AutoRead(ok, tracer,
+    checks, curve, target, points, target_points, plot, seconds, out_words): ok when every check passes; tracer: a new
+    Tracer (never None); checks: [Check(name, ok, reason)]; curve: tracer.curves[0] when it has data; target: the
+    curve marked "target" or None (also None when the curve is on less than MIN_TRACED of the grid, unless it is out
+    of the grid only at its ends and passes trace_curve); points and
+    target_points: [(Hz, dB)] or None (the dB axis is not known); plot: the crop's box in the picture {"x0", "y0",
+    "x1", "y1"} or None; out_words: the sentences of trace_curve about an end of the curve out of the grid ("At 18.7
+    kHz, the left or right curve goes below the bottom of the grid. The app traced the curve to 17.8 kHz."), or "".
+    Runs in the caller's thread and touches no window."""
     t0 = time.perf_counter()
     try:
         rgb = np.asarray(rgb)
@@ -1587,9 +1624,9 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
     def add(key, ok, text):
         checks.append(Check(key, bool(ok), text))
 
-    def result(t, curve=None, target=None, points=None, target_points=None, crop=None):
+    def result(t, curve=None, target=None, points=None, target_points=None, crop=None, out_words=""):
         return AutoRead(all(c.ok for c in checks), t, checks, curve, target, points, target_points, crop,
-                        time.perf_counter() - t0)
+                        time.perf_counter() - t0, out_words)
 
     plot = find_plot(rgb)
     if not plot["ok"]:
@@ -1719,22 +1756,29 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
     lo_c, hi_c = max(0, ca), min(t.W, cb + 1)
     inside = np.isfinite(curve["ys"][lo_c:hi_c])
     touch = crop_cols(b["touch"].astype(float), 0)[lo_c:hi_c]
-    ends, middle = out_parts(inside, touch)
+    ends, middle = out_parts(inside, touch, b["clip"])
     hz_at = lambda c: fmt_hz(20 * k10 * 10 ** ((c + lo_c + cx0 - fit["a"]) / fit["b"]))  # noqa: E731
     got = float(inside.mean()) if len(inside) else 0.0
-    gone = sum(q[1] - q[0] for q in ends) / len(inside) if len(inside) else 0.0
+    # (the parts out of the grid in the middle too: there trace_gaps fails with its own reason, and the user reads it)
+    gone = sum(q[1] - q[0] for q in ends + middle) / len(inside) if len(inside) else 0.0
+    # (and for MIN_IN_GRID: a wide part out of the grid in the middle made trace_curve fail first, and the status line
+    # did not show the true reason, the reason of trace_gaps; trace_gaps always fails with such a part)
+    mid = sum(q[1] - q[0] for q in middle) / len(inside) if len(inside) else 0.0
     pct = min(100, int(got * 100))
-    words = f"The curve is on {pct} % of the width of the grid." if got + gone >= MIN_TRACED else \
-        f"The curve is on only {pct} % of the width of the grid."
+    curve_ok = got + gone >= MIN_TRACED and got + mid >= MIN_IN_GRID
     out_of = lambda side: "above the top" if side < 0 else "below the bottom"  # noqa: E731
+    out_words = []  # (the sentences about the ends out of the grid: trace_curve's reason, and 3 Save's note)
     for a, e, side, e0, e1 in ends:
         if a == 0:
-            words += f" From {fmt_hz(f1)} to {hz_at(e1)}, the left or right curve is {out_of(side)} of the grid. " \
-                     f"The app traced the curve from {hz_at(e)}."
+            out_words.append(f"From {fmt_hz(f1)} to {hz_at(e1)}, the left or right curve is {out_of(side)} of the "
+                             f"grid. The app traced the curve from {hz_at(e)}.")
         else:
-            words += f" At {hz_at(e0)}, the left or right curve goes {out_of(side)} of the grid. The app traced the " \
-                     f"curve to {hz_at(a - 1)}."
-    add("trace_curve", got + gone >= MIN_TRACED, words)
+            out_words.append(f"At {hz_at(e0)}, the left or right curve goes {out_of(side)} of the grid. The app traced "
+                             f"the curve to {hz_at(a - 1)}.")
+    out_words = " ".join(out_words)
+    add("trace_curve", curve_ok, (f"The curve is on {pct} % of the width of the grid." if curve_ok else
+                                  f"The curve is on only {pct} % of the width of the grid.")
+        + (" " + out_words if out_words else ""))
     cols = np.flatnonzero(inside)
     gap = int(np.diff(cols).max()) - 1 if len(cols) > 1 else 0
     if middle:
@@ -1770,7 +1814,13 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
     # a second line: the target line (gray), or one more measurement (a strong color: not one device)
     tg = find_target(t, crop_cols(b["full_top"]), crop_cols(b["full_bot"]), lw)
     target = None
-    if tg and not tg["strong"]:
+    # (no target line when the curve is on less than MIN_TRACED of the grid, as before the parts out of the grid: a dB
+    # axis of 55 to 85 dB, the curve out of the grid at 7.4 kHz, gave a target 6.6 dB off at 29 points that followed
+    # its own name, known limit 9. But a target stays when the curve passes trace_curve (MIN_IN_GRID) and is out of
+    # the grid only at its ends: a bass roll-off under the grid, 94 % of the width, lost targets 0.03 to 0.16 dB off.
+    # (A rule that also asked for the target line on both sides of each end kept none of them: the target line stops
+    # before the high end.) tg stays for trace_single: a strong line is one more measurement)
+    if tg and not tg["strong"] and (got >= MIN_TRACED or curve_ok and not middle):
         target = t.new_curve(1)
         target.update(label="Target", colour=tg["colour"], target=True)
         for gx, gy in tg["ys"].items():
@@ -1794,4 +1844,4 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
                                  if int(round(k.x_at(f))) not in tg["hidden"]] or None
             except ValueError:
                 target_points = None  # (the target is not a part of the checks)
-    return result(t, curve if Tracer.has_data(curve) else None, target, points, target_points, crop_box)
+    return result(t, curve if Tracer.has_data(curve) else None, target, points, target_points, crop_box, out_words)

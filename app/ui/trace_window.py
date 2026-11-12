@@ -1597,8 +1597,13 @@ class TraceWindow(QWidget):
             want_target = e.get("as") == "target"
             # (the site in quotation marks: a cut site ended in "…" and then the period of the sentence, 2026-11-12)
             site = e.get("site", "")
+            # (a curve that goes out of the grid: where, and to where the app traced it, in the words of trace_curve;
+            # the saved measurement ends there. The instruction then starts a new line: a paragraph has 6 sentences
+            # at most, in STE)
+            out = getattr(r, "out_words", "")
             self.auto_note = (f"The app traced the graph of “{self.note_name(e.get('name', ''))}”"
-                              + (f" from “{self.note_name(site)}”. " if site else ". ")
+                              + (f" from “{self.note_name(site)}”." if site else ".")
+                              + (f" {out}\n" if out else " ")
                               + "Compare the curve with the picture. If they agree, click "
                               + ("Add as target." if want_target else "Add as measurement.")
                               + ("" if r.target is None else
@@ -1612,9 +1617,10 @@ class TraceWindow(QWidget):
             first = next(c for c in r.checks if not c.ok)
             not_graph = first.name == "axes_plot"
             # (not a graph: nothing to correct on a step, a new picture is necessary; the label read then gives 1 Axes
-            # its own note, as for any picture)
-            text = f"The app cannot trace this picture automatically. {first.reason} " + (
-                NOT_GRAPH if not_graph else CORRECT_STEP)
+            # its own note, as for any picture). The instruction to correct a step starts a new line: the reason of
+            # trace_curve has up to 5 sentences, and a paragraph has 6 sentences at most, in STE
+            text = f"The app cannot trace this picture automatically. {first.reason}" + (
+                " " + NOT_GRAPH if not_graph else "\n" + CORRECT_STEP)
             axes = first.name.startswith("axes")
             if axes and not not_graph:
                 t.axis_note = t.detect_note = text  # (also on 1 Axes; a label read starts from it)
