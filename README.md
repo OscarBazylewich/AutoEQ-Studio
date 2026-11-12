@@ -43,7 +43,8 @@ It is a Windows desktop app (Python and Qt), not a website. It also operates wit
 - **Devices and the tray:** profiles for each device, a tray icon, a hotkey, notifications, and a test that shows if
   Equalizer APO uses the EQ. The on/off hotkey disables the EQ of the active device and enables it again, to compare.
   “Off” has the same loudness as the EQ: only the sound is different. You can also update a profile with a new EQ.
-  The devices that have the profile on use the new EQ, and Undo is available.
+  The devices that have the profile on use the new EQ, and Undo is available. You can remove a device that is not
+  connected from Devices.
 - **Help in the app:** the Guide with demos, and Help for each setting and each name in the app (F1 on a
   control). You can also use the app with a keyboard and with a screen reader.
 - **The colors, text and symbols of Windows 11:** light or dark, as in Windows, in your Windows accent color,
