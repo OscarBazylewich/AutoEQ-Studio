@@ -2374,6 +2374,27 @@ def test_guide_save_step_keeps_off_the_target_line(eq_screen, flow, monkeypatch,
           came and shown == (True, True, True) and not any(over.values()), (shown, over, card))
 
 
+def test_note_has_its_height_when_it_shows(eq_screen, flow, monkeypatch, check):
+    """Immediately after the automatic read (in the same turn of the event loop, before the window paints), 3 Save's
+    note has all the height that its words need (2026-11-11: 30 px of 76 px for 2 or 3 turns, about 10 ms)."""
+    from ui import trace_window
+    seen = []
+    real = trace_window.TraceWindow.take_read
+
+    def take_read(self, r, entry):
+        real(self, r, entry)
+        n = self.save_note
+        seen.append((n.isVisible(), n.height(), n.heightForWidth(n.width())))
+    monkeypatch.setattr(trace_window.TraceWindow, "take_read", take_read)
+    came, tw = _traced(flow, monkeypatch, stand_in(target=True))
+    tw.remove_image()
+    flow["pk"].show()
+    came_2, tw = _traced(flow, monkeypatch, stand_in())
+    check("website flow: after the automatic read, 3 Save's note has all the height that its words need in the turn "
+          "in which it shows (with and without the target line's sentence)", came and came_2 and len(seen) == 2
+          and all(v and h == need > 0 for v, h, need in seen), seen)
+
+
 def test_empty_name_of_the_target_line_adds_nothing(eq_screen, fresh_studio, flow, monkeypatch, check):
     from eq import paths as eq_paths
     from ui import window_parts

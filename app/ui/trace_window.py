@@ -1562,8 +1562,18 @@ class TraceWindow(QWidget):
             self.status.setText(text)
         self.show_values()
         self.changed()
+        self.settle_layout()
         if not r.ok and r.checks and next(c for c in r.checks if not c.ok).name == "axes_plot":
             self.read_labels()  # (not a graph of the website: today's way for a picture)
+
+    def settle_layout(self):
+        """The layouts' requests done at once, before the window paints: after the automatic read, 3 Save's note had
+        19 to 38 px of the 76 px that it needs when it showed, and all of it only 2 or 3 turns of the event loop later
+        (about 10 ms; measured 2026-11-11), as each turn worked out one more level of the wrapped words' heights.
+        A few passes: each one can ask for one more."""
+        from PySide6.QtCore import QEvent
+        for _ in range(4):
+            QApplication.sendPostedEvents(None, QEvent.LayoutRequest)
 
     def note_name(self, name):
         """A name as 3 Save's note shows it: the wait window's rule for a long name (picture_wait.heading_name: 80
