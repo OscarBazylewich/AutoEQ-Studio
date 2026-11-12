@@ -323,11 +323,11 @@ Studio\profiles"). Thus, if you change the file that you imported, the profile d
 The buttons of Profiles are above its table. Import EQ files… and Open the profiles folder are first. A line and the
 buttons for one profile follow them. These buttons are enabled when you select a profile.
 "Edit in Make an EQ" opens the selected profile there as a manual EQ. When you change its filters, Use on device ›
-Update puts it into the profile again, and its devices keep it. If Equalizer APO uses AutoEQ Studio, a connected
-device with Equalizer APO uses the change immediately. A device with an EQ for 5 minutes, or with its EQ off to
-compare, uses the change after that. The rows Update "name" and "Update a profile" of Use on device put the EQ of a
-result into a profile that you have. Rename… gives the selected profile a different name, and Delete… (the last
-button) deletes its file, after a message.
+Update puts it into the profile again, and its devices keep it. A device with an EQ for 5 minutes, or with its EQ
+off to compare, uses the change after that, unless you click Keep it. If Equalizer APO uses AutoEQ Studio, all
+other connected devices with Equalizer APO use the change immediately. The rows Update "name" and "Update a
+profile" of Use on device put the EQ of a result into a profile that you have. Rename… gives the selected profile
+a different name, and Delete… (the last button) deletes its file, after a message.
 
 Devices: your playback devices, with their Windows names ("Headset (EarPods)"), connected devices first, from A to Z.
 A green dot: active. Your Windows accent color (blue at first): connected. Gray: not connected.
