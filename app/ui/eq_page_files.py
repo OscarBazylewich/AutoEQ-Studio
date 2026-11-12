@@ -133,14 +133,20 @@ class EqFiles:
         return False
 
     def open_trace(self):
-        """The tracer (one window, kept while the screen is open: what's traced stays when it's closed)."""
+        """The tracer (one window, kept while the screen is open: what's traced stays when it's closed), in front. A
+        minimized tracer comes back as it was (maximized or not): it stayed minimized when a new picture came,
+        2026-11-11. (Trace a graph image…, a picture pasted or dropped on the page and a picture from a website all
+        come here.)"""
+        from PySide6.QtCore import Qt
         from ui.trace_window import TraceWindow
         if getattr(self, "tracer", None) is None:
             self.tracer = TraceWindow(self)
-        self.tracer.fill_comp()
-        self.tracer.show()
-        self.tracer.raise_()
-        self.tracer.activateWindow()
+        tw = self.tracer
+        tw.fill_comp()
+        tw.show()
+        tw.setWindowState(tw.windowState() & ~Qt.WindowMinimized)
+        tw.raise_()
+        tw.activateWindow()
 
     # ---------------------------------------------------------------- a picture from a website (ui/picture_wait.py)
     def trace_from_website(self, entry_id, over, say, want=None):
