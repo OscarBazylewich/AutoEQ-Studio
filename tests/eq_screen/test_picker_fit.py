@@ -119,8 +119,11 @@ def test_tabs_say_what_the_mark_means(eq_screen, check):
     finally:
         qt.close(pk)
     body = " ".join(b for b in help_window._by_id().get("set-pk-src", {}).get("body", []) if isinstance(b, str))
+    # (the first sentence is for each tab: All shows all sources, so "one source" alone was not true for it)
     seen = {"tooltips say it": sorted(n for n, t in tips.items() if "“…”: the app continues to search this PC or to "
-                                      "load the online lists." in t and t.endswith("F1 opens Help.")),
+                                      "load the online lists." in t and t.endswith("F1 opens Help.")
+                                      and t.startswith("Shows the items of all sources or of one source, and their "
+                                                       "number.")),
             "F1 entries": sorted(set(entries.values())),
             "Help says it": "“…” after the number of This PC: the app continues to search this PC" in body
             and "“…” as the number of All or Online databases: the app continues to load the online lists." in body}

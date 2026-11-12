@@ -99,8 +99,8 @@ HELP_EQ = {'slot:target': ['The curve that you want for your earphone.', 'target
  '#snd-left': 'The version that your left ear hears.',
  '#snd-right': 'The version that your right ear hears.',
  'snd_list': ['EQs that you want to compare on this IEM or headphone.', 'eqs-to-compare'],
- '#pk-src': ['Shows the items of one source, and their number. “…”: the app continues to search this PC or to load '
-             'the online lists.',
+ '#pk-src': ['Shows the items of all sources or of one source, and their number. “…”: the app continues to search '
+             'this PC or to load the online lists.',
              'databases'],
  '#pk-anykind': 'Also shows files of the other type.',
  'pk_filters': ['Shows only the items of one rig, type or source. To find one, type in its list.',
