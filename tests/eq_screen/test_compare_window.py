@@ -48,20 +48,22 @@ def _shown_with(page, monkeypatch, items=2):
 
 @pytest.fixture(scope="module")
 def which(eq_screen):
-    """Which measurement to use?, opened and shown as the old checks did (lines 1474-1476)."""
+    """Which measurement to use?, opened and shown as the old checks did (lines 1474-1476), then "gate" searched and
+    its answer waited for (up to 240 s, times the time factor, as the old check allowed). Made here, not in the first
+    test, so that each test of the chain passes alone and in any sequence (2026-11-11: Use failed when it ran first)."""
     from ui.compare_window import CompareWindow
     cw = CompareWindow(eq_screen.page)
     cw.show()
-    return {"cw": cw}
-
-
-@pytest.mark.timeout(900)  # (its answer is waited for up to 240 s, times the time factor, as the old check allowed)
-def test_ranks_the_measurements(eq_screen, which, check):
-    cw = which["cw"]
     cw.q.setText("gate")
     cw.search_measurements()
     compared = eq_screen.wait_for(lambda: cw.data is not None and not cw.busy, 240)
-    items = (cw.data or {}).get("items") or []
+    return {"cw": cw, "compared": compared, "data": cw.data}
+
+
+@pytest.mark.timeout(900)  # (the fixture waits for its answer: up to 240 s, times the time factor)
+def test_ranks_the_measurements(eq_screen, which, check):
+    cw, compared = which["cw"], which["compared"]
+    items = (which["data"] or {}).get("items") or []
     # was eq_checks.py:1481
     check("ui: Which measurement to use ranks the model's measurements for the target (each with its score and reasons)",
           compared and items and all("score" in c and c.get("reasons") is not None for c in items)
@@ -103,6 +105,7 @@ def test_says_when_nothing_could_be_loaded(eq_screen, monkeypatch, check):
           and "cannot load" in note and reasons and "no internet in the tests" in reasons[0], (status, note, reasons))
 
 
+@pytest.mark.timeout(900)  # (as above, when it runs first: the fixture waits for the answer)
 def test_use_puts_the_top_one_in_use(eq_screen, which, check):
     from PySide6.QtWidgets import QPushButton
     page, cw = eq_screen.page, which["cw"]

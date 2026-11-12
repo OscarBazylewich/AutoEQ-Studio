@@ -9,8 +9,8 @@ narrow as the Guide's (its filters on two lines, a long name ending in "…"), F
 
 Moved from eq_checks.py's ui_checks (lines 1380-1472), review_checks (1743-1763), review_low_checks (1862-1881) and
 order_checks (2324-2380), on one page (the eq_screen fixture), offline throughout.
-- The first eight are one chain, as there: one Find… window (the `find` fixture), its rows for "gate" kept by the
-  first for the later ones. Its This PC rows are the studio's samples (This PC's search is set to them): the old run
+- The first eight are one chain, as there: one Find… window (the `find` fixture), its rows for "gate" made by the
+  fixture for all of them (each passes alone and in any sequence; Use has a window of its own). Its This PC rows are the studio's samples (This PC's search is set to them): the old run
   found the user's own files there too.
 - The old checks from line 1528 on had a result on the card and a saved EQ in History (a run, Retry, Save, History's
   Show), and by the A to Z check the page also owned windows earlier checks had left there (Which measurement,
@@ -39,7 +39,9 @@ def _rows(pk):
 @pytest.fixture(scope="module")
 def find(eq_screen):
     """Find… for a measurement as the old checks opened it (lines 1381-1386): offline, This PC's search on the
-    studio's samples, shown. The chain's tests share it (and `rows`, its rows for "gate")."""
+    studio's samples, shown, its lists and This PC's search waited for, then "gate" searched. The tests of the
+    chain share it: `rows` (its rows for "gate") and `loaded` are made here, so each test of the chain passes alone
+    and in any sequence (2026-11-11: in the opposite sequence four of them failed, as the first test made these)."""
     import net
     from ui.picker import Picker
     page = eq_screen.page
@@ -47,16 +49,16 @@ def find(eq_screen):
     page.S["library"]["folders"] = [os.path.join(session.SESSION.studio, "samples")]
     pk = Picker(page, "measurement")
     pk.show()
-    return {"pk": pk, "rows": []}
+    loaded = eq_screen.wait_for(lambda: not pk.db.get("loading") and not pk.lib.get("scanning"), 120)
+    pk.q.setText("gate")
+    pk._later.stop()
+    pk.render()
+    pk.finish_list()
+    return {"pk": pk, "rows": _rows(pk), "loaded": loaded}
 
 
 def test_searches_three_sources(eq_screen, find, check):
-    pk = find["pk"]
-    loaded = eq_screen.wait_for(lambda: not pk.db.get("loading") and not pk.lib.get("scanning"), 120)
-    pk.q.setText("gate")
-    pk.render()
-    pk.finish_list()
-    rows = find["rows"] = _rows(pk)
+    pk, loaded, rows = find["pk"], find["loaded"], find["rows"]
     srcs = {r["src"] for r in rows}
     # was eq_checks.py:1393
     check("ui: Find… searches the app's files, this PC and the online lists (offline: the saved ones)",
@@ -68,6 +70,7 @@ def test_long_list_in_batches_keeps_its_place(eq_screen, find, monkeypatch, chec
     # (both checks in one test, as their numbers were taken in one go: first and every before the place is checked)
     from PySide6.QtWidgets import QApplication
     pk = find["pk"]
+    pk.clear_filters()  # (no selection of a test before: the rig filter's 5128 hid every made-up row)
     # a long list: the first rows at once, the rest a batch at a time (each row is ~2 ms of widgets: a key waited)
     monkeypatch.setattr(pk, "db", {"items": [[f"fake{i}", "m", f"Fakeone {i}", "Sub", "Site", None, "", ""]
                                              for i in range(200)], "loading": False})
@@ -127,10 +130,11 @@ def test_asks_only_for_the_counts(eq_screen, find, monkeypatch, check):
 def test_rig_filter(eq_screen, find, check):
     pk = find["pk"]
     pk.set_filter("rig", "5128")
-    kept = _rows(pk)
+    kept, box = _rows(pk), pk.f_rig.currentText()
+    pk.clear_filters()  # (the next test of the chain, in any sequence, starts with no selection)
     # was eq_checks.py:1444
     check("ui: Find…'s rig filter leaves only that rig, and its list counts them",
-          kept and all(pk.rig_of(r) == "5128" for r in kept) and "5128" in pk.f_rig.currentText(),
+          kept and all(pk.rig_of(r) == "5128" for r in kept) and "5128" in box,
           [r["rig"] for r in kept][:5])
 
 
@@ -168,12 +172,19 @@ def test_online_entry_offline(eq_screen, find, monkeypatch, check):
 
 
 def test_use_from_this_pc(eq_screen, find, check):
-    page, pk = eq_screen.page, find["pk"]
+    # (a Find… of its own, made after the chain's: Use closes it, and the chain's window stays open for the other
+    # tests in any sequence)
+    from ui.picker import Picker
+    page = eq_screen.page
+    pk = Picker(page, "measurement")
+    pk.show()
+    eq_screen.wait_for(lambda: not pk.lib.get("scanning"), 120)
     pc_row = next(iter(pk.pc_rows(["gate"])), None)
     used = False
     if pc_row is not None:
         pk.use_row(pc_row)
         used = eq_screen.wait_for(lambda: not pk.isVisible() and page.curves is not None, 60)
+    qt.close(pk)
     # was eq_checks.py:1471
     check("ui: Find…'s Use puts a file from this PC into the app and in use", used and any(
           f["included"] for f in page.groups.get(page.measurement_combo.currentData(), [])),
