@@ -1,7 +1,11 @@
 """The wait for a picture from a website: Find…'s Use, or a link of Which measurement, on an entry of a database that
-does not let other programs download its files (Hangout.Audio). The page (ui/eq_page_files.py's trace_from_website)
-opens the entry in the user's browser, then this small dialog on top of the window that asked (window modal, opened
-with open(): nothing blocks). The app has no browser in it and asks the website for nothing.
+does not let other programs download its files (Hangout.Audio, or a website that refused a download), a measurement
+or a target. The page (ui/eq_page_files.py's trace_from_website) opens the entry in the user's browser (or the page of
+the database when the app knows no link to the entry: "site_page", and step 1 then tells the user to select it; else
+step 1 tells what to do when the website does not show it: its share link is not verified on each website), then this
+small dialog on top of the window that asked (window modal, opened with open(): nothing blocks). For a target entry
+it also says that the website can change a target with its settings (TARGET_SETTINGS). The app has no
+browser in it and asks the website for nothing.
 
 While it shows, it waits for the first new picture:
 - the clipboard (Windows + Shift + S copies a part of the screen): QClipboard.dataChanged, which Qt sends for a copy by
@@ -57,6 +61,13 @@ JPEG_SUFFIXES = (".jpg", ".jpeg", ".jfif")
 NAME_MAX = 80  # (the characters of an entry's name in the heading: then "…", the whole name in its tooltip)
 WIDTH, PAD = 520, 24  # (the words' width at least, and the dialog's padding: Windows 11's)
 FRONT_WINDOW = "If the website shows a window in front of the graph, close that window."  # (step 1: steps())
+# (step 1 too: the share link of an entry is not verified on each website, and a page link shows no entry)
+NOT_SHOWN = "If the graph does not show this entry, select the entry in the list of the website."
+SELECT = "Select this entry in the list of the website."
+# (a target entry: the website changes a target with its settings, "(Tilt: -0.4dB/Oct, Bass: 8dB)" in its legend,
+# seen by the owner on graph.hangout.audio, 2026-11-12; the app does not read or change them)
+TARGET_SETTINGS = ("The website can change a target with its settings (for example, tilt and bass). The picture "
+                   "shows the target with these settings.")
 # (line ends, tabs and the other control characters: each run becomes one space)
 _CONTROL = re.compile(r"[\s\x00-\x1f\x7f-\x9f]+")
 
@@ -288,6 +299,10 @@ class PictureWait(QDialog):
             steps.addWidget(QLabel(f"{n + 1}."), n, 0, Qt.AlignTop)
             steps.addWidget(self._words(text), n, 1)
         v.addLayout(steps)
+        self.target_note = None
+        if entry.get("kind") == "target":
+            self.target_note = self._words(TARGET_SETTINGS)
+            v.addWidget(self.target_note)
         self.where = muted(self.where_text())
         v.addWidget(self.where)
         self.path = None
@@ -312,7 +327,10 @@ class PictureWait(QDialog):
         # (the site in quotation marks: a cut site ended in "…" and then the period of the sentence, 2026-11-12)
         shown_site = (f"“{heading_name(site, self.intro.fontMetrics(), WIDTH - 2 * PAD)}”" if site
                       else "its website")
-        intro = f"Your browser shows this entry on {shown_site}. Give the app a picture of its graph:"
+        # (a link to the page of the database, not to the entry: eq.service's site_page)
+        intro = (f"Your browser shows {shown_site}. Give the app a picture of the graph of this entry:"
+                 if entry.get("site_page") else
+                 f"Your browser shows this entry on {shown_site}. Give the app a picture of its graph:")
         self.intro.setText(intro)
         if site and shown_site != f"“{site}”":
             self.intro.setToolTip(plain_tip(site))
@@ -326,7 +344,8 @@ class PictureWait(QDialog):
         # (a screen reader: the focus is on Paste the picture when the window opens, and the words are labels only)
         self.setAccessibleName(self.windowTitle())
         self.setAccessibleDescription(" ".join(
-            [head.text(), intro] + [f"{n + 1}. {s}" for n, s in enumerate(self.steps())] + [self.where.text()]
+            [head.text(), intro] + [f"{n + 1}. {s}" for n, s in enumerate(self.steps())]
+            + ([TARGET_SETTINGS] if self.target_note is not None else []) + [self.where.text()]
             + ([self.path.text()] if self.path is not None else [])).replace("\n", " "))
         QShortcut(QKeySequence.Paste, self, self.paste)
         self._settle = QTimer(self, singleShot=True, timeout=self._read_clipboard)
@@ -346,7 +365,9 @@ class PictureWait(QDialog):
                 "clipboard.")
         # (a website can show a window in front of its graph at the first visit, "Welcome to Squiglink": the screen
         # copy then had no graph, 2026-11-11)
-        return ["Maximize the window of your browser. Larger pictures give better results. " + FRONT_WINDOW,
+        find = SELECT if (self.entry or {}).get("site_page") else NOT_SHOWN
+        return ["Maximize the window of your browser. Larger pictures give better results. " + FRONT_WINDOW + " "
+                + find,
                 copy + "\nOr click Screenshot on the website. Your browser saves the picture in the Downloads folder."
                 if self.folder else copy]
 

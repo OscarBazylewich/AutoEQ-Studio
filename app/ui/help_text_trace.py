@@ -85,7 +85,12 @@ SETTINGS_TRACE = [{'title': 'Trace a graph image',
                              {'key': '#tr-target-line',
                               'title': 'Add the target line as target…',
                               'body': ['Adds the target line of the picture as a target. You give its name first. It '
-                                       'shows only when the app found a target line in a picture from a website.',
+                                       'shows only when the app found a target line next to a measurement in a '
+                                       'picture from a website.',
+                                       'If the picture has only a target line, the app traces that line as the curve, '
+                                       'and Add as target is the first button of 3 Save. Add as measurement also adds '
+                                       'it. If the picture has more than one target line, show only one target on the '
+                                       'graph of the website. Then copy a new picture.',
                                        'Add as measurement does not add the target line. If you change the target line '
                                        '(for example, you erase a part of it or rename it), it becomes a measurement '
                                        'curve. To add it as a target, select it. Then click Add as target. To remove '

@@ -657,9 +657,18 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'a picture of their website.']},
                           {'key': '#pw-paste',
                            'title': 'Paste the picture (a picture from the website)',
-                           'body': ['Hangout.Audio does not let other programs download its files, and the app obeys '
+                           'body': ['Some websites do not let other programs download their files, and the app obeys '
                                     'that limit. The app has no browser in it and does not get the data of the '
                                     'website. Your browser shows the graph, and the app reads only a picture of it.',
+                                    'The app opens the website of the entry (a measurement or a target). If the graph '
+                                    'does not show this entry, select the entry in the list of the website. For some '
+                                    'websites, the app opens only the page of the database. Then select the entry on '
+                                    'that page.',
+                                    'The website can change a target with its settings (for example, tilt and bass). '
+                                    'The picture shows the target with these settings.',
+                                    'If a website does not let the app download an entry, the app also uses '
+                                    'pictures for the other entries of that database. After 7 days, the app '
+                                    'tries to download again.',
                                     'If the website shows a window in front of the graph, close that window before you '
                                     'copy the picture.',
                                     'While the app waits, it looks at the clipboard and at the names of the picture '
@@ -667,18 +676,24 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'started to wait. It does not change or delete a file. Paste the picture uses the '
                                     'picture that is on the clipboard at this time. The app waits for a maximum of 10 '
                                     'minutes, or until you click Cancel.',
-                                    'The tracer finds the axes and the curve automatically and opens on 3 Save. The '
-                                    'result is one measurement: the average of the left and right curves. If a curve '
+                                    'The tracer finds the axes and the curve automatically and opens on 3 Save. For a '
+                                    'measurement, the result is one measurement: the average of the left and right '
+                                    'curves. If a curve '
                                     'goes above or below the grid near an end of the frequency axis, the measurement '
                                     'does not include that part. The text on 3 Save gives the frequencies. Compare '
                                     'the traced curve with the picture before you add it.',
+                                    'For an entry of a target, show only the target on the graph of the website. The '
+                                    'tracer then traces the target line. If the line stops before an end of the '
+                                    'frequency axis, 3 Save shows its first and last frequency.',
+                                    'For an entry of a target or from Find a target, Add as target is the first '
+                                    'button. The text on 3 Save tells you to click it. If the app '
+                                    'cannot trace only the target line, remove the measurement curve from the graph '
+                                    'of the website. Then copy a new picture.',
                                     'A small picture, or a second curve in almost the same color, can cause errors. '
                                     'If the app cannot trace the '
                                     'picture automatically, the tracer opens on the tab where your input is '
                                     'necessary. A message gives the cause.',
-                                    'The measurement gets the name of the entry and the rig of its database. For an '
-                                    'entry from Find a target, Add as target is the first button of 3 Save, and 3 Save '
-                                    'tells you to click it. If '
+                                    'The curve gets the name of the entry and the rig of its database. If '
                                     'the picture is not a graph, copy a new picture of the graph. Then '
                                     'paste it in the tracer. The tracer keeps the name and the rig of the entry. If '
                                     'you paste the same picture again before you add a curve from it, the tracer keeps '

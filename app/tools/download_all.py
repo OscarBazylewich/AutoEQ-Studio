@@ -7,8 +7,9 @@ already there is reused, not fetched again.
 It uses the database lists the app already has (data\\eq\\cache\\databases.json: refresh them in Find… › Sources
 first for the newest), and the app's own download (eq\\databases.download): the same files and names as Use. Kind to
 the sites: one entry at a time per website (each address: every reviewer's *.squig.link is a site of its own), a
-short pause between entries, three websites at once. List-only databases (sites that don't let other programs download, "link" entries) are
-skipped. Progress and what failed go to data\\download_all.log; Ctrl+C stops it (run it again to carry on).
+short pause between entries, three websites at once. List-only databases (sites that don't let other programs
+download: marked, or one that refused a download in the last 7 days, eq\\databases.list_only) are skipped. Progress
+and what failed go to data\\download_all.log; Ctrl+C stops it (run it again to carry on).
 """
 import collections
 import os
@@ -46,7 +47,10 @@ def main():
     databases.keep_confs(cache)
     databases.set_items(entries)
     only = sys.argv[sys.argv.index("--only") + 1].lower() if "--only" in sys.argv else ""
-    todo = [it for it in entries if not it.get("link") and only in (it["site"] + " " + it["site_url"]).lower()]
+    # (list only: marked in the app's list of databases, or the website stopped a download in the last 7 days)
+    lo = {url: databases.list_only(databases.find_site(url) or {"url": url}) for url in cache}
+    todo = [it for it in entries if not it.get("link") and not lo.get(it["site_url"])
+            and only in (it["site"] + " " + it["site_url"]).lower()]
     by_domain = collections.defaultdict(list)
     for it in todo:
         by_domain[domain(it["site_url"])].append(it)

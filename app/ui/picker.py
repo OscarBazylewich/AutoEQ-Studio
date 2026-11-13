@@ -14,8 +14,10 @@ double-click too), then the bin apart (your own files: deleted for good, asked f
 its room, so every Use is in one column.
 
 Offline (net.py): the lists the app has are searched as usual; a curve downloaded before is used from this PC, any
-other online one says it needs the internet. A list-only database's entry opens on its site (online only), and the
-app waits for a picture of its graph for the tracer (the page's trace_from_website, ui/picture_wait.py).
+other online one says it needs the internet. A list-only database's entry (a measurement or a target) opens on its
+site (online only), and the app waits for a picture of its graph for the tracer (the page's trace_from_website,
+ui/picture_wait.py). A Use whose download the website refuses (eq.databases.ListOnly) goes on the same way, with a
+message in this window's line; the rows then get the links (website_refused).
 
 The look (Windows 11's, ui\\theme_sheet.py's find_windows part matches the names given here): a row's name in
 semibold (findRowName), ending in "…" when it's longer than its room (never cut mid-letter), the download mark as
@@ -402,14 +404,15 @@ class Picker(QDialog):
         if self._fetching:  # (the last one still going: not another on top)
             return
         self._fetching = True
-        have_db = (len(self.db["items"]), self.db.get("loading"))
+        # (its changes too: a database that refused a download gives its entries their links, not more entries)
+        have_db = (len(self.db["items"]), self.db.get("loading"), self.db.get("changes"))
         have_lib = (len(self.lib["items"]), self.lib.get("scanning"))
 
         def fetch():
             # the counts first (cheap); a whole list (55,000 rows) only when it changed: every half second it was
             # built again while the lists loaded
             db, lib = self.svc.call("/api/db"), self.svc.call("/api/library")
-            if first or (db.get("count"), db.get("loading")) != have_db:
+            if first or (db.get("count"), db.get("loading"), db.get("changes")) != have_db:
                 db = self.svc.call("/api/db", {"items": True})
                 src = db.get("items")
                 if src:  # (55,000 rows A to Z: half a second, so here, once per list; the same list after)
@@ -641,7 +644,6 @@ class Picker(QDialog):
             chk.blockSignals(True)
             chk.setChecked(bool(f[key]))
             chk.blockSignals(False)
-        self.f_dl.setVisible(self.kind != "target")
         self.f_clear.setEnabled(any(f.values()))
         self.filter_lines.invalidate()  # (the boxes' choices changed: the room they ask for too)
 
@@ -829,7 +831,7 @@ class Picker(QDialog):
         if r.get("link"):
             ext = QLabel("trace from the website ↗")
             theme.mark(ext, role="muted")
-            ext.setToolTip("Other programs cannot download the files of this website. Use opens the entry in your "
+            ext.setToolTip("Other programs cannot download the files of this website. Use opens the website in your "
                            "browser. Then the app waits for a picture of the graph and traces it.")
             h.addWidget(ext)
         elif r["src"] == "db":
@@ -977,9 +979,10 @@ class Picker(QDialog):
             return
         if r.get("link"):  # (the browser, then a wait for a picture of its graph: the page's, ui/picture_wait.py;
             # offline and the other messages are said in this window's line, UI-RULES 7)
-            # (an entry of the other group, "Targets and measurements": the tracer names the add that the user wants)
+            # (the tracer names the add that the user wants: a target in Find a target, also for an entry of the
+            # other group, "Targets and measurements")
             self.page.trace_from_website(r["id"], over=self, say=lambda t, ms=10000: self.footer.say(t, ms),
-                                         want=self.kind if r.get("other") else None)
+                                         want=self.kind)
             return
         if r["src"] == "app":
             if r.get("device"):
@@ -1002,11 +1005,26 @@ class Picker(QDialog):
                     QMessageBox.warning(self, "Use", str(err or res["error"]))
                     self.render()
                 return
+            if res.get("list_only"):  # (its database refused the download: the same Use goes on with the trace)
+                if here:
+                    self.busy = None
+                    self.website_refused(res["list_only"])
+                return
             page.file_used(res)
             if here:
                 self.busy = None
                 self.accept()
         tasks.background(lambda: self.svc.call("/api/use", body), done)
+
+    def website_refused(self, refused):
+        """Use on an entry whose database refused the download (eq.databases.ListOnly): the message says so in this
+        window's line, the rows get the links of the lists (the database is list only now), and the trace from the
+        website starts for the entry."""
+        self.footer.say(refused["message"], 20000)
+        self._load()
+        self.render()
+        self.page.trace_from_website(refused["id"], over=self, say=lambda t, ms=10000: self.footer.say(t, ms),
+                                     want=self.kind)
 
     def preview(self, r):
         if self.page.has_preview(r["key"]):
@@ -1026,6 +1044,10 @@ class Picker(QDialog):
             loading.discard(r["key"])
             if err or (res or {}).get("error"):
                 QMessageBox.warning(self, "Preview", str(err or res["error"]))
+            elif res.get("list_only"):  # (its database refused the download: the row shows Use only, from the lists)
+                self.footer.say(res["list_only"]["message"], 20000)
+                self._load()
+                return
             else:
                 self.page.add_preview(r["key"], res["name"], res["vals"], self.request_body(r))
             self.render()

@@ -137,7 +137,8 @@ def state(body):
             "auto_paths": settings.AUTO_PATHS,
             "output_dir": exports.OUTPUT_DIR, "library_defaults": library.default_folders(),
             "home": os.path.expanduser("~"),
-            "database_sites": [{"name": s["name"], "url": s["url"], "on": s.get("on", True), "browse": bool(s.get("browse")),
+            "database_sites": [{"name": s["name"], "url": s["url"], "on": s.get("on", True),
+                                "browse": databases.list_only(s),
                                 "group": s.get("group", "added"), "short": s["short"], "form": databases.site_form(s),
                                 "folder": databases.folder_name(s["name"])} for s in databases.all_sites()],
             "database_groups": list(databases.GROUPS.items()),  # in order ("5128" would sort first in a JS object)
@@ -343,7 +344,10 @@ def use(body):
     cfg = cfg_from(body)
     if body.get("as") not in (None, ""):
         kind_of({"kind": body["as"]})  # (target or measurement, else a plain message)
-    files, name, kind = _source_files(body)
+    try:
+        files, name, kind = _source_files(body)
+    except databases.ListOnly as e:  # (the app cannot download it: Find… goes on with the trace from the website)
+        return {"list_only": {"id": e.entry_id, "message": str(e)}}
     kind = body.get("as") or kind
     files = files if kind == "measurement" else files[:1]
     before = copy.deepcopy(cfg["files"])  # (a copy: called directly, nothing is serialised in between)
@@ -369,7 +373,11 @@ def use(body):
 @route("/api/preview")
 def preview(body):
     """A picker entry's curve for the graph, without putting it in use."""
-    files, name, kind = _source_files(body)
+    try:
+        files, name, kind = _source_files(body)
+    except databases.ListOnly as e:  # (its database refused the download: Find… shows its row again, with Use only)
+        it = databases.item(e.entry_id)
+        return {"list_only": {"id": e.entry_id, "message": databases.BROWSE_NOTE.format(site=it["site"])}}
     vals = engines.preview_curve(cfg_from(body), [inputs.read_text(f) for f in files])
     return {"name": name, "kind": kind, "vals": vals}
 
@@ -417,7 +425,10 @@ def db_entry(body):
     """One database entry by its id, from the lists in memory (no internet): its name, tag, website and link (the
     picture from a website: ui/eq_page_files.py's trace_from_website)."""
     it = databases.item(body.get("id"))
-    return {"entry": {k: it.get(k) for k in ("id", "kind", "name", "sub", "tag", "site", "site_url", "link")}}
+    entry = {k: it.get(k) for k in ("id", "kind", "name", "sub", "tag", "site", "site_url", "link")}
+    # (the link is the page of the database, not of the entry: the wait window tells the user to select the entry)
+    entry["site_page"] = bool(it.get("link")) and databases.norm_url(it["link"]) == databases.norm_url(it["site_url"])
+    return {"entry": entry}
 
 
 # ---------------------------------------------------------------- which measurement to use

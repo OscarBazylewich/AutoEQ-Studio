@@ -541,11 +541,13 @@ def test_db_entry(api, db_guard, eq_cfg, check):
     it = next(i for i in databases.items() if i.get("link") and i["name"] == "Truthear Gate")
     r = api.call("/api/db/entry", {"id": it["id"]})
     e = r.get("entry") or {}
+    # (site_page: whether the link is the page of the database, not of the entry: 2026-11-12, the wait window then
+    # tells the user to select the entry)
     check("service: /api/db/entry gives the entry's name, tag, website and link",
-          (e.get("id"), e.get("name"), e.get("tag"), e.get("site_url"), e.get("link"), e.get("kind"))
-          == (it["id"], "Truthear Gate", "Hangout 5128", HANGOUT, HANGOUT + "?share=Gate", "measurement")
-          and e.get("site") == it["site"] and set(e) == {"id", "kind", "name", "sub", "tag", "site", "site_url", "link"},
-          r)
+          tuple(e.get(k) for k in ("id", "name", "tag", "site_url", "link", "kind", "site_page"))
+          == (it["id"], "Truthear Gate", "Hangout 5128", HANGOUT, HANGOUT + "?share=Gate", "measurement", False)
+          and e.get("site") == it["site"]
+          and set(e) == {"id", "kind", "name", "sub", "tag", "site", "site_url", "link", "site_page"}, r)
     bad = api.call("/api/db/entry", {"id": "no-such-entry"})
     check("service: /api/db/entry with an id that is not there gives a plain error",
           "not there" in bad.get("error", "") and "Traceback" not in json.dumps(bad), bad)

@@ -94,8 +94,20 @@ HOW EACH IS INTEGRATED (checked 23 September 2026)
   - AutoEq: GitHub's file list and raw.githubusercontent.com downloads, as before.
   - Hangout.Audio (all three): its list (phone_book.json) is public and is indexed, but its server refuses the
     measurement files to anything but its own graph page (HTTP 403 Forbidden). The app doesn't try to get round
-    that. Its entries show in searches with "trace from the website ↗". To use one of its entries, click Use in
-    Find…. The app opens the entry in your browser (the share link squig.link itself uses), waits for a picture of
-    the graph and traces it. "Which measurement to use?" lists them with links that do the same. The app does not
-    download data from the website for this.
+    that. Its entries (measurements and the targets of its config) show in searches with "trace from the website
+    ↗". To use one of its entries, click Use in Find…. The app opens the entry in your browser (the share link
+    squig.link itself uses; a target's file is "<name> Target"), waits for a picture of the graph and traces it.
+    "Which measurement to use?" lists them with links that do the same. The app does not download data from the
+    website for this.
+  - Any other graph page (squig.link's list or one added in Sources) whose server refuses each address of an entry
+    with HTTP 401 or 403 (not 404, a time-out or a network error) becomes list only in the same way, at once: the
+    Use goes on with the trace. The app keeps the refusal with its time (data\eq\cache\list_only.json); 7 days
+    later the lists load without it, and the next Use tries the download again (a success removes it). The share
+    link is the graph tool's (CrinGraph) form; for modernGraphTool the app knows no share link, so the link is the
+    page of the database and the user selects the entry there. A file name with a comma also gets the page (the
+    graph tool splits a share link's names at commas: from memory, not verified); an address with a query
+    ("?lang=en") gets "&share=". A target's share link ("<name>_Target") was tried on
+    one website by the owner (2026-11-12: graph.hangout.audio/iem/5128/?share=JM-1_Target shows only the target
+    line, with the website's own tilt and bass in its legend); other websites and modernGraphTool are not tried.
+    AutoEq (GitHub) is not a graph page: a refusal there stays an error.
   Lists refresh every few days; new models in these databases appear by themselves.

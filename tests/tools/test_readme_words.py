@@ -77,11 +77,23 @@ def test_readme_words_of_a_graph_from_a_website(check):
     text = " ".join(raw.split())
     check("readme: step 1 of a graph from a website closes a window in front of the graph first, and step 2 tells "
           "that the measurement does not include the part out of the grid",
-          "1. If the website shows a window in front of the graph, close that window. Press Windows + Shift + S. Then "
-          "select the area of the graph. Or click Screenshot on the website." in text
+          # (2026-11-12: then what to do when the graph does not show the entry: the share link of an entry is not
+          # verified on each website)
+          "1. If the website shows a window in front of the graph, close that window. If the graph does not show the "
+          "entry, select the entry in the list of the website. For an entry of a target, show only the target on the "
+          "graph of the website. Press Windows + Shift + S. Then select the area of the graph. Or click Screenshot on "
+          "the website." in text
           and "If a curve goes above or below the grid near an end of the frequency axis, the measurement does not "
           "include that part. The text on 3 Save gives the frequencies." in text
           and "starts or stops at that frequency" not in text, text[:0])
+    # (2026-11-13: the tracer of a target from a website traces the target line when the graph shows only the target.
+    # The instruction to show only the target is in step 1, before the picture; step 3 tells Add as target one time)
+    check("readme: step 1 tells to show only the target for an entry of a target, and step 3 tells Add as target "
+          "for an entry of a target or from Find a target, one time",
+          "3. If they agree, click Add as measurement. For an entry of a target or an entry from Find a target, the "
+          "tracer tells you to click Add as target. If the tracer cannot trace the picture, it shows the step that "
+          "you must correct." in text and text.count("show only the target") == 1
+          and text.count("click Add as target") == 1, text[:0])
     check("readme: each line of README.txt has 120 characters or fewer, with LF line ends",
           "\r" not in raw and all(len(line) <= 120 for line in raw.split("\n")),
           [line for line in raw.split("\n") if len(line) > 120])

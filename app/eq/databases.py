@@ -4,6 +4,9 @@ Each squig.link site (CrinGraph graph tool) has a page -> config*.js (DIR, PHONE
 -> phone_book.json -> "<file> L1.txt"... text files. The AutoEq repository lists its measurements/ and targets/
 CSV files through the GitHub trees API. Indexes are cached for a few days; files are downloaded on demand into
 downloads/<database>/ (the "This PC" search leaves it out: those are these entries, used from there when downloaded).
+A list-only database (list_only: marked in SITES, or one whose server refused a download) has its entries in the
+lists, its targets too, each with a link to the website (entry_link: the share link that opens the entry, or only the
+page of the database, where the user selects the entry); Use traces a picture of it.
 """
 import functools
 import hashlib
@@ -12,6 +15,7 @@ import os
 import re
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -70,12 +74,35 @@ DIRECTORY_PATH = os.path.join(paths.CACHE, "squigsites.json")
 RETRY_AFTER = 600  # seconds before squig.link's list is asked for again after a try that failed (offline, slow network)
 _dir_failed = {"at": 0.0}
 _TYPE_GROUP = {"IEMs": "iem", "5128": "5128", "Headphones": "hp", "Earbuds": "earbuds"}
-BROWSE_NOTE = ("{site} does not let other programs download its measurement files. To use this entry, click Use in "
-               "Find…. The app opens it on the website and traces a picture of its graph.")
+# (the app opens the website: the entry itself with a share link, or only the page of the database, entry_link)
+BROWSE_NOTE = ("{site} does not let other programs download its files. To use this entry, click Use in Find…. The app "
+               "opens the website and traces a picture of the graph of the entry.")
+REFUSED_NOTE = ("{site} does not let other programs download its files. Thus, the app opens the website and traces a "
+                "picture of the graph of the entry.")
+# A database is list only when SITES marks it ("browse"), or when its server refused each address of an entry with
+# HTTP 401 or 403 (a 404, a time-out or a network error is not a refusal). The app keeps such a refusal with its
+# time in LIST_ONLY_PATH; RETRY_AFTER_DAYS later the lists are made without the mark, and the next Use tries the
+# download again (a success removes the mark). The app never goes around a refusal: the same request, no other one.
+LIST_ONLY_PATH = os.path.join(paths.CACHE, "list_only.json")
+REFUSED = (401, 403)
+RETRY_AFTER_DAYS = 7
 
 _lock = threading.Lock()
-_state = {"loading": False, "sites": [], "items": [], "updated": None}
+# (a refusal (_learn_refusal, _keep_refusal) and the end of a refresh (refresh_now) one at a time: each reads the
+# items and the marks, then writes them. At the same time, one of them lost the links or the mark of the other: a
+# refusal while the lists loaded, or two refusals of two databases, 2026-11-13. The network part stays outside it)
+_lists_lock = threading.RLock()
+_state = {"loading": False, "sites": [], "items": [], "updated": None, "changes": 0}
 _by_id = {}
+
+
+class ListOnly(ValueError):
+    """Use on an entry of a list-only database: its words, and the id of the entry (with its link in the lists of
+    this moment), so that the app can trace it from the website."""
+
+    def __init__(self, message, entry_id):
+        super().__init__(message)
+        self.entry_id = entry_id
 
 
 # ---------------------------------------------------------------- helpers
@@ -308,6 +335,140 @@ def sites_for(cfg):
     return [s for s in known if site_on(s, cfg)] + extra
 
 
+# ---------------------------------------------------------------- list-only databases
+# (the marks of LIST_ONLY_PATH in memory: list_only() is asked for each database of each state and each refresh, and
+# a read of the file took 0.18 ms, about 28 ms for each state with 150 databases, 2026-11-13. Read at the first use,
+# and again when LIST_ONLY_PATH changes (a test's own folder); each write reads the file again and gives the memory
+# its new marks)
+_marks = {"path": None, "sites": {}}
+_marks_lock = threading.Lock()
+
+
+def _read_marks():
+    """The marks of LIST_ONLY_PATH into the memory (with _marks_lock: a write gives the file and the memory together,
+    so a read never puts older marks into the memory)."""
+    d = textfile.read_json(LIST_ONLY_PATH)
+    sites = d.get("sites") if isinstance(d, dict) else None
+    _marks.update(path=LIST_ONLY_PATH, sites={k: v for k, v in sites.items() if isinstance(k, str)
+                                              and isinstance(v, (int, float))} if isinstance(sites, dict) else {})
+
+
+def load_refusals():
+    """The refusals read again from LIST_ONLY_PATH into the memory, and returned (as refusals())."""
+    with _marks_lock:
+        _read_marks()
+        return dict(_marks["sites"])
+
+
+def refusals():
+    """{site address (norm_url): the time of the refusal} of the databases that refused a download."""
+    with _marks_lock:
+        if _marks["path"] != LIST_ONLY_PATH:
+            _read_marks()
+        return dict(_marks["sites"])
+
+
+def list_only(site, now=None):
+    """Whether the app cannot download the entries of this database: SITES marks it, or it refused a download less
+    than RETRY_AFTER_DAYS ago. Never AutoEq (GitHub: not a graph page). A mark with a time after this time (the clock
+    set back) is not valid: it kept the database list only for that time and 7 days more."""
+    if not site or site.get("type") == "autoeq":
+        return False
+    if site.get("browse"):
+        return True
+    at = refusals().get(norm_url(site.get("url") or ""))
+    return at is not None and 0 <= (now or time.time()) - at < RETRY_AFTER_DAYS * 24 * 3600
+
+
+def _keep_refusal(site_url, on):
+    """The refusal of a database kept (with this time) or removed, in LIST_ONLY_PATH and in the memory."""
+    with _lists_lock, _marks_lock:
+        mine = dict(_marks["sites"]) if _marks["path"] == LIST_ONLY_PATH else {}
+        # (the file again before a write: a second process (download_all.py) can have kept a mark since the app read
+        # it, and a write from the memory alone removed that mark, 2026-11-13. A mark in both: the later time)
+        _read_marks()
+        d = dict(mine)
+        for k, v in _marks["sites"].items():
+            d[k] = max(v, d.get(k, v))
+        if on:
+            d[norm_url(site_url)] = time.time()
+        elif d.pop(norm_url(site_url), None) is None:
+            _marks["sites"] = d
+            return
+        _marks["sites"] = d  # (also when the file cannot be written: the app knows it until it closes)
+        try:
+            textfile.write_json(LIST_ONLY_PATH, {"sites": d})
+        except OSError:  # (not kept: the next start tries the download again)
+            pass
+
+
+def entry_link(site_url, it, conf):
+    """The address that opens an entry of a list-only database on its website. The graph tool (CrinGraph) opens a
+    curve from its share link: its file name with "_" for each space (a target's file is "<name> Target"), as
+    squig.link's database explorer makes it (a target's link seen working on graph.hangout.audio by the owner,
+    2026-11-12; not tried on other websites). For modernGraphTool (its config has a folder of its own for targets)
+    the app knows no such link: the page of the database, where the user selects the entry. A file name with a comma
+    gets the page too (inferred: the graph tool divides the names of a share link at each comma, from memory, not
+    verified). An address that has a query already ("?lang=en") gets "&share=", not a second "?"."""
+    f = (it.get("ref") or {}).get("file")
+    if not f or "," in f or (conf or {}).get("targets_base"):
+        return site_url
+    return site_url + ("&" if "?" in site_url else "?") + "share=" + urllib.parse.quote(f.replace(" ", "_"))
+
+
+def _site_targets(site, entries, conf):
+    """The targets of a list-only database's graph tool (its config) that its list does not have as entries yet
+    (a list made before 1.6.2 left them out), as entries."""
+    have = {it["name"] for it in entries if it.get("kind") == "target"}
+    out = []
+    for group in (conf or {}).get("targets") or []:
+        for t in (group.get("files") or []) if isinstance(group, dict) else []:
+            if isinstance(t, str) and t not in have:
+                have.add(t)
+                it = {"kind": "target", "name": t, "sub": group.get("type", "target"), "tag": site["short"],
+                      "ref": {"file": t + " Target"}}
+                out.append(dict(it, h=entry_base(site["url"], it), site=site["name"], site_url=site["url"]))
+    return out
+
+
+def _with_links(site, entries, conf):
+    """A database's entries for the lists: each with its link when the database is list only (and its targets from
+    the config), else with none."""
+    lo = list_only(site)
+    out = []
+    for it in entries:
+        e = dict(it)
+        e.pop("link", None)
+        if lo:
+            e["link"] = entry_link(site["url"], e, conf)
+        out.append(e)
+    if lo:
+        out += [dict(t, link=entry_link(site["url"], t, conf)) for t in _site_targets(site, out, conf)]
+    return out
+
+
+def _learn_refusal(site_url):
+    """A database refused a download: kept, and its entries in the lists of this moment get their links (Find… and
+    Which measurement show them at once; the next lists make them from the mark)."""
+    with _lists_lock:
+        _keep_refusal(site_url, True)
+        with _lock:
+            now = _state["items"]
+            sites = [dict(s, list_only=True) if s.get("url") == site_url else s for s in _state["sites"]]
+        mine = [it for it in now if it["site_url"] == site_url]
+        site = find_site(site_url) or {}
+        # (its name and tag as its entries have them: a database that the app does not know by its address has none)
+        site = dict(site, url=site_url, name=mine[0]["site"] if mine else site.get("name", site_url),
+                    short=site.get("short") or (mine[0]["tag"] if mine else site_url))
+        made = _with_links(site, mine, _confs.get(site_url))
+        in_turn = iter(made)
+        entries = [next(in_turn) if it["site_url"] == site_url else it for it in now] + made[len(mine):]
+        assign_ids(entries)
+        set_items(entries)
+        with _lock:
+            _state["sites"] = sites
+
+
 # ---------------------------------------------------------------- indexing
 def _index_autoeq(site):
     api = "https://api.github.com/repos/jaakkopasanen/AutoEq/git/trees/"
@@ -472,14 +633,16 @@ def _index_squig(site):
         for p in b.get("phones", []):
             for disp, ref in _phone_variants(p):
                 full = disp if disp.lower().startswith(brand.lower()) else f"{brand} {disp}".strip()
-                it = {"kind": "measurement", "name": full, "sub": brand, "tag": site["short"], "ref": ref}
-                if site.get("browse"):  # the page's own share link (as squig.link's database explorer makes it)
-                    it["link"] = site["url"] + "?share=" + urllib.parse.quote(ref["file"].replace(" ", "_"))
-                items.append(it)
-    for group in ([] if site.get("browse") else conf["targets"]):
+                items.append({"kind": "measurement", "name": full, "sub": brand, "tag": site["short"], "ref": ref})
+    # (a list-only database's too: the lists give the links when they load, from the mark)
+    for group in conf["targets"]:
         for t in group.get("files", []):
             items.append({"kind": "target", "name": t, "sub": group.get("type", "target"), "tag": site["short"],
                           "ref": {"file": t + " Target"}})
+    if site.get("browse"):  # (kept in the saved lists too: version 1.6.1 and before read the links only from there,
+        # and without them they tried the download, HTTP 403. This version makes them again when the lists load)
+        for it in items:
+            it["link"] = entry_link(site["url"], it, conf)
     return items, conf
 
 
@@ -578,31 +741,43 @@ def refresh_now(sites, force=False):
         results = {site["url"]: (c, err) for site, c, err in ex.map(one, sites)}
     downloaded = any(c is not None and c is not cache.get(url) for url, (c, _) in results.items())
     added = False  # (ids' first parts worked out for entries without them: a list just downloaded, or saved before)
-    status, entries = [], []
-    for site in sites:
-        c, err = results[site["url"]]
-        n = 0
-        if c:
-            cache[site["url"]] = c
-            for it in c["items"]:
-                if "h" not in it:
-                    it["h"] = entry_base(site["url"], it)
-                    added = True
-                entries.append(dict(it, site=site["name"], site_url=site["url"]))
-                n += 1
-                if not n % 1000:
-                    time.sleep(0)  # (Python's lock let go now and then: the window's thread may be waiting for it)
-        status.append({"name": site["name"], "url": site["url"], "count": n, "error": err, "group": site.get("group", "added"),
-                       "extra": bool(site.get("extra")), "updated": c["time"] if c else None})
-    assign_ids(entries)
-    # (only then: writing every list takes a while and slowed the app's start; ids' first parts added to lists saved
-    # without them are written once, so later starts read them)
-    if downloaded or added:
-        _save_cache(cache)
-    keep_confs(cache)
-    set_items(entries)  # (before "loading" ends: the page asks for the entries as soon as it does)
-    with _lock:
-        _state.update(loading=False, sites=status, updated=time.time())
+    with _lists_lock:  # (a refusal learned meanwhile waits for the new items: its links are not lost)
+        status, entries = [], []
+        for site in sites:
+            c, err = results[site["url"]]
+            n, lo = 0, list_only(site)
+            if c:
+                cache[site["url"]] = c
+                for it in c["items"]:
+                    if "h" not in it:
+                        it["h"] = entry_base(site["url"], it)
+                        added = True
+                    e = dict(it, site=site["name"], site_url=site["url"])
+                    # (a saved list has the links of the marked databases, for 1.6.1: made again from the mark)
+                    e.pop("link", None)
+                    if lo:
+                        e["link"] = entry_link(site["url"], e, c.get("conf"))
+                    entries.append(e)
+                    n += 1
+                    if not n % 1000:
+                        time.sleep(0)  # (Python's lock let go now and then: the window's thread may wait for it)
+                if lo:  # (its targets: a list saved before 1.6.2 left them out)
+                    more = [dict(t, link=entry_link(site["url"], t, c.get("conf")))
+                            for t in _site_targets(site, entries[len(entries) - n:], c.get("conf"))]
+                    entries += more
+                    n += len(more)
+            status.append({"name": site["name"], "url": site["url"], "count": n, "error": err,
+                           "group": site.get("group", "added"), "extra": bool(site.get("extra")),
+                           "updated": c["time"] if c else None, "list_only": lo})
+        assign_ids(entries)
+        # (only then: writing every list takes a while and slowed the app's start; ids' first parts added to lists
+        # saved without them are written once, so later starts read them)
+        if downloaded or added:
+            _save_cache(cache)
+        keep_confs(cache)
+        set_items(entries)  # (before "loading" ends: the page asks for the entries as soon as it does)
+        with _lock:
+            _state.update(loading=False, sites=status, updated=time.time())
 
 
 def keep_confs(cache):
@@ -631,6 +806,7 @@ def set_items(entries):
     """The entries every search uses (each with its "id", "site" and "site_url")."""
     with _lock:
         _state["items"] = entries
+        _state["changes"] += 1  # (Find… asks for the rows again when this changes: status())
         _by_id.clear()
         _by_id.update({it["id"]: it for it in entries})
 
@@ -680,7 +856,7 @@ def start_refresh(cfg, force=False):
 def status(with_items=False, rig=None):
     with _lock:
         out = {"loading": _state["loading"], "sites": list(_state["sites"]), "count": len(_state["items"]),
-               "updated": _state["updated"]}
+               "updated": _state["updated"], "changes": _state["changes"]}
         if with_items:  # compact rows for the picker: id, kind, name, sub, site, the page link for list-only sites
             # (or null), the rig tag (rig(item), e.g. "5128", "711?" or ""), the device type ("iem", "hp", "earbud", "")
             # Made once per list (the same list object back until a refresh replaces it: Find… then knows its rows
@@ -753,7 +929,7 @@ def download(item_id, count_points):
     """Download one entry into downloads/<database>/. Returns the local file paths (existing copies are reused)."""
     it = item(item_id)
     if it.get("link"):
-        raise ValueError(BROWSE_NOTE.format(site=it["site"]))
+        raise ListOnly(BROWSE_NOTE.format(site=it["site"]), it["id"])
     folder = os.path.join(DOWNLOAD_DIR, folder_name(it["site"]))
     os.makedirs(folder, exist_ok=True)
     # (another entry of that database has this name: told apart by its file, or for AutoEq's by its address)
@@ -786,7 +962,8 @@ def download(item_id, count_points):
     if not all(textfile.inside(path, folder) for _, jobs in tries for _, path in jobs):
         raise ValueError(f"The settings of {it['site']} have file names that are not in its download folder: the app "
                          "did not download them.")
-    missing = []
+    # (answers: for each address tried, its HTTP error code, "ok" for an answer, or None for a different error)
+    missing, answers = [], []
 
     def fetch(job):
         url, path = job
@@ -799,8 +976,11 @@ def download(item_id, count_points):
         try:
             text, _ = _get(url)
         except Exception as e:  # noqa: BLE001
-            missing.append(getattr(e, "code", None) == 404)
+            code = getattr(e, "code", None)
+            missing.append(code == 404)
+            answers.append(code if isinstance(e, urllib.error.HTTPError) else None)
             return None
+        answers.append("ok")
         if count_points(text) < 32:
             return None
         textfile.write_atomic(path, text)  # (in one step: an interrupted download leaves no half file)
@@ -817,8 +997,15 @@ def download(item_id, count_points):
         if net.offline():  # (no copy from before on this PC, and the app may not go online for it)
             raise net.Offline(f"There is no downloaded copy of {it['name']} from {it['site']}, and AutoEQ Studio "
                               "is offline. To download it, change to Online (top right).")
+        # (a graph page that refused each address: list only from now on, and this Use goes on with the trace)
+        if "url" not in it["ref"] and answers and all(a in REFUSED for a in answers):
+            _learn_refusal(it["site_url"])
+            raise ListOnly(REFUSED_NOTE.format(site=it["site"]), it["id"])
         if missing and all(missing):
             raise ValueError(f"{it['name']} is in the list of {it['site']}, but its file is not on the website (the "
                              "graph of the website also cannot show it). Use a measurement from a different database.")
         raise ValueError(f"The app cannot download {it['name']} from {it['site']}.")
+    # (a new try after RETRY_AFTER_DAYS: the website answered, so the database downloads again)
+    if "ok" in answers and norm_url(it["site_url"]) in refusals():
+        _keep_refusal(it["site_url"], False)
     return sorted(got), it

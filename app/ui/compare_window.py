@@ -47,6 +47,7 @@ TICKS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
 # 9 its words started 5 px further in than a card's, 16 px inside its border as Make an EQ's cards. The recheck,
 # 2026-10-23)
 CARD_MARGINS = (4, 4, 4, 4)
+ENTRY_HREF = "entry:"  # (a link of the links line: the id of its entry after it, _open_site)
 
 
 class _Row(QFrame):
@@ -263,7 +264,9 @@ class CompareWindow(QDialog):
         tasks.background(lambda: self.svc.call("/api/compare", body), done, owner=self)
 
     def _open_site(self, url):
-        entry_id = getattr(self, "link_ids", {}).get(url)
+        # ("entry:<id>": an entry of the links line. Its link is not its key: the entries of a database whose link is
+        # the page of the database all have the same link, and each one opened the last of them, 2026-11-13)
+        entry_id = url[len(ENTRY_HREF):] if url.startswith(ENTRY_HREF) else None
         if entry_id:  # (an entry that the app cannot download: the browser, then a wait for a picture of its graph)
             self.page.trace_from_website(entry_id, over=self, say=self.footer.say)
             return
@@ -303,7 +306,6 @@ class CompareWindow(QDialog):
             lay.addWidget(none)
         if d.get("errors"):  # (a fold, as How the app sorts them: the UI audit, 2026-11-08)
             lay.addWidget(_not_loaded(d["errors"]))
-        self.link_ids = {l["link"]: l["id"] for l in d.get("links") or [] if l.get("id")}
         self.links_line = None
         if d.get("links"):
             lk = self.links_line = QLabel(self._links_text())
@@ -320,10 +322,12 @@ class CompareWindow(QDialog):
         colour that its links had when it was set: made in light and then changed to dark, they were dark blue on the
         dark background (the review, 2026-11-11). Thus each theme change sets the words again (recolour)."""
         colour = theme.tokens()["accent_text"]
-        links = " · ".join(f"<a href='{l['link']}' style='color: {colour}'>{_esc(l['name'])}</a> ({_esc(l['site'])}"
+        links = " · ".join(f"<a href='{_esc(ENTRY_HREF + l['id'] if l.get('id') else l['link'])}' "
+                           f"style='color: {colour}'>{_esc(l['name'])}</a> ({_esc(l['site'])}"
                            f"{', ' + _esc(l['rig']) if l.get('rig') else ''})" for l in self.data["links"])
-        return ("The app cannot download the measurements of these websites. Click a name to open it on its website. "
-                "Then the app waits for a picture of its graph and traces it: " + links)
+        # (its website: the entry itself, or only the page of its database, eq.databases.entry_link)
+        return ("The app cannot download the measurements of these websites. When you click a name, the app opens its "
+                "website. Then the app waits for a picture of its graph and traces it: " + links)
 
     def recolour(self):
         """What a theme change draws again: the chart, and the links line in the new theme's link colour."""

@@ -33,12 +33,18 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   runs or ended (OK or not: the user's changes stay) changes nothing (the status line says so). With Find… for a
   target ("Targets and measurements"), the entry has "as": "target", 3 Save's note says Add as target, and Add as
   target is the first button of 3 Save's row, in the accent, until the picture changes (show_save_row; the mark is
-  not in the source record). unadded_curves(): the curves that the user traced or changed and did not add (a new
-  picture from a website stops for them; the automatic read's own curves do not count, but a curve of it is the user's
-  work after users_work: a typed axis value, a moved line, a changed value of 3 Save …); changed_picture(): no
-  curve, but users_work, also on a picture of the user (it stops too). The entry's words show as plain text (never
-  rich text; the top row's tooltip too: picture_wait.plain_tip), and 3 Save's note has 80 characters of the name and
-  of the site at most (picture_wait.heading_name: a long name does not make the side wider).
+  not in the source record). A picture with only a target line (the read's target_only: its one curve "Target",
+  marked): 3 Save's note says that the app traced the target, Add as target is the main action (not for Find… for a
+  measurement, "as": "measurement"), Add as measurement also adds it, and Add the target line as target… does not
+  show. The read gets want, the entry's kind: "target" (the target line alone, also beside a measurement) or
+  "measurement" (a gray line alone is not the curve: trace_curve fails, 2 Trace). A failed trace_kind, or a failed
+  trace_single of a target line alone (two target lines), tells to copy a new picture. unadded_curves(): the curves
+  that the user traced or changed and did not add (a new picture from a website stops for them; the automatic
+  read's own curves do not count, but a curve of it is the user's work after users_work: a typed axis value, a moved
+  line, a changed value of 3 Save …); changed_picture(): no curve, but users_work, also on a picture of the user (it
+  stops too). The entry's words show as plain text (never rich text; the top row's tooltip too:
+  picture_wait.plain_tip), and 3 Save's note has 80 characters of the name and of the site at most
+  (picture_wait.heading_name: a long name does not make the side wider).
 sample_image() draws AutoEQ Local's sample graph (an IEM's two channels and a dashed target) for checks and the tour.
 
 The look is Windows 11's, as the rest of the app (2026-10-23): the picture on a card, the tools as one group, Windows
@@ -755,6 +761,7 @@ class TraceWindow(QWidget):
         self.entry = None
         self.added = False
         self.read_ok = None
+        self.read_target = False  # (the last read was OK with the target line alone: Add as target is the main action)
         self.reading_graph = False
         self.loading = False  # (a large picture loads in a thread: load_image)
         self.load_token = 0  # (the last load_image: a late answer of a load before it is dropped)
@@ -1224,7 +1231,9 @@ class TraceWindow(QWidget):
             if not t.calib() else "Trace a curve to save it." if not anything else None
         # (the target line of a picture from a website: its button while a curve has the "target" mark; a line that
         # the user changed lost the mark, trace_core.user_edit, and is a measurement curve: said, not silent)
-        self.save_line.setVisible(img and any(c.get("target") and t.has_data(c) for c in t.curves))
+        # (not for a target line alone: Add as target adds it, and a second button for it would be the same)
+        self.save_line.setVisible(img and any(c.get("target") and t.has_data(c) for c in t.curves)
+                                  and any(not c.get("target") and t.has_data(c) for c in t.curves))
         changed_line = next((c for c in t.curves if c.get("website_line") and not c.get("target") and t.has_data(c)),
                             None)
         if need or not getattr(self, "saved_note", False):  # ("Saved as …" stays until something is needed)
@@ -1244,9 +1253,11 @@ class TraceWindow(QWidget):
 
     def show_save_row(self):
         """3 Save's row of buttons with the main action of the picture first, in the accent (UI-RULES 8): Add as
-        target for an entry from Find a target ("as": "target"), else Add as measurement. (3 Save's note told the user
+        target for an entry from Find a target ("as": "target") and for a read of a target line alone (read_target;
+        not for Find… for a measurement, "as": "measurement"), else Add as measurement. (3 Save's note told the user
         to click Add as target while Add as measurement was the accent button, 2026-11-11.)"""
-        as_target = bool(self.entry and self.entry.get("as") == "target")
+        as_target = bool(self.entry and self.entry.get("as") == "target") or (
+            self.read_target and (self.entry or {}).get("as") != "measurement")
         main, other = (self.save_tgt, self.save_meas) if as_target else (self.save_meas, self.save_tgt)
         theme.mark(main, primary=True)
         theme.mark(other, primary=False)
@@ -1483,6 +1494,7 @@ class TraceWindow(QWidget):
         self.picture_mark = mark
         self.sample_open = False  # (a picture of yours: the Guide's sample, set again by the Guide, isn't on any more)
         self.entry = clean_entry_of(entry)  # (its words on one line: they go into the file's first line)
+        self.read_target = False
         self.show_save_row()
         self.added = False
         self.read_ok = None
@@ -1553,6 +1565,10 @@ class TraceWindow(QWidget):
             return
         from ui import ocr
         rgb, jpeg, name, entry = t.px.copy(), bool(t.ta["jpeg"]), self.entry_name(), self.entry
+        # (an entry of a target: the read looks for the target line alone, also beside a measurement. An entry of a
+        # measurement: the read does not take a gray line alone as the curve)
+        kind = entry.get("kind")
+        want = {"want": kind} if kind in ("target", "measurement") else {}
         self.graph_token += 1
         token = self.graph_token
         t.label_token += 1  # (a label read still running is dropped)
@@ -1577,31 +1593,36 @@ class TraceWindow(QWidget):
                 self.read_labels()
                 return
             self.take_read(res, entry)
-        tasks.background(lambda: tc.auto_read(rgb, ocr.words, jpeg, name), done, owner=self)
+        tasks.background(lambda: tc.auto_read(rgb, ocr.words, jpeg, name, **want), done, owner=self)
 
     def take_read(self, r, entry):
         """auto_read's answer (an AutoRead) into the window: the tracer's state taken (a crop of the picture: the
         stage, the name, the size, the values and the settings shown again), then the tab that the result needs.
         entry: the one the read was for (the window's can go meanwhile: its close)."""
         t = self.t
+        e = entry or {}
+        only = bool(getattr(r, "target_only", False))  # (the picture has only a target line: its curve is that line)
         if r.target is not None:
             r.target["website_line"] = True  # (this curve was the target line: said when the user changes it)
         t.take(r.tracer)
         self.stage.set_image(t.px)
         self.show_name(t.src_name, (t.W, t.H))
         self.read_ok = bool(r.ok)
-        e = entry or {}
+        self.read_target = only and r.ok
+        self.show_save_row()
         if r.ok:
             # (Find… for a target, "Targets and measurements": the user wants the entry's curve as a target; the
-            # target line of the picture is then a second target, said apart from it)
-            want_target = e.get("as") == "target"
+            # target line of the picture is then a second target, said apart from it. A target line alone: Add as
+            # target, unless Find… for a measurement wants it as a measurement)
+            want_target = e.get("as") == "target" or (only and e.get("as") != "measurement")
             # (the site in quotation marks: a cut site ended in "…" and then the period of the sentence, 2026-11-12)
             site = e.get("site", "")
             # (a curve that goes out of the grid: where, and to where the app traced it, in the words of trace_curve;
             # the saved measurement ends there. The instruction then starts a new line: a paragraph has 6 sentences
             # at most, in STE)
             out = getattr(r, "out_words", "")
-            self.auto_note = (f"The app traced the graph of “{self.note_name(e.get('name', ''))}”"
+            self.auto_note = (f"The app traced the {'target' if only else 'graph of'} "
+                              f"“{self.note_name(e.get('name', ''))}”"
                               + (f" from “{self.note_name(site)}”." if site else ".")
                               + (f" {out}\n" if out else " ")
                               + "Compare the curve with the picture. If they agree, click "
@@ -1619,8 +1640,11 @@ class TraceWindow(QWidget):
             # (not a graph: nothing to correct on a step, a new picture is necessary; the label read then gives 1 Axes
             # its own note, as for any picture). The instruction to correct a step starts a new line: the reason of
             # trace_curve has up to 5 sentences, and a paragraph has 6 sentences at most, in STE
+            # (trace_kind: the picture has the other kind of curve than the entry; trace_single of a target line
+            # alone: two target lines. The reason tells what to change on the website, then a new picture)
+            new = first.name == "trace_kind" or (only and first.name == "trace_single")
             text = f"The app cannot trace this picture automatically. {first.reason}" + (
-                " " + NOT_GRAPH if not_graph else "\n" + CORRECT_STEP)
+                " " + NOT_GRAPH if not_graph else "\n" + NOT_GRAPH if new else "\n" + CORRECT_STEP)
             axes = first.name.startswith("axes")
             if axes and not not_graph:
                 t.axis_note = t.detect_note = text  # (also on 1 Axes; a label read starts from it)
@@ -1680,6 +1704,7 @@ class TraceWindow(QWidget):
                 late()
             return
         self.entry, self.added, self.read_ok, self.auto_note = None, False, None, ""
+        self.read_target = False
         self.show_save_row()
         self.picture_mark = None
         self.was_closed = self.renamed = False
@@ -1951,8 +1976,11 @@ class TraceWindow(QWidget):
         files to add (none: the window's curves, as outputs() makes them); title: the message boxes' title."""
         page = self.page
         title = title or f"Add as {kind}"
+        # (a target line alone, as a measurement: outputs() leaves out a curve with the "target" mark, unless it is the
+        # selected one and the only one to save)
+        alone = not any(self.t.has_data(c) and not c.get("target") for c in self.t.curves)
         try:
-            outs = outs if outs is not None else self.outputs(kind == "target")
+            outs = outs if outs is not None else self.outputs(kind == "target" or alone)
         except (ValueError, ArithmeticError) as e:
             QMessageBox.warning(self, "Trace", str(e))
             return

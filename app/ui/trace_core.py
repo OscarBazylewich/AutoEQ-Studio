@@ -1299,8 +1299,9 @@ class Tracer:
         self.fit_settings()
 
 
-def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
+def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None):
     """A picture of a graph from a CrinGraph website read with no help (ui/trace_auto.py: its docstring says how, and
-    what comes back). Imported here at its first use: the app's start stays light."""
+    what comes back; want: the kind of the website's entry, "target" or "measurement", or None). Imported here at its
+    first use: the app's start stays light."""
     from ui import trace_auto
-    return trace_auto.auto_read(rgb, ocr_words, jpeg, name)
+    return trace_auto.auto_read(rgb, ocr_words, jpeg, name, want)

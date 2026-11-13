@@ -394,6 +394,14 @@ def test_labels_in_one_column(eq_screen, monkeypatch, check):
           and seen["model's box"] == seen["rig's list"] and seen["rig's list beside its label"], seen)
 
 
+def _click_link(cw, name):
+    """A click on the link of `name` in the links line: the label gives the href of that link."""
+    import re
+    lk = cw.links_line
+    href = re.search(r"<a href='([^']+)'[^>]*>" + re.escape(name) + "</a>", lk.text()).group(1)
+    lk.linkActivated.emit(href)
+
+
 def test_website_link_starts_the_wait(eq_screen, monkeypatch, check):
     # (2026-11-11, the picture from a website: a link of an entry that the app cannot download opens it in the
     # browser (recorded, helpers.qt) and waits for a picture of its graph; the picture closes the window and goes to
@@ -420,7 +428,7 @@ def test_website_link_starts_the_wait(eq_screen, monkeypatch, check):
         cw.render()
         words = [lab.text() for lab in cw.findChildren(QLabel) if "Truthear Gate" in lab.text()]
         n = len(qt.OPENED_URLS)
-        cw._open_site(entry["link"])
+        _click_link(cw, entry["name"])
         qt.pump(50)
         wait = page.picture_wait
         started = (qt.OPENED_URLS[n:], wait is not None and wait.isVisible() and wait.parent() is cw)
@@ -461,12 +469,12 @@ def test_website_link_messages_in_the_window_line(eq_screen, monkeypatch, check)
         cw.render()
         n = len(qt.OPENED_URLS)
         monkeypatch.setattr(net, "offline", lambda: True)
-        cw._open_site(entry["link"])
+        _click_link(cw, entry["name"])
         qt.pump(50)
         said["offline"] = (cw.footer.line.text.text(), qt.OPENED_URLS[n:], getattr(page, "picture_wait", None))
         monkeypatch.setattr(net, "offline", lambda: False)
         monkeypatch.setattr(picture_wait, "TIMEOUT_MS", 200)
-        cw._open_site(entry["link"])
+        _click_link(cw, entry["name"])
         qt.pump(50)
         wait = page.picture_wait
         qt.wait_for(lambda: wait is not None and (not tasks.alive(wait) or not wait.isVisible()), 10)
@@ -483,13 +491,65 @@ def test_website_link_messages_in_the_window_line(eq_screen, monkeypatch, check)
           said["time limit"])
 
 
-def _link_pixels(label, colour, near=40):
-    """How many pixels of the label are near `colour` (each of red, green and blue within `near`)."""
+def test_website_links_with_the_same_page_open_their_own_entry(eq_screen, monkeypatch, check):
+    # (2026-11-13: the entries of a database whose link is the page of the database (modernGraphTool, a name with a
+    # comma) have the same link, and each link of the links line opened the last of them. Also the verifier's M26:
+    # a target entry from Which measurement goes to the tracer as a target)
+    import net
+    from PySide6.QtWidgets import QApplication
+    from eq import databases
+    page = eq_screen.page
+    page.svc.call("/api/db/refresh", {"settings": page.S})  # (offline: the saved lists)
+    eq_screen.wait_for(lambda: any(it.get("link") for it in databases.items()), 120)
+    target = next(it for it in databases.items() if it.get("link") and it["kind"] == "target")
+    meas = next(it for it in databases.items() if it.get("link") and it["name"] == "Truthear Gate")
+    monkeypatch.setattr(net, "offline", lambda: False)
+    QApplication.clipboard().clear()
+    cw = _shown_with(page, monkeypatch)
+    seen = {}
+    try:
+        page_link = meas["site_url"]
+        cw.data["links"] = [{"id": it["id"], "name": it["name"], "site": it["site"], "rig": "B&K 5128",
+                             "link": page_link} for it in (target, meas)]
+        cw.render()
+        for it in (target, meas):
+            _click_link(cw, it["name"])
+            qt.pump(50)
+            wait = page.picture_wait
+            seen[it["name"]] = (wait.entry.get("id"), wait.entry.get("as")) if wait is not None else None
+            wait.reject()
+            qt.pump(50)
+    finally:
+        qt.close(cw)
+        QApplication.clipboard().clear()
+    check("Which measurement: two links with the same address (the page of the database) each open their own entry, "
+          "a target as a target and a measurement as a measurement",
+          seen == {target["name"]: (target["id"], "target"), meas["name"]: (meas["id"], "measurement")}, seen)
+
+
+EDGE = 12  # (how near a pixel is to the line from the letters' colour to the background: an edge)
+
+
+def _link_pixels(label, colour, near=40, not_edge_of=None):
+    """How many pixels of the label are near `colour` (each of red, green and blue within `near`). `not_edge_of`: a
+    colour whose letters are on the label: the pixels at the edges of its letters (a mix of it and the background, the
+    most frequent colour of the label, within EDGE of their line) are not counted."""
+    import collections
     from PySide6.QtGui import QColor
     want, img = QColor(colour), qt.picture(label)
-    return sum(1 for y in range(img.height()) for x in range(0, img.width(), 2)
-               if max(abs(img.pixelColor(x, y).red() - want.red()), abs(img.pixelColor(x, y).green() - want.green()),
-                      abs(img.pixelColor(x, y).blue() - want.blue())) <= near)
+    pixels = [img.pixelColor(x, y).getRgb()[:3] for y in range(img.height()) for x in range(0, img.width(), 2)]
+    w = want.getRgb()[:3]
+    near_it = [p for p in pixels if max(abs(a - b) for a, b in zip(p, w)) <= near]
+    if not_edge_of is None:
+        return len(near_it)
+    ink, bg = QColor(not_edge_of).getRgb()[:3], collections.Counter(pixels).most_common(1)[0][0]
+    span = [b - a for a, b in zip(ink, bg)]
+    size = sum(d * d for d in span) or 1
+
+    def edge(p):  # (the nearest point of the line from the letters' colour to the background)
+        t = min(1.0, max(0.0, sum((c - a) * d for c, a, d in zip(p, ink, span)) / size))
+        return max(abs(c - (a + t * d)) for c, a, d in zip(p, ink, span)) <= EDGE
+    return sum(1 for p in near_it if not edge(p))
 
 
 def test_links_take_the_theme_of_the_moment(eq_screen, monkeypatch, check):
@@ -523,14 +583,17 @@ def test_links_take_the_theme_of_the_moment(eq_screen, monkeypatch, check):
                 qt.picture(lk).save(os.path.join(folder, f"which-links-made-{first}-then-{then}.png"))
                 seen[f"made in {first}, then {then}"] = {
                     "pixels in the link colour of " + then: _link_pixels(lk, colours[then]),
-                    "pixels in the link colour of " + first: _link_pixels(lk, colours[first])}
+                    "pixels in the link colour of " + first: _link_pixels(lk, colours[first],
+                                                                          not_edge_of=colours[then])}
             finally:
                 qt.close(cw)
     finally:
         qt.light(qapp)  # (the light theme back, whatever happened: every later test runs light)
         qapp.processEvents()
-    # (the theme of the moment's colour: the link's whole letters; the other theme's: at most a few pixels at the edges
-    # of the letters, where the colour goes over to the background's)
+    # (the theme of the moment's colour: the link's whole letters; the other theme's: none, the edges of the letters
+    # (where the colour goes over to the background's) not counted. With the words of 2026-11-13 the link is on the
+    # second line, and 26 edge pixels of the light link were near the dark link colour: 102 against 26, not 10 times.
+    # The dark link colour itself is 37 from that line, so a link in it is still counted)
     ok = all(v[f"pixels in the link colour of {k.split(', then ')[1]}"] >= 20
              and v[f"pixels in the link colour of {k.split(', then ')[1]}"]
              >= 10 * v[f"pixels in the link colour of {k.split()[2].rstrip(',')}"] for k, v in seen.items())

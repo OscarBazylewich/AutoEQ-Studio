@@ -152,7 +152,9 @@ class EqFiles:
     def trace_from_website(self, entry_id, over, say, want=None):
         """Find…'s Use (or Which measurement's link) on an entry that the app cannot download: the entry opens in the
         user's browser, then the wait window on top of `over` waits for a picture of its graph, which goes to the
-        tracer. Returns whether the wait started. `say`: the message line of `over` (UI-RULES 7)."""
+        tracer. Returns whether the wait started. `say`: the message line of `over` (UI-RULES 7). `want`: "target"
+        or "measurement", the add that the user wants (Find…'s kind); else the kind of the entry (a target of a
+        website is a target for the tracer: 3 Save says Add as target)."""
         wait = getattr(self, "picture_wait", None)
         if wait is not None and tasks.alive(wait) and wait.isVisible():  # (one wait at a time)
             wait.raise_()
@@ -165,8 +167,11 @@ class EqFiles:
             return False
         from ui.picture_wait import PictureWait, clean_entry
         entry = clean_entry(r["entry"])  # (its words come from a website's list: each on one line)
-        if want:  # ("target" or "measurement": Find… for the other kind; the tracer's note names that add)
-            entry["as"] = want
+        entry["as"] = want or entry.get("kind") or "measurement"  # (the tracer's note names that add)
+        if not entry.get("link"):  # (the lists of this moment have no link: never an empty address. Windows then
+            # said that it cannot open the website, 2026-11-13. Use again downloads it or learns the link)
+            say("The app has no link to the website of this entry. Select the entry again.")
+            return False
         import net
         if net.offline():  # (the words fit Find…'s line at its opening width)
             say("Offline: to open this entry, change to Online (top right).")

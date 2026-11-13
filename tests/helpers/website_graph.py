@@ -1,15 +1,18 @@
 """A drawn look-alike of a graph from a CrinGraph website (graph.hangout.audio and the like), for the tests of the
 tracer's automatic read (ui\\trace_auto.py). No picture of a real website is kept in the repository: this draws one
-in memory. Cream background, a faint grid with the ticks 2, 3, 4, 5, 6, 8, 10, 15 in each decade, the labels inside
-the plot (dB) and below it (Hz) in Consolas (zeros with a line through them), a logo-like shape and a line of large
-gray text in the plot, small gray text at the top right, two near curves of one color (the left and right channel),
-their names in the curve's color, and, when asked, a gray target line and a page around the graph. The true curves
-come back with the picture.
+in memory. Cream background (or another color: background), a faint grid with the ticks 2, 3, 4, 5, 6, 8, 10, 15 in
+each decade, the labels inside the plot (dB) and below it (Hz) in Consolas (zeros with a line through them), a
+logo-like shape and a line of large gray text in the plot, small gray text at the top right, two near curves of one
+color (the left and right channel), their names in the curve's color, and, when asked, a gray target line and a page
+around the graph. The true curves come back with the picture.
 
 website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, one_curve=False, offset_db=0.0,
               colours=("#1a48a0", "#0d357d"), db_range=(40, 80), db_step=5, legend_xy=(500, 285), extra=(),
-              target_fn=None, db_words=None, target_dash=None, chan_fns=None, clip_db=False, top_logo=False)
-              -> (QImage, truth)
+              target_fn=None, db_words=None, target_dash=None, chan_fns=None, clip_db=False, top_logo=False,
+              curves=True, target_colour="#9e9ea3", target_width=2.3, target_look=False, bands=None,
+              target_gaps=(), grey_rows=None, background=CREAM) -> (QImage, truth)
+target_graph(plot_w=1200, **kw) -> (QImage, truth): the look of a website's graph of a target alone (a dB axis of
+-20 to 20 dB, a dashed gray line, no measurement)
 STEEP_END: (left, right) channels with the forms of a real screen copy (steep peaks, out of the grid near 20 kHz)
 truth: "plot" {x0, x1, y0, y1} (the grid's edges), "avg" f(Hz) -> dB (the true average of the channels), "chans"
 [f, f], "tgt" f or None, "x" f(Hz) -> column, "y" f(dB) -> row, "hz" f(column) -> Hz, "db" f(row) -> dB, "words"
@@ -87,7 +90,9 @@ def label_of(f, first=False, last=False):
 
 def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, one_curve=False, offset_db=0.0,
                   colours=("#1a48a0", "#0d357d"), db_range=(40, 80), db_step=5, legend_xy=(500, 285), extra=(),
-                  target_fn=None, db_words=None, target_dash=None, chan_fns=None, clip_db=False, top_logo=False):
+                  target_fn=None, db_words=None, target_dash=None, chan_fns=None, clip_db=False, top_logo=False,
+                  curves=True, target_colour="#9e9ea3", target_width=2.3, target_look=False, bands=None,
+                  target_gaps=(), grey_rows=None, background=CREAM):
     """plot_w: the grid's width in pixels. target: None, "solid" or "dashed". page: a page around the graph.
     decade: the labels' power of ten against 20 Hz .. 20 kHz (0: correct labels; 1: every label ten times too high).
     labels False: no labels at all. one_curve: only the left channel. offset_db: added to the right channel (two
@@ -101,7 +106,17 @@ def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, o
     (None: (6, 3)). chan_fns: (left, right) f(Hz) -> dB in place of the default channels (offset_db is added to the
     right one; STEEP_END: the forms of a real screen copy). clip_db: the curves are not drawn out of the dB axis (above
     its top grid line or below its bottom one), as on the website; False: they go on to the edge of the graph.
-    top_logo: a pale blue logo at the top right (as a rig maker's logo), and the small gray text left of it."""
+    top_logo: a pale blue logo at the top right (as a rig maker's logo), and the small gray text left of it.
+    curves False: no channels and no names of the channels (a graph with only the target line: truth "avg" is None,
+    "chans" []). target_colour, target_width: the target line's color (also of its name) and its width in the graph's
+    units. target_look: the look of a website's graph of a target (target_graph): the dB grid lines as wide, soft
+    bands, the drawing in gray with a pale orange part, the watermark in the target line's gray, and the target's
+    name with its settings in a bold gray-green at the bottom right. bands: with target_look, [(width in the
+    graph's units, color)] of each dB band, drawn in sequence (None: the soft bands of a real picture). target_gaps:
+    [(Hz, Hz)] parts with no target line (not drawn there). grey_rows: (color, width in the graph's units[, over]) of
+    a line drawn on each dB grid line over the grid (a website with dB grid lines in the gray of a target), and with
+    over True, also over the curves; or None. background: the color of the page under the graph (CREAM, the
+    website's; for example "#ffffff", a white page, or a neutral gray)."""
     if QGuiApplication.instance() is None:  # (with no application, Qt's fonts stop the process with no error)
         raise RuntimeError("website_graph draws with Qt: make a QGuiApplication first (in a test: the qapp fixture).")
     s = plot_w / 770.0  # (a CrinGraph graph is 800 x 346 units: the plot from 15 to 785, the grid lines from 10 to 327)
@@ -109,7 +124,7 @@ def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, o
     ox, oy = (round(275 * s), round(105 * s)) if page else (0, 0)
     Wd, Hd = (round(1090 * s), round(600 * s)) if page else (gw, gh)
     img = QImage(Wd, Hd, QImage.Format_RGB888)
-    img.fill(QColor(CREAM))
+    img.fill(QColor(background))
     g = QPainter(img)
     g.setRenderHint(QPainter.Antialiasing)
     g.setRenderHint(QPainter.TextAntialiasing)
@@ -167,16 +182,36 @@ def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, o
     def vwidth(f):
         m = f / 10 ** math.floor(math.log10(f))
         return 1.5 if abs(m - 2) < 1e-6 else 0.9 if m in (1, 5) else 0.4
-    for f in TICKS:
-        g.setPen(QPen(QColor("#9a8f7c"), vwidth(f) * s))
-        g.drawLine(QPointF(X(f), top), QPointF(X(f), bot))
+
+    def vlines():  # (target_look: the brown of a real picture, #b6987c)
+        for f in TICKS:
+            g.setPen(QPen(QColor("#b6987c" if target_look else "#9a8f7c"), vwidth(f) * s))
+            g.drawLine(QPointF(X(f), top), QPointF(X(f), bot))
+    if not target_look:
+        vlines()
     db_values = [vb + i * db_step for i in range(int(round((vt - vb) / db_step)) + 1)]
     for v in db_values:
+        if target_look:  # (a wide, soft band of light brown: 13 px with its middle #ede2d0 on a real picture)
+            for wd, col in bands or ((4.3, "#faf0e2"), (3.0, "#f3e9da"), (1.6, "#ede2d0")):
+                g.setPen(QPen(QColor(col), wd * s))
+                g.drawLine(QPointF(X(20), Y(v)), QPointF(X(20000), Y(v)))
+            continue
         g.setPen(QPen(QColor("#cdbfa6"), 1.6 * s))
         g.drawLine(QPointF(X(20), Y(v)), QPointF(X(20000), Y(v)))
+    if target_look:  # (the frequency grid lines over the bands, as on the real picture)
+        vlines()
+
+    rows_over = bool(grey_rows) and len(grey_rows) > 2 and grey_rows[2]
+
+    def grey_lines():
+        g.setPen(QPen(QColor(grey_rows[0]), grey_rows[1] * s))
+        for v in db_values:
+            g.drawLine(QPointF(X(20), Y(v)), QPointF(X(20000), Y(v)))
+    if grey_rows and not rows_over:
+        grey_lines()
 
     # a logo-like shape and a line of large gray text (the watermark), then small gray text at the top right
-    g.setPen(QPen(QColor("#d9c3a3"), 3 * s))
+    g.setPen(QPen(QColor("#b9b4ab" if target_look else "#d9c3a3"), 3 * s))
     g.setBrush(Qt.NoBrush)
     c = QPointF(ox + 120 * s, oy + 262 * s)
     g.drawEllipse(c, 46 * s, 46 * s)
@@ -184,7 +219,14 @@ def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, o
     for a in range(0, 360, 40):
         r = math.radians(a)
         g.drawLine(c + QPointF(math.cos(r), math.sin(r)) * 12 * s, c + QPointF(math.cos(r), math.sin(r)) * 26 * s)
-    text(ox + 172 * s, oy + 300 * s, "graph.sample.audio", "#aaa091", font(28, True))
+    if target_look:  # (a pale orange part of the drawing, and the watermark in the gray of the target line)
+        g.setPen(Qt.NoPen)
+        g.setBrush(QColor("#fcd9b2"))
+        g.drawEllipse(c + QPointF(-34 * s, 0), 4 * s, 9 * s)
+        g.drawEllipse(c + QPointF(34 * s, 0), 4 * s, 9 * s)
+        text(ox + 170 * s, oy + 312 * s, "graph.sample.audio", target_colour, font(32, True, "Arial"))
+    else:
+        text(ox + 172 * s, oy + 300 * s, "graph.sample.audio", "#aaa091", font(28, True))
     for i, t in enumerate(("Sample data made for a test:", '"000" Coupler', "ABC 12345-6")):
         text(ox + (690 if top_logo else 762) * s, oy + (27 + i * 14) * s, t, "#9c958a", font(12), "right")
     if top_logo:  # (a circle with lines across it and two letters, pale blue, and a name in gray under it)
@@ -225,7 +267,7 @@ def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, o
     # the curves: the target under the two channels; both channels in near blues, their ends faded
     fq = [20 * 1000 ** (i / 1199) for i in range(1200)]
 
-    def path(fn, col, w, dash=None, fade=True):
+    def path(fn, col, w, dash=None, fade=True, gaps=()):
         pen = QPen(QColor(col), w * s)
         pen.setJoinStyle(Qt.RoundJoin)
         pen.setCapStyle(Qt.FlatCap)
@@ -244,32 +286,46 @@ def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, o
         g.setPen(pen)
         g.setBrush(Qt.NoBrush)
         pp = QPainterPath(QPointF(X(fq[0]), Y(fn(fq[0]))))
+        up = False  # (in a part of gaps: no line)
         for f in fq[1:]:
-            pp.lineTo(QPointF(X(f), Y(fn(f))))
+            if any(a <= f <= b for a, b in gaps):
+                up = True
+            elif up:
+                pp.moveTo(QPointF(X(f), Y(fn(f))))
+                up = False
+            else:
+                pp.lineTo(QPointF(X(f), Y(fn(f))))
         g.drawPath(pp)
     tfn = target_fn or _target
     if clip_db:  # (the curves only: from the top dB grid line to the bottom one)
         g.setClipRect(QRectF(ox, Y(vt), gw, Y(vb) - Y(vt)))
     if target:
-        path(tfn, "#9e9ea3", 2.3, list(target_dash or (6, 3)) if target == "dashed" else None)
+        path(tfn, target_colour, target_width, list(target_dash or (6, 3)) if target == "dashed" else None,
+             gaps=target_gaps)
     left, right0 = chan_fns or (_left, _right)
     right = (lambda f: right0(f) + offset_db) if offset_db else right0
-    chans = [left] if one_curve else [left, right]
+    chans = [] if not curves else [left] if one_curve else [left, right]
     for fn, col in zip(chans, colours):
         path(fn, col, 2.3)
     for fn, col in extra:
         path(fn, col, 2.3)
+    if rows_over:
+        grey_lines()
     if clip_db:
         g.setClipRect(QRectF(ox, oy, gw, gh))
     fb = font(9.5, True)
     lx, ly = legend_xy
-    text(ox + lx * s, oy + ly * s, "Sample IEM (L)", colours[0], fb)
-    if not one_curve:
+    if curves:
+        text(ox + lx * s, oy + ly * s, "Sample IEM (L)", colours[0], fb)
+    if curves and not one_curve:
         text(ox + lx * s, oy + (ly + 15) * s, "Sample IEM (R)", colours[1], fb)
-    if target:
-        text(ox + 500 * s, oy + 270 * s, "Sample Target", "#9e9ea3", fb)
+    if target and target_look:  # (the target's name and its settings, bold, gray-green, at the bottom right)
+        text(ox + 500 * s, oy + 314 * s, "Sample Target (Tilt: -1dB/Oct, Bass: 6dB)", "#a3a89c",
+             font(10, True, "Arial"))
+    elif target:
+        text(ox + 500 * s, oy + 270 * s, "Sample Target", target_colour, fb)
     g.end()
-    avg = left if one_curve else (lambda f: (left(f) + right(f)) / 2)
+    avg = None if not curves else left if one_curve else (lambda f: (left(f) + right(f)) / 2)
     xi = lambda f: X(f) - 0.5
     yi = lambda v: Y(v) - 0.5
     return img, {"plot": {"x0": xi(20), "x1": xi(20000), "y0": top - 0.5, "y1": bot - 0.5}, "avg": avg,
@@ -277,6 +333,24 @@ def website_graph(plot_w=1000, target=None, page=False, decade=0, labels=True, o
                  "hz": lambda x: 20 * 10 ** ((x - xi(20)) / (xi(20000) - xi(20)) * 3),
                  "db": lambda y: vt - (y - yi(vt)) / (yi(vb) - yi(vt)) * (vt - vb), "words": words, "scale": s,
                  "db_rows": [yi(v) for v in db_values[::-1]]}
+
+
+def _relative_target(f):
+    """A made-up target around 0 dB, as a website shows a target alone: a bass shelf of about 10 dB that ends at
+    about 300 Hz, then a small tilt down (about -1.3 dB at 20 kHz)."""
+    return 10.0 / (1 + (f / 120) ** 2.2) + 0.3 - 0.25 * max(0.0, math.log2(f / 1000))
+
+
+def target_graph(plot_w=1200, **kw):
+    """website_graph with the look of a website's graph of a target alone (measured on a real picture of
+    2026-11-12, kept only as scratch data): a dB axis of -20 to 20 dB (labels 20 to -20), no measurement, a dashed
+    gray target line (#9ca29a, 2.3 units wide: 7 px at a grid of 2310 px; dashes of 6 and gaps of 3 units), the
+    soft dB bands, the gray watermark in the line's gray, the pale blue logo and the gray text at the top right, and
+    the gray-green name of the target. kw: more website_graph options (they win)."""
+    opts = dict(target="dashed", curves=False, db_range=(-20, 20), db_step=5, target_fn=_relative_target,
+                target_colour="#9ca29a", target_look=True, top_logo=True)
+    opts.update(kw)
+    return website_graph(plot_w=plot_w, **opts)
 
 
 def as_rgb(img, jpeg=None):

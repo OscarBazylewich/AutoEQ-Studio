@@ -63,7 +63,7 @@ def stand_in(ok=True, fail="trace_curve", target=False, error=None, delay=0.0, c
         ys = np.array([p[1] for p in pts]) - cy - 0.5
         return np.interp(np.arange(w), xs, ys, left=np.nan, right=np.nan)
 
-    def fake(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
+    def fake(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None):  # (want: the entry's kind)
         if calls is not None:
             calls.append({"shape": np.asarray(rgb).shape, "jpeg": jpeg, "name": name, "ocr": ocr_words})
         if delay:
@@ -1641,7 +1641,10 @@ def test_window_in_front_of_the_graph(eq_screen, flow, monkeypatch, check):
     body = help_window._by_id()[help_window.entry_for("#pw-paste")]["body"]
     para = next((p for p in body if "in front of the graph" in p), "")
     sentences = [s for s in para.replace("…", "").split(". ") if s.strip()]
-    step = "Maximize the window of your browser. Larger pictures give better results. " + FRONT_WINDOW
+    # (2026-11-12: then the sentence for an entry that the graph does not show: its share link is not verified on
+    # each website)
+    step = ("Maximize the window of your browser. Larger pictures give better results. " + FRONT_WINDOW + " "
+            + picture_wait.NOT_SHOWN)
     check("website flow: step 1 of the wait window tells the user to close a window of the website in front of the "
           "graph", FRONT_WINDOW == "If the website shows a window in front of the graph, close that window."
           and all(v[2] == step for k, v in seen.items() if k[1]), {k: v[2] for k, v in seen.items()})

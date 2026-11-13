@@ -25,6 +25,20 @@ auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph") does it all:
    trace_curve and is out of the grid only at its ends (a bass roll-off under the grid).
 6. Checks: each one passes or fails, with a reason the user reads (in STE). The names start with "axes_" or "trace_"
    (the window opens the tab where the user can correct it).
+7. A picture with only a target line (a website's graph of a target: a dB axis also around 0 dB, DB_TARGET_LOWEST;
+   no strong color on half of the grid's columns or more, so a blue logo is not a measurement): find_target with
+   alone=True (a gray line only, ALONE_GREY; its width from line_width; a seed in the color of the dB grid lines is
+   not used, one in the color of the frequency grid lines is; the faded ends keep their points, and the parts on a
+   dB grid row too, except when the dB grid lines are gray, rows_are_grey; no points on a label; the line with the
+   most points, not a gray watermark) is the curve of the result, "Target", marked "target" (AutoRead.target_only). Its
+   checks: trace_kind, trace_single (a second gray line apart from it: second_line, SECOND_SHARE), then line_alone's
+   trace_curve and trace_gaps (ALONE_GAP; a line out of the grid at an end as a measurement's, with no points in the
+   EXIT_CUT before the edge). out_words then gives the first and the last traced frequency. want="target" (an entry
+   of a target): the dB axis of a target, and the target line alone is the result also next to a measurement when
+   its own checks pass, else trace_kind fails (KIND_NOT_TARGET; with no line and no measurement, trace_curve fails:
+   NO_TARGET_LINE). want="measurement" (an entry of a measurement): a gray line alone is never the result;
+   trace_curve fails (NO_STRONG_CURVE, and ONLY_GREY_LINE when the app found a gray line; the first failed check
+   gets ONLY_GREY_LINE too, as the status line shows only that one).
 
 Every limit here was measured (2026-11-10 to 2026-11-12) on five real pictures (the fourth: a screen copy of a grid of
 1396 px, a channel out of the grid at 18.7 kHz; the fifth: the file of the website's Screenshot button, 2400 px) and
@@ -92,6 +106,69 @@ largest difference from the true average, and the count of points (of about 470)
    lower, or of 48.5 to 88.5 dB: ok=True, 0.57 to 0.66 dB at 2 to 4 points (800 and 1000 px; at 1396 px trace_gaps
    fails). Where the website cuts the curves there, a part of less than 0.6 % of the width next to the edge is such a
    line too (out_parts): 0.17 to 0.27 dB at 1 to 5 columns.
+
+A target line alone (item 7; measured 2026-11-12 on the look-alike with curves=False and on target_graph, the true
+words in place of the text reader; a real picture of a website's target, 2400 px: all checks pass, 461 points from
+24.1 Hz to 18.5 kHz). "N dB at P points" here is against the true target line:
+19. A gray, solid or dashed target line, 1000 to 2234 px, PNG and JPEG 85 and 60, dB axes of 30, 40 and 50 dB, light
+   and dark (of 108): 107 pass, 0.32 dB or less at each point; the other one (dashed, 2234 px, JPEG 60, 35 to 85 dB)
+   fails trace_curve. A thin line (1.2 units) or a pale one (#c8c8c8) (of 360 with five grays, two widths, a page):
+   302 pass, 0.52 dB at 1 point (dashed, #c8c8c8, 1000 px, JPEG 60, a page); the others fail trace_curve.
+20. target_graph (of 96, 1000 to 2400 px, PNG and JPEG 85 to 60, light and dark): 92 pass, 0.17 dB or less. At
+   1000 px, JPEG 60, the watermark is the line with the most points (23.6 dB off, trace_curve fails); at 1200 px,
+   JPEG 60, the dashes along the 0 dB band get its tint and the line stops at 3.8 kHz (trace_curve fails).
+21. A target line alone that goes out of the grid at an end (of 96, steep exits at 15 kHz and at 25 to 40 Hz, cut or
+   not): 45 pass, 0.25 dB or less; a dashed line that goes out steeply is lost before the edge (trace_curve fails).
+22. No points on a label that the app read, a line width around it: where the line starts on a dB label (the real
+   picture: the label 10 at 20 Hz), the first point is at 22 to 25 Hz. The website also fades the line in its last
+   1.5 % (the real picture: the last point at 18.5 kHz). The app makes no values there; 3 Save's note gives the first
+   and the last traced frequency. (The real picture shows the line in 3 columns between the characters of "10": the
+   trimmed ends of target_ends, 7 columns there, take them, so points there are not possible.)
+23. A target line in a color less than 25 levels from the color of the dB grid lines is not found (not measured). A
+   level target on the 60 dB grid row from 20 Hz to 8 kHz was not found at 1000 and 1396 px (trace_curve fails); at
+   2234 px it passes, 0.03 dB.
+24. A picture with a measurement that a JPEG made pale (no strong color on half of the grid's columns) can be read as
+   a target line alone: of 384 (8 colors, 500 to 800 px, JPEG 20 to 50), 29 give a target result, none with all
+   checks passed (ALONE_GREY). For an entry of a measurement, no line alone is the result (trace_curve fails).
+Items 25 to 30: the verifier's scan of 1,650 forms (2026-11-13: families A, M, N, O, T, W, X, 600 to 3000 px, PNG and
+JPEG 85 to 20, light and dark, a page), measured on the code of these items; "before" is the code before them.
+25. Two target lines (of 190 with two different lines): 28 pass, 24 of them more than 1 dB from the true target and
+   0.57 dB or less from the other line (the app follows only one of the two, or the second has less than SECOND_SHARE
+   of the points, or points in less than SECOND_TENTHS of the tenths). Before: 147 passed, 113 more than 1 dB off.
+   Two target lines that are the same except at one end (a bass shelf of -4 to 8 dB or a treble shelf of 5 dB, as
+   the website's settings make; the final verification's family S, of 75): 54 pass, 49 of them more than 1 dB from
+   the true target (15.58 dB at 234 points, 1396 px, JPEG 70) and 1.62 dB or less from one of the two lines (44 of
+   them 0.5 dB or less from the second line). follow() from the second line follows only the part where the two
+   lines are different, and that part is not a second line. A second line on a part of the width only (of 45): 38
+   pass, 0.39 dB or less.
+26. Gray dB grid lines (of 63): 12 pass, 0.50 dB at 1 point or less. Before: 23 passed, 3 of them a row, 10.2 to 25.0
+   dB off at 389 to 464 points, and 1 a line on a row for a part, 5.1 dB at 229 points. 7 correct results are lost
+   (a target line on a row there has no points: trace_curve or trace_gaps fails). The final verification's families
+   ("before": the code before these items): soft dB bands in pure or tinted grays (G1, of 150): 69 pass, 0.40 dB or
+   less; 17 correct results are lost. dB grid lines in other grays, under or over the line (G2, of 150): 42 pass;
+   28 correct results are lost; 0.56 dB at 1 point, and 9.94 dB at all 464 points (#9ea3b0, 1800 px: the -8 dB row
+   through the watermark is the result). dB grid lines in tinted grays of 10 to 30 levels (G3, of 120): 29 pass; 11
+   correct results are lost; 1.46 dB at 2 points, and 15.35 dB at all 464 points (#9ea3b0 over a level target line,
+   1000 px: a row is the result). A tint of 18 levels on the cream page (21 levels) is not gray for rows_are_grey.
+   target_graph with soft bands in a blue gray (#bfc8d6, of 540 forms of target_graph): 4 pass 9.95 to 10.20 dB off
+   at 269 to 307 points (1396 px, JPEG 85 and 70). A tried rule (a line in the color of the dB grid lines that is on
+   one row for half of its points or more is a row) stopped these 6, but it gave 2 new results 4.38 and 9.79 dB off
+   (the lighter edge of a row); with each color between the page's and the rows', it lost 4 correct results (a level
+   pale target line on a row). Not in the code. On a white or a neutral gray page, ROW_GREY is the limit (600
+   forms with dB grid lines of 0 to 20 levels, 2026-11-13): a white page (of 296), 92 pass, 30 of them more than 0.5
+   dB off; a gray page, #ececec (of 159), 53 pass, 18 of them more than 0.5 dB off; 27.19 dB at most (a row is the
+   result). The cream page (of 145): 30 pass, 1 of them 18.92 dB off.
+27. A dotted line (dashes of 1 and 3, 3 and 6 units, of 114): 2 pass, 0.22 dB or less; the others fail.
+28. Gray text along or across the target line (of 93): 39 pass, 0.57 dB at 2 points, 0.82 and 1.02 dB at 6 points.
+   The name of the target and its settings in gray near the line (the final verification's family L, of 60): 30
+   pass, 9 of them more than 0.5 dB off: 1.66 dB at 14 points, 1.61 dB at 11, 1.58 dB at 7 (each 700 px), 1.20 dB
+   at 23.
+29. A gray measurement next to a target line, an entry of a target (of 120 with a measurement): its channels are
+   gray lines too, and trace_single fails, which is not the true cause: 11 correct results are lost. Before: 1.12 dB
+   at 6 points with all checks passed.
+30. A black, gray or pale measurement with no entry: the line alone follows one channel. Of 330, 5 pass as a target,
+   3 of them 1.26 to 1.29 dB from the average of the channels at 47 to 52 points (the two channels are near, and
+   second_line takes them as one line). For an entry of a measurement, none is a target result.
 """
 import collections
 import math
@@ -138,6 +215,30 @@ LOST_APART = 0.008
 # The ends of each part of the target line that find_target leaves out: this share of the grid's width, and at least
 # 3 columns (target_ends)
 TARGET_END = 0.003
+# The same for a target line alone (no measurement): the parts of the line are apart by more than this share of the
+# grid's width (find_target's alone)
+ALONE_APART = 0.025
+# A target line alone that goes out of the grid at an end: the columns of this share of the grid's width before the
+# end have no points (line_alone)
+EXIT_CUT = 0.01
+# The longest part with no target line alone, of the grid's width (MAX_GAP for a measurement): a dashed line that a
+# JPEG cut next to a frequency grid line lost one dash there (a gap of 1 to 1.2 % of the width, 1000 px, JPEG 60)
+ALONE_GAP = 0.02
+# A line alone is a target line only when its color is gray: the difference of its color's channels is under this
+# (gray target lines alone, 1000 to 2400 px, PNG and JPEG 85 to 60: 3 to 16, the real picture 8; a measurement in a poor
+# JPEG, 500 to 800 px, JPEG 20 to 50, read with no strong color: 5 to 45; 3 of them, 40 to 45, passed all checks as a
+# target line: green 550 px, JPEG 40, 2.58 dB from the average of the channels)
+ALONE_GREY = 25
+# dB grid lines are gray when the difference of their color's channels is under this, or under the background's less
+# 3 (rows_are_grey). On the website's cream page (21 levels) the second limit, 18, applies; on a white or a neutral
+# gray page, this one. 600 look-alikes with dB grid lines of 0 to 20 levels on a white, a gray and the cream page
+# (2026-11-13): with 8, 175 pass, 49 of them more than 0.5 dB off; with 4, 8 more such results; with 12 or 16, 16 or
+# 35 of them fail, but 7 or 17 correct results fail too; no form on the cream page changes (known limit 26)
+ROW_GREY = 8
+# A second line alone with this share of the points of the line with the most points, apart from it, is a second
+# target line (second_line)
+SECOND_SHARE = 0.3
+SECOND_TENTHS = 7
 MAX_PEAKS = 150     # (more line positions than this: not a graph; the fit's time grows with the cube of the count)
 # The ways a part of the picture is given to the text reader, in turn: (enlarged so many times, as dark text on white)
 TREATMENTS = [(4, False), (6, True), (8, False), (3, True), (5, False), (8, True)]
@@ -152,15 +253,19 @@ DB_STEPS = (-5, -10, -2.5, -2, -1)  # dB between grid lines (the first one wins 
 # also at most 120 dB)
 DB_MIN_SPAN = 15
 DB_LOWEST, DB_HIGHEST = 10, 130
+# The lowest value of the dB axis of a graph with only a target line: a CrinGraph website shows a target around 0 dB
+# (a real picture of 2026-11-12: -20 dB to 20 dB, labels 20 to -20); the level of a target is relative (inferred)
+DB_TARGET_LOWEST = -40
 # Letters that the text reader gives for digits of the website's font (a zero with a line through it, and 5, 1, 8)
 LOOSE = str.maketrans({"e": "0", "o": "0", "O": "0", "Q": "0", "@": "0", "ø": "0", "Ø": "0", "s": "5",
                        "S": "5", "t": "1", "l": "1", "I": "1", "i": "1", "|": "1", "B": "8"})
 
 Check = collections.namedtuple("Check", "name ok reason")
 # (out_words: the sentences of trace_curve about the ends of the curve out of the grid, or "": 3 Save's note shows
-# them too)
+# them too; for a target line alone with no end out of the grid, the first and the last traced frequency;
+# target_only: the curve is the target line alone)
 AutoRead = collections.namedtuple("AutoRead", "ok tracer checks curve target points target_points plot seconds "
-                                  "out_words", defaults=("",))
+                                  "out_words target_only", defaults=("", False))
 
 
 # ---------------------------------------------------------------- small parts
@@ -1443,30 +1548,49 @@ def _smooth_parts(xs, ys, lw, width, top=None, bot=None):
     return xs[ix], ys[ix]
 
 
-def target_ends(ys, width):
+def target_ends(ys, width, apart=0.01):
     """The columns of the target's points ({column: row}) at the ends of each traced part (the parts apart by more
-    than 1 % of the width): the first and last TARGET_END of the width, at least 3 columns (follow() goes on past
-    where the line goes under the band or ends, onto the band's soft pixels or a word: measured 3.3 dB off at one
+    than `apart` of the width, 1 %): the first and last TARGET_END of the width, at least 3 columns (follow() goes on
+    past where the line goes under the band or ends, onto the band's soft pixels or a word: measured 3.3 dB off at one
     point, 500 px, JPEG 50; 1.3 dB at 4 points, 1200 px, JPEG 30), and all the columns of a part shorter than 4 times
-    that or 2 % of the width. find_target leaves them out. Returns a sorted list."""
+    that or 2 % of the width. find_target leaves them out. With `apart` more than 1 % (a target line alone), also the
+    first and the last piece of the line when it is short and more than 1 % of the width from the rest (follow() went
+    from the line's end onto the dB label next to it: 2.22 dB at 9 points, a bass out of the grid, 1000 px, PNG).
+    Returns a sorted list."""
     kx = sorted(ys)
     trim = max(3, int(math.ceil(TARGET_END * width)))
     out = []
-    for part in np.split(np.array(kx, int), np.flatnonzero(np.diff(kx) > max(8, 0.01 * width)) + 1) if kx else []:
+    is_short = lambda p: p[-1] - p[0] + 1 < max(4 * trim, 0.02 * width)  # noqa: E731
+    parts = np.split(np.array(kx, int), np.flatnonzero(np.diff(kx) > max(8, apart * width)) + 1) if kx else []
+    for i, part in enumerate(parts):
         # (a short part is not the line: follow() went onto gray text near the band, 14 dB off at 1 point, 700 px)
-        short = part[-1] - part[0] + 1 < max(4 * trim, 0.02 * width)
+        short = is_short(part)
         out += [int(x) for x in part if short or x - part[0] < trim or part[-1] - x < trim]
-    return out
+        if apart > 0.01 and not short:
+            pieces = np.split(part, np.flatnonzero(np.diff(part) > max(8, 0.01 * width)) + 1)
+            first_last = ({0} if i == 0 else set()) | ({len(pieces) - 1} if i == len(parts) - 1 else set())
+            for k in first_last:
+                if len(pieces) > 1 and is_short(pieces[k]):
+                    out += [int(x) for x in pieces[k]]
+    return sorted(set(out))
 
 
-def find_target(t, top, bot, lw):
+def find_target(t, top, bot, lw, alone=False):
     """A second line: followed with the Tracer's own follow() (as a dashed line: it continues where the measurement
     hides it), with a color tolerance under its distance from the grid's color. Returns {"ys": {column: y},
     "hidden" (the columns with no point: where the band hides the line, 1.5 line widths beside those, the grid's
     faded ends, each part of 2 % of the width or more on a dB grid row, the ends of each traced part (target_ends),
     and each part of 2 % or more with no line),
-    "colour" (the median of the line's pixels), "strong" (a strong color: a second measurement, not a target)} or
+    "colour" (the median of the line's pixels), "strong" (a strong color: a second measurement, not a target),
+    "line" ({column: y} before the columns were hidden), "fade" (the columns of each faded end)} or
     None. A line whose color is less than 25 levels from the background's color is not used (JPEG marks).
+    alone: the target line as the curve of the result, in a picture with no measurement (top and bot all NaN) or, for
+    an entry of a target, beside the band of a measurement (top and bot of the band): the grid's faded ends and the
+    parts on a dB grid row keep their points (no band hides the line, so follow() has no reason to go onto a grid
+    line; the look-alike's target near the 60 dB grid line lost 11 % of the width there, and 6 % at the faded ends:
+    on 84 %, 1000 px, PNG), except the parts on a row when the dB grid lines are gray (rows_are_grey); a seed in the
+    color of the dB grid lines is not used; the result is the line with the most points, and its "second" is True
+    when a second target line is apart from it (second_line).
     (Tracer.trace_at is not usable here: it took the color of the measurement near the target line.)"""
     box = t.box
     width = box["x1"] - box["x0"]
@@ -1475,7 +1599,14 @@ def find_target(t, top, bot, lw):
     rows = [line["pos"] for line in t.h_lines]
     # the grid's color: the median at the frequency grid lines
     gc = np.median(np.concatenate([t.px[box["y0"]:box["y1"], int(round(g["p"]))] for g in t.grid_x]), axis=0)
-    tried = []
+    # alone: also the dB grid lines' color, the median at their rows (a website can draw them as wide, soft bands:
+    # the look-alike's band of 2026-11-12 was traced as the target, 20.8 dB off at all points with all checks passed)
+    hc, grey_rows = None, False
+    if alone and rows:
+        xs = np.arange(box["x0"] + 3, box["x1"] - 2, max(1, width // 200))
+        hc = np.median(np.concatenate([t.px[int(round(r)), xs] for r in rows if 0 <= round(r) < t.H]), axis=0)
+        grey_rows = rows_are_grey(t, rows, xs)
+    tried, lines, cands = [], [], []
     for x, y in target_seeds(t, top, bot, lw)[:80]:
         if any(x in g and abs(g[x] - y) <= 3 for g in tried):
             continue
@@ -1485,8 +1616,16 @@ def find_target(t, top, bot, lw):
         col = t.px[ya:yb, x].astype(np.float32)
         c = col[int(np.argmax(((col - np.asarray(t.bg, np.float32)) ** 2).sum(1)))]
         dg = float(np.sqrt(((c - gc) ** 2).sum()))
-        if dg < 25:
+        if dg < 25 and not alone:
             continue  # (the grid's own color: a piece of a grid line, or text in that color)
+        # (alone: not the frequency grid lines' color, which a gray target line in a JPEG can be within 25 levels of:
+        # 14 to 25 levels at 2234 px, JPEG 85, and the line was not found; the seeds are not on those lines, and
+        # follow() along one gives one column. The dB grid lines' color instead: a seed on a dB band is not the line)
+        if hc is not None:
+            dh = float(np.sqrt(((c - hc) ** 2).sum()))
+            if dh < 25:
+                continue
+            dg = max(25.0, min(dg, dh))
         tol = max(20.0, min(float(t.v["tol"]), 0.6 * dg))
         g = t.follow(x, round(y), tuple(int(v) for v in c), dashed=True, tol=tol)
         if not g or len(g) < 3:
@@ -1503,6 +1642,8 @@ def find_target(t, top, bot, lw):
             if float(np.sqrt(((colour - np.asarray(t.bg, np.float32)) ** 2).sum())) < 25:
                 continue  # (the background's color: JPEG marks beside a grid line or the band, not a line)
             strong = float(colour.max() - colour.min()) >= 50
+            if alone and float(colour.max() - colour.min()) >= ALONE_GREY:
+                continue  # (alone: a gray line only, not a measurement that a poor JPEG made pale)
             # the columns where the line is: its color (the median) within follow()'s tolerance in the pixel or the one
             # above or below; then the parts of the line between its jumps: the longest one, and the ones that
             # continue it (follow() can go onto the labels' or the grid's soft pixels, or onto the measurement where
@@ -1535,21 +1676,39 @@ def find_target(t, top, bot, lw):
             hx = np.array(sorted(hidden), int)
             for x in vx:
                 x = int(x)
-                if (len(hx) and np.abs(hx - x).min() <= side) or not box["x0"] + fade <= x <= box["x1"] - fade:
+                if (len(hx) and np.abs(hx - x).min() <= side) or not (
+                        alone or box["x0"] + fade <= x <= box["x1"] - fade):
                     hidden.add(x)
-            ys = {int(x): float(y) for x, y in zip(vx, vy) if int(x) not in hidden}
+            line = {int(x): float(y) for x, y in zip(vx, vy)}  # (all of the line, for line_alone's edges)
+            ys = {x: y for x, y in line.items() if x not in hidden}
+            if alone:
+                # (no points on a label that the app read, and a line width around it: follow() went from the line's
+                # end onto the label "40" next to it, 1.22 dB off at 3 points, 1000 px, PNG; the real picture's line
+                # starts on its label "10")
+                for w in getattr(t, "label_words", []):
+                    for x in [x for x, y in ys.items() if w["x0"] - lw <= x <= w["x1"] + lw
+                              and w["y0"] - lw <= y <= w["y1"] + lw]:
+                        del ys[x]
+                        hidden.add(x)
             # a part on a dB grid row for 2 % of the width or more is the grid's line, not the line: follow() can go
             # onto it, or onto its soft edge in a JPEG, where the band hides the target line (measured: a level target
             # in the band's edge, 800 px, JPEG 60: the whole target 2.4 px from a grid row, 3.5 dB off), or from a pale
             # pixel of text (orange channels, 1000 px: a grid line was a target)
+            # (alone: only when the dB grid lines are gray, rows_are_grey: a part on a row can be the row. The
+            # verifier's gray dB grid lines: a row was the line, 25 and 20 dB off at all points with all checks
+            # passed, 800 and 1700 px; a pale line went onto the soft edge of a darker row for half of the width,
+            # 5.1 dB off, 2600 px, JPEG 85)
             long_gap = max(12, int(0.02 * width))
-            on = [x for x in sorted(ys) if rows and min(abs(ys[x] - r) for r in rows) <= max(1.0, 1.5 * lw)]
+            on = [x for x in sorted(ys) if rows and (grey_rows or not alone)
+                  and min(abs(ys[x] - r) for r in rows) <= max(1.0, 1.5 * lw)]
             for part in np.split(np.array(on, int), np.flatnonzero(np.diff(on) > 3) + 1) if on else []:
                 if part[-1] - part[0] >= long_gap:
                     for x in part:
                         del ys[int(x)]
                         hidden.add(int(x))
-            for x in target_ends(ys, width):
+            # (alone: a dash that a JPEG lost next to a frequency grid line makes a gap of 1.5 to 2 % of the width,
+            # and the dashes between two such gaps are one part of the line, not a short part)
+            for x in target_ends(ys, width, ALONE_APART if alone else 0.01):
                 del ys[x]
                 hidden.add(x)
             # then each long part with no point (2 % of the width)
@@ -1557,10 +1716,162 @@ def find_target(t, top, bot, lw):
             for xa, xb in zip(kx, kx[1:]):
                 if xb - xa > long_gap:
                     hidden.update(range(xa + 1, xb))
+            found = {"ys": ys, "hidden": hidden, "colour": tuple(int(round(v)) for v in colour),
+                     "strong": strong, "line": line, "fade": fade}
             if strong or len(ys) >= 0.2 * width:
-                return {"ys": ys, "hidden": hidden, "colour": tuple(int(round(v)) for v in colour),
-                        "strong": strong}
-    return None
+                if not alone:
+                    return found
+                lines.append(found)
+            elif alone:
+                cands.append(found)
+    if not lines:
+        return None
+    # (alone: the line with the most points, not the first one: the watermark's large gray text, in the gray of the
+    # line and nearer the middle, was found first, 23.6 dB off, 1000 px, JPEG 85)
+    best = max(lines, key=lambda g: len(g["ys"]))
+    best["second"] = second_line(best, [g for g in lines + cands if g is not best], lw, box)
+    return best
+
+
+def rows_are_grey(t, rows, xs):
+    """True when the dB grid lines are drawn in a gray (they then look like a target line): their color, the median
+    of the pixel farthest from the background's color in the 3 rows of each dB grid line at the columns xs, is
+    25 levels or more from the background's color and has less color than it, ROW_GREY (a thin line in a JPEG gets
+    the color of the background around it: gray dB grid lines on the cream page of the look-alike were 0 to 21 levels
+    between their channels, the page 21, the website's usual dB grid lines 21 to 39, its soft bands 21 to 29)."""
+    bg = np.asarray(t.bg, np.float32)
+    picks = []
+    for r in rows:
+        ri = int(round(r))
+        if 1 <= ri < t.H - 1:
+            part = t.px[ri - 1:ri + 2, xs].astype(np.float32)
+            picks.append(part[((part - bg) ** 2).sum(2).argmax(0), np.arange(len(xs))])
+    if not picks:
+        return False
+    rc = np.median(np.concatenate(picks), axis=0)
+    return float(np.sqrt(((rc - bg) ** 2).sum())) >= 25 and float(rc.max() - rc.min()) < max(
+        ROW_GREY, float(bg.max() - bg.min()) - 3)
+
+
+def second_line(best, others, lw, box):
+    """True when one of the other lines that find_target followed (alone) is a second target line: SECOND_SHARE of
+    the points of the best line or more, points in SECOND_TENTHS of the tenths of the grid's width or more (not the
+    watermark or a word), and apart from the best line (less than half of its points within 2 line widths and 2 rows
+    of the best line's row at that column, between its columns a straight line). Two targets on one graph: the line
+    with the most points was the result, 16 dB off at all points with all checks passed (the verifier's scan, 113 of
+    157 results more than 1 dB off)."""
+    x0, width = box["x0"], max(1, box["x1"] - box["x0"])
+    lx = np.array(sorted(best["line"]), float)
+    ly = np.array([best["line"][int(x)] for x in lx])
+    for g in others:
+        ys = g["ys"]
+        if len(ys) < SECOND_SHARE * len(best["ys"]):
+            continue
+        if len({min(9, max(0, int(10 * (x - x0) / width))) for x in ys}) < SECOND_TENTHS:
+            continue
+        # (the best line's row at each of its columns, and between them: a second follow() of the same line has
+        # other columns; a thin line, 1000 px, was a second target line with half of its columns shared)
+        gx = np.array(sorted(ys), float)
+        dy = np.abs(np.array([ys[int(x)] for x in gx]) - np.interp(gx, lx, ly))
+        if np.count_nonzero(dy <= 2 * lw + 2) < 0.5 * len(ys):
+            return True
+    return False
+
+
+def line_width(t, seeds):
+    """The width in rows of a thin line with no band beside it (a picture with only a target line: band() gives the
+    width of a measurement's line): the median height of the run of drawn pixels at each seed of target_seeds, or 2
+    with no seed."""
+    hs = []
+    for x, y in seeds:
+        col = t.dbg[:, x] > INK * INK
+        a = e = int(round(y))
+        if not 0 <= a < t.H or not col[a]:
+            continue
+        while a > 0 and col[a - 1]:
+            a -= 1
+        while e < t.H - 1 and col[e + 1]:
+            e += 1
+        hs.append(e - a + 1)
+    return float(np.median(hs)) if hs else 2.0
+
+
+def line_alone(tg, lw, t, lo_c, hi_c, pw, hz_at, out_of, f1):
+    """The checks of a target line that is the curve of the result (find_target's tg; lw: its width; the columns
+    lo_c to hi_c of the grid, pw its width; hz_at(column from lo_c), out_of(side): words; f1: the first frequency).
+    trace_curve: the share of the grid's width with the line, MIN_TRACED and MIN_IN_GRID as for a measurement. The
+    gaps of a dashed line (ALONE_GAP or less) and the ends that find_target trims (target_ends, near the grid's edges)
+    count as line; a part at an end where the line goes out of the grid at its top or bottom (out_parts: the line
+    touches the top or bottom dB grid line where nothing is drawn past it, else the grid's first or last row) has no
+    value, as for a measurement, and the columns of EXIT_CUT before it have no points (drop). trace_gaps: the longest
+    part with no line, ALONE_GAP; a part out of the grid in the middle fails it. Returns {"checks", "out_words",
+    "drop" (the columns with no points)}."""
+    n = max(0, hi_c - lo_c)
+    cols = np.array(sorted(x - lo_c for x in tg["ys"] if lo_c <= x < hi_c), int)
+    inside = np.zeros(n, bool)
+    if len(cols):
+        inside[cols] = True
+        for a, e in zip(cols[:-1], cols[1:]):
+            if e - a - 1 <= ALONE_GAP * pw:  # (the gaps of a dashed line)
+                inside[a:e] = True
+    # where the line touches the grid's top or bottom edge (the dB grid line where nothing is drawn past it)
+    line = tg["line"]
+    lx = np.array(sorted(x for x in line if lo_c <= x < hi_c), int)
+    touch = np.full(n, np.nan)
+    if len(lx):
+        ly = np.array([line[x] for x in lx])
+        rows = sorted(h["pos"] for h in t.h_lines)
+        top_e, bot_e = float(t.box["y0"]), float(t.box["y1"])
+        if len(rows) >= 2:
+            top_e = rows[0] if ly.min() >= rows[0] - 2 else top_e
+            bot_e = rows[-1] if ly.max() <= rows[-1] + 2 else bot_e
+        touch[lx - lo_c] = np.where(ly - lw / 2 <= top_e + 1.5, -1, np.where(ly + lw / 2 >= bot_e - 1.5, 1, 0))
+    if len(cols):
+        room = tg["fade"] + max(3, int(math.ceil(TARGET_END * pw))) + 2  # (the faded ends)
+        if cols[0] <= room:
+            inside[:cols[0]] = True
+        if n - 1 - cols[-1] <= room:
+            inside[cols[-1]:] = True
+    ends, middle = out_parts(inside, touch)
+    # the columns next to an end out of the grid (EXIT_CUT of the width): no points there (the line steep to the edge,
+    # and follow() went onto gray text there: 2.70 dB at 3 points, out at the top at 14.8 kHz, 1000 px, PNG)
+    cut = max(3, int(math.ceil(EXIT_CUT * pw)))
+    drop = set()
+    for a, e, _side, _e0, _e1 in ends:
+        near = cols[(cols >= e) & (cols < e + cut)] if a == 0 else cols[(cols < a) & (cols >= a - cut)]
+        drop.update(int(x) + lo_c for x in near)
+    cols = np.array([x for x in cols if x + lo_c not in drop], int)
+    got = float(inside.mean()) if n else 0.0
+    gone = sum(q[1] - q[0] for q in ends + middle) / n if n else 0.0
+    mid = sum(q[1] - q[0] for q in middle) / n if n else 0.0
+    pct = min(100, int(got * 100))
+    curve_ok = got + gone >= MIN_TRACED and got + mid >= MIN_IN_GRID
+    words = []
+    for a, e, side, e0, e1 in ends:
+        if a == 0:
+            first = int(cols[cols >= e][0]) if (cols >= e).any() else e
+            words.append(f"From {fmt_hz(f1)} to {hz_at(e1)}, the target line is {out_of(side)} of the grid. The app "
+                         f"traced the target line from {hz_at(first)}.")
+        else:
+            last = int(cols[cols < a][-1]) if (cols < a).any() else a - 1
+            words.append(f"At {hz_at(e0)}, the target line goes {out_of(side)} of the grid. The app traced the target "
+                         f"line to {hz_at(last)}.")
+    words = " ".join(words)
+    checks = [Check("trace_curve", curve_ok, (f"The target line is on {pct} % of the width of the grid." if curve_ok
+                                              else f"The target line is on only {pct} % of the width of the grid.")
+                    + (" " + words if words else ""))]
+    on = np.flatnonzero(inside)
+    gap = int(np.diff(on).max()) - 1 if len(on) > 1 else 0
+    if middle:
+        a, e, side, _t0, _t1 = middle[0]
+        checks.append(Check("trace_gaps", False, f"Between {hz_at(a - 1)} and {hz_at(e)}, the target line goes "
+                            f"{out_of(side)} of the grid. The app cannot trace that part."))
+    else:
+        fine = gap <= ALONE_GAP * pw
+        checks.append(Check("trace_gaps", fine, "All of the target line is traced." if fine
+                            else f"A part of the target line that is {_count(gap, 'pixel', 'pixels')} wide is not "
+                            "traced."))
+    return {"checks": checks, "out_words": words, "drop": drop}
 
 
 # ---------------------------------------------------------------- the words of the checks (STE)
@@ -1581,6 +1892,40 @@ def _agree_words(n, m, what, more="", ok=True):
     return s + " Too many labels do not agree."
 
 
+def traced_range_words(pts, f1, f2):
+    """3 Save's sentence for a target line alone with no end out of the grid: the first and the last traced frequency
+    of its points pts [(Hz, dB)], when one of them is not at its end of the frequency axis f1 to f2 (in the words of
+    fmt_hz); else "". (The line has no points under a label or where the website fades it, and the app makes no
+    values there. The real picture: 24.1 Hz to 18.5 kHz; its line shows from 20 Hz to 20 kHz.)"""
+    if pts and (fmt_hz(pts[0][0]) != fmt_hz(f1) or fmt_hz(pts[-1][0]) != fmt_hz(f2)):
+        return f"The app traced the target line from {fmt_hz(pts[0][0])} to {fmt_hz(pts[-1][0])}."
+    return ""
+
+
+def db_range_check(lo, hi, target):
+    """axes_db_range for the dB axis lo to hi: usual for a graph of an IEM or headphone (DB_LOWEST to DB_HIGHEST), or
+    with target, for a graph of a target (from DB_TARGET_LOWEST: a website shows a target around 0 dB)."""
+    usual = DB_MIN_SPAN <= hi - lo and (DB_TARGET_LOWEST if target else DB_LOWEST) <= lo and hi <= DB_HIGHEST
+    return Check("axes_db_range", usual, f"The dB axis is {lo:g} dB to {hi:g} dB." + (
+        "" if usual else " This range is not usual for a graph of a target." if target
+        else " This range is not usual for a graph of an IEM or headphone."))
+
+
+# trace_kind: the kind of curve in the picture against the kind of the website's entry (auto_read's want)
+KIND_TARGET = "The picture has a target line and no measurement curve."
+KIND_TARGET_BESIDE = "The picture has a target line and a measurement curve. The app traced only the target line."
+KIND_NOT_TARGET = ("The picture has a measurement curve. The app cannot trace only the target line. Remove the "
+                   "measurement curve from the graph of the website.")
+# trace_single of a target line alone (find_target's "second")
+ONE_TARGET = "The picture has one target line."
+MORE_TARGETS = "The picture has more than one target line. Show only one target on the graph of the website."
+# trace_curve when the picture has no measurement in a strong color: for no entry or an entry of a measurement (the
+# words of version 1.6.1, and one more sentence when the app found a gray line), and for an entry of a target
+NO_STRONG_CURVE = "The app did not find a curve in a strong color."
+ONLY_GREY_LINE = "If the graph of the website shows only a target, show the measurement on the graph."
+NO_TARGET_LINE = "The app did not find a target line."
+
+
 def _read_labels(fn, rgb, ocr_words, plot):
     """fn(rgb, ocr_words, plot) (read_hz or read_db), with the text reader's errors caught. Returns (result, why_not):
     why_not None when the labels were read; else the words after "The app did not read the ... labels." ("" with no
@@ -1597,19 +1942,24 @@ def _read_labels(fn, rgb, ocr_words, plot):
 
 
 # ---------------------------------------------------------------- all of it
-def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
+def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None):
     """A picture of a graph from a CrinGraph website (the whole page or the graph only; H x W x 3 uint8, already
     scaled to trace_core.MAX_PIXELS) read with no help: see the module's docstring. ocr_words: ui.ocr.words, or None
     (no label is read); an error from it (ocr.Unavailable) becomes a reason. The caller's array is not changed.
+    want: the kind of the website's entry ("target", "measurement") or None (a picture of the user: either kind).
     Never raises for a picture that is not a graph (also None, or an array of 1, 2 or 4 dimensions): the check
     "axes_plot" fails, and the Tracer has the whole picture, loaded as Tracer.load does. Returns AutoRead(ok, tracer,
-    checks, curve, target, points, target_points, plot, seconds, out_words): ok when every check passes; tracer: a new
-    Tracer (never None); checks: [Check(name, ok, reason)]; curve: tracer.curves[0] when it has data; target: the
-    curve marked "target" or None (also None when the curve is on less than MIN_TRACED of the grid, unless it is out
-    of the grid only at its ends and passes trace_curve); points and
+    checks, curve, target, points, target_points, plot, seconds, out_words, target_only): ok when every check passes;
+    tracer: a new Tracer (never None); checks: [Check(name, ok, reason)]; curve: tracer.curves[0] when it has data;
+    target: the curve marked "target" or None (also None when the curve is on less than MIN_TRACED of the grid,
+    unless it is out of the grid only at its ends and passes trace_curve); points and
     target_points: [(Hz, dB)] or None (the dB axis is not known); plot: the crop's box in the picture {"x0", "y0",
     "x1", "y1"} or None; out_words: the sentences of trace_curve about an end of the curve out of the grid ("At 18.7
-    kHz, the left or right curve goes below the bottom of the grid. The app traced the curve to 17.8 kHz."), or "".
+    kHz, the left or right curve goes below the bottom of the grid. The app traced the curve to 17.8 kHz."), or "";
+    for a target line alone with no end out of the grid, "The app traced the target line from 24.1 Hz to 18.5 kHz."
+    when the line does not reach an end of the frequency axis. target_only: the curve is the target line alone (item
+    7 of the module's docstring): its label is "Target" and it has the mark "target"; target and target_points are
+    None.
     Runs in the caller's thread and touches no window."""
     t0 = time.perf_counter()
     try:
@@ -1699,11 +2049,12 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
         add("axes_db_labels", False, "The app did not read the dB labels." + db_not)
     else:
         add("axes_db_labels", False, "The app cannot read the dB labels. A larger picture can help.")
+    db_axis = None  # ((lo, hi): the dB axis, for the target line alone)
     if d_at and len(rows) >= 2:
         lo, hi = round(d_at(rows[-1]), 2) + 0.0, round(d_at(rows[0]), 2) + 0.0  # (+ 0.0: no "-0")
-        usual = DB_MIN_SPAN <= hi - lo and DB_LOWEST <= lo and hi <= DB_HIGHEST
-        add("axes_db_range", usual, f"The dB axis is {lo:g} dB to {hi:g} dB." + (
-            "" if usual else " This range is not usual for a graph of an IEM or headphone."))
+        db_axis = lo, hi
+        # (an entry of a target: the range and the words of a graph of a target, also when the read fails)
+        checks.append(db_range_check(lo, hi, want == "target"))
     else:
         d_at = None
         add("axes_db_range", False, "The app does not know the dB axis.")
@@ -1731,11 +2082,76 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
     t.axis_note = t.detect_note = " ".join(c.reason for c in checks if c.name in ("axes_hz_range", "axes_db_range"))
     t.fit_settings()
 
+    # traced columns between the first and the last tick; and the columns where the curve is out of the grid (out_parts)
+    ca, cb = int(math.ceil(tick_px[0])), int(math.floor(tick_px[-1]))
+    lo_c, hi_c = max(0, ca), min(t.W, cb + 1)
+    hz_at = lambda c: fmt_hz(20 * k10 * 10 ** ((c + lo_c + cx0 - fit["a"]) / fit["b"]))  # noqa: E731
+    out_of = lambda side: "above the top" if side < 0 else "below the bottom"  # noqa: E731
+    n_axes = len(checks)  # (the checks of the axes: the same for the target line alone)
+
+    def target_alone(tg, lw):
+        """The target line as the curve of the result (line_alone's checks). Returns (checks, points, out_words): the
+        tracer has the line as its only curve, "Target", marked "target"."""
+        got = line_alone(tg, lw, t, lo_c, hi_c, pw, hz_at, out_of, f1)
+        curve = t.curves[0]
+        t.curves[:] = [curve]
+        t.cur = 0
+        curve["ys"][:] = np.nan
+        for gx, gy in tg["ys"].items():
+            if gx not in got["drop"]:
+                curve["ys"][gx] = gy
+        tg["hidden"] |= got["drop"]
+        curve.update(label="Target", colour=tg["colour"], target=True)
+        points = None
+        if t.calib():
+            k = t.calib()
+            try:
+                # (no points where the band hides the line, or across a long part with no line: find_target)
+                points = [(f, v) for f, v in t.points(curve["ys"])[0]
+                          if int(round(k.x_at(f))) not in tg["hidden"]] or None
+            except ValueError as e:
+                got["checks"].append(Check("trace_points", False, str(e)))
+        return got["checks"], points, got["out_words"]
+
+    def as_target(tg, lw, beside=None):
+        """The result for the target line alone: the axes' checks, trace_kind, trace_single (find_target's "second":
+        a second target line), then line_alone's checks. beside: True when the picture has a measurement too (an
+        entry of a target: trace_kind's words)."""
+        checks[n_axes:], (more, pts, words) = [], target_alone(tg, lw)
+        if db_axis:  # (the dB axis of a graph of a target: also around 0 dB, DB_TARGET_LOWEST)
+            checks[:] = [db_range_check(*db_axis, True) if c.name == "axes_db_range" else c for c in checks]
+            t.axis_note = t.detect_note = " ".join(c.reason for c in checks
+                                                   if c.name in ("axes_hz_range", "axes_db_range"))
+        checks.append(Check("trace_kind", True, KIND_TARGET if beside is None else KIND_TARGET_BESIDE))
+        one = not tg.get("second")
+        checks.append(Check("trace_single", one, ONE_TARGET if one else MORE_TARGETS))
+        checks.extend(more)
+        if not words:  # (an end out of the grid: its own words tell where the app traced the line)
+            words = traced_range_words(pts, f1, f2)
+        return AutoRead(all(c.ok for c in checks), t, checks, t.curves[0], None, pts, None, crop_box,
+                        time.perf_counter() - t0, words, True)
+
     # the measurement: the band of its color, and the middle of the band
     mc = measurement_colour(rgb, plot)
     b = band(rgb, plot, plot["bg"], mc["colour"], 1 / abs(db_slope) if d_at and db_slope else None) if mc else None
     if not b or not np.isfinite(b["top"]).any():
-        add("trace_curve", False, "The app did not find a curve in a strong color.")
+        # no measurement: a picture with only a target line (a target of the website), or no curve
+        nan = np.full(t.W, np.nan)
+        lw = line_width(t, target_seeds(t, nan, nan, 2.0)[:40])
+        tg = find_target(t, nan, nan, lw, alone=True)
+        grey = bool(tg) and not tg["strong"]
+        # (an entry of a measurement: no line alone is the result, as before the target line alone. A gray line of a
+        # measurement that the app cannot read was traced as "Target", and the words told that it had only a target)
+        if grey and want != "measurement":
+            return as_target(tg, lw)
+        add("trace_curve", False, NO_TARGET_LINE if want == "target" else NO_STRONG_CURVE + (
+            " " + ONLY_GREY_LINE if grey else ""))
+        # (an entry of a measurement and a gray line alone: the status line shows only the first failed check. For
+        # the website's graph of a target, that was axes_db_range (-20 dB to 20 dB), and the user did not see that the
+        # graph showed only a target, 2026-11-13: that check gets the sentence too; inferred)
+        first = next(i for i, c in enumerate(checks) if not c.ok)
+        if grey and checks[first].name != "trace_curve":
+            checks[first] = checks[first]._replace(reason=checks[first].reason + " " + ONLY_GREY_LINE)
         return result(t, crop=crop_box)
     xs = np.arange(len(b["mid"])) + b["x0"] - cx0
     keep = (xs >= 0) & (xs < t.W)
@@ -1751,13 +2167,9 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
     curve["ys"][:] = crop_cols(b["mid"])
     curve["colour"] = tuple(int(round(v)) for v in mc["colour"])
     curve["label"] = "Average"
-    # traced columns between the first and the last tick; and the columns where the curve is out of the grid (out_parts)
-    ca, cb = int(math.ceil(tick_px[0])), int(math.floor(tick_px[-1]))
-    lo_c, hi_c = max(0, ca), min(t.W, cb + 1)
     inside = np.isfinite(curve["ys"][lo_c:hi_c])
     touch = crop_cols(b["touch"].astype(float), 0)[lo_c:hi_c]
     ends, middle = out_parts(inside, touch, b["clip"])
-    hz_at = lambda c: fmt_hz(20 * k10 * 10 ** ((c + lo_c + cx0 - fit["a"]) / fit["b"]))  # noqa: E731
     got = float(inside.mean()) if len(inside) else 0.0
     # (the parts out of the grid in the middle too: there trace_gaps fails with its own reason, and the user reads it)
     gone = sum(q[1] - q[0] for q in ends + middle) / len(inside) if len(inside) else 0.0
@@ -1766,7 +2178,6 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
     mid = sum(q[1] - q[0] for q in middle) / len(inside) if len(inside) else 0.0
     pct = min(100, int(got * 100))
     curve_ok = got + gone >= MIN_TRACED and got + mid >= MIN_IN_GRID
-    out_of = lambda side: "above the top" if side < 0 else "below the bottom"  # noqa: E731
     out_words = []  # (the sentences about the ends out of the grid: trace_curve's reason, and 3 Save's note)
     for a, e, side, e0, e1 in ends:
         if a == 0:
@@ -1844,4 +2255,22 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
                                  if int(round(k.x_at(f))) not in tg["hidden"]] or None
             except ValueError:
                 target_points = None  # (the target is not a part of the checks)
+    if want == "target":
+        # (an entry of a target: the target line alone is the result when its own checks pass, also beside the
+        # measurement; else the user removes the measurement from the website's graph and makes a new picture. The
+        # line found again as a line alone: its faded ends and its parts on a dB grid row keep their points; the band
+        # hides it where it is near)
+        # (without the target curve of the tracer: follow() leaves out the runs on the other curves)
+        kept, t.curves[:] = t.curves[:], [c for c in t.curves if not c.get("target")]
+        ta = None
+        if tg:
+            ftop, fbot = crop_cols(b["full_top"]), crop_cols(b["full_bot"])
+            # (the width of the target line itself, not of the measurement's line: band()'s lw)
+            tw = line_width(t, target_seeds(t, ftop, fbot, lw)[:40])
+            ta = find_target(t, ftop, fbot, tw, alone=True)
+        t.curves[:] = kept
+        if ta and not ta["strong"] and all(c.ok for c in line_alone(ta, tw, t, lo_c, hi_c, pw, hz_at, out_of,
+                                                                     f1)["checks"]):
+            return as_target(ta, tw, beside=True)
+        checks.insert(n_axes, Check("trace_kind", False, KIND_NOT_TARGET))
     return result(t, curve if Tracer.has_data(curve) else None, target, points, target_points, crop_box, out_words)

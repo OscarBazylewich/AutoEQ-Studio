@@ -63,8 +63,13 @@ def test_tab_labels_whole(eq_screen, check):
 def _messages(name):
     """Each message that Find… can show in its message line (UI-RULES 7): its own and the page's that it gives `say`
     (ui\\eq_page_files.py), with a long file name and a long cause where a message has one."""
+    from eq import databases
+    site = "Audio Discourse headphones (Headphones, 5128)"  # (a long name of a database: squig.link's list)
     return [("Offline: to open this entry, change to Online (top right).", None),
             ("Windows cannot open the website of this entry.", None),
+            ("The app has no link to the website of this entry. Select the entry again.", None),
+            (databases.REFUSED_NOTE.format(site=site), None),
+            (databases.BROWSE_NOTE.format(site=site), None),
             ("No new picture came in 10 minutes. Select the entry again.", None),
             (f"The app moved “{name}” to Measurement.", lambda: None),
             (f"The app moved “{name}” to Target.", lambda: None),

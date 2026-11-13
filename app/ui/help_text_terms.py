@@ -462,9 +462,11 @@ TERMS = [{'title': 'Curves and sound',
                                'Approximately 150 online databases (the list of squig.link, the AutoEq repository, '
                                'listener800).'],
                               'The app downloads an online curve when you use it or show a preview of it. Some '
-                              'databases do not let the app download their files. For their entries, the app opens the '
-                              'website and waits for a picture of the graph (a screenshot). The tracer then makes the '
-                              'measurement from the picture.',
+                              'databases do not let the app download their files. For their entries (measurements '
+                              'and targets), the app opens the website and waits for a picture of the graph (a '
+                              'screenshot). The tracer then makes the curve from the picture. If a website does not '
+                              'let the app download an entry, the app also uses pictures for the other entries of '
+                              'that database. After 7 days, the app tries to download again.',
                               'In Find… › Sources…, you can enable or disable databases, add a page of the '
                               'squig.link type, and set the folders to search on this PC. Offline, the app uses '
                               'only the lists and the curves that are on this PC.'],

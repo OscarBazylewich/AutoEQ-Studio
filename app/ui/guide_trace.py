@@ -97,9 +97,9 @@ def trace_steps(tw):
         {"chapter": "3 · Save", "title": "Save", "target": lambda: [tw.save_meas, tw.save_tgt, tw.download_btn],
          "before": tab(2),
          "text": "Add as measurement adds the curves to the app and uses them. Add as target saves the selected curve. "
-                 "Save .txt… makes a file for other apps. If the app found a target line in a picture from a website, "
-                 "Add the target line as target… adds that line as a target. For an entry from Find a target, Add as "
-                 "target is the first button.",
+                 "Save .txt… makes a file for other apps. Add the target line as target… adds the target line that the "
+                 "app found next to a measurement in a picture from a website. For an entry from Find a target, or a "
+                 "picture with only a target line, Add as target is the first button.",
          # (the card keeps off what the words name under the row: the button of the target line and the note. It
          # covered them with a picture from a website, 2026-11-11)
          "avoid": lambda: [tw.save_note, tw.save_line],

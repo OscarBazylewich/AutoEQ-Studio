@@ -155,6 +155,10 @@ def compare(cfg, query, target, rig_override=None, progress=None):
         for i, f in enumerate(futs):
             try:
                 loaded.append(_load(f.result(), cfg))
+            except databases.ListOnly:  # (its database refused the download: listed with its link, as the others)
+                it = databases.item(cands[i]["id"])
+                links.append({"id": it["id"], "name": it["name"], "site": it["site"],
+                              "rig": RIGS.get(rigs.source_rig(it)[0]), "link": it.get("link")})
             except Exception as e:  # noqa: BLE001 - one bad entry shouldn't stop the rest
                 errors.append(f"{cands[i]['name']} ({cands[i]['source']}): {e}")
             if progress:
@@ -204,7 +208,9 @@ def compare(cfg, query, target, rig_override=None, progress=None):
     same = sum(1 for c in items if tgt_rig and c["rig"] == tgt_rig)
     conv = sum(1 for c in items if (c.get("conv") or {}).get("how") in ("own", "rigs"))
     note = ""
-    if not items:  # (every one failed to load: offline with nothing downloaded before, or their sites didn't answer)
+    if not items and not errors and links:  # (each one was of a database that refused the download)
+        note = "The app found no measurements with that name that it can download."
+    elif not items:  # (every one failed to load: offline with nothing downloaded before, or their sites didn't answer)
         note = ("The app cannot load these measurements (the causes are below this text). The app downloads the "
                 "measurements from the online databases when it compares them. For this, the app must connect to the "
                 "internet (Online, at the top right), and their websites must be available. Try again after some minutes.")

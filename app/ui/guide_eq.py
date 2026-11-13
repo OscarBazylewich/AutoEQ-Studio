@@ -606,7 +606,8 @@ def eq_steps(page):
         {"chapter": "1 · Select", "title": "Select a target", "target": lambda: page.target_box,
          "text": "The target is the sound that you want (for example, Harman, or a diffuse-field curve). Find… searches "
                  "the app, this PC and the online databases for a part of a name. The list adjacent to it has the targets "
-                 "of the app. Add… adds a file.",
+                 "of the app. Add… adds a file. Some databases do not let the app download their targets. For their "
+                 "targets, Use opens the website, and the tracer makes the target from a picture of the graph.",
          "demo": [{"click": lambda: button(page.target_box, "Find…"), "say": "Click Find… on the Target row",
                    "then": find_target_demo}]},
         {"chapter": "1 · Select", "title": "Adjust the target (optional)", "target": lambda: st.adjust_btn,
