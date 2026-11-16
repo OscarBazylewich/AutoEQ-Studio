@@ -31,7 +31,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFileDialog, QGridLayout
                                QLayout, QLineEdit, QMessageBox, QPushButton, QSlider, QVBoxLayout, QWidget)
 
 import textfile
-from ui import bubble, help_window, icons, tasks, theme, window_parts
+from ui import bubble, help_window, icons, own_items, placed, tasks, theme, window_parts
 from ui.search_combo import SearchCombo
 
 SOUNDS = [("music", "Music (short, it starts again at the end)"), ("pink", "Pink noise"), ("white", "White noise"),
@@ -74,7 +74,7 @@ class _Rows(QLayout):
     def __init__(self, parent, gap=6):
         super().__init__(parent)
         self.setContentsMargins(0, 0, 0, 0)
-        self._items, self._gap = [], gap
+        self._items, self._gap = own_items(self), gap
 
     def addItem(self, item):
         self._items.append(item)
@@ -150,7 +150,7 @@ class Listen(QGroupBox):
         self.apo_off.clicked.connect(self.device_eq_off)
         self.apo_box, self.apo_text = window_parts.warning_card("", self.apo_off)
         v.addWidget(self.apo_box)
-        row = QHBoxLayout()
+        row = placed(v, QHBoxLayout())
         self.play_btn = _PlayButton()
         self.play_btn.clicked.connect(self.toggle_play)
         row.addWidget(self.play_btn)
@@ -178,7 +178,6 @@ class Listen(QGroupBox):
         for w, key in ((self.src, "#snd-src"), (self.vol, "#snd-vol"), (self.lm, "#snd-lm")):
             help_window.tag(w, key)
         row.addStretch(1)
-        v.addLayout(row)
         # the tone and the file
         self.tone_row = QWidget()
         tr = QHBoxLayout(self.tone_row)
@@ -278,7 +277,7 @@ class Listen(QGroupBox):
         self.pins_lay.setContentsMargins(0, 0, 0, 0)
         v.addWidget(self.pins_box)
         help_window.tag(head, "snd_list")
-        add = QHBoxLayout()
+        add = placed(v, QHBoxLayout())
         # (Windows 11's add symbol before their words, as every other Add: they began with a typed "+"; a screen reader
         # reads what each does, the symbol being read as nothing)
         # (an EQ's sources named and ordered as By hand's: UI-RULES 16)
@@ -293,7 +292,6 @@ class Listen(QGroupBox):
             if text == "The selected EQ":
                 self.add_sel_btn = b
         add.addStretch(1)
-        v.addLayout(add)
         self.active, self.picked = "sel", False
         self.left_key, self.right_key, self.sides_picked = "off", "sel", False
         self.marker_timer = QTimer(self, interval=100, timeout=self.page.draw_marker)
@@ -348,7 +346,7 @@ class Listen(QGroupBox):
         self.abx_text.setWordWrap(True)
         theme.mark(self.abx_text, role="section")
         ab.addWidget(self.abx_text)
-        row = QHBoxLayout()
+        row = placed(ab, QHBoxLayout())
         self.abx_group = QButtonGroup(self)
         self.abx_hear = {}
         for which in ("A", "B", "X"):
@@ -359,8 +357,7 @@ class Listen(QGroupBox):
             self.abx_hear[which] = b
             row.addWidget(b)
         row.addStretch(1)
-        ab.addLayout(row)
-        row = QHBoxLayout()
+        row = placed(ab, QHBoxLayout())
         row.addWidget(QLabel("Which version is X?"))
         self.abx_says = {}
         for which in ("A", "B"):
@@ -372,7 +369,6 @@ class Listen(QGroupBox):
         stop = QPushButton("Stop the test")  # (no symbol: none of its row's buttons has one, UI-RULES 9)
         stop.clicked.connect(lambda: self.abx_end(finished=False))
         row.addWidget(stop)
-        ab.addLayout(row)
         help_window.tag(self.abx_box, "#snd-abx")  # (its buttons: through it, as the row's)
         self.abx_box.hide()
         v.addWidget(self.abx_box)

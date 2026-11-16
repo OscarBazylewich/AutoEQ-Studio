@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QFileDialog, QFrame, QHBoxLayo
 
 import paths
 from switcher import eqfile
-from ui import help_window, icons, theme
+from ui import help_window, icons, placed, theme
 from ui.search_combo import natural_key
 from ui.window_parts import EmptyText, muted, profile_line
 
@@ -62,7 +62,7 @@ class ProfilesScreen:
         # 750 px from its one row)
         # (the general commands first, then a thin line and those for the selected profile, Delete… last and apart: as
         # File Explorer's command bar, New first; the UI audit, 2026-11-08: they were mixed, on, off, off, on, off)
-        row = QHBoxLayout()
+        row = placed(lay, QHBoxLayout())
         self.prof_needs_one = []
         for text, fn, symbol in (("Import EQ files…", lambda: self.import_files(), "import"),
                                  ("Open the profiles folder", lambda: self.open_folder(self.sw.apo.profiles), "folder"),
@@ -90,7 +90,6 @@ class ProfilesScreen:
                              "on device › Update saves them in the profile, and its devices keep it.")
                 help_window.tag(b, "#prof-edit")
                 self.prof_edit_btn = b
-        lay.addLayout(row)
         self.prof_table = QTableWidget(0, 4)
         self.prof_table.setObjectName("profileTable")  # (its cells' words under their headings: window_screens)
         self.prof_table.setAccessibleName("Profiles")

@@ -33,7 +33,7 @@ def test_every_window_ends_with_the_footer(eq_screen, check):
             qt.pump(200)
             footer = getattr(w, "footer", None)
             lay = w.layout()
-            last = lay.itemAt(lay.count() - 1).widget() if lay is not None and lay.count() else None
+            last = qt.layout_parts(lay)[-1] if lay is not None and lay.count() else None  # (indexOf, not itemAt)
             closes = [b for b in w.findChildren(QPushButton) if b.text() == "Close" and b.isVisibleTo(w)]
             at_right = footer is not None and footer.close_btn.geometry().right() >= footer.width() - 2
             seen[name] = (last is footer and footer is not None, closes == [getattr(footer, "close_btn", None)],

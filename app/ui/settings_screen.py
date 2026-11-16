@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (QCheckBox, QFileDialog, QGridLayout, QGroupBox, Q
                                QLineEdit, QMessageBox, QPushButton, QVBoxLayout, QWidget)
 
 import paths
-from ui import help_window, icons, theme
+from ui import help_window, icons, placed, theme
 from ui.bubble import InfoMark
 from ui.setup_dialog import SetUpDialog
 from ui.window_parts import glyph_label, muted
@@ -177,18 +177,17 @@ class SettingsScreen:
         # it in gray: the UI audit, 2026-11-08, the condition came second, after a long path)
         box = QGroupBox("Equalizer APO")
         bl = QVBoxLayout(box)
-        state = QHBoxLayout()
+        state = placed(bl, QHBoxLayout())
         state.setSpacing(8)
         self.apo_mark = glyph_label("warning", role="warn")
         state.addWidget(self.apo_mark, 0, Qt.AlignTop)
         self.apo_state = QLabel()
         self.apo_state.setWordWrap(True)
         state.addWidget(self.apo_state, 1)
-        bl.addLayout(state)
         self.apo_path = muted()
         self.apo_path.setTextInteractionFlags(Qt.TextSelectableByMouse)
         bl.addWidget(self.apo_path)
-        row = QHBoxLayout()
+        row = placed(bl, QHBoxLayout())
         self.btn_setup = QPushButton("Add AutoEQ Studio to APO…")
         theme.mark(self.btn_setup, primary=True)  # (the card's main command when APO does not use it: UI-RULES 8)
         icons.put(self.btn_setup, "tools")  # (every button in the row with its symbol: UI-RULES 9)
@@ -206,7 +205,6 @@ class SettingsScreen:
             row.addWidget(b)
         row.addStretch(1)  # (taking it out last and apart, never first beside Set up…: UI-RULES 14)
         row.addWidget(self.btn_unset)
-        bl.addLayout(row)
         lay.addWidget(box)
 
         box = QGroupBox("Your files")
@@ -218,7 +216,7 @@ class SettingsScreen:
         self.files_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.files_label.setWordWrap(True)
         bl.addWidget(self.files_label)
-        row = QHBoxLayout()
+        row = placed(bl, QHBoxLayout())
         self.btn_files_open = QPushButton("Open the folder")
         icons.put(self.btn_files_open, "folder")
         self.btn_files_open.clicked.connect(self.open_files_folder)
@@ -230,7 +228,6 @@ class SettingsScreen:
             help_window.tag(b, "#files-folder")
             row.addWidget(b)
         row.addStretch(1)
-        bl.addLayout(row)
         lay.addWidget(box)
         self.render_files_folder()
 
@@ -239,7 +236,7 @@ class SettingsScreen:
         bl.addWidget(muted("One .zip file keeps all your data. It has the devices and their profiles, the settings of "
                            "Make an EQ, History, EQs to compare, your targets, measurements and saved EQs. It is for a new "
                            "PC, or if you install AutoEQ Studio again."))
-        row = QHBoxLayout()
+        row = placed(bl, QHBoxLayout())
         self.btn_backup = QPushButton("Save a backup…")
         icons.put(self.btn_backup, "backup")
         self.btn_backup.clicked.connect(self.make_backup)
@@ -250,7 +247,6 @@ class SettingsScreen:
             help_window.tag(b, "#backup")
             row.addWidget(b)
         row.addStretch(1)
-        bl.addLayout(row)
         lay.addWidget(box)
 
         # the version, last, in a card of its own, as Windows 11's apps' About (it read as the hotkeys' last note)

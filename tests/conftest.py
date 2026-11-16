@@ -15,7 +15,9 @@ What else happens here, for every test:
 - a test that used the check fixture fails, after it ran, listing every check that failed;
 - after each test, once its fixtures (and after a file's last test, the file's) are taken down: the Qt objects it left
   for Python's garbage collector are deleted then, and fail it (helpers.qt.free_leftovers: left, one could be deleted
-  in the middle of a later test's events, which crashes the process);
+  in the middle of a later test's events, which crashes the process); then the Python objects that PySide6 made for
+  layout items fail it too, and are forgotten (helpers.qt.made_item_objects: Qt can delete such an item without
+  telling PySide6, and a new Qt object at its address would crash the process);
 - the check log (AUTOEQSTUDIO_CHECK_LOG) gets a line as each test starts and one per phase of it (setup, call,
   teardown: its outcome, how long it took, and the last line of a failure, a skip's reason or an xfail's reason);
 - at the end, the stray watch's one "ok" line (no control was ever shown as a window of its own), when Qt was used.
@@ -112,15 +114,33 @@ def pytest_runtest_setup(item):
 
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_teardown(item, nextitem):
+    first = None
     try:
         result = yield
-    finally:  # (after every fixture's clean-up, a moment when Qt is handling no event)
-        left = qt.free_leftovers()
+    except BaseException as e:  # (a fixture's own check failed first: these checks still run, are logged, and then
+        first, result = e, None  # that failure goes on as it was)
+    # (after every fixture's clean-up, a moment when Qt is handling no event)
+    left = qt.free_leftovers()
+    made = qt.made_item_objects()  # (after the collector: what it freed is not counted)
+    stale = len(qt.in_no_layout(made))
+    made = qt.forget_items(made)
+    faults = []
     if left:
         checks.log({"event": "check", "test": item.nodeid, "name": qt.LEFTOVER_CHECK, "ok": False,
                     "detail": checks.short(f"left: {left}")})
-        pytest.fail(f"FAIL {qt.LEFTOVER_CHECK}  (left: {left}; delete it before the test ends, helpers.qt.close, or "
-                    f"give it a parent)", pytrace=False)
+        faults.append(f"FAIL {qt.LEFTOVER_CHECK}  (left: {left}; delete it before the test ends, helpers.qt.close, or "
+                      f"give it a parent)")
+    if made:
+        said = f"left: {len(made)} {sorted(set(made))}, {stale} of them in no layout"
+        checks.log({"event": "check", "test": item.nodeid, "name": qt.ITEM_OBJECT_CHECK, "ok": False,
+                    "detail": checks.short(said)})
+        faults.append(f"FAIL {qt.ITEM_OBJECT_CHECK}  ({said}; forgotten now. A layout with items given to a layout in "
+                      f"a window (addLayout, insertLayout, addItem, insertItem) or a Python call of QLayout.itemAt "
+                      f"makes them: app\\ui\\__init__.py says why)")
+    if first is not None:
+        raise first
+    if faults:
+        pytest.fail("\n".join(faults), pytrace=False)
     return result
 
 
@@ -161,6 +181,13 @@ def pytest_sessionfinish(session, exitstatus):
     elif watch is not None and not watch.seen_any:
         checks.log({"event": "check", "test": "tests/conftest.py::stray_watch", "name": qt.STRAY_CHECK, "ok": True,
                     "detail": ""})
+    breaks = qt.take_layout_breaks()
+    if breaks:  # (after the last test: while a module's or the session's fixtures were taken down)
+        lines = sorted({where for _test, where in breaks})
+        checks.log({"event": "check", "test": guard.current, "name": qt.LAYOUT_RULE_CHECK, "ok": False,
+                    "detail": checks.short(f"after the last test: {lines}")})
+        print(f"\nFAIL {qt.LAYOUT_RULE_CHECK}  (after the last test: {lines})")
+        session.exitstatus = pytest.ExitCode.TESTS_FAILED
     left = guard.violations()
     if left:  # (blocked after the last test: while a module's or the session's fixtures were taken down)
         checks.log({"event": "guard", "test": guard.current, "blocked": left})

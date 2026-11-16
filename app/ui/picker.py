@@ -42,7 +42,7 @@ from PySide6.QtWidgets import (QMenu, QButtonGroup, QCheckBox, QDialog, QHBoxLay
                                QStyleOptionComboBox, QVBoxLayout, QWidget)
 
 import net
-from ui import bubble, help_window, icons, tasks, theme
+from ui import bubble, help_window, icons, own_items, placed, tasks, theme
 from ui.eq_page_parts import Elided, NameCombo
 from ui.search_combo import natural_key
 from ui.theme_sheet import CARD
@@ -121,7 +121,7 @@ class Lines(QLayout):
 
     def __init__(self):
         super().__init__()
-        self._items, self._next = [], None
+        self._items, self._next = own_items(self), None
 
     def add(self, w, first=False, stretch=False, least=None):
         """w at the end of the row: on the first line when there are two (first), sharing the room over (stretch),
@@ -302,7 +302,7 @@ class Picker(QDialog):
 
         v = QVBoxLayout(self)
         v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as every window's: UI-RULES 5)
-        top = QHBoxLayout()
+        top = placed(v, QHBoxLayout())
         self.q = QLineEdit()
         self.q.setPlaceholderText("Search names and databases…")
         self.q.setClearButtonEnabled(True)
@@ -312,8 +312,7 @@ class Picker(QDialog):
         self.anykind.setToolTip("Show targets and measurements (some entries are in the incorrect group)")
         self.anykind.toggled.connect(self.render)
         top.addWidget(self.anykind)
-        v.addLayout(top)
-        srcs = QHBoxLayout()
+        srcs = placed(v, QHBoxLayout())
         srcs.setSpacing(20)
         self.src_btns = QButtonGroup(self)
         self.src_by_key = {}
@@ -329,9 +328,8 @@ class Picker(QDialog):
             self.src_btns.addButton(b)
             srcs.addWidget(b)
         srcs.addStretch(1)
-        v.addLayout(srcs)
         # (on one line, or on two when the window is narrower than that: the boxes, then the ticks under them)
-        self.filter_lines = fl = Lines()
+        self.filter_lines = fl = placed(v, Lines())
         # (the filters' lists open with a search box: the sources alone are over 150; a choice longer than its box
         # ends in "…")
         self.f_rig, self.f_form, self.f_site = NameCombo(), NameCombo(), NameCombo()
@@ -354,7 +352,6 @@ class Picker(QDialog):
         self.f_clear.clicked.connect(self.clear_filters)
         for w in (self.f_sure, self.f_dl, self.f_clear):
             fl.add(w)
-        v.addLayout(fl)
         # (how many there are where, under the filters, over the list: UI-RULES 21; it was in the footer, where the
         # window's messages go now)
         self.status = QLabel()
@@ -804,7 +801,7 @@ class Picker(QDialog):
         w = QWidget()
         h = QHBoxLayout(w)
         h.setContentsMargins(8, 3, 8, 3)  # (8: clear of the accent's bar beside a chosen row, level with the headings)
-        text = QVBoxLayout()
+        text = placed(h, QVBoxLayout(), 1)
         text.setSpacing(0)
         # (a long name ends in "…", never the buttons cut: it was cut mid-letter, "…(L800 IEI", in the Guide's frame)
         name = Elided(("✓ " if r.get("current") else "") + r["name"])
@@ -817,7 +814,6 @@ class Picker(QDialog):
         sub.setToolTip(r["sub"])
         sub.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         text.addWidget(sub)
-        h.addLayout(text, 1)
         label, tip = self._rig_tag(r)
         tag = QLabel(label)
         theme.mark(tag, role="chip")

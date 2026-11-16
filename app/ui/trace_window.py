@@ -63,7 +63,7 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
                                QStackedWidget, QStyle, QStyleOptionFrame, QToolButton, QVBoxLayout, QWidget)
 
 import textfile
-from ui import help_window, icons, tasks, theme
+from ui import help_window, icons, placed, tasks, theme
 from ui.forms import Fold, Limits, help_of
 from ui import trace_core as tc
 from ui.search_combo import SearchCombo
@@ -393,7 +393,7 @@ class Stage(QWidget):
         head.setObjectName("trDropHead")
         head.setAlignment(Qt.AlignCenter)
         ev.addWidget(head)
-        row = QHBoxLayout()
+        row = placed(ev, QHBoxLayout())
         row.addStretch(1)
         row.addWidget(QLabel("or paste it with Ctrl+V, or"))
         self.choose_btn = choose = QPushButton("Open image…")  # (the header's words for it: one act, one name)
@@ -402,7 +402,6 @@ class Stage(QWidget):
         choose.clicked.connect(win.choose_image)
         row.addWidget(choose)
         row.addStretch(1)
-        ev.addLayout(row)
         sub = _label("You can use screenshots of graphs from data sheets or websites (PNG, JPG, WebP).", "muted")
         sub.setAlignment(Qt.AlignCenter)
         ev.addWidget(sub)
@@ -784,7 +783,7 @@ class TraceWindow(QWidget):
         v = QVBoxLayout(self)
         v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as every window's)
         v.setSpacing(10)
-        head = QHBoxLayout()
+        head = placed(v, QHBoxLayout())
         head.setSpacing(8)
         # (no large title: the title bar says "Trace a graph image", as Help's says its name. The picture's name in bold
         # where the title was, its size in gray beside it, or "No picture". The UI audit, 2026-11-08)
@@ -813,8 +812,7 @@ class TraceWindow(QWidget):
         self.guide_btn.clicked.connect(self.start_guide)
         icons.put(self.guide_btn, "guide")
         head.addWidget(self.guide_btn)
-        v.addLayout(head)
-        body = QHBoxLayout()
+        body = placed(v, QHBoxLayout(), 1)
         body.setSpacing(12)
         self.stage = Stage(self)
         body.addWidget(self.stage, 1)
@@ -831,7 +829,7 @@ class TraceWindow(QWidget):
         sv.addWidget(self._auto_box())
         # (one step at a time: the tabs 1 Axes, 2 Trace and 3 Save, and the step's card under them, so the side does not
         # scroll. The Automatic settings card stays above them, as it is for all the steps. The UI audit, 2026-11-08)
-        tabs = QHBoxLayout()
+        tabs = placed(sv, QHBoxLayout())
         tabs.setSpacing(20)
         self.tab_btns = []
         for i, name in enumerate(("1  Axes", "2  Trace", "3  Save")):
@@ -842,7 +840,6 @@ class TraceWindow(QWidget):
             tabs.addWidget(b)
             self.tab_btns.append(b)
         tabs.addStretch(1)
-        sv.addLayout(tabs)
         self.pages = QStackedWidget()
         for box in (self._axes_box(), self._trace_box(), self._save_box()):
             page = QWidget()  # (the card at its own height, not the tallest card's)
@@ -858,14 +855,12 @@ class TraceWindow(QWidget):
         # (the tracer's message line under the side, outside its scrolling part: in sight on every tab. It was in 2
         # Trace's card, so a value moved to its limit, an empty clipboard or Remove image said nothing on 1 Axes and
         # 3 Save, 2026-11-10. As wide as the side: a long message wraps, the window never grows)
-        col = QVBoxLayout()
+        col = placed(body, QVBoxLayout())
         col.setSpacing(6)
         col.addWidget(side_scroll, 1)
         self.status = _label("", "muted")  # (the tool's words, and what the tracer did)
         self.status.setFixedWidth(SIDE)
         col.addWidget(self.status)
-        body.addLayout(col)
-        v.addLayout(body, 1)
         for w, key in ((self.auto_on, "#tr-auto-on"), (self.snap, "#tr-snap"), (self.every, "#tr-every"),
                        (self.tol, "#tr-tol"), (self.ppo, "#tr-ppo"), (self.fmin, "#tr-fmin"), (self.fmax, "#tr-fmin"),
                        (self.name, "#tr-name"), (self.dashed, "#tr-dashed"), (self.comp, "#tr-comp"),
@@ -904,7 +899,7 @@ class TraceWindow(QWidget):
         # (a card frame's padding leaves 4 px for its layout's margin, theme_sheet's cards part, as a fold card's: with
         # Qt's own 9 px its content started 5 px further in than the cards under it, 2026-10-23)
         v.setContentsMargins(4, 2, 4, 4)
-        top = QHBoxLayout()
+        top = placed(v, QHBoxLayout())
         self.auto_on = QCheckBox("Automatic settings")
         self.auto_on.setObjectName("trAutoOn")  # (the card's heading: semibold, theme_sheet's tracer part)
         self.auto_on.setToolTip(help_of("#tr-auto-on"))
@@ -912,7 +907,6 @@ class TraceWindow(QWidget):
         top.addWidget(self.auto_on)
         self.auto_state = _label("", "muted", wrap=False)
         top.addWidget(self.auto_state, 1)
-        v.addLayout(top)
         why = Fold("About these settings")
         why.setObjectName("trWhy")  # (flat inside this card: no card in a card)
         why.layout().setContentsMargins(0, 0, 0, 0)
@@ -948,7 +942,7 @@ class TraceWindow(QWidget):
                            "Type their values.", "muted"))
         # (two rows with their labels in a column at the left, as 3 Save's form; Top, Bottom, Left and Right small and
         # gray in the row, the boxes' full names for a screen reader. The UI audit, 2026-11-08)
-        g = QGridLayout()
+        g = placed(v, QGridLayout())
         g.setColumnStretch(2, 1)
         g.setColumnStretch(4, 1)
         self.boxes = {}
@@ -967,8 +961,7 @@ class TraceWindow(QWidget):
                 b.editingFinished.connect(lambda k=key, lim=lim: self.value_left(k, lim))
                 g.addWidget(b, r, 2 + 2 * c)
                 self.boxes[key] = b
-        v.addLayout(g)
-        checks = QHBoxLayout()
+        checks = placed(v, QHBoxLayout())
         self.snap = QCheckBox("Align with grid lines")
         self.snap.setToolTip(help_of("#tr-snap"))
         self.snap.setChecked(True)
@@ -980,8 +973,7 @@ class TraceWindow(QWidget):
         checks.addWidget(self.snap)
         checks.addWidget(self.every)
         checks.addStretch(1)
-        v.addLayout(checks)
-        btns = QHBoxLayout()
+        btns = placed(v, QHBoxLayout())
         self.detect_btn = detect = QPushButton("Find axes again")
         detect.setToolTip("Find the grid lines and put the lines on them again")
         detect.clicked.connect(self.detect_again)
@@ -991,7 +983,6 @@ class TraceWindow(QWidget):
         btns.addWidget(detect)
         btns.addWidget(self.ocr_btn)
         btns.addStretch(1)
-        v.addLayout(btns)
         self.axis_note = _Note()
         v.addWidget(self.axis_note)
         return box
@@ -1002,7 +993,7 @@ class TraceWindow(QWidget):
         box, v = self._card()
         # Trace automatically with the colour it traced beside it; the tolerance on a row of its own (the slider's room
         # at 10.5 pt text)
-        row = QHBoxLayout()
+        row = placed(v, QHBoxLayout())
         self.auto_btn = QPushButton("Trace automatically")
         theme.mark(self.auto_btn, primary=True)
         self.auto_btn.setToolTip("The app finds and follows a curve. Click again for the next curve (A)")
@@ -1015,8 +1006,7 @@ class TraceWindow(QWidget):
         self.swatch.setToolTip("Color that you trace")
         row.addWidget(self.swatch)
         row.addStretch(1)
-        v.addLayout(row)
-        row = QHBoxLayout()
+        row = placed(v, QHBoxLayout())
         row.addWidget(_label("Color tolerance", wrap=False))
         self.tol = QSlider(Qt.Horizontal)
         self.tol.setAccessibleName("Color tolerance")
@@ -1025,21 +1015,19 @@ class TraceWindow(QWidget):
         self.tol.valueChanged.connect(self.tol_moved)
         row.addWidget(self.tol, 1)
         row.addWidget(self._tag("tol"))
-        v.addLayout(row)
-        row = QHBoxLayout()
+        row = placed(v, QHBoxLayout())
         self.dashed = QCheckBox("Dashed or dotted line")
         self.dashed.setToolTip(help_of("#tr-dashed"))
         self.dashed.toggled.connect(self.dashed_changed)
         row.addWidget(self.dashed)
         row.addWidget(self._tag("dashed"))
         row.addStretch(1)
-        v.addLayout(row)
         self.curves_box = QWidget()
         self.curves_lay = QVBoxLayout(self.curves_box)
         self.curves_lay.setContentsMargins(0, 0, 0, 0)
         self.curves_lay.setSpacing(2)
         v.addWidget(self.curves_box)
-        row = QHBoxLayout()
+        row = placed(v, QHBoxLayout())
         self.add_btn = QPushButton("Add a curve")  # (verb first, UI-RULES 15: it was "Another curve"; Windows 11's +)
         self.add_btn.setToolTip("Trace one more curve on the same graph (for example, the other channel)")
         self.add_btn.clicked.connect(self.add_curve)
@@ -1047,11 +1035,10 @@ class TraceWindow(QWidget):
         row.addWidget(self.add_btn)
         self.curves_note = _label("", "muted")
         row.addWidget(self.curves_note, 1)
-        v.addLayout(row)
         self.manual_head = QLabel("Trace manually")  # (a section title in the card: UI-RULES 26)
         theme.mark(self.manual_head, role="section")
         v.addWidget(self.manual_head)
-        tools = QHBoxLayout()
+        tools = placed(v, QHBoxLayout())
         tools.setSpacing(0)  # (one group: theme_sheet's tracer part rounds only its two ends; the one on is filled in
         # the accent, as Windows 11's toggle buttons: UI-RULES 8)
         self.tool_btns = {}
@@ -1067,8 +1054,7 @@ class TraceWindow(QWidget):
             tools.addWidget(b)
             self.tool_btns[key] = b
         tools.addStretch(1)
-        v.addLayout(tools)
-        row = QHBoxLayout()
+        row = placed(v, QHBoxLayout())
         self.edit_btns = {}
         for key, text, tip, fn in (("smooth", "Make smooth", "Make the pixel steps smooth (S)", self.smooth),
                                    ("undo", "Undo", "Undo (Ctrl+Z)", self.undo), ("redo", "Redo", "Redo (Ctrl+Shift+Z)", self.redo),
@@ -1081,13 +1067,11 @@ class TraceWindow(QWidget):
             row.addWidget(b)
             self.edit_btns[key] = b
         row.addStretch(1)
-        v.addLayout(row)
         return box
 
     def _save_box(self):
         box, v = self._card()
-        g = QGridLayout()
-        v.addLayout(g)
+        g = placed(v, QGridLayout())
         g.addWidget(_label("Name", wrap=False), 0, 0)
         self.name = QLineEdit()
         self.name.setToolTip(help_of("#tr-name"))
@@ -1110,7 +1094,7 @@ class TraceWindow(QWidget):
         self.comp.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
         g.addWidget(self.comp, 2, 1, 1, 3)
         g.addWidget(_label("Save from (Hz)", wrap=False), 3, 0)
-        rng = QHBoxLayout()
+        rng = placed(g, QHBoxLayout(), 3, 1, 1, 3)
         rng.setSpacing(4)  # (not 6: two boxes as wide as "20000" and their tags fit the side with its scroll bar)
         self.fmin, self.fmax = _RangeBox(), _RangeBox()
         for key, b in (("fmin", self.fmin), ("fmax", self.fmax)):
@@ -1125,8 +1109,7 @@ class TraceWindow(QWidget):
         rng.addWidget(self.fmax)
         rng.addWidget(self._tag("fmax"))
         rng.addStretch(1)
-        g.addLayout(rng, 3, 1, 1, 3)
-        btns = QHBoxLayout()
+        btns = placed(g, QHBoxLayout(), 4, 0, 1, 4)
         self.save_meas = QPushButton("Add as measurement")
         theme.mark(self.save_meas, primary=True)
         self.save_meas.clicked.connect(lambda: self.save("measurement"))
@@ -1141,10 +1124,9 @@ class TraceWindow(QWidget):
             btns.addWidget(b)
         btns.addStretch(1)
         self.save_btns = btns  # (show_save_row puts the main action first)
-        g.addLayout(btns, 4, 0, 1, 4)
         # (the target line that the automatic read found in a picture from a website: a row of its own under the
         # buttons, shown only with such a line)
-        line_row = QHBoxLayout()
+        line_row = placed(g, QHBoxLayout(), 5, 0, 1, 4)
         self.save_line = QPushButton("Add the target line as target…")
         self.save_line.setToolTip("Adds the target line of the picture as a target. You give its name first.")
         self.save_line.clicked.connect(self.add_target_line)
@@ -1152,7 +1134,6 @@ class TraceWindow(QWidget):
         help_window.tag(self.save_line, "#tr-target-line")
         line_row.addWidget(self.save_line)
         line_row.addStretch(1)
-        g.addLayout(line_row, 5, 0, 1, 4)
         self.save_line.hide()
         self.save_note = _Note()
         self.save_note.setTextFormat(Qt.PlainText)  # (it names an entry of a website's list: never rich text)

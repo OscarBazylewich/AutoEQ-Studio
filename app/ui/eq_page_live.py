@@ -13,7 +13,7 @@ import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, QPoint, QRect, Qt
 from PySide6.QtWidgets import QApplication, QFrame, QHBoxLayout, QLabel, QToolButton, QVBoxLayout
 
-from ui import help_window, theme
+from ui import help_window, placed, theme
 from ui.eq_page_parts import TICKS, CurveNames, hz
 
 LIVE_W, LIVE_H = 560, 250  # (its size: the graph's shape at a glance, over the result card's head)
@@ -29,7 +29,7 @@ class LiveGraph(QFrame):
         v = QVBoxLayout(self)
         v.setContentsMargins(12, 6, 6, 8)
         v.setSpacing(2)
-        head = QHBoxLayout()
+        head = placed(v, QHBoxLayout())
         head.setSpacing(12)
         title = QLabel("The graph while you edit")
         title.setObjectName("liveTitle")
@@ -44,7 +44,6 @@ class LiveGraph(QFrame):
         x.setAccessibleName("Hide the graph while you edit")
         x.clicked.connect(on_close)
         head.addWidget(x)
-        v.addLayout(head)
         # (its curves' names in their colours, as the page's graph has them: the UI audit, 2026-11-08)
         self.names = CurveNames()
         v.addWidget(self.names)

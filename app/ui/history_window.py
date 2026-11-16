@@ -21,7 +21,7 @@ from PySide6.QtCore import QEvent, Qt, QTimer
 from PySide6.QtWidgets import (QMenu, QBoxLayout, QCheckBox, QDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
                                QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
-from ui import bubble, help_window, icons, theme
+from ui import bubble, help_window, icons, placed, theme
 from ui.theme_sheet import CARD
 from ui.window_parts import EmptyText, Footer, enter_presses, fit_to_screen
 
@@ -74,7 +74,7 @@ class HistoryWindow(QDialog):
         fit_to_screen(self, (760, 640), (520, 380))
         v = QVBoxLayout(self)
         v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as a card's)
-        top = QHBoxLayout()
+        top = placed(v, QHBoxLayout())
         self.q = QLineEdit()
         self.q.setPlaceholderText("Search IEMs, targets and methods…")
         self.q.setClearButtonEnabled(True)
@@ -84,14 +84,15 @@ class HistoryWindow(QDialog):
         self._todo, self._lay = [], None
         self._heads = []  # ((label, entry)): the rows' first lines, coloured again when the theme changes
         self.q.textChanged.connect(lambda: self._later.start())
-        top.addWidget(self.q, 1)
         self.only = QCheckBox("This IEM only", self)  # (the window its parent at once: see setVisible below)
         help_window.tag(self.only, "#hist-this")
         self.only.setChecked(this_iem and bool(page.curves))
         self.only.toggled.connect(lambda: self.render())
+        # (the search box goes into the window after the tick box, as before 2026-11-15: the window's first focus
+        # and Tab's order stay as they were)
+        top.addWidget(self.q, 1)
         top.addWidget(self.only)
         self.only.setVisible(bool(page.curves))  # (with no parent yet it flashed as a window of its own)
-        v.addLayout(top)
         self.keep = QLabel()
         theme.mark(self.keep, role="muted")
         v.addWidget(self.keep)
@@ -171,7 +172,7 @@ class HistoryWindow(QDialog):
         # further in, 2026-10-23)
         h = QBoxLayout(QBoxLayout.LeftToRight, row)
         h.setContentsMargins(4, 4, 4, 4)
-        text = QVBoxLayout()
+        text = placed(h, QVBoxLayout(), 1)
         head = QLabel(self._head_text(e))
         head.setTextFormat(Qt.RichText)
         head.setWordWrap(True)
@@ -188,7 +189,6 @@ class HistoryWindow(QDialog):
         theme.mark(sub, role="muted")
         sub.setWordWrap(True)
         text.addWidget(sub)
-        h.addLayout(text, 1)
         show = QPushButton("Show")
         if self._first_show is None:  # (the first row's: the accent on one Show only, and Enter's)
             self._first_show = show
@@ -212,10 +212,9 @@ class HistoryWindow(QDialog):
         menu.addSeparator()
         menu.addAction("Remove from the history", lambda: self.remove([e["key"]]))
         more.setMenu(menu)
-        btns = QHBoxLayout()
+        row.btns = btns = placed(h, QHBoxLayout())  # (kept: _fit_row measures it)
         btns.addWidget(show)
         btns.addWidget(more)
-        h.addLayout(btns)
         h.setAlignment(btns, Qt.AlignLeft)  # (under the words: at their left, as wide as the buttons)
         row.installEventFilter(self)  # (its width: _fit_row)
         return row
@@ -231,8 +230,7 @@ class HistoryWindow(QDialog):
         beside them (History at its smallest, 520 px, and in the Guide's frame squeezed the words into a column about
         100 px wide, up to 9 lines tall, 2026-10-23). Back beside them only with 16 px to spare: a scroll bar coming or
         going (rows with their buttons under the words can be shorter) never flips them to and fro."""
-        h = row.layout()
-        btns = h.itemAt(1).layout()
+        h, btns = row.layout(), row.btns
         under = h.direction() == QBoxLayout.TopToBottom
         m, lm = row.contentsMargins(), h.contentsMargins()  # (the card's border and padding; this layout's margin)
         room = (width - m.left() - m.right() - lm.left() - lm.right() - btns.sizeHint().width()

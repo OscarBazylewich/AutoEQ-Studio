@@ -48,7 +48,7 @@ from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtGui import QImage, QKeySequence, QShortcut
 from PySide6.QtWidgets import QApplication, QDialog, QGridLayout, QLabel, QVBoxLayout, QWidget
 
-from ui import help_window, tasks, theme
+from ui import help_window, placed, tasks, theme
 from ui.window_parts import dialog_band, muted
 
 SETTLE_MS = 150       # after a clipboard signal, before the read
@@ -291,14 +291,13 @@ class PictureWait(QDialog):
         v.addWidget(head)
         self.intro = self._words("")  # (its words below, with the heading's)
         v.addWidget(self.intro)
-        steps = QGridLayout()  # (a step's number in a column of its own: its words wrap under its words)
+        steps = placed(v, QGridLayout())  # (a step's number in a column of its own: its words wrap under its words)
         steps.setHorizontalSpacing(6)
         steps.setVerticalSpacing(6)
         steps.setColumnStretch(1, 1)
         for n, text in enumerate(self.steps()):
             steps.addWidget(QLabel(f"{n + 1}."), n, 0, Qt.AlignTop)
             steps.addWidget(self._words(text), n, 1)
-        v.addLayout(steps)
         self.target_note = None
         if entry.get("kind") == "target":
             self.target_note = self._words(TARGET_SETTINGS)

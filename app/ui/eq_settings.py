@@ -30,7 +30,7 @@ from PySide6.QtCore import QEvent, Qt
 from PySide6.QtWidgets import (QCheckBox, QDialog, QFileDialog, QGridLayout, QHBoxLayout, QLabel, QMessageBox,
                                QPushButton, QVBoxLayout, QWidget)
 
-from ui import help_window, icons, theme
+from ui import help_window, icons, placed, theme
 from ui.bubble import InfoMark
 from ui.forms import Field, Fold, Form, Limits, fmt_list
 
@@ -399,11 +399,10 @@ class EqSettings:
         out.save_btn.setToolTip("Save the adjusted target as a new target (then all adjustments become 0)")
         out.save_btn.clicked.connect(self.page.save_adjusted_target)
         help_window.tag(out.save_btn, "#target-save")
-        b = QHBoxLayout()
+        b = placed(v, QHBoxLayout())
         b.addWidget(out.reset_btn)
         b.addWidget(out.save_btn)
         b.addStretch(1)
-        v.addLayout(b)
         v.addStretch(1)
         v.addWidget(out.footer)
         return out
@@ -618,7 +617,7 @@ class EqSettings:
         ed = FilterEditor(self.page.meta.get("limits", {}), footer.say)
         ed.set_filters(filters)
         ed.set_view("table")
-        row = QHBoxLayout()
+        row = placed(v, QHBoxLayout())
         views = {}
 
         def show(view):  # (as the result card's Table and Sliders: tabs, the one shown marked)
@@ -644,7 +643,6 @@ class EqSettings:
         sort.clicked.connect(lambda: (filters.sort(key=lambda x: x["freq"]), ed.rebuild()))
         row.addWidget(sort)
         row.addStretch(1)
-        v.addLayout(row)
         v.addWidget(ed, 1)
         v.addWidget(footer)
         enter_presses(dlg, ok_btn)

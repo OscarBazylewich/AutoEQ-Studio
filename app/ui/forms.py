@@ -24,7 +24,7 @@ from PySide6.QtCore import QEvent, QRect, QSize, Qt, Signal
 from PySide6.QtWidgets import (QCheckBox, QFrame, QHBoxLayout, QLabel, QLayout, QLineEdit, QPlainTextEdit,
                                QPushButton, QToolButton, QVBoxLayout, QWidget)
 
-from ui import theme
+from ui import own_items, placed, theme
 from ui.help_texts import HELP
 from ui.search_combo import SearchCombo
 
@@ -357,7 +357,7 @@ class FlowLayout(QLayout):
 
     def __init__(self, parent=None, cell=CELL, hspace=16, vspace=12):
         super().__init__(parent)
-        self._items, self.cell, self.hspace, self.vspace = [], cell, hspace, vspace
+        self._items, self.cell, self.hspace, self.vspace = own_items(self), cell, hspace, vspace
         self.setContentsMargins(0, 0, 0, 0)
 
     def addItem(self, item):
@@ -491,10 +491,9 @@ class Form(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(10)
         if tabs:  # (the tabs in the app's look: Table / Sliders, Find…'s sources; the page as high as its own cells)
-            self.tab_row = QHBoxLayout()
+            self.tab_row = placed(lay, QHBoxLayout())
             self.tab_row.setSpacing(20)
             self.tab_row.addStretch(1)
-            lay.addLayout(self.tab_row)
             self.pages = TabPages()
             lay.addWidget(self.pages)
         self.add_sections(sections)
@@ -511,7 +510,7 @@ class Form(QWidget):
                 h = QLabel(title)
                 theme.mark(h, role="section")
                 sl.addWidget(h)
-            flow = FlowLayout()
+            flow = placed(sl, FlowLayout())
             last = None
             for row in rows:
                 label, specs = row[0], row[1]
@@ -572,7 +571,6 @@ class Form(QWidget):
                 flow.addWidget(cell)
                 last = cell
                 self.rows.append(([cell], show))
-            sl.addLayout(flow)
             shows = [r[2] if len(r) > 2 else None for r in rows]
             whole = (lambda shows=shows: any(s() for s in shows)) if shows and all(shows) else None
             if self.tabs:
@@ -636,7 +634,7 @@ class Fold(QFrame):
             theme.mark(self, card=True)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(*((0, 0, 0, 0) if sub else (4, 2, 4, 4)))
-        head = QHBoxLayout()
+        head = placed(lay, QHBoxLayout())
         self.btn = QToolButton()
         self.btn.setText(title)
         self.btn.setCheckable(True)
@@ -647,7 +645,6 @@ class Fold(QFrame):
         self.summary = QLabel("")
         theme.mark(self.summary, role="muted")
         head.addWidget(self.summary, 1)
-        lay.addLayout(head)
         self.body = QWidget()
         self.body_lay = QVBoxLayout(self.body)
         self.body_lay.setContentsMargins(0, 4, 0, 8)

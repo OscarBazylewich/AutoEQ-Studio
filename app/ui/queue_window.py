@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QDialog, QHBoxLayout, QHeaderV
                                QListWidgetItem, QPushButton, QStyle, QStyledItemDelegate, QStyleOptionViewItem,
                                QTableWidget, QTableWidgetItem, QVBoxLayout)
 
-from ui import icons, theme
+from ui import icons, placed, theme
 from ui.search_combo import natural_key
 from ui.theme_sheet import CARD
 from ui.window_parts import Footer, enter_presses, fit_to_screen
@@ -80,10 +80,10 @@ class QueueWindow(QDialog):
         lead.setWordWrap(True)
         theme.mark(lead, role="muted")
         v.addWidget(lead)
-        cols = QHBoxLayout()
+        cols = placed(v, QHBoxLayout(), 1)
         now_dev = page.measurement_combo.currentData()
         now_tgt = page.S["files"].get("active_target")
-        left, right = QVBoxLayout(), QVBoxLayout()
+        left, right = placed(cols, QVBoxLayout()), placed(cols, QVBoxLayout())
         left.addWidget(theme.mark(QLabel("IEMs and headphones"), role="section"))
         # (both A to Z, numbers as numbers, as every list: "IEM 10" came before "IEM 2", UI-RULES 22)
         self.devs = _checklist(sorted(page.groups, key=natural_key), {now_dev})
@@ -93,9 +93,6 @@ class QueueWindow(QDialog):
         self.tgts = _checklist(sorted(page.inputs.get("targets") or [], key=natural_key), {now_tgt})
         self.tgts.setAccessibleName("Targets")
         right.addWidget(self.tgts)
-        cols.addLayout(left)
-        cols.addLayout(right)
-        v.addLayout(cols, 1)
         for lst in (self.devs, self.tgts):
             lst.itemChanged.connect(lambda _it: self.update_count())
         self.count_lab = QLabel()

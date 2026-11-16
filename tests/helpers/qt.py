@@ -22,6 +22,18 @@ next runs, and if that's while Qt hands it or one of its parts an event, the pro
 in some later test: GitHub's run of 2026-10-22). free_leftovers() runs the collector after each test, when Qt is
 handling no event, deletes the Qt objects it finds and names them; the test that left them fails (LEFTOVER_CHECK).
 
+Layout items (app\\ui\\__init__.py says why the app makes no Python object for one): app() watches the calls that
+give a layout to another layout (LAYOUT_CALLS). A call from app\\ or tests\\ that gives a layout with items to a layout
+in a window is kept in LAYOUT_BREAKS (the running test, the file and line, the call; for a call through ui.placed, the
+line that called placed), and the layout_rule_check fixture fails the test it happened in, naming the line
+(LAYOUT_RULE_CHECK); take_layout_breaks() takes them, for a test that breaks the rule on purpose. After each test
+(tests\\conftest.py), made_item_objects() finds every Python object that PySide6 made for a layout item (not the app's
+own layouts' items), whatever made it (a layout given with items, addItem, insertItem, a Python call of itemAt): the
+test fails (ITEM_OBJECT_CHECK) and they are forgotten (forget_items()), so the next tests start clean.
+stale_layout_items() tells which of them no layout holds any more; layout_item_objects() counts all of them, the app's
+own layouts' items too; layout_parts() tells what a layout holds, in its order, without making one (a test's way
+instead of itemAt).
+
 What's drawn: picture() (a widget's picture at one pixel per point), words_start() and headings_over_words() (where a
 table's headings' and cells' words start, read from the pixels: Windows 11's table look).
 
@@ -42,8 +54,27 @@ STRAY_CHECK = ("ui: no control is ever shown as a window of its own (each flashe
 LEFTOVER_CHECK = ("ui: no test leaves a Qt object for Python's garbage collector (it would delete it at a random "
                   "later moment, and one deleted while Qt hands it an event crashes the process: GitHub's run of "
                   "2026-10-22, a drop-down a test had made on its own)")
+LAYOUT_RULE_CHECK = ("ui: a layout that has items is never given to a layout that is in a window (PySide6 then keeps a "
+                     "Python object for each of its items; Qt can delete an item without telling PySide6, and a new "
+                     "Qt object at the same address got the old object: the tests crashed, an access violation, "
+                     "2026-11-15)")
+ITEM_OBJECT_CHECK = ("ui: no test leaves a Python object that PySide6 made for a layout item (Qt can delete such an "
+                     "item without telling PySide6, and a new Qt object at the same address then gets the old object: "
+                     "the process crashes, an access violation, 2026-11-15)")
+# (the calls that give a layout to another layout, as (class, method), watched for the app's rule: a layout goes in
+# empty. For the QBoxLayout and QGridLayout calls, PySide6 6.11's glue (addLayoutOwnership) makes a Python object for
+# each item of a layout with items when the receiving layout has a parent widget; for the three QFormLayout calls it
+# makes none (measured: 0), they are watched for the rule only. addItem is not watched: it is virtual, and a Python
+# function put on QBoxLayout.addItem or QGridLayout.addItem makes Qt's own calls of it (QLayout::addWidget on a layout
+# made from Python) go through Python, which makes an object for each item they add (measured, 2026-11-16: 2 objects
+# for 2 such calls, 0 without the function). The check after each test (ITEM_OBJECT_CHECK) finds what addItem makes.)
+LAYOUT_CALLS = (("QBoxLayout", "addLayout"), ("QBoxLayout", "insertLayout"), ("QBoxLayout", "insertItem"),
+                ("QGridLayout", "addLayout"), ("QFormLayout", "addRow"), ("QFormLayout", "insertRow"),
+                ("QFormLayout", "setLayout"))
 QT_ERRORS: list[tuple[str, str]] = []  # (the running test, the error's last line)
 reported = 0                           # how many of QT_ERRORS the qt_error_check fixture has checked
+LAYOUT_BREAKS: list[tuple[str, str]] = []  # (the running test, "file:line Class.method" of a call that broke the rule)
+layout_reported = 0                        # how many of LAYOUT_BREAKS have been taken (take_layout_breaks)
 OPENED_URLS: list[str] = []            # what the app asked Windows to open (a website, a folder): never opened
 _made = []
 _watch = []
@@ -109,9 +140,166 @@ def _excepthook(real):
     return hook
 
 
+def _code_place(frame):
+    """Where a frame's code is, as "app/ui/x.py:12" or "tests/ui/test_x.py:34" (the app's code runs from the session's
+    copy); None for code outside app\\ and tests\\ (Python's own, PySide6, pyqtgraph)."""
+    from helpers import paths as project
+    from helpers import session
+    path = os.path.realpath(frame.f_code.co_filename)
+    roots = [(project.TESTS, "tests"), (project.PROJECT_APP, "app")]
+    if session.SESSION is not None:
+        roots.insert(0, (session.SESSION.app, "app"))
+    for root, name in roots:
+        root = os.path.realpath(root)
+        if os.path.normcase(path).startswith(os.path.normcase(root) + os.sep):
+            return f"{name}/{os.path.relpath(path, root).replace(os.sep, '/')}:{frame.f_lineno}"
+    return None
+
+
+def _watched(real, method):
+    """real (a layout's call that takes a layout) with the rule kept in LAYOUT_BREAKS: the given layout has items and
+    the receiving one has a parent widget."""
+    from PySide6.QtWidgets import QLayout
+
+    def call(self, *args, **kw):
+        sub = next((a for a in (*args, *kw.values()) if isinstance(a, QLayout)), None)
+        if sub is not None and sub.count() and self.parentWidget() is not None:
+            frame = sys._getframe(1)
+            if frame.f_code.co_name == "placed" and (_code_place(frame) or "").startswith("app/ui/__init__.py:"):
+                frame = frame.f_back  # (through ui.placed: the line that called it is the one to change)
+            where = _code_place(frame)
+            if where is not None:  # (only the project's own code: it is the code that can change)
+                LAYOUT_BREAKS.append((guard.current, f"{where} {method}"))
+        return real(self, *args, **kw)
+    call.__doc__ = getattr(real, "__doc__", None)
+    return call
+
+
+def _watch_layout_calls():
+    from PySide6 import QtWidgets
+    for cls_name, name in LAYOUT_CALLS:
+        cls = getattr(QtWidgets, cls_name)
+        setattr(cls, name, _watched(getattr(cls, name), f"{cls_name}.{name}"))
+
+
+def take_layout_breaks() -> list[tuple[str, str]]:
+    """The calls that broke the layout rule since the last look, taken: layout_rule_check then does not fail the test
+    for them (a test that breaks the rule on purpose looks at them with this)."""
+    global layout_reported
+    new = LAYOUT_BREAKS[layout_reported:]
+    layout_reported = len(LAYOUT_BREAKS)
+    return new
+
+
+class _Kinds(dict):
+    """A class's kind for _scan: "item" (a layout item that is not a layout), "own" (one of the app's own layout
+    classes: an itemAt of their own, in Python), "qt" (a layout class of Qt's), or None. Worked out once for each
+    class, at its first look-up."""
+
+    def __missing__(self, cls):
+        import types
+
+        from PySide6.QtWidgets import QLayout, QLayoutItem
+        if issubclass(cls, QLayout):
+            kind = "own" if isinstance(getattr(cls, "itemAt", None), types.FunctionType) else "qt"
+        else:
+            kind = "item" if issubclass(cls, QLayoutItem) else None
+        self[cls] = kind
+        return kind
+
+
+_KINDS = _Kinds()
+
+
+def _scan():
+    """From PySide6's list of its objects: (the layout item objects that Qt made and owns, the app's own layouts, Qt's
+    layouts). The layouts and items are picked out by C code (map and compress: no Python loop over every object),
+    so with 22,000 objects it takes about 5 ms, most of it for PySide6's own list."""
+    from itertools import compress
+
+    import shiboken6
+    every = shiboken6.getAllValidWrappers()
+    pick = {"item": [], "own": [], "qt": []}
+    for o in compress(every, map(_KINDS.__getitem__, map(type, every))):
+        pick[_KINDS[type(o)]].append(o)
+    # (an item made from Python, as pyqtgraph's menus make a QSpacerItem, is left out: its delete tells PySide6)
+    items = [o for o in pick["item"] if not shiboken6.ownedByPython(o) and not shiboken6.createdByPython(o)]
+    return items, pick["own"], pick["qt"]
+
+
+def layout_item_objects() -> list:
+    """The Python objects of layout items that Qt made and owns (not the layouts: a layout is an item too). Their
+    methods are never called: an item can be deleted already."""
+    return _scan()[0] if "shiboken6" in sys.modules else []
+
+
+def _not_own(items, own):
+    """items, but those that the app's own layouts hold (they get each item from Qt as a Python object and keep it:
+    read from their own itemAt, which makes nothing)."""
+    held = {id(lay.itemAt(i)) for lay in own for i in range(lay.count())}
+    return [it for it in items if id(it) not in held]
+
+
+def made_item_objects() -> list:
+    """The layout item objects (layout_item_objects) that PySide6 made, not the app's own layouts' items: what a layout
+    with items given to a layout in a window, or a Python call of QLayout.itemAt, leaves."""
+    if "shiboken6" not in sys.modules:
+        return []
+    items, own, _layouts = _scan()
+    return _not_own(items, own) if items else []
+
+
+def stale_layout_items() -> list:
+    """The layout item objects that PySide6 made (made_item_objects) and that no layout holds now: Qt deleted their
+    items (moved or deleted widgets) and PySide6 was not told."""
+    return in_no_layout(made_item_objects())
+
+
+def in_no_layout(items) -> list:
+    """The ones of items (made_item_objects) that no layout of Qt's holds: looked for with QLayout.indexOf, which
+    only compares addresses (it never reads a deleted item). (An address that Qt gave at once to a new item of a live
+    layout is not seen: the check after each test fails on every made object, stale or not.)"""
+    if not items:
+        return []
+    _items, _own, layouts = _scan()
+    return [it for it in items if not any(lay.indexOf(it) >= 0 for lay in layouts)]
+
+
+def layout_parts(lay, among=None) -> list:
+    """What a layout holds, in its order: the widget or the layout at each place, None for a stretch or a spacing.
+    Found with QLayout.indexOf among the widgets under the layout's widget (or among) and the layouts in it: unlike
+    QLayout.itemAt, it makes no Python object for an item (app\\ui\\__init__.py says why that matters)."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QLayout, QWidget
+    out = [None] * lay.count()
+    if among is None:
+        host = lay.parentWidget()
+        among = host.findChildren(QWidget) if host is not None else []
+    for part in [*among, *lay.findChildren(QLayout, options=Qt.FindChildOption.FindDirectChildrenOnly)]:
+        i = lay.indexOf(part)
+        if 0 <= i < len(out):
+            out[i] = part
+    return out
+
+
+def forget_items(items):
+    """PySide6 told to forget these objects (shiboken6.invalidate: no Qt object is read, and an item that still lives
+    stays in its layout, deleted by Qt as before: measured, 2026-11-16), so a new Qt object at one of their addresses
+    gets a new Python object. Returns their class names. Nothing is imported when there are none: a test process that
+    never uses Qt never loads it."""
+    if not items:
+        return []
+    import shiboken6
+    names = [type(o).__name__ for o in items]
+    for o in items:
+        shiboken6.invalidate(o)
+    return names
+
+
 def app():
     """The process's one QApplication (made on the first call; application name "AutoEQ Studio"), with the stray
-    watch, the dialogs' answers, the link recorder and the call-back error recorder installed."""
+    watch, the dialogs' answers, the link recorder, the call-back error recorder and the watch on the layout calls
+    installed."""
     from PySide6.QtGui import QDesktopServices
     from PySide6.QtWidgets import QApplication
     qapp = QApplication.instance()
@@ -129,6 +317,7 @@ def app():
         QDesktopServices.openUrl = staticmethod(lambda url: (OPENED_URLS.append(url.toString() if hasattr(
             url, "toString") else str(url)), True)[1])
         sys.excepthook = _excepthook(sys.excepthook)
+        _watch_layout_calls()
         _made.append(qapp)
     return qapp
 
