@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (QDialog, QHBoxLayout, QHeaderView, QLabel, QLineE
                                QVBoxLayout, QWidget)
 
 import net
-from ui import bubble, help_window, icons, tasks, theme
+from ui import bubble, help_window, icons, placed, tasks, theme
 from ui.search_combo import SearchCombo
 from ui.theme_sheet import CARD
 from ui.window_parts import EmptyText, Footer, enter_presses, fit_to_screen
@@ -64,7 +64,7 @@ class Sources(QDialog):
         outer.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as every window's)
         # (a tab for each part, as Find…'s sources: each list gets the full height of the window; the UI audit,
         # 2026-11-08: the online databases showed approximately 5 rows)
-        tabs = QHBoxLayout()
+        tabs = placed(outer, QHBoxLayout())
         tabs.setSpacing(20)
         self.pages = QStackedWidget()
         self.tab_btns = []
@@ -77,7 +77,6 @@ class Sources(QDialog):
             tabs.addWidget(b)
             self.tab_btns.append(b)
         tabs.addStretch(1)
-        outer.addLayout(tabs)
         outer.addWidget(self.pages, 1)
 
         def page_of():
@@ -94,18 +93,17 @@ class Sources(QDialog):
         help_window.tag(self.folders, "library.folders")
         self.folders.textChanged.connect(self.folders_changed)
         v.addWidget(self.folders)
-        row = QHBoxLayout()
+        row = placed(v, QHBoxLayout())
         rescan = QPushButton("Search again")
         icons.put(rescan, "find")
         rescan.clicked.connect(self.rescan)
         row.addWidget(rescan)
         self.lib_status = _muted()
         row.addWidget(self.lib_status, 1)
-        v.addLayout(row)
         v.addStretch(1)
         v = page_of()
         v.addWidget(_muted("The app updates the lists after some days. It downloads a curve for Use or Preview."))
-        bar = QHBoxLayout()
+        bar = placed(v, QHBoxLayout())
         self.filter = QLineEdit()
         self.filter.setPlaceholderText("Search the databases…")
         self.filter.setClearButtonEnabled(True)
@@ -121,7 +119,6 @@ class Sources(QDialog):
         self.db_status = _muted()
         self.db_status.setWordWrap(False)  # (one line beside the box: wrapped, "curves" went to a line of its own)
         bar.addWidget(self.db_status)
-        v.addLayout(bar)
         self.tree = QTreeWidget()
         self.tree.setObjectName("sourcesTree")  # (as the lists: theme_sheet's find_windows)
         self.tree.setMinimumHeight(110)  # (the window's main list: a few rows, however small the window)
@@ -153,7 +150,7 @@ class Sources(QDialog):
         # looked like a button, and a click on it did nothing)
         self.dir_list.itemClicked.connect(lambda it: it.data(Qt.UserRole) and self.url.setText(it.data(Qt.UserRole)))
         v.addWidget(self.dir_list, 1)
-        row = QHBoxLayout()
+        row = placed(v, QHBoxLayout())
         self.url = QLineEdit()
         self.url.setPlaceholderText("https://example.squig.link/")
         self.url.setClearButtonEnabled(True)
@@ -163,7 +160,6 @@ class Sources(QDialog):
         icons.put(add, "add")
         add.clicked.connect(self._add_typed)
         row.addWidget(add)
-        v.addLayout(row)
         self.pages.setCurrentIndex(1)
         refresh = QPushButton("Update the lists")
         icons.put(refresh, "refresh")

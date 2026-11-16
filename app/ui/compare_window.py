@@ -35,7 +35,7 @@ from PySide6.QtWidgets import (QCheckBox, QDialog, QFrame, QGridLayout, QHBoxLay
                                QProgressBar, QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
 import net
-from ui import help_window, icons, tasks, theme
+from ui import help_window, icons, placed, tasks, theme
 from ui.eq_page_parts import CurveNames
 from ui.forms import Fold
 from ui.search_combo import SearchCombo
@@ -106,7 +106,7 @@ class CompareWindow(QDialog):
         # (the labels in one column, each beside its control, as a form's label column (UI-RULES 26): the rig's list
         # was at the window's far right, its label far at the left, out of line with the model's box. The code's
         # review, 2026-11-10)
-        top = QGridLayout()
+        top = placed(v, QGridLayout())
         top.addWidget(QLabel("Model"), 0, 0)
         self.q = QLineEdit()
         self.q.setPlaceholderText("for example, Truthear Gate")
@@ -135,7 +135,6 @@ class CompareWindow(QDialog):
         theme.mark(self.target_lab, role="muted")
         top.addWidget(self.target_lab, 2, 0, 1, 3)
         top.setColumnStretch(1, 1)
-        v.addLayout(top)
         self.status = QLabel()
         self.status.setWordWrap(True)
         theme.mark(self.status, role="muted")
@@ -348,8 +347,9 @@ class CompareWindow(QDialog):
         rank.setObjectName("whichRank")
         rank.setFixedWidth(30)
         h.addWidget(rank, 0, Qt.AlignTop)
-        main = QVBoxLayout()
-        head = QHBoxLayout()  # (the name, and for the first "· best for your target" in the good colour after it)
+        main = placed(h, QVBoxLayout(), 1)
+        # (the name, and for the first "· best for your target" in the good colour after it)
+        head = placed(main, QHBoxLayout())
         name = QLabel(c["name"])
         name.setObjectName("whichName")  # (semibold)
         name.setTextFormat(Qt.PlainText)
@@ -359,7 +359,6 @@ class CompareWindow(QDialog):
             theme.mark(best, role="good")
             head.addWidget(best)
         head.addStretch(1)
-        main.addLayout(head)
         bits = [c["source"], (c["rig_name"] + ("" if c.get("sure") else " (usual for this source)")) if c.get("rig")
                 else "rig not known", f"{c['n_files']} file{'s' if c['n_files'] > 1 else ''}"
                 + (f" ({'+'.join(c['channels'])})" if c.get("channels") else "")]
@@ -372,7 +371,7 @@ class CompareWindow(QDialog):
         theme.mark(src, role="good" if self.data.get("target_rig") and c.get("rig") == self.data["target_rig"] else "muted")
         main.addWidget(src)
         if c.get("reasons"):  # (each a line with its bullet, + good and − not in their colours: find_windows)
-            reasons = QGridLayout()
+            reasons = placed(main, QGridLayout())
             reasons.setContentsMargins(4, 4, 0, 0)
             reasons.setHorizontalSpacing(8)
             reasons.setVerticalSpacing(2)
@@ -386,9 +385,7 @@ class CompareWindow(QDialog):
                     if kind:
                         lab.setProperty("reason", kind)
                     reasons.addWidget(lab, k, col, Qt.AlignTop)
-            main.addLayout(reasons)
-        h.addLayout(main, 1)
-        side = QVBoxLayout()
+        side = placed(h, QVBoxLayout())
         bar = QProgressBar()
         bar.setRange(0, 100)
         bar.setValue(max(3, int(round(c["score"]))))
@@ -405,7 +402,6 @@ class CompareWindow(QDialog):
         use.clicked.connect(lambda _=False, c=c, b=use: self.use(c, b))
         side.addWidget(use)
         side.addStretch(1)
-        h.addLayout(side)
         return row
 
     def _averages(self):
@@ -439,20 +435,18 @@ class CompareWindow(QDialog):
             theme.mark(box, card=True)
             bv = QVBoxLayout(box)
             bv.setContentsMargins(*CARD_MARGINS)
-            head = QHBoxLayout()
+            head = placed(bv, QHBoxLayout())
             title = QLabel(f"The average of the {len(lst)} measurements on the {lst[0]['rig_name']}")
             title.setObjectName("whichName")  # (semibold)
             title.setTextFormat(Qt.PlainText)
             title.setWordWrap(True)
-            words = QVBoxLayout()
+            words = placed(head, QVBoxLayout(), 1)
             words.addWidget(title)
             sub = QLabel("The same rig. Thus, the differences are only from the unit and the fit. The average makes these "
                          "differences smaller.")
             sub.setWordWrap(True)
             theme.mark(sub, role="muted")
             words.addWidget(sub)
-            head.addLayout(words, 1)
-            bv.addLayout(head)
             btn = QPushButton()  # (under the ticks it depends on, at the right as a measurement's Use: added below)
             if not out:  # (the first average offered)
                 theme.mark(btn, primary=True)
@@ -481,10 +475,9 @@ class CompareWindow(QDialog):
                 cb.toggled.connect(lambda on, h=c["hash"], sel=sel, update=update: (sel.add(h) if on else sel.discard(h), update()))
                 bv.addWidget(cb)
             bv.addWidget(note)
-            go = QHBoxLayout()
+            go = placed(bv, QHBoxLayout())
             go.addStretch(1)
             go.addWidget(btn)
-            bv.addLayout(go)
             btn.clicked.connect(lambda _=False, lst=lst, sel=sel, btn=btn: self.use_average(lst, sel, btn))
             update()
             out.append(box)

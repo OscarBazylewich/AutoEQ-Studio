@@ -14,10 +14,36 @@ Make an EQ's loading) kept each one waiting: ~2.5 ms at Python's usual 5 ms swit
 1 ms or more lasts until the clock's next tick; under 1 ms, Python asks for the lock without waiting). A click while
 Make an EQ was made ahead was drawn ~0.1 s late. At 0.5 ms each call waits ~7 µs. The cost is a thread waiting for
 the lock spins on a core of its own meanwhile; two busy threads did their work about 1 % slower.
+
+Layouts (2026-11-15): a layout goes into its place in another layout while it is empty, and gets its items after
+that (placed()). If a layout that has items goes into a layout on a widget, PySide6 6.11 makes a Python object for
+each of its items and keeps it. Qt deletes such an item itself when its widget goes to another place or is deleted,
+and does not tell PySide6: the old object stays at the address of the deleted item. A new Qt object at the same
+address then got the old object, and Python stopped with an access violation (the tests, now and then: a menu's
+action in Find… and in the graph of Make an EQ). QLayout.itemAt, called from Python, makes such an object too: the
+code keeps a reference to the part that it needs. The app's own layout classes (forms.FlowLayout, picker.Lines,
+listen's rows) get each item from Qt as a Python object and keep it in a list, which Qt empties through their takeAt:
+own_items() also empties it when Qt deletes the layout, so that no such object stays after its layout.
+tests\\helpers\\qt.py checks these rules in every test.
 """
 import sys
 
 SWITCH = 0.0005  # (seconds: Python's thread switch interval for the whole app)
+
+
+def placed(outer, inner, *args):
+    """inner, an empty layout, put into outer now (outer.addLayout with its other arguments: a stretch, or a grid's
+    row, column and spans), so that its items come after: see "Layouts" above. Returns inner."""
+    outer.addLayout(inner, *args)
+    return inner
+
+
+def own_items(layout):
+    """A new list for the items of one of the app's own layout classes, emptied when Qt deletes the layout (see
+    "Layouts" above)."""
+    items = []
+    layout.destroyed.connect(lambda *_args: items.clear())  # (the lambda holds the list only, not the layout)
+    return items
 
 
 def _never(module):

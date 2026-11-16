@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFrame, QGrid
                                QLabel, QLineEdit, QMenu, QProgressBar, QPushButton, QScrollArea, QStackedWidget,
                                QVBoxLayout, QWidget)
 
-from ui import help_window, icons, theme
+from ui import help_window, icons, placed, theme
 from ui.bubble import InfoMark
 from ui.eq_page_parts import TICKS, CurveNames, Elided, NameCombo, PairTitle, SameWidth, combo_width, hz, label
 from ui.forms import CHOICE_MOST
@@ -97,7 +97,7 @@ class EqCards:
         # (a card frame's padding leaves 4 px for this: its title then starts where the cards' titles below it do;
         # Qt's own 9 px put it 5 px further in, 2026-10-23)
         v.setContentsMargins(4, 4, 4, 4)
-        head = QHBoxLayout()
+        head = placed(v, QHBoxLayout())
         self.graph_title = PairTitle()  # (the target under the measurement on a narrow window: on one line it made
         theme.mark(self.graph_title, eqtitle=True)  # the page wider than the window)
         head.addWidget(self.graph_title, 1)
@@ -114,8 +114,7 @@ class EqCards:
         self.hist_btn.setToolTip("Your EQs in History (the app keeps them when you close it)")
         self.hist_btn.clicked.connect(lambda: self.open_history(False))
         head.addWidget(self.hist_btn)
-        v.addLayout(head)
-        opts = QHBoxLayout()  # (the graph's views, as AutoEQ Local's: kept between sessions)
+        opts = placed(v, QHBoxLayout())  # (the graph's views, as AutoEQ Local's: kept between sessions)
         g = self.sw.s.get("graph") or {}
         opts.addWidget(label("View", wrap=False))
         self.view_combo = SearchCombo()
@@ -151,7 +150,6 @@ class EqCards:
         self.hover_lab = Elided("")  # (never wider than its room: "…" at its end on a narrow window)
         theme.mark(self.hover_lab, role="muted")
         opts.addWidget(self.hover_lab)
-        v.addLayout(opts)
         # (the curves' names in a line between the views and the graph, not on the curves: the UI audit, 2026-11-08;
         # pyqtgraph's legend still gathers them, hidden)
         self.curve_names = CurveNames()
@@ -236,7 +234,7 @@ class EqCards:
                 other.setToolTip("Find all the measurements of this model and the best one for your target")
                 other.clicked.connect(self.open_other_measurements)
                 u.addWidget(other, 0, Qt.AlignLeft)
-                row2 = QHBoxLayout()
+                row2 = placed(u, QHBoxLayout())
                 self.eqd_before = label("", wrap=False)
                 row2.addWidget(self.eqd_before)
                 self.eqd_show = QPushButton("Show in History…")  # (it opens History, this IEM's: UI-RULES 11, 16)
@@ -244,7 +242,6 @@ class EqCards:
                 self.eqd_show.clicked.connect(lambda: self.open_history(True))
                 row2.addWidget(self.eqd_show)
                 row2.addStretch(1)
-                u.addLayout(row2)
                 self.eqd_before.hide()
                 self.eqd_show.hide()
         self.select_box = card
@@ -321,7 +318,7 @@ class EqCards:
             self._way_labels.append(w)
             return w
         self._way_labels, self._way_grids = [], []
-        g = grid()
+        g = placed(v, grid())
         self.app_note = InfoMark("", "Your EQ app", links=self.open_link)
         g.addWidget(name("Your EQ app", self.app_note), 0, 0)
         self.app_combo = SearchCombo()
@@ -334,8 +331,7 @@ class EqCards:
         help_window.tag(self.app_combo, "eq_app")
         self.app_combo.setFixedWidth(CHOICE_MOST)  # (one width for the drop-downs: their edges on one line, UI-RULES 26)
         g.addWidget(self.app_combo, 0, 1, 1, 3, Qt.AlignLeft)
-        v.addLayout(g)
-        tabs = QHBoxLayout()
+        tabs = placed(v, QHBoxLayout())
         tabs.setSpacing(20)
         self.way_btns = {}
         for key, words, tip in (("auto", "Automatically", "AutoEQ adjusts the filters for the target and your EQ "
@@ -351,7 +347,6 @@ class EqCards:
             tabs.addWidget(b)
             self.way_btns[key] = b
         tabs.addStretch(1)
-        v.addLayout(tabs)
 
         # the way's own steps: a stack, as high as the higher one (the card keeps one height with either tab)
         self.way_stack = QStackedWidget()
@@ -396,9 +391,8 @@ class EqCards:
         v.addWidget(self.way_stack)
 
         # Settings and More settings: rows that open, for the 2 ways (eq_settings puts them here in its own steps)
-        self.settings_slot = QVBoxLayout()
+        self.settings_slot = placed(v, QVBoxLayout())
         self.settings_slot.setSpacing(2)
-        v.addLayout(self.settings_slot)
 
         # the way's main button: Calculate (with Queue…, and Cancel while it runs) or Start
         self.go_stack = QStackedWidget()
@@ -406,7 +400,7 @@ class EqCards:
         ga = QVBoxLayout(go_auto)
         ga.setContentsMargins(0, 4, 0, 0)
         ga.setSpacing(6)
-        run_row = QHBoxLayout()
+        run_row = placed(ga, QHBoxLayout())
         run_row.setSpacing(10)
         self.run_btn = QPushButton("Calculate")
         theme.mark(self.run_btn, primary=True)
@@ -429,7 +423,6 @@ class EqCards:
         run_row.addWidget(self.queue_btn)
         run_row.addWidget(self.cancel_btn)
         run_row.addStretch(1)
-        ga.addLayout(run_row)
         self.progress = QProgressBar()  # (Windows 11's thin line: its height is the theme's)
         self.progress.setTextVisible(False)
         self.progress.hide()
@@ -473,7 +466,7 @@ class EqCards:
         v = QVBoxLayout(box)
         self.res_title = label("")
         theme.mark(self.res_title, eqname=True)  # (a title in a card: 14 px bold)
-        head = QHBoxLayout()
+        head = placed(v, QHBoxLayout())
         head.addWidget(self.res_title, 1)
         # (an EQ by hand's Close, on the card's title line, as a card closed from its top: under Runs this session's
         # Remove, at the same edge, the two read as one, UI-RULES 14)
@@ -485,12 +478,11 @@ class EqCards:
         self.hand_close.clicked.connect(self.close_manual)
         self.hand_close.hide()
         head.addWidget(self.hand_close, 0, Qt.AlignTop)
-        v.addLayout(head)
         self.res_sub = label("", "muted")
         v.addWidget(self.res_sub)
         # (the error first, as a large number, the error without EQ under it, then the other numbers as tags; no
         # Filters tag: the number of filters is in the line above and in Number of filters. The UI audit, 2026-11-08)
-        chips = QHBoxLayout()
+        chips = placed(v, QHBoxLayout())
         chips.setSpacing(8)
         err = QWidget()
         ev = QVBoxLayout(err)
@@ -510,7 +502,6 @@ class EqCards:
             help_window.tag(c, {"error": "res.error", "preamp": "res.preamp", "boost": "res.boost",
                                 "maxq": "res.maxq"}[k])  # (F1 on a number: its entry in Help)
         chips.addStretch(1)
-        v.addLayout(chips)
         self.pick_lab = label("", "muted")  # (the audible pick: the target reached inaudibly, or as close as it gets)
         self.pick_lab.hide()
         v.addWidget(self.pick_lab)
@@ -546,7 +537,7 @@ class EqCards:
         rr.addWidget(drop)
         self.runs_row.hide()
         v.addWidget(self.runs_row)
-        pick = QHBoxLayout()
+        pick = placed(v, QHBoxLayout())
         self.count_lab = label("Number of filters", wrap=False)  # (hidden with its list for an EQ made by hand)
         pick.addWidget(self.count_lab)
         self.count_combo = SearchCombo()
@@ -569,8 +560,7 @@ class EqCards:
         help_window.tag(self.cmp_btn, "#compare-results")
         pick.addWidget(self.cmp_btn)
         pick.addStretch(1)
-        v.addLayout(pick)
-        tools = QHBoxLayout()
+        tools = placed(v, QHBoxLayout())
         self.view_btns = {}
         for key, name in (("table", "Table"), ("sliders", "Sliders")):
             b = QPushButton(name)
@@ -610,14 +600,13 @@ class EqCards:
         retry_menu.addAction("Keep them and add filters", lambda: self.run(retry={"filters": self.enabled_filters(), "add": True}))
         self.retry_btn.setMenu(retry_menu)
         tools.addWidget(self.retry_btn)
-        v.addLayout(tools)
         from ui.filter_editor import FilterEditor
         self.editor = FilterEditor(self.meta.get("limits", {}), lambda t: self.status(t, 6000))
         self.editor.changed.connect(self.live_update)
         self.editor.changed.connect(self.request_live_graph)  # (after the page has drawn the change: its curves current)
         v.addWidget(self.editor)
         self.EDIT, self.ORIG = [], []
-        name_row = QHBoxLayout()
+        name_row = placed(v, QHBoxLayout())
         self.name_lab = label("File name", wrap=False)
         name_row.addWidget(self.name_lab)
         self.name_edit = QLineEdit()
@@ -625,7 +614,6 @@ class EqCards:
         self.name_edit.setPlaceholderText("automatic name")
         self.name_edit.textEdited.connect(lambda _t: self.name_edit.setProperty("auto", False))  # (yours from now)
         name_row.addWidget(self.name_edit, 1)
-        v.addLayout(name_row)
         # (the card's labelled rows in one column, as a form's: each box started at its own label's end, UI-RULES 26)
         labs = (self.runs_lab, self.count_lab, self.name_lab)
         for lab in labs:
@@ -635,7 +623,7 @@ class EqCards:
             lab.setMinimumWidth(wide)
         self.formats_line = label("", "muted")
         v.addWidget(self.formats_line)
-        btns = QHBoxLayout()
+        btns = placed(v, QHBoxLayout())
         self.save_btn = save = QPushButton("Save filters")
         theme.mark(save, primary=True)
         icons.put(save, "save")
@@ -668,12 +656,10 @@ class EqCards:
         for b in (save, copy, folder):
             btns.addWidget(b)
         btns.addStretch(1)
-        v.addLayout(btns)
-        use_row = QHBoxLayout()
+        v.addSpacing(6)
+        use_row = placed(v, QHBoxLayout())
         for b in (self.use_btn, keep, report):
             use_row.addWidget(b)
         use_row.addStretch(1)
-        v.addSpacing(6)
-        v.addLayout(use_row)
         box.hide()
         return box

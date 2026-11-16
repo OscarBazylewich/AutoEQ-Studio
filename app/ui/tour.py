@@ -50,7 +50,7 @@ from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPainterPath, Q
 from PySide6.QtWidgets import (QAbstractScrollArea, QCheckBox, QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget,
                                QListWidgetItem, QPushButton, QScrollArea, QSlider, QToolButton, QVBoxLayout, QWidget)
 
-from ui import icons, theme
+from ui import icons, placed, theme
 
 PAD = 6
 CARD_W = 390
@@ -642,19 +642,17 @@ class Api:
         .ok; closed after."""
         f, outer = self._frame(title)
         f.setProperty("prompt", True)
-        v = QVBoxLayout()
+        v = placed(outer, QVBoxLayout())
         v.setContentsMargins(14, 4, 14, 8)
         v.setSpacing(8)
-        outer.addLayout(v)
         v.addWidget(QLabel(label))
         f.edit = QLineEdit(value)
         v.addWidget(f.edit)
-        row = QHBoxLayout()
+        row = placed(v, QHBoxLayout())
         f.ok = QPushButton(verb)
         theme.mark(f.ok, primary=True)
         row.addWidget(f.ok, 1)
         row.addWidget(QPushButton("Cancel"), 1)
-        v.addLayout(row)
         for c in [f] + f.findChildren(QWidget):
             c.setFocusPolicy(Qt.NoFocus)
         f.setFixedWidth(360)
@@ -966,7 +964,7 @@ class Tour(QWidget):
         b = QVBoxLayout(self.bubble)
         b.setContentsMargins(16, 12, 16, 14)
         b.setSpacing(4)
-        top = QHBoxLayout()
+        top = placed(b, QHBoxLayout())
         self.count_btn = _Count()
         self.count_btn.setObjectName("tourCount")
         self.count_btn.setToolTip("Go to a step")
@@ -983,7 +981,6 @@ class Tour(QWidget):
         theme.mark(self.end_btn, quiet=True)
         self.end_btn.clicked.connect(self.end)
         top.addWidget(self.end_btn, 0, Qt.AlignTop)
-        b.addLayout(top)
         b.addSpacing(2)
         self.bar = _Bar()
         b.addWidget(self.bar)
@@ -1004,7 +1001,15 @@ class Tour(QWidget):
         self.acts_lab.setTextFormat(Qt.RichText)
         b.addWidget(self.acts_lab)
         self.steps_list = self.acts_lab  # (older name)
-        demo_row = QHBoxLayout()
+        # (the demo's controls in one box, hidden on a step without a demo: the row of buttons was put in the card
+        # first, so Qt kept it out of the box, and Play demo showed on the tracer's steps that have none, doing
+        # nothing, 2026-10-23; the rows as far apart as they were)
+        self.demo_box = QWidget()
+        dv = QVBoxLayout(self.demo_box)
+        dv.setContentsMargins(0, 0, 0, 0)
+        dv.setSpacing(6)
+        b.addWidget(self.demo_box)
+        demo_row = placed(dv, QHBoxLayout())
         self.replay_btn = QPushButton("Play demo")
         _set_symbol(self.replay_btn, "play")
         self.replay_btn.setToolTip("Play this step's demo again (R)")
@@ -1044,18 +1049,8 @@ class Tour(QWidget):
         self.speed_lab.setMinimumWidth(26)
         opts.addWidget(self.speed_lab)
         self._show_speed()
-        # (the demo's controls in one box, hidden on a step without a demo: the row of buttons was put in the card
-        # first, so Qt kept it out of the box, and Play demo showed on the tracer's steps that have none, doing
-        # nothing, 2026-10-23; the rows as far apart as they were)
-        self.demo_box = QWidget()
-        dv = QVBoxLayout(self.demo_box)
-        dv.setContentsMargins(0, 0, 0, 0)
-        dv.setSpacing(6)
-        dv.addLayout(demo_row)
-        b.addWidget(self.demo_box)
-        self.extra = QHBoxLayout()
-        b.addLayout(self.extra)
-        row = QHBoxLayout()
+        self.extra = placed(b, QHBoxLayout())
+        row = placed(b, QHBoxLayout())
         row.addStretch(1)
         self.again_btn = QPushButton("Start again")
         self.again_btn.clicked.connect(lambda: self.go_to_step(0))
@@ -1070,7 +1065,6 @@ class Tour(QWidget):
             w.setFocusPolicy(Qt.NoFocus)
         row.addWidget(self.back_btn)
         row.addWidget(self.next_btn)
-        b.addLayout(row)
 
     @staticmethod
     def draw_close(label):

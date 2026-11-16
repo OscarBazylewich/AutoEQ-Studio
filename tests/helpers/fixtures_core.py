@@ -7,7 +7,9 @@ dialogs      the dialogs' answers and what was asked (helpers.dialogs), reset be
 guard_check  fails a test in which the guard blocked something, listing it (autouse)
 stray_check  fails a test in which a control was shown as a window of its own, unless it's marked
              allow_strays("what flashed, where") (autouse)
-(Both look after the test and then clear, rather than clearing first: a module's fixtures are made before a test's
+layout_rule_check  fails a test in which the app's code or the test's gave a layout with items to a layout in a
+             window (helpers.qt: LAYOUT_RULE_CHECK; take_layout_breaks() for a test that does it on purpose) (autouse)
+(They look after the test and then clear, rather than clearing first: a module's fixtures are made before a test's
 own, so what happened while they were made counts for the first test that uses them.)
 offline      the app offline for the whole session (autouse): nothing it does can reach the internet
 online       the app online for one test (the guard still blocks real connections: stand in for what would download)
@@ -94,6 +96,22 @@ def qt_error_check():
     if new:
         pytest.fail("Errors inside Qt call-backs (a slot, a timer or an event handler) during this test or while its "
                     "fixtures were made: " + "; ".join(text for _test, text in new), pytrace=False)
+
+
+@pytest.fixture(autouse=True)
+def layout_rule_check(request):
+    # (a layout with items given to a layout in a window, by the app's code or a test's, fails the test it happened
+    # in, or the one its module's fixtures were made for: checked after the test, as stray_check. helpers.qt says why)
+    from helpers import qt
+    yield
+    new = qt.take_layout_breaks()
+    if not new:
+        return
+    lines = sorted({where for _test, where in new})
+    checks.log({"event": "check", "test": request.node.nodeid, "name": qt.LAYOUT_RULE_CHECK, "ok": False,
+                "detail": checks.short("; ".join(lines))})
+    pytest.fail(f"FAIL {qt.LAYOUT_RULE_CHECK}  (put the layout in its place first, then add its items; "
+                f"app\\ui\\__init__.py says why: {'; '.join(lines)})", pytrace=False)
 
 
 @pytest.fixture(scope="session", autouse=True)

@@ -201,7 +201,7 @@ def test_made_in_steps_and_ready_only_when_whole(ahead, check):
 
 
 def test_each_part_placed_in_the_step_that_makes_it(ahead, check):
-    from PySide6.QtWidgets import QLabel, QSpacerItem, QWidget
+    from PySide6.QtWidgets import QLabel, QWidget
     page = ahead.s.page
     first_frame = next((t for t in ahead.turns if t["frame"]), {})
     # (the page's frame, its scroll area and column, put in the page first: the cards then go straight into it. Made
@@ -215,13 +215,13 @@ def test_each_part_placed_in_the_step_that_makes_it(ahead, check):
           "once Qt has styled it is styled again, all of it: the settings' folds moved a step later cost 42 ms)",
           not late, late[:8])
     body = page.plot.parentWidget().parentWidget()  # (the graph's card's parent: the page's column)
-    lay = body.layout()
-    items = [lay.itemAt(i) for i in range(lay.count())]
-    cards = [it.widget() for it in items if it.widget() is not None]
+    # (what each layout holds, in its order: qt.layout_parts finds it with indexOf, so no Python object is made for an
+    # item, as itemAt makes: app\ui\__init__.py)
+    parts = qt.layout_parts(body.layout())
+    cards = [p for p in parts if isinstance(p, QWidget)]
     want = [page.select_box, page.plot.parentWidget(), page.eq_box, page.result_box, page.listen]
-    tlay = page.target_row
-    target_last = tlay.itemAt(tlay.count() - 1).widget()
-    slot = [page.settings_slot.itemAt(i).widget() for i in range(page.settings_slot.count())]
+    target_last = (qt.layout_parts(page.target_row) or [None])[-1]
+    slot = qt.layout_parts(page.settings_slot)
 
     def headings(form):
         return [lab.text() for lab in form.findChildren(QLabel) if lab.property("role") == "section"]
@@ -230,11 +230,10 @@ def test_each_part_placed_in_the_step_that_makes_it(ahead, check):
     lab = next(w for w in cell.findChildren(QLabel) if w.text() == "Which website to copy")
     from PySide6.QtWidgets import QVBoxLayout
     cl = cell.layout()  # (More settings is closed: its parts are placed by their layouts, not drawn yet)
-    above = isinstance(cl, QVBoxLayout) and cl.itemAt(0).widget() is lab and         cl.itemAt(1).widget() is adv.fields["site.profile"].parentWidget()
+    above = isinstance(cl, QVBoxLayout) and qt.layout_parts(cl)[:2] == [lab, adv.fields["site.profile"].parentWidget()]
     names = {p: adv.fields[p].box.accessibleName() if p in adv.fields else None
              for p in ("best_fit.layout", "site.profile", "export.extra_headroom", "history.keep", "performance.cores")}
-    seen = {"cards in order": cards == want, "a stretch last": isinstance(items[-1], QSpacerItem) or
-            items[-1].spacerItem() is not None,
+    seen = {"cards in order": cards == want, "a stretch last": bool(parts) and parts[-1] is None,
             "Adjust… last on the Target row": target_last is page.settings.adjust_btn,
             "Settings and More settings in Make the EQ": slot == [page.settings.fold, page.settings.adv],
             "Settings' sections": headings(form), "More settings' tabs": [b.text() for b in adv.tab_btns.values()],

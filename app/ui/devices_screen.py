@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QGroupBox, QH
                                QStyleOptionViewItem, QStylePainter, QToolButton, QVBoxLayout, QWidget)
 
 from switcher.core import shown
-from ui import bubble, icons, theme, theme_tokens
+from ui import bubble, icons, placed, theme, theme_tokens
 from ui.search_combo import natural_key
 from ui.window_parts import EmptyText, ScreenArea, muted, profile_line, warning_card
 
@@ -228,7 +228,7 @@ class DevicesScreen:
         theme.mark(head, card=True)
         hl = QHBoxLayout(head)
         hl.setContentsMargins(4, 0, 4, 0)  # (a card frame's padding and these: its words start at a card's inset)
-        words = QVBoxLayout()
+        words = placed(hl, QVBoxLayout(), 1)
         words.setSpacing(2)
         title = QLabel(shown(rec))
         theme.mark(title, role="heading")  # (a card's title: 16 px bold)
@@ -237,7 +237,6 @@ class DevicesScreen:
         where, _ = self._device_state(key)
         words.addWidget(muted(where + ("" if d else " (it is not in the Windows list)")
                               + (f" · Windows name: {rec['label']}" if rec.get("nickname") else "")))
-        hl.addLayout(words, 1)
         ren = QPushButton("Rename…")
         icons.put(ren, "rename")
         ren.setToolTip("Your name for this device (for example, the IEM that you use on it)")
@@ -281,16 +280,16 @@ class DevicesScreen:
         group.addButton(off)
         bl.addWidget(off)
 
-        def two_lines(rb, data):
-            """A row's words: its name (the round button), and under the name its data in small gray text."""
-            col = QVBoxLayout()
+        def two_lines(row, rb, data):
+            """A row's words at the start of the row: its name (the round button), and under the name its data in
+            small gray text."""
+            col = placed(row, QVBoxLayout(), 1)
             col.setSpacing(0)
             col.addWidget(rb)
             note = muted(data)
             theme.mark(note, small=True)
             note.setContentsMargins(26, 0, 0, 2)  # (under the name, not under the round button)
             col.addWidget(note)
-            return col
         if trying:  # (selecting a profile ends the 5 minutes, as in the tray menu: switcher's set_active)
             rb = ElidedRadio(f"For 5 minutes: {trying['name']}")
             rb.setChecked(True)
@@ -298,7 +297,7 @@ class DevicesScreen:
             holder = QWidget()
             tr = QHBoxLayout(holder)
             tr.setContentsMargins(0, 0, 0, 0)
-            tr.addLayout(two_lines(rb, "The bar at the top has the time, Keep it and Do not keep it"), 1)
+            two_lines(tr, rb, "The bar at the top has the time, Keep it and Do not keep it")
             bl.addWidget(holder)
         for pid in rec["profiles"]:
             p = self.sw.profiles().get(pid)
@@ -307,8 +306,8 @@ class DevicesScreen:
             rb.setChecked(rec["active"] == pid and not trying)
             rb.toggled.connect(lambda on, pid=pid: on and self.sw.set_active(key, pid))
             group.addButton(rb)
-            row.addLayout(two_lines(rb, profile_line(p) + ("  (its file is missing from APO's folder)" if
-                                                           self.sw.profile_missing(pid) else "")), 1)
+            two_lines(row, rb, profile_line(p) + ("  (its file is missing from APO's folder)" if
+                                                  self.sw.profile_missing(pid) else ""))
             x = QToolButton()
             theme.mark(x, quiet=True)  # (a row's ✕: every list's one look, UI-RULES 18)
             x.setText("✕")

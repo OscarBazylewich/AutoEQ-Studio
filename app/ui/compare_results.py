@@ -22,7 +22,7 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QAbstractItemView, QDialog, QFrame, QGridLayout, QHBoxLayout, QHeaderView, QLabel,
                                QPushButton, QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
-from ui import theme
+from ui import placed, theme
 from ui.eq_page_parts import CurveNames
 from ui.history_window import follow_theme
 from ui.search_combo import SearchCombo, natural_key
@@ -128,7 +128,7 @@ class CompareResults(QDialog):
         lead.setWordWrap(True)
         theme.mark(lead, role="muted")
         v.addWidget(lead)
-        pick = QGridLayout()
+        pick = placed(v, QGridLayout())
         self.combos = []
         # (A to Z, as every list, the result shown now on top: UI-RULES 22; A and B start as the first two options
         # were: this EQ and the one beside it)
@@ -161,7 +161,6 @@ class CompareResults(QDialog):
             pick.addWidget(b, i, 2)
             self.combos.append(c)
         pick.setColumnStretch(1, 1)
-        v.addLayout(pick)
         self.plot = pg.PlotWidget()
         self.plot.setLogMode(x=True, y=False)
         self.plot.setMenuEnabled(False)
@@ -197,11 +196,11 @@ class CompareResults(QDialog):
         self.apart = QLabel()
         theme.mark(self.apart, role="muted")
         v.addWidget(self.apart)
-        tables = QHBoxLayout()
+        tables = placed(v, QHBoxLayout())
         self.tables, self.table_marks = [], []
         for side in "AB":
-            box = QVBoxLayout()
-            head = QHBoxLayout()
+            box = placed(tables, QVBoxLayout())
+            head = placed(box, QHBoxLayout())
             head.setSpacing(6)
             mark = QLabel()
             self.table_marks.append(mark)
@@ -210,7 +209,6 @@ class CompareResults(QDialog):
             theme.mark(title, role="section")
             head.addWidget(title)
             head.addStretch(1)
-            box.addLayout(head)
             t = QTableWidget(0, 4)
             t.setObjectName("eqwCmpFilters")  # (its cells' room at the left: ui\theme_sheet.py's eq_windows)
             t.setAccessibleName(f"Filters of {side}")
@@ -223,9 +221,7 @@ class CompareResults(QDialog):
             t.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # (as tall as its rows: render)
             box.addWidget(t)
             box.addStretch(1)  # (a shorter table at the top, level with the other: not in the middle of the row)
-            tables.addLayout(box)
             self.tables.append(t)
-        v.addLayout(tables)
         v.addStretch(1)  # (on a tall window: the room left over under the tables)
         self.footer = Footer(self)
         outer.addWidget(self.footer)

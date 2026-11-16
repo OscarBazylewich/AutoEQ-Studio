@@ -96,9 +96,9 @@ ENTRY = {"name": "Truthear Gate", "tag": "Hangout 5128", "site": "Hangout.Audio"
 
 def _row(tw):
     """3 Save's buttons in their order, each with whether it is the accent button."""
-    lay = tw.save_btns
-    return [(lay.itemAt(i).widget().text(), lay.itemAt(i).widget().property("primary") in (True, "true"))
-            for i in range(lay.count()) if lay.itemAt(i).widget() is not None]
+    # (found with indexOf, not itemAt: no Python object of a layout item is made, app\ui\__init__.py)
+    return [(w.text(), w.property("primary") in (True, "true")) for w in qt.layout_parts(tw.save_btns)
+            if w is not None and w.isWidgetType()]
 
 
 def test_accent_button_is_the_main_action(eq_screen, monkeypatch, tmp_path, check):
