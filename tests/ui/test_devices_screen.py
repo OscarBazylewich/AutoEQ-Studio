@@ -656,6 +656,170 @@ def test_the_device_list_keeps_the_focus_when_the_card_is_made_again(set_up_wind
           f is win.dev_list, f)
 
 
+def _examine_again(w, monkeypatch, start, new, how):
+    """Examine again pressed (how: "Space" or "click") in the card of the playing device, with a stand-in for
+    Equalizer APO's Benchmark tool: its answer `start` ("bad": the warning bar shows; "good": the line shows) is on
+    the card, then it answers `new`, only when the test lets it (so the card is seen while it waits). What was seen
+    while it waited and after the answer: [the control with the focus, the line shows, the warning bar shows]; then
+    what the next Space did: [how many times it asked Equalizer APO, the screens it opened]."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication, QMessageBox, QPushButton
+    from switcher import check as apo_check
+    win, sw = w.win, w.sw
+    rec = sw.record(KEY)
+    p = sw.profiles().get(rec["active"]) if rec["active"] else None
+    good = {"loaded": [sw.apo.config_txt, os.path.join(sw.apo.config, "AutoEQ Studio", "switcher.txt")]
+            + ([os.path.join(sw.apo.profiles, p["file"])] if p else []), "matched": ["{5}"]}
+    answer, asked, opened, go = [start], [], [], threading.Event()
+
+    def run(apo, guid, timeout=60):
+        go.wait(20)
+        asked.append(guid)
+        return good if answer[0] == "good" else {"loaded": [], "matched": []}
+
+    def seen():
+        f = QApplication.focusWidget()
+        words = f.text() if isinstance(f, QPushButton) else type(f).__name__
+        in_card = f is not None and f.isVisible() and win.dev_panel.isAncestorOf(f)
+        return [words if in_card else f"out of the card: {words}", win.check_row.isVisibleTo(win),
+                win.check_warn.isVisibleTo(win)]
+    monkeypatch.setattr(apo_check, "run", run)
+    monkeypatch.setattr(QMessageBox, "information", staticmethod(lambda *a, **k: None))
+    monkeypatch.setattr(QMessageBox, "warning", staticmethod(lambda *a, **k: None))
+    # (the window's Make an EQ button, where the focus went: its click is recorded, the screen never opened)
+    monkeypatch.setattr(win, "show_page", lambda key, remember=True: opened.append(key))
+    qt.wait_for(lambda: not win._checking, 20)  # (an answer asked for before: in, so the card asks the stand-in now)
+    go.set()
+    win._checks.clear()
+    win.render_all()
+    qt.wait_for(lambda: not win._checking, 20)
+    qt.pump(50)
+    again = next(b for b in win.dev_panel.findChildren(QPushButton) if b.text() == "Examine again"
+                 and b.isVisibleTo(win))
+    out = {"start": seen()[1:]}
+    answer[0] = new
+    go.clear()
+    if how == "Space":
+        again.setFocus(Qt.TabFocusReason)  # (as Tab puts it there: a keyboard user's way)
+        QTest.keyClick(again, Qt.Key_Space)
+    else:
+        QTest.mouseClick(again, Qt.LeftButton)
+    qt.pump(50)
+    out["wait"] = seen()
+    go.set()
+    qt.wait_for(lambda: not win._checking, 20)
+    qt.pump(50)
+    out["after"] = seen()
+    before = len(asked)
+    QTest.keyClick(QApplication.focusWidget(), Qt.Key_Space)  # (the person's next key)
+    qt.wait_for(lambda: not win._checking, 20)
+    qt.pump(50)
+    out["next Space"] = [len(asked) - before, opened]
+    monkeypatch.undo()
+    return out
+
+
+def test_examine_again_keeps_the_focus_in_the_card(set_up_window, check, qapp, monkeypatch):
+    # (2026-11-16, the verifier of the merged focus work: Examine again asks Equalizer APO again. While it waits, the
+    # line shows in the place of the warning bar, and a bad answer puts the bar in the place of the line. The part
+    # that hid had the focus on its Examine again: the focus went to the window's Make an EQ button, where the next
+    # Space opened Make an EQ. Now the Examine again of the part that shows takes it)
+    import dataclasses
+    w = set_up_window
+    win, sw = w.win, w.sw
+    headset = w.eps[0]
+    win.selected = KEY
+    win.show_page("devices", remember=False)
+    win.activateWindow()
+    got = {}
+    try:
+        # (Equalizer APO on the device: then the Benchmark tool's answer alone decides between the line and the bar)
+        w.eps[0] = dataclasses.replace(headset, apo=True)
+        sw.refresh()
+        for how in ("Space", "click"):
+            for start in ("bad", "good"):
+                for new in ("bad", "good"):
+                    got[(how, start, new)] = _examine_again(w, monkeypatch, start, new, how)
+    finally:
+        monkeypatch.undo()
+        w.eps[0] = headset
+        sw.refresh()
+        win._checks.clear()
+        win.render_all()
+        qt.wait_for(lambda: not win._checking, 20)
+    line, bar = [True, False], [False, True]
+
+    def wrong(how):
+        """The cases of this way that are not as wanted (none: all 4 were seen, each as wanted)."""
+        want = {(how, start, new): {"start": bar if start == "bad" else line, "wait": ["Examine again", *line],
+                                    "after": ["Examine again", *(bar if new == "bad" else line)],
+                                    "next Space": [1, []]}
+                for start in ("bad", "good") for new in ("bad", "good")}
+        return {k: got.get(k) for k in want if got.get(k) != want[k]}
+    check("devices: Space on Examine again in the device's card keeps the focus on the Examine again that shows, "
+          "while Equalizer APO is asked and after its answer, and the next Space asks again: with the warning bar or "
+          "the line at the start, and a bad or a good new answer (the part that hid gave the focus to the window's "
+          "Make an EQ button, where the next Space opened Make an EQ)", not wrong("Space"), wrong("Space"))
+    check("devices: a click on Examine again in the device's card keeps the focus on the Examine again that shows, "
+          "while Equalizer APO is asked and after its answer, and the next Space asks again: with the warning bar or "
+          "the line at the start, and a bad or a good new answer (the part that hid gave the focus to the window's "
+          "Make an EQ button, where the next Space opened Make an EQ)", not wrong("click"), wrong("click"))
+
+
+def test_examine_again_keeps_the_focus_when_the_card_is_made_again(set_up_window, check, qapp, monkeypatch):
+    # (2026-11-16: the EQ hotkey changes the device's EQ while Examine again in the warning bar has the focus. The
+    # card is made again and asks Equalizer APO again: the line shows, with its own Examine again. The two buttons
+    # had different places in the card, so the focus went to Add a profile, where Space opened its menu)
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication, QPushButton
+    from switcher import check as apo_check
+    win, sw = set_up_window.win, set_up_window.sw
+    was = sw.record(KEY)["active"]
+    go = threading.Event()
+    go.set()
+    monkeypatch.setattr(apo_check, "run", lambda apo, guid, timeout=60: (go.wait(20), {"loaded": [], "matched": []})[1])
+
+    def seen():
+        f = QApplication.focusWidget()
+        return [f.text() if isinstance(f, QPushButton) else type(f).__name__, win.check_row.isVisibleTo(win),
+                win.check_warn.isVisibleTo(win)]
+    try:
+        qt.wait_for(lambda: not win._checking, 20)
+        win._checks.clear()
+        win.selected = KEY
+        win.show_page("devices", remember=False)
+        win.render_all()
+        win.activateWindow()
+        qt.wait_for(lambda: not win._checking, 20)
+        qt.pump(50)
+        again = next(b for b in win.dev_panel.findChildren(QPushButton) if b.text() == "Examine again"
+                     and b.isVisibleTo(win))
+        again.setFocus(Qt.TabFocusReason)
+        qt.pump(20)
+        start = seen()
+        go.clear()
+        sw.cycle(KEY)  # (what the EQ hotkey does: on_hotkey in ui/app.py)
+        qt.pump(50)
+        wait = seen()
+        go.set()
+        qt.wait_for(lambda: not win._checking, 20)
+        qt.pump(50)
+        after = seen()
+    finally:
+        go.set()
+        monkeypatch.undo()
+        sw.set_active(KEY, was)
+        win._checks.clear()
+        win.render_all()
+        qt.wait_for(lambda: not win._checking, 20)
+    check("devices: Examine again keeps the focus when the EQ hotkey changes the device's EQ while Examine again in "
+          "the warning bar has the focus: on the Examine again of the line while Equalizer APO is asked again, then "
+          "on the one of the warning bar (the focus went to Add a profile)",
+          (start, wait, after) == (["Examine again", False, True], ["Examine again", True, False],
+                                   ["Examine again", False, True]), (start, wait, after))
+
+
 # ---------------------------------------------------------------- Remove (a device), 2026-11-12
 # (after an update of Equalizer APO or a driver, Windows can give a device a new entry, and the old one stayed in
 # Devices for good: Remove removes only a device that is not connected, with Undo; the lists of devices agree.

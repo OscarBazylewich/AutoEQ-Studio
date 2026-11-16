@@ -379,7 +379,9 @@ class DevicesScreen:
             icons.put(again, "refresh")
             again.setToolTip(chk.toolTip())
             again.clicked.connect(lambda: self.check_device(key))
-            again.setProperty("card_place", "check again")
+            # (one place for the two Examine again buttons: only one shows. A card made again while the bar's button
+            # had the focus shows the line, with the wait for Equalizer APO, and gave the focus to Add a profile)
+            again.setProperty("card_place", "check")
             help_window.tag(again, "#dev-check")
             self.check_warn, self.check_warn_text = warning_card("", again)
             help_window.tag(self.check_warn_text, "#dev-check")
@@ -538,8 +540,16 @@ class DevicesScreen:
             if self.check_warn is not None:
                 self.check_warn_text.setText(lab.text())
                 self.check_warn_text.setToolTip(lab.toolTip())
-                self.check_row.setVisible(not bad)
-                self.check_warn.setVisible(bad)
+                # (the line and the warning bar take each other's place, each with its own Examine again. The part
+                # that comes shows first, and its button takes the focus of the button that goes: hidden with the
+                # focus, Examine again gave it to the window's Make an EQ button, where Space opened Make an EQ,
+                # 2026-11-16)
+                came, gone = (self.check_warn, self.check_row) if bad else (self.check_row, self.check_warn)
+                came.setVisible(True)
+                had = self.focusWidget()
+                if had is not None and gone.isAncestorOf(had):
+                    came.findChild(QPushButton).setFocus(Qt.OtherFocusReason)
+                gone.setVisible(False)
         except RuntimeError:  # (the panel was drawn again meanwhile)
             pass
 
