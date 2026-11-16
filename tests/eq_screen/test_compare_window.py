@@ -599,3 +599,75 @@ def test_links_take_the_theme_of_the_moment(eq_screen, monkeypatch, check):
              >= 10 * v[f"pixels in the link colour of {k.split()[2].rstrip(',')}"] for k, v in seen.items())
     check("Which measurement: the links of its links line take the link colour of the theme of the moment (made in "
           "light then changed to dark, and the opposite)", len(seen) == 2 and ok, seen)
+
+
+def test_use_keeps_the_list_where_it_is(eq_screen, monkeypatch, check):
+    # (2026-11-13, measured with the fault of Calculate: a measurement's Use or the average's Use, clicked, went off
+    # with the focus while its job ran; Qt gave the focus to the next measurement's Use, and the list scrolled to it,
+    # 79 to 136 px. Now Close has the focus while the job runs, and a refused job gives it back)
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication, QPushButton
+    from ui import compare_window
+    jobs = []
+    monkeypatch.setattr(compare_window.tasks, "background", lambda fn, done, *a, **k: jobs.append(done))
+    seen = {}
+    for which in ("Use", "Use the average"):
+        cw = _shown_with(eq_screen.page, monkeypatch, items=6)
+        try:
+            cw.activateWindow()
+            qt.pump(50)
+            shown = [b for b in cw.scroll.widget().findChildren(QPushButton) if b.isVisible()]
+            b = ([x for x in shown if x.text() == "Use"][3] if which == "Use"
+                 else next(x for x in shown if x.text().startswith("Use the average")))
+            cw.scroll.ensureWidgetVisible(b, 0, 100)
+            qt.pump(50)
+            bar = cw.scroll.verticalScrollBar()
+            at = bar.value()
+            QTest.mouseClick(b, Qt.LeftButton, Qt.NoModifier, QPoint(10, 10))
+            qt.pump(50)
+            during = (bar.value(), QApplication.focusWidget() is cw.footer.close_btn, b.isEnabled())
+            jobs.pop()(None, "refused")  # (a stand-in answer: the job refused)
+            qt.pump(50)
+            seen[which] = (at, during, (bar.value(), QApplication.focusWidget() is b, b.isEnabled()))
+        finally:
+            qt.close(cw)
+    check("which measurement: Use and the average's Use leave the list where it was while their job runs, the focus "
+          "on Close, and give the focus back to the button when the job is refused (the list scrolled to the next "
+          "measurement's Use)",
+          len(seen) == 2 and all(d == (at, True, False) and a == (at, True, True) for at, d, a in seen.values()), seen)
+
+
+def test_a_refused_use_leaves_a_focus_that_you_moved(eq_screen, monkeypatch, check):
+    # (2026-11-15, the verifier: a refused job gives the focus back to its button only when Close still has it. A focus
+    # moved meanwhile, to the Model box, stays there)
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication, QPushButton
+    from ui import compare_window
+    jobs = []
+    monkeypatch.setattr(compare_window.tasks, "background", lambda fn, done, *a, **k: jobs.append(done))
+    seen = {}
+    for which in ("Use", "Use the average"):
+        cw = _shown_with(eq_screen.page, monkeypatch, items=6)
+        try:
+            cw.activateWindow()
+            qt.pump(50)
+            shown = [b for b in cw.scroll.widget().findChildren(QPushButton) if b.isVisible()]
+            b = ([x for x in shown if x.text() == "Use"][3] if which == "Use"
+                 else next(x for x in shown if x.text().startswith("Use the average")))
+            cw.scroll.ensureWidgetVisible(b, 0, 100)
+            qt.pump(50)
+            QTest.mouseClick(b, Qt.LeftButton, Qt.NoModifier, QPoint(10, 10))
+            qt.pump(50)
+            on_close = QApplication.focusWidget() is cw.footer.close_btn
+            cw.q.setFocus(Qt.TabFocusReason)  # (the focus moved while the job runs)
+            qt.pump(50)
+            jobs.pop()(None, "refused")  # (a stand-in answer: the job refused)
+            qt.pump(50)
+            seen[which] = (on_close, QApplication.focusWidget() is cw.q, b.isEnabled())
+        finally:
+            qt.close(cw)
+    check("which measurement: a focus moved to the Model box while the job of Use or of the average's Use runs stays "
+          "there when the job is refused (it went back to the button)",
+          seen == {"Use": (True, True, True), "Use the average": (True, True, True)}, seen)

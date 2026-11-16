@@ -579,6 +579,8 @@ class EqCards:
             b.setToolTip(tip)
             b.clicked.connect(fn)
             tools.addWidget(b)
+            if text == "Add filter":
+                add_btn = b
             if text == "Undo all":
                 self.revert_btn = b
         tools.addSpacing(12)
@@ -602,6 +604,7 @@ class EqCards:
         tools.addWidget(self.retry_btn)
         from ui.filter_editor import FilterEditor
         self.editor = FilterEditor(self.meta.get("limits", {}), lambda t: self.status(t, 6000))
+        self.editor.empty_focus = add_btn  # (the last filter's ✕ pressed: the focus on Add filter, in sight above it)
         self.editor.changed.connect(self.live_update)
         self.editor.changed.connect(self.request_live_graph)  # (after the page has drawn the change: its curves current)
         v.addWidget(self.editor)

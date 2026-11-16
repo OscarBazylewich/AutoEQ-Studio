@@ -14,7 +14,8 @@ thread while it's watched:
 - the app only in the tray: nothing of the EQ part loaded with its event loop turning; made ahead once the window
   shows (about a second after);
 - the gate: never with AUTOEQSTUDIO_PRELOAD=0 (the tests' copies), before a first opening, or while files wait to
-  be moved; the window's memory given back to Windows 30 s after it closes to the tray, only in the app's own window.
+  be moved; the window's memory given back to Windows 30 s after it closes to the tray, only in the app's own window;
+- the end of Make an EQ's Guide in the window: the focus on a control of the page in sight, not in the top bar.
 """
 import json
 import os
@@ -25,7 +26,8 @@ import pytest
 from helpers import paths as project
 from helpers import qt, session, subproc
 
-COVERS = ("ui.window", "ui.preload", "ui.app", "ui.winsys", "ui.eq_page", "ui.guide", "userfiles", "eq.service")
+COVERS = ("ui.window", "ui.preload", "ui.app", "ui.winsys", "ui.eq_page", "ui.guide", "ui.tour", "userfiles",
+          "eq.service")
 
 # The beginning of each Python of its own (argv: the app's copy, the test's folder; its environment points the app's
 # folders at the test's studio). It defines: qapp, sw (a Switcher on a stand-in device, no Equalizer APO folder),
@@ -600,6 +602,54 @@ def test_symbols_font_looked_up_at_a_quiet_moment(check, tmp_path):
           d.get("while busy") == 0 and d.get("warm while busy") is False and d.get("made while busy") is False
           and d.get("once quiet") == 1 and d.get("warm") is True and d.get("made") is True
           and d.get("page") == "devices" and d.get("later") == 1, d or err)
+
+
+# The Guide of Make an EQ in the window (2026-11-15, round 4 of the fault of Calculate, the mutation R10 of the
+# verifier of round 3): Calculate with the focus in the middle of the view, the Guide started, Esc on its first step
+# (the page at its top: Calculate out of the view). Where the focus goes.
+GUIDE_END = COMMON + r'''
+from PySide6.QtCore import QPoint, QRect, Qt
+from PySide6.QtTest import QTest
+win = make_window("eq")
+out = {"ready": pump(90, lambda: win.eq_page is not None and win.eq_page.ready)}
+pump(1.0)
+page = win.eq_page
+area = page.page_area
+bar, vp = area.verticalScrollBar(), area.viewport()
+win.resize(1000, 768)
+pump(0.5)
+y = page.run_btn.mapTo(area.widget(), QPoint(0, 0)).y()
+bar.setValue(max(0, y - vp.height() // 2))
+pump(0.2)
+page.run_btn.setFocus(Qt.MouseFocusReason)
+pump(0.1)
+had = QApplication.focusWidget() is page.run_btn
+win.start_guide()
+pump(10, lambda: getattr(win, "tour", None) is not None and win.tour.isVisible())
+t = win.tour
+t.all_chk.setChecked(False)
+pump(0.5)
+QTest.keyClick(t, Qt.Key_Escape)
+pump(0.5)
+f = QApplication.focusWidget()
+out.update(had=had, closed=not t.isVisible(), on_target=f is page.target_combo,
+           in_view=f is not None and area.isAncestorOf(f)
+           and vp.rect().contains(QRect(f.mapTo(vp, QPoint(0, 0)), f.size())),
+           focus=type(f).__name__ + " " + repr(f.accessibleName()) if f is not None else None)
+print(json.dumps(out))
+'''
+
+
+@pytest.mark.slow
+def test_the_guide_ended_on_its_first_step_gives_the_focus_to_the_page(check, tmp_path):
+    # (2026-11-15, round 4: the end of the Guide looks for a control in sight first in the page, then in the window.
+    # In the window first, Esc on the first step gave the focus to Make an EQ in the top bar. The tests of the page
+    # alone could not find that: there the page is the window)
+    d, err = _run(GUIDE_END, str(tmp_path), _studio(str(tmp_path)))
+    check("window: Esc on the first step of Make an EQ's Guide gives the focus to the Target box at the top of the "
+          "page, in sight (it went to Make an EQ in the top bar)",
+          d.get("ready") is True and d.get("had") is True and d.get("closed") is True and d.get("on_target") is True
+          and d.get("in_view") is True, d or err)
 
 
 def _window(stub_app, tmp_path):

@@ -415,6 +415,10 @@ class Listen(QGroupBox):
         self._abx_was = {"lm": self.lm.isChecked(), "ears": self.ears.currentData(), "blind": self.blind.isChecked()}
         self._abx_set_options(True, "both", False)
         self.compare_row.setEnabled(False)
+        f = self.window().focusWidget()
+        if f is not None and self.abx_row.isAncestorOf(f):  # (the test's rows first, with the focus: hidden with it,
+            self.abx_box.show()  # Start ABX gave it to the next control in the page's order, 2026-11-13)
+            self.abx_hear["A"].setFocus(Qt.OtherFocusReason)
         self.abx_row.hide()  # (the test's own rows in its place)
         self.abx_said.hide()
         self.abx_listen("X")
@@ -483,9 +487,15 @@ class Listen(QGroupBox):
         t, self.abx = self.abx, None
         if t is None:
             return
+        # (Start ABX first, with the focus when the test's rows had it: hidden with the focus, Stop the test or the last
+        # answer gave it to the next control in the page's order, and the page scrolled to it: 31 and 40 px, 2026-11-13)
+        f = self.window().focusWidget()
+        self.abx_row.show()
+        if f is not None and self.abx_box.isAncestorOf(f):
+            self.abx_start.setEnabled(True)  # (as _abx_fill has it with no test)
+            self.abx_start.setFocus(Qt.OtherFocusReason)
         self.abx_box.hide()
         self.compare_row.setEnabled(True)
-        self.abx_row.show()
         was, self._abx_was = self._abx_was or {}, None
         self._abx_set_options(was.get("lm", True), was.get("ears") or "both", was.get("blind", False))
         names = {**{k: label for k, label, *_ in self.versions()}, **self._abx_labels}  # (as they were when it began)

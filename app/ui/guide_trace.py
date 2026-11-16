@@ -118,6 +118,8 @@ def start_trace(tw):
     The steps show their tabs: the tab that you had comes back at the end (the tracer stayed on 3 Save, 2026-11-10)."""
     t = tw.t
     was_tab = tw.pages.currentIndex()
+    had = tw.focusWidget()  # (the focus before the sample, which gives it to the picture: the Guide's end gives it
+    # back to this control, tour.Tour.end_focus)
 
     def tab_back():
         tw.show_tab(was_tab)
@@ -146,5 +148,5 @@ def start_trace(tw):
         def end():
             close()
             tab_back()
-        return tour.Tour(tw, trace_steps(tw), on_end=end)
-    return tour.Tour(tw, trace_steps(tw), on_end=tab_back)
+        return tour.Tour(tw, trace_steps(tw), on_end=end, had_focus=had)
+    return tour.Tour(tw, trace_steps(tw), on_end=tab_back, had_focus=had)

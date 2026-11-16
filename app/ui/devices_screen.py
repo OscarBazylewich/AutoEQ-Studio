@@ -212,6 +212,17 @@ class DevicesScreen:
             self.render_device_panel()
 
     def render_device_panel(self):
+        # (the card's control with the focus is made again below: hidden with the old card, it gave the focus to the
+        # window's Make an EQ button, where Space opened Make an EQ, 2026-11-13. The new card gives it to the same
+        # place: each control that can have the focus has a card_place)
+        f = self.focusWidget()
+        place = f.property("card_place") if f is not None and self.dev_panel.isAncestorOf(f) else None
+        chosen = getattr(self, "_card_chosen", None)
+        if chosen and place and (place in ("off", "trial") or place.startswith("profile:")):
+            place = chosen  # (an arrow key selects the next round button, and the focus goes with it)
+        old_rows = getattr(self, "_card_rows", [])
+        if place:  # (the focus off the old parts before they hide: hidden with the focus, each part gave it to the
+            self.dev_panel.setFocus(Qt.OtherFocusReason)  # next control, and the card scrolled to it, to its end)
         while self.dev_lay.count():  # (the old panel's parts go at once: deleteLater alone waits for the event loop)
             w = self.dev_lay.takeAt(0).widget()
             if w:
@@ -241,6 +252,7 @@ class DevicesScreen:
         icons.put(ren, "rename")
         ren.setToolTip("Your name for this device (for example, the IEM that you use on it)")
         ren.clicked.connect(lambda: self.rename_device(key))
+        ren.setProperty("card_place", "rename")
         from ui import help_window
         help_window.tag(ren, "#dev-rename")
         hl.addWidget(ren, 0, Qt.AlignVCenter)
@@ -253,6 +265,7 @@ class DevicesScreen:
         # (on for a connected device too: a click tells why in a bubble, UI-RULES 25)
         rem.setToolTip("Removes this device from Devices. Its profiles stay in Profiles.")
         rem.clicked.connect(lambda: self.remove_device(key))
+        rem.setProperty("card_place", "remove device")
         help_window.tag(rem, "#dev-remove")
         hl.addWidget(rem, 0, Qt.AlignVCenter)
         lay.addWidget(head)
@@ -263,6 +276,7 @@ class DevicesScreen:
                 b = QPushButton("Open APO's Configurator")
                 icons.put(b, "open_new")
                 b.clicked.connect(self.open_configurator)
+                b.setProperty("card_place", "configurator")
             warn, _ = warning_card("Equalizer APO is not installed on this device. Thus, no EQ operates on it. "
                                    "In APO's Configurator, select this device. Then restart Windows.", b)
             lay.addWidget(warn)
@@ -276,7 +290,8 @@ class DevicesScreen:
         group = QButtonGroup(box)
         off = QRadioButton("Off")
         off.setChecked(rec["active"] is None and not trying)
-        off.toggled.connect(lambda on: on and self.sw.set_active(key, None))
+        off.toggled.connect(lambda on: on and self._card_choose("off", key, None))
+        off.setProperty("card_place", "off")
         group.addButton(off)
         bl.addWidget(off)
 
@@ -293,6 +308,7 @@ class DevicesScreen:
         if trying:  # (selecting a profile ends the 5 minutes, as in the tray menu: switcher's set_active)
             rb = ElidedRadio(f"For 5 minutes: {trying['name']}")
             rb.setChecked(True)
+            rb.setProperty("card_place", "trial")
             group.addButton(rb)
             holder = QWidget()
             tr = QHBoxLayout(holder)
@@ -304,7 +320,8 @@ class DevicesScreen:
             row = QHBoxLayout()
             rb = ElidedRadio(p["name"])
             rb.setChecked(rec["active"] == pid and not trying)
-            rb.toggled.connect(lambda on, pid=pid: on and self.sw.set_active(key, pid))
+            rb.toggled.connect(lambda on, pid=pid: on and self._card_choose(f"profile:{pid}", key, pid))
+            rb.setProperty("card_place", f"profile:{pid}")
             group.addButton(rb)
             two_lines(row, rb, profile_line(p) + ("  (its file is missing from APO's folder)" if
                                                   self.sw.profile_missing(pid) else ""))
@@ -314,6 +331,7 @@ class DevicesScreen:
             x.setToolTip("Remove it from this device (it stays in Profiles)")  # (✕ = Remove: UI-RULES 10, 16)
             x.setAccessibleName(f"Remove {p['name']} from this device")
             x.clicked.connect(lambda _=False, pid=pid: self.remove_profile_from_device(key, pid))
+            x.setProperty("card_place", f"remove:{pid}")
             row.addWidget(x, 0, Qt.AlignVCenter)
             holder = QWidget()
             holder.setLayout(row)
@@ -332,6 +350,7 @@ class DevicesScreen:
         make.setToolTip("Make an EQ on the Make an EQ screen. Then click Use on device, and select this device.")
         menu.setToolTipsVisible(True)
         add.setMenu(menu)
+        add.setProperty("card_place", "add")
         bl.addWidget(add, 0, Qt.AlignLeft)
         lay.addWidget(box)
         self.check_label = self.check_row = self.check_warn = None
@@ -346,6 +365,7 @@ class DevicesScreen:
             chk.setToolTip("Examine again with the Benchmark tool of Equalizer APO (it only reads), and show all "
                            "the results")
             chk.clicked.connect(lambda: self.check_device(key))
+            chk.setProperty("card_place", "check")
             help_window.tag(chk, "#dev-check")
             row.addWidget(chk, 0, Qt.AlignTop)
             holder = QWidget()
@@ -359,6 +379,7 @@ class DevicesScreen:
             icons.put(again, "refresh")
             again.setToolTip(chk.toolTip())
             again.clicked.connect(lambda: self.check_device(key))
+            again.setProperty("card_place", "check again")
             help_window.tag(again, "#dev-check")
             self.check_warn, self.check_warn_text = warning_card("", again)
             help_window.tag(self.check_warn_text, "#dev-check")
@@ -370,6 +391,38 @@ class DevicesScreen:
                                                                          if hk else ".")
                             + (f" {onoff} disables its EQ and enables it again, to compare." if onoff else "")))
         lay.addStretch(1)
+        self._card_rows = [str(pid) for pid in rec["profiles"]]
+        self._card_focus_again(place, old_rows)
+
+    def _card_choose(self, place, key, pid):
+        """A round button of the card selected (a click, Space or an arrow key): the device's EQ set. The new card
+        gives the focus to that button when a round button of the card had it."""
+        self._card_chosen = place
+        try:
+            self.sw.set_active(key, pid)
+        finally:
+            self._card_chosen = None
+
+    def _card_focus_again(self, place, old_rows):
+        """The focus on the new card's control at place (render_device_panel): the same control, else the row now in
+        the place of the removed row (old_rows: the rows' profiles before), else the last row, else Add a profile."""
+        if not place:
+            return
+        # (the card's parts shown now, as Qt shows them after the event loop: a hidden control gets no focus. Not the
+        # parts hidden on purpose. The panel's own children, not the layout's itemAt: a Python call of itemAt makes a
+        # Python object for a layout item, which can cause an access violation, ui/__init__.py)
+        for part in self.dev_panel.findChildren(QWidget, options=Qt.FindDirectChildrenOnly):
+            if not part.testAttribute(Qt.WA_WState_ExplicitShowHide):
+                part.show()
+        by_place = {w.property("card_place"): w for w in self.dev_panel.findChildren(QWidget)
+                    if w.property("card_place") and w.isVisibleTo(self.dev_panel)}
+        w = by_place.get(place)
+        kind, _, pid = place.partition(":")
+        if w is None and pid in old_rows and self._card_rows:
+            w = by_place.get(f"{kind}:{self._card_rows[min(old_rows.index(pid), len(self._card_rows) - 1)]}")
+        w = w or by_place.get("add")
+        if w is not None:
+            w.setFocus(Qt.OtherFocusReason)
 
     def remove_profile_from_device(self, key, pid):
         """A profile's ✕: off this device (it stays in Profiles), with Undo in the window's line (UI-RULES 20): back in

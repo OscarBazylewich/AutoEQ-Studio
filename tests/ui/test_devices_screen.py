@@ -445,6 +445,217 @@ def test_add_a_profile_menu_sorts_numbers_as_numbers(set_up_window, check, qapp,
           [r for r in rows if r.startswith("EQ ")] == ["EQ 1", "EQ 2", "EQ 10"], rows)
 
 
+def _card_focus(win):
+    """The control with the focus, as the checks name it: its words or its name for a screen reader, and whether it is
+    in the device's card."""
+    from PySide6.QtWidgets import QApplication
+    f = QApplication.focusWidget()
+    if f is None:
+        return None
+    words = f.accessibleName() or (f.text() if callable(getattr(f, "text", None)) else "")
+    return words if win.dev_panel.isAncestorOf(f) and f.isVisible() else f"out of the card: {words}"
+
+
+def test_the_card_keeps_the_focus_in_its_place(set_up_window, check, qapp, tmp_path):
+    # (2026-11-13, measured with the fault of Calculate: Off, a profile and a profile's ✕ make the card again, and the
+    # focus went to the window's Make an EQ button, where Space opened Make an EQ. Now the focus stays at the same place
+    # in the new card: the same control, or the row in the place of a removed row, else Add a profile)
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QRadioButton, QToolButton
+    win, sw = set_up_window.win, set_up_window.sw
+    rec = sw.record(KEY)
+    was = (list(rec["profiles"]), rec["active"])
+    made = []
+    seen = {}
+
+    def named(kind, words):
+        return next(w for w in win.dev_panel.findChildren(kind) if w.isVisible()
+                    and words in (w.text(), w.accessibleName()))
+
+    def press(w, key=Qt.Key_Space):
+        w.setFocus(Qt.TabFocusReason)  # (as Tab puts it there: a keyboard user's way)
+        QTest.keyClick(w, key)
+        for _ in range(5):
+            qapp.processEvents()
+        return _card_focus(win)
+    try:
+        for pid in was[0]:  # (the file's own profiles off the device for the test: put back after)
+            sw.remove_from_device(KEY, pid)
+        for name in ("Card A", "Card B", "Card C"):
+            path = tmp_path / f"{name}.txt"
+            path.write_text("Preamp: -1 dB\nFilter 1: ON PK Fc 100 Hz Gain -2 dB Q 1\n", encoding="utf-8")
+            pid = sw.import_profile(str(path), name)
+            made.append(pid)
+            sw.add_to_device(KEY, pid, switch_on=False)
+        sw.set_active(KEY, made[2])
+        win.selected = KEY
+        win.show_page("devices", remember=False)
+        win.render_all()
+        win.activateWindow()
+        for _ in range(5):
+            qapp.processEvents()
+        seen["Off"] = press(named(QRadioButton, "Off"))
+        seen["Down from Off"] = press(named(QRadioButton, "Off"), Qt.Key_Down)
+        seen["Card B"] = press(named(QRadioButton, "Card B"))
+        seen["✕ of Card B"] = press(named(QToolButton, "Remove Card B from this device"))
+        seen["✕ of the last row"] = press(named(QToolButton, "Remove Card C from this device"))
+        seen["✕ of the only row"] = press(named(QToolButton, "Remove Card A from this device"))
+        rows = [r.text() for r in win.dev_panel.findChildren(QRadioButton) if r.isVisible()]
+    finally:
+        for pid in made:
+            sw.remove_profile(pid)
+        for pid in was[0]:
+            if pid not in sw.record(KEY)["profiles"]:
+                sw.add_to_device(KEY, pid, switch_on=False)
+        sw.set_active(KEY, was[1])
+        win.render_all()
+        qapp.processEvents()
+    check("devices: Off, a profile and a profile's ✕ with the keyboard keep the focus at the same place in the "
+          "device's card: the same control, the row now in the removed row's place, else the row before it, else Add "
+          "a profile (it went to the window's Make an EQ button)",
+          seen == {"Off": "Off", "Down from Off": "Card A", "Card B": "Card B",
+                   "✕ of Card B": "Remove Card C from this device",
+                   "✕ of the last row": "Remove Card A from this device", "✕ of the only row": "Add a profile"}
+          and rows == ["Off"], (seen, rows))
+
+
+def test_the_card_keeps_its_place_in_a_small_window(set_up_window, check, qapp, tmp_path):
+    # (2026-11-15, the verifier of round 2: the old parts hid one by one with the focus, and each gave it to the next
+    # control of the card: the card scrolled to its end, and a profile at the top of the view went out of sight)
+    from PySide6.QtCore import QPoint, QRect, Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication, QRadioButton, QScrollArea, QToolButton
+    win, sw = set_up_window.win, set_up_window.sw
+    rec = sw.record(KEY)
+    was, size = (list(rec["profiles"]), rec["active"]), win.size()
+    made, seen = [], {}
+    area = next(a for a in win.findChildren(QScrollArea) if a.widget() is win.dev_panel)
+    bar, vp = area.verticalScrollBar(), area.viewport()
+
+    def pump():
+        for _ in range(8):
+            qapp.processEvents()
+    try:
+        for pid in was[0]:
+            sw.remove_from_device(KEY, pid)
+        for i in range(14):
+            path = tmp_path / f"Row {i:02d}.txt"
+            path.write_text("Preamp: -1 dB\nFilter 1: ON PK Fc 100 Hz Gain -2 dB Q 1\n", encoding="utf-8")
+            made.append(sw.import_profile(str(path), f"Row {i:02d}"))
+            sw.add_to_device(KEY, made[-1], switch_on=False)
+        sw.set_active(KEY, made[0])
+        win.resize(1040, 560)
+        win.selected = KEY
+        win.show_page("devices", remember=False)
+        win.render_all()
+        win.activateWindow()
+        pump()
+        for kind, words in ((QRadioButton, "Row 02"), (QToolButton, "Remove Row 03 from this device")):
+            w = next(x for x in win.dev_panel.findChildren(kind) if x.isVisible()
+                     and words in (x.text(), x.accessibleName()))
+            bar.setValue(w.mapTo(win.dev_panel, QPoint(0, 0)).y() - 4)  # (the row at the top of the view)
+            pump()
+            w.setFocus(Qt.TabFocusReason)
+            at = bar.value()
+            QTest.keyClick(w, Qt.Key_Space)
+            pump()
+            f = QApplication.focusWidget()
+            seen[words] = (at > 0, bar.value() == min(at, bar.maximum()), f is not None
+                           and win.dev_panel.isAncestorOf(f) and vp.rect().contains(QRect(f.mapTo(vp, QPoint(0, 0)),
+                                                                                          f.size())))
+    finally:
+        for pid in made:
+            sw.remove_profile(pid)
+        for pid in was[0]:
+            if pid not in sw.record(KEY)["profiles"]:
+                sw.add_to_device(KEY, pid, switch_on=False)
+        sw.set_active(KEY, was[1])
+        win.resize(size)
+        win.render_all()
+        qapp.processEvents()
+    check("devices: in a card that scrolls, Space on a profile or on a profile's ✕ at the top of the view keeps the "
+          "card where it is, and the focus in sight (the card scrolled to its end, the focus out of sight)",
+          seen == {"Row 02": (True, True, True), "Remove Row 03 from this device": (True, True, True)}, seen)
+
+
+def test_a_selection_before_does_not_move_the_focus_later(set_up_window, check, qapp, tmp_path):
+    # (2026-11-15, round 3 of the fault of Calculate: the card keeps the round button that a selection with the
+    # keyboard selected only while it makes the card for that selection, _card_choose. Kept after it, the next card,
+    # made for another reason with the focus on Off, gave the focus to that profile)
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QRadioButton
+    win, sw = set_up_window.win, set_up_window.sw
+    rec = sw.record(KEY)
+    was = (list(rec["profiles"]), rec["active"])
+    made = []
+
+    def named(words):
+        return next(w for w in win.dev_panel.findChildren(QRadioButton) if w.isVisible() and w.text() == words)
+
+    def pump():
+        for _ in range(5):
+            qapp.processEvents()
+    try:
+        for pid in was[0]:
+            sw.remove_from_device(KEY, pid)
+        for name in ("Card A", "Card B"):
+            path = tmp_path / f"{name}.txt"
+            path.write_text("Preamp: -1 dB\nFilter 1: ON PK Fc 100 Hz Gain -2 dB Q 1\n", encoding="utf-8")
+            made.append(sw.import_profile(str(path), name))
+            sw.add_to_device(KEY, made[-1], switch_on=False)
+        sw.set_active(KEY, None)
+        win.selected = KEY
+        win.show_page("devices", remember=False)
+        win.render_all()
+        win.activateWindow()
+        pump()
+        b = named("Card B")
+        b.setFocus(Qt.TabFocusReason)
+        QTest.keyClick(b, Qt.Key_Space)  # (Card B selected: the card is made again, the focus on Card B)
+        pump()
+        after_space = _card_focus(win)
+        named("Off").setFocus(Qt.TabFocusReason)  # (Shift+Tab's way: the focus on Off, nothing selected)
+        pump()
+        win.render_all()  # (the card made again for another reason, as when the window shows again)
+        pump()
+        again = _card_focus(win)
+    finally:
+        for pid in made:
+            sw.remove_profile(pid)
+        for pid in was[0]:
+            if pid not in sw.record(KEY)["profiles"]:
+                sw.add_to_device(KEY, pid, switch_on=False)
+        sw.set_active(KEY, was[1])
+        win.render_all()
+        qapp.processEvents()
+    check("devices: after a profile selected with the keyboard, the focus moved to Off stays on Off when the card is "
+          "made again for another reason (the selection before gave the focus to that profile)",
+          (after_space, again) == ("Card B", "Off"), (after_space, again))
+
+
+def test_the_device_list_keeps_the_focus_when_the_card_is_made_again(set_up_window, check, qapp):
+    # (2026-11-15, the verifier of round 3: the card's panel takes the focus before its old parts hide only when a
+    # control of the card has it. Always, it took the focus from the device list. No test found that)
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication
+    win = set_up_window.win
+    win.selected = KEY
+    win.show_page("devices", remember=False)
+    win.render_all()
+    win.activateWindow()
+    qapp.processEvents()
+    win.dev_list.setFocus(Qt.TabFocusReason)
+    qapp.processEvents()
+    win.render_all()  # (the card made again, as for a change of the device's EQ)
+    for _ in range(5):
+        qapp.processEvents()
+    f = QApplication.focusWidget()
+    check("devices: the device list keeps the focus when the card is made again (the card's panel took it)",
+          f is win.dev_list, f)
+
+
 # ---------------------------------------------------------------- Remove (a device), 2026-11-12
 # (after an update of Equalizer APO or a driver, Windows can give a device a new entry, and the old one stayed in
 # Devices for good: Remove removes only a device that is not connected, with Undo; the lists of devices agree.

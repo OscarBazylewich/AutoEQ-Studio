@@ -3,7 +3,8 @@
 A tour is a list of steps. Each step lights one or more real controls (the rest of the window dimmed), explains them
 in a card, and can carry a demo: actions played by a drawn pointer on a layer above the window. Clicks never reach
 the window while a tour runs, and what a demo shows (a list opened, a value typed, a curve on the graph) is put back
-when it ends: nothing of yours changes.
+when it ends: nothing of yours changes. When the tour ends, the focus goes back to the control that had it before
+(Tour.end_focus).
 
 The card: the step list ("1 · Choose · 3 of 27", Windows 11's chevron after it: go straight to any step; at its foot
 Play all steps, one after another, and the demos' speed, ¼× to 4×) and ✕ (close the Guide, Esc) at the top right, a
@@ -904,10 +905,14 @@ class _Steps(QFrame):
 
 # ---------------------------------------------------------------- the tour
 class Tour(QWidget):
-    def __init__(self, host, steps, on_end=None, start=0):
+    def __init__(self, host, steps, on_end=None, start=0, had_focus=None):
+        """had_focus: the control with the focus before the Guide (the focus goes back to it at the end, end_focus);
+        None: the window's control with the focus now."""
         win = host.window()
+        had_focus = had_focus if had_focus is not None else win.focusWidget()
         super().__init__(win)
         self.win, self.steps, self.on_end = win, steps, on_end
+        self.host, self.had_focus = host, had_focus
         self.i, self.alt = -1, False
         self.target = None
         self.spots, self.holes, self.avoid = [], [], []   # lit widgets, their rectangles; what the card keeps off
@@ -2043,6 +2048,38 @@ class Tour(QWidget):
         self.deleteLater()
         if self.on_end:
             self.on_end()
+        self.end_focus()
+
+    def end_focus(self):
+        """The focus when the Guide ends: back on the control that had it before the Guide, when that control is
+        there, on and all in sight; else on the first such control in the host's Tab order (the page's, the
+        tracer's), else in the window's. Hidden with the focus, the Guide kept it (Tab stays in the Guide:
+        focusNextPrevChild), and the keys of the page did nothing (measured after the demo of Calculate,
+        2026-11-15). No scroll: the page stays where the last step left it."""
+        win = self.win
+        if not _alive(win):
+            return
+
+        def usable(w):
+            if w is None or not _alive(w) or w is self or self.isAncestorOf(w) or w.window() is not win:
+                return False
+            if not (w.isVisible() and w.isEnabled()):
+                return False
+            whole = QRect(w.mapTo(win, QPoint(0, 0)), w.size())
+            return win.rect().contains(whole) and _rect(win, [w]) == whole
+        w = self.had_focus if usable(self.had_focus) else None
+        for root in (self.host, win):
+            if w is not None or not _alive(root):
+                break
+            x, n = root.nextInFocusChain(), 0
+            while x is not root and n < 5000:  # (the chain is a ring: once round it)
+                if ((root is win or root.isAncestorOf(x)) and x.focusPolicy() & Qt.TabFocus
+                        and not isinstance(x, QScrollArea) and usable(x)):  # (a page's frame: not a control)
+                    w = x
+                    break
+                x, n = x.nextInFocusChain(), n + 1
+        if w is not None:
+            w.setFocus(Qt.OtherFocusReason)
 
     def active(self):
         return self.isVisible()

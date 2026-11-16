@@ -167,6 +167,7 @@ class Field(QWidget):
     def __init__(self, form, path, kind, options=None, placeholder="", pair=False):
         super().__init__()
         self.form, self.path, self.kind = form, path, kind
+        self._focus_from_tag = False  # (the box got the focus of its tag, not typed in since: it shows each new value)
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(6)
@@ -226,7 +227,9 @@ class Field(QWidget):
 
     # the value as the box shows it, and back
     def show_value(self, v):
-        if self.box.hasFocus() and self.kind not in ("check", "choice"):
+        if not self.box.hasFocus():
+            self._focus_from_tag = False
+        elif self.kind not in ("check", "choice") and not self._focus_from_tag:  # (not over what you type)
             return
         self.box.blockSignals(True)
         if self.kind == "check":
@@ -292,6 +295,7 @@ class Field(QWidget):
         return (problem[1] if problem else None), problem
 
     def _typed(self, *_):
+        self._focus_from_tag = False
         v = self.read()
         msg, _ = self._checked(v)
         if msg:
@@ -343,6 +347,13 @@ class Field(QWidget):
 
     def set_tag(self, state):
         """None (no tag), "auto" or "yours"."""
+        # (the tag with the focus (Tab, then Space on "your value ↺") goes off or hides: the box beside it gets the
+        # focus first. Qt gave it to the next setting in the page's order, and the page scrolled to it: 670 px to 791
+        # px, 2026-11-15. The box still shows each new value until you type in it: the automatic value comes later)
+        if state != "yours" and self.tag.window().focusWidget() is self.tag and self.box.isEnabled() \
+                and self.box.isVisibleTo(self.tag.window()):
+            self._focus_from_tag = True
+            self.box.setFocus(Qt.OtherFocusReason)
         self.tag.setVisible(bool(state))
         if state:
             self.tag.setText("your value ↺" if state == "yours" else "automatic")

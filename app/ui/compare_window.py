@@ -553,8 +553,23 @@ class CompareWindow(QDialog):
             self.names.set_items([(name, pens[k]) for name, k in items])
 
     # ---------------------------------------------------------------- using
-    def use(self, c, btn):
+    def _off_for_job(self, btn):
+        """btn off while its job runs. With the focus, it gives the focus to Close first (in sight, under the list): Qt
+        gave it to the next control in the window's order, the next measurement's Use, and the list scrolled to it (79
+        to 136 px, 2026-11-13). Returns what turns btn on again, with the focus back when it had it (a refusal)."""
+        had = self.footer.close_btn is not None and self.focusWidget() is btn
+        if had:
+            self.footer.close_btn.setFocus(Qt.OtherFocusReason)
         btn.setEnabled(False)
+
+        def back():
+            btn.setEnabled(True)
+            if had and self.focusWidget() is self.footer.close_btn:
+                btn.setFocus(Qt.OtherFocusReason)
+        return back
+
+    def use(self, c, btn):
+        back = self._off_for_job(btn)
         body = dict(c["body"], kind="measurement", settings=self.page.S)
 
         page = self.page
@@ -563,7 +578,7 @@ class CompareWindow(QDialog):
             here = tasks.alive(self)  # (closed meanwhile: what was downloaded is still used)
             if err or (res or {}).get("error"):
                 if here:
-                    btn.setEnabled(True)
+                    back()
                     QMessageBox.warning(self, "Use", str(err or res["error"]))
                 return
             page.file_used(res)
@@ -573,7 +588,7 @@ class CompareWindow(QDialog):
 
     def use_average(self, lst, sel, btn):
         keys = [c["hash"] for c in lst if c["hash"] in sel]
-        btn.setEnabled(False)
+        back = self._off_for_job(btn)
         btn.setText("In progress…")  # (a second click would save the average twice)
         body = {"keys": keys, "name": self.data["query"], "settings": self.page.S}
 
@@ -584,7 +599,7 @@ class CompareWindow(QDialog):
             if err or (res or {}).get("error"):
                 if here:
                     QMessageBox.warning(self, "Use the average", str(err or res["error"]))
-                    btn.setEnabled(True)
+                    back()
                     btn.setText(f"Use the average of {len(keys)}")
                 return
             page.file_used(dict(res, kind="measurement", names=[]))

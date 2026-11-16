@@ -13,7 +13,7 @@ import os
 import tempfile
 
 import numpy as np
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 import textfile
@@ -57,10 +57,17 @@ class EqResult:
         if r.get("error"):
             QMessageBox.warning(self, "Calculate", r["error"])
             return
+        # (Cancel first, with the focus when a button that goes off has it: Qt gave the focus of a button it turns off
+        # to the next control in the page's order, and the page scrolled to that control, the Target row's Adjust… at
+        # its top: 597 px to 0, 2026-11-13. A click on Calculate gives it the focus, as Space does)
+        self.cancel_btn.show()
+        had = self.window().focusWidget()
+        self._run_focus = had if any(had is b for b in (self.run_btn, self.queue_btn, self.retry_btn)) else None
+        if self._run_focus is not None:
+            self.cancel_btn.setFocus(Qt.OtherFocusReason)
         self.run_btn.setEnabled(False)
         self.queue_btn.setEnabled(False)  # (a queue started now failed every pair: one run at a time)
         self.retry_btn.setEnabled(False)
-        self.cancel_btn.show()
         self.progress.setValue(0)
         self.progress.show()
         self.say_progress("In progress…")
@@ -87,6 +94,11 @@ class EqResult:
         self.run_btn.setEnabled(True)
         self.queue_btn.setEnabled(True)
         self.retry_btn.setEnabled(True)
+        if self.window().focusWidget() is self.cancel_btn:  # (the focus back before Cancel goes, as in run(): hidden
+            back = getattr(self, "_run_focus", None)  # with the focus, Cancel gave it to Adjust… at the page's top)
+            usable = back is not None and back.isVisible() and back.isEnabled()
+            (back if usable else self.run_btn).setFocus(Qt.OtherFocusReason)
+        self._run_focus = None
         self.cancel_btn.hide()
         self.progress.hide()
         if j.get("status") == "done":
@@ -98,7 +110,7 @@ class EqResult:
             self.show_result(j["result"]["pick"])
             self.add_to_history(False)
             if self._scroll_value() == getattr(self, "_run_view", None):  # (not if you scrolled meanwhile: a run
-                QTimer.singleShot(0, self, lambda: self._scroll_to(self.result_box))  # takes 7-20 s, UI-RULES 30)
+                QTimer.singleShot(0, self, self._follow_result)  # takes 7-20 s, UI-RULES 30)
         elif j.get("status") == "error":
             self.say_progress("")
             QMessageBox.warning(self, "Calculate", j.get("message") or "The app did not make an EQ.")
@@ -623,13 +635,44 @@ class EqResult:
         self.keep_run(run)
         self.name_edit.clear()
         self.show_result(1)
-        QTimer.singleShot(0, self, lambda: self._scroll_to(self.result_box))
+        # (as after a run, with Start in the place of Calculate: _scroll_to centered a card higher than the view, and
+        # Start, with the focus, went out of sight at 768 px and 650 px, the card's top too at 650 px, 2026-11-15)
+        QTimer.singleShot(0, self, self._follow_result)
 
     def _scroll_to(self, w):
         from PySide6.QtWidgets import QScrollArea
         area = next(iter(self.findChildren(QScrollArea)), None)
         if area is not None and w.isVisible():
             area.ensureWidgetVisible(w, 0, 40)
+
+    def _follow_result(self):
+        """A run done (UI-RULES 30) or an EQ by hand begun (start_manual): the result card into sight, as much of it
+        as the view holds, but never past its top or past the control with the focus when that control is in sight
+        (Calculate, Calculate from these filters, or By hand's Start). _scroll_to put the center of a card higher
+        than the view at the view's center: the card's top (its title and error) and Calculate, with the focus, out of
+        sight in a view of 768 px or less (Calculate at -71 px at 768 px, at -130 px at 650 px; the card 665 to 704 px
+        high: measured by the verifier, 2026-11-15).
+        The page's last layout comes first: Qt had not yet laid out the page again for the new result, and after the
+        scroll the graph above Calculate grew 19 px at a page's first result (Calculate at 29 px, not 10 px) and the
+        card moved 10 px up at each result (measured, 2026-11-15). Each pass of the posted layouts can post one more,
+        for a parent: two passes of the six made the page final there."""
+        from PySide6.QtCore import QEvent, QPoint, QRect
+        from PySide6.QtWidgets import QApplication, QScrollArea
+        area, box = next(iter(self.findChildren(QScrollArea)), None), self.result_box
+        if area is None or not box.isVisible():
+            return
+        for _ in range(6):
+            QApplication.sendPostedEvents(None, QEvent.LayoutRequest)
+        inner, bar, vp = area.widget(), area.verticalScrollBar(), area.viewport()
+        top = box.mapTo(inner, QPoint(0, 0)).y()
+        low = top + box.height() + 40 - vp.height()  # (the least scroll with the card's end in sight)
+        high = top - 40  # (the most scroll with the card's top in sight)
+        f = self.window().focusWidget()
+        if f is not None and inner.isAncestorOf(f) and f.isVisible() \
+                and vp.rect().contains(QRect(f.mapTo(vp, QPoint(0, 0)), f.size())):  # (out of sight: not kept)
+            high = min(high, f.mapTo(inner, QPoint(0, 0)).y() - 10)
+        v = bar.value()
+        bar.setValue(max(0, min(low, high) if v < low else min(v, high)))
 
     def _scroll_value(self):
         """Where the page is scrolled to now (None before it's made)."""

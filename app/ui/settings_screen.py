@@ -6,7 +6,7 @@ SettingsScreen is one part of the window's class (Window, in ui\\window.py): a p
 window, so they use the window's own things (sw, app, status(), and its hotkey_changed signal)."""
 import os
 
-from PySide6.QtCore import QEvent, QObject, Qt, QUrl
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QKeySequence
 from PySide6.QtWidgets import (QCheckBox, QFileDialog, QGridLayout, QGroupBox, QHBoxLayout, QKeySequenceEdit, QLabel,
                                QLineEdit, QMessageBox, QPushButton, QVBoxLayout, QWidget)
@@ -365,8 +365,24 @@ class SettingsScreen:
         self.apo_mark.setVisible(not good)
         self.apo_path.setText(f"Its config folder: {apo.config}" if apo.found else "")
         self.apo_path.setVisible(apo.found)
-        self.btn_setup.setVisible(apo.found and not apo.includes_studio())
-        self.btn_unset.setVisible(apo.found and apo.includes_studio())
+        setup_on, unset_on = apo.found and not apo.includes_studio(), good  # (never both)
+        # (the button that comes shows first, and takes the focus of the one that goes: hidden with the focus, Remove
+        # AutoEQ Studio from APO… gave it to the next control in the window's order, Your files' Open the folder, and
+        # the screen scrolled to it, 2026-11-13)
+        focus = self.window().focusWidget()
+        for came, came_on, gone in ((self.btn_setup, setup_on, self.btn_unset),
+                                    (self.btn_unset, unset_on, self.btn_setup)):
+            if came_on:
+                came.setVisible(True)
+                if focus is gone:
+                    came.setFocus(Qt.OtherFocusReason)
+                    # (and in sight once laid out: the banner over the screens shows or goes with this change, and
+                    # the screen's room changes, 46 px or more)
+                    area = self.pages.get("settings")
+                    if area is not None:
+                        QTimer.singleShot(0, area, lambda a=area, b=came: a.ensureWidgetVisible(b, 0, 0))
+        self.btn_setup.setVisible(setup_on)
+        self.btn_unset.setVisible(unset_on)
         self.btn_conf.setVisible(bool(apo.configurator))
         self.btn_folder.setVisible(apo.found)
 

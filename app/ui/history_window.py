@@ -277,10 +277,21 @@ class HistoryWindow(QDialog):
         if r.get("error"):
             QMessageBox.warning(self, "Remove from the history", r["error"])
             return
+        mores = self._mores()  # (the row's ⋯ with the focus goes with its row: then no control had it, 2026-11-13)
+        at = next((i for i, b in enumerate(mores) if b is self.focusWidget()), None)
         self._show_entries(r.get("entries", []), keep=True)  # (the place in the list stays)
+        if at is not None:  # (the ⋯ of the row now in its place, else of the last row, else the search box)
+            mores = self._mores()
+            (mores[min(at, len(mores) - 1)] if mores else self.q).setFocus(Qt.OtherFocusReason)
         if gone:
             self.footer.say(f"You removed “{gone[0].get('device')} → {gone[0].get('target')}” from the history.",
                             undo=lambda: self._put_back(gone))
+
+    def _mores(self):
+        """The rows' ⋯ buttons, in the rows' order."""
+        body = self.scroll.widget()
+        return [b for b in body.findChildren(QPushButton) if b.accessibleName().startswith("More commands for ")
+                and b.isVisibleTo(body)] if body is not None else []
 
     def _put_back(self, gone):
         r = self.page.svc.call("/api/history/restore", {"entries": gone})

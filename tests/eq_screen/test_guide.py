@@ -1024,3 +1024,103 @@ def test_pointer_words_off_what_is_lit(s, check):
         qt.close(win)
     check("guide: the pointer's words go off the lit control (just under or over it) and off the card",
           box is not None and not box.intersects(lit) and not box.intersects(card), (box, lit, card))
+
+
+@pytest.mark.timeout(900)  # (the demo of Calculate played, waited for up to 60 s times the time factor)
+def test_the_focus_after_the_guide(s, check):
+    # (2026-11-15, round 3 of the fault of Calculate: hidden with the focus, the Guide kept it (Tab stays in the
+    # Guide), and the keys of the page did nothing after the Guide. Now the focus goes back to the control that had it
+    # before the Guide when it is there and in sight, else to the first control in sight in the page's Tab order)
+    from PySide6.QtCore import QPoint, QRect, Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    from helpers import qt
+    from ui import guide
+    page = s.page
+    area = page.page_area
+    bar, vp = area.verticalScrollBar(), area.viewport()
+
+    def in_sight(w):
+        return (w is not None and area.isAncestorOf(w) and w.isVisible()
+                and vp.rect().contains(QRect(w.mapTo(vp, QPoint(0, 0)), w.size())))
+    seen = {}
+    for case in ("the demo of Calculate", "Esc on the first step"):
+        y = page.run_btn.mapTo(area.widget(), QPoint(0, 0)).y()
+        bar.setValue(max(0, y - vp.height() // 2))  # (Calculate in the middle of the view, with the focus)
+        qt.pump(60)
+        page.activateWindow()
+        page.run_btn.setFocus(Qt.MouseFocusReason)
+        t = guide.start_eq(page)
+        t.all_chk.setChecked(False)
+        if case == "the demo of Calculate":
+            t.go_to_step(next(n for n, st in enumerate(t.steps) if st["title"] == "Calculate"))
+            t.speed = 8.0
+            t.replay()
+            s.wait_for(lambda t=t: not t.demo_running, 60)
+        QTest.keyClick(t, Qt.Key_Escape)
+        qt.pump(100)
+        f = QApplication.focusWidget()
+        seen[case] = {"Guide closed": not t.isVisible(), "focus on Calculate": f is page.run_btn,
+                      "focus in sight": in_sight(f), "Calculate in sight": in_sight(page.run_btn)}
+    page.open_trace()
+    tw = page.tracer
+    tw.remove_image()  # (no picture: the Guide's sample graph)
+    qt.pump(100)
+    tw.guide_btn.setFocus(Qt.MouseFocusReason)
+    tw.start_guide()
+    qt.pump(100)
+    on_sample = tw.t.has_image
+    QTest.keyClick(tw.tour, Qt.Key_Escape)
+    qt.pump(100)
+    seen["the tracer's Guide"] = {"on the sample": on_sample,
+                                  "focus on Guide": QApplication.focusWidget() is tw.guide_btn,
+                                  "no picture after": not tw.t.has_image}
+    tw.close()
+    page.resize(1100, 900)
+    qt.pump(100)
+    check("guide: when the Guide ends, the focus goes back to the control that had it (Calculate, after the demo of "
+          "Calculate; the tracer's Guide button), else to a control in sight (it stayed on the hidden Guide)",
+          seen == {"the demo of Calculate": {"Guide closed": True, "focus on Calculate": True, "focus in sight": True,
+                                             "Calculate in sight": True},
+                   "Esc on the first step": {"Guide closed": True, "focus on Calculate": False, "focus in sight": True,
+                                             "Calculate in sight": False},
+                   "the tracer's Guide": {"on the sample": True, "focus on Guide": True, "no picture after": True}},
+          seen)
+
+
+def test_the_focus_after_the_tracers_guide_on_another_tab(s, check):
+    # (2026-11-15, the verifier of round 3: the Guide of the tracer shows the tab of each step, and at its end the tab
+    # that you had comes back (on_end) before the focus goes back (end_focus). In the other order, a box of 1 Axes was
+    # on a hidden tab, and the focus went to Open image…. No test found that)
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    from helpers import qt
+    from ui.trace_window import sample_image
+    page = s.page
+    page.open_trace()
+    tw = page.tracer
+    img, _s = sample_image()
+    tw.load_image(img, "A graph")
+    qt.pump(200)
+    try:
+        tw.show_tab(0)
+        box = next(iter(tw.boxes.values()))
+        box.setFocus(Qt.MouseFocusReason)
+        qt.pump(30)
+        tw.start_guide()
+        qt.pump(200)
+        t = tw.tour
+        t.all_chk.setChecked(False)
+        t.go_to_step(next(n for n in range(len(t.steps)) if n > 2 and "Trace" in str(t.steps[n].get("title", ""))))
+        qt.pump(300)
+        other_tab = tw.pages.currentIndex() != 0
+        QTest.keyClick(t, Qt.Key_Escape)
+        qt.pump(200)
+        seen = (other_tab, tw.pages.currentIndex(), QApplication.focusWidget() is box)
+    finally:
+        tw.remove_image()
+        tw.close()
+        qt.pump(50)
+    check("guide: the tracer's Guide ended on a step of another tab gives the focus back to the box of 1 Axes that had "
+          "it (it went to Open image…)", seen == (True, 0, True), seen)

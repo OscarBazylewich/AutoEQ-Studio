@@ -42,6 +42,7 @@ class FilterEditor(QWidget):
         self.say = say
         self.filters = []          # [{"enabled", "type", "freq", "gain", "q"}] (edited in place)
         self.preamp_text = "0.0"
+        self.empty_focus = None    # (what gets the focus when the last filter goes with it: the page's Add filter)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         self.stack = QStackedWidget()
@@ -101,10 +102,37 @@ class FilterEditor(QWidget):
         return "sliders" if self.stack.currentIndex() == 1 else "table"
 
     def rebuild(self):
+        had = self._focus_name()
         if self.view() == "sliders":
             self._build_sliders()
         else:
             self._build_table()
+        self._focus_again(had)
+
+    def _focus_name(self):
+        """The name of the row's or column's control that has the focus ("Remove filter 2", "Filter 2 on"), or None.
+        A rebuild deletes it, and the focus went to no control (a keyboard user's place lost, 2026-11-13)."""
+        w = self.window().focusWidget()
+        if w is None or w is self.table or not self.isAncestorOf(w):
+            return None
+        return w.accessibleName() or None
+
+    def _focus_again(self, name):
+        """The focus on the new control of that name, else on the one of the filter before it (the last filter's ✕),
+        else on empty_focus (no filters left)."""
+        if not name:
+            return
+        names = [name]
+        num = next((p for p in name.split() if p.isdigit()), None)
+        if num is not None and int(num) > 1:
+            names.append(name.replace(num, str(int(num) - 1), 1))
+        for n in names:
+            w = next((c for c in self.findChildren(QWidget) if c.accessibleName() == n and c.isVisibleTo(self)), None)
+            if w is not None:
+                w.setFocus(Qt.OtherFocusReason)
+                return
+        if self.empty_focus is not None and self.empty_focus.isVisible():
+            self.empty_focus.setFocus(Qt.OtherFocusReason)
 
     def _edited(self):
         self.changed.emit()

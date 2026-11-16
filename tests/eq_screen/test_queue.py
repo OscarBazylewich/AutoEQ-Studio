@@ -118,3 +118,97 @@ def test_run_several_long_names_fit_their_list(eq_screen, check):
     check("queue: a long name in a list goes on to more lines in the list's width (no scroll bar across), its whole "
           "name in its tooltip",
           not found[0] and found[1] == 0 and found[2] > found[3] and found[4], found)
+
+
+def _focus_name(w):
+    if w is None:
+        return None
+    return f"{type(w).__name__} {w.text() if callable(getattr(w, 'text', None)) else w.accessibleName()!r}"
+
+
+def test_run_several_keeps_the_focus_on_its_buttons(eq_screen, check):
+    # (2026-11-15, the verifier of the Calculate fault: Space on Start turned Start off with the focus, and Qt gave the
+    # focus to Close; a second Space then closed the window and stopped the queue. Now Cancel gets the focus while the
+    # queue runs, as Calculate's Cancel, and Start gets it back when the queue is done. Space on Cancel turns Cancel
+    # off: the results' table has the focus until the queue stops)
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    page = eq_screen.page
+    kept_S = copy.deepcopy(page.S)
+    page.S["auto"]["enabled"] = False
+    page.S["mode"] = "best_fit"
+    page.S["best_fit"].update(filter_counts=[5], random_starts=0, seed_with_site=False)
+    seen = {}
+    try:
+        for how in ("done", "cancelled"):
+            q = QueueWindow(page)
+            try:
+                q.tgts.item(0).setCheckState(Qt.Checked)
+                q.show()
+                q.activateWindow()
+                qt.pump(100)
+                q.start_btn.setFocus(Qt.TabFocusReason)
+                QTest.keyClick(q.start_btn, Qt.Key_Space)
+                qt.pump(50)
+                d = {"while it runs": _focus_name(QApplication.focusWidget()), "running": q.running}
+                if how == "cancelled":
+                    QTest.keyClick(q.cancel_btn, Qt.Key_Space)
+                    qt.pump(50)
+                    d["after Cancel"] = _focus_name(QApplication.focusWidget())
+                d["stopped"] = eq_screen.wait_for(lambda q=q: not q.running, 300)
+                qt.pump(50)
+                d["at the end"] = _focus_name(QApplication.focusWidget())
+                d["window open"] = q.isVisible()
+                d["result"] = q.table.item(0, 2).text().split(":")[0] if q.table.rowCount() else None
+                seen[how] = d
+            finally:
+                qt.close(q)
+    finally:
+        page.S = kept_S
+        page.svc.call("/api/settings", {"settings": page.S})
+    start, cancel = "QPushButton 'Start'", "QPushButton 'Cancel'"
+    check("queue: Space on Start gives the focus to Cancel while the queue runs, and back to Start when it is done; "
+          "the window stays open (the focus went to Close, and a second Space closed the window and stopped the queue)",
+          seen.get("done") == {"while it runs": cancel, "running": True, "stopped": True, "at the end": start,
+                               "window open": True, "result": "Done"}, seen.get("done"))
+    check("queue: Space on Cancel stops the queue, the focus on the results' table until it stops, then on Start (it "
+          "went to Close)",
+          seen.get("cancelled") == {"while it runs": cancel, "running": True,
+                                    "after Cancel": "QTableWidget 'Result of each EQ'", "stopped": True,
+                                    "at the end": start, "window open": True, "result": "Canceled"},
+          seen.get("cancelled"))
+
+
+def test_run_several_from_a_list_gives_the_focus_back_to_that_list(eq_screen, check):
+    # (2026-11-15, round 3 of the fault of Calculate: the Enter key in a list starts the queue too. At the end the
+    # focus goes back to that list, not to Start. The verifier's mutation D6 gave it to Start, and no test found it)
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    page = eq_screen.page
+    kept_S = copy.deepcopy(page.S)
+    page.S["auto"]["enabled"] = False
+    page.S["mode"] = "best_fit"
+    page.S["best_fit"].update(filter_counts=[5], random_starts=0, seed_with_site=False)
+    try:
+        q = QueueWindow(page)
+        try:
+            q.tgts.item(0).setCheckState(Qt.Checked)
+            q.show()
+            q.activateWindow()
+            qt.pump(100)
+            q.tgts.setFocus(Qt.TabFocusReason)
+            QTest.keyClick(q.tgts, Qt.Key_Return)
+            qt.pump(50)
+            d = {"while it runs": _focus_name(QApplication.focusWidget()), "running": q.running}
+            d["stopped"] = eq_screen.wait_for(lambda: not q.running, 300)
+            qt.pump(50)
+            d["at the end"] = _focus_name(QApplication.focusWidget())
+        finally:
+            qt.close(q)
+    finally:
+        page.S = kept_S
+        page.svc.call("/api/settings", {"settings": page.S})
+    check("queue: the Enter key in the Targets list starts the queue, Cancel has the focus while it runs, and the list "
+          "has it again when the queue is done (the focus went to Start)",
+          d == {"while it runs": "QPushButton 'Cancel'", "running": True, "stopped": True,
+                "at the end": "QListWidget 'Targets'"}, d)

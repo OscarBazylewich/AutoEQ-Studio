@@ -244,6 +244,38 @@ def test_history_more_names_its_eq(made_up_history, check):
           and all(n.startswith("More commands for Look IEM → Look target, ") for n in names), names)
 
 
+def test_history_remove_gives_the_focus_to_the_next_row(made_up_history, eq_screen, check, monkeypatch):
+    # (2026-11-13, measured with the fault of Calculate: Remove from the history, from a row's ⋯ menu, made the rows
+    # again; the ⋯ with the focus went with its row, and the focus went to no control)
+    from PySide6.QtCore import QCoreApplication, QEvent, Qt
+    from PySide6.QtWidgets import QApplication, QPushButton
+    hw, page = made_up_history, eq_screen.page
+    real = page.svc.call
+    mores = lambda: [b for b in hw.scroll.widget().findChildren(QPushButton)  # (the rows' ⋯, in the rows' order)
+                     if b.accessibleName().startswith("More commands for ")]
+
+    def call(path, body=None, *a, **k):  # (the made-up entries: the service's file does not have them)
+        if path == "/api/history/remove":
+            return {"entries": [e for e in page.history if e["key"] not in set(body.get("names") or [])]}
+        return real(path, body, *a, **k)
+    monkeypatch.setattr(page.svc, "call", call)
+    hw.activateWindow()
+    qt.pump(50)
+    seen = []
+    for row in (1, 1, 0):  # (the middle row's ⋯ of 3; then the last row's of the 2 left; then the only one's)
+        key = list(reversed(page.history))[row]["key"]  # (the rows newest first)
+        mores()[row].setFocus(Qt.TabFocusReason)  # (its menu closed, the focus is on the ⋯ again: Qt's menu)
+        hw.remove([key])
+        qt.pump(100)
+        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+        qt.pump(30)
+        f, now = QApplication.focusWidget(), mores()
+        seen.append("search box" if f is hw.q else now.index(f) if f in now else repr(f))
+    check("history: Remove from the history gives the focus to the ⋯ of the row in its place, else of the row before "
+          "it (the last row), else to the search box (the focus went to no control)",
+          seen == [1, 0, "search box"] and page.history == [], seen)
+
+
 def test_history_empty_line(eq_screen, check):
     # (2026-11-10, the code's review: an empty History had a plain gray label at its top, not every empty list's line
     # (window_parts.EmptyText, UI-RULES 21))

@@ -13,14 +13,18 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   arrows move a selected line (Shift: 10 px), Ctrl+V pastes a picture; a key of a tab's control shows that tab first
   (the tools, A, S, Delete, Undo and Redo: 2 Trace; the arrows: 1 Axes). While the automatic read runs, no key
   changes the tracer (only Ctrl+V: a new picture), and the picture and the side take no input.
-- the message line (what the tracer did, the tool's words) under the side, in sight on every tab
+- the message line (what the tracer did, the tool's words) under the side, in sight on every tab; a message about a
+  step that ended (say) while a picture loads or the automatic read runs ends with the words of that wait; behind a
+  message box (box), the tool's words or the wait's show in place of such a message
 - the load of a picture (load_image): one of SYNC_PIXELS or less at once; a larger one in a thread (prepared: the
   scale, picture_mark, the stage's QImage and Tracer.load in a new Tracer, which Tracer.take then takes), while
-  `loading` is True: the status line says so, and the picture, the side and Guide take no input. A new picture or
-  Remove image meanwhile wins (load_token); a close meanwhile counts as a close after the picture came; an automatic
-  read of the picture before that ends meanwhile waits for the load's end (late_read), and goes when the picture
-  changes. In the thread, no one call keeps Python's lock for long (the window's thread waits for it): rgb_of draws
-  in strips of STRIP_ROWS rows, stage_image copies with NumPy.
+  `loading` is True: the status line says so, and the picture, the side and Guide take no input. A load that Remove
+  image drops before No to its question gives the status line its words of before the load again (the tool's
+  words for a message about a step that ended: say), or the read's while it operates (status_after_load). A new
+  picture or Remove image meanwhile wins (load_token); a close meanwhile counts as a close after the picture came;
+  an automatic read of the picture before that ends meanwhile waits for the load's end (late_read), and goes when
+  the picture changes. In the thread, no one call keeps Python's lock for long (the window's thread waits for it):
+  rgb_of draws in strips of STRIP_ROWS rows, stage_image copies with NumPy.
 - a picture from a website (Find…'s Use on an entry that the app cannot download, ui/eq_page_files.py's
   trace_from_website): load_image(..., entry=) with its database entry (its words on one line: picture_wait's
   clean_entry). The name is the entry's with its tag; "The graph shows" goes to the response (not compensated);
@@ -30,8 +34,9 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   to the picture: it stays when the window closes, but a new picture after the close does not take it (kept_entry);
   Remove image and a new picture clear it. The same picture again (picture_mark: Ctrl+V after the screen copy, or the
   key two times or held, also after a close) while the tracer has its entry, nothing was added from it, and its read
-  runs or ended (OK or not: the user's changes stay) changes nothing (the status line says so). With Find… for a
-  target ("Targets and measurements"), the entry has "as": "target", 3 Save's note says Add as target, and Add as
+  runs or ended (OK or not: the user's changes stay) changes nothing (the status line says so, and that the read
+  continues while it operates). With Find… for a target ("Targets and measurements"), the entry has "as": "target",
+  3 Save's note says Add as target, and Add as
   target is the first button of 3 Save's row, in the accent, until the picture changes (show_save_row; the mark is
   not in the source record). A picture with only a target line (the read's target_only: its one curve "Target",
   marked): 3 Save's note says that the app traced the target, Add as target is the main action (not for Find… for a
@@ -97,6 +102,8 @@ SYNC_PIXELS = 1_000_000
 # 8000 x 6000 too; 256 rows took 42 ms in all at 6000 x 4000, one draw 40 ms, 2026-11-12)
 STRIP_ROWS = 256
 LOADING = "The app opens the picture…"  # (the status line while a large picture loads)
+READING = "The app reads the graph…"  # (the status line while the automatic read operates)
+HAS_PICTURE = "The tracer has this picture."  # (the same picture of a website again: take_picture)
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".jfif", ".webp", ".bmp", ".gif", ".tif", ".tiff")
 IMAGES = "Images (*.png *.jpg *.jpeg *.jfif *.webp *.bmp *.gif *.tif *.tiff)"
 
@@ -763,6 +770,15 @@ class TraceWindow(QWidget):
         self.read_target = False  # (the last read was OK with the target line alone: Add as target is the main action)
         self.reading_graph = False
         self.loading = False  # (a large picture loads in a thread: load_image)
+        # (the status line and the control with the focus when the last picture came while no load in a thread ran,
+        # load_image: status_after_load and focus_after_load use them)
+        self.status_kept = ""
+        self.said = None  # (the last text of say(): a message about a step that ended, load_image)
+        self.focus_kept = None
+        # (a control that the user selected while a read ran or a picture loaded: eventFilter; focus_picture keeps
+        # the focus there. chosen_load: load_token at that time, take_picture. busy: one of the two ran at the last
+        # change, _inputs)
+        self.chosen_meanwhile, self.chosen_load, self.busy = None, 0, False
         self.load_token = 0  # (the last load_image: a late answer of a load before it is dropped)
         self.late_read = None  # (an automatic read that ended while a picture loads: read_graph)
         self.picture_mark = None  # (picture_mark() of the picture that came)
@@ -806,6 +822,8 @@ class TraceWindow(QWidget):
         self.remove_btn.clicked.connect(self.remove_image)
         icons.put(self.remove_btn, "remove")
         head.addWidget(self.remove_btn)
+        for b in (opn, self.remove_btn):  # (on while a read runs or a picture loads: the focus that the user gives
+            b.installEventFilter(self)  # them then stays, eventFilter)
         head.addSpacing(16)
         self.guide_btn = QPushButton("Guide")  # (Windows 11's symbol where "? " was, as the top bar's Guide)
         self.guide_btn.setToolTip("The Guide of the tracer (on a sample graph if no picture is open)")
@@ -1307,6 +1325,12 @@ class TraceWindow(QWidget):
 
     def eventFilter(self, obj, e):
         from PySide6.QtCore import QEvent
+        if e.type() == QEvent.FocusIn and self.busy and (obj is self.open_btn or obj is self.remove_btn) \
+                and e.reason() in (Qt.TabFocusReason, Qt.BacktabFocusReason, Qt.MouseFocusReason,
+                                   Qt.ShortcutFocusReason):
+            self.chosen_meanwhile = obj  # (the user's: Tab, a click or a shortcut. Not Qt's own focus when the window
+            # opens, which Find…'s way gives to Open image…, measured 2026-11-15: focus_picture)
+            self.chosen_load = self.load_token  # (the load of that time: a new picture after it drops the record)
         if e.type() == QEvent.FocusIn and obj.property("curve") is not None and obj.property("curve") != self.t.cur:
             # (the curve whose name is being typed becomes the selected one; its row isn't rebuilt under the click)
             self.t.cur = int(obj.property("curve"))
@@ -1330,8 +1354,25 @@ class TraceWindow(QWidget):
         self.update_ui()
 
     def say(self, text):
+        """A message about a step that ended in the status line: a paste, a value changed to its limit, Add a curve,
+        Trace automatically, Clear, a click on a curve. A load that starts does not keep it (load_image), and a message
+        box does not show next to it (box). While a picture loads, LOADING follows it; while the automatic read
+        operates (and no picture loads), READING. Ctrl+V with an empty clipboard then wrote only its message, and the
+        status line did not tell that the load or the read continues (2026-11-15)."""
         if text:
-            self.status.setText(text)
+            wait = LOADING if self.loading else READING if self.reading_graph else ""
+            self.said = f"{text} {wait}" if wait else text
+            self.status.setText(self.said)
+
+    def box(self, kind, title, text, *buttons):
+        """Each message box of the tracer (kind: "warning", "information" or "question"; buttons: the buttons of a
+        question and its default). Behind the box, the status line does not show a message of say() about a step that
+        ended: it shows the words of the tool, or the words of the load or of the read while one operates. "The tracer
+        has this picture." showed next to "The app cannot read this file as a picture (…).", and a person can think
+        that "this picture" is the file (the verifier of round 8, 2026-11-16)."""
+        if self.status.text() == self.said:
+            self.status.setText(LOADING if self.loading else READING if self.reading_graph else HINTS[self.tool])
+        return getattr(QMessageBox, kind)(self, title, text, *buttons)
 
     def start_guide(self):
         from ui import guide
@@ -1346,7 +1387,8 @@ class TraceWindow(QWidget):
     def open_file(self, path, entry=None):
         img = QImage(path)
         if img.isNull():
-            QMessageBox.warning(self, "Trace", "The app cannot read this file as a picture (PNG, JPG, WebP, BMP, GIF, TIFF).")
+            self.box("warning", "Trace",
+                     "The app cannot read this file as a picture (PNG, JPG, WebP, BMP, GIF, TIFF).")
             return
         name = os.path.splitext(os.path.basename(path))[0]
         self.load_image(img, name, os.path.splitext(path)[1].lower() in (".jpg", ".jpeg", ".jfif"), entry)
@@ -1423,19 +1465,35 @@ class TraceWindow(QWidget):
         """A picture into the tracer. entry: the database entry of a picture from a website (/api/db/entry's): its
         name with its tag is the picture's name, "The graph shows" goes to the response (a website's graph is not
         compensated), and the automatic read (read_graph) replaces the label read.
-        A picture of SYNC_PIXELS or less loads at once. A larger one loads in a thread (prepared): until it is there,
-        `loading` is True, the status line says so, and the picture and the side take no input, as during the
+        A picture of SYNC_PIXELS or less loads at once. A larger one loads in a thread (prepared): until it is
+        there, `loading` is True, the status line says so, and the picture and the side take no input, as during the
         automatic read (the picture before stays in sight). A new picture or Remove image meanwhile wins: the late
-        answer is not taken."""
+        answer is not taken. A load that Remove image drops writes the words of before it again, but the words of the
+        tool for a message of say() (status_after_load)."""
         self.load_token += 1
         token = self.load_token
         self.load_closes = self.closes  # (a close while it loads is a close after the picture came)
         shown = self.entry_name(entry) if entry else name
         t = self.t
         v, ta = dict(t.v), dict(t.ta, manual=set(t.ta["manual"]), notes=dict(t.ta["notes"]))
+        if not self.loading:  # (a load that starts during a load: the status line says LOADING)
+            # (a message of say() about a step that ended does not come back after the load: the words of the tool.
+            # "The tracer has this picture." showed next to the box "The app cannot open this picture (…).",
+            # 2026-11-15)
+            now = self.status.text()
+            self.status_kept = HINTS[self.tool] if now == self.said else now
+            self.focus_kept = self.focusWidget()  # (before the load turns the picture and the side off)
         if qimg.width() * qimg.height() <= SYNC_PIXELS:
-            self._set_loading(False)
-            self.picture_loaded(token, prepared(qimg, shown, jpeg, v, ta), None, name, entry)
+            # (take_picture turns the inputs on: a load in a thread that this picture drops is a wait too, and the
+            # same picture again then gives a focus, focus_after_load. No control had the focus, the verifier of
+            # round 8, 2026-11-16)
+            try:
+                res, err = prepared(qimg, shown, jpeg, v, ta), None
+            except Exception as e:  # noqa: BLE001 - as in tasks.background: the box of a large picture follows
+                import traceback
+                traceback.print_exc()
+                res, err = None, e
+            self.picture_loaded(token, res, err, name, entry)
             return
         self._set_loading(True)
         self.status.setText(LOADING)
@@ -1460,18 +1518,25 @@ class TraceWindow(QWidget):
     def take_picture(self, res, err, name, entry):
         """picture_loaded's work: the picture (or the error) into the window."""
         self._set_loading(False)
-        if err is not None:  # (its traceback is in the app's log: tasks.background wrote it)
+        if err is not None:  # (its traceback is in the app's log: tasks.background or load_image wrote it)
             self.status.setText(HINTS[self.tool])  # (the picture before stays)
-            QMessageBox.warning(self, "Trace", f"The app cannot open this picture ({err}).")
+            self.box("warning", "Trace", f"The app cannot open this picture ({err}).")
             return
         rgb, mark = res["rgb"], res["mark"]
         if ((entry is None or entry is self.entry) and self.entry and self.t.has_image and mark == self.picture_mark
                 and not self.added and (self.read_ok is not None or self.reading_graph)):
             # (the picture that the tracer has from the website, again: Ctrl+V after the screen copy, the key two
             # times, or after a close of the tracer. As a picture of yours it would replace the automatic result, the
-            # name and the rig; after a read that was not OK (kept_entry), a new read would remove the user's changes.)
-            self.say("The tracer has this picture.")
+            # name and the rig; after a read that was not OK (kept_entry), a new read would remove the user's changes.
+            # While its read operates, the words of the read follow (say): the status line did not tell that the read
+            # continues, 2026-11-15)
+            self.say(HAS_PICTURE)
+            self.focus_after_load()
             return
+        if self.chosen_load != self.load_token:
+            # (a new picture: a control selected before its load was for the read or the load before. Open image…
+            # kept the focus after it opened a new picture, and Space opened the file window again, 2026-11-15)
+            self.chosen_meanwhile = None
         self.picture_mark = mark
         self.sample_open = False  # (a picture of yours: the Guide's sample, set again by the Guide, isn't on any more)
         self.entry = clean_entry_of(entry)  # (its words on one line: they go into the file's first line)
@@ -1491,13 +1556,15 @@ class TraceWindow(QWidget):
         if e is None:
             self.t.take(res["tracer"])  # (Tracer.load's state, made by prepared)
         else:  # (a picture whose axes trip the reader: said, the tracer left empty)
+            had = self.focusWidget()
             self.t.unload()
             self.stage.clear_image()
             self.show_name()
             self.changed()
             self.status.setText(HINTS[self.tool])  # (not "The app opens the picture…" of a large picture)
-            QMessageBox.warning(self, "Trace", f"The app cannot read the axes of this picture ({e}). Send the picture "
-                                "and data\\app.log. Then we can correct the problem.")
+            self.box("warning", "Trace", f"The app cannot read the axes of this picture ({e}). Send the picture "
+                     "and data\\app.log. Then we can correct the problem.")
+            self.focus_open_image(had)
             return
         h, w = rgb.shape[:2]
         self.show_name(name if name != "Traced graph" else "Pasted picture", (w, h))
@@ -1511,7 +1578,17 @@ class TraceWindow(QWidget):
             self.comp_value = self.comp.currentData()
         self.show_values()
         self.changed()
-        self.read_graph() if entry else self.read_labels()
+        chosen = self.chosen_meanwhile  # (focus_picture clears it)
+        self.focus_picture()
+        if not entry:
+            self.read_labels()
+            return
+        self.read_graph()
+        if chosen is not None and self.busy and chosen is self.focusWidget():
+            # (the automatic read follows the load at once: for the user, one wait. A control selected while the
+            # picture loaded stays selected for the end of the read; the read cleared it, and the focus went from
+            # Remove image to the picture, 2026-11-15)
+            self.chosen_meanwhile = chosen
 
     def entry_name(self, entry=None):
         """The name of a picture from a website (entry: the window's when None): the entry's name and its database's
@@ -1532,10 +1609,15 @@ class TraceWindow(QWidget):
         self._inputs()
 
     def _inputs(self):
-        """The picture, the side and Guide take input only while no automatic read runs and no picture loads."""
+        """The picture, the side and Guide take input only while no automatic read runs and no picture loads. Such a
+        time begins with no control selected in it (eventFilter); busy is set after the picture and the side go off,
+        so Qt's own move of their focus is not taken as the user's."""
         busy = self.reading_graph or self.loading
         for w in (self.stage, self.side_scroll, self.guide_btn):
             w.setEnabled(not busy)
+        if busy and not self.busy:
+            self.chosen_meanwhile = None
+        self.busy = busy
 
     def read_graph(self):
         """The automatic read of a picture from a website (trace_core.auto_read) off the window's thread; its answer
@@ -1555,7 +1637,7 @@ class TraceWindow(QWidget):
         t.label_token += 1  # (a label read still running is dropped)
         self.reading = False
         self._reading_graph(True)
-        self.status.setText("The app reads the graph…")
+        self.status.setText(READING)
         self.update_ui()
 
         def done(res, err):
@@ -1572,9 +1654,58 @@ class TraceWindow(QWidget):
                 self.show_tab(0)
                 self.status.setText(READ_ERROR)
                 self.read_labels()
+                self.focus_picture()
                 return
             self.take_read(res, entry)
+            self.focus_picture()
         tasks.background(lambda: tc.auto_read(rgb, ocr.words, jpeg, name, **want), done, owner=self)
+
+    def focus_picture(self):
+        """The focus on the picture, when there is one and it takes input: the tracer's keys then act on it (Space
+        moves it; A, S, Delete…). Each new picture, the end of each automatic read (whatever tab it shows) and the
+        tracer that opens (open_trace, not when it was open behind Make an EQ) come here. Open image…, the first
+        control for Qt, had it in each way that the tracer opens with a picture (Find…, a picture or a picture file
+        pasted, Trace a graph image… with a picture), and Space opened the file window. After a read, no control had
+        it when it began with the focus on the picture or in the side: the read turns them off (all measured,
+        2026-11-15). Not 3 Save's main button: the side's buttons take no focus so that Space stays the picture's
+        (with the focus, Add as measurement took Space and added the curve, measured). A control that the user
+        selected while a read ran or a picture loaded (Tab or a click on Open image… or Remove image: they stay on)
+        keeps the focus, as after Calculate's run. But a new picture that comes after that read or load gets it
+        (take_picture drops the record). A large picture that loads and does not change the picture also comes here
+        (focus_after_load)."""
+        if self.busy:  # (the picture takes no input: the end of the read or of the load comes here again)
+            return
+        chosen, self.chosen_meanwhile = self.chosen_meanwhile, None
+        f = self.focusWidget()
+        if f is not None and f is chosen and f.isEnabled() and f.isVisible():
+            return
+        if self.t.has_image and self.stage.isVisible():
+            self.stage.setFocus(Qt.OtherFocusReason)
+
+    def focus_after_load(self):
+        """The focus after a load that does not change the picture: the same picture of a website again ("The tracer
+        has this picture.", also a small one that drops a load in a thread), or a load that Remove image dropped before
+        No to its question (remove_image). A load in a thread turned the picture off, and no control had the focus
+        after it (measured, 2026-11-15; the small picture, 2026-11-16). As for a new picture, focus_picture: a control
+        that the user selected during the load keeps it, else the picture has it. But a control that had the focus
+        when the load started and still has it keeps it (Open
+        image… or Remove image: the load does not turn them off), because nothing changed: the picture took it, and
+        Space then did not push that control (the verifier of round 8, 2026-11-16; 584c76a kept it there)."""
+        had, self.focus_kept = self.focus_kept, None
+        f = self.focusWidget()
+        if f is not None and f is had and f is not self.stage and f.isEnabled() and f.isVisible():
+            if not self.busy:  # (a read that still operates needs the record of a selection for its end)
+                self.chosen_meanwhile = None  # (the record of the load goes, as in focus_picture)
+            return
+        self.focus_picture()
+
+    def status_after_load(self):
+        """The status line after a load that Remove image dropped (Yes then writes its own words). While the
+        automatic read operates, the words of the read (a read that ended during the load writes its own words next:
+        late_read). Else the words of the status line when the load started (status_kept:
+        for example, the instruction of a read that was not OK). The words of the tool replaced them, 2026-11-15. But
+        a message of say() about a step that ended does not come back: the words of the tool (load_image)."""
+        self.status.setText(READING if self.reading_graph else self.status_kept)
 
     def take_read(self, r, entry):
         """auto_read's answer (an AutoRead) into the window: the tracer's state taken (a crop of the picture: the
@@ -1668,21 +1799,39 @@ class TraceWindow(QWidget):
     def remove_image(self):
         """Remove image: the picture and its curves go (a question first when it has curves). A picture that loads
         meanwhile is dropped first: the question is about the picture in sight (an automatic read of it that ended
-        during the load goes in when it stays, late_read)."""
+        during the load goes in when it stays, late_read). Then the focus as with no picture: focus_open_image. After
+        No, a dropped load gives the focus as a load that does not change the picture (focus_after_load), but Remove
+        image keeps it when it had it, as after No with no load (and no record of a selection stays). A dropped load
+        gives the status line its words of before the load (status_after_load)."""
         t = self.t
+        had = self.focusWidget()
         late = None
+        # (the load turned the picture off: focus_after_load after No. Remove image with the focus was the user's: Qt
+        # does not move the focus there when the load turns a control off, measured 2026-11-15)
+        dropped = self.loading and had is not self.remove_btn
         if self.loading:
             self.load_token += 1
             late, self.late_read = self.late_read, None
             self._set_loading(False)
-            self.status.setText(HINTS[self.tool])
+            self.status_after_load()  # (not "The app opens the picture…")
         if not t.has_image:
             return
-        if any(map(t.has_data, t.curves)) and QMessageBox.question(  # (No the default: the curves can't be had back)
-                self, "Remove image", "Remove this picture and its traced curves?",
+        if any(map(t.has_data, t.curves)) and self.box(  # (No the default: the curves can't be had back)
+                "question", "Remove image", "Remove this picture and its traced curves?",
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
             if late is not None:
                 late()
+            elif dropped:
+                # (Remove image pushed with no move of the focus, as a screen reader pushes it, during the load of a
+                # large picture, then No: no control had the focus. The verifier of round 5, 2026-11-15. Space on
+                # Remove image, which had the focus before the load, moved the focus to the picture: the verifier of
+                # round 6, 2026-11-15)
+                self.focus_after_load()
+            else:
+                # (Remove image keeps the focus, but not as a selection of the dropped load: after Tab to Remove image
+                # during the load, Space and No, Trace a graph image… left the focus on Remove image, not on the
+                # picture, measured 2026-11-15)
+                self.chosen_meanwhile = None
             return
         self.entry, self.added, self.read_ok, self.auto_note = None, False, None, ""
         self.read_target = False
@@ -1705,6 +1854,21 @@ class TraceWindow(QWidget):
         self.show_values()
         self.changed()
         self.status.setText("The app removed the picture. Open, drag or paste a different picture.")
+        self.focus_open_image(had)
+
+    def focus_open_image(self, had):
+        """The focus when the tracer has no picture (after Remove image, or a picture whose axes the reader cannot
+        read): on Open image…, as in a new tracer, unless had (the
+        control with the focus before) is a different control of the user and keeps it. Remove image hides: Qt gave
+        the focus to Guide, and Space started the Guide. Or the empty picture kept it, and Space did nothing (both
+        measured, 2026-11-15). A hidden had does not keep it: after Yes to Remove image, Remove image hid while the
+        message box of Qt was the active window, so Qt did not move the focus, and when the tracer was the active
+        window again, Qt gave it to Guide (measured with a real box, round 10, 2026-11-16)."""
+        # (had went when Remove image hid or a row of the curves was made again; the order of the tests keeps a
+        # deleted control away from isVisibleTo and isAncestorOf)
+        if (had is None or had is not self.focusWidget() or not had.isVisibleTo(self)
+                or self.stage.isAncestorOf(had)):  # (also True for the picture itself)
+            self.open_btn.setFocus(Qt.OtherFocusReason)
 
     def dragEnterEvent(self, e):
         if e.mimeData().hasUrls() or e.mimeData().hasImage():
@@ -1793,7 +1957,7 @@ class TraceWindow(QWidget):
         except Exception as e:  # noqa: BLE001 - (as on loading)
             import traceback
             traceback.print_exc()
-            QMessageBox.warning(self, "Trace", f"The app cannot find the axes again ({e}).")
+            self.box("warning", "Trace", f"The app cannot find the axes again ({e}).")
             return
         t.typed = {"d": False, "f": False}
         self.fit_and_show()
@@ -1963,7 +2127,7 @@ class TraceWindow(QWidget):
         try:
             outs = outs if outs is not None else self.outputs(kind == "target" or alone)
         except (ValueError, ArithmeticError) as e:
-            QMessageBox.warning(self, "Trace", str(e))
+            self.box("warning", "Trace", str(e))
             return
         # (all channels in one go: one number for the set when names are taken, so they stay one device)
         body = {"kind": kind, "files": [{"name": o["file"], "content": o["text"]} for o in outs], "settings": page.S}
@@ -1973,7 +2137,7 @@ class TraceWindow(QWidget):
             body["source"] = src
         r = page.svc.call("/api/files/add", body)
         if r.get("error"):
-            QMessageBox.warning(self, title, r["error"])
+            self.box("warning", title, r["error"])
             return
         self.added = True
         names, page.S, inputs = r["names"], r["settings"], r["inputs"]
@@ -1996,7 +2160,7 @@ class TraceWindow(QWidget):
                                   and sum(map(self.t.has_data, self.t.curves)) > 1 else ""))
         gaps = self.t.gaps_text(outs)
         if gaps:
-            QMessageBox.information(self, "Trace", gaps)
+            self.box("information", "Trace", gaps)
 
     def add_target_line(self):
         """Add the target line as target…: the curve that the automatic read marked as the target line, added as a
@@ -2015,7 +2179,7 @@ class TraceWindow(QWidget):
         try:
             outs = self.outputs(True, name=name.strip())
         except (ValueError, ArithmeticError) as e:
-            QMessageBox.warning(self, title, str(e))
+            self.box("warning", title, str(e))
             return
         finally:
             t.cur = was
@@ -2026,7 +2190,7 @@ class TraceWindow(QWidget):
         try:
             outs = self.outputs(False)
         except (ValueError, ArithmeticError) as e:
-            QMessageBox.warning(self, "Trace", str(e))
+            self.box("warning", "Trace", str(e))
             return
         start = os.path.join(os.path.expanduser("~"), "Downloads")
         if len(outs) == 1:
@@ -2037,15 +2201,15 @@ class TraceWindow(QWidget):
             folder = QFileDialog.getExistingDirectory(self, "A folder for the traced curves", start)
             paths = [os.path.join(folder, o["file"]) for o in outs] if folder else []
             there = [os.path.basename(p) for p in paths if os.path.exists(p)]
-            if there and QMessageBox.question(self, "Save .txt", "These files are in that folder:\n\n" + "\n".join(there)
-                                              + "\n\nReplace them?", QMessageBox.Yes | QMessageBox.No,
-                                              QMessageBox.No) != QMessageBox.Yes:
+            if there and self.box("question", "Save .txt", "These files are in that folder:\n\n" + "\n".join(there)
+                                  + "\n\nReplace them?", QMessageBox.Yes | QMessageBox.No,
+                                  QMessageBox.No) != QMessageBox.Yes:
                 return
         for path, o in zip(paths, outs):
             try:
                 textfile.write_atomic(path, o["text"])
             except OSError as e:  # (a folder you can't write to, a file another program holds: said, not silent)
-                QMessageBox.warning(self, "Trace", f"The app cannot save {os.path.basename(path)}: {e}")
+                self.box("warning", "Trace", f"The app cannot save {os.path.basename(path)}: {e}")
                 return
         if paths:  # (said here, under the buttons, as Add as measurement's: never in the window behind, UI-RULES 7)
             files = ", ".join(self.note_name(os.path.basename(p)) for p in paths)
@@ -2053,7 +2217,7 @@ class TraceWindow(QWidget):
             self.saved_note = True  # (kept until something changes, as "Saved as …": the next redraw wiped it at once)
             gaps = self.t.gaps_text(outs)
             if gaps:
-                QMessageBox.information(self, "Trace", gaps)
+                self.box("information", "Trace", gaps)
 
     # ---------------------------------------------------------------- keys
     def keyPressEvent(self, e):

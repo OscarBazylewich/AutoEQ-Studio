@@ -72,6 +72,7 @@ class QueueWindow(QDialog):
         # room: 720 high was under the taskbar of a laptop at 150 %)
         fit_to_screen(self, (900, 720), (640, 520))
         self.jobs, self.i, self.running, self.stop = [], -1, False, False
+        self._run_focus, self._table_focus = None, False  # (where the focus goes back to when the queue is done)
         v = QVBoxLayout(self)
         v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as a card's)
         lead = QLabel("The queue makes an EQ for each selected IEM with each selected target, one after the other, "
@@ -148,9 +149,15 @@ class QueueWindow(QDialog):
                 self.table.setItem(i, j, QTableWidgetItem(text))
         self.running, self.stop, self.i = True, False, -1
         self.before = copy.deepcopy(page.S)  # (your choice of files: put back at the end)
+        # (Cancel on first, with the focus when a control that goes off has it, as Calculate's Cancel: Start, off with
+        # the focus, gave it to Close, and a second Space closed the window and stopped the queue, 2026-11-15)
+        self.cancel_btn.setEnabled(True)
+        had = self.focusWidget()
+        self._run_focus = had if any(had is w for w in (self.devs, self.tgts, self.start_btn)) else None
+        if self._run_focus is not None:
+            self.cancel_btn.setFocus(Qt.OtherFocusReason)
         for w in (self.devs, self.tgts, self.start_btn):
             w.setEnabled(False)
-        self.cancel_btn.setEnabled(True)
         self.next_job()
 
     def show_row_result(self, i, text):
@@ -241,6 +248,9 @@ class QueueWindow(QDialog):
     def cancel(self):
         self.stop = True
         self.page.svc.call("/api/cancel")
+        if self.focusWidget() is self.cancel_btn and self.table.isVisible():  # (Cancel goes off with the focus: the
+            self.table.setFocus(Qt.OtherFocusReason)  # results have it until the queue stops, then Start, in finish)
+            self._table_focus = True
         self.cancel_btn.setEnabled(False)
 
     def finish(self):
@@ -251,8 +261,16 @@ class QueueWindow(QDialog):
         page.history_note()
         for w in (self.devs, self.tgts):
             w.setEnabled(True)
-        self.cancel_btn.setEnabled(False)
         self.update_count()
+        # (the focus back where the queue began, else on Start, before Cancel goes off: Qt gave it to Close)
+        f = self.focusWidget()
+        if f is self.cancel_btn or (f is self.table and self._table_focus):
+            back = self._run_focus
+            back = back if back is not None and back.isEnabled() else self.start_btn
+            if back.isEnabled():
+                back.setFocus(Qt.OtherFocusReason)
+        self._run_focus, self._table_focus = None, False
+        self.cancel_btn.setEnabled(False)
         done = sum(1 for i in range(self.table.rowCount())
                    if (self.table.item(i, 2) or QTableWidgetItem("")).text().startswith("Done"))
         self.footer.say(f"The queue made {done} of {len(self.jobs)} EQ{'' if len(self.jobs) == 1 else 's'}.", 0)  # (its own line, kept until the next)

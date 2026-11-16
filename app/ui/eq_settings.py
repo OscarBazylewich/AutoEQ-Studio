@@ -636,6 +636,7 @@ class EqSettings:
         icons.put(add, "add")
         add.clicked.connect(lambda: (filters.append({"enabled": True, "type": "PK", "freq": 1000, "gain": 0, "q": 1}),
                                      ed.rebuild()))
+        ed.empty_focus = add  # (the last filter's ✕ pressed: the focus on Add filter, as on the result card)
         row.addWidget(add)
         sort = QPushButton("Sort")  # (the result card's commands: UI-RULES 19, the UI audit, 2026-11-08)
         icons.put(sort, "sort")

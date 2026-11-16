@@ -143,10 +143,13 @@ class EqFiles:
             self.tracer = TraceWindow(self)
         tw = self.tracer
         tw.fill_comp()
+        was_open = tw.isVisible()
         tw.show()
         tw.setWindowState(tw.windowState() & ~Qt.WindowMinimized)
         tw.raise_()
         tw.activateWindow()
+        if not was_open:  # (with a picture, its keys act on it: Open image… had the focus, and Space opened the file
+            tw.focus_picture()  # window, 2026-11-15. A tracer open behind keeps the focus that the user gave)
 
     # ---------------------------------------------------------------- a picture from a website (ui/picture_wait.py)
     def trace_from_website(self, entry_id, over, say, want=None):

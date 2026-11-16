@@ -8,7 +8,9 @@ The entries are the fixture's Hangout.Audio 5128 list (tests\\fixtures\\db): "Tr
 for trace_core.auto_read (a made AutoRead on the app's sample graph: OK, or one check not OK), so that they test the
 window's logic, not the accuracy of the automatic read; the last one uses the real automatic read on a drawn
 look-alike of the website's graph (helpers.website_graph, its words given by truth_reader). Online is stood in for
-net.offline() only: net.check() stays offline, so nothing can connect."""
+net.offline() only: net.check() stays offline, so nothing can connect. The tests at the end are about the keyboard
+focus in the tracer: after a read, when a picture comes or goes, and when the tracer opens (2026-11-15); and about
+the status line after a load that does not change the picture, and a message during a load or a read (2026-11-15)."""
 import math
 import os
 import time
@@ -2713,3 +2715,1344 @@ def test_note_of_an_entry_with_no_site(eq_screen, flow, check):
     # (only the start of the note: more words can come before "Compare the curve")
     check("website flow: 3 Save's note for an entry with no site names the entry only, with no “from”",
           note.startswith(f"The app traced the graph of “{ENTRY}”. ") and " from “" not in note, note[:80])
+
+
+def test_the_focus_on_the_picture_after_the_read(eq_screen, flow, monkeypatch, check):
+    # (2026-11-15, measured with the fault of Calculate: the read turns the side and the picture off, and a control in
+    # them lost the focus: no control had it after the read. Through Find…, Open image… kept the focus, and Space
+    # opened the file window. Now the picture has the focus after each read: the tracer's keys act on it, Space moves
+    # it. Not the main button of 3 Save: with the focus, it took Space and added the curve)
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    page = flow["page"]
+    seen = {}
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    tw.activateWindow()
+    qt.pump(100)
+    seen["Find…, all checks OK"] = (came, tw.pages.currentIndex(), QApplication.focusWidget() is tw.stage)
+    saved, chose = [], []
+    monkeypatch.setattr(tw, "save", lambda kind: saved.append(kind))
+    monkeypatch.setattr(tw, "choose_image", lambda: chose.append(1))
+    QTest.keyPress(QApplication.focusWidget() or tw, Qt.Key_Space)
+    qt.pump(30)
+    seen["Space moves the picture"] = (tw.stage.space, saved, chose)
+    QTest.keyRelease(QApplication.focusWidget() or tw, Qt.Key_Space)
+    entry = tw.entry
+    for case, fake, where in (("a box of 1 Axes, all checks OK", stand_in(), tw.boxes["d1"]),
+                              ("the picture, a check of the curve not OK", stand_in(ok=False, fail="trace_band"),
+                               tw.stage)):
+        monkeypatch.setattr(trace_core, "auto_read", fake)
+        tw.show_tab(0)
+        where.setFocus(Qt.MouseFocusReason)
+        qt.pump(30)
+        had = QApplication.focusWidget() is where
+        tw.load_image(_graph().copy(0, 0, 1199, 719), entry=entry)
+        qt.wait_for(lambda: not tw.loading and not tw.reading_graph and tw.read_ok is not None, 20)
+        qt.pump(100)
+        seen[case] = (had, tw.pages.currentIndex(), QApplication.focusWidget() is tw.stage)
+    check("website flow: after the automatic read the picture has the focus, on each tab that the read shows (no "
+          "control had it, or Open image… kept it), and Space moves the picture (it added the curve or opened the "
+          "file window)",
+          seen == {"Find…, all checks OK": (True, 2, True), "Space moves the picture": (True, [], []),
+                   "a box of 1 Axes, all checks OK": (True, 2, True),
+                   "the picture, a check of the curve not OK": (True, 1, True)} and page.tracer is tw, seen)
+
+
+def test_a_focus_moved_during_the_read_stays_there(eq_screen, flow, monkeypatch, check):
+    # (2026-11-15, the verifier of round 2: Open image… and Remove image stay on while the read runs, and Tab puts the
+    # focus there. A control that the user selected during the read keeps the focus, as after Calculate's run)
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    tw.activateWindow()
+    qt.pump(100)
+    entry, seen = tw.entry, {}
+    for moved in ("remove_btn", "open_btn"):
+        monkeypatch.setattr(trace_core, "auto_read", stand_in(delay=1.0))
+        tw.show_tab(0)
+        tw.stage.setFocus(Qt.MouseFocusReason)
+        qt.pump(30)
+        tw.load_image(_graph().copy(0, 0, 1199, 719), entry=entry)
+        qt.wait_for(lambda: tw.reading_graph, 20)
+        qt.pump(50)
+        getattr(tw, moved).setFocus(Qt.TabFocusReason)  # (as Tab puts it there while the read runs)
+        qt.pump(30)
+        qt.wait_for(lambda: not tw.loading and not tw.reading_graph and tw.read_ok is not None, 20)
+        qt.pump(100)
+        seen[moved] = QApplication.focusWidget() is getattr(tw, moved)
+    check("website flow: a control that the user selects during the automatic read (Remove image, Open image…) keeps "
+          "the focus after the read (it went to the picture)",
+          came and seen == {"remove_btn": True, "open_btn": True}, seen)
+
+
+def test_the_tracer_opens_with_the_focus_on_its_picture(eq_screen, flow, monkeypatch, tmp_path, dialogs, check):
+    # (2026-11-15, round 3 of the fault of Calculate: in each way that the tracer opens with a picture, Open image…,
+    # the first control for Qt, had the focus, and Space opened the file window. Now the picture has the focus when
+    # there is one, as after the automatic read: Space moves it. With no picture the tracer gives no focus: Qt puts it
+    # where it was (a new tracer: Open image…). A control that the user selects while a large picture loads keeps the
+    # focus, as during the read)
+    from PySide6.QtCore import QMimeData, Qt, QUrl
+    from PySide6.QtGui import QImage
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    from ui import trace_window
+    page = flow["page"]
+    path = str(tmp_path / "graph.png")
+    _graph().save(path)
+    seen = {}
+
+    def focus():
+        qt.pump(100)
+        f, tw = QApplication.focusWidget(), page.tracer
+        return "the picture" if f is tw.stage else f.text() if f is not None and hasattr(f, "text") else repr(f)
+
+    def closed():
+        """The tracer closed with the focus on Open image…, as a new tracer has it (Qt gives it back there)."""
+        tw = getattr(page, "tracer", None)
+        if tw is not None:
+            tw.open_btn.setFocus(Qt.OtherFocusReason)
+            tw.close()
+        qt.pump(30)
+        page.activateWindow()
+        qt.pump(30)
+
+    closed()
+    _copy(_graph())
+    page.paste_picture()
+    tw = page.tracer
+    seen["a picture pasted on Make an EQ"] = focus()
+    closed()
+    page.trace_btn.click()
+    seen["Trace a graph image…, the tracer has a picture"] = focus()
+    tw.remove_image()
+    closed()
+    md = QMimeData()
+    md.setUrls([QUrl.fromLocalFile(path)])
+    QApplication.clipboard().setMimeData(md)
+    page.paste_picture()
+    seen["a picture file pasted on Make an EQ"] = focus()
+    tw.open_btn.setFocus(Qt.TabFocusReason)
+    dialogs.answer("getOpenFileName", (path, ""))
+    QTest.keyClick(tw.open_btn, Qt.Key_Space)
+    seen["Space on Open image…, a picture selected"] = focus()
+    asked = sum(kind == "getOpenFileName" for kind, _t in dialogs.asked)
+    QTest.keyPress(QApplication.focusWidget() or tw, Qt.Key_Space)
+    qt.pump(30)
+    held = tw.stage.space
+    QTest.keyRelease(QApplication.focusWidget() or tw, Qt.Key_Space)
+    qt.pump(30)
+    seen["Space then"] = (held, sum(kind == "getOpenFileName" for kind, _t in dialogs.asked) - asked)
+    real = trace_window.prepared
+    monkeypatch.setattr(trace_window, "prepared", lambda *a: (time.sleep(1.0), real(*a))[1])
+    tw.stage.setFocus(Qt.MouseFocusReason)
+    big = QImage(_graph()).scaled(1500, 900)  # (more than SYNC_PIXELS: it loads in a thread)
+    tw.load_image(big, "Large graph")
+    qt.wait_for(lambda: tw.loading, 10)
+    tw.remove_btn.setFocus(Qt.TabFocusReason)  # (as Tab puts it there while the picture loads)
+    qt.wait_for(lambda: not tw.loading, 20)
+    seen["Tab to Remove image while a large picture loads"] = focus()
+    check("tracer: it opens with the focus on its picture in each way with a picture, and Space then moves the "
+          "picture (Open image… had the focus, and Space opened the file window); a control selected while a "
+          "picture loads keeps the focus",
+          seen == {"a picture pasted on Make an EQ": "the picture",
+                   "Trace a graph image…, the tracer has a picture": "the picture",
+                   "a picture file pasted on Make an EQ": "the picture",
+                   "Space on Open image…, a picture selected": "the picture", "Space then": (True, 0),
+                   "Tab to Remove image while a large picture loads": "Remove image"}, seen)
+
+
+def test_a_new_picture_from_a_control_selected_meanwhile_gets_the_focus(eq_screen, flow, monkeypatch, tmp_path,
+                                                                        dialogs, check):
+    # (2026-11-15, the verifier of round 3: a control that the user selects while a read runs or a picture loads keeps
+    # the focus. But when the user then opens a new picture with it (Space on Open image…, Ctrl+V), the new picture did
+    # not get the focus: Open image… kept it, and Space opened the file window again)
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QImage
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    from ui import trace_window
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    tw.activateWindow()
+    qt.pump(100)
+    path = str(tmp_path / "graph.png")
+    _graph().save(path)
+    seen = {}
+
+    def after():
+        f = QApplication.focusWidget()
+        asked = sum(kind == "getOpenFileName" for kind, _t in dialogs.asked)
+        QTest.keyPress(f or tw, Qt.Key_Space)
+        qt.pump(30)
+        held = tw.stage.space
+        QTest.keyRelease(QApplication.focusWidget() or tw, Qt.Key_Space)
+        qt.pump(30)
+        return (f is tw.stage, held, sum(kind == "getOpenFileName" for kind, _t in dialogs.asked) - asked)
+    monkeypatch.setattr(trace_core, "auto_read", stand_in(delay=1.0))
+    tw.stage.setFocus(Qt.MouseFocusReason)
+    tw.load_image(_graph().copy(0, 0, 1199, 719), entry=tw.entry)
+    qt.wait_for(lambda: tw.reading_graph, 20)
+    tw.open_btn.setFocus(Qt.TabFocusReason)  # (as Tab puts it there while the read runs)
+    dialogs.answer("getOpenFileName", (path, ""))
+    QTest.keyClick(tw.open_btn, Qt.Key_Space)  # (a picture file of the user: the read of the picture before goes)
+    qt.wait_for(lambda: not tw.loading and not tw.reading_graph, 20)
+    qt.pump(100)
+    seen["Space on Open image… during the read, a file selected"] = after()
+    real = trace_window.prepared
+    monkeypatch.setattr(trace_window, "prepared", lambda *a: (time.sleep(1.0), real(*a))[1])
+    tw.stage.setFocus(Qt.MouseFocusReason)
+    tw.load_image(QImage(_graph()).scaled(1500, 900), "Large graph")  # (more than SYNC_PIXELS: it loads in a thread)
+    qt.wait_for(lambda: tw.loading, 10)
+    tw.remove_btn.setFocus(Qt.TabFocusReason)  # (as Tab puts it there while the picture loads)
+    monkeypatch.setattr(trace_window, "prepared", real)
+    _copy(_graph().copy(0, 0, 900, 600))
+    QTest.keyClick(tw.remove_btn, Qt.Key_V, Qt.ControlModifier)  # (a small picture: it replaces the large one)
+    qt.wait_for(lambda: not tw.loading, 20)
+    qt.pump(1500)
+    seen["Ctrl+V on Remove image while a large picture loads"] = after()
+    check("tracer: a new picture that the user opens with a control selected while a read runs or a picture loads "
+          "gets the focus, and Space moves it (Open image… or Remove image kept the focus, and Space opened the file "
+          "window)",
+          came and seen == {"Space on Open image… during the read, a file selected": (True, True, 0),
+                            "Ctrl+V on Remove image while a large picture loads": (True, True, 0)}, seen)
+
+
+def test_the_same_picture_again_keeps_the_control_selected_during_the_read(eq_screen, flow, monkeypatch, check):
+    # (2026-11-15, round 4: Ctrl+V with the picture that the tracer has changes nothing ("The tracer has this
+    # picture."). The control that the user selected during the read keeps the focus after the read. With the record
+    # cleared for each picture that comes, the focus went to the picture. Round 7: during the read, the words of the
+    # read follow, test_the_same_picture_during_its_read_says_that_the_read_continues)
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    tw.activateWindow()
+    qt.pump(100)
+    monkeypatch.setattr(trace_core, "auto_read", stand_in(delay=1.0))
+    img = _graph().copy(0, 0, 1199, 719)
+    tw.stage.setFocus(Qt.MouseFocusReason)
+    tw.load_image(img, entry=tw.entry)
+    qt.wait_for(lambda: tw.reading_graph, 20)
+    tw.open_btn.setFocus(Qt.TabFocusReason)  # (as Tab puts it there while the read runs)
+    qt.pump(30)
+    _copy(img)
+    QTest.keyClick(tw.open_btn, Qt.Key_V, Qt.ControlModifier)
+    qt.pump(100)
+    said, reading = tw.status.text(), tw.reading_graph
+    qt.wait_for(lambda: not tw.reading_graph and tw.read_ok is not None, 20)
+    qt.pump(100)
+    f = QApplication.focusWidget()
+    seen = (said, reading, f.text() if f is not None and hasattr(f, "text") else repr(f))
+    check("tracer: Ctrl+V with the same picture during the read changes nothing, and Open image…, selected during the "
+          "read, keeps the focus after the read (it went to the picture)",
+          came and seen == ("The tracer has this picture. The app reads the graph…", True, "Open image…"), seen)
+
+
+def test_a_mouse_press_during_the_read_keeps_the_focus(eq_screen, flow, monkeypatch, dialogs, check):
+    # (2026-11-15, round 4, the mutation R2 of the verifier of round 3: a press of the mouse on Open image… or Remove
+    # image during the read is a selection of the user, as Tab is. Not recorded, the focus went to the picture after
+    # the read. No test found that)
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    tw.activateWindow()
+    qt.pump(100)
+    entry, seen = tw.entry, {}
+    for case in ("a click on Open image…, the file window canceled", "a press on Remove image, released outside it"):
+        monkeypatch.setattr(trace_core, "auto_read", stand_in(delay=1.0))
+        tw.stage.setFocus(Qt.MouseFocusReason)
+        tw.load_image(_graph().copy(0, 0, 1199, 719), entry=entry)
+        qt.wait_for(lambda: tw.reading_graph, 20)
+        qt.pump(50)
+        if case.startswith("a click"):
+            btn = tw.open_btn
+            QTest.mouseClick(btn, Qt.LeftButton)  # (the file window answers Cancel: helpers.dialogs)
+        else:
+            btn = tw.remove_btn
+            QTest.mousePress(btn, Qt.LeftButton)
+            QTest.mouseRelease(btn, Qt.LeftButton, Qt.NoModifier, QPoint(-20, -20))  # (no click: the picture stays)
+        qt.pump(30)
+        during = QApplication.focusWidget() is btn
+        qt.wait_for(lambda: not tw.reading_graph and tw.read_ok is not None, 20)
+        qt.pump(100)
+        seen[case] = (during, tw.t.has_image, QApplication.focusWidget() is btn)
+    check("website flow: a press of the mouse on Open image… or Remove image during the automatic read keeps the "
+          "focus there after the read (it went to the picture)",
+          came and seen == {"a click on Open image…, the file window canceled": (True, True, True),
+                            "a press on Remove image, released outside it": (True, True, True)}, seen)
+
+
+def test_trace_a_graph_image_during_the_read_keeps_the_selection(eq_screen, flow, monkeypatch, check):
+    # (2026-11-15, round 4, the mutation R5 of the verifier of round 3: the tracer closed during the read and opened
+    # again with Trace a graph image… The opening must not use the record of a control that the user selected during
+    # the read: the read's end needs it. Used, the focus went from Remove image to the picture. No test found that)
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    page = flow["page"]
+    tw.activateWindow()
+    qt.pump(100)
+    monkeypatch.setattr(trace_core, "auto_read", stand_in(delay=1.5))
+    tw.stage.setFocus(Qt.MouseFocusReason)
+    tw.load_image(_graph().copy(0, 0, 1199, 719), entry=tw.entry)
+    qt.wait_for(lambda: tw.reading_graph, 20)
+    tw.remove_btn.setFocus(Qt.TabFocusReason)  # (as Tab puts it there while the read runs)
+    qt.pump(30)
+    tw.close()
+    qt.pump(30)
+    page.activateWindow()
+    qt.pump(30)
+    page.trace_btn.click()
+    qt.pump(50)
+    reading = tw.reading_graph
+    qt.wait_for(lambda: not tw.reading_graph and tw.read_ok is not None, 20)
+    qt.pump(100)
+    seen = (reading, tw.isVisible(), QApplication.focusWidget() is tw.remove_btn)
+    check("website flow: Trace a graph image… during the read keeps the selection of the user for the read's end: "
+          "Remove image keeps the focus (it went to the picture)", came and seen == (True, True, True), seen)
+
+
+def test_the_tracer_in_front_again_keeps_the_focus_of_the_user(eq_screen, check):
+    # (2026-11-15, the verifier of round 3: Trace a graph image… with the tracer open behind Make an EQ gave the focus
+    # to the picture, also when the user had selected a box of 1 Axes. A tracer that opens gives the focus to its
+    # picture; a tracer that comes to the front again keeps the focus where the user put it)
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication
+    page = eq_screen.page
+    page.open_trace()
+    tw = page.tracer
+    _copy(_graph())
+    tw.paste()
+    qt.pump(200)
+    try:
+        tw.show_tab(0)
+        box = next(iter(tw.boxes.values()))
+        box.setFocus(Qt.MouseFocusReason)
+        qt.pump(30)
+        page.activateWindow()
+        qt.pump(30)
+        page.trace_btn.click()
+        qt.pump(100)
+        open_behind = QApplication.focusWidget() is box
+        tw.close()
+        qt.pump(30)
+        page.activateWindow()
+        page.trace_btn.click()
+        qt.pump(100)
+        after_close = QApplication.focusWidget() is tw.stage
+    finally:
+        tw.remove_image()
+        tw.close()
+        qt.pump(50)
+    check("tracer: Trace a graph image… with the tracer open behind keeps the focus in the box that the user selected "
+          "(it went to the picture); after a close, the picture gets it", (open_behind, after_close) == (True, True),
+          (open_behind, after_close))
+
+
+def test_with_no_picture_the_tracer_leaves_the_focus_on_open_image(eq_screen, check):
+    # (2026-11-15, the verifier of round 3: with no picture, the tracer that opens gives no focus, and Open image…
+    # keeps it. Without the check of a picture, the empty picture took it, and Space did nothing. No test found that)
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication
+    page = eq_screen.page
+    page.open_trace()
+    tw = page.tracer
+    tw.remove_image()
+    tw.activateWindow()
+    qt.pump(30)
+    tw.open_btn.setFocus(Qt.OtherFocusReason)  # (as a new tracer has it)
+    qt.pump(30)
+    before = QApplication.focusWidget() is tw.open_btn
+    tw.close()
+    qt.pump(30)
+    page.activateWindow()
+    page.trace_btn.click()
+    qt.pump(100)
+    f = QApplication.focusWidget()
+    tw.close()
+    qt.pump(30)
+    check("tracer: with no picture, Trace a graph image… leaves the focus on Open image… (the empty picture took it)",
+          before and f is tw.open_btn, (before, f.text() if hasattr(f, "text") else f))
+
+
+def test_a_load_with_the_focus_on_guide_gives_the_focus_to_the_picture(eq_screen, monkeypatch, check):
+    # (2026-11-15, the verifier of round 3: a load turns Guide off, and Qt then gives its focus to Open image… with the
+    # reason of Tab. busy is set after that, so it is not a selection of the user. Set before, Open image… kept the
+    # focus after the load, and Space opened the file window. No test found that)
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QImage
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    from ui import trace_window
+    page = eq_screen.page
+    page.open_trace()
+    tw = page.tracer
+    real = trace_window.prepared
+    monkeypatch.setattr(trace_window, "prepared", lambda *a: (time.sleep(1.0), real(*a))[1])
+    _copy(QImage(_graph()).scaled(1500, 900))  # (more than SYNC_PIXELS: it loads in a thread)
+    tw.activateWindow()
+    qt.pump(30)
+    try:
+        tw.guide_btn.setFocus(Qt.TabFocusReason)
+        QTest.keyClick(tw.guide_btn, Qt.Key_V, Qt.ControlModifier)
+        qt.wait_for(lambda: tw.loading, 10)
+        during = QApplication.focusWidget() is tw.open_btn
+        qt.wait_for(lambda: not tw.loading, 20)
+        qt.pump(100)
+        after = QApplication.focusWidget() is tw.stage
+    finally:
+        tw.remove_image()
+        tw.close()
+        qt.pump(30)
+    check("tracer: a load that starts with the focus on Guide gives the focus to the new picture (Qt moved it to Open "
+          "image…, and Open image… kept it)", (during, after) == (True, True), (during, after))
+
+
+def test_after_remove_image_open_image_has_the_focus(eq_screen, dialogs, check):
+    # (2026-11-15, round 4: Remove image hides when the picture goes. A click on it, or Tab and Space, gave the focus
+    # to Guide, and Space then started the Guide. With no move of the focus, the empty picture kept it, and Space did
+    # nothing. With no picture, Open image… has the focus, as in a new tracer. A box of the user keeps it)
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    page = eq_screen.page
+    page.open_trace()
+    tw = page.tracer
+    tw.activateWindow()
+    qt.pump(50)
+    seen = {}
+
+    def picture(curve=False):
+        _copy(_graph())
+        tw.paste()
+        qt.pump(200)
+        if curve:  # (a curve: Remove image asks first, and the answer is Yes)
+            tw.auto_trace()
+            qt.wait_for(lambda: any(map(tw.t.has_data, tw.t.curves)), 10)
+            qt.pump(100)
+        return QApplication.focusWidget() is tw.stage
+
+    def focus():
+        """The control with the focus. "Open image…" only for the button of the top row: the empty picture has a
+        button with the same words (the verifier of round 4: a focus on it passed this test)."""
+        f = QApplication.focusWidget()
+        if f is tw.stage:
+            return "the picture"
+        if f is tw.open_btn:
+            return "Open image…"
+        return f"{type(f).__name__} {f.text()!r}" if f is not None and hasattr(f, "text") else repr(f)
+
+    def space():
+        """Space on the control with the focus: (the file windows asked, the Guide started)."""
+        asked = sum(kind == "getOpenFileName" for kind, _t in dialogs.asked)
+        tour = getattr(tw, "tour", None)
+        QTest.keyClick(QApplication.focusWidget() or tw, Qt.Key_Space)
+        qt.pump(60)
+        guide = getattr(tw, "tour", None) is not tour
+        if guide:
+            tw.tour.end()
+            qt.pump(50)
+        return sum(kind == "getOpenFileName" for kind, _t in dialogs.asked) - asked, guide
+
+    try:
+        had = picture()
+        QTest.mouseClick(tw.remove_btn, Qt.LeftButton)
+        qt.pump(100)
+        seen["a click on Remove image"] = (had, tw.t.has_image, focus(), space())
+        had = picture()
+        tw.remove_btn.setFocus(Qt.TabFocusReason)
+        QTest.keyClick(tw.remove_btn, Qt.Key_Space)
+        qt.pump(100)
+        seen["Tab to Remove image, Space"] = (had, tw.t.has_image, focus(), space())
+        had = picture()
+        tw.remove_btn.click()  # (no move of the focus: the empty picture kept it)
+        qt.pump(100)
+        seen["Remove image with the focus on the picture"] = (had, tw.t.has_image, focus(), space())
+        had = picture(curve=True)
+        QTest.mouseClick(tw.remove_btn, Qt.LeftButton)
+        qt.pump(100)
+        seen["a picture with a curve, Yes"] = (had, tw.t.has_image, focus())
+        picture()
+        tw.show_tab(0)
+        box = tw.boxes["d1"]
+        box.setFocus(Qt.MouseFocusReason)
+        qt.pump(30)
+        tw.remove_btn.click()
+        qt.pump(100)
+        seen["a box of 1 Axes with the focus"] = (tw.t.has_image, QApplication.focusWidget() is box)
+        picture()
+        QTest.mouseClick(tw.remove_btn, Qt.LeftButton)
+        qt.pump(100)
+        tw.close()
+        qt.pump(30)
+        page.activateWindow()
+        qt.pump(30)
+        page.trace_btn.click()
+        qt.pump(100)
+        seen["Trace a graph image… after a removal and a close"] = focus()
+    finally:
+        tw.remove_image()
+        tw.close()
+        qt.pump(50)
+    check("tracer: after Remove image, Open image… has the focus and Space opens the file window (Guide had it and "
+          "Space started the Guide, or the empty picture kept it); a box of the user keeps the focus",
+          seen == {"a click on Remove image": (True, False, "Open image…", (1, False)),
+                   "Tab to Remove image, Space": (True, False, "Open image…", (1, False)),
+                   "Remove image with the focus on the picture": (True, False, "Open image…", (1, False)),
+                   "a picture with a curve, Yes": (True, False, "Open image…"),
+                   "a box of 1 Axes with the focus": (False, True),
+                   "Trace a graph image… after a removal and a close": "Open image…"}, seen)
+
+
+def test_a_selection_while_a_better_picture_loads_stays_after_its_read(eq_screen, flow, monkeypatch, check):
+    # (2026-11-15, the verifier of round 4: a better picture of a website's graph keeps its entry, and its automatic
+    # read starts when its load ends. Remove image, selected with Tab while the large picture loaded, lost the focus
+    # to the picture at the end of the read: the start of the read cleared the selection)
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QImage
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    from ui import trace_window
+    came, tw = _traced(flow, monkeypatch, stand_in(ok=False, fail="trace_band"))
+    tw.activateWindow()
+    qt.pump(100)
+    kept = tw.kept_entry() is not None
+    monkeypatch.setattr(trace_core, "auto_read", stand_in(delay=1.0))
+    real = trace_window.prepared
+    monkeypatch.setattr(trace_window, "prepared", lambda *a: (time.sleep(1.0), real(*a))[1])
+    tw.stage.setFocus(Qt.MouseFocusReason)
+    _copy(QImage(_graph()).scaled(1500, 900))  # (more than SYNC_PIXELS: it loads in a thread)
+    QTest.keyClick(tw.stage, Qt.Key_V, Qt.ControlModifier)
+    loading = qt.wait_for(lambda: tw.loading, 10)
+    tw.remove_btn.setFocus(Qt.TabFocusReason)  # (as Tab puts it there while the picture loads)
+    qt.wait_for(lambda: not tw.loading, 20)
+    qt.pump(30)
+    reading = tw.reading_graph
+    qt.wait_for(lambda: not tw.reading_graph and tw.read_ok is not None, 30)
+    qt.pump(100)
+    monkeypatch.setattr(trace_window, "prepared", real)
+    seen = (kept, loading, reading, QApplication.focusWidget() is tw.remove_btn)
+    check("website flow: Remove image, selected while a better picture of the graph loads, keeps the focus after the "
+          "automatic read that follows the load (it went to the picture)", came and seen == (True, True, True, True),
+          seen)
+
+
+def test_the_focus_with_no_picture_after_remove_image_with_no_focus_during_the_read(eq_screen, flow, monkeypatch,
+                                                                                    check):
+    # (2026-11-15, the verifier of round 4: during the read no control has the focus; Remove image pushed with no move
+    # of the focus (a screen reader pushes it so) left no focus, and Space did nothing)
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    tw.activateWindow()
+    qt.pump(100)
+    monkeypatch.setattr(trace_core, "auto_read", stand_in(delay=1.0))
+    tw.stage.setFocus(Qt.MouseFocusReason)
+    tw.load_image(_graph().copy(0, 0, 1199, 719), entry=tw.entry)
+    qt.wait_for(lambda: tw.reading_graph, 20)
+    qt.pump(50)
+    during = QApplication.focusWidget()
+    tw.remove_btn.click()
+    qt.pump(100)
+    seen = (during, tw.t.has_image, QApplication.focusWidget() is tw.open_btn)
+    check("tracer: Remove image pushed with no focus during the read gives the focus to Open image… (no control had "
+          "it)", came and seen == (None, False, True), seen)
+
+
+def test_the_same_large_picture_again_gives_the_focus_to_the_picture(eq_screen, flow, monkeypatch, check):
+    # (2026-11-15, round 5, the verifier of round 4: the load of a large picture turns the picture off. With the same
+    # picture of a website again ("The tracer has this picture."), no control had the focus after the load. Now the
+    # picture has it, and a control selected during the load keeps it. A small picture does not load in a thread: the
+    # focus stays where the user put it)
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QImage
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    from ui import trace_window
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    page = flow["page"]
+    tw.activateWindow()
+    qt.pump(100)
+    seen = {}
+    tw.show_tab(0)
+    box = tw.boxes["d1"]
+    box.setFocus(Qt.MouseFocusReason)
+    qt.pump(30)
+    page.activateWindow()
+    qt.pump(30)
+    _copy(_graph())
+    page.paste_picture()  # (Ctrl+V on Make an EQ: the tracer, open behind, gets the same small picture)
+    qt.pump(100)
+    seen["the same small picture, a box with the focus"] = (tw.status.text(), tw.focusWidget() is box)
+    big = QImage(_graph()).scaled(1500, 900)  # (more than SYNC_PIXELS: it loads in a thread)
+    tw.activateWindow()
+    tw.load_image(big, entry=tw.entry)
+    qt.wait_for(lambda: not tw.loading and not tw.reading_graph and tw.read_ok is not None, 30)
+    qt.pump(100)
+    real = trace_window.prepared
+    monkeypatch.setattr(trace_window, "prepared", lambda *a: (time.sleep(1.0), real(*a))[1])
+    for case, chosen in (("the same large picture", None), ("the same large picture, Tab to Remove image during "
+                                                            "the load", tw.remove_btn)):
+        tw.stage.setFocus(Qt.MouseFocusReason)
+        qt.pump(30)
+        _copy(big)
+        QTest.keyClick(tw.stage, Qt.Key_V, Qt.ControlModifier)
+        loading = qt.wait_for(lambda: tw.loading, 10)
+        if chosen is not None:
+            chosen.setFocus(Qt.TabFocusReason)  # (as Tab puts it there while the picture loads)
+        qt.wait_for(lambda: not tw.loading, 20)
+        qt.pump(100)
+        seen[case] = (loading, tw.status.text(), QApplication.focusWidget() is (chosen or tw.stage))
+    monkeypatch.setattr(trace_window, "prepared", real)
+    same = "The tracer has this picture."
+    check("website flow: after the same large picture again, the picture has the focus (no control had it), a control "
+          "selected during the load keeps it, and the same small picture leaves the focus in the box of the user",
+          came and seen == {"the same small picture, a box with the focus": (same, True),
+                            "the same large picture": (True, same, True),
+                            "the same large picture, Tab to Remove image during the load": (True, same, True)}, seen)
+
+
+def test_remove_image_no_during_a_large_load_leaves_a_focus(eq_screen, flow, monkeypatch, dialogs, check):
+    # (2026-11-15, round 6, the verifier of round 5: a picture with curves, a large picture loads, and Remove image is
+    # pushed with no move of the focus (a screen reader pushes it so); the answer No. The load turned the picture off,
+    # and no control had the focus after it. A push with the mouse leaves the focus on Remove image)
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QImage
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication, QMessageBox
+    from ui import trace_window
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    tw.activateWindow()
+    qt.pump(100)
+    curves = any(map(tw.t.has_data, tw.t.curves))
+    dialogs.answer("question", QMessageBox.No)
+    real = trace_window.prepared
+    monkeypatch.setattr(trace_window, "prepared", lambda *a: (time.sleep(1.0), real(*a))[1])
+    seen = {}
+    try:
+        for i, how in enumerate(("click() with no focus", "the mouse")):
+            tw.stage.setFocus(Qt.MouseFocusReason)
+            qt.pump(30)
+            _copy(QImage(_graph().copy(0, 0, 1100 + i, 700)).scaled(1500, 900))  # (more than SYNC_PIXELS)
+            QTest.keyClick(tw.stage, Qt.Key_V, Qt.ControlModifier)
+            loading = qt.wait_for(lambda: tw.loading, 10)
+            if how == "the mouse":
+                QTest.mouseClick(tw.remove_btn, Qt.LeftButton)
+            else:
+                tw.remove_btn.click()
+            qt.pump(100)
+            want = tw.remove_btn if how == "the mouse" else tw.stage
+            seen[how] = (loading, tw.loading, tw.t.has_image, QApplication.focusWidget() is want)
+    finally:
+        monkeypatch.setattr(trace_window, "prepared", real)
+    check("tracer: Remove image during the load of a large picture, then No: the picture has the focus (no control "
+          "had it), and Remove image pushed with the mouse keeps it",
+          came and curves and seen == {"click() with no focus": (True, False, True, True),
+                                        "the mouse": (True, False, True, True)}, (curves, seen))
+
+
+def test_remove_image_no_keeps_the_focus_on_remove_image_and_the_words_of_the_tool(eq_screen, flow, monkeypatch,
+                                                                                  dialogs, check):
+    # (2026-11-15, round 7, the verifier of round 6: a picture with curves; Remove image has the focus before a large
+    # picture loads, Space on it during the load, then No. Remove image kept the focus on 6499fcb; round 6 moved it to
+    # the picture. With no load, Space and No leave the focus on Remove image. Guide with the focus before the load: Qt
+    # gives the focus to Open image… when the load turns Guide off, and after No the picture has it. After No, the
+    # status line said "The app opens the picture…" when the line of remove_image that writes the status line went: no
+    # test. Here the words of before the load are the words of the tool)
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QImage
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication, QMessageBox
+    from ui import trace_window
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    tw.activateWindow()
+    qt.pump(100)
+    curves = any(map(tw.t.has_data, tw.t.curves))
+    dialogs.answer("question", QMessageBox.No)
+    real = trace_window.prepared
+    seen = {}
+    try:
+        for i, how in enumerate(("Space on Remove image, which had the focus before the load",
+                                 "Guide had the focus before the load, Remove image pushed with no move of the focus",
+                                 "Space on Remove image with no load")):
+            before = tw.guide_btn if how.startswith("Guide") else tw.remove_btn
+            before.setFocus(Qt.TabFocusReason)
+            qt.pump(30)
+            loading = during = None
+            if "no load" not in how:
+                monkeypatch.setattr(trace_window, "prepared", lambda *a: (time.sleep(1.0), real(*a))[1])
+                _copy(QImage(_graph().copy(0, 0, 1100 + i, 700)).scaled(1500, 900))  # (more than SYNC_PIXELS)
+                QTest.keyClick(before, Qt.Key_V, Qt.ControlModifier)
+                loading = qt.wait_for(lambda: tw.loading, 10)
+                during = QApplication.focusWidget() is (tw.open_btn if how.startswith("Guide") else before)
+            asked = len(dialogs.asked)
+            if how.startswith("Guide"):
+                tw.remove_btn.click()
+            else:
+                QTest.keyClick(tw.remove_btn, Qt.Key_Space)
+            qt.pump(100)
+            want = tw.stage if how.startswith("Guide") else tw.remove_btn
+            seen[how] = (loading, during, len(dialogs.asked) - asked, tw.loading, tw.t.has_image,
+                         QApplication.focusWidget() is want, tw.status.text() == trace_window.HINTS[tw.tool])
+            monkeypatch.setattr(trace_window, "prepared", real)
+            qt.wait_for(lambda: False, 1.5)  # (the dropped load ends: its answer is not taken)
+    finally:
+        monkeypatch.setattr(trace_window, "prepared", real)
+    check("tracer: Remove image, then No: Remove image keeps the focus that it had, also during the load of a large "
+          "picture; a focus that Qt moved gives way to the picture; and the status line shows the words of the tool "
+          "(not \"The app opens the picture…\")",
+          came and curves and seen == {
+              "Space on Remove image, which had the focus before the load": (True, True, 1, False, True, True, True),
+              "Guide had the focus before the load, Remove image pushed with no move of the focus":
+                  (True, True, 1, False, True, True, True),
+              "Space on Remove image with no load": (None, None, 1, False, True, True, True)}, (curves, seen))
+
+
+def test_remove_image_no_keeps_no_record_of_the_dropped_load(eq_screen, flow, monkeypatch, dialogs, check):
+    # (2026-11-15, round 7, the verifier of round 6: a large picture of a website with curves; a large picture loads,
+    # Tab to Remove image during the load (a selection of the user), Space, then No: Remove image keeps the focus. The
+    # record of that selection stayed: after a close, Trace a graph image… left the focus on Remove image, not on the
+    # picture. With the record and the mutation N9 of round 5 (no clear of the record when a busy time starts), the
+    # same large picture again left the focus there too. Round 9: Remove image had the focus when that load started,
+    # thus it keeps it (nothing changed). The record then shows only when a screen reader moves the focus to Remove
+    # image during the load (not a selection of the user): the picture must get the focus)
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QImage
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication, QMessageBox
+    from ui import trace_window
+    monkeypatch.setattr(trace_core, "auto_read", stand_in())
+    big = QImage(_graph()).scaled(1500, 900)  # (more than SYNC_PIXELS: it loads in a thread)
+    page = flow["page"]
+    since = _token(page)
+    _use(flow)
+    _copy(big)
+    came = _picture_came(page, since=since)
+    tw = page.tracer
+    tw.activateWindow()
+    qt.wait_for(lambda: not tw.loading and not tw.reading_graph, 20)
+    qt.pump(100)
+    curves = any(map(tw.t.has_data, tw.t.curves))
+    dialogs.answer("question", QMessageBox.No)
+    real = trace_window.prepared
+    seen = {}
+    try:
+        for i, then in enumerate(("the same large picture again", "a close, then Trace a graph image…",
+                                  "a click on the picture, the same large picture, a screen reader on Remove image")):
+            monkeypatch.setattr(trace_window, "prepared", lambda *a: (time.sleep(1.0), real(*a))[1])
+            tw.stage.setFocus(Qt.MouseFocusReason)
+            qt.pump(30)
+            _copy(QImage(_graph().copy(0, 0, 1100 + i, 700)).scaled(1500, 900))
+            QTest.keyClick(tw.stage, Qt.Key_V, Qt.ControlModifier)
+            loading = qt.wait_for(lambda: tw.loading, 10)
+            tw.remove_btn.setFocus(Qt.TabFocusReason)  # (as Tab puts it there while the picture loads)
+            asked = len(dialogs.asked)
+            QTest.keyClick(tw.remove_btn, Qt.Key_Space)
+            qt.pump(100)
+            after_no = (len(dialogs.asked) - asked, tw.loading, QApplication.focusWidget() is tw.remove_btn)
+            qt.wait_for(lambda: False, 1.5)  # (the dropped load ends: its answer is not taken)
+            if then.startswith("a click"):
+                tw.stage.setFocus(Qt.MouseFocusReason)
+                qt.pump(30)
+            if then != "a close, then Trace a graph image…":
+                _copy(big)
+                QTest.keyClick(QApplication.focusWidget() or tw, Qt.Key_V, Qt.ControlModifier)
+                again = qt.wait_for(lambda: tw.loading, 10)
+                if then.startswith("a click"):
+                    tw.remove_btn.setFocus(Qt.OtherFocusReason)  # (a screen reader moves it so: not a selection)
+                qt.wait_for(lambda: not tw.loading, 20)
+                again = again and tw.status.text() == "The tracer has this picture."
+            else:
+                tw.close()
+                qt.pump(30)
+                page.activateWindow()
+                qt.pump(30)
+                page.trace_btn.click()
+                again = tw.isVisible()
+            qt.pump(100)
+            f = QApplication.focusWidget()
+            seen[then] = (loading, after_no, again, "the picture" if f is tw.stage else
+                          "Remove image" if f is tw.remove_btn else repr(f))
+    finally:
+        monkeypatch.setattr(trace_window, "prepared", real)
+    want = {"the same large picture again": (True, (1, False, True), True, "Remove image"),
+            "a close, then Trace a graph image…": (True, (1, False, True), True, "the picture"),
+            "a click on the picture, the same large picture, a screen reader on Remove image":
+                (True, (1, False, True), True, "the picture")}
+    check("tracer: after Tab to Remove image during the load of a large picture, Space and No, Remove image keeps the "
+          "focus after the same large picture again; the picture has it after a new open of the tracer, and after a "
+          "load during which a screen reader moved it to Remove image (Remove image kept it: a record of the "
+          "selection stayed)",
+          came and curves and seen == want, (curves, {k[:30]: seen.get(k) for k in want if seen.get(k) != want[k]}))
+
+
+def test_the_same_picture_during_its_read_says_that_the_read_continues(eq_screen, flow, monkeypatch, check):
+    # (2026-11-15, round 7, the verifier of round 6: the same picture again while its automatic read operated wrote
+    # "The tracer has this picture.", and the status line did not tell that the read continues, until its end. With
+    # no read, the words are as before)
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QImage
+    from PySide6.QtTest import QTest
+    from ui import trace_window
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    tw.activateWindow()
+    qt.pump(100)
+    real = trace_window.prepared
+    seen = {}
+    try:
+        for i, case in enumerate(("a small picture during its read", "a large picture during its read")):
+            img = _graph().copy(0, 0, 1190 + i, 719)
+            if "large" in case:
+                img = QImage(img).scaled(1500, 900)  # (more than SYNC_PIXELS: it loads in a thread)
+            monkeypatch.setattr(trace_core, "auto_read", stand_in(delay=2.0))
+            tw.load_image(img, entry=tw.entry)
+            reading = qt.wait_for(lambda: not tw.loading and tw.reading_graph, 20)
+            monkeypatch.setattr(trace_window, "prepared", lambda *a: (time.sleep(0.5), real(*a))[1])
+            _copy(img)
+            QTest.keyClick(tw, Qt.Key_V, Qt.ControlModifier)
+            qt.wait_for(lambda: not tw.loading, 20)
+            qt.pump(30)
+            during = (tw.reading_graph, tw.status.text())
+            monkeypatch.setattr(trace_window, "prepared", real)
+            qt.wait_for(lambda: not tw.reading_graph, 20)
+            qt.pump(100)
+            seen[case] = (reading, during, tw.status.text())
+        _copy(img)  # (the picture that the tracer has, after its read)
+        QTest.keyClick(tw, Qt.Key_V, Qt.ControlModifier)
+        qt.wait_for(lambda: not tw.loading, 20)
+        qt.pump(100)
+        seen["the same picture with no read"] = (tw.reading_graph, tw.status.text())
+    finally:
+        monkeypatch.setattr(trace_window, "prepared", real)
+    reads, tool = "The tracer has this picture. The app reads the graph…", "Click a curve to follow it."
+    check("website flow: the same picture again while its automatic read operates says that the tracer has it and "
+          "that the read continues, and with no read, only that the tracer has it (\"The tracer has this picture.\" "
+          "showed until the end of the read)",
+          came and seen == {"a small picture during its read": (True, (True, reads), tool),
+                            "a large picture during its read": (True, (True, reads), tool),
+                            "the same picture with no read": (False, "The tracer has this picture.")}, seen)
+
+
+def test_remove_image_no_during_a_large_load_writes_the_words_of_before_it_again(eq_screen, flow, monkeypatch,
+                                                                                   dialogs, check):
+    # (2026-11-15, round 7, the verifier of round 6: Remove image and No during the load of a large picture wrote the
+    # words of the tool ("Click a curve to follow it."). The words of before the load, for example the instruction of
+    # a read that was not OK, did not come back)
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QImage
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QMessageBox
+    from ui import trace_window
+    came, tw = _traced(flow, monkeypatch, stand_in(ok=False, fail="trace_band"))
+    tw.activateWindow()
+    qt.pump(100)
+    dialogs.answer("question", QMessageBox.No)
+    real = trace_window.prepared
+
+    def words(text):
+        return "the instruction of the read" if text.startswith("The app cannot trace this picture automatically.") \
+            else text
+    try:
+        tw.load_image(_graph().copy(0, 0, 1198, 719), entry=tw.entry)  # (a new picture: a new read)
+        qt.wait_for(lambda: not tw.reading_graph and tw.read_ok is not None, 20)
+        qt.pump(100)
+        before = tw.status.text()
+        curves = any(map(tw.t.has_data, tw.t.curves))
+        monkeypatch.setattr(trace_window, "prepared", lambda *a: (time.sleep(1.0), real(*a))[1])
+        _copy(QImage(_graph().copy(0, 0, 1101, 700)).scaled(1500, 900))  # (more than SYNC_PIXELS)
+        QTest.keyClick(tw, Qt.Key_V, Qt.ControlModifier)
+        loading = qt.wait_for(lambda: tw.loading, 10)
+        asked = len(dialogs.asked)
+        tw.remove_btn.click()
+        qt.wait_for(lambda: not tw.loading, 20)
+        qt.pump(100)
+        after = tw.status.text()
+        seen = (words(before), curves, loading, len(dialogs.asked) - asked, tw.reading_graph, tw.t.has_image,
+                words(after), after == before)
+        qt.wait_for(lambda: False, 1.2)  # (a dropped load ends: its answer is not taken)
+    finally:
+        monkeypatch.setattr(trace_window, "prepared", real)
+    read = "the instruction of the read"
+    check("tracer: Remove image and No during the load of a large picture writes the words of before the load again "
+          "(\"Click a curve to follow it.\" replaced the instruction of the read)",
+          came and seen == (read, True, True, 1, False, True, read, True), seen)
+
+
+def test_remove_image_no_during_a_large_load_does_not_write_a_message_about_a_step_again(eq_screen, flow,
+                                                                                         monkeypatch, dialogs, check):
+    # (2026-11-15, round 8, the verifier of round 7: a message about a step before the load (here Add a curve) came
+    # back after Remove image and No during the load of a large picture. Now the words of the tool show, also the
+    # words of a different tool)
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QImage
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QMessageBox
+    from ui import trace_window
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    tw.activateWindow()
+    qt.pump(100)
+    dialogs.answer("question", QMessageBox.No)
+    real, real_warning = trace_window.prepared, QMessageBox.warning
+    box = []
+
+    def warning(*a, **k):
+        box.append(tw.status.text())  # (the status line behind a message box)
+        return real_warning(*a, **k)
+
+    def words(text):
+        if text.startswith("New curve “"):
+            return "New curve"
+        return "Make a line" if text == trace_window.HINTS["draw"] else text
+    monkeypatch.setattr(QMessageBox, "warning", warning)
+    try:
+        tw.set_tool("draw")  # (Make a line: the words of a different tool)
+        tw.add_btn.click()
+        qt.pump(100)
+        before = tw.status.text()
+        monkeypatch.setattr(trace_window, "prepared", lambda *a: (time.sleep(1.0), real(*a))[1])
+        _copy(QImage(_graph().copy(0, 0, 1103, 700)).scaled(1500, 900))  # (more than SYNC_PIXELS)
+        QTest.keyClick(tw, Qt.Key_V, Qt.ControlModifier)
+        loading = qt.wait_for(lambda: tw.loading, 10)
+        asked = len(dialogs.asked)
+        tw.remove_btn.click()
+        qt.wait_for(lambda: not tw.loading, 20)
+        qt.pump(100)
+        seen = (words(before), loading, sum(kind == "question" for kind, _t in dialogs.asked[asked:]),
+                tw.t.has_image, [words(t) for t in box], words(tw.status.text()))
+        qt.wait_for(lambda: False, 1.2)  # (a dropped load ends: its answer is not taken)
+    finally:
+        monkeypatch.setattr(trace_window, "prepared", real)
+        tw.set_tool("trace")
+        dialogs.answer("question", QMessageBox.Yes)  # (the picture with its curve goes after the test)
+    check("tracer: Remove image and No during the load of a large picture writes the words of the tool, not a message "
+          "about a step before the load (\"New curve …\" came back)",
+          came and seen == ("New curve", True, 1, True, [], "Make a line"), seen)
+
+
+def test_a_message_during_a_load_or_a_read_says_that_it_continues(eq_screen, flow, monkeypatch, check):
+    # (2026-11-15, round 8, the verifier of round 7: Ctrl+V with an empty clipboard during the load of a large picture
+    # or during the automatic read wrote only "There is no picture on the clipboard. First, copy a picture of a
+    # graph.", and the status line did not tell that the load or the read continues, until its end. During a load
+    # that starts during a read, the words of the load)
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QImage
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    from ui import trace_window
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    tw.activateWindow()
+    qt.pump(100)
+    entry = tw.entry
+    real = trace_window.prepared
+    none = "There is no picture on the clipboard. First, copy a picture of a graph."
+    names = {none: "no picture", f"{none} {trace_window.LOADING}": "no picture, then opens the picture",
+             f"{none} {trace_window.READING}": "no picture, then reads the graph"}
+    seen = {}
+    try:
+        for i, (case, load, read) in enumerate((("no load and no read", False, False), ("a load", True, False),
+                                                ("a read", False, True), ("a load during a read", True, True))):
+            if read:
+                monkeypatch.setattr(trace_core, "auto_read", stand_in(delay=3.0))
+                tw.load_image(_graph().copy(0, 0, 1190 + i, 719), entry=entry)  # (a picture of the website: its read)
+                qt.wait_for(lambda: tw.reading_graph and not tw.loading, 20)
+            if load:
+                monkeypatch.setattr(trace_window, "prepared", lambda *a: (time.sleep(2.0), real(*a))[1])
+                _copy(QImage(_graph().copy(0, 0, 1100 + i, 700)).scaled(1500, 900))  # (more than SYNC_PIXELS)
+                QTest.keyClick(tw, Qt.Key_V, Qt.ControlModifier)
+                qt.wait_for(lambda: tw.loading, 10)
+            busy = (tw.loading, tw.reading_graph)
+            QApplication.clipboard().clear()
+            QTest.keyClick(tw, Qt.Key_V, Qt.ControlModifier)
+            seen[case] = (busy, names.get(tw.status.text(), tw.status.text()))
+            qt.wait_for(lambda: not tw.loading and not tw.reading_graph, 20)
+            monkeypatch.setattr(trace_window, "prepared", real)
+            monkeypatch.setattr(trace_core, "auto_read", stand_in())
+            qt.pump(100)
+    finally:
+        monkeypatch.setattr(trace_window, "prepared", real)
+    loads, reads = "no picture, then opens the picture", "no picture, then reads the graph"
+    check("tracer: a message during the load of a large picture or during the automatic read says that the load or "
+          "the read continues (\"There is no picture on the clipboard. …\" showed alone until the end)",
+          came and seen == {"no load and no read": ((False, False), "no picture"), "a load": ((True, False), loads),
+                            "a read": ((False, True), reads), "a load during a read": ((True, True), loads)}, seen)
+
+
+def test_the_same_small_picture_during_a_large_load_gives_the_focus_to_the_picture(eq_screen, flow, monkeypatch,
+                                                                                   check):
+    # (2026-11-16, the verifier of round 8: the load of a large picture turns the picture off, and no control has the
+    # focus. Ctrl+V with the same small picture of the website during that load ("The tracer has this picture.")
+    # turned the picture on again, but no control had the focus after it. Now the picture has it, as after the same
+    # large picture)
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QImage
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    from ui import trace_window
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    tw.activateWindow()
+    qt.pump(100)
+    tw.stage.setFocus(Qt.MouseFocusReason)
+    qt.pump(30)
+    real = trace_window.prepared
+    monkeypatch.setattr(trace_window, "prepared", lambda *a: (time.sleep(2.0), real(*a))[1])
+    try:
+        _copy(QImage(_graph().copy(0, 0, 1100, 700)).scaled(1500, 900))  # (more than SYNC_PIXELS: a load in a thread)
+        QTest.keyClick(tw, Qt.Key_V, Qt.ControlModifier)
+        loading = qt.wait_for(lambda: tw.loading, 10)
+        _copy(_graph())  # (the picture that the tracer has: it loads at once)
+        QTest.keyClick(tw, Qt.Key_V, Qt.ControlModifier)
+        qt.pump(100)
+        seen = (loading, tw.loading, tw.status.text(), QApplication.focusWidget() is tw.stage)
+        qt.wait_for(lambda: False, 2.5)  # (the dropped load ends: its answer is not taken)
+        qt.pump(100)
+        seen += (QApplication.focusWidget() is tw.stage,)
+    finally:
+        monkeypatch.setattr(trace_window, "prepared", real)
+    check("website flow: the same small picture during the load of a large picture gives the focus to the picture (no "
+          "control had the focus after it)",
+          came and seen == (True, False, trace_window.HAS_PICTURE, True, True), seen)
+
+
+def test_a_load_that_does_not_change_the_picture_keeps_the_focus_of_open_image_or_remove_image(eq_screen, flow,
+                                                                                                monkeypatch, check):
+    # (2026-11-16, the verifier of round 8: Open image… or Remove image had the focus when a large load started, and
+    # kept it during the load. After the same picture again, the picture took the focus: nothing changed, and Space
+    # did not push that control. 584c76a kept the focus there)
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QImage
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    from ui import trace_window
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    tw.activateWindow()
+    qt.pump(100)
+    big = QImage(_graph()).scaled(1500, 900)  # (more than SYNC_PIXELS: it loads in a thread)
+    real = trace_window.prepared
+    seen = {}
+    try:
+        for case, ctl, load in (("Remove image, the same small picture during a large load", tw.remove_btn, "small"),
+                                ("Remove image, the same large picture", tw.remove_btn, "same"),
+                                ("Open image…, the same large picture", tw.open_btn, "same")):
+            if load == "same" and not seen.get("big"):
+                seen["big"] = True
+                tw.load_image(big, entry=tw.entry)  # (then Ctrl+V with it is the same picture)
+                qt.wait_for(lambda: not tw.loading and not tw.reading_graph and tw.read_ok is not None, 30)
+                qt.pump(100)
+            ctl.setFocus(Qt.TabFocusReason)  # (before the load)
+            qt.pump(30)
+            monkeypatch.setattr(trace_window, "prepared", lambda *a: (time.sleep(1.0), real(*a))[1])
+            _copy(big if load == "same" else QImage(_graph().copy(0, 0, 1100, 700)).scaled(1500, 900))
+            QTest.keyClick(ctl, Qt.Key_V, Qt.ControlModifier)
+            loading = qt.wait_for(lambda: tw.loading, 10)
+            if load == "small":
+                _copy(_graph())  # (the picture that the tracer had before: it loads at once)
+                QTest.keyClick(ctl, Qt.Key_V, Qt.ControlModifier)
+            qt.wait_for(lambda: not tw.loading, 20)
+            qt.wait_for(lambda: False, 1.2)  # (a dropped load ends: its answer is not taken)
+            qt.pump(100)
+            monkeypatch.setattr(trace_window, "prepared", real)
+            seen[case] = (loading, tw.status.text() == trace_window.HAS_PICTURE, QApplication.focusWidget() is ctl)
+    finally:
+        monkeypatch.setattr(trace_window, "prepared", real)
+    seen.pop("big", None)
+    check("website flow: a load that does not change the picture keeps the focus on Open image… or Remove image when "
+          "it had the focus at the start of the load (the picture took it)",
+          came and len(seen) == 3 and all(v == (True, True, True) for v in seen.values()),
+          {k[:40]: v for k, v in seen.items() if v != (True, True, True)})
+
+
+def test_ctrl_v_on_make_an_eq_keeps_the_focus_of_open_image_or_remove_image_in_the_tracer(eq_screen, flow,
+                                                                                          monkeypatch, check):
+    # (2026-11-16, the verifier of round 9: a load records the control with the focus in the tracer, not the control
+    # with the focus in the app. Recorded from the app, Ctrl+V on Make an EQ recorded a control of Make an EQ, and the
+    # picture took the focus from Open image… or Remove image after the same picture. No test found that)
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QImage
+    from PySide6.QtWidgets import QApplication
+    from ui import trace_window
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    page = flow["page"]
+    tw.activateWindow()
+    qt.pump(100)
+    big = QImage(_graph()).scaled(1500, 900)  # (more than SYNC_PIXELS: it loads in a thread)
+    tw.load_image(big, entry=tw.entry)  # (then Ctrl+V with it is the same picture)
+    qt.wait_for(lambda: not tw.loading and not tw.reading_graph and tw.read_ok is not None, 30)
+    qt.pump(100)
+    real = trace_window.prepared
+    seen = {}
+    try:
+        for case, ctl in (("Open image…, the same picture", tw.open_btn),
+                          ("Remove image, the same picture", tw.remove_btn)):
+            tw.activateWindow()
+            qt.pump(30)
+            ctl.setFocus(Qt.TabFocusReason)
+            qt.pump(30)
+            page.activateWindow()  # (Make an EQ in front: the focus of the app is there)
+            qt.pump(30)
+            front = QApplication.activeWindow() is not tw and tw.focusWidget() is ctl
+            monkeypatch.setattr(trace_window, "prepared", lambda *a: (time.sleep(1.0), real(*a))[1])
+            _copy(big)
+            page.paste_picture()  # (Ctrl+V on Make an EQ: the tracer comes in front, and the picture loads)
+            loading = qt.wait_for(lambda: tw.loading, 10)
+            qt.wait_for(lambda: not tw.loading, 20)
+            qt.pump(100)
+            monkeypatch.setattr(trace_window, "prepared", real)
+            seen[case] = (front, loading, QApplication.focusWidget() is ctl)
+    finally:
+        monkeypatch.setattr(trace_window, "prepared", real)
+    check("website flow: Ctrl+V on Make an EQ with the same picture keeps the focus on Open image… or Remove image in "
+          "the tracer (the picture took it)",
+          came and len(seen) == 2 and all(v == (True, True, True) for v in seen.values()),
+          {k: v for k, v in seen.items() if v != (True, True, True)})
+
+
+def _boxes(tw, monkeypatch):
+    """A list of the status line behind each message box of the tracer (the dialogs helper answers the box)."""
+    from PySide6.QtWidgets import QMessageBox
+    behind = []
+    for kind in ("warning", "information", "question"):
+        real = getattr(QMessageBox, kind)
+
+        def shown(*a, _real=real, **k):
+            behind.append(tw.status.text())
+            return _real(*a, **k)
+        monkeypatch.setattr(QMessageBox, kind, shown)
+    return behind
+
+
+def test_a_message_box_shows_the_words_of_the_tool_in_place_of_a_message(eq_screen, flow, monkeypatch, dialogs,
+                                                                          tmp_path, check):
+    # (2026-11-16, the verifier of round 8: a message about a step that ended stayed in the status line behind each
+    # message box of the tracer, for example "There is no picture on the clipboard. …" behind "The app cannot read
+    # this file as a picture (…)."; "The tracer has this picture." there lets a person think that "this picture" is
+    # the file. Now the words of the tool show. Words that are not such a message stay)
+    import textfile
+    from PySide6.QtWidgets import QApplication, QMessageBox
+    from ui import trace_window, window_parts
+    came, tw = _traced(flow, monkeypatch, stand_in(target=True))  # (a target line: Add the target line as target…)
+    page = flow["page"]
+    tw.activateWindow()
+    qt.pump(100)
+    behind = _boxes(tw, monkeypatch)
+    bad = tmp_path / "not a picture.png"
+    bad.write_bytes(b"These are words, not a picture.")
+    folder = tmp_path / "saved"
+    folder.mkdir()
+    (folder / "a.txt").write_text("1", encoding="utf-8")
+    real_call = page.svc.call
+    none = "There is no picture on the clipboard. First, copy a picture of a graph."
+    names = {trace_window.HINTS["trace"]: "Click curve", none: "no picture",
+             "The app removed the picture. Open, drag or paste a different picture.": "removed"}
+
+    def outputs_error(*a, **k):
+        raise ValueError("made-up error of the curves")
+
+    def cannot_write(*a, **k):
+        raise OSError("made-up error of the disk")
+
+    def added(path, *a, **k):  # (an add with no change of the app's files)
+        return ({"names": ["Gate.txt"], "settings": page.S, "inputs": None} if path == "/api/files/add" else
+                {} if path == "/api/state" else real_call(path, *a, **k))
+    seen = {}
+    for case, act in (
+            ("a file that is not a picture", lambda m: tw.open_file(str(bad))),
+            ("Remove image, No", lambda m: (dialogs.answer("question", QMessageBox.No), tw.remove_btn.click())),
+            ("Add as measurement, an error of the curves", lambda m: (m.setattr(tw, "outputs", outputs_error),
+                                                                      tw.save("measurement"))),
+            ("Add as measurement, an error of the add", lambda m: (
+                m.setattr(page.svc, "call", lambda path, *a, **k: {"error": "made-up error of the add"}
+                          if path == "/api/files/add" else real_call(path, *a, **k)), tw.save("measurement"))),
+            ("Add as measurement, gaps", lambda m: (m.setattr(page.svc, "call", added),
+                                                    m.setattr(tw.t, "gaps_text", lambda outs: "Made-up gaps."),
+                                                    tw.save("measurement"), setattr(tw, "added", False))),
+            ("Add the target line as target…, an error", lambda m: (
+                m.setattr(window_parts, "ask_text", lambda *a, **k: ("My target", True)),
+                m.setattr(tw, "outputs", outputs_error), tw.add_target_line())),
+            ("Save .txt…, an error of the curves", lambda m: (m.setattr(tw, "outputs", outputs_error),
+                                                              tw.save_txt())),
+            ("Save .txt…, the files are there, No", lambda m: (
+                m.setattr(tw, "outputs", lambda *a, **k: [{"file": "a.txt", "text": "1"},
+                                                          {"file": "b.txt", "text": "2"}]),
+                dialogs.answer("getExistingDirectory", str(folder)), dialogs.answer("question", QMessageBox.No),
+                tw.save_txt())),
+            ("Save .txt…, the app cannot save", lambda m: (
+                m.setattr(tw, "outputs", lambda *a, **k: [{"file": "c.txt", "text": "1"}]),
+                m.setattr(textfile, "write_atomic", cannot_write),
+                dialogs.answer("getSaveFileName", (str(folder / "c.txt"), "")), tw.save_txt())),
+            ("Save .txt…, gaps", lambda m: (
+                m.setattr(tw, "outputs", lambda *a, **k: [{"file": "d.txt", "text": "1"}]),
+                m.setattr(tw.t, "gaps_text", lambda outs: "Made-up gaps."),
+                dialogs.answer("getSaveFileName", (str(folder / "d.txt"), "")), tw.save_txt())),
+            ("no message: a file that is not a picture after Remove image", lambda m: (
+                dialogs.answer("question", QMessageBox.Yes), tw.remove_btn.click(), qt.pump(30), behind.clear(),
+                tw.open_file(str(bad))))):
+        QApplication.clipboard().clear()
+        tw.paste()  # ("There is no picture on the clipboard. …": a message of say())
+        qt.pump(30)
+        before = tw.status.text()
+        del behind[:]
+        with monkeypatch.context() as m:
+            act(m)
+        qt.pump(50)
+        seen[case] = (names.get(before, before), [names.get(t, t) for t in behind],
+                      names.get(tw.status.text(), tw.status.text()))
+    tool = ("no picture", ["Click curve"], "Click curve")
+    want = dict.fromkeys(seen, tool)
+    want["no message: a file that is not a picture after Remove image"] = ("no picture", ["removed"], "removed")
+    check("tracer: behind each message box, the status line shows the words of the tool, not a message about a step "
+          "that ended; other words stay (\"There is no picture on the clipboard. …\" showed behind \"The app cannot "
+          "read this file as a picture (…).\")",
+          came and len(seen) == 11 and seen == want, {k[:45]: seen.get(k) for k in want if seen.get(k) != want[k]})
+
+
+def test_a_message_box_during_a_load_or_a_read_shows_the_words_of_the_wait(eq_screen, flow, monkeypatch, dialogs,
+                                                                           tmp_path, check):
+    # (2026-11-16, the verifier of round 8: Ctrl+V with an empty clipboard during the load of a large picture or
+    # during the automatic read, then a file that is not a picture (a drop, Open image… with "All files"): its message
+    # box showed next to "There is no picture on the clipboard. …". Now the words of the load or of the read show,
+    # as say() writes them after a message)
+    from PySide6.QtGui import QImage
+    from PySide6.QtWidgets import QApplication
+    from ui import trace_window
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    tw.activateWindow()
+    qt.pump(100)
+    behind = _boxes(tw, monkeypatch)
+    bad = tmp_path / "not a picture.png"
+    bad.write_bytes(b"These are words, not a picture.")
+    entry = tw.entry
+    real = trace_window.prepared
+    names = {trace_window.LOADING: "opens the picture", trace_window.READING: "reads the graph"}
+    seen = {}
+    try:
+        for i, (case, load, read) in enumerate((("a load", True, False), ("a read", False, True),
+                                                ("a load during a read", True, True))):
+            if read:
+                monkeypatch.setattr(trace_core, "auto_read", stand_in(delay=3.0))
+                tw.load_image(_graph().copy(0, 0, 1190 + i, 719), entry=entry)  # (a picture of the website: its read)
+                qt.wait_for(lambda: tw.reading_graph and not tw.loading, 20)
+            if load:
+                monkeypatch.setattr(trace_window, "prepared", lambda *a: (time.sleep(2.0), real(*a))[1])
+                tw.load_image(QImage(_graph().copy(0, 0, 1100 + i, 700)).scaled(1500, 900), "Large graph")
+                qt.wait_for(lambda: tw.loading, 10)
+            busy = (tw.loading, tw.reading_graph)
+            QApplication.clipboard().clear()
+            tw.paste()  # (a message of say(), with the words of the wait after it)
+            said = tw.status.text() == tw.said
+            del behind[:]
+            tw.open_file(str(bad))
+            seen[case] = (busy, said, [names.get(t, t) for t in behind], names.get(tw.status.text(), tw.status.text()))
+            qt.wait_for(lambda: not tw.loading and not tw.reading_graph, 20)
+            monkeypatch.setattr(trace_window, "prepared", real)
+            monkeypatch.setattr(trace_core, "auto_read", stand_in())
+            qt.pump(100)
+    finally:
+        monkeypatch.setattr(trace_window, "prepared", real)
+    loads, reads = "opens the picture", "reads the graph"
+    check("tracer: behind the message box of a file that is not a picture, during a load or a read, the status line "
+          "shows the words of the load or of the read, not a message about a step (\"There is no picture on the "
+          "clipboard. …\" showed next to the box)",
+          came and seen == {"a load": ((True, False), True, [loads], loads),
+                            "a read": ((False, True), True, [reads], reads),
+                            "a load during a read": ((True, True), True, [loads], loads)}, seen)
+
+
+def test_remove_image_yes_gives_the_focus_to_open_image_after_a_box_that_was_the_active_window(eq_screen, flow,
+                                                                                              monkeypatch, dialogs,
+                                                                                              check):
+    # (2026-11-16, round 10, measured with the real message box of Qt, offscreen: the box is the active window while
+    # it shows. After Yes, Remove image hid while the tracer was not the active window, so Qt did not move the focus
+    # from it, and the tracer kept the hidden Remove image as its control with the focus. When the tracer was the
+    # active window again, Qt gave the focus to Guide (Space then starts the Guide). The stand-in of the tests left
+    # the tracer active; here it makes Make an EQ the active window during the question, as a real box does)
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QImage
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication, QMessageBox
+    from ui import trace_window
+    came, tw = _traced(flow, monkeypatch, stand_in())
+    page = flow["page"]
+    entry = tw.entry
+    real = trace_window.prepared
+    answer, away = [QMessageBox.Yes], []
+
+    def question(*a, **k):  # (as a real box: the tracer is not the active window while the question shows)
+        page.activateWindow()
+        qt.pump(30)
+        away.append(QApplication.activeWindow() is not tw)
+        return answer[0]
+
+    def focus():
+        f = QApplication.focusWidget()
+        return ("Open image…" if f is tw.open_btn else "Remove image" if f is tw.remove_btn else
+                "Guide" if f is tw.guide_btn else repr(f))
+    monkeypatch.setattr(QMessageBox, "question", question)
+    seen = {}
+    try:
+        for i, (case, how, yes, load) in enumerate((("Tab and Space, Yes", "space", True, False),
+                                                    ("the mouse, Yes", "mouse", True, False),
+                                                    ("Tab and Space during a load, Yes", "space", True, True),
+                                                    ("Tab and Space, No", "space", False, False))):
+            if not tw.t.has_image:
+                tw.load_image(_graph().copy(0, 0, 1190 + i, 719), entry=entry)  # (a picture of the website: curves)
+                qt.wait_for(lambda: not tw.loading and not tw.reading_graph and tw.read_ok is not None, 30)
+            answer[0] = QMessageBox.Yes if yes else QMessageBox.No
+            del away[:]
+            tw.activateWindow()
+            qt.pump(30)
+            curves = any(map(tw.t.has_data, tw.t.curves))
+            if load:
+                monkeypatch.setattr(trace_window, "prepared", lambda *a: (time.sleep(1.0), real(*a))[1])
+                tw.load_image(QImage(_graph().copy(0, 0, 1100 + i, 700)).scaled(1500, 900), "Large graph")
+                qt.wait_for(lambda: tw.loading, 10)
+            tw.remove_btn.setFocus(Qt.TabFocusReason)
+            qt.pump(30)
+            if how == "mouse":
+                QTest.mouseClick(tw.remove_btn, Qt.LeftButton)
+            else:
+                QTest.keyClick(tw.remove_btn, Qt.Key_Space)
+            qt.pump(50)
+            tw.activateWindow()  # (Windows makes the tracer the active window again after the box)
+            qt.pump(100)
+            seen[case] = (curves, away == [True], tw.t.has_image, focus())
+            qt.wait_for(lambda: False, 1.2 if load else 0)  # (a dropped load ends: its answer is not taken)
+            monkeypatch.setattr(trace_window, "prepared", real)
+    finally:
+        monkeypatch.setattr(trace_window, "prepared", real)
+    check("website flow: Remove image with the focus, then Yes while a box is the active window, gives the focus to "
+          "Open image… when the tracer is the active window again; No keeps it on Remove image (Qt gave it to Guide)",
+          came and seen == {"Tab and Space, Yes": (True, True, False, "Open image…"),
+                            "the mouse, Yes": (True, True, False, "Open image…"),
+                            "Tab and Space during a load, Yes": (True, True, False, "Open image…"),
+                            "Tab and Space, No": (True, True, True, "Remove image")}, seen)
+
+
+def test_each_message_box_of_the_tracer_has_the_tracer_as_its_parent(eq_screen, dialogs, monkeypatch, tmp_path,
+                                                                     check):
+    # (2026-11-16, the verifier of round 11: box() replaced the calls of QMessageBox, which gave the tracer as the
+    # parent. No test found a box with no parent: a box of Qt with no parent shows at the middle of the screen, not
+    # over the tracer)
+    from PySide6.QtWidgets import QMessageBox
+    page = eq_screen.page
+    page.open_trace()
+    tw = page.tracer
+    parents = []
+    for kind in ("warning", "information", "question"):
+        real = getattr(QMessageBox, kind)
+
+        def shown(*a, _real=real, **k):
+            parents.append(a[0] if a else k.get("parent"))
+            return _real(*a, **k)
+        monkeypatch.setattr(QMessageBox, kind, shown)
+    bad = tmp_path / "not a picture.png"
+    bad.write_bytes(b"These are words, not a picture.")
+    try:
+        tw.open_file(str(bad))  # (the warning of a file that is not a picture)
+        tw.box("information", "Trace", "Made-up information.")
+        tw.box("question", "Trace", "Made-up question?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+    finally:
+        tw.close()
+        qt.pump(30)
+    check("tracer: each message box has the tracer as its parent (a box with no parent showed at the middle of the "
+          "screen)", parents == [tw] * 3, [type(p).__name__ for p in parents])
