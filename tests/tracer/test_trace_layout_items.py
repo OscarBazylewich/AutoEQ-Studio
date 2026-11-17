@@ -2,7 +2,8 @@
 and again (the add button gets a new name, and the row "Target of the graph" shows and hides; until 2026-11-16,
 show_save_row put the main one of two add buttons first: Qt deleted and made again the items of the row), makes no
 Python object of a layout item and leaves none that no layout holds. (The items of the app's own layouts, forms.FlowLayout in
-the page's settings, are Python's by design: helpers.qt.made_item_objects leaves them out.) Until 2026-11-15 the row
+the page's settings and eq_page_parts.WrapRow in its result card, are Python's by design:
+helpers.qt.made_item_objects leaves them out.) Until 2026-11-15 the row
 went into its card with its items, PySide6 kept an object for each, and the tests crashed now and then with an access
 violation: a new Qt object got the object of an item that Qt had deleted. Find… and Make an EQ's page:
 tests\\eq_screen\\test_layout_items.py."""

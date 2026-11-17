@@ -6,9 +6,10 @@ Two rules of the project's own, read from the source (app\\ui\\__init__.py says 
 item). The tests' check of each call (tests\\helpers\\qt.py) sees only the code that the tests run: these read all
 of it.
 - No use of a layout's itemAt (or a grid's itemAtPosition) in app\\ or tests\\, but in the itemAt of a layout class of
-  the app's own (a class whose base is a layout class: forms.FlowLayout, picker.Lines, listen's rows) and in the files
-  of ITEM_AT_FILES. A view's itemAt(pos) (QListWidget, QGraphicsView: an item of a list or a scene, not of a layout)
-  makes no such object: put the comment "(a view's itemAt" on its line, and it is let through.
+  the app's own (a class whose base is a layout class: forms.FlowLayout, picker.Lines, listen's rows,
+  eq_page_parts.WrapRow) and in the files of ITEM_AT_FILES. A view's itemAt(pos) (QListWidget, QGraphicsView: an item
+  of a list or a scene, not of a layout) makes no such object: put the comment "(a view's itemAt" on its line, and it
+  is let through.
 - In app\\, every layout given to another layout through ui.placed (an empty layout put in its place before its items):
   no use of addLayout or insertLayout outside placed.
 Each use of the name counts, not only a call: `add = v.addLayout` too."""

@@ -1,10 +1,10 @@
 """Layout items (app\\ui\\__init__.py says why) in Find… and in Make an EQ's page: Find… for a measurement with its
 list drawn, and the page built, make no Python object of a layout item, and leave none when they close. (The items of
-the app's own layouts, forms.FlowLayout, picker.Lines and listen's rows, are Python's by design: Qt gives each one to
-their addItem; helpers.qt.made_item_objects leaves them out.) Until 2026-11-15 each sub-layout went into a layout in a
-window with its items, PySide6 kept an object for each item, and the tests crashed now and then with an access
-violation: a menu's action in Find… and in the graph of Make an EQ got the object of an item that Qt had deleted. The
-tracer's 3 Save row: tests\\tracer\\test_trace_layout_items.py."""
+the app's own layouts, forms.FlowLayout, picker.Lines, listen's rows and eq_page_parts.WrapRow, are Python's by
+design: Qt gives each one to their addItem; helpers.qt.made_item_objects leaves them out.) Until 2026-11-15 each
+sub-layout went into a layout in a window with its items, PySide6 kept an object for each item, and the tests crashed
+now and then with an access violation: a menu's action in Find… and in the graph of Make an EQ got the object of an
+item that Qt had deleted. The tracer's 3 Save row: tests\\tracer\\test_trace_layout_items.py."""
 import gc
 import os
 
