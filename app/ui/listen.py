@@ -548,8 +548,9 @@ class Listen(QGroupBox):
                         COLOURS[p.get("color", i) % len(COLOURS)]))
         return out
 
-    def refresh(self):
-        """After a new result, an edit, or another IEM: the versions and the buttons."""
+    def refresh(self, rows=True):
+        """After a new result, an edit, or another IEM: the versions and the buttons. rows=False when only a name
+        changed (_show_new_names): the rows of the EQs to compare stay, with their new names."""
         vs = self.versions()
         keys = [k for k, *_ in vs]
         if self.engine:
@@ -569,7 +570,10 @@ class Listen(QGroupBox):
             self.abx_end(finished=False, why=stops)  # (what was answered is said, and why it stopped)
         self._apply_to_engine()
         self.render_versions()
-        self.render_pins()
+        if rows:
+            self.render_pins()
+        else:
+            self._name_pins()
         self.render_device_eq()
         self._abx_fill()
 
@@ -1046,7 +1050,6 @@ class Listen(QGroupBox):
             theme.mark(sw, listen_mark=COLOURS[p.get("color", i) % len(COLOURS)])  # (theme_sheet.py's listen part)
             grid.addWidget(sw, i, 0)
             name = QLineEdit(p["name"])
-            name.setAccessibleName(f"Name of {p.get('name') or 'this EQ'}")  # (a screen reader read it as nothing)
             name.editingFinished.connect(lambda p=p, name=name: self._rename(p, name.text()))
             grid.addWidget(name, i, 1)
             note = QLabel(f"{len(p['filters'])} filter{'' if len(p['filters']) == 1 else 's'}" +(f" · {p['note']}" if p.get("note") else ""))
@@ -1058,14 +1061,14 @@ class Listen(QGroupBox):
             grid.addWidget(graph, i, 3)
             x = QPushButton("✕")
             theme.mark(x, quiet=True)  # (no fill until pointed at, as every ✕)
-            x.setAccessibleName(f"Remove {p.get('name') or 'this EQ'} from the EQs to compare")
-            graph.setAccessibleName(f"Show {p.get('name') or 'this EQ'} on the graph")
             x.setToolTip("Remove from the list")
             x.clicked.connect(lambda _=False, p=p: self._remove(p))
             grid.addWidget(x, i, 4)
             rows.append({"name": name, "graph": graph, "x": x})
             for kind, w in rows[i].items():
                 w.setProperty("pin_place", f"{kind}:{i}")
+        self.pin_rows = rows
+        self._name_pins()
         # (the new rows in their place in the Tab sequence, after the ABX test above them and before the buttons
         # that add an EQ: Qt put them after those buttons, 2026-11-16)
         tab_order(self.abx_box, table)
@@ -1075,6 +1078,18 @@ class Listen(QGroupBox):
             table.show()  # (now, as the version's button above: with the focus not yet on the row, Tab after a new
             w.setFocus(Qt.OtherFocusReason)  # name moved the page to the list, 7 px)
 
+    def _name_pins(self):
+        """Each row of the list with the name of its EQ as it is now: the name box, and the names of the row's
+        controls that a screen reader reads. A name box with the focus keeps its text: the letters typed there."""
+        f = self.window().focusWidget()
+        for p, row in zip(self.pins, self.pin_rows):
+            name = p.get("name") or "this EQ"
+            if row["name"] is not f and row["name"].text() != p["name"]:
+                row["name"].setText(p["name"])
+            row["name"].setAccessibleName(f"Name of {name}")  # (a screen reader read it as nothing)
+            row["graph"].setAccessibleName(f"Show {name} on the graph")
+            row["x"].setAccessibleName(f"Remove {name} from the EQs to compare")
+
     def _rename(self, p, text):
         """A new name from a name box: recorded, and shown on the card and the graph.
         A mouse press on another control takes the focus from the name box, and the box tells its new name before
@@ -1082,7 +1097,9 @@ class Listen(QGroupBox):
         release went to a removed control, and Graph or ✕ of a row did nothing (2026-11-17). So while a mouse button
         is down, the name is only recorded, in the list's own EQs (the rows' controls work on them), and put into
         the lists that open at a press. The card shows it when the button is up (_show_new_names): after the
-        control did what the click asked, and no control moved under the pointer before that."""
+        control did what the click asked, and no control moved under the pointer before that. The rows are not made
+        again then either: a click or a drag in the name box of another row put its caret at the end of the name
+        with nothing selected, as the new box of that row had the focus (2026-11-17)."""
         text = text.strip()[:80]
         if not text or text == p["name"]:
             return
@@ -1101,10 +1118,11 @@ class Listen(QGroupBox):
 
     def _show_new_names(self):
         """A new name recorded during a mouse press (_rename), on the card and the graph: when the button is up and
-        no list or menu shows (a list that the press opened stays as it is while it shows)."""
+        no list or menu shows (a list that the press opened stays as it is while it shows). The rows stay: the
+        control that the click was on keeps its caret and its selection."""
         if QGuiApplication.mouseButtons() == Qt.NoButton and QApplication.activePopupWidget() is None:
             self._names_timer.stop()
-            self.refresh()
+            self.refresh(rows=False)
             self.page.draw()
 
     def _remove(self, p):

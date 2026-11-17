@@ -12,6 +12,8 @@ Two more parts of the card (2026-11-17):
 - A mouse click after a new name in a name box did nothing: the click took the focus from the box, the new name
   made the rows and the versions' buttons again, and the click went to a removed control. Now the app only records
   the name while a mouse button is down, and shows it on the card when the button is up.
+- A click or a drag in the name box of a different row after a new name put the caret at the end of that name with
+  nothing selected: the rows were made again after the click. Now the rows stay, and only their names change.
 Real mouse clicks and real keys. One page for the file (the eq_screen fixture), with a result and two EQs to compare.
 Nothing is played (tests\\listen\\conftest.py stands in for the sound card)."""
 import pytest
@@ -325,3 +327,63 @@ def test_a_click_after_a_new_name_operates_its_control(eq_screen, listen, check)
           and len(words) == 4 and words[2].endswith(before[0] + "u"), (popup is not None, in_list, words))
     listen()
     lis.choose("sel")
+
+
+@pytest.mark.timeout(900)  # (the Best fit run for the result, when this test runs alone)
+def test_a_click_in_a_name_box_after_a_new_name_keeps_its_caret(eq_screen, listen, check):
+    page = eq_screen.page
+
+    def new_name(lis, letters):
+        _click(page, _rows(lis, QLineEdit)[0])
+        QTest.keyClick(QApplication.focusWidget(), Qt.Key_End)
+        QTest.keyClicks(QApplication.focusWidget(), letters)
+
+    def press(new, drag):
+        """A mouse click between two letters near the start of the name box of row 2, or a drag from there to the
+        right; new: after a new name in row 1. Whether that box has the focus, where its caret is, what is
+        selected, and its text after the letter Q."""
+        lis = listen()
+        if new:
+            new_name(lis, "x")
+        box = _rows(lis, QLineEdit)[1]
+        page.page_area.ensureWidgetVisible(box, 0, 120)
+        qt.pump(40)
+        y = box.height() // 2
+        QTest.mousePress(box, Qt.LeftButton, Qt.NoModifier, QPoint(40, y))
+        qt.pump(40)
+        for x in (60, 80, 100) if drag else ():
+            QTest.mouseMove(box, QPoint(x, y))
+            qt.pump(20)
+        QTest.mouseRelease(box, Qt.LeftButton, Qt.NoModifier, QPoint(100 if drag else 40, y))
+        qt.pump(150)
+        f = QApplication.focusWidget()
+        if not isinstance(f, QLineEdit):
+            return _name(f)
+        at = (f is _at(_rows(lis, QLineEdit), 1), f.cursorPosition(), f.selectedText())
+        QTest.keyClicks(f, "Q")
+        typed = f.text()
+        f.setText(lis.pins[1]["name"])  # (the letter is not recorded)
+        return (*at, typed)
+
+    seen = {f"{'a drag' if drag else 'a click'}{', after a new name' if new else ''}": press(new, drag)
+            for drag in (False, True) for new in (False, True)}
+    click, drag = seen["a click"], seen["a drag"]
+    check("listen: after a new name in the name box of an EQ to compare, a mouse click in the name box of a different "
+          "row puts the caret where the click was, and a drag there selects the letters under it: the letter typed "
+          "then goes there, as with no new name before (the caret went to the end of the name with nothing "
+          "selected, and the letter went there)",
+          isinstance(click, tuple) and click[0] and 0 < click[1] < len(click[3]) - 1 and bool(drag[2])
+          and seen["a click, after a new name"] == click and seen["a drag, after a new name"] == drag, seen)
+    lis = listen()
+    before = lis.pins[0]["name"]
+    new_name(lis, "x ")  # (the space after the letter is not a part of the name)
+    box = _rows(lis, QLineEdit)[1]
+    QTest.mouseClick(box, Qt.LeftButton, Qt.NoModifier, QPoint(40, box.height() // 2))
+    qt.pump(150)
+    row = [_at(_rows(lis, kind), 0) for kind in (QLineEdit, QCheckBox, QPushButton)]
+    shown = (lis.pins[0]["name"], row[0].text(), [w.accessibleName() for w in row], _versions(lis)[2].text())
+    check("listen: after that click, the card shows the new name: in its name box, on the button of its version, and "
+          "in the names of its row that a screen reader reads",
+          shown[:2] == (before + "x", before + "x") and all(before + "x" in n for n in shown[2])
+          and shown[2][0] == f"Name of {before}x" and shown[3].endswith(before + "x"), shown)
+    listen()
