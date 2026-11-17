@@ -55,6 +55,12 @@ parent that holds the control: what covers the control (the graph that floats ov
 bubble, the Guide's layers) covers the frame too. Its objectName is "focusFrame" (the tests find it by that).
 Qt's QFocusFrame itself was not used: with the app's style it is a square 2 px line under the control, cut by the
 control's own parent (measured), and its place and shape come from the style, not from the code.
+
+A control with no padding at its sides (the property flush: the tabs in a card or a window, whose words start at the
+left edge of the labels under them) has its frame further out at its left and right (FLUSH, side_margin): at MARGIN,
+the frame's lines touched the words (2026-11-17). The frame keeps clear of the other controls of the tab's row, so
+it is less far out when one is near (Your filters' Table and Sliders are 6 px apart: 4 px). The tracer's tabs take
+no keyboard focus (trace_window.py's _no_focus), so they get no frame (measured with real Tab keys, 2026-11-17).
 """
 import weakref
 
@@ -73,6 +79,11 @@ MARGIN = 3
 OUTER = 2
 INNER = 1
 RADIUS = 4 + MARGIN
+# At the left and right of a control with no padding at its sides (side_margin): the frame this far out, which
+# leaves 5 px between its lines and the words, and at least KEEP away from the next control of the row (the two
+# values are inferred: the rows of tabs are 20, 14 and 6 px apart, measured 2026-11-17).
+FLUSH = 8
+KEEP = 2
 KINDS = (QAbstractButton, QComboBox, QSlider)
 # (keys that are not "the person uses the keyboard" by themselves)
 _MODIFIER_KEYS = (Qt.Key_Shift, Qt.Key_Control, Qt.Key_Alt, Qt.Key_Meta, Qt.Key_AltGr, Qt.Key_CapsLock,
@@ -135,6 +146,7 @@ class _Ring(QWidget):
         self.setFocusPolicy(Qt.NoFocus)
         self.engine = engine
         self.radius = RADIUS
+        self.side = MARGIN  # (how far out the frame is at the left and right of its control: side_margin)
         self.placing = False
 
     def moveEvent(self, e):
@@ -316,6 +328,26 @@ class FocusFrame(QObject):
             p = p.parentWidget()
         return p, chain
 
+    @staticmethod
+    def side_margin(w, ring=None):
+        """How far out the frame is at the left and right of w: MARGIN, and FLUSH for a control with no padding at its
+        sides (the property flush). Less than FLUSH when another control of w's row is nearer than FLUSH + KEEP (the
+        frame stays KEEP away from it), never less than MARGIN, and the same at the two sides."""
+        if w.property("flush") != "true":
+            return MARGIN
+        box, room = w.geometry(), FLUSH + KEEP
+        for s in w.parentWidget().findChildren(QWidget, options=Qt.FindDirectChildrenOnly):
+            if s is w or s is ring or s.isHidden():
+                continue
+            g = s.geometry()
+            if g.bottom() < box.top() or g.top() > box.bottom():  # (not in w's row)
+                continue
+            if g.left() > box.right():
+                room = min(room, g.left() - box.right() - 1)
+            elif g.right() < box.left():
+                room = min(room, box.left() - g.right() - 1)
+        return max(MARGIN, room - KEEP)
+
     def _aim(self, w):
         """The frame on w, when w is a control that gets it and the keyboard is in use in its window; else no frame."""
         for held in self._chain:
@@ -354,13 +386,15 @@ class FocusFrame(QObject):
         else:
             ring.raise_()
         ring.radius = (w.height() + 2 * MARGIN) / 2 if w.property("online") or w.property("tag") else RADIUS
+        ring.side = self.side_margin(w, ring)
         self.place()
 
     def place(self):
-        """The frame round its control as the control is now: MARGIN outside it, hidden with it. A side with less room
-        than MARGIN to the parent's edge comes in to that edge, while the control is whole on that side (a table's
-        first row and a button at the right edge of a scroll area had no line there: measured, 2026-11-16); a
-        control that the view cuts has its frame cut with it."""
+        """The frame round its control as the control is now: MARGIN outside it (at its left and right: the ring's
+        side, side_margin), hidden with it. A side with less room than that to the parent's edge comes in to that
+        edge, while the control is whole on that side (a table's first row and a button at the right edge of a
+        scroll area had no line there: measured, 2026-11-16); a control that the view cuts has its frame cut with
+        it."""
         w = self._target() if self._target is not None else None
         ring = self._ring
         if not _alive(w) or not _alive(ring):
@@ -371,10 +405,10 @@ class FocusFrame(QObject):
             return
         at = w.mapTo(parent, QPoint(0, 0))
         left, top, right, bottom = at.x(), at.y(), at.x() + w.width(), at.y() + w.height()
-        room_w, room_h = parent.width(), parent.height()
-        x0 = 0 if left >= 0 > left - MARGIN else left - MARGIN
+        room_w, room_h, side = parent.width(), parent.height(), ring.side
+        x0 = 0 if left >= 0 > left - side else left - side
         y0 = 0 if top >= 0 > top - MARGIN else top - MARGIN
-        x1 = room_w if right <= room_w < right + MARGIN else right + MARGIN
+        x1 = room_w if right <= room_w < right + side else right + side
         y1 = room_h if bottom <= room_h < bottom + MARGIN else bottom + MARGIN
         ring.placing = True
         try:

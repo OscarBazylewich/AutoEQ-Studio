@@ -86,8 +86,9 @@ The window looks almost the same as the apps of Windows 11. The primary buttons,
 items have your Windows accent color (on the same Colors page). On Windows 11, the background of the window is Mica,
 with a color from your desktop picture. The background has no color when a different window is active, or when
 Transparency effects are off.
-You can go to each control with Tab (in the top bar, go to the screens with the arrow keys). Each control has a name
-for a screen reader.
+You can go to each control with Tab (in the top bar, go to the screens with the arrow keys). While you use the
+keyboard, a line around a control shows that the keys operate this control. After you click with the mouse, the line
+does not show. Each control has a name for a screen reader.
 
 Guide: the 31 steps to make an EQ on Make an EQ (select, the settings, calculate, examine, save, listen and more),
 as in AutoEQ Local. Each step highlights a part of the screen, tells you about it and shows it in a short demo. In a

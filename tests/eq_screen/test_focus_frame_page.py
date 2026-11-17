@@ -118,7 +118,8 @@ def _rings(win):
 
 def _frame_on(w):
     """Is the frame on w, whole, in the window's picture? One frame in w's window, round w (at most 3 px from each of
-    its sides), with the outer colour at the middle of its four edges and the inner colour inside the left one."""
+    its sides; at most 8 px from the left and the right of a tab with no padding at its sides, the property flush),
+    with the outer colour at the middle of its four edges and the inner colour inside the left one."""
     QApplication.processEvents()
     win = w.window()
     rings = _rings(win)
@@ -126,8 +127,9 @@ def _frame_on(w):
         return False
     outer, inner = _colours()
     g, b = QRect(rings[0].mapTo(win, QPoint(0, 0)), rings[0].size()), _box(w)
-    near = (g.contains(b) and b.left() - g.left() <= 3 and b.top() - g.top() <= 3 and g.right() - b.right() <= 3
-            and g.bottom() - b.bottom() <= 3)
+    side = 8 if w.property("flush") == "true" else 3
+    near = (g.contains(b) and b.left() - g.left() <= side and b.top() - g.top() <= 3
+            and g.right() - b.right() <= side and g.bottom() - b.bottom() <= 3)
     img = qt.picture(win)
     cx, cy = g.center().x(), g.center().y()
     seen = [img.pixelColor(x, y).name() for x, y in ((g.left(), cy), (g.right(), cy), (cx, g.top()), (cx, g.bottom()),
