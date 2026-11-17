@@ -459,6 +459,7 @@ class _Slider(QSlider):
         super().__init__(Qt.Vertical)
         self.setAttribute(Qt.WA_Hover)
         self.setFixedSize(COLUMN_W, SLIDER_H)
+        self.setProperty("ownFocus", True)  # (the ring round its thumb: no focus frame round it, ui\focus_frame.py)
         self._grab = None
         self._keys = False
 
