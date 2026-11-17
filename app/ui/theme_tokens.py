@@ -1,7 +1,8 @@
 """The app's colours: Windows 11's (Fluent's, as WinUI 3 has them over Windows 11's window and card colours), light and
 dark, by token name: "bg" the window, "card" a card, "ink" the text, "ink2" secondary text, "muted" quieter text,
 "line" a card's border, "stroke" a control's, "field" a control's fill, "subtle_*" a quiet fill (pointed at, chosen),
-"accent" the main action and what's chosen (Windows' own accent colour: build() takes its palette), and the graph's.
+"accent" the main action and what's chosen (Windows' own accent colour: build() takes its palette), "focus_outer" and
+"focus_inner" the two lines of the focus frame (ui\\focus_frame.py), and the graph's.
 theme.py builds the look from them (and from Windows' own colours in a contrast theme). Text keeps 4.5:1 on what it
 sits on (tests\\ui\\test_theme.py checks). Nothing is imported here.
 
@@ -25,6 +26,7 @@ BASE_LIGHT = {
     "thumb": "#ffffff", "track": "#e0e0e0", "scroll": "#a0a0a0", "scroll_hover": "#8a8a8a",
     "warn": "#9d5d00", "warn_bg": "#fff4ce", "err": "#c42b1c", "good": "#0f7b0f", "pill": "#dff6dd",
     "accent_disabled": "#c5c5c5", "on_accent_disabled": "#ffffff",
+    "focus_outer": "#1b1b1b", "focus_inner": "#ffffff",  # (the text's colour, and its opposite inside it)
 }
 BASE_DARK = {
     "bg": "#202020", "card": "#2b2b2b", "menu": "#2c2c2c", "ink": "#ffffff", "ink2": "#cecece", "muted": "#a8a8a8",
@@ -35,6 +37,7 @@ BASE_DARK = {
     "thumb": "#454545", "track": "#4a4a4a", "scroll": "#8a8a8a", "scroll_hover": "#a0a0a0",
     "warn": "#fce100", "warn_bg": "#433519", "err": "#ff99a4", "good": "#6ccb5f", "pill": "#393d1b",
     "accent_disabled": "#434343", "on_accent_disabled": "#a7a7a7",
+    "focus_outer": "#ffffff", "focus_inner": "#000000",
 }
 # Windows' default accent palette (blue): Light 3, Light 2, Light 1, the accent, Dark 1, Dark 2, Dark 3
 DEFAULT_ACCENT = ("#99ebff", "#4cc2ff", "#0091f8", "#0078d4", "#005fb8", "#003e92", "#001a68")

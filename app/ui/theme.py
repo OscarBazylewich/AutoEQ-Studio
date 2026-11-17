@@ -10,6 +10,7 @@ device screens match:
 - chips (QLabel role "chip"): a small value with its name ("Error 0.31 dB")
 - graph colours: graph_colours() (measurement, target, with EQ, the EQ itself) for pyqtgraph: fixed, never the accent
 - icons: ui\\icons.py's put(button, name), Windows 11's symbols beside a button's words
+- the focus frame: ui\\focus_frame.py, a frame round the control with the focus while the keyboard is in use
 
 apply(app) sets the style, the font (Segoe UI Variable, Windows 11's; Segoe UI on Windows 10), the palette and the
 stylesheet; tokens() gives the colours in use. With one of Windows' contrast themes on (Settings > Accessibility >
@@ -104,7 +105,7 @@ def system_tokens():
                               "with_eq", "c1", "btn", "sel")})
     t.update({k: hi_text for k in ("on_accent", "on_btn", "on_sel", "sel_ink", "sel_accent")})
     t.update(disabled=grey, accent_disabled=grey, on_accent_disabled=win, meas=link, c2=grey, c3=link, c5=grey,
-             grid=grey, accent_text=link, face=face, face_text=face_text)
+             grid=grey, accent_text=link, face=face, face_text=face_text, focus_outer=text, focus_inner=win)
     return t
 
 
@@ -211,7 +212,8 @@ class _Names(QObject):
     its tooltip ("Delete from the app"), a text box without a name by its grey placeholder ("Search the help…").
     A name given in the code stays. Also: Windows' contrast theme or accent colour changed while the app runs, and a
     pop-up (a menu, a drop-down's list, a tooltip) shown with Windows 11's rounded corners (winsys.round_corners, on
-    Windows 11's own screen only)."""
+    Windows 11's own screen only); a menu or a list that pops up is also told to the focus frame, which watches it
+    while it shows (focus_frame.watch_popup)."""
 
     def eventFilter(self, obj, e):
         t = e.type()  # (once: the three tests below each read it before, 2.55 µs an event; now 0.77)
@@ -219,10 +221,12 @@ class _Names(QObject):
             if isinstance(obj, QWidget):
                 _reader_name(obj)
         elif t == _SHOW:
-            if _state.get("corners") and isinstance(obj, QWidget) and obj.isWindow() and \
-                    obj.windowType() in (Qt.Popup, Qt.ToolTip) and not obj.property("roundedByWindows"):
-                from ui import winsys
-                obj.setProperty("roundedByWindows", winsys.round_corners(int(obj.winId())))
+            if isinstance(obj, QWidget) and obj.isWindow() and obj.windowType() in (Qt.Popup, Qt.ToolTip):
+                if _state.get("corners") and not obj.property("roundedByWindows"):
+                    from ui import winsys
+                    obj.setProperty("roundedByWindows", winsys.round_corners(int(obj.winId())))
+                if obj.windowType() == Qt.Popup and _state.get("frame") is not None:
+                    _state["frame"].watch_popup(obj)  # (a click in a menu takes the focus frame off: focus_frame.py)
         elif t == _THEME_CHANGE:
             if isinstance(obj, QWidget) and obj.isWindow() and _state.get("following") and not _state.get("again") \
                     and (bool(_state.get("contrast")) != high_contrast() or accent_palette() != _state.get("accent")):
@@ -307,6 +311,8 @@ def apply(app, dark=None, contrast=None):
         _state["corners"] = winsys.supported_effects(QGuiApplication.platformName())[1]
         _state["names"] = _Names(app)
         app.installEventFilter(_state["names"])
+    from ui import focus_frame
+    _state["frame"] = focus_frame.install(app)  # (the frame round the control with the focus, for the keyboard)
     for fn in list(_state["listeners"]):  # (what draws its own colours: the graph, Help's page, the icons)
         try:
             fn()

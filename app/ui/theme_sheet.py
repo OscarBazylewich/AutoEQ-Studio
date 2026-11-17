@@ -310,6 +310,16 @@ def check_boxes(t, img):
 """
 
 
+def focus_frame(t, img):
+    """Push buttons, tick boxes and round buttons without Fusion's own focus box (a faint box in the control, drawn
+    only after a key moved the focus; tool buttons, drop-down lists and sliders had none: measured, 2026-11-16). The
+    app's focus frame shows round the control instead (ui\\focus_frame.py): one look. Without the focus a control is
+    drawn as before."""
+    return """
+    QPushButton, QCheckBox, QRadioButton { outline: none; }
+"""
+
+
 # ---------------------------------------------------------------- each screen's own rules (after the shared ones,
 # so a screen's rule wins over them): its controls by objectName (#name) or a property of its own, for what used to
 # be a style set in the screen's code. Each belongs to that screen's area (the restyle's stage 2, 2026-10-23).
@@ -516,7 +526,7 @@ def guide_and_help(t, img):
 
 
 PARTS = [base_and_tooltips, cards_and_group_boxes, text_roles, buttons, top_bar, inputs, lists_and_tables,
-         progress_and_sliders, scroll_areas_and_menus, settings_boxes, check_boxes,
+         progress_and_sliders, scroll_areas_and_menus, settings_boxes, check_boxes, focus_frame,
          window_screens, eq_screen, eq_windows, find_windows, listen, tracer, guide_and_help]
 
 
