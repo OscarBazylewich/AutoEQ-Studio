@@ -527,7 +527,72 @@ def run(look):
     win.close()
     win.deleteLater()
     qapp.processEvents()
+    d["tabs with no padding at their sides"] = flush_tabs(outer_c, inner_c)
     return d
+
+
+def flush_tabs(outer_c, inner_c):
+    """A window of its own with a row of tabs as a card's (nav and flush: no padding at their sides): two tabs 20 px
+    apart, then two 6 px apart, then a push button. For each tab that Tab gives the focus: how far out its frame is
+    (left, top, right, bottom), the colours of the frame's three lines at its left and at its right, how many pixels
+    between those lines and the tab differ from the picture with no frame, and how many of the tab itself; whether
+    every control kept its place."""
+    win = QWidget()
+    row = QHBoxLayout(win)
+    row.setContentsMargins(16, 16, 16, 16)
+    row.setSpacing(0)
+    first = QPushButton("First")
+    row.addWidget(first)
+    tabs = {}
+    for name, gap in (("Automatically", 30), ("Manually", 20), ("Table", 30), ("Sliders", 6)):
+        b = tabs[name] = QPushButton(name)
+        b.setCheckable(True)
+        theme.mark(b, nav=True, flush=True)
+        row.addSpacing(gap)
+        row.addWidget(b)
+    row.addSpacing(18)
+    row.addWidget(QPushButton("Add filter"))
+    row.addStretch(1)
+    win.show()
+    win.activateWindow()
+    QTest.qWaitForWindowActive(win, 3000)
+    for _ in range(5):
+        qapp.processEvents()
+    handle = win.windowHandle()
+    QTest.mouseClick(handle, Qt.LeftButton, Qt.NoModifier, QPoint(4, 4))  # (the mouse in use: no frame)
+    first.setFocus(Qt.OtherFocusReason)
+    qapp.processEvents()
+    plain = win.grab().toImage()
+    places = {k: b.geometry().getRect() for k, b in tabs.items()}
+    out = {}
+    for name, b in tabs.items():
+        QTest.keyClick(handle, Qt.Key_Tab)
+        qapp.processEvents()
+        ring = next((r for r in win.findChildren(QWidget, "focusFrame") if r.isVisible()), None)
+        if QApplication.focusWidget() is not b or ring is None:
+            out[name] = {"focus": QApplication.focusWidget() is b, "frame": ring is not None}
+            continue
+        img, box, fr = win.grab().toImage(), b.geometry(), ring.geometry()
+        far = [box.left() - fr.left(), box.top() - fr.top(), fr.right() - box.right(), fr.bottom() - box.bottom()]
+        cy = box.center().y()
+        lines = [[img.pixelColor(x, cy).name() for x in xs]
+                 for xs in (range(fr.left(), fr.left() + 3), range(fr.right(), fr.right() - 3, -1))]
+        between = [x for x in (*range(fr.left() + 3, box.left()), *range(box.right() + 1, fr.right() - 2))]
+        out[name] = {"out": far, "lines": lines == [[outer_c, outer_c, inner_c]] * 2,
+                     "pixels between the lines and the tab": len(between),
+                     "changed between the lines and the tab": sum(img.pixel(x, cy) != plain.pixel(x, cy)
+                                                                  for x in between),
+                     # (without its four corners, 4 px each, as for the other controls: the frame goes round them)
+                     "changed in the tab": sum(img.pixel(x, y) != plain.pixel(x, y)
+                                               for y in range(box.top(), box.bottom() + 1)
+                                               for x in range(box.left(), box.right() + 1)
+                                               if min(x - box.left(), box.right() - x) >= 4
+                                               or min(y - box.top(), box.bottom() - y) >= 4)}
+    out["places kept"] = places == {k: b.geometry().getRect() for k, b in tabs.items()}
+    win.close()
+    win.deleteLater()
+    qapp.processEvents()
+    return out
 
 
 print(json.dumps({look: run(look) for look in ("light", "dark")}))
@@ -632,6 +697,21 @@ def test_no_control_changes(seen, check):
           "Fusion's own focus box, drawn in a button, a tick box and a round button after a key, is gone): one frame "
           "in the window", all(kept.values()) and all(v == want for v in inside.values())
           and all(v == 1 for v in count.values()), (kept, inside, count) if any(inside.values()) else err)
+
+
+def test_a_tab_with_no_padding_at_its_sides(seen, check):
+    # (2026-11-17: the tabs of a card, as Automatically and Manually, have no padding at their sides, so that their
+    # words start at the left edge of the labels under them. With the frame 3 px out, its lines touched the words)
+    tabs, err = _both(seen, "tabs with no padding at their sides")
+    far = {"out": [8, 3, 8, 3], "lines": True, "pixels between the lines and the tab": 10,
+           "changed between the lines and the tab": 0, "changed in the tab": 0}
+    near = dict(far, out=[4, 3, 4, 3], **{"pixels between the lines and the tab": 2})
+    want = {"Automatically": far, "Manually": far, "Table": near, "Sliders": near, "places kept": True}
+    check("focus frame: the frame of a tab with no padding at its sides is 8 px out at its left and right, with 5 "
+          "clear pixels between its lines and the tab, and 3 px out above and below; when the next tab of the row "
+          "is 6 px away, it is 4 px out at the two sides, 2 px from that tab; each tab keeps its place, its size and "
+          "its pixels (3 px out, the frame's lines touched the words of the tab)",
+          all(v == want for v in tabs.values()), tabs if any(tabs.values()) else err)
 
 
 def test_it_goes_with_its_control(seen, check):

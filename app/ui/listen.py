@@ -27,8 +27,10 @@ import math
 import os
 
 from PySide6.QtCore import QPoint, QRect, QSignalBlocker, QSize, Qt, QTimer
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFileDialog, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
-                               QLayout, QLineEdit, QMessageBox, QPushButton, QSlider, QVBoxLayout, QWidget)
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QFileDialog, QGridLayout, QGroupBox,
+                               QHBoxLayout, QLabel, QLayout, QLineEdit, QMessageBox, QPushButton, QSlider,
+                               QVBoxLayout, QWidget)
 
 import textfile
 from ui import bubble, help_window, icons, own_items, placed, tasks, theme, window_parts
@@ -296,6 +298,8 @@ class Listen(QGroupBox):
         self.active, self.picked = "sel", False
         self.left_key, self.right_key, self.sides_picked = "off", "sel", False
         self.marker_timer = QTimer(self, interval=100, timeout=self.page.draw_marker)
+        # (a new name that a mouse press told: on the card when the button is up, _rename)
+        self._names_timer = QTimer(self, interval=20, timeout=self._show_new_names)
         self.source_changed(save=False)
         self.volume_changed()
         self.tone_lab.setText(self._tone_text(self.tone_hz()))  # (the tone's frequency shown from the start)
@@ -524,7 +528,6 @@ class Listen(QGroupBox):
         sw = self.page.sw
         sw.s["listen"] = dict(sw.s.get("listen") or {}, **kw)
         if not hasattr(self, "_save_timer"):
-            from PySide6.QtWidgets import QApplication
             self._save_timer = QTimer(self, singleShot=True, interval=500, timeout=sw.save)
             QApplication.instance().aboutToQuit.connect(sw.save)
         self._save_timer.start()
@@ -545,8 +548,9 @@ class Listen(QGroupBox):
                         COLOURS[p.get("color", i) % len(COLOURS)]))
         return out
 
-    def refresh(self):
-        """After a new result, an edit, or another IEM: the versions and the buttons."""
+    def refresh(self, rows=True):
+        """After a new result, an edit, or another IEM: the versions and the buttons. rows=False when only a name
+        changed (_show_new_names): the rows of the EQs to compare stay, with their new names."""
         vs = self.versions()
         keys = [k for k, *_ in vs]
         if self.engine:
@@ -566,7 +570,10 @@ class Listen(QGroupBox):
             self.abx_end(finished=False, why=stops)  # (what was answered is said, and why it stopped)
         self._apply_to_engine()
         self.render_versions()
-        self.render_pins()
+        if rows:
+            self.render_pins()
+        else:
+            self._name_pins()
         self.render_device_eq()
         self._abx_fill()
 
@@ -654,6 +661,18 @@ class Listen(QGroupBox):
             if b is not None:
                 b.show()  # (now, not after the event loop as Qt does it: a new control gets the focus only when
                 b.setFocus(Qt.OtherFocusReason)  # it shows, and until then the focus is on no control)
+        self._fill_sides()
+        note = "Listen to the EQ with your IEM or headphone. "
+        if self.page.curves:
+            note = f"Listen with the {self.page.curves['name']}. "
+        if len(self.versions()) < 2:
+            note += "To hear more than one version, calculate an EQ or keep EQs to compare. "
+        if split:
+            note += "Also interchange the sides: your two ears are different. "
+        self.note.setText(note + "Start with a low volume.")
+
+    def _fill_sides(self):
+        """Left's and Right's lists: the versions, what was selected kept."""
         for box, key in ((self.left, self.left_key), (self.right, self.right_key)):
             box.blockSignals(True)
             box.clear()
@@ -663,14 +682,6 @@ class Listen(QGroupBox):
             box.sort_items(pinned=sum(k in ("off", "sel") for k, *_ in vs))  # (EQ off, the selected EQ on top: 22)
             box.setCurrentIndex(max(0, box.findData(key)))
             box.blockSignals(False)
-        note = "Listen to the EQ with your IEM or headphone. "
-        if self.page.curves:
-            note = f"Listen with the {self.page.curves['name']}. "
-        if len(self.versions()) < 2:
-            note += "To hear more than one version, calculate an EQ or keep EQs to compare. "
-        if split:
-            note += "Also interchange the sides: your two ears are different. "
-        self.note.setText(note + "Start with a low volume.")
 
     def ears_changed(self):
         self._save_listen_settings(ears=self.ears.currentData())
@@ -704,6 +715,11 @@ class Listen(QGroupBox):
 
     def show_names(self):
         self.revealed = True
+        # (Show the names goes out of view below. With the focus, it gave the focus to the next control of the page:
+        # list A of the ABX test, where the next Space opened that list, 2026-11-17. Hide the names gets it: the
+        # control at its left in the same row, which brought this button into view and brings it back. UI-RULES 30)
+        if self.window().focusWidget() is self.reveal_btn:
+            self.blind.setFocus(Qt.OtherFocusReason)
         self.render_versions()
 
     # ---------------------------------------------------------------- playing
@@ -894,21 +910,30 @@ class Listen(QGroupBox):
         self.refresh()
 
     def save_pins(self):
-        """This IEM's list saved; refused, the list is read back as it's kept (the change undone). Returns whether
-        it was saved."""
-        if not self.pins_for:
+        """This IEM's list saved, and the card and the graph drawn with it; refused, the list is read back as it's
+        kept (the change undone). Returns whether it was saved."""
+        kept = self._store_pins()
+        if kept is None:
             return False
+        self.pins = kept
+        self._names_timer.stop()  # (a new name that waited for the mouse button is on the card with this)
+        self.refresh()
+        self.page.draw()
+        return True
+
+    def _store_pins(self):
+        """This IEM's list written to its file: the list as kept, or None when it was refused (said; the list is
+        then read back as it's kept: the change undone)."""
+        if not self.pins_for:
+            return None
         r = self.page.svc.call("/api/listen/save", {"device": self.pins_for, "eqs": self.pins})
         if r.get("error"):
             QMessageBox.warning(self, "EQs to compare", r["error"])
             device, self.pins_for = self.pins_for, None
             self.load_pins(device)
             self.page.draw()
-            return False
-        self.pins = r.get("eqs", self.pins)
-        self.refresh()
-        self.page.draw()
-        return True
+            return None
+        return r.get("eqs", self.pins)
 
     def add(self, name, filters, note="", say=None, near=None):
         """An EQ into this IEM's list (the same filters twice: refused). Returns whether it went in. say: where a window
@@ -1025,7 +1050,6 @@ class Listen(QGroupBox):
             theme.mark(sw, listen_mark=COLOURS[p.get("color", i) % len(COLOURS)])  # (theme_sheet.py's listen part)
             grid.addWidget(sw, i, 0)
             name = QLineEdit(p["name"])
-            name.setAccessibleName(f"Name of {p.get('name') or 'this EQ'}")  # (a screen reader read it as nothing)
             name.editingFinished.connect(lambda p=p, name=name: self._rename(p, name.text()))
             grid.addWidget(name, i, 1)
             note = QLabel(f"{len(p['filters'])} filter{'' if len(p['filters']) == 1 else 's'}" +(f" · {p['note']}" if p.get("note") else ""))
@@ -1037,14 +1061,14 @@ class Listen(QGroupBox):
             grid.addWidget(graph, i, 3)
             x = QPushButton("✕")
             theme.mark(x, quiet=True)  # (no fill until pointed at, as every ✕)
-            x.setAccessibleName(f"Remove {p.get('name') or 'this EQ'} from the EQs to compare")
-            graph.setAccessibleName(f"Show {p.get('name') or 'this EQ'} on the graph")
             x.setToolTip("Remove from the list")
             x.clicked.connect(lambda _=False, p=p: self._remove(p))
             grid.addWidget(x, i, 4)
             rows.append({"name": name, "graph": graph, "x": x})
             for kind, w in rows[i].items():
                 w.setProperty("pin_place", f"{kind}:{i}")
+        self.pin_rows = rows
+        self._name_pins()
         # (the new rows in their place in the Tab sequence, after the ABX test above them and before the buttons
         # that add an EQ: Qt put them after those buttons, 2026-11-16)
         tab_order(self.abx_box, table)
@@ -1054,11 +1078,52 @@ class Listen(QGroupBox):
             table.show()  # (now, as the version's button above: with the focus not yet on the row, Tab after a new
             w.setFocus(Qt.OtherFocusReason)  # name moved the page to the list, 7 px)
 
+    def _name_pins(self):
+        """Each row of the list with the name of its EQ as it is now: the name box, and the names of the row's
+        controls that a screen reader reads. A name box with the focus keeps its text: the letters typed there."""
+        f = self.window().focusWidget()
+        for p, row in zip(self.pins, self.pin_rows):
+            name = p.get("name") or "this EQ"
+            if row["name"] is not f and row["name"].text() != p["name"]:
+                row["name"].setText(p["name"])
+            row["name"].setAccessibleName(f"Name of {name}")  # (a screen reader read it as nothing)
+            row["graph"].setAccessibleName(f"Show {name} on the graph")
+            row["x"].setAccessibleName(f"Remove {name} from the EQs to compare")
+
     def _rename(self, p, text):
+        """A new name from a name box: recorded, and shown on the card and the graph.
+        A mouse press on another control takes the focus from the name box, and the box tells its new name before
+        that control gets the press. The rows and the versions' buttons were made again then: the press and its
+        release went to a removed control, and Graph or ✕ of a row did nothing (2026-11-17). So while a mouse button
+        is down, the name is only recorded, in the list's own EQs (the rows' controls work on them), and put into
+        the lists that open at a press. The card shows it when the button is up (_show_new_names): after the
+        control did what the click asked, and no control moved under the pointer before that. The rows are not made
+        again then either: a click or a drag in the name box of another row put its caret at the end of the name
+        with nothing selected, as the new box of that row had the focus (2026-11-17)."""
         text = text.strip()[:80]
-        if text and text != p["name"]:
-            p["name"] = text
+        if not text or text == p["name"]:
+            return
+        p["name"] = text
+        if QGuiApplication.mouseButtons() == Qt.NoButton:  # (Tab, Enter, another app's window: no click to keep)
             self.save_pins()
+            return
+        kept = self._store_pins()
+        if kept is not None:
+            for mine, theirs in zip(self.pins, kept):
+                mine.update(theirs)
+            self.update_sound()
+            self._fill_sides()
+            self._abx_fill()
+            self._names_timer.start()
+
+    def _show_new_names(self):
+        """A new name recorded during a mouse press (_rename), on the card and the graph: when the button is up and
+        no list or menu shows (a list that the press opened stays as it is while it shows). The rows stay: the
+        control that the click was on keeps its caret and its selection."""
+        if QGuiApplication.mouseButtons() == Qt.NoButton and QApplication.activePopupWidget() is None:
+            self._names_timer.stop()
+            self.refresh(rows=False)
+            self.page.draw()
 
     def _remove(self, p):
         """✕: off the list, with Undo in the window's message line (UI-RULES 20, 24: the row of its own that was here

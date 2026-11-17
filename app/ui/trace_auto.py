@@ -233,7 +233,8 @@ ALONE_GREY = 25
 # 3 (rows_are_grey). On the website's cream page (21 levels) the second limit, 18, applies; on a white or a neutral
 # gray page, this one. 600 look-alikes with dB grid lines of 0 to 20 levels on a white, a gray and the cream page
 # (2026-11-13): with 8, 175 pass, 49 of them more than 0.5 dB off; with 4, 8 more such results; with 12 or 16, 16 or
-# 35 of them fail, but 7 or 17 correct results fail too; no form on the cream page changes (known limit 26)
+# 35 of them fail, but 7 or 17 correct results fail too; no form on the cream page changes (known limit 26).
+# The user keeps the value 8 (2026-11-16)
 ROW_GREY = 8
 # A second line alone with this share of the points of the line with the most points, apart from it, is a second
 # target line (second_line)
@@ -2148,7 +2149,8 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None):
             " " + ONLY_GREY_LINE if grey else ""))
         # (an entry of a measurement and a gray line alone: the status line shows only the first failed check. For
         # the website's graph of a target, that was axes_db_range (-20 dB to 20 dB), and the user did not see that the
-        # graph showed only a target, 2026-11-13: that check gets the sentence too; inferred)
+        # graph showed only a target, 2026-11-13: that check gets the sentence too. The user approved this rule for
+        # now, 2026-11-16)
         first = next(i for i, c in enumerate(checks) if not c.ok)
         if grey and checks[first].name != "trace_curve":
             checks[first] = checks[first]._replace(reason=checks[first].reason + " " + ONLY_GREY_LINE)
