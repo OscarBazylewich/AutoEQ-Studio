@@ -20,11 +20,13 @@ A value the automatic settings fill in becomes "yours" once you change it (kept 
 until made automatic again); with them off nothing changes by itself. Settings that change the curves (target adjustments,
 the scored range, the website's levelling, the rig conversion) draw the graph again.
 
-EqSettings(page) keeps what the settings need; build_parts(slot, target_row, target_under) makes them in four parts,
-one per step of the page's build (ui/eq_page_cards.py: each a few ms, so the window answers in between): Adjust… (its
-button on the Target row), the Settings fold, More settings' first half, its second half (Form.add_sections). Each
-part goes into its place in the step that makes it. Adjust…'s window is made at its first use (adjust()), not in the
-build: with its graph it was most of the build's "adjust" step (34 ms, now under 1 ms, offscreen, 2026-11-10).
+EqSettings(page) keeps what the settings need; build_parts(slot, above, target_row, target_under) makes them in four
+parts, one per step of the page's build (ui/eq_page_cards.py: each a few ms, so the window answers in between):
+Adjust… (its button on the Target row), the Settings fold, More settings' first half, its second half
+(Form.add_sections). Each part goes into its place in the step that makes it, on the page and in the Tab sequence
+(tab_order: Qt puts a part made later at the sequence's end). Adjust…'s window is made at its first use (adjust()),
+not in the build: with its graph it was most of the build's "adjust" step (34 ms, now under 1 ms, offscreen,
+2026-11-10).
 """
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtWidgets import (QCheckBox, QDialog, QFileDialog, QGridLayout, QHBoxLayout, QLabel, QMessageBox,
@@ -32,6 +34,7 @@ from PySide6.QtWidgets import (QCheckBox, QDialog, QFileDialog, QGridLayout, QHB
 
 from ui import help_window, icons, placed, theme
 from ui.bubble import InfoMark
+from ui.eq_page_parts import tab_order
 from ui.forms import Field, Fold, Form, Limits, fmt_list
 
 ADJUST_GAINS = ("tilt", "bass_gain", "halftilt_gain", "ear_gain", "treble_gain", "air_gain")  # (eq.service's)
@@ -114,10 +117,11 @@ class EqSettings:
         from eq import settings as eq_settings
         self.eq_settings = eq_settings
 
-    def build_parts(self, slot, target_row, target_under):
+    def build_parts(self, slot, above, target_row, target_under):
         """The settings made in four parts, each put in its place in the same step (yield: the step ends there):
         Adjust… on the Target row (target_row; its summary in target_under, its window), the Settings fold into slot
-        (the Make the EQ card's), More settings' first half into slot, its second half into More settings' form."""
+        (the Make the EQ card's), More settings' first half into slot, its second half into More settings' form.
+        above: the part of the card directly above slot (Tab goes from its last control to Settings)."""
         page, m = self.page, self.page.meta
         C = self.eq_settings.CHOICES
         S = lambda: page.S
@@ -130,9 +134,11 @@ class EqSettings:
         audible = lambda: multi() and S()["scoring"]["pick"] == "audible"
         get, changed, make_auto, say = self.get, self.changed, self.make_auto, lambda t: page.status(t, 6000)
 
-        # ---------------------------------------------------------------- Adjust…, on the Target row (first: Tab
-        # reaches it after Find… and Add…, as when the page was made in one go)
+        # ---------------------------------------------------------------- Adjust…, on the Target row: Tab reaches
+        # it after the row's Find… and Add… (made after the cards under the row, it came after Queue… in the Tab
+        # sequence: Tab on Queue… gave it the focus, and the page scrolled to its top, 2026-11-16)
         self._adjust_panel(C, get, changed, make_auto, say, target_row, target_under)
+        tab_order(target_row.parentWidget())
         yield "adjust"
 
         # ---------------------------------------------------------------- Settings (a row that opens, in Make the EQ)
@@ -169,6 +175,7 @@ class EqSettings:
         self.fold.add(self.form)
         self._label_checks()
         slot.addWidget(self.fold)
+        tab_order(above, self.fold)  # (before Calculate, Queue… and Start, which are under it: it came after them)
         yield "settings"
 
         # ---------------------------------------------------------------- More settings (in two halves), a tab for
@@ -248,11 +255,18 @@ class EqSettings:
         # (a tick box's words in the step that makes it: a screen reader's name is its words, and a box without words
         # when Qt first draws it is named by its tooltip, theme._Names)
         self._label_checks(self.adv_form)
+        # (Tab leaves this box as it leaves the form's other boxes: Qt's Tab in a box of more than one line wrote a
+        # tab character into the setting, and the focus stayed in the box, 2026-11-16)
+        self.adv_form.fields["best_fit.start_filters"].box.setTabChangesFocus(True)
         self.adv.add(self.adv_form)
         slot.addWidget(self.adv)
+        # (after Settings and what is in it; the tabs' buttons before the tabs' settings: the form makes each button
+        # after its own tab's settings)
+        tab_order(self.fold, self.adv.btn, *self.adv_form.tab_btns.values(), self.adv_form.pages)
         yield "advanced, first half"
         self.adv_form.add_sections(sections[2:])  # (Website, Saved files, History, This PC)
         self._label_checks(self.adv_form)
+        tab_order(self.adv.btn, *self.adv_form.tab_btns.values(), self.adv_form.pages)  # (the new tabs with the others)
         # (no refresh() here: the page's next step, the result card's, shows the settings (show_settings), which
         # refreshes all of them: the same work done twice, a few ms, 2026-11-10)
         yield "advanced, second half"

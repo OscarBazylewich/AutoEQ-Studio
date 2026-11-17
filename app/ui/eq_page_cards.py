@@ -70,8 +70,9 @@ class EqCards:
         yield "Make the EQ"
         from ui.eq_settings import EqSettings
         settings = EqSettings(self)
-        # (Adjust… onto the Target row; Settings and More settings, rows that open in Make the EQ, in their place)
-        yield from settings.build_parts(self.settings_slot, self.target_row, self.target_under)
+        # (Adjust… onto the Target row; Settings and More settings, rows that open in Make the EQ, in their place,
+        # under the way's own steps: in the Tab sequence too)
+        yield from settings.build_parts(self.settings_slot, self.way_stack, self.target_row, self.target_under)
         self.settings = settings
         self.measurement_pad.follow(settings.adjust_btn)  # (the two drop-downs end at one x: Adjust… is the Target's)
         col.addWidget(self._result_card())

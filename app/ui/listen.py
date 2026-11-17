@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFileDialog, QGridLayout
 
 import textfile
 from ui import bubble, help_window, icons, own_items, placed, tasks, theme, window_parts
+from ui.eq_page_parts import tab_order
 from ui.search_combo import SearchCombo
 
 SOUNDS = [("music", "Music (short, it starts again at the end)"), ("pink", "Pink noise"), ("white", "White noise"),
@@ -634,6 +635,9 @@ class Listen(QGroupBox):
             b.clicked.connect(lambda _=False, k=key: self.choose(k))
             self.version_group.addButton(b)
             self.ab.addWidget(b)
+        # (the new buttons in their place in the Tab sequence, after the sound's rows above them: Qt put them
+        # after the card's last button, 2026-11-16)
+        tab_order(self.file_row, self.ab_box)
         for box, key in ((self.left, self.left_key), (self.right, self.right_key)):
             box.blockSignals(True)
             box.clear()
@@ -1011,6 +1015,9 @@ class Listen(QGroupBox):
             x.setToolTip("Remove from the list")
             x.clicked.connect(lambda _=False, p=p: self._remove(p))
             grid.addWidget(x, i, 4)
+        # (the new rows in their place in the Tab sequence, after the ABX test above them and before the buttons
+        # that add an EQ: Qt put them after those buttons, 2026-11-16)
+        tab_order(self.abx_box, table)
 
     def _rename(self, p, text):
         text = text.strip()[:80]
