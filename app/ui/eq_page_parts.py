@@ -9,7 +9,8 @@ MODE_HINT, TICKS and file_base_name still import from ui/eq_page.py too.
   use_menu_order(sw, own): Use on device's device rows and Update rows, in one sequence (the menu and the Guide)
 - label(text, role, wrap): a label, in one of the theme's text roles; set_note(lab, text): a note's words, the note
   hidden while it has none (so an empty one takes no room); hz(v): a frequency in Hz or kHz
-- combo_width(combo, text): the width a drop-down needs for text; SameWidth: empty room as wide as another widget
+- combo_width(combo, text): the width a drop-down needs for text; SameWidth: empty room as wide as another widget;
+  WrapRow: a row of controls that takes more lines when its card has less room than the row needs on one
 - Elided: a one-line label that never makes its row wider than the window (the values under the pointer); NameCombo:
   a drop-down whose name, when longer than its room, ends in "…" as Windows 11's own do (Target, Measurement, Runs
   this session); PairTitle: "A  →  B" on one line, or B under A when the window is narrow (the graph's title)
@@ -17,10 +18,10 @@ MODE_HINT, TICKS and file_base_name still import from ui/eq_page.py too.
 - Notices: a message from a worker thread, said on the window's thread; modal(dlg): a window over the page until it's
   closed; paste_dialog(...): a window to paste filters into, with a name (By hand, Listen's EQs to compare)
 """
-from PySide6.QtCore import QObject, QSize, Qt, Signal
-from PySide6.QtWidgets import QLabel, QStyle, QStyleOptionComboBox, QStylePainter, QWidget
+from PySide6.QtCore import QObject, QRect, QSize, Qt, Signal
+from PySide6.QtWidgets import QLabel, QLayout, QStyle, QStyleOptionComboBox, QStylePainter, QWidget
 
-from ui import theme
+from ui import own_items, theme
 from ui.search_combo import SearchCombo
 
 
@@ -212,6 +213,101 @@ class SameWidth(QWidget):
 
     def minimumSizeHint(self):
         return self.sizeHint()
+
+
+class WrapRow(QLayout):
+    """A row of controls, placed as a QHBoxLayout places them while they fit on one line: each as wide as it asks
+    for, from the left, and those added after to_the_end() at the row's right end. With less room, a control that
+    does not fit after the one before it starts the next line, so the controls keep their sequence and the row never
+    makes its card wider than the window. It says how high it is at a width (height for width).
+    The result card's tools were the widest row of Make an EQ: 869 px on one line, with 779 px of room in the smallest
+    window (841 px), so the page scrolled sideways by 90 px (measured, 2026-11-16)."""
+
+    def __init__(self):
+        super().__init__()
+        self.setContentsMargins(0, 0, 0, 0)
+        self._items, self._space, self._end = own_items(self), 0, False
+
+    def space(self, px):
+        """px more room before the next control (a QHBoxLayout's addSpacing). A line never starts with it."""
+        self._space += px
+
+    def to_the_end(self):
+        """The controls added from now on go to the right end of their line (a QHBoxLayout's addStretch)."""
+        self._end = True
+
+    # ---------------------------------------------------------------- Qt's own: what's in it
+    def addItem(self, item):
+        self._items.append((item, self._space, self._end))
+        self._space = 0
+
+    def count(self):
+        return len(self._items)
+
+    def itemAt(self, i):
+        return self._items[i][0] if 0 <= i < len(self._items) else None
+
+    def takeAt(self, i):
+        return self._items.pop(i)[0] if 0 <= i < len(self._items) else None
+
+    def expandingDirections(self):
+        return Qt.Orientation.Horizontal
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, width):
+        lines = self._lines(width)
+        return sum(self._high(line) for line in lines) + self.spacing() * max(0, len(lines) - 1)
+
+    def sizeHint(self):
+        """On one line."""
+        wide = 0
+        for item, space, _end in self._shown():
+            wide += (self.spacing() + space if wide else 0) + item.sizeHint().width()
+        return QSize(wide, self.heightForWidth(wide))
+
+    def minimumSize(self):
+        """Its narrowest: as wide as its widest control (each on a line of its own), and one line high (as a label
+        whose words wrap: how high it is at a width comes from heightForWidth)."""
+        shown = [item for item, _space, _end in self._shown()]
+        return QSize(max((item.sizeHint().width() for item in shown), default=0),
+                     max((item.minimumSize().height() for item in shown), default=0))
+
+    def setGeometry(self, rect):
+        super().setGeometry(rect)
+        y = rect.y()
+        for line in self._lines(rect.width()):
+            high = self._high(line)
+            for item, x, wide in line:
+                # (the line's height for each, as in a QHBoxLayout: Qt puts a lower control, a tick box, in its middle)
+                item.setGeometry(QRect(rect.x() + x, y, wide, high))
+            y += high + self.spacing()
+
+    # ---------------------------------------------------------------- the lines
+    def _shown(self):
+        return [part for part in self._items if not part[0].isEmpty()]  # (a hidden control takes no room)
+
+    @staticmethod
+    def _high(line):
+        return max(item.sizeHint().height() for item, _x, _wide in line)
+
+    def _lines(self, width):
+        """The controls in lines of width px: [[(item, its x from the line's start, its width)]]."""
+        gap, lines, ends = self.spacing(), [], []
+        for item, space, end in self._shown():
+            wide = item.sizeHint().width()
+            x = lines[-1][-1][1] + lines[-1][-1][2] + gap + space if lines else 0
+            if not lines or x + wide > width:
+                lines.append([])
+                ends.append(0)
+                x = 0
+            lines[-1].append((item, x, wide))
+            ends[-1] = ends[-1] + 1 if end else 0  # (how many controls at this line's end are for its right end)
+        for line, n in zip(lines, ends):
+            move = max(0, width - line[-1][1] - line[-1][2])
+            line[len(line) - n:] = [(item, x + move, wide) for item, x, wide in line[len(line) - n:]]
+        return lines
 
 
 class NameCombo(SearchCombo):

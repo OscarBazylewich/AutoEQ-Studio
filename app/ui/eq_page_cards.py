@@ -30,7 +30,8 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFrame, QGrid
 
 from ui import help_window, icons, placed, theme
 from ui.bubble import InfoMark
-from ui.eq_page_parts import TICKS, CurveNames, Elided, NameCombo, PairTitle, SameWidth, combo_width, hz, label
+from ui.eq_page_parts import (TICKS, CurveNames, Elided, NameCombo, PairTitle, SameWidth, WrapRow, combo_width, hz,
+                              label)
 from ui.forms import CHOICE_MOST
 from ui.search_combo import SearchCombo
 
@@ -560,7 +561,9 @@ class EqCards:
         help_window.tag(self.cmp_btn, "#compare-results")
         pick.addWidget(self.cmp_btn)
         pick.addStretch(1)
-        tools = placed(v, QHBoxLayout())
+        # (the filters' tools, the card's widest row: on one line from 931 px, and in a narrower window Calculate from
+        # these filters on a second line, at the right end still; in a plain row they made the page scroll sideways)
+        tools = placed(v, WrapRow())
         self.view_btns = {}
         for key, name in (("table", "Table"), ("sliders", "Sliders")):
             b = QPushButton(name)
@@ -568,9 +571,9 @@ class EqCards:
             theme.mark(b, nav=True, flush=True)  # (its words at the card's left edge, as every tab's: the UI audit)
             b.clicked.connect(lambda _=False, k=key: self.set_view(k))
             tools.addWidget(b)
-            tools.addSpacing(8)
+            tools.space(8)
             self.view_btns[key] = b
-        tools.addSpacing(12)
+        tools.space(12)
         for text, symbol, fn, tip in (("Add filter", "add", self.add_filter, "A new filter at 1 kHz, 0 dB"),
                                       ("Sort", "sort", self.sort_filters, "Sort the filters by frequency"),
                                       ("Undo all", "undo", self.undo_all, "Use the initial filters again (as the app made them)")):
@@ -583,7 +586,7 @@ class EqCards:
                 add_btn = b
             if text == "Undo all":
                 self.revert_btn = b
-        tools.addSpacing(12)
+        tools.space(12)
         # (the graph floating over the page as you edit, while it's out of sight: on to start with, kept: eq_page_live)
         self.live_check = QCheckBox("Show the graph while you edit")
         self.live_check.setChecked(self.live_graph_on())
@@ -592,7 +595,7 @@ class EqCards:
         self.live_check.toggled.connect(self.set_live_graph_on)
         help_window.tag(self.live_check, "#live-graph")
         tools.addWidget(self.live_check)
-        tools.addStretch(1)
+        tools.to_the_end()
         self.retry_btn = QPushButton("Calculate from these filters")
         icons.put(self.retry_btn, "refresh")  # (every button in the row with its symbol, UI-RULES 9)
         help_window.tag(self.retry_btn, "f_retry")
