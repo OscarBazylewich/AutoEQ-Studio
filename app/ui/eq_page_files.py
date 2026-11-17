@@ -50,6 +50,12 @@ class EqFiles:
             rigs = {inputs.get("rigs", {}).get(n) for n in on} - {None, ""}
             set_note(self.measurement_note, f"{len(on)} file{'s' if len(on) != 1 else ''} used"
                  + (f" · measured on {', '.join(sorted(rigs))}" if rigs else ""))
+        # (the tracer, when it is there: its "Target of the graph" follows the targets of the app. It read them only
+        # when it opened or got a picture: after Add… here or Add as target there, the list stayed off with "No
+        # target in the app", and 3 Save still told to add a target first, 2026-11-16)
+        tw = getattr(self, "tracer", None)
+        if tw is not None:
+            tw.follow_targets()
 
     def _file_chosen(self, kind):
         S = self.S

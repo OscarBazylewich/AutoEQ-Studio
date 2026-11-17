@@ -5,8 +5,9 @@ that list's "Difference from <target>" with Add as target). The 4 choices in the
 sight only for the 2 types with a difference from a target; the one add button, whose name follows the list; the
 gray line under it; the files that each type sends to the app and that Save .txt… writes; a difference with no
 target; the selection that the app makes (an entry from Find a target, a target line alone, a measurement from a
-website) and that the user can change; the Guide's demo of the list; and Save .txt… for a target line alone. With
-the app's sample graph and a drawn look-alike of a website's target (helpers.website_graph)."""
+website) and that the user can change; the Guide's demo of the list; Save .txt… for a target line alone; and the
+targets of the app that change while the tracer is open. With the app's sample graph and a drawn look-alike of a
+website's target (helpers.website_graph)."""
 import math
 import os
 
@@ -629,3 +630,94 @@ def test_save_txt_of_a_target_line_alone(eq_screen, monkeypatch, tmp_path, check
                                                                          "with AutoEQ Studio")
           and len(text.splitlines()) > 10 and note == "The app saved Target alone.txt.", (curves, boxes, note,
                                                                                          text[:80]))
+
+
+def test_targets_that_change_while_the_tracer_is_open(eq_screen, monkeypatch, check):
+    """"Target of the graph" follows the targets of the app while the tracer is open: a target that comes (Add as
+    target in the tracer, Add… on Make an EQ) and a target that goes (Find…'s Delete…). The tracer read the targets
+    only when it opened or got a picture: with no target in the app, the list stayed off with "No target in the
+    app", and the gray line and the box of the add button told to add a target first, after the user did that
+    (2026-11-16). The same targets shown again change nothing in an open list."""
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QPushButton
+    page = eq_screen.page
+    had, active = list(page.inputs["targets"]), page.S["files"].get("active_target")
+
+    def delete(names):
+        """Find…'s Delete… for these targets (ui\\picker.py's remove, after its question)."""
+        page.svc.call("/api/files/remove", {"kind": "target", "names": names, "settings": page.S})
+        page.reload_state()
+        qt.settle()
+
+    def look():
+        return (tw.comp.isEnabled(), [tw.comp.itemText(i) for i in range(tw.comp.count())], tw.comp.currentData(),
+                tw.save_what.text())
+    delete(had)
+    page, tw = _sample(eq_screen, 1)
+    boxes = _boxes(tw, monkeypatch)
+    _select(tw.shows, "difference")
+    qt.pump(30)
+    none = look()
+    # (Add as target in the tracer: the traced curve becomes the one target of the app)
+    _select(tw.shows, "target")
+    tw.save_btn.click()
+    qt.settle()  # (the page works out its curves for the new target)
+    own = [n for n in page.inputs["targets"] if n not in had]
+    del boxes[:]
+    _select(tw.shows, "difference")
+    qt.pump(30)
+    after_own = look()
+    tw.save_btn.click()
+    own_boxes = list(boxes)
+    # (Add… of the Target row of Make an EQ, with the sample targets; the tracer stays open)
+    files = [os.path.join(paths.SAMPLES, "targets", n) for n in had]
+    monkeypatch.setattr(QFileDialog, "getOpenFileNames", staticmethod(lambda *a, **k: (files, "")))
+    next(b for b in page.target_box.findChildren(QPushButton) if b.text() == "Add…").click()
+    qt.settle()
+    came = look()
+    # (the same targets shown again, as when the database lists come: the open list keeps the row that the arrow
+    # keys marked)
+    tw.activateWindow()
+    tw.comp.setFocus()
+    tw.comp.showPopup()
+    qt.pump(100)
+    view = tw.comp.view()
+    QTest.keyClick(view, Qt.Key_Down)
+    qt.pump(30)
+    marked = view.currentIndex().row()
+    page.reload_state()
+    qt.pump(100)
+    kept = (view.window().isVisible(), view.currentIndex().row())
+    tw.comp.hidePopup()
+    # (the selected target deleted: "Select the target" again)
+    if own:
+        _select(tw.comp, own[0])
+    selected = look()
+    delete(own)
+    gone = look()
+    left = list(page.inputs["targets"])
+    if active in left and page.S["files"].get("active_target") != active:  # (the target in use of before)
+        page.use_target(active)
+        qt.settle()
+    tw.set_shows("measurement")
+    tw.comp.setCurrentIndex(0)
+    tw.remove_image()
+    tw.close()
+    names = [os.path.splitext(n)[0] for n in had]
+    mine = [os.path.splitext(n)[0] for n in own]
+    both = ["Select the target"] + sorted(names + mine, key=str.casefold)
+    check("tracer: with no target in the app, “Target of the graph” is off with “No target in the app”; after Add as "
+          "target in the open tracer, the list is on with the new target, and the gray line and the box of the add "
+          "button tell to select the target",
+          none == (False, ["No target in the app"], "", NO_TARGETS) and len(own) == 1
+          and after_own == (True, ["Select the target"] + mine, "", SELECT) and own_boxes == [("warning", SELECT)],
+          (none, own, after_own, own_boxes))
+    check("tracer: a target that Add… on Make an EQ adds while the tracer is open is in “Target of the graph” at "
+          "once (the targets from A to Z)", came == (True, both, "", SELECT), came)
+    check("tracer: Make an EQ shows the same targets again while “Target of the graph” is open: the list stays open "
+          "with the row that the arrow keys marked", marked == 1 and kept == (True, 1), (marked, kept))
+    check("tracer: a selected target that is deleted goes from “Target of the graph”, and the gray line tells to "
+          "select the target (the app has its targets of before again)",
+          len(own) == 1 and selected[2:] == (own[0], WHAT["difference"])
+          and gone == (True, ["Select the target"] + names, "", SELECT) and left == had,
+          (own, selected, gone, left))

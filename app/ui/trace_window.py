@@ -2191,6 +2191,15 @@ class TraceWindow(QWidget):
         self.shows_value = self.save_value("shows")  # (not a selection of the user: shows_selected)
         self.show_graph_type()
 
+    def follow_targets(self):
+        """Make an EQ shows its files again (EqFiles.show_inputs: a target added, deleted or moved, here or there):
+        "Target of the graph" gets the targets of the app when they are not the ones in the list. The same targets
+        change nothing: filled again, an open list lost the row that the arrow keys had marked (measured,
+        2026-11-17; Make an EQ also shows its files again when the database lists come)."""
+        targets = (getattr(self.page, "inputs", None) or {}).get("targets", [])
+        if sorted(targets) != sorted(self.comp.itemData(i) for i in range(1, self.comp.count())):
+            self.fill_comp()
+
     def compensation(self):
         """A graph that shows the difference from a target (compensated; a measurement or a target line): that
         target's curve, to add back, and the words for the file's first line. (None, "") for the other types of
