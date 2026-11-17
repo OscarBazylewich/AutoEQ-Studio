@@ -6,6 +6,12 @@ selected EQ, where the next Space added an EQ; Tab after a new name went past Gr
 Now the focus goes to the control that takes its place: the button of the same version (of the version selected,
 when a key selects one), the same control of the row now in that place (else of the last row), and The selected EQ
 when the list is empty (UI-RULES 30).
+Two more parts of the card (2026-11-17):
+- Show the names goes out of view when it is used. With the focus, it gave the focus to list A of the ABX test,
+  where the next Space opened that list. Now Hide the names gets the focus: the control at its left in the same row.
+- A mouse click after a new name in a name box did nothing: the click took the focus from the box, the new name
+  made the rows and the versions' buttons again, and the click went to a removed control. Now the app only records
+  the name while a mouse button is down, and shows it on the card when the button is up.
 Real mouse clicks and real keys. One page for the file (the eq_screen fixture), with a result and two EQs to compare.
 Nothing is played (tests\\listen\\conftest.py stands in for the sound card)."""
 import pytest
@@ -213,3 +219,109 @@ def test_the_eqs_to_compare_keep_the_focus(eq_screen, listen, check):
           "focus to ✕ of the row now in its place (each gave the focus to The selected EQ)",
           on_graph and shown == [True, False] and [p["name"] for p in lis.pins] == before[1:]
           and x is _at(_rows(lis, QPushButton), 0), (_name(graph), shown, len(lis.pins), _name(x)))
+
+
+@pytest.mark.timeout(900)  # (the Best fit run for the result, when this test runs alone)
+def test_show_the_names_keeps_the_focus_in_its_row(eq_screen, listen, check):
+    page, lis = eq_screen.page, listen()
+    bar = page.page_area.verticalScrollBar()
+    seen = {}
+    for way in ("a click", "Space"):
+        _click(page, lis.blind)  # (Hide the names on: Show the names comes into view at its right)
+        there = lis.blind.isChecked() and lis.reveal_btn.isVisible()
+        at = bar.value()
+        if way == "a click":
+            _click(page, lis.reveal_btn)
+        else:
+            there = there and _key(Qt.Key_Tab)[0] is lis.reveal_btn
+            _key(Qt.Key_Space)
+        f = QApplication.focusWidget()
+        gone, names = not lis.reveal_btn.isVisible(), [b.text() for b in _versions(lis)]
+        after, opened = _key(Qt.Key_Space)
+        seen[way] = (there, gone, bool(names) and all(" = " in n for n in names), f is lis.blind, after is lis.blind,
+                     opened, lis.blind.isChecked(), bar.value() - at, _name(f), _name(after))
+        lis.blind.setChecked(False)  # (as it was, also when the Space above did not clear it)
+        qt.pump(60)
+    good = (True, True, True, True, True, False, False, 0)
+    check("listen: Show the names, used with a click or with Space, goes out of view and gives the focus to Hide the "
+          "names, the control at its left in the same row; the page does not move, and the next Space clears Hide "
+          "the names and opens no list (the focus went to list A of the ABX test, and the next Space opened that "
+          "list)", all(seen[way][:8] == good for way in seen), seen)
+
+
+@pytest.mark.timeout(900)  # (the Best fit run for the result, when this test runs alone)
+def test_a_click_after_a_new_name_operates_its_control(eq_screen, listen, check):
+    page, lis = eq_screen.page, listen()
+    before = [p["name"] for p in lis.pins]
+
+    def new_name(row, letter):
+        """A click in the name box of a row, then a letter at the end of its name (not recorded yet)."""
+        _click(page, _rows(lis, QLineEdit)[row])
+        QTest.keyClick(QApplication.focusWidget(), Qt.Key_End)
+        QTest.keyClicks(QApplication.focusWidget(), letter)
+
+    new_name(0, "x")
+    _click(page, _rows(lis, QCheckBox)[1])
+    f = QApplication.focusWidget()
+    check("listen: after a new name in the name box of an EQ to compare, a mouse click on Graph of a different row "
+          "records the name and clears that Graph, and that Graph has the focus (the click went to a removed "
+          "control: Graph did not change)",
+          [p["name"] for p in lis.pins] == [before[0] + "x", before[1]]
+          and [p.get("shown", True) for p in lis.pins] == [True, False] and f is _at(_rows(lis, QCheckBox), 1)
+          and not f.isChecked() and _at(_rows(lis, QLineEdit), 0).text() == before[0] + "x",
+          ([p["name"] for p in lis.pins], [p.get("shown", True) for p in lis.pins], _name(f)))
+    lis = listen()
+    new_name(0, "y")
+    _click(page, _rows(lis, QPushButton)[1])
+    f = QApplication.focusWidget()
+    check("listen: after a new name in the name box of an EQ to compare, a mouse click on ✕ of a different row records "
+          "the name and removes the EQ of that row (the click went to a removed control: the EQ stayed in the list)",
+          [p["name"] for p in lis.pins] == [before[0] + "y"] and f is _at(_rows(lis, QPushButton), 0),
+          ([p["name"] for p in lis.pins], _name(f)))
+    lis = listen()
+    new_name(1, "z")
+    _click(page, _rows(lis, QCheckBox)[1])
+    check("listen: after a new name in the name box of an EQ to compare, a mouse click on Graph of the same row "
+          "records the name and clears that Graph",
+          [p["name"] for p in lis.pins] == [before[0], before[1] + "z"]
+          and [p.get("shown", True) for p in lis.pins] == [True, False],
+          ([p["name"] for p in lis.pins], [p.get("shown", True) for p in lis.pins]))
+    lis = listen()
+    lis.choose("sel")
+    qt.pump(60)
+    new_name(1, "v")
+    _click(page, _versions(lis)[0])
+    f = QApplication.focusWidget()
+    words = [b.text() for b in _versions(lis)]
+    check("listen: after a new name in the name box of an EQ to compare, a mouse click on a version's button records "
+          "the name and selects that version; the button of the EQ shows the new name",
+          lis.active == "off" and f is _at(_versions(lis), 0) and f.isChecked()
+          and [p["name"] for p in lis.pins] == [before[0], before[1] + "v"] and words[-1].endswith(before[1] + "v"),
+          (lis.active, _name(f), [p["name"] for p in lis.pins], words))
+    lis = listen()
+    new_name(0, "w")
+    _click(page, _rows(lis, QLineEdit)[1])
+    f = QApplication.focusWidget()
+    QTest.keyClick(f, Qt.Key_End)
+    QTest.keyClicks(f, "q")
+    enter = _key(Qt.Key_Return)[0]
+    check("listen: after a new name in the name box of an EQ to compare, a mouse click in the name box of a "
+          "different row records the name and gives that box the focus: the letters typed then go into that box",
+          [p["name"] for p in lis.pins] == [before[0] + "w", before[1] + "q"] and enter is _at(_rows(lis, QLineEdit), 1),
+          ([p["name"] for p in lis.pins], _name(f), _name(enter)))
+    lis = listen()
+    new_name(0, "u")
+    _click(page, lis.abx_a)
+    popup = QApplication.activePopupWidget()
+    in_list = [lis.abx_a.itemText(i) for i in range(lis.abx_a.count())]
+    if popup is not None:
+        QTest.keyClick(popup, Qt.Key_Escape)
+    qt.pump(120)
+    words = [b.text() for b in _versions(lis)]
+    check("listen: after a new name in the name box of an EQ to compare, a mouse click on list A of the ABX test "
+          "records the name and opens that list with the new name in it; the button of the EQ shows the new name "
+          "when the list closes",
+          popup is not None and before[0] + "u" in in_list and [p["name"] for p in lis.pins] == [before[0] + "u", before[1]]
+          and len(words) == 4 and words[2].endswith(before[0] + "u"), (popup is not None, in_list, words))
+    listen()
+    lis.choose("sel")
