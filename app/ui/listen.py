@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFileDialog, QGridLayout
 
 import textfile
 from ui import bubble, help_window, icons, own_items, placed, tasks, theme, window_parts
+from ui.eq_page_parts import tab_order
 from ui.search_combo import SearchCombo
 
 SOUNDS = [("music", "Music (short, it starts again at the end)"), ("pink", "Pink noise"), ("white", "White noise"),
@@ -584,7 +585,7 @@ class Listen(QGroupBox):
         if any(k == key for k, *_ in self.versions()):
             self.active, self.picked = key, True
             self._apply_to_engine()
-            self.render_versions()
+            self.render_versions(chosen=key)
 
     def choose_number(self, n):
         """Keys 1-9: the nth version as the buttons show them (in a blind test, the nth letter); not during an ABX
@@ -602,7 +603,16 @@ class Listen(QGroupBox):
             return [by[k] for k in self.blind_order if k in by]
         return vs
 
-    def render_versions(self):
+    def render_versions(self, chosen=None):
+        """The versions' buttons made again. chosen: the version just selected (choose)."""
+        # (a version's button with the focus is made again below. Taken out with the focus, it gave the focus to the
+        # next control of the page: Ears, where the next Space opened its list, and a second arrow key selected no
+        # version, 2026-11-16. The focus goes off the old buttons first, then to the new button of the same version,
+        # or of the version just selected: an arrow key selects the next version, and the focus goes with it)
+        f = self.window().focusWidget()
+        had = f.property("version") if f is not None and self.ab_box.isAncestorOf(f) else None
+        if had:
+            self.ab_box.setFocus(Qt.OtherFocusReason)
         while self.ab.count():
             w = self.ab.takeAt(0).widget()
             if w:
@@ -632,8 +642,18 @@ class Listen(QGroupBox):
                     tip.append(f"Level {s['gain_db']:.1f} dB")
             b.setToolTip(" · ".join(tip))
             b.clicked.connect(lambda _=False, k=key: self.choose(k))
+            b.setProperty("version", key)
             self.version_group.addButton(b)
             self.ab.addWidget(b)
+        # (the new buttons in their place in the Tab sequence, after the sound's rows above them: Qt put them
+        # after the card's last button, 2026-11-16)
+        tab_order(self.file_row, self.ab_box)
+        if had and self.ab_box.isVisibleTo(self.window()):
+            new = {b.property("version"): b for b in self.version_group.buttons()}
+            b = new.get(chosen or had) or self.version_group.checkedButton()
+            if b is not None:
+                b.show()  # (now, not after the event loop as Qt does it: a new control gets the focus only when
+                b.setFocus(Qt.OtherFocusReason)  # it shows, and until then the focus is on no control)
         for box, key in ((self.left, self.left_key), (self.right, self.right_key)):
             box.blockSignals(True)
             box.clear()
@@ -972,6 +992,16 @@ class Listen(QGroupBox):
     def render_pins(self):
         """Your EQs to compare as a table, a row each, in columns: its colour (its curve's on the graph), its name
         (edit it to rename it), its filters and where it's from, Graph, ✕."""
+        # (a row's control with the focus is made again below: Graph or ✕ after a key or a click on it, or the control
+        # that Tab, Enter or a click gives the focus to after a new name in a name box. Hidden with the focus, it gave
+        # the focus to the next control of the page: The selected EQ, where the next Space added an EQ, and Tab after
+        # a new name went past the row's Graph and ✕, 2026-11-16. The focus goes off the old rows first, then to the
+        # same control of the row now in that place, else of the last row, else to The selected EQ under the empty
+        # list: UI-RULES 30)
+        f = self.window().focusWidget()
+        place = f.property("pin_place") if f is not None and self.pins_box.isAncestorOf(f) else None
+        if place:
+            self.pins_box.setFocus(Qt.OtherFocusReason)
         # (the table before: hidden now, deleted a moment later, as the control that changed the list is in it)
         while self.pins_lay.count():
             w = self.pins_lay.takeAt(0).widget()
@@ -989,6 +1019,7 @@ class Listen(QGroupBox):
                            if self.pins_for else "Select a measurement. Each IEM has a different list.")
             theme.mark(empty, role="muted")
             grid.addWidget(empty, 0, 0, 1, 5)
+        rows = []
         for i, p in enumerate(self.pins):
             sw = QLabel("■")
             theme.mark(sw, listen_mark=COLOURS[p.get("color", i) % len(COLOURS)])  # (theme_sheet.py's listen part)
@@ -1011,6 +1042,17 @@ class Listen(QGroupBox):
             x.setToolTip("Remove from the list")
             x.clicked.connect(lambda _=False, p=p: self._remove(p))
             grid.addWidget(x, i, 4)
+            rows.append({"name": name, "graph": graph, "x": x})
+            for kind, w in rows[i].items():
+                w.setProperty("pin_place", f"{kind}:{i}")
+        # (the new rows in their place in the Tab sequence, after the ABX test above them and before the buttons
+        # that add an EQ: Qt put them after those buttons, 2026-11-16)
+        tab_order(self.abx_box, table)
+        if place:
+            kind, _, row = place.partition(":")
+            w = rows[min(int(row), len(rows) - 1)][kind] if rows else self.add_sel_btn
+            table.show()  # (now, as the version's button above: with the focus not yet on the row, Tab after a new
+            w.setFocus(Qt.OtherFocusReason)  # name moved the page to the list, 7 px)
 
     def _rename(self, p, text):
         text = text.strip()[:80]

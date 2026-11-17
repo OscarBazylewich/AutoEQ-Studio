@@ -2,8 +2,9 @@
 
 Table: per filter on/off, type (Peak, Low shelf, High shelf), frequency, gain and Q (checked as typed against the EQ
 part's limits for edits: edit.freq, edit.gain, edit.q; red and not used when wrong, moved to the limit on leaving),
-and ✕ to delete it. Sliders: one per filter (Poweramp's look): its gain by dragging, arrow keys or the wheel
-(0.1 dB steps), double-click for 0 dB; its frequency and Q under it; the pre-amp in its own column (set for you).
+and ✕ to delete it; Tab goes through each row's controls, then to the control after the table. Sliders: one per filter
+(Poweramp's look): its gain by dragging, arrow keys or the wheel (0.1 dB steps), double-click for 0 dB; its frequency
+and Q under it; the pre-amp in its own column (set for you).
 changed() is called after every edit (the caller works out the error, pre-amp and graph again); rebuilt() after a
 filter is added or deleted; show_values() puts the values back in the boxes and sliders without making anything again
 or saying it changed (a filter dragged on the EQ graph, ui/eq_page_handles.py). The editor is as tall as the view shown (a short table leaves no empty band under it).
@@ -13,13 +14,14 @@ without grid lines, Type's heading at the left over its drop-downs' words (the n
 pre-amp's bar (_Meter), the dB scale (_Scale) and the lines across them (_SliderGrid) draw themselves in the theme's
 colours, as the app's own sliders look; each filter's number as its handle on the EQ graph has it.
 """
-from PySide6.QtCore import QPointF, QRectF, QSize, QTimer, Qt, Signal
+from PySide6.QtCore import QEvent, QPointF, QRectF, QSize, QTimer, Qt, Signal
 from PySide6.QtGui import QColor, QFontMetrics, QPainter, QPen
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QGridLayout, QHBoxLayout, QHeaderView, QLabel,
                                QLineEdit, QScrollArea, QSlider, QStackedWidget, QStyle, QTableWidget, QToolButton,
                                QVBoxLayout, QWidget)
 
 from ui import theme
+from ui.eq_page_parts import tab_order
 from ui.forms import Limits, number_text
 from ui.search_combo import SearchCombo
 
@@ -57,6 +59,11 @@ class FilterEditor(QWidget):
         self.table.verticalHeader().hide()
         self.table.setSelectionMode(QAbstractItemView.NoSelection)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        # (Tab goes through the rows' controls in the window's own sequence, where _build_table puts them, and then to
+        # the control after the table. With Qt's own Tab in a table, the focus went from cell to cell, and from the
+        # last cell to the first again: Tab never left the table, the focus was on no control in each row's first 2
+        # cells, and no On box got it, 2026-11-16)
+        self.table.setTabKeyNavigation(False)
         # (each column only as wide as necessary, the table at the left: on a wide window a number box was 250 px wide
         # and ✕ far from its row's values; the UI audit, 2026-11-08)
         h = self.table.horizontalHeader()
@@ -152,6 +159,7 @@ class FilterEditor(QWidget):
             on.setAccessibleName(f"Filter {i + 1} on")
             on.setChecked(f.get("enabled", True) is not False)
             on.toggled.connect(lambda v, f=f, i=i: (f.__setitem__("enabled", v), self._dim(i), self._edited()))
+            on.installEventFilter(self)  # (its row into the table's sight when Tab gives it the focus: eventFilter)
             cell = QWidget()
             cl = QHBoxLayout(cell)
             cl.setContentsMargins(11, 0, 0, 0)  # (under its heading, “On”: the headings' room at the sides, 11 px)
@@ -199,6 +207,18 @@ class FilterEditor(QWidget):
         self._fit_width()
         self.stack.setFixedHeight(height)  # (as tall as the table: the Sliders view's height left no empty band)
         self.empty.refresh()
+        # (the new rows' controls directly after the table in the Tab sequence, row by row: Qt puts new controls at
+        # the end of the window's sequence, after the controls under the table)
+        tab_order(t)
+
+    def eventFilter(self, obj, ev):
+        """Tab gave the focus to a row's On box: the table shows that row (with more rows than its height, the box
+        was out of its sight). Qt does this for a control that is a cell's own widget, as the row's other controls
+        are; the On box is in a holder, for its place under its heading. Not for a click: the row would move under
+        the pointer."""
+        if ev.type() == QEvent.FocusIn and ev.reason() in (Qt.TabFocusReason, Qt.BacktabFocusReason):
+            self.table.setCurrentIndex(self.table.indexAt(obj.parentWidget().geometry().center()))
+        return False
 
     def _fit_width(self):
         """The table as wide as its columns, and the bar up and down when its rows need one (_build_table)."""
@@ -361,6 +381,7 @@ class FilterEditor(QWidget):
             g.addWidget(foot, 6, col, Qt.AlignHCenter)
             g.setColumnStretch(col, 1)  # (the columns share the width when they fit, as a graphic EQ's across the card)
         self.sliders_scroll.setWidget(holder)
+        tab_order(self.sliders_scroll)  # (the new columns' controls directly after the view, as _build_table's rows)
         self._fit_sliders()
 
     def _fit_sliders(self):

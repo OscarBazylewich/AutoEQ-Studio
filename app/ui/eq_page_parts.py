@@ -10,7 +10,8 @@ MODE_HINT, TICKS and file_base_name still import from ui/eq_page.py too.
 - label(text, role, wrap): a label, in one of the theme's text roles; set_note(lab, text): a note's words, the note
   hidden while it has none (so an empty one takes no room); hz(v): a frequency in Hz or kHz
 - combo_width(combo, text): the width a drop-down needs for text; SameWidth: empty room as wide as another widget;
-  WrapRow: a row of controls that takes more lines when its card has less room than the row needs on one
+  WrapRow: a row of controls that takes more lines when its card has less room than the row needs on one;
+  tab_order(*parts): the Tab sequence through parts of the page, one after the other (a part made later, or again)
 - Elided: a one-line label that never makes its row wider than the window (the values under the pointer); NameCombo:
   a drop-down whose name, when longer than its room, ends in "…" as Windows 11's own do (Target, Measurement, Runs
   this session); PairTitle: "A  →  B" on one line, or B under A when the window is narrow (the graph's title)
@@ -188,6 +189,29 @@ def combo_width(combo, text):
     fm = combo.fontMetrics()
     inner = QSize(fm.horizontalAdvance(text) + 4, fm.height())
     return combo.style().sizeFromContents(QStyle.CT_ComboBox, opt, inner, combo).width()
+
+
+def tab_order(*parts):
+    """Puts these parts of one window one after the other in its Tab sequence: from the last control of a part, Tab
+    goes to the first control of the next part. A part is a control, or a widget with controls in it (they keep the
+    sequence in which they went into it). The first control keeps its place in the window's sequence, and the others
+    come directly after it.
+    Qt puts each new control at the end of its window's Tab sequence, wherever it is on the page. Make an EQ makes
+    its page in steps and makes some rows again later: a part made after the parts under it is put into its place
+    with this, in the step that makes it (2026-11-16: Tab on Queue… went to Adjust…, at the page's top, and the page
+    scrolled there).
+    The controls come from findChildren, not from a walk of Qt's sequence: a Python call of nextInFocusChain makes
+    PySide6 6.11.2 keep the control that it returns as a child of the control asked, and mark it as deleted when Qt
+    deletes that one (measured, 2026-11-16)."""
+    stops = []
+    for part in parts:
+        window = part.window()
+        # (not a control's own text field or view, which gives its focus to the control: Qt moves it with the
+        # control; not a control's own pop-up list or menu, which is a window of its own)
+        stops += [w for w in (part, *part.findChildren(QWidget))
+                  if w.focusPolicy() != Qt.NoFocus and w.focusProxy() is None and w.window() is window]
+    for before, after in zip(stops, stops[1:]):
+        QWidget.setTabOrder(before, after)
 
 
 class SameWidth(QWidget):
