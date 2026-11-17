@@ -1164,8 +1164,8 @@ def test_add_as_measurement(eq_screen, fresh_studio, flow, monkeypatch, check):
 
 
 CHANGED_LINE = ("You changed the curve “Target”. Thus, it is a measurement curve: Add as measurement also adds it. To "
-                "add it as a target, select it. Then click Add as target. To remove it from the measurement, click its "
-                f"✕ (Remove curve) on 2{NB}Trace.")
+                "add it as a target, select it. Select “A target line” in “The graph shows”. Then click Add as target. "
+                f"To remove it from the measurement, click its ✕ (Remove curve) on 2{NB}Trace.")
 
 
 def _values(path):
@@ -1266,19 +1266,25 @@ def test_website_graph_is_not_compensated(eq_screen, flow, monkeypatch, check):
     tw = page.tracer
     tw.load_image(_graph(), "Mine")
     targets = [tw.comp.itemData(i) for i in range(tw.comp.count()) if tw.comp.itemData(i)]
-    if targets:
-        tw.comp.setCurrentIndex(tw.comp.findData(targets[0]))
-    before = tw.comp.currentData()
+    if targets:  # (as the user selects them: the type, then the target of the graph)
+        for box, value in ((tw.shows, "difference"), (tw.comp, targets[0])):
+            box.setCurrentIndex(box.findData(value))
+            box.activated.emit(box.currentIndex())
     qt.wait_for(lambda: not tw.reading, 60)
+    # (the selection is the user's work on that picture, and Use stops for it: Remove image first, as the bubble
+    # tells. The selection stays for the tracer)
+    tw.remove_image()
+    before = tw.save_value("shows")
     tw.close()
     came, tw = _traced(flow, monkeypatch, stand_in())
     outs = tw.outputs()
     plain = tw.t.outputs(False, None, tw.source_note())
     first = outs[0]["text"].splitlines()[0]
+    now = (tw.shows.currentData(), tw.comp.currentData())
     check("website flow: a compensation selected for a picture before, then a picture from a website: “The graph "
           "shows” is the response, and the file has no target added (its first line, its values)",
-          came and before and tw.comp.currentData() == "" and "the app added this target" not in first
-          and outs[0]["text"] == plain[0]["text"], (before, tw.comp.currentData(), first))
+          came and targets and before == ("difference", targets[0]) and now == ("measurement", "")
+          and "the app added this target" not in first and outs[0]["text"] == plain[0]["text"], (before, now, first))
 
 
 def test_line_end_in_entry_name(eq_screen, flow, monkeypatch, check):
@@ -1962,13 +1968,12 @@ def _change(tw, what):
     if what == "name":
         tw.name.setText("My name")
         tw.name.textEdited.emit("My name")
-    elif what == "comp":
-        # (the user selects a different row: the same row again is no change, 2026-11-12)
-        if tw.comp.count() < 2:
-            tw.comp.addItem("Difference from Stand-in", "Stand-in.txt")
-        i = tw.comp.count() - 1 if tw.comp.currentIndex() != tw.comp.count() - 1 else 0
-        tw.comp.setCurrentIndex(i)
-        tw.comp.activated.emit(i)
+    elif what == "shows":
+        # (the user selects a different row, "A target line" or "A measurement": the same row again is no change,
+        # 2026-11-12)
+        i = tw.shows.count() - 1 if tw.shows.currentIndex() != tw.shows.count() - 1 else 0
+        tw.shows.setCurrentIndex(i)
+        tw.shows.activated.emit(i)
     elif what == "ppo":
         i = tw.ppo.findData(12 if tw.ppo.currentData() != 12 else 24)  # (a different value)
         tw.ppo.setCurrentIndex(i)
@@ -1992,7 +1997,7 @@ def test_changes_of_3_save_stop_use(eq_screen, flow, monkeypatch, check):
     settings set are not the user's work, and a picture with no change is replaced. (2026-11-11: these changes did
     not count, and a new Use replaced them with no message.)"""
     pk = flow["pk"]
-    kinds = ("name", "comp", "ppo", "range")
+    kinds = ("name", "shows", "ppo", "range")
     seen = {}
     for what in kinds:
         came, tw = _traced(flow, monkeypatch, stand_in())
@@ -2053,8 +2058,8 @@ def _again(tw, what):
     """The user selects the row that a list has, or types a value and then the first value again (the same value as
     before the user's action)."""
     tw.show_tab(2)
-    if what in ("comp", "ppo"):
-        box = tw.comp if what == "comp" else tw.ppo
+    if what in ("shows", "ppo"):
+        box = tw.shows if what == "shows" else tw.ppo
         box.activated.emit(box.currentIndex())
         return
     box = tw.name if what == "name" else tw.boxes["fmin"]
@@ -2070,14 +2075,14 @@ def test_same_value_again_is_no_change(eq_screen, flow, monkeypatch, check):
     each one counted as a change, and the bubble told of changes that were not there). With an entry after its read
     (with its curve), and for a picture of the user (no curve)."""
     seen = {}
-    for what in ("name", "comp", "ppo", "range"):
+    for what in ("name", "shows", "ppo", "range"):
         came, tw = _traced(flow, monkeypatch, stand_in())
         _again(tw, what)
         seen[("entry", what)] = (came, tw.users_work(), tw.unadded_curves(), tw.changed_picture())
         tw.remove_image()
         flow["pk"].show()
     page = flow["page"]
-    for what in ("name", "comp", "ppo", "range"):
+    for what in ("name", "shows", "ppo", "range"):
         page.open_trace()
         tw = page.tracer
         tw.load_image(_graph().copy(0, 0, 900, 600), "Mine")
@@ -2093,14 +2098,12 @@ def test_same_value_again_is_no_change(eq_screen, flow, monkeypatch, check):
             between = tw.users_work()
             box.setText(first)
             box.textEdited.emit(first)
-        if what == "comp":  # (an other row, then the first row again)
-            if tw.comp.count() < 2:
-                tw.comp.addItem("Difference from Stand-in", "Stand-in.txt")
-            first = tw.comp.currentIndex()
-            other = tw.comp.count() - 1 if first != tw.comp.count() - 1 else 0
+        if what == "shows":  # (an other row, then the first row again)
+            first = tw.shows.currentIndex()
+            other = tw.shows.count() - 1 if first != tw.shows.count() - 1 else 0
             for i in (other, first):
-                tw.comp.setCurrentIndex(i)
-                tw.comp.activated.emit(i)
+                tw.shows.setCurrentIndex(i)
+                tw.shows.activated.emit(i)
                 between = tw.users_work() if between is None else between
         wait, opened = _use(flow)
         seen[("yours", what)] = (tw.users_work(), tw.changed_picture(), between, wait is not None and bool(opened))
@@ -2114,7 +2117,7 @@ def test_same_value_again_is_no_change(eq_screen, flow, monkeypatch, check):
     check("website flow: a picture of the user with the same row selected again or a value typed back: no change, "
           "and Use replaces it (the value in between was a change)",
           all(v[:2] == (False, False) and v[3] and v[2] in (None, True) for k, v in seen.items() if k[0] == "yours")
-          and all(seen[("yours", k)][2] is True for k in ("name", "comp", "range")),
+          and all(seen[("yours", k)][2] is True for k in ("name", "shows", "range")),
           {k: v for k, v in seen.items() if k[0] == "yours"})
 
 
@@ -2216,7 +2219,7 @@ def test_real_read_from_the_clipboard(eq_screen, fresh_studio, flow, monkeypatch
     check("website flow: a drawn graph of the website from the clipboard goes to 3 Save (the real automatic read)",
           came and tw.read_ok is True and tw.pages.currentIndex() == 2 and tw.save_line.isVisible()
           and [o["file"] for o in tw.outputs()] == [NAME + ".txt"], (came, tw.read_ok, tw.status.text()))
-    tw.save_meas.click()  # (Add as measurement)
+    tw.save_btn.click()  # (Add as measurement)
     loaded = qt.wait_for(lambda: page.curves is not None and page.curves.get("name") == NAME, 60)
     path = os.path.join(eq_paths.MEAS_DIR, NAME + ".txt")
     first = ""
@@ -2385,7 +2388,8 @@ def test_find_a_target_says_add_as_target(eq_screen, fresh_studio, flow, monkeyp
         tw = page.tracer
         note = tw.save_note.text()
         body = tw.source(NAME)  # (what the add sends to the app)
-        tw.save_tgt.click()
+        button = (tw.save_btn.text(), tw.shows.currentData())
+        tw.save_btn.click()
         qt.pump(500)
         after = (page.inputs.get("active_target"), [m["name"] for m in page.inputs["measurements"] if m["included"]])
         record = rigs.sources().get(NAME + ".txt")
@@ -2395,6 +2399,7 @@ def test_find_a_target_says_add_as_target(eq_screen, fresh_studio, flow, monkeyp
     check("website flow: Find a target, a website entry of the other group: the note of 3 Save tells the user to click "
           "Add as target, and says that the target line is a second target", row is not None and row.get("other")
           and came and "If they agree, click Add as target." in note and "Add as measurement" not in note
+          and button == ("Add as target", "target")
           and "Add the target line as target… adds that line as a target, not the Average curve." in note, note)
     check("website flow: Find a target, Add as target makes the traced curve the target in use and does not "
           "change the measurements in use; the source record has no mark of the wanted add",
@@ -2658,7 +2663,8 @@ def test_same_row_after_an_entry_with_an_other_row_before(eq_screen, flow, monke
     """A picture of the user with an other row of "The graph shows", then a picture from a website: the entry sets
     row 0. The user selects row 0 again: no change of the user (the value before is row 0, not the row of the picture
     before). (2026-11-12, the verifier's test: no test had a different row before an entry, so comp_value after the
-    entry's row 0 was not held.)"""
+    entry's row 0 was not held. Since 2026-11-16 the other row is "A measurement as the difference from a target" with
+    its target in "Target of the graph", and the value before is shows_value.)"""
     page = flow["page"]
     page.open_trace()
     tw = page.tracer
@@ -2667,19 +2673,19 @@ def test_same_row_after_an_entry_with_an_other_row_before(eq_screen, flow, monke
     inputs = dict(getattr(page, "inputs", None) or {})
     monkeypatch.setattr(page, "inputs", dict(inputs, targets=list(inputs.get("targets", [])) + ["Stand-in.txt"]))
     tw.fill_comp()
-    i = tw.comp.findData("Stand-in.txt")
-    tw.comp.setCurrentIndex(i)
-    tw.comp.activated.emit(i)
-    other = tw.comp.currentData()
+    for box, value in ((tw.shows, "difference"), (tw.comp, "Stand-in.txt")):
+        box.setCurrentIndex(box.findData(value))
+        box.activated.emit(box.currentIndex())
+    other = tw.save_value("shows")
     _no_curve(tw)
     tw.remove_image()
     flow["pk"].show()
     came, tw = _traced(flow, monkeypatch, stand_in())
-    first = tw.comp.currentIndex()
-    _again(tw, "comp")
-    seen = (came, other != tw.comp.currentData(), first, tw.users_work())
+    first = tw.shows.currentIndex()
+    _again(tw, "shows")
+    seen = (came, other, tw.save_value("shows"), first, tw.users_work())
     check("website flow: after a picture with an other row of The graph shows, the entry's row 0 selected again is "
-          "no change of the user", seen == (True, True, 0, False), seen)
+          "no change of the user", seen == (True, ("difference", "Stand-in.txt"), ("measurement", ""), 0, False), seen)
 
 
 def test_short_site_has_no_tooltip(eq_screen, flow, check):

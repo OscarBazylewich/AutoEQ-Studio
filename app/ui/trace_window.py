@@ -7,8 +7,10 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
 - the side: Automatic settings (switch, Why these settings), 1 Axes (the four values, Snap to
   gridlines, Follow every gridline, Find axes again, Read labels), 2 Trace (Click curve, Draw, Erase, Move; the curves
   with their names; Add a curve; Auto trace; colour tolerance; dashed lines; Smooth, Undo, Redo, Clear), 3 Save
-  (name, points per octave, what the graph shows, the range; Add as measurement, Add as target, Save .txt…; Add the
-  target line as target…, shown only with a target line that the automatic read found)
+  (name, points per octave, "The graph shows": the type of the graph, SHOWS, and for a difference from a target
+  "Target of the graph"; the range; one add button whose name follows the type, Add as measurement or Add as target;
+  Save .txt…; Add the target line as target…, shown only with a target line that the automatic read found; a gray
+  line that tells what the add does for the type, what_words)
 - keys: T D E H tools, A Auto trace, S Smooth, F fit, + - zoom, Delete clears, Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y,
   arrows move a selected line (Shift: 10 px), Ctrl+V pastes a picture; a key of a tab's control shows that tab first
   (the tools, A, S, Delete, Undo and Redo: 2 Trace; the arrows: 1 Axes). While the automatic read runs, no key
@@ -27,7 +29,8 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   rgb_of draws in strips of STRIP_ROWS rows, stage_image copies with NumPy.
 - a picture from a website (Find…'s Use on an entry that the app cannot download, ui/eq_page_files.py's
   trace_from_website): load_image(..., entry=) with its database entry (its words on one line: picture_wait's
-  clean_entry). The name is the entry's with its tag; "The graph shows" goes to the response (not compensated);
+  clean_entry). The name is the entry's with its tag; "The graph shows" goes to "A measurement" (a website's graph
+  is not compensated), or to "A target line" for an entry from Find a target (select_shows);
   read_graph runs trace_core.auto_read in a thread and take_read takes its answer: all checks OK, 3 Save with the
   traced curve (and the target line, marked); else the tab of the first check that failed, with its reason. The add
   names the website in the file's first line and sends the entry as the source record (its rig). The entry belongs
@@ -36,12 +39,12 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   key two times or held, also after a close) while the tracer has its entry, nothing was added from it, and its read
   runs or ended (OK or not: the user's changes stay) changes nothing (the status line says so, and that the read
   continues while it operates). With Find… for a target ("Targets and measurements"), the entry has "as": "target",
-  3 Save's note says Add as target, and Add as
-  target is the first button of 3 Save's row, in the accent, until the picture changes (show_save_row; the mark is
-  not in the source record). A picture with only a target line (the read's target_only: its one curve "Target",
-  marked): 3 Save's note says that the app traced the target, Add as target is the main action (not for Find… for a
-  measurement, "as": "measurement"), Add as measurement also adds it, and Add the target line as target… does not
-  show. The read gets want, the entry's kind: "target" (the target line alone, also beside a measurement) or
+  "The graph shows" goes to "A target line", so the add button is Add as target and 3 Save's note says to click it,
+  until the user selects a different type or the picture changes (select_shows; the mark is not in the source
+  record). A picture with only a target line (the read's target_only: its one curve "Target", marked): 3 Save's note
+  says that the app traced the target, "The graph shows" goes to "A target line" (not for Find… for a measurement,
+  "as": "measurement"), "A measurement" also adds it, and Add the target line as target… does not show. The read
+  gets want, the entry's kind: "target" (the target line alone, also beside a measurement) or
   "measurement" (a gray line alone is not the curve: trace_curve fails, 2 Trace). A failed trace_kind, or a failed
   trace_single of a target line alone (two target lines), tells to copy a new picture. unadded_curves(): the curves
   that the user traced or changed and did not add (a new picture from a website stops for them; the automatic
@@ -82,10 +85,11 @@ TOOLS = [("trace", "Click curve", "Click a curve to follow it (T)"),
          ("erase", "Erase", "Drag a box around the traced line to remove it (E)"),
          ("pan", "Move", "Drag to move the picture, or hold Space, or drag with the right mouse button (H)")]
 TOOL_SYMBOLS = {"trace": "trace", "draw": "pen", "erase": "erase", "pan": "move"}  # (icons.GLYPHS' names)
-# (the settings' width: room for 10.5 pt text, "the actual response (not compensated)" whole, symbols; 528, not 500:
-# 3 Save's row "Save from (Hz)" with two boxes as wide as "20000" and two "your value ↺" tags needs 513 px, also
-# with the side's scroll bar, 2026-11-11)
-SIDE = 528
+# (the settings' width: room for 10.5 pt text and symbols. 528, not 500: 3 Save's row "Save from (Hz)" with two boxes
+# as wide as "20000" and two "your value ↺" tags needs 513 px, also with the side's scroll bar, 2026-11-11. 544, not
+# 528: the longest choice of "The graph shows", "A measurement as the difference from a target", needs 286 px and had
+# 280 px with the side's scroll bar, so it ended in "…" at the smallest size of the window; now 296 px, 2026-11-16)
+SIDE = 544
 RADIUS = 8  # (the picture's card: a card's corners, as theme_sheet's)
 HINTS = {"trace": "Click a curve to follow it.", "draw": "Drag along the curve to make a line manually.",
          "erase": "Drag a box around a part of the traced line to remove it.", "pan": "Drag to move the picture."}
@@ -104,6 +108,14 @@ STRIP_ROWS = 256
 LOADING = "The app opens the picture…"  # (the status line while a large picture loads)
 READING = "The app reads the graph…"  # (the status line while the automatic read operates)
 HAS_PICTURE = "The tracer has this picture."  # (the same picture of a website again: take_picture)
+# ("The graph shows": the types of graph, in the order of the list (also A to Z). One question in place of the list
+# "Frequency response (not compensated)" / "Difference from <target>" and the two buttons Add as measurement and Add
+# as target: the user did not know what the list was for, 2026-11-16)
+SHOWS = (("measurement", "A measurement"), ("difference", "A measurement as the difference from a target"),
+         ("target", "A target line"))
+# (a difference from a target with no target to add: the gray line of 3 Save, and the box of the add and of Save .txt…)
+SELECT_TARGET = "Select the target in “Target of the graph”. The app adds this target to the curve."
+NO_TARGETS = "The app has no target. First, add the target of the graph on Make an EQ."
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".jfif", ".webp", ".bmp", ".gif", ".tif", ".tiff")
 IMAGES = "Images (*.png *.jpg *.jpeg *.jfif *.webp *.bmp *.gif *.tif *.tiff)"
 
@@ -767,7 +779,7 @@ class TraceWindow(QWidget):
         self.entry = None
         self.added = False
         self.read_ok = None
-        self.read_target = False  # (the last read was OK with the target line alone: Add as target is the main action)
+        self.read_target = False  # (the last read was OK with the target line alone: "The graph shows" a target line)
         self.reading_graph = False
         self.loading = False  # (a large picture loads in a thread: load_image)
         # (the status line and the control with the focus when the last picture came while no load in a thread ran,
@@ -783,14 +795,17 @@ class TraceWindow(QWidget):
         self.late_read = None  # (an automatic read that ended while a picture loads: read_graph)
         self.picture_mark = None  # (picture_mark() of the picture that came)
         self.graph_token = 0
-        self.auto_note = ""  # (3 Save's note after an automatic read that passed)
+        # (3 Save's note after an automatic read that passed, up to the name of the add button, and whether the
+        # picture has a target line next to the measurement: auto_words)
+        self.auto_note, self.auto_line = "", False
         self.was_closed = False  # (closed since the last picture: a new picture does not take the entry)
         self.closes = self.load_closes = 0  # (the closes of the window; the count when the last load started)
         self.renamed = False  # (a curve renamed by the user since the last picture: the user's work)
         # (3 Save's values that the user changed since the last picture, each with its value before the user's first
-        # change: user_edited; and the value of "The graph shows" before a selection of the user)
+        # change: user_edited; and the value of "The graph shows" with "Target of the graph" before a selection of
+        # the user: save_value("shows"))
         self.edited = {}
-        self.comp_value = ""
+        self.shows_value = ("measurement", "")
         st = page.sw.s.get("trace") or {}
         if isinstance(st.get("enabled"), bool):
             self.t.ta["enabled"] = st["enabled"]
@@ -881,7 +896,8 @@ class TraceWindow(QWidget):
         col.addWidget(self.status)
         for w, key in ((self.auto_on, "#tr-auto-on"), (self.snap, "#tr-snap"), (self.every, "#tr-every"),
                        (self.tol, "#tr-tol"), (self.ppo, "#tr-ppo"), (self.fmin, "#tr-fmin"), (self.fmax, "#tr-fmin"),
-                       (self.name, "#tr-name"), (self.dashed, "#tr-dashed"), (self.comp, "#tr-comp"),
+                       (self.name, "#tr-name"), (self.dashed, "#tr-dashed"), (self.shows, "#tr-shows"),
+                       (self.comp, "#tr-comp"),
                        *((self.boxes[k], "#tr-" + k) for k in ("d1", "d2", "f1", "f2"))):
             help_window.tag(w, key)
         self.set_tool("trace")
@@ -1105,14 +1121,25 @@ class TraceWindow(QWidget):
         g.addWidget(self.ppo, 1, 1)
         g.addWidget(self._tag("ppo"), 1, 2)
         g.addWidget(_label("The graph shows", wrap=False), 2, 0)
+        self.shows = SearchCombo()
+        for key, words in SHOWS:  # (sentence case, as every choice: 15; their order is also A to Z: 22)
+            self.shows.addItem(words, key)
+        self.shows.setToolTip(help_of("#tr-shows"))
+        self.shows.activated.connect(self.shows_selected)  # (the user's selection only)
+        self.shows.setMinimumContentsLength(16)  # (the longest choice doesn't widen the side)
+        self.shows.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        g.addWidget(self.shows, 2, 1, 1, 3)
+        # (the target of a graph that shows a difference: a row that shows only for that type, show_graph_type)
+        self.comp_lab = _label("Target of the graph", wrap=False)
+        g.addWidget(self.comp_lab, 3, 0)
         self.comp = SearchCombo()
         self.comp.setToolTip(help_of("#tr-comp"))
-        self.comp.activated.connect(self.comp_selected)  # (the user's selection only)
+        self.comp.activated.connect(self.shows_selected)
         self.comp.setMinimumContentsLength(16)  # (a long target name doesn't widen the side)
         self.comp.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
-        g.addWidget(self.comp, 2, 1, 1, 3)
-        g.addWidget(_label("Save from (Hz)", wrap=False), 3, 0)
-        rng = placed(g, QHBoxLayout(), 3, 1, 1, 3)
+        g.addWidget(self.comp, 3, 1, 1, 3)
+        g.addWidget(_label("Save from (Hz)", wrap=False), 4, 0)
+        rng = placed(g, QHBoxLayout(), 4, 1, 1, 3)
         rng.setSpacing(4)  # (not 6: two boxes as wide as "20000" and their tags fit the side with its scroll bar)
         self.fmin, self.fmax = _RangeBox(), _RangeBox()
         for key, b in (("fmin", self.fmin), ("fmax", self.fmax)):
@@ -1127,24 +1154,25 @@ class TraceWindow(QWidget):
         rng.addWidget(self.fmax)
         rng.addWidget(self._tag("fmax"))
         rng.addStretch(1)
-        btns = placed(g, QHBoxLayout(), 4, 0, 1, 4)
-        self.save_meas = QPushButton("Add as measurement")
-        theme.mark(self.save_meas, primary=True)
-        self.save_meas.clicked.connect(lambda: self.save("measurement"))
-        icons.put(self.save_meas, "add")
-        self.save_tgt = QPushButton("Add as target")
-        self.save_tgt.clicked.connect(lambda: self.save("target"))
-        icons.put(self.save_tgt, "add")  # (every button in the row with its symbol, UI-RULES 9)
+        btns = placed(g, QHBoxLayout(), 5, 0, 1, 4)
+        # (one add button, in the accent: its name follows "The graph shows", show_graph_type)
+        self.save_btn = QPushButton("Add as measurement")
+        theme.mark(self.save_btn, primary=True)
+        self.save_btn.clicked.connect(lambda: self.save(self.add_kind()))
+        icons.put(self.save_btn, "add")
         self.download_btn = QPushButton("Save .txt…")
         self.download_btn.clicked.connect(self.save_txt)
-        icons.put(self.download_btn, "save")
-        for b in (self.save_meas, self.save_tgt, self.download_btn):
+        icons.put(self.download_btn, "save")  # (every button in the row with its symbol, UI-RULES 9)
+        for b in (self.save_btn, self.download_btn):
             btns.addWidget(b)
         btns.addStretch(1)
-        self.save_btns = btns  # (show_save_row puts the main action first)
+        self.save_btns = btns
+        # (what the add does for the selected type of graph, in gray under its row: what_words)
+        self.save_what = _Note()
+        g.addWidget(self.save_what, 6, 0, 1, 4)
         # (the target line that the automatic read found in a picture from a website: a row of its own under the
         # buttons, shown only with such a line)
-        line_row = placed(g, QHBoxLayout(), 5, 0, 1, 4)
+        line_row = placed(g, QHBoxLayout(), 7, 0, 1, 4)
         self.save_line = QPushButton("Add the target line as target…")
         self.save_line.setToolTip("Adds the target line of the picture as a target. You give its name first.")
         self.save_line.clicked.connect(self.add_target_line)
@@ -1155,7 +1183,7 @@ class TraceWindow(QWidget):
         self.save_line.hide()
         self.save_note = _Note()
         self.save_note.setTextFormat(Qt.PlainText)  # (it names an entry of a website's list: never rich text)
-        g.addWidget(self.save_note, 6, 0, 1, 4)
+        g.addWidget(self.save_note, 8, 0, 1, 4)
         g.setColumnStretch(3, 1)
         return box
 
@@ -1222,8 +1250,7 @@ class TraceWindow(QWidget):
         self.edit_btns["smooth"].setEnabled(has)
         self.edit_btns["clear"].setEnabled(has)
         img = t.has_image
-        for b in (self.add_btn, self.auto_btn, self.save_meas, self.save_tgt, self.save_line, self.download_btn,
-                  self.ocr_btn):
+        for b in (self.add_btn, self.auto_btn, self.save_btn, self.save_line, self.download_btn, self.ocr_btn):
             b.setEnabled(img and (b is not self.ocr_btn or not getattr(self, "reading", False)))
         self.remove_btn.setVisible(img)
         need = "" if not img else "Type the dB values of the red lines (and examine the blue Hz values) to save the curve." \
@@ -1235,13 +1262,14 @@ class TraceWindow(QWidget):
                                   and any(not c.get("target") and t.has_data(c) for c in t.curves))
         changed_line = next((c for c in t.curves if c.get("website_line") and not c.get("target") and t.has_data(c)),
                             None)
+        self.show_graph_type()  # (the gray line follows the number of curves; the note below, the add button's name)
         if need or not getattr(self, "saved_note", False):  # ("Saved as …" stays until something is needed)
             self.saved_note = False
             self.save_note.setText(need or (
                 f"You changed the curve “{changed_line['label']}”. Thus, it is a measurement curve: Add as measurement "
-                "also adds it. To add it as a target, select it. Then click Add as target. To remove it from the "
-                f"measurement, click its ✕ (Remove curve) on 2{NBSP}Trace." if changed_line else  # (a tab's name whole)
-                self.auto_note))
+                "also adds it. To add it as a target, select it. Select “A target line” in “The graph shows”. Then "
+                f"click Add as target. To remove it from the measurement, click its ✕ (Remove curve) on 2{NBSP}Trace."
+                if changed_line else self.auto_words()))  # (NBSP: a tab's name whole)
         colour = cur and cur["colour"]
         self.swatch.setVisible(bool(colour))
         if colour:  # (the colour traced: the picture's own, set here; its frame follows the theme, from the sheet)
@@ -1250,18 +1278,77 @@ class TraceWindow(QWidget):
             self.boxes[k].setPlaceholderText("type it" if img else "")
         self.stage.update()
 
-    def show_save_row(self):
-        """3 Save's row of buttons with the main action of the picture first, in the accent (UI-RULES 8): Add as
-        target for an entry from Find a target ("as": "target") and for a read of a target line alone (read_target;
-        not for Find… for a measurement, "as": "measurement"), else Add as measurement. (3 Save's note told the user
-        to click Add as target while Add as measurement was the accent button, 2026-11-11.)"""
-        as_target = bool(self.entry and self.entry.get("as") == "target") or (
-            self.read_target and (self.entry or {}).get("as") != "measurement")
-        main, other = (self.save_tgt, self.save_meas) if as_target else (self.save_meas, self.save_tgt)
-        theme.mark(main, primary=True)
-        theme.mark(other, primary=False)
-        self.save_btns.insertWidget(0, main)
-        self.save_btns.insertWidget(1, other)
+    def select_shows(self):
+        """The app's selection in "The graph shows" when it knows the type of the picture: "A target line" for an
+        entry from Find a target ("as": "target") and for a read of a target line alone (read_target; not for Find…
+        for a measurement, "as": "measurement"); "A measurement" for each other picture from a website (a website's
+        graph is not compensated, and the target of the picture before must not go into its curve: "Target of the
+        graph" has no target again). A picture of the user keeps the selection, but not "A target line": the next
+        picture is a measurement again, as the add button was Add as measurement again before 2026-11-16. The user
+        can select a different type after it (shows_selected)."""
+        e = self.entry or {}
+        as_target = e.get("as") == "target" or (self.read_target and e.get("as") != "measurement")
+        now = self.shows.currentData()
+        if self.entry:
+            self.comp.setCurrentIndex(0)
+        self.set_shows("target" if as_target else "measurement" if self.entry or now == "target" else now)
+
+    def set_shows(self, kind):
+        """A type of graph (a key of SHOWS) into "The graph shows", as the app's own selection (not the user's:
+        shows_selected)."""
+        self.shows.setCurrentIndex(max(0, self.shows.findData(kind)))
+        self.shows_value = self.save_value("shows")
+        self.show_graph_type()
+
+    def add_kind(self):
+        """What the add button adds, from "The graph shows": "target" for a target line, else "measurement"."""
+        return "target" if self.shows.currentData() == "target" else "measurement"
+
+    def show_graph_type(self):
+        """What follows "The graph shows": "Target of the graph" in sight only for a difference from a target, the
+        name of the add button, and the gray line under its row (also the button's description for a screen
+        reader)."""
+        kind = self.shows.currentData()
+        for w in (self.comp_lab, self.comp):
+            w.setVisible(kind == "difference")
+        self.save_btn.setText("Add as target" if kind == "target" else "Add as measurement")
+        words = self.what_words()
+        self.save_what.setText(words)
+        self.save_btn.setAccessibleDescription(words)
+
+    def what_words(self):
+        """The gray line of 3 Save: what the add does for the selected type of graph. Add as measurement saves each
+        measurement curve (more than one: one device); Add as target saves one curve, the selected one. A difference
+        from a target with no target to add: what to do first."""
+        t = self.t
+        kind = self.shows.currentData()
+        if kind == "target":
+            return ("The app saves only the selected curve as a target, as the picture shows it."
+                    if sum(map(t.has_data, t.curves)) > 1 else
+                    "The app saves the curve as a target, as the picture shows it.")
+        many = sum(1 for c in t.curves if t.has_data(c) and not c.get("target")) > 1
+        if kind == "difference":
+            if not self.comp.currentData():
+                return SELECT_TARGET if self.comp.count() > 1 else NO_TARGETS
+            return ("The app adds the selected target to each curve. Then it saves the result as one measurement."
+                    if many else
+                    "The app adds the selected target to the curve. Then it saves the result as a measurement.")
+        return ("The app saves the curves as one measurement, as the picture shows them." if many else
+                "The app saves the curve as a measurement, as the picture shows it.")
+
+    def auto_words(self):
+        """3 Save's note after an automatic read that passed: auto_note, then the name of the add button at this
+        moment (it follows "The graph shows") and, for a picture with a target line next to the measurement
+        (auto_line), what the button of that line adds. (The note told the user to click Add as target while Add as
+        measurement was the accent button, 2026-11-11.)"""
+        if not self.auto_note:
+            return ""
+        as_target = self.add_kind() == "target"
+        return (self.auto_note + ("Add as target." if as_target else "Add as measurement.")
+                + ("" if not self.auto_line else
+                   " The picture also has a target line. Add the target line as target… adds that line as a target, "
+                   "not the Average curve." if as_target else
+                   " The picture also has a target line. Add the target line as target… adds it as a target."))
 
     def render_curves(self):
         lay, t = self.curves_lay, self.t
@@ -1403,8 +1490,9 @@ class TraceWindow(QWidget):
     def users_work(self):
         """The user changed the picture's curves, axes or 3 Save's values since it came: an undo or redo step (a curve
         traced or changed), a curve renamed, a value typed on 1 Axes, a red or blue line moved, or (`edited`) the Name
-        box, "The graph shows", "Points in each octave" or the range to save changed: its value is not the value
-        before the user's first change of it (a row selected again, or a name typed back, is no change, 2026-11-12).
+        box, "The graph shows" (with "Target of the graph"), "Points in each octave" or the range to save changed: its
+        value is not the value before the user's first change of it (a row selected again, or a name typed back, is
+        no change, 2026-11-12).
         (Each new picture, the automatic read's take() and a label read set the typed and moved flags back, so they
         are the user's own after the read; the automatic read and the automatic settings set the values of 3 Save
         with no signal of the user: they are not in `edited`. A changed name, setting or range did not count, and a
@@ -1414,13 +1502,14 @@ class TraceWindow(QWidget):
                     or any(self.save_value(k) != was for k, was in self.edited.items()))
 
     def user_edited(self, what, before):
-        """A value of 3 Save that the user changed (what: "name", "comp", "ppo" or "range"; before: its value before
+        """A value of 3 Save that the user changed (what: "name", "shows", "ppo" or "range"; before: its value before
         this change, as save_value gives it): users_work compares the value with the one before the first change."""
         self.edited.setdefault(what, before)
 
     def save_value(self, what):
-        """A value of 3 Save as users_work compares it: the Name box, "The graph shows", "Points in each octave", or
-        the range to save as two numbers (a text that is not a number as it is)."""
+        """A value of 3 Save as users_work compares it: the Name box, "The graph shows" (the type and, for a
+        difference from a target, that target: a target in the hidden list changes nothing), "Points in each
+        octave", or the range to save as two numbers (a text that is not a number as it is)."""
         tv = self.t.v
 
         def number(x):
@@ -1430,14 +1519,17 @@ class TraceWindow(QWidget):
                 return str(x)
         if what == "range":
             return number(tv["fmin"]), number(tv["fmax"])
-        if what == "comp":
-            return self.comp.currentData()
+        if what == "shows":
+            kind = self.shows.currentData()
+            return kind, (self.comp.currentData() or "") if kind == "difference" else ""
         return tv[what]
 
-    def comp_selected(self, _i):
-        """A selection of the user in "The graph shows" (the same row again too)."""
-        self.user_edited("comp", self.comp_value)
-        self.comp_value = self.comp.currentData()
+    def shows_selected(self, _i):
+        """A selection of the user in "The graph shows" or in "Target of the graph" (the same row again too): the
+        row of the target, the add button's name and the two notes follow it."""
+        self.user_edited("shows", self.shows_value)
+        self.shows_value = self.save_value("shows")
+        self.update_ui()
 
     def unadded_curves(self):
         """The number of curves with data that the user traced or changed and did not add: a new picture from a
@@ -1463,8 +1555,8 @@ class TraceWindow(QWidget):
 
     def load_image(self, qimg, name="Traced graph", jpeg=False, entry=None):
         """A picture into the tracer. entry: the database entry of a picture from a website (/api/db/entry's): its
-        name with its tag is the picture's name, "The graph shows" goes to the response (a website's graph is not
-        compensated), and the automatic read (read_graph) replaces the label read.
+        name with its tag is the picture's name, "The graph shows" goes to the type of the entry (select_shows: a
+        website's graph is not compensated), and the automatic read (read_graph) replaces the label read.
         A picture of SYNC_PIXELS or less loads at once. A larger one loads in a thread (prepared): until it is
         there, `loading` is True, the status line says so, and the picture and the side take no input, as during the
         automatic read (the picture before stays in sight). A new picture or Remove image meanwhile wins: the late
@@ -1541,10 +1633,10 @@ class TraceWindow(QWidget):
         self.sample_open = False  # (a picture of yours: the Guide's sample, set again by the Guide, isn't on any more)
         self.entry = clean_entry_of(entry)  # (its words on one line: they go into the file's first line)
         self.read_target = False
-        self.show_save_row()
+        self.select_shows()
         self.added = False
         self.read_ok = None
-        self.auto_note = ""
+        self.auto_note, self.auto_line = "", False
         self.was_closed = self.closes != self.load_closes
         self.renamed = False
         self.edited = {}
@@ -1573,9 +1665,6 @@ class TraceWindow(QWidget):
         self.saved_note = False
         self.status.setText(HINTS[self.tool])
         self.fill_comp()
-        if entry:  # (the selection of the picture before must not add a target to the website's curve)
-            self.comp.setCurrentIndex(0)
-            self.comp_value = self.comp.currentData()
         self.show_values()
         self.changed()
         chosen = self.chosen_meanwhile  # (focus_picture clears it)
@@ -1721,29 +1810,24 @@ class TraceWindow(QWidget):
         self.show_name(t.src_name, (t.W, t.H))
         self.read_ok = bool(r.ok)
         self.read_target = only and r.ok
-        self.show_save_row()
+        # (Find… for a target, "Targets and measurements": the user wants the entry's curve as a target; the target
+        # line of the picture is then a second target, said apart from it (auto_words). A target line alone: a
+        # target, unless Find… for a measurement wants it as a measurement)
+        self.select_shows()
         if r.ok:
-            # (Find… for a target, "Targets and measurements": the user wants the entry's curve as a target; the
-            # target line of the picture is then a second target, said apart from it. A target line alone: Add as
-            # target, unless Find… for a measurement wants it as a measurement)
-            want_target = e.get("as") == "target" or (only and e.get("as") != "measurement")
             # (the site in quotation marks: a cut site ended in "…" and then the period of the sentence, 2026-11-12)
             site = e.get("site", "")
             # (a curve that goes out of the grid: where, and to where the app traced it, in the words of trace_curve;
             # the saved measurement ends there. The instruction then starts a new line: a paragraph has 6 sentences
             # at most, in STE)
             out = getattr(r, "out_words", "")
+            # (the name of the add button and the words about a target line follow "The graph shows": auto_words)
             self.auto_note = (f"The app traced the {'target' if only else 'graph of'} "
                               f"“{self.note_name(e.get('name', ''))}”"
                               + (f" from “{self.note_name(site)}”." if site else ".")
                               + (f" {out}\n" if out else " ")
-                              + "Compare the curve with the picture. If they agree, click "
-                              + ("Add as target." if want_target else "Add as measurement.")
-                              + ("" if r.target is None else
-                                 " The picture also has a target line. Add the target line as target… adds that "
-                                 "line as a target, not the Average curve." if want_target else
-                                 " The picture also has a target line. Add the target line as target… adds it as a "
-                                 "target."))
+                              + "Compare the curve with the picture. If they agree, click ")
+            self.auto_line = r.target is not None
             self.status.setText(HINTS[self.tool])
             self.show_tab(2)
         else:
@@ -1833,9 +1917,9 @@ class TraceWindow(QWidget):
                 # picture, measured 2026-11-15)
                 self.chosen_meanwhile = None
             return
-        self.entry, self.added, self.read_ok, self.auto_note = None, False, None, ""
+        self.entry, self.added, self.read_ok, self.auto_note, self.auto_line = None, False, None, "", False
         self.read_target = False
-        self.show_save_row()
+        self.select_shows()
         self.picture_mark = None
         self.was_closed = self.renamed = False
         self.edited = {}
@@ -2076,21 +2160,30 @@ class TraceWindow(QWidget):
 
     # ---------------------------------------------------------------- save
     def fill_comp(self):
-        """The targets a graph may have been drawn relative to."""
+        """"Target of the graph": the targets of the app, one of which a graph may show the difference from. The
+        first row has no target: the app does not know the target of a graph, so the user selects it (the first
+        target of the list would go into the curve with no selection). With no target in the app, the list is off."""
         was = self.comp.currentData()
+        targets = (getattr(self.page, "inputs", None) or {}).get("targets", [])
         self.comp.clear()
-        self.comp.addItem("Frequency response (not compensated)", "")  # (sentence case, as every choice: 15)
-        for n in (getattr(self.page, "inputs", None) or {}).get("targets", []):
-            self.comp.addItem(f"Difference from {os.path.splitext(n)[0]}", n)
-        self.comp.sort_items(pinned=1)  # ("the actual response" on top)
+        self.comp.addItem("Select the target" if targets else "No target in the app", "")
+        for n in targets:
+            self.comp.addItem(os.path.splitext(n)[0], n)
+        self.comp.sort_items(pinned=1)  # (the row with no target on top: 22)
         self.comp.setCurrentIndex(max(0, self.comp.findData(was)))
-        self.comp_value = self.comp.currentData()  # (not a selection of the user: comp_selected)
+        self.comp.setEnabled(bool(targets))
+        self.shows_value = self.save_value("shows")  # (not a selection of the user: shows_selected)
+        self.show_graph_type()
 
     def compensation(self):
-        """The graph was drawn relative to a target (compensated): that target's curve, to add back."""
+        """A graph that shows the difference from a target (compensated): that target's curve, to add back, and the
+        words for the file's first line. (None, "") for the other types of graph. A difference with no target
+        selected: an error with the words of what to do first."""
+        if self.shows.currentData() != "difference":
+            return None, ""
         name = self.comp.currentData()
         if not name:
-            return None, ""
+            raise ValueError(SELECT_TARGET if self.comp.count() > 1 else NO_TARGETS)
         S = self.page.S
         # (as it is: the site's graph smoothing off, which would round off its peaks; its level is evened out later)
         r = self.page.svc.call("/api/preview", {"src": "app", "kind": "target", "names": [name],
@@ -2186,9 +2279,11 @@ class TraceWindow(QWidget):
         self.save("target", outs, title)
 
     def save_txt(self):
-        """The traced curves as .txt files wherever you choose."""
+        """The traced curves as .txt files wherever you choose: the measurement curves, or a target line alone (as
+        the add of a measurement, save: the box said "Trace a curve first." for a traced target line, 2026-11-16)."""
+        alone = not any(self.t.has_data(c) and not c.get("target") for c in self.t.curves)
         try:
-            outs = self.outputs(False)
+            outs = self.outputs(alone)
         except (ValueError, ArithmeticError) as e:
             self.box("warning", "Trace", str(e))
             return

@@ -24,6 +24,23 @@ def trace_steps(tw):
     def trace_tab_traced():
         tw.show_tab(1)
         show_traces()
+
+    def shows_demo(api):
+        """"The graph shows" opened and a difference from a target selected (shown, not selected): Target of the
+        graph shows under it. With a difference selected, a target line: the add button has its name."""
+        from ui.guide_demos import mock_combo
+        combo = tw.shows
+        to = "difference" if combo.currentData() != "difference" else "target"
+        api.undo(tw.show_graph_type)  # (the last step put back: after the list has its own row again)
+        api.say("The 3 types of graph")
+        yield from mock_combo(api, combo, combo.findData(to))
+        tw.show_graph_type()
+        if to == "difference":
+            api.spot_on(tw.comp_lab, tw.comp)
+            yield from api.at(tw.comp, 0.5, 0.5, 1500, say="The target that the app adds to the curve")
+        else:
+            api.spot_on(tw.save_btn)
+            yield from api.at(tw.save_btn, 0.5, 0.5, 1500, say="The add button has the name of the type")
     # (each step text has 6 sentences or fewer, with this note too: two texts had 7, 2026-11-12)
     sample = " This sample graph closes at the end of the Guide." if getattr(tw, "sample_open", False) else ""
     steps = [
@@ -90,21 +107,29 @@ def trace_steps(tw):
          "text": "Make smooth makes the pixel steps smooth. Undo and Redo (Ctrl+Z, Ctrl+Shift+Z) are for all curves. "
                  "Clear removes the traced line of the selected curve.",
          "demo": lambda: [{"at": (lambda b=b: b), "say": b.toolTip()} for b in tw.edit_btns.values()]},
-        {"chapter": "3 · Save", "title": "Compensated graphs", "target": lambda: tw.comp, "before": tab(2),
-         "text": "If the graph shows the difference from a target (for example, “compensated to DF”), select that "
-                 "target here. The app adds the target to the curve when you save it. The target must be in the "
-                 "app."},
-        {"chapter": "3 · Save", "title": "Save", "target": lambda: [tw.save_meas, tw.save_tgt, tw.download_btn],
+        {"chapter": "3 · Save", "title": "The graph shows",
+         "target": lambda: [tw.shows] + ([tw.comp] if tw.comp.isVisible() else []), "before": tab(2),
+         "text": "Select the type of the graph here. “A measurement”: the app saves the curve as the picture shows "
+                 "it. “A measurement as the difference from a target” is for a compensated graph (for example, "
+                 "“compensated to DF”). Then select that target (it must be in the app) in Target of the graph, and "
+                 "the app adds it to the curve. “A target line”: the app saves the curve as a target. For a picture "
+                 "from a website, the app makes the selection, and you can change it.",
+         # (the card keeps off the row that the demo shows under the list, and the add button)
+         "avoid": lambda: [tw.comp_lab, tw.comp, tw.save_btn],
+         "demo": [{"click": lambda: tw.shows, "say": "Click The graph shows", "then": shows_demo}]},
+        {"chapter": "3 · Save", "title": "Save", "target": lambda: [tw.save_btn, tw.download_btn],
          "before": tab(2),
-         "text": "Add as measurement adds the curves to the app and uses them. Add as target saves the selected curve. "
-                 "Save .txt… makes a file for other apps. Add the target line as target… adds the target line that the "
-                 "app found next to a measurement in a picture from a website. For an entry from Find a target, or a "
-                 "picture with only a target line, Add as target is the first button.",
-         # (the card keeps off what the words name under the row: the button of the target line and the note. It
-         # covered them with a picture from a website, 2026-11-11)
-         "avoid": lambda: [tw.save_note, tw.save_line],
-         "demo": [{"click": lambda: tw.save_meas, "say": "It adds the curves to the app and uses them"},
-                  {"at": lambda: tw.save_tgt, "say": "Or as a target"},
+         "text": "The add button has the name of the selected type. Add as measurement adds the curves to the app "
+                 "and uses them. Add as target adds the selected curve as a target. The gray text below the buttons "
+                 "tells how the app saves the curve. Save .txt… makes a file for other apps. Add the target line as "
+                 "target… adds the target line that the app found next to a measurement in a picture from a website.",
+         # (the card keeps off what the words name under the row: the gray text, the button of the target line and
+         # the note. It covered them with a picture from a website, 2026-11-11)
+         "avoid": lambda: [tw.save_what, tw.save_note, tw.save_line],
+         "demo": [{"click": lambda: tw.save_btn,
+                   "say": lambda: ("It adds the selected curve to the app as a target" if tw.add_kind() == "target"
+                                   else "It adds the curves to the app and uses them")},
+                  {"at": lambda: tw.save_what, "say": "How the app saves the curve"},
                   {"at": lambda: tw.download_btn, "say": "A .txt file for other apps"}]},
         {"chapter": "3 · Save", "title": "The end", "target": lambda: tw.guide_btn,
          "text": "Make sure that the picture includes the labels. Larger pictures give better results. Before you "

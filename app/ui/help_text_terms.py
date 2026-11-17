@@ -271,8 +271,9 @@ TERMS = [{'title': 'Curves and sound',
                      'title': 'Compensated graph (difference from a target)',
                      'body': ['Some graphs show the difference of an earphone from a target (a flat line = the same '
                               'as the target), not its frequency response. When you trace such a graph, select '
-                              'that target in “The graph shows”. When you save the curve, the app adds the target '
-                              'again. Thus, the file has the frequency response of the earphone.'],
+                              '“A measurement as the difference from a target” in “The graph shows”. Then select '
+                              'that target in “Target of the graph”. When you save the curve, the app adds the '
+                              'target again. Thus, the file has the frequency response of the earphone.'],
                      'see': ['tracer']},
                     {'id': 'tracer',
                      'title': 'Trace a graph image',

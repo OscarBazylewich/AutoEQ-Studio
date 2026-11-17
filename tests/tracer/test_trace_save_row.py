@@ -1,6 +1,7 @@
 """3 Save of the tracer (ui\\trace_window.py's _save_box): the "Save from (Hz)" boxes show their whole values at the
 usual and the smallest size of the window (the "to" box cut the first pixels of "20000" at 964 x 393, 2026-11-11), and
-the accent button of the row is the main action of the picture (Add as target for an entry from Find a target)."""
+the one add button of the row, in the accent, has the name of the picture's type (Add as target for an entry from Find
+a target: "The graph shows" then has "A target line"). The 3 types of "The graph shows": test_trace_graph_type.py."""
 from PySide6.QtWidgets import QStyle, QStyleOptionFrame
 
 from helpers import qt
@@ -110,16 +111,20 @@ def test_accent_button_is_the_main_action(eq_screen, monkeypatch, tmp_path, chec
     page.open_trace()
     tw = page.tracer
     img, _s = sample_image()
-    measurement = [("Add as measurement", True), ("Add as target", False), ("Save .txt…", False)]
-    target = [("Add as target", True), ("Add as measurement", False), ("Save .txt…", False)]
+    # (one add button since 2026-11-16: its name follows "The graph shows"; before, two buttons in a changed order)
+    measurement = ([("Add as measurement", True), ("Save .txt…", False)], "measurement")
+    target = ([("Add as target", True), ("Save .txt…", False)], "target")
     rows, pictures = {}, {}
 
     def read(entry):
         tw.load_image(img, entry=entry)
         qt.wait_for(lambda: not tw.loading and not tw.reading_graph and tw.read_ok is not None, 60)
 
+    def row():
+        return _row(tw), tw.shows.currentData()
+
     read(dict(ENTRY, **{"as": "target"}))
-    rows["Find a target"] = (_row(tw), "Add as target." in tw.save_note.text())
+    rows["Find a target"] = (row(), "Add as target." in tw.save_note.text())
     tw.show_tab(2)
     usual = tw.size()
     for which, size in (("usual", usual), ("smallest", tw.minimumSize().expandedTo(tw.minimumSizeHint()))):
@@ -132,18 +137,18 @@ def test_accent_button_is_the_main_action(eq_screen, monkeypatch, tmp_path, chec
             pic = QImage(path)
             # (a pixel of each button's fill, 5 px in from its left edge)
             fill = [pic.pixelColor(b.mapTo(tw.pages.currentWidget(), QPoint(5, b.height() // 2))).saturation()
-                    for b in (tw.save_tgt, tw.save_meas)]
+                    for b in (tw.save_btn, tw.download_btn)]
             pictures[(which, name)] = tuple(fill)
     qt.light(eq_screen.qapp)
     tw.resize(usual)
     tw.load_image(img.copy(0, 0, 800, 500), "A picture of yours")  # (a different picture: the same one keeps all)
     qt.wait_for(lambda: not tw.loading and not tw.reading, 60)
-    rows["a picture of yours after it"] = _row(tw)
+    rows["a picture of yours after it"] = row()
     read(dict(ENTRY, **{"as": "target"}))
     tw.remove_image()
-    rows["Remove image after it"] = _row(tw)
+    rows["Remove image after it"] = row()
     read(dict(ENTRY))
-    rows["Find a measurement"] = (_row(tw), "Add as measurement." in tw.save_note.text())
+    rows["Find a measurement"] = (row(), "Add as measurement." in tw.save_note.text())
     tw.show_tab(2)
     for name, theme_on in (("light", qt.light), ("dark", qt.dark)):
         theme_on(eq_screen.qapp)
@@ -152,11 +157,12 @@ def test_accent_button_is_the_main_action(eq_screen, monkeypatch, tmp_path, chec
     qt.light(eq_screen.qapp)
     tw.remove_image()
     tw.close()
-    check("tracer: for an entry from Find a target, Add as target is the accent button and the first one of 3 Save's "
-          "row (its note says to click it)", rows["Find a target"] == (target, True), rows)
-    check("tracer: a new picture or Remove image puts Add as measurement first again, in the accent; an entry from "
-          "Find a measurement has it too", rows["a picture of yours after it"] == measurement
+    check("tracer: for an entry from Find a target, “The graph shows” has “A target line”, and the add button of 3 "
+          "Save's row is Add as target, in the accent, the first one (its note says to click it)",
+          rows["Find a target"] == (target, True), rows)
+    check("tracer: a new picture or Remove image makes the add button Add as measurement again, in the accent; an "
+          "entry from Find a measurement has it too", rows["a picture of yours after it"] == measurement
           and rows["Remove image after it"] == measurement and rows["Find a measurement"] == (measurement, True), rows)
     check("tracer: the pictures of the row (light and dark, the usual and the smallest size): Add as target has the "
-          "accent color, Add as measurement has none", len(pictures) == 4
+          "accent color, Save .txt… has none", len(pictures) == 4
           and all(t > 80 and m < 40 for t, m in pictures.values()), pictures)

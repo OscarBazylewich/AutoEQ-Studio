@@ -64,10 +64,13 @@ def test_picture_card_follows_the_theme(eq_screen, check):
     finally:
         qt.light(qapp)  # (the light theme back, whatever happened: every later test runs light)
         qt.pump(50)
-    # (a drop-down's long list, with its search box, opened once so it's looked at too: "The graph shows" given more
-    # choices than open without it. It had a style of its own until 2026-10-23, and this check let it off)
+    # (a drop-down's long list, with its search box, opened once so it's looked at too: "Target of the graph" (in
+    # sight for a difference from a target; until 2026-11-16 "The graph shows" had the targets) given more choices
+    # than open without it. It had a style of its own until 2026-10-23, and this check let it off)
+    tw.show_tab(2)
+    tw.set_shows("difference")
     for k in range(SEARCH_FROM + 1):
-        tw.comp.addItem(f"relative to target {k}", f"target {k}.csv")
+        tw.comp.addItem(f"target {k}", f"target {k}.csv")
     tw.comp.showPopup()
     qt.pump(50)
     tw.comp.hidePopup()
@@ -202,32 +205,44 @@ def test_nothing_cut_at_the_new_sizes(eq_screen, check):
         if max(side.width(), side.minimumSizeHint().width()) > room:
             out.append(("the side", side.width(), side.minimumSizeHint().width(), room))
         return out
-    at_default = []
-    for i in range(3):  # (each step's card: the side shows one at a time, the UI audit 2026-11-08)
-        tw.show_tab(i)
+    def each_card():
+        """cut() for each step's card (the side shows one at a time, the UI audit 2026-11-08); 3 Save also with a
+        difference from a target, which shows the row "Target of the graph" (2026-11-16)."""
+        out = []
+        for i in range(3):
+            tw.show_tab(i)
+            qt.pump(50)
+            out += cut()
+        tw.set_shows("difference")
         qt.pump(50)
-        at_default += cut()
-    combo = tw.comp
-    combo.setCurrentIndex(0)
-    opt = QStyleOptionComboBox()
-    combo.initStyleOption(opt)
-    field = combo.style().subControlRect(QStyle.CC_ComboBox, opt, QStyle.SC_ComboBoxEditField, combo).width()
-    words = (combo.itemText(0), combo.fontMetrics().horizontalAdvance(combo.itemText(0)))
+        out += cut() if tw.comp.isVisible() else [("Target of the graph", "not in sight")]
+        tw.set_shows("measurement")
+        return out
+
+    def longest_choice():
+        """(the room for the words in "The graph shows", its longest choice, the width of that choice); 3 Save is in
+        sight."""
+        combo = tw.shows
+        opt = QStyleOptionComboBox()
+        combo.initStyleOption(opt)
+        field = combo.style().subControlRect(QStyle.CC_ComboBox, opt, QStyle.SC_ComboBoxEditField, combo).width()
+        words = max((combo.itemText(k) for k in range(combo.count())), key=combo.fontMetrics().horizontalAdvance)
+        return field, words, combo.fontMetrics().horizontalAdvance(words)
+    at_default = each_card()
+    field, words, width = longest_choice()
     slider = tw.tol.width()
     tw.resize(tw.minimumSizeHint())
     qt.pump(100)
-    at_least = []
-    for i in range(3):
-        tw.show_tab(i)
-        qt.pump(50)
-        at_least += cut()
+    at_least = each_card()
+    field_least = longest_choice()[0]  # (there, the side has its scroll bar)
     qt.close(tw)
     check("tracer: nothing is cut or squeezed at Windows 11's sizes (10.5 pt text, symbols beside the words): every "
-          "button, tick box and label as wide as its words, the settings' side within its room, “The actual response "
-          "(not compensated)” whole in its drop-down, the colour tolerance slider at least 150 px; at the usual size "
-          "and the window's smallest",
-          not at_default and not at_least and words[0].startswith("Frequency response (not compensated)") and field >= words[1]
-          and slider >= 150, (at_default, at_least, field, words, slider))
+          "button, tick box and label as wide as its words, the settings' side within its room, “A measurement as the "
+          "difference from a target” whole in its drop-down, the colour tolerance slider at least 150 px; at the usual "
+          "size and the window's smallest",
+          not at_default and not at_least and words == "A measurement as the difference from a target"
+          and field >= width and field_least >= width and slider >= 150,
+          (at_default, at_least, field, field_least, words, width, slider))
 
 
 def test_symbols_beside_the_words(eq_screen, check):
@@ -236,12 +251,15 @@ def test_symbols_beside_the_words(eq_screen, check):
     # (the header's Open image… and the empty page's: one act, one name, 2026-10-27)
     words = [("Open image…", tw.open_btn), ("Remove image", tw.remove_btn), ("Guide", tw.guide_btn),
              ("Open image…", tw.stage.choose_btn), ("Add a curve", tw.add_btn), ("Trace automatically", tw.auto_btn),
-             ("Add as measurement", tw.save_meas), ("Add as target", tw.save_tgt),
+             ("Add as measurement", tw.save_btn),
              ("Save .txt…", tw.download_btn), ("Show all", tw.stage.zoom_btns["fit"]),
              *[(text, tw.tool_btns[key]) for key, text, _tip in TOOLS]]
     wrong = [w for w, b in words if b.text() != w or b.icon().isNull()]
     # (2026-10-27, UI-RULES 9: in one row every button has its symbol or none does: Smooth and Clear had none, so the
-    # edit row has none now; Add as target has Add as measurement's)
+    # edit row has none now; Add as target has Add as measurement's: since 2026-11-16 it is the same button)
+    tw.set_shows("target")
+    if tw.save_btn.text() != "Add as target" or tw.save_btn.icon().isNull():
+        wrong.append(tw.save_btn.text())
     wrong += [b.text() for b in tw.edit_btns.values() if not b.icon().isNull()]
     alone = {k: (b.text(), b.icon().isNull(), b.accessibleName()) for k, b in tw.stage.zoom_btns.items() if k != "fit"}
     qt.close(tw)
@@ -303,7 +321,7 @@ def test_one_step_at_a_time(eq_screen, check):
     for i in range(3):
         tw.show_tab(i)
         qt.pump(30)
-        shown.append([w.isVisible() for w in (tw.boxes["d1"], tw.auto_btn, tw.save_meas)] + [tw.auto_on.isVisible()])
+        shown.append([w.isVisible() for w in (tw.boxes["d1"], tw.auto_btn, tw.save_btn)] + [tw.auto_on.isVisible()])
     tw.show_tab(0)
     tw.activateWindow()
     tw.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_T, Qt.NoModifier))
