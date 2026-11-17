@@ -217,16 +217,18 @@ class SameWidth(QWidget):
 
 class WrapRow(QLayout):
     """A row of controls, placed as a QHBoxLayout places them while they fit on one line: each as wide as it asks
-    for, from the left, and those added after to_the_end() at the row's right end. With less room, a control that
-    does not fit after the one before it starts the next line, so the controls keep their sequence and the row never
-    makes its card wider than the window. It says how high it is at a width (height for width).
+    for, from the left, and those added after to_the_end() at the row's right end. With less room, the row takes
+    more lines: a group of controls (group() starts one) that does not fit after the group before it starts the next
+    line with all of its controls, and a control that does not fit on its group's line starts one too. So the
+    controls keep their sequence and the row never makes its card wider than the window. It says how high it is at a
+    width (height for width).
     The result card's tools were the widest row of Make an EQ: 869 px on one line, with 779 px of room in the smallest
     window (841 px), so the page scrolled sideways by 90 px (measured, 2026-11-16)."""
 
     def __init__(self):
         super().__init__()
         self.setContentsMargins(0, 0, 0, 0)
-        self._items, self._space, self._end = own_items(self), 0, False
+        self._items, self._space, self._end, self._group = own_items(self), 0, False, 0
 
     def space(self, px):
         """px more room before the next control (a QHBoxLayout's addSpacing). A line never starts with it."""
@@ -236,9 +238,15 @@ class WrapRow(QLayout):
         """The controls added from now on go to the right end of their line (a QHBoxLayout's addStretch)."""
         self._end = True
 
+    def group(self):
+        """The controls added from now on are a group of their own: they go to the next line together when they do
+        not all fit after the controls before them. (Without groups the row's last control went there alone, and one
+        button on a line did not look good: the user, 2026-11-16.)"""
+        self._group += 1
+
     # ---------------------------------------------------------------- Qt's own: what's in it
     def addItem(self, item):
-        self._items.append((item, self._space, self._end))
+        self._items.append((item, self._space, self._end, self._group))
         self._space = 0
 
     def count(self):
@@ -263,14 +271,14 @@ class WrapRow(QLayout):
     def sizeHint(self):
         """On one line."""
         wide = 0
-        for item, space, _end in self._shown():
+        for item, space, _end, _group in self._shown():
             wide += (self.spacing() + space if wide else 0) + item.sizeHint().width()
         return QSize(wide, self.heightForWidth(wide))
 
     def minimumSize(self):
         """Its narrowest: as wide as its widest control (each on a line of its own), and one line high (as a label
         whose words wrap: how high it is at a width comes from heightForWidth)."""
-        shown = [item for item, _space, _end in self._shown()]
+        shown = [part[0] for part in self._shown()]
         return QSize(max((item.sizeHint().width() for item in shown), default=0),
                      max((item.minimumSize().height() for item in shown), default=0))
 
@@ -294,11 +302,16 @@ class WrapRow(QLayout):
 
     def _lines(self, width):
         """The controls in lines of width px: [[(item, its x from the line's start, its width)]]."""
-        gap, lines, ends = self.spacing(), [], []
-        for item, space, end in self._shown():
-            wide = item.sizeHint().width()
+        gap, lines, ends, shown = self.spacing(), [], [], self._shown()
+        for i, (item, space, end, group) in enumerate(shown):
+            wide = need = item.sizeHint().width()
             x = lines[-1][-1][1] + lines[-1][-1][2] + gap + space if lines else 0
-            if not lines or x + wide > width:
+            if i == 0 or shown[i - 1][3] != group:  # (a group's first control needs room for all of its group)
+                for other, more, _end, its in shown[i + 1:]:
+                    if its != group:
+                        break
+                    need += gap + more + other.sizeHint().width()
+            if not lines or x + need > width:
                 lines.append([])
                 ends.append(0)
                 x = 0

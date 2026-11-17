@@ -1,10 +1,10 @@
 """Layout items (app\\ui\\__init__.py says why) in the tracer: its 3 Save row, whose main action changes again and
 again (show_save_row puts the main button first: Qt deletes and makes again the items of the row), makes no Python
 object of a layout item and leaves none that no layout holds. (The items of the app's own layouts, forms.FlowLayout in
-the page's settings, are Python's by design: helpers.qt.made_item_objects leaves them out.) Until 2026-11-15 the row
-went into its card with its items, PySide6 kept an object for each, and the tests crashed now and then with an access
-violation: a new Qt object got the object of an item that Qt had deleted. Find… and Make an EQ's page:
-tests\\eq_screen\\test_layout_items.py."""
+the page's settings and eq_page_parts.WrapRow in its result card, are Python's by design:
+helpers.qt.made_item_objects leaves them out.) Until 2026-11-15 the row went into its card with its items, PySide6
+kept an object for each, and the tests crashed now and then with an access violation: a new Qt object got the object
+of an item that Qt had deleted. Find… and Make an EQ's page: tests\\eq_screen\\test_layout_items.py."""
 from helpers import qt
 
 # (what the window reaches through Make an EQ: for app\tools\relevant_tests.py)

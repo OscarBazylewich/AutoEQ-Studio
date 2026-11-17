@@ -2,9 +2,11 @@
 of the result card in ui\\eq_page_cards.py; 2026-11-16). The tools (Table, Sliders, Add filter, Sort, Undo all, Show
 the graph while you edit, Calculate from these filters) were a plain row that needed 869 px, and the card has 779 px
 of room in a window 841 px wide: the page scrolled sideways by 90 px, and Calculate from these filters was out of view
-(measured). Now the row takes a second line when it does not fit. In the smallest window the page has no sideways
-scroll and each tool is in view, in light and in dark, with the table, the sliders and a manual EQ; in a wider window
-the row is on one line, each tool where a plain row puts it. One page for the file (the eq_screen fixture)."""
+(measured). Now the row takes a second line when it does not fit: the tick box and Calculate from these filters go
+there together (the tick box at the left end, the button at the card's right end), not the button alone (the user,
+2026-11-16: one button on a line did not look good). In the smallest window the page has no sideways scroll and each
+tool is in view, in light and in dark, with the table, the sliders and a manual EQ; in a wider window the row is on
+one line, each tool where a plain row puts it. One page for the file (the eq_screen fixture)."""
 from PySide6.QtCore import QPoint, QRect
 from PySide6.QtWidgets import QPushButton, QWidget
 
@@ -17,6 +19,7 @@ COVERS = ("ui.eq_page_parts", "ui.eq_page_cards")
 # measured 2026-11-16; and a width where the tools fit on one line: they do from 931 px)
 NARROW, WIDE = 841, 1000
 SIZE = (1000, 900)  # (the page's size in the eq_screen fixture)
+TWO_LINES = [0, 0, 0, 0, 0, 1, 1]  # (each tool's line when the row does not fit on one: _tools' sequence)
 
 
 def _tools(page):
@@ -53,13 +56,15 @@ def _seen(page, width):
     return {"sideways scroll": bar.maximum(), "view": vp.width(), "page needs": area.widget().minimumSizeHint().width(),
             "in view": [vp.rect().contains(r) for r in rects], "lines": _lines(rects), "gaps": gaps,
             "x": [r.left() for r in rects],
+            "Show the graph while you edit at the left end": rects[5].left() == rects[0].left(),
             "Calculate from these filters at the right end": page.retry_btn.geometry().right()
             == page.name_edit.geometry().right()}
 
 
 def _fits_on_two_lines(d):
     return (d["sideways scroll"] == 0 and d["page needs"] <= d["view"] and all(d["in view"])
-            and d["lines"] == [0, 0, 0, 0, 0, 0, 1] and d["Calculate from these filters at the right end"])
+            and d["lines"] == TWO_LINES and d["Show the graph while you edit at the left end"]
+            and d["Calculate from these filters at the right end"])
 
 
 def _run(eq_screen):
@@ -86,9 +91,10 @@ def test_no_sideways_scroll_at_the_smallest_width(eq_screen, check):
         page.resize(*SIZE)
         qt.pump(200)
     check("eq page: with a result in the window's smallest width (841 px), Make an EQ has no sideways scroll, and each "
-          "of the filters' tools is in view, Calculate from these filters on a second line at the card's right end: in "
-          "light and in dark, with the table and with the sliders (the tools were one row of 869 px in 779 px of room: "
-          "the page scrolled sideways by 90 px)",
+          "of the filters' tools is in view, Show the graph while you edit and Calculate from these filters together on "
+          "a second line (the tick box at its left end, the button at the card's right end): in light and in dark, with "
+          "the table and with the sliders (the tools were one row of 869 px in 779 px of room: the page scrolled "
+          "sideways by 90 px)",
           len(seen) == 4 and all(_fits_on_two_lines(d) for d in seen.values()), seen)
 
 
@@ -104,7 +110,8 @@ def test_a_manual_eq_at_the_smallest_width(eq_screen, check):
         page.resize(*SIZE)
         qt.pump(200)
     check("eq page: a manual EQ in the window's smallest width has no sideways scroll, and each of the filters' tools "
-          "is in view, on two lines", _fits_on_two_lines(seen), seen)
+          "is in view, on two lines (the tick box and Calculate from these filters on the second)",
+          _fits_on_two_lines(seen), seen)
 
 
 def test_the_tools_on_one_line_in_a_wider_window(eq_screen, check):
@@ -141,7 +148,7 @@ def test_the_tools_keep_their_sequence_on_two_lines(eq_screen, check):
         if w is tools[0]:
             break
     check("eq page: on two lines the filters' tools keep their sequence (from left to right, then the second line), "
-          "and the Tab sequence follows it: Table, Sliders, Add filter, Sort, Undo all, Show the graph while you edit, "
-          "Calculate from these filters",
-          read == list(range(7)) and chain == list(range(7)), {"as read": read, "Tab sequence": chain,
-                                                                "lines": seen["lines"], "x": seen["x"]})
+          "and the Tab sequence follows it: Table, Sliders, Add filter, Sort, Undo all, then on the second line Show "
+          "the graph while you edit, Calculate from these filters",
+          seen["lines"] == TWO_LINES and read == list(range(7)) and chain == list(range(7)),
+          {"as read": read, "Tab sequence": chain, "lines": seen["lines"], "x": seen["x"]})

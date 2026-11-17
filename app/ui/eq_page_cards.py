@@ -561,8 +561,9 @@ class EqCards:
         help_window.tag(self.cmp_btn, "#compare-results")
         pick.addWidget(self.cmp_btn)
         pick.addStretch(1)
-        # (the filters' tools, the card's widest row: on one line from 931 px, and in a narrower window Calculate from
-        # these filters on a second line, at the right end still; in a plain row they made the page scroll sideways)
+        # (the filters' tools, the card's widest row: on one line from 931 px; in a narrower window the tick box and
+        # Calculate from these filters on a second line, the tick box at its left end and the button at the card's right
+        # end still; in a plain row they made the page scroll sideways)
         tools = placed(v, WrapRow())
         self.view_btns = {}
         for key, name in (("table", "Table"), ("sliders", "Sliders")):
@@ -587,6 +588,7 @@ class EqCards:
             if text == "Undo all":
                 self.revert_btn = b
         tools.space(12)
+        tools.group()  # (the tick box and the button after it: together on the second line, not the button alone)
         # (the graph floating over the page as you edit, while it's out of sight: on to start with, kept: eq_page_live)
         self.live_check = QCheckBox("Show the graph while you edit")
         self.live_check.setChecked(self.live_graph_on())

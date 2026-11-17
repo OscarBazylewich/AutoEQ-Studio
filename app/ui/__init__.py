@@ -22,8 +22,9 @@ and does not tell PySide6: the old object stays at the address of the deleted it
 address then got the old object, and Python stopped with an access violation (the tests, now and then: a menu's
 action in Find… and in the graph of Make an EQ). QLayout.itemAt, called from Python, makes such an object too: the
 code keeps a reference to the part that it needs. The app's own layout classes (forms.FlowLayout, picker.Lines,
-listen's rows) get each item from Qt as a Python object and keep it in a list, which Qt empties through their takeAt:
-own_items() also empties it when Qt deletes the layout, so that no such object stays after its layout.
+listen's rows, eq_page_parts.WrapRow) get each item from Qt as a Python object and keep it in a list, which Qt
+empties through their takeAt: own_items() also empties it when Qt deletes the layout, so that no such object stays
+after its layout.
 tests\\helpers\\qt.py checks these rules in every test.
 """
 import sys
