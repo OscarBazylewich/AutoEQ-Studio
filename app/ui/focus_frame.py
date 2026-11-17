@@ -24,6 +24,16 @@ When it shows (measured with PySide6 6.11.2, 2026-11-16):
   the focus while its menu shows), so each menu and list that pops up is watched while it shows, for the two
   (watch_popup: theme.py's filter, which sees each pop-up as it shows, tells of it). Without that, the frame stayed
   after a click on a menu's item.
+- A turn of the mouse wheel on a control whose focus policy has the wheel in it (Qt.WheelFocus: in the app, the
+  drop-down lists) gives that control the focus with no mouse button down (measured: the cause in its focus events
+  is Qt.MouseFocusReason, but QApplication.focusChanged tells no cause). Qt hands the turn to the window's native
+  part first, and moves the focus while it takes the turn on to the control (measured). So the native parts watched
+  for a mouse press are watched for a turn too, and a move of the focus while a turn is handed on is the mouse's, as
+  a click's: no frame (it went to the list, found by a verifier). A turn that moves no focus, as one that scrolls
+  the page, changes nothing: the frame stays on its control. Qt does not tell when it is done with an event, so
+  "handed on" ends at the app's next free moment, or at a key press before that (measured off-screen: without this,
+  Tab showed no frame after a turn with no pass of the event loop between the two; on Windows that is a turn and a
+  key that waited while the app was busy: from memory of Qt's source, not measured).
 - While the keyboard is in use, the frame follows the focus wherever the app puts it in the window (Cancel while a
   job runs), and it is hidden while no window of the app is active.
 - A window shows the frame only after a key was pressed in it since the last mouse press (inferred): a window that
@@ -49,7 +59,7 @@ control's own parent (measured), and its place and shape come from the style, no
 import weakref
 
 import shiboken6
-from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QRectF, Qt
+from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QRectF, Qt, QTimer
 from PySide6.QtGui import QColor, QGuiApplication, QPainter, QPen
 from PySide6.QtWidgets import (QAbstractButton, QAbstractItemView, QAbstractScrollArea, QApplication, QComboBox,
                                QSlider, QWidget)
@@ -72,8 +82,9 @@ _CHORD = Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier
 _MOVE, _RESIZE, _SHOW, _HIDE = QEvent.Move, QEvent.Resize, QEvent.Show, QEvent.Hide
 _PARENT, _ZORDER = QEvent.ParentChange, QEvent.ZOrderChange
 _PRESSES = (QEvent.MouseButtonPress, QEvent.NonClientAreaMouseButtonPress)
+_WHEEL = QEvent.Wheel
 _KEYS = (QEvent.ShortcutOverride, QEvent.KeyPress)  # (ShortcutOverride comes first, also for a key a shortcut takes)
-_WATCHED = (_MOVE, _RESIZE, _SHOW, _HIDE, _PARENT, _ZORDER, *_PRESSES, *_KEYS)
+_WATCHED = (_MOVE, _RESIZE, _SHOW, _HIDE, _PARENT, _ZORDER, *_PRESSES, _WHEEL, *_KEYS)
 
 _engine = None
 
@@ -157,6 +168,7 @@ class FocusFrame(QObject):
         self._key_at = None    # keyboard not in use: the control watched for a key press (_held)
         self._presses = []     # keyboard in use: the windows' native parts watched for a mouse press
         self._popups = []      # the menus and lists that show now, each with its native part (watch_popup)
+        self._wheel = False    # keyboard in use: Qt hands a turn of the mouse wheel on now (it can move the focus)
         app.focusChanged.connect(self._focus_changed)
 
     # ------------------------------------------------------------ what is asked from outside
@@ -178,7 +190,7 @@ class FocusFrame(QObject):
         if w is None:  # (no window of the app is active, or nothing has the focus)
             self._aim(None)
             return
-        if QGuiApplication.mouseButtons() != Qt.NoButton:  # (a click moved the focus)
+        if QGuiApplication.mouseButtons() != Qt.NoButton or self._wheel:  # (a click or the wheel moved the focus)
             self._mouse()
         elif w.window().testAttribute(Qt.WA_KeyboardFocusChange):  # (Tab, Shift+Tab or an arrow key moved it)
             self._key_in(w.window())
@@ -211,6 +223,9 @@ class FocusFrame(QObject):
                 win.removeEventFilter(self)
         self._presses = []
         self._aim(None)
+
+    def _wheel_over(self):
+        self._wheel = False
 
     def _watch_presses(self, window):
         handle = window.windowHandle()
@@ -259,14 +274,21 @@ class FocusFrame(QObject):
             if self.keyboard and e.spontaneous():  # (the person's own press, not one that a demo of the Guide makes)
                 self._mouse()
                 self._watch_key(QApplication.focusWidget())
+        elif t is _WHEEL:
+            # (only at a native part, which gets the turn before the focus moves: a control gets it after that)
+            if self.keyboard and not self._wheel and e.spontaneous() and obj.isWindowType():
+                self._wheel = True
+                QTimer.singleShot(0, self._wheel_over)
         elif t in _KEYS:
-            if e.spontaneous() and e.key() not in _MODIFIER_KEYS and not e.modifiers() & _CHORD:
-                w = QApplication.focusWidget()
-                if w is not None and not (self.keyboard and self._keyed_in(w.window())):  # (the first key here)
-                    self._key_in(w.window())
-                    self._watch_key(None)
-                    self._watch_presses(w.window())
-                    self._aim(w)
+            if e.spontaneous():
+                self._wheel = False  # (a move of the focus from here on is this key's, not the wheel's)
+                if e.key() not in _MODIFIER_KEYS and not e.modifiers() & _CHORD:
+                    w = QApplication.focusWidget()
+                    if w is not None and not (self.keyboard and self._keyed_in(w.window())):  # (the first key here)
+                        self._key_in(w.window())
+                        self._watch_key(None)
+                        self._watch_presses(w.window())
+                        self._aim(w)
         elif t is _HIDE or t is _SHOW:
             if t is _HIDE and self._popups:
                 self._popup_hidden(obj)

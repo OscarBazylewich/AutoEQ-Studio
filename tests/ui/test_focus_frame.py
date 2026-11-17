@@ -3,12 +3,13 @@ focus): a frame round the control with the focus, only while the keyboard is in 
 the window's native part, as Windows sends them) on a window made as the app's (a button on the window, a scroll area
 with a card of controls, a list with a button in each row), light and dark, and what shows is read from the pixels
 of the window's picture: Tab, Shift+Tab and the arrow keys show the frame, in its two colours, on a push button, the
-accent button and a ✕ button; a click shows none and takes it off, a click in a button's menu too; a key on a control
-that a click gave the focus shows it; it follows the focus that the code moves while the keyboard is in use; it
-changes no control's size, place or pixels; it goes with its control (a scroll area, a list that scrolls, hidden,
-moved, deleted); it is not there while another window is active, and a window that opens shows it from the first key
-in it; one move of the focus takes less than 1 ms, and the frame's code does not run for the events of other
-controls.
+accent button and a ✕ button; a click shows none and takes it off, a click in a button's menu too; a notch of the
+mouse wheel on a drop-down list (it gives the list the focus) shows none, and one on the page leaves the frame; a key
+on a control that a click gave the focus shows it; it follows the focus that the code moves while the keyboard is in
+use; it changes no control's size, place or pixels; it goes with its control (a scroll area, a list that scrolls,
+hidden, moved, deleted); it is not there while another window is active, and a window that opens shows it from the
+first key in it; one move of the focus takes less than 1 ms, and the frame's code does not run for the events of
+other controls.
 
 The theme is applied in a Python of its own, as in test_theme.py (applied here, it would stay for the other tests of
 this folder). FRAME is that Python's code: it prints what it saw as one JSON line, and the checks below read it. On
@@ -423,6 +424,52 @@ def run(look):
     m["Esc in the menu"] = {"frame before": again["frame"], "the menu showed": showed, "focus": focus(),
                             "frame": framed(mb)}
     d["menu"] = m
+    # ---- the mouse wheel: a notch on the page moves no focus; a notch on a drop-down list gives the list the focus,
+    # with no mouse button down
+    def wheel(c, at=None, events=True):
+        """One notch of the mouse wheel towards the person, the pointer on c (to the window's native part)."""
+        QTest.wheelEvent(handle, QPointF(c.mapTo(win, at or c.rect().center())), QPoint(0, -120))
+        if events:
+            qapp.processEvents()
+
+    def no_keyboard():
+        return focus_frame is not None and not focus_frame.keyboard_in_use()
+    nothing_there = QPoint(view.width() - 30, 40)  # (in the card, right of its buttons: only the page takes the wheel)
+    bar.setValue(0)
+    click(w["label"])
+    by_code(w["combo"])
+    key(Qt.Key_Tab)
+    whl = {"Tab": {"focus": focus(), "frame": framed(w["slider"])}}
+    was, top = box(w["slider"]).top(), bar.value()
+    wheel(view, nothing_there)
+    moved = bar.value() - top
+    whl["a notch on the page"] = {"the page moved": moved > 0, "focus": focus(),
+                                  "frame, moved with its control": box(w["slider"]).top() == was - moved
+                                  and framed(w["slider"])}
+    bar.setValue(0)
+    by_code(w["tick"])
+    whl["the code moves the focus after it"] = {"focus": focus(), "frame": framed(w["tick"])}
+    wheel(w["combo"])
+    whl["a notch on a drop-down list"] = {"focus": focus(), "no frame": none(w["combo"]),
+                                          "the keyboard is not in use": no_keyboard()}
+    key(Qt.Key_Tab)
+    whl["Tab after it"] = {"focus": focus(), "frame": framed(w["slider"])}
+    w["slider"].clearFocus()
+    qapp.processEvents()
+    wheel(w["combo"])
+    whl["a notch on the list while nothing has the focus"] = {"focus": focus(), "no frame": none(w["combo"]),
+                                                              "the keyboard is not in use": no_keyboard()}
+    # (no pass of the event loop between the notch and the key, as when the two waited while the app was busy)
+    by_code(w["tick"])
+    key(Qt.Key_Tab)
+    before = framed(w["round2"])
+    wheel(view, nothing_there, events=False)
+    key(Qt.Key_Tab)
+    whl["a notch on the page, then Tab at once"] = {"frame before": before, "focus": focus(),
+                                                    "frame": framed(w["combo"])}
+    bar.setValue(0)
+    qapp.processEvents()
+    d["wheel"] = whl
     # ---- the time of one move of the focus, and what the frame's code runs on
     if focus_frame is not None:
         a, b2, far = w["accent"], w["more"], w["top"]
@@ -650,6 +697,24 @@ def test_a_menu_of_a_button(seen, check):
           "the clicks itself and moves no focus: the frame stayed); a menu opened with a click and used with the "
           "keys (Down, Enter) leaves the frame where the focus goes; after Esc the frame is on the button again",
           all(v == want for v in menu.values()), menu if any(menu.values()) else err)
+
+
+def test_the_mouse_wheel(seen, check):
+    whl, err = _both(seen, "wheel")
+    want = {"Tab": {"focus": "slider", "frame": True},
+            "a notch on the page": {"the page moved": True, "focus": "slider", "frame, moved with its control": True},
+            "the code moves the focus after it": {"focus": "tick", "frame": True},
+            "a notch on a drop-down list": {"focus": "combo", "no frame": True, "the keyboard is not in use": True},
+            "Tab after it": {"focus": "slider", "frame": True},
+            "a notch on the list while nothing has the focus": {"focus": "combo", "no frame": True,
+                                                                "the keyboard is not in use": True},
+            "a notch on the page, then Tab at once": {"frame before": True, "focus": "combo", "frame": True}}
+    check("focus frame: with the frame on a control, a notch of the mouse wheel on a drop-down list gives the list "
+          "the focus and no frame (the wheel moves the focus with no mouse button down: the frame went to the list), "
+          "also while nothing has the focus, and Tab then shows the frame again; a notch on the page, where no "
+          "control takes it, scrolls the page and the frame stays on its control, the focus that the code moves "
+          "after it has the frame, and Tab pressed at once after it too",
+          all(v == want for v in whl.values()), whl if any(whl.values()) else err)
 
 
 def test_its_cost(seen, check):
