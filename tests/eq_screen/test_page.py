@@ -17,8 +17,10 @@ from helpers import qt
 # a name too long for any drop-down's room (squig.link's are often long)
 LONG = ("Moondrop Blessing 3 (Dusk edition) (Sample 2) (Final E tips, shallow fit, left and right averaged) "
         "(IEC 711 coupler, GRAS RA0045)")
-# the window's narrowest today (its top bar's width) and its own size: the page is as wide as the window
-WIDTHS = (965, 1040)
+# (px: the main window's smallest width with Make an EQ shown, measured 2026-11-17 at 100 % scale in the window
+# itself, where the page is as wide as the window; 965, the window's smallest width when this test was written,
+# 2026-10-23: its top bar's width then; and the window's own size)
+WIDTHS = (841, 965, 1040)
 
 
 def _scroll_area(page):
