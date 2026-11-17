@@ -1,11 +1,12 @@
-"""3 Save of the tracer (ui\\trace_window.py): "The graph shows" is one question with 3 types of graph (the user,
+"""3 Save of the tracer (ui\\trace_window.py): "The graph shows" is one question with 4 types of graph (the user,
 2026-11-16; before, the list had "Frequency response (not compensated)" and "Difference from <target>", and the type
-"a target line" was one of two add buttons). The 3 choices in their order; "Target of the graph", in sight only for
-"A measurement as the difference from a target"; the one add button, whose name follows the list; the gray line under
-it; the files that each type sends to the app and that Save .txt… writes; a difference with no target; the selection
-that the app makes (an entry from Find a target, a target line alone, a measurement from a website) and that the user
-can change; the Guide's demo of the list; and Save .txt… for a target line alone. With the app's sample graph and a
-drawn look-alike of a website's target (helpers.website_graph)."""
+"a target line" was one of two add buttons; the fourth type, "A target line as the difference from a target", is
+that list's "Difference from <target>" with Add as target). The 4 choices in their order; "Target of the graph", in
+sight only for the 2 types with a difference from a target; the one add button, whose name follows the list; the
+gray line under it; the files that each type sends to the app and that Save .txt… writes; a difference with no
+target; the selection that the app makes (an entry from Find a target, a target line alone, a measurement from a
+website) and that the user can change; the Guide's demo of the list; and Save .txt… for a target line alone. With
+the app's sample graph and a drawn look-alike of a website's target (helpers.website_graph)."""
 import math
 import os
 
@@ -23,13 +24,18 @@ COVERS = ("ui.trace_core", "ui.trace_auto", "ui.ocr", "ui.eq_page", "ui.guide_tr
 TARGET = paths.SAMPLE_TARGET
 ENTRY = {"name": "Truthear Gate", "tag": "Hangout 5128", "site": "Hangout.Audio", "link": "https://example.invalid/x"}
 CHOICES = [("measurement", "A measurement"), ("difference", "A measurement as the difference from a target"),
-           ("target", "A target line")]
-WHAT = {"measurement": "The app saves the curve as a measurement, as the picture shows it.",
+           ("target", "A target line"), ("target_difference", "A target line as the difference from a target")]
+DIFFERENCES = ("difference", "target_difference")  # (the types with "Target of the graph")
+AS_TARGET = ("target", "target_difference")  # (the types whose add button is Add as target)
+WHAT = {"measurement": "The app saves the curve as a measurement. It does not change the curve.",
         "difference": "The app adds the selected target to the curve. Then it saves the result as a measurement.",
-        "target": "The app saves the curve as a target, as the picture shows it."}
-WHAT_2 = {"measurement": "The app saves the curves as one measurement, as the picture shows them.",
+        "target": "The app saves the curve as a target. It does not change the curve.",
+        "target_difference": "The app adds the selected target to the curve. Then it saves the result as a target."}
+WHAT_2 = {"measurement": "The app saves the curves as one measurement. It does not change the curves.",
           "difference": "The app adds the selected target to each curve. Then it saves the result as one measurement.",
-          "target": "The app saves only the selected curve as a target, as the picture shows it."}
+          "target": "The app saves only the selected curve as a target. It does not change the curve.",
+          "target_difference": "The app adds the selected target to the selected curve. Then it saves only this curve "
+                               "as a target."}
 SELECT = "Select the target in “Target of the graph”. The app adds this target to the curve."
 NO_TARGETS = "The app has no target. First, add the target of the graph on Make an EQ."
 
@@ -112,7 +118,7 @@ def _values(text):
     return np.array([float(a) for a, _b in rows]), np.array([float(b) for _a, b in rows])
 
 
-def test_three_types_one_add_button(eq_screen, tmp_path, check):
+def test_four_types_one_add_button(eq_screen, tmp_path, check):
     a11y = paths.import_tool("a11y")
     page, tw = _sample(eq_screen, 1)
     card = tw.pages.currentWidget()
@@ -125,7 +131,7 @@ def test_three_types_one_add_button(eq_screen, tmp_path, check):
             tw.changed()
         for kind, _words in CHOICES:
             _select(tw.shows, kind)
-            if kind == "difference":
+            if kind in DIFFERENCES:
                 _select(tw.comp, TARGET)
             qt.pump(50)
             seen[(curves, kind)] = {
@@ -150,19 +156,22 @@ def test_three_types_one_add_button(eq_screen, tmp_path, check):
     names = (tw.shows.accessibleName(), tw.comp.accessibleName(), tw.shows.property("help_key"),
              tw.comp.property("help_key"))
     tw.set_shows("measurement")
+    tw.comp.setCurrentIndex(0)
     tw.remove_image()
     tw.close()
-    check("tracer: “The graph shows” has 3 choices, in this order: “A measurement”, “A measurement as the difference "
-          "from a target”, “A target line”", choices == CHOICES, choices)
+    check("tracer: “The graph shows” has 4 choices, in this order: “A measurement”, “A measurement as the difference "
+          "from a target”, “A target line”, “A target line as the difference from a target”", choices == CHOICES,
+          choices)
     check("tracer: 3 Save has one add button, in the accent, and Save .txt…; the add button is Add as measurement for "
-          "a measurement and for a difference from a target, and Add as target for a target line",
-          all(v["row"] == [("Add as target" if kind == "target" else "Add as measurement", True), ("Save .txt…", False)]
-              and v["add"] == ("target" if kind == "target" else "measurement") for (_n, kind), v in seen.items()),
+          "the 2 types of a measurement, and Add as target for the 2 types of a target line",
+          len(seen) == 8 and all(
+              v["row"] == [("Add as target" if kind in AS_TARGET else "Add as measurement", True), ("Save .txt…", False)]
+              and v["add"] == ("target" if kind in AS_TARGET else "measurement") for (_n, kind), v in seen.items()),
           {k: (v["row"], v["add"]) for k, v in seen.items()})
-    check("tracer: “Target of the graph” (its label and its list) shows only for “A measurement as the difference "
-          "from a target”, between “The graph shows” and the buttons",
-          all(v["target list"] == ((kind == "difference"),) * 2 and v["below"] == sorted(v["below"])
-              and len(v["below"]) == (4 if kind == "difference" else 3) for (_n, kind), v in seen.items()),
+    check("tracer: “Target of the graph” (its label and its list) shows only for the 2 types with a difference from "
+          "a target, between “The graph shows” and the buttons",
+          all(v["target list"] == ((kind in DIFFERENCES),) * 2 and v["below"] == sorted(v["below"])
+              and len(v["below"]) == (4 if kind in DIFFERENCES else 3) for (_n, kind), v in seen.items()),
           {k: (v["target list"], v["below"]) for k, v in seen.items()})
     check("tracer: a gray line under the buttons tells how the app saves the curve for the selected type (one curve, "
           "and more than one curve); it is also the description of the add button for a screen reader",
@@ -173,18 +182,18 @@ def test_three_types_one_add_button(eq_screen, tmp_path, check):
     check("tracer: Tab goes through 3 Save from its top to its end (Name, Points in each octave, The graph shows, "
           "Target of the graph when it shows, the two boxes of Save from), each control has a name for a screen "
           "reader, and F1 has an entry for each of the two lists",
-          all(v["tab"] == [n for n in order if kind == "difference" or n != "Target of the graph"]
+          all(v["tab"] == [n for n in order if kind in DIFFERENCES or n != "Target of the graph"]
               and not v["unnamed"] for (_n, kind), v in seen.items())
           and names == ("The graph shows", "Target of the graph", "#tr-shows", "#tr-comp"),
           ({k: (v["tab"], v["unnamed"]) for k, v in seen.items()}, names))
     check("tracer: the pictures of 3 Save for each type (light and dark): the add button has the accent color, "
-          "Save .txt… has none", len(pictures) == 6 and all(a > 80 and s < 40 for a, s in pictures.values()), pictures)
+          "Save .txt… has none", len(pictures) == 8 and all(a > 80 and s < 40 for a, s in pictures.values()), pictures)
 
 
 def test_each_type_sends_its_files(eq_screen, monkeypatch, tmp_path, check):
     """The files of each type are those of trace_core's outputs (not changed, 2026-11-16): the measurement curves as
-    they are, the measurement curves with the target added, or the selected curve as a target. Save .txt… writes the
-    files of the measurement curves."""
+    they are, the measurement curves with the target added, the selected curve as a target, or the selected curve
+    with the target added as a target. Save .txt… writes the files of the measurement curves."""
     page, tw = _sample(eq_screen, 2)
     sent = _sent(page, monkeypatch)
     boxes, txt_boxes = _boxes(tw, monkeypatch), []
@@ -193,8 +202,9 @@ def test_each_type_sends_its_files(eq_screen, monkeypatch, tmp_path, check):
     got, txt = {}, {}
     for kind, _words in CHOICES:
         _select(tw.shows, kind)
-        if kind == "difference":
+        if kind in DIFFERENCES:
             _select(tw.comp, TARGET)
+        del sent[:]
         tw.save_btn.click()  # (the stand-in app says "Test.": a box)
         got[kind] = sent[-1] if sent else None
         folder["now"] = str(tmp_path / kind)
@@ -221,6 +231,15 @@ def test_each_type_sends_its_files(eq_screen, monkeypatch, tmp_path, check):
         want = np.interp(np.log(hz), lf, np.asarray(r["vals"], float))
         added[f_plain["name"]] = (bool(np.array_equal(hz, hz2)), float(np.abs(db2 - db - want).max()),
                                   float(np.ptp(want)), f_diff["content"].splitlines()[0])
+    # (the fourth type: the selected curve, the first one, with the target added, as one file of a target)
+    line = got["target_difference"]
+    line_file = line["files"][0]
+    hz, db = _values(got["target"]["files"][0]["content"])
+    hz2, db2 = _values(line_file["content"])
+    same = bool(np.array_equal(hz, hz2))
+    line_added = (len(line["files"]), line_file["name"], same,
+                  float(np.abs(db2 - db - np.interp(np.log(hz), lf, np.asarray(r["vals"], float))).max()) if same
+                  else None, line_file["content"].splitlines()[0])
     tw.set_shows("measurement")
     tw.comp.setCurrentIndex(0)
     tw.remove_image()
@@ -245,10 +264,18 @@ def test_each_type_sends_its_files(eq_screen, monkeypatch, tmp_path, check):
           and [f["name"] for f in got["target"]["files"]] == ["Sample IEM.txt"]
           and got["target"]["files"][0]["content"].split("\n", 1)[1] == plain[0]["text"].split("\n", 1)[1],
           [f["name"] for f in got["target"]["files"]])
+    check("tracer: “A target line as the difference from a target”: Add as target sends only the selected curve with "
+          "the selected target added, as a target (one file; each value within 0.002 dB of the curve plus the "
+          "target; the first line names the target; the same text as the file of that curve for “A measurement as "
+          "the difference from a target”)",
+          line["kind"] == "target" and line_added[:3] == (1, "Sample IEM.txt", True) and line_added[3] <= 0.002
+          and line_added[4] == note and line_file["content"] == got["difference"]["files"][0]["content"],
+          (line["kind"], line_added))
     check("tracer: Save .txt… writes the files of the measurement curves for each type, with the target added only "
-          "for a difference from a target",
+          "for the 2 types with a difference from a target",
           txt["measurement"] == {o["file"]: o["text"] for o in plain} and txt["target"] == txt["measurement"]
           and txt["difference"] == {f["name"]: f["content"] for f in got["difference"]["files"]}
+          and txt.get("target_difference") == txt["difference"]
           # (the only box: the sample's curves cross, and a part of one curve has no traced line)
           and all(kind == "information" and text.startswith("The app saved a straight line across the part")
                   for kind, text in txt_boxes),
@@ -268,6 +295,16 @@ def test_difference_with_no_target(eq_screen, monkeypatch, check):
     tw.save_btn.click()
     tw.save_txt()
     none["boxes"], none["sent"], none["asked"] = list(boxes), len(sent), len(asked)
+    # (the same for a target line as the difference from a target: its add button is Add as target)
+    del boxes[:]
+    _select(tw.shows, "target_difference")
+    qt.pump(30)
+    none_line = {"list": (tw.comp.isVisible(), tw.comp.currentText()), "line": tw.save_what.text(),
+                 "button": (tw.save_btn.text(), tw.save_btn.isEnabled())}
+    tw.save_btn.click()
+    tw.save_txt()
+    none_line["boxes"], none_line["sent"], none_line["asked"] = list(boxes), len(sent), len(asked)
+    _select(tw.shows, "difference")
     rows = [tw.comp.itemText(i) for i in range(tw.comp.count())]
     _select(tw.comp, TARGET)
     with_target = (tw.save_what.text(), tw.users_work())
@@ -282,6 +319,14 @@ def test_difference_with_no_target(eq_screen, monkeypatch, check):
                  "in sight": tw.comp.isVisible(), "line": tw.save_what.text()}
         tw.save_btn.click()
         empty["boxes"], empty["sent"] = list(boxes), len(sent)
+        del boxes[:]
+        _select(tw.shows, "target_difference")
+        qt.pump(30)
+        empty_line = {"list": (tw.comp.isVisible(), tw.comp.currentText(), tw.comp.isEnabled()),
+                      "line": tw.save_what.text(), "button": tw.save_btn.text()}
+        tw.save_btn.click()
+        empty_line["boxes"], empty_line["sent"] = list(boxes), len(sent)
+        _select(tw.shows, "difference")
     tw.fill_comp()
     back = tw.comp.count() > 1 and tw.comp.isEnabled()
     tw.set_shows("measurement")
@@ -305,6 +350,14 @@ def test_difference_with_no_target(eq_screen, monkeypatch, check):
           empty["list"] == ("No target in the app", "", False, 1) and empty["in sight"]
           and empty["line"] == NO_TARGETS and empty["boxes"] == [("warning", NO_TARGETS)] and empty["sent"] == 0
           and back, (empty, back))
+    check("tracer: a target line as the difference from a target with no target selected, and when the app has no "
+          "target: “Target of the graph” shows, the gray line tells the step to do first, and Add as target and "
+          "Save .txt… tell the same in a box (the app adds no file)",
+          none_line == {"list": (True, "Select the target"), "line": SELECT, "button": ("Add as target", True),
+                        "boxes": [("warning", SELECT)] * 2, "sent": 0, "asked": 0}
+          and empty_line == {"list": (True, "No target in the app", False), "line": NO_TARGETS,
+                             "button": "Add as target", "boxes": [("warning", NO_TARGETS)], "sent": 0},
+          (none_line, empty_line))
 
 
 def _stand_in_read(target_line=False, only=False):
@@ -394,6 +447,23 @@ def test_the_app_selects_the_type(eq_screen, monkeypatch, check):
     _select(tw.shows, "target")
     mine(4)
     seen["the user's target line, then a new picture"] = state()
+    # (the user selects a target line as the difference from a target: the next picture of the user is a measurement
+    # again, and the difference and its target stay; a picture from a website is a measurement with no target)
+    tw.remove_image()
+    mine(5)
+    _select(tw.shows, "target_difference")
+    _select(tw.comp, TARGET)
+    seen["the user's target line as a difference"] = (state(), tw.comp.currentData(), tw.save_what.text())
+    mine(6)
+    seen["a target line as a difference, then a new picture"] = (state(), tw.comp.currentData())
+    _select(tw.shows, "target_difference")
+    tw.remove_image()
+    seen["a target line as a difference, then Remove image"] = (state()[0], tw.comp.currentData())
+    mine(7)
+    _select(tw.shows, "target_difference")
+    at_once = read(dict(ENTRY, **{"as": "measurement"}))
+    seen["a measurement from a website after a target line as a difference"] = (at_once, state(),
+                                                                               tw.comp.currentData())
     tw.remove_image()
     tw.close()
     head = "The app traced the graph of “Truthear Gate” from “Hangout.Audio”. Compare the curve with the picture. "
@@ -434,6 +504,18 @@ def test_the_app_selects_the_type(eq_screen, monkeypatch, check):
               ("target", "Add as target", False, True), WHAT_2["target"],
               head + "If they agree, click Add as target. The picture also has a target line. Add the target line as "
               "target… adds that line as a target, not the Average curve."), seen["the user's target line on it"])
+    line = {k: v for k, v in seen.items() if "target line as a difference" in k}
+    check("tracer: “A target line as the difference from a target” is a selection of the user only (the user's work, "
+          "Add as target, with “Target of the graph”); the next picture of the user and Remove image have “A "
+          "measurement as the difference from a target” with the same target, and a measurement from a website has "
+          "“A measurement” with no target",
+          line == {"the user's target line as a difference": (("target_difference", "Add as target", True, True),
+                                                               TARGET, WHAT["target_difference"]),
+                   "a target line as a difference, then a new picture": (("difference", "Add as measurement", True,
+                                                                          False), TARGET),
+                   "a target line as a difference, then Remove image": ("difference", TARGET),
+                   "a measurement from a website after a target line as a difference": (
+                       "measurement", ("measurement", "Add as measurement", False, False), "")}, line)
 
 
 def test_target_of_the_graph_is_the_users_work(eq_screen, monkeypatch, check):
@@ -488,11 +570,11 @@ def test_guide_shows_the_list(eq_screen, check):
     t.go_to_step(steps.index("The graph shows"))
     words = t.steps[t.i]["text"]
     lit = [w is tw.shows for w in t.steps[t.i]["target"]()]
-    during = []
+    during, told = [], set()
     t.speed = 4.0
     t.replay()
-    done = qt.wait_for(lambda: (during.append((tw.shows.currentData(), tw.comp.isVisible())), not t.demo_running)[1],
-                       60)
+    done = qt.wait_for(lambda: (during.append((tw.shows.currentData(), tw.comp.isVisible())), told.add(t.say),
+                                not t.demo_running)[2], 60)
     t.go_to_step(steps.index("Save"))
     save_words = t.steps[t.i]["text"]
     save_lit = [w.text() for w in t.steps[t.i]["target"]()]
@@ -502,17 +584,20 @@ def test_guide_shows_the_list(eq_screen, check):
     work = dict(tw.edited)  # (the values of 3 Save that the user changed: none)
     tw.remove_image()
     tw.close()
-    check("tracer's Guide: the steps of 3 · Save are “The graph shows” (it has the 3 types and Target of the graph), "
+    check("tracer's Guide: the steps of 3 · Save are “The graph shows” (it has the 4 types and Target of the graph), "
           "“Save” (the add button and Save .txt…) and “The end”; each control of each step is there",
           steps[-3:] == ["The graph shows", "Save", "The end"] and "Compensated graphs" not in steps and not probs
-          and lit == [True] and all(w in words for w in ("“A measurement”", "“A measurement as the difference from "
-                                                         "a target”", "“A target line”", "Target of the graph"))
+          and lit == [True] and all(w in words for w in ("“A measurement”", "“A target line”", "The 2 types with a "
+                                                         "difference from a target", "Target of the graph"))
           and save_lit == ["Add as measurement", "Save .txt…"]
           and "The add button has the name of the selected type." in save_words, (steps[-3:], probs, lit, save_lit))
     check("tracer's Guide: the demo of “The graph shows” shows a difference from a target with Target of the graph "
           "under the list, and after it the list, the add button and the gray line are as before (no work of the "
           "user)", done and ("difference", True) in during and before == after
           and before[0] == ("measurement", "") and not work, (done, sorted(set(during)), before, after, work))
+    check("tracer's Guide: the demo of “The graph shows” tells “The 4 types of graph” at the open list, and then "
+          "what Target of the graph is", {"The 4 types of graph", "The target that the app adds to the curve"} <= told,
+          sorted(told))
 
 
 def test_save_txt_of_a_target_line_alone(eq_screen, monkeypatch, tmp_path, check):

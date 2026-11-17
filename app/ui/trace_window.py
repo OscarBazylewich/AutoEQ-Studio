@@ -7,10 +7,10 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
 - the side: Automatic settings (switch, Why these settings), 1 Axes (the four values, Snap to
   gridlines, Follow every gridline, Find axes again, Read labels), 2 Trace (Click curve, Draw, Erase, Move; the curves
   with their names; Add a curve; Auto trace; colour tolerance; dashed lines; Smooth, Undo, Redo, Clear), 3 Save
-  (name, points per octave, "The graph shows": the type of the graph, SHOWS, and for a difference from a target
-  "Target of the graph"; the range; one add button whose name follows the type, Add as measurement or Add as target;
-  Save .txt…; Add the target line as target…, shown only with a target line that the automatic read found; a gray
-  line that tells what the add does for the type, what_words)
+  (name, points per octave, "The graph shows": the type of the graph, SHOWS, and for the 2 types with a difference
+  from a target "Target of the graph"; the range; one add button whose name follows the type, Add as measurement or
+  Add as target; Save .txt…; Add the target line as target…, shown only with a target line that the automatic read
+  found; a gray line that tells what the add does for the type, what_words)
 - keys: T D E H tools, A Auto trace, S Smooth, F fit, + - zoom, Delete clears, Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y,
   arrows move a selected line (Shift: 10 px), Ctrl+V pastes a picture; a key of a tab's control shows that tab first
   (the tools, A, S, Delete, Undo and Redo: 2 Trace; the arrows: 1 Axes). While the automatic read runs, no key
@@ -88,7 +88,11 @@ TOOL_SYMBOLS = {"trace": "trace", "draw": "pen", "erase": "erase", "pan": "move"
 # (the settings' width: room for 10.5 pt text and symbols. 528, not 500: 3 Save's row "Save from (Hz)" with two boxes
 # as wide as "20000" and two "your value ↺" tags needs 513 px, also with the side's scroll bar, 2026-11-11. 544, not
 # 528: the longest choice of "The graph shows", "A measurement as the difference from a target", needs 286 px and had
-# 280 px with the side's scroll bar, so it ended in "…" at the smallest size of the window; now 296 px, 2026-11-16)
+# 280 px with the side's scroll bar, so it ended in "…" at the smallest size of the window; now 296 px, 2026-11-16.
+# 534 is enough at a display scale of 100 % (the fourth choice, "A target line as the difference from a target",
+# needs 264 px). The 10 px more are for larger scales: Windows' text measure (GDI) gives 291 px for the longest
+# choice at 150 % and 200 % and 293 px at 24 px text (171 %), and a label column 2 to 3 px wider. Not measured in the
+# app at those scales)
 SIDE = 544
 RADIUS = 8  # (the picture's card: a card's corners, as theme_sheet's)
 HINTS = {"trace": "Click a curve to follow it.", "draw": "Drag along the curve to make a line manually.",
@@ -110,9 +114,12 @@ READING = "The app reads the graph…"  # (the status line while the automatic r
 HAS_PICTURE = "The tracer has this picture."  # (the same picture of a website again: take_picture)
 # ("The graph shows": the types of graph, in the order of the list (also A to Z). One question in place of the list
 # "Frequency response (not compensated)" / "Difference from <target>" and the two buttons Add as measurement and Add
-# as target: the user did not know what the list was for, 2026-11-16)
+# as target: the user did not know what the list was for, 2026-11-16. The fourth type is the list's "Difference from
+# <target>" with Add as target of before: some graph websites show a target as the difference from a different target)
 SHOWS = (("measurement", "A measurement"), ("difference", "A measurement as the difference from a target"),
-         ("target", "A target line"))
+         ("target", "A target line"), ("target_difference", "A target line as the difference from a target"))
+DIFFERENCES = ("difference", "target_difference")  # (the types with "Target of the graph": the app adds that target)
+AS_TARGET = ("target", "target_difference")  # (the types whose add button is Add as target)
 # (a difference from a target with no target to add: the gray line of 3 Save, and the box of the add and of Save .txt…)
 SELECT_TARGET = "Select the target in “Target of the graph”. The app adds this target to the curve."
 NO_TARGETS = "The app has no target. First, add the target of the graph on Make an EQ."
@@ -1129,7 +1136,7 @@ class TraceWindow(QWidget):
         self.shows.setMinimumContentsLength(16)  # (the longest choice doesn't widen the side)
         self.shows.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
         g.addWidget(self.shows, 2, 1, 1, 3)
-        # (the target of a graph that shows a difference: a row that shows only for that type, show_graph_type)
+        # (the target of a graph that shows a difference: a row that shows only for those 2 types, show_graph_type)
         self.comp_lab = _label("Target of the graph", wrap=False)
         g.addWidget(self.comp_lab, 3, 0)
         self.comp = SearchCombo()
@@ -1283,15 +1290,18 @@ class TraceWindow(QWidget):
         entry from Find a target ("as": "target") and for a read of a target line alone (read_target; not for Find…
         for a measurement, "as": "measurement"); "A measurement" for each other picture from a website (a website's
         graph is not compensated, and the target of the picture before must not go into its curve: "Target of the
-        graph" has no target again). A picture of the user keeps the selection, but not "A target line": the next
-        picture is a measurement again, as the add button was Add as measurement again before 2026-11-16. The user
-        can select a different type after it (shows_selected)."""
+        graph" has no target again). A picture of the user keeps the selection, but not a target line: the next
+        picture is a measurement again, as the add button was Add as measurement again before 2026-11-16 ("A target
+        line as the difference from a target" becomes "A measurement as the difference from a target": the
+        difference and its target stay, as before that date). The user can select a different type after it
+        (shows_selected). The app never selects "A target line as the difference from a target" itself."""
         e = self.entry or {}
         as_target = e.get("as") == "target" or (self.read_target and e.get("as") != "measurement")
         now = self.shows.currentData()
         if self.entry:
             self.comp.setCurrentIndex(0)
-        self.set_shows("target" if as_target else "measurement" if self.entry or now == "target" else now)
+        mine = {"target": "measurement", "target_difference": "difference"}.get(now, now)
+        self.set_shows("target" if as_target else "measurement" if self.entry else mine)
 
     def set_shows(self, kind):
         """A type of graph (a key of SHOWS) into "The graph shows", as the app's own selection (not the user's:
@@ -1301,17 +1311,18 @@ class TraceWindow(QWidget):
         self.show_graph_type()
 
     def add_kind(self):
-        """What the add button adds, from "The graph shows": "target" for a target line, else "measurement"."""
-        return "target" if self.shows.currentData() == "target" else "measurement"
+        """What the add button adds, from "The graph shows": "target" for the 2 types of a target line, else
+        "measurement"."""
+        return "target" if self.shows.currentData() in AS_TARGET else "measurement"
 
     def show_graph_type(self):
-        """What follows "The graph shows": "Target of the graph" in sight only for a difference from a target, the
-        name of the add button, and the gray line under its row (also the button's description for a screen
-        reader)."""
+        """What follows "The graph shows": "Target of the graph" in sight only for the 2 types with a difference from
+        a target, the name of the add button, and the gray line under its row (also the button's description for a
+        screen reader)."""
         kind = self.shows.currentData()
         for w in (self.comp_lab, self.comp):
-            w.setVisible(kind == "difference")
-        self.save_btn.setText("Add as target" if kind == "target" else "Add as measurement")
+            w.setVisible(kind in DIFFERENCES)
+        self.save_btn.setText("Add as target" if kind in AS_TARGET else "Add as measurement")
         words = self.what_words()
         self.save_what.setText(words)
         self.save_btn.setAccessibleDescription(words)
@@ -1319,22 +1330,27 @@ class TraceWindow(QWidget):
     def what_words(self):
         """The gray line of 3 Save: what the add does for the selected type of graph. Add as measurement saves each
         measurement curve (more than one: one device); Add as target saves one curve, the selected one. A difference
-        from a target with no target to add: what to do first."""
+        from a target (of a measurement or of a target line) with no target to add: what to do first."""
         t = self.t
         kind = self.shows.currentData()
-        if kind == "target":
-            return ("The app saves only the selected curve as a target, as the picture shows it."
-                    if sum(map(t.has_data, t.curves)) > 1 else
-                    "The app saves the curve as a target, as the picture shows it.")
+        if kind in DIFFERENCES and not self.comp.currentData():
+            return SELECT_TARGET if self.comp.count() > 1 else NO_TARGETS
+        if kind in AS_TARGET:
+            one = sum(map(t.has_data, t.curves)) <= 1
+            if kind == "target_difference":
+                return ("The app adds the selected target to the curve. Then it saves the result as a target."
+                        if one else
+                        "The app adds the selected target to the selected curve. Then it saves only this curve as a "
+                        "target.")
+            return ("The app saves the curve as a target. It does not change the curve." if one else
+                    "The app saves only the selected curve as a target. It does not change the curve.")
         many = sum(1 for c in t.curves if t.has_data(c) and not c.get("target")) > 1
         if kind == "difference":
-            if not self.comp.currentData():
-                return SELECT_TARGET if self.comp.count() > 1 else NO_TARGETS
             return ("The app adds the selected target to each curve. Then it saves the result as one measurement."
                     if many else
                     "The app adds the selected target to the curve. Then it saves the result as a measurement.")
-        return ("The app saves the curves as one measurement, as the picture shows them." if many else
-                "The app saves the curve as a measurement, as the picture shows it.")
+        return ("The app saves the curves as one measurement. It does not change the curves." if many else
+                "The app saves the curve as a measurement. It does not change the curve.")
 
     def auto_words(self):
         """3 Save's note after an automatic read that passed: auto_note, then the name of the add button at this
@@ -1521,7 +1537,7 @@ class TraceWindow(QWidget):
             return number(tv["fmin"]), number(tv["fmax"])
         if what == "shows":
             kind = self.shows.currentData()
-            return kind, (self.comp.currentData() or "") if kind == "difference" else ""
+            return kind, (self.comp.currentData() or "") if kind in DIFFERENCES else ""
         return tv[what]
 
     def shows_selected(self, _i):
@@ -2176,10 +2192,10 @@ class TraceWindow(QWidget):
         self.show_graph_type()
 
     def compensation(self):
-        """A graph that shows the difference from a target (compensated): that target's curve, to add back, and the
-        words for the file's first line. (None, "") for the other types of graph. A difference with no target
-        selected: an error with the words of what to do first."""
-        if self.shows.currentData() != "difference":
+        """A graph that shows the difference from a target (compensated; a measurement or a target line): that
+        target's curve, to add back, and the words for the file's first line. (None, "") for the other types of
+        graph. A difference with no target selected: an error with the words of what to do first."""
+        if self.shows.currentData() not in DIFFERENCES:
             return None, ""
         name = self.comp.currentData()
         if not name:

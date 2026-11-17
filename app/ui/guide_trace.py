@@ -26,13 +26,13 @@ def trace_steps(tw):
         show_traces()
 
     def shows_demo(api):
-        """"The graph shows" opened and a difference from a target selected (shown, not selected): Target of the
-        graph shows under it. With a difference selected, a target line: the add button has its name."""
+        """"The graph shows" opened and a measurement as the difference from a target selected (shown, not selected):
+        Target of the graph shows under it. With that type selected, a target line: the add button has its name."""
         from ui.guide_demos import mock_combo
         combo = tw.shows
         to = "difference" if combo.currentData() != "difference" else "target"
         api.undo(tw.show_graph_type)  # (the last step put back: after the list has its own row again)
-        api.say("The 3 types of graph")
+        api.say("The 4 types of graph")
         yield from mock_combo(api, combo, combo.findData(to))
         tw.show_graph_type()
         if to == "difference":
@@ -109,10 +109,10 @@ def trace_steps(tw):
          "demo": lambda: [{"at": (lambda b=b: b), "say": b.toolTip()} for b in tw.edit_btns.values()]},
         {"chapter": "3 · Save", "title": "The graph shows",
          "target": lambda: [tw.shows] + ([tw.comp] if tw.comp.isVisible() else []), "before": tab(2),
-         "text": "Select the type of the graph here. “A measurement”: the app saves the curve as the picture shows "
-                 "it. “A measurement as the difference from a target” is for a compensated graph (for example, "
-                 "“compensated to DF”). Then select that target (it must be in the app) in Target of the graph, and "
-                 "the app adds it to the curve. “A target line”: the app saves the curve as a target. For a picture "
+         "text": "Select the type of the graph here. “A measurement”: the app saves the curve and does not change "
+                 "it. “A target line”: the app saves the curve as a target. The 2 types with a difference from a "
+                 "target are for a compensated graph (for example, “compensated to DF”). Then select that target "
+                 "(it must be in the app) in Target of the graph, and the app adds it to the curve. For a picture "
                  "from a website, the app makes the selection, and you can change it.",
          # (the card keeps off the row that the demo shows under the list, and the add button)
          "avoid": lambda: [tw.comp_lab, tw.comp, tw.save_btn],

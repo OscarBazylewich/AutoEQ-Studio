@@ -1,7 +1,7 @@
 """3 Save of the tracer (ui\\trace_window.py's _save_box): the "Save from (Hz)" boxes show their whole values at the
 usual and the smallest size of the window (the "to" box cut the first pixels of "20000" at 964 x 393, 2026-11-11), and
 the one add button of the row, in the accent, has the name of the picture's type (Add as target for an entry from Find
-a target: "The graph shows" then has "A target line"). The 3 types of "The graph shows": test_trace_graph_type.py."""
+a target: "The graph shows" then has "A target line"). The 4 types of "The graph shows": test_trace_graph_type.py."""
 from PySide6.QtWidgets import QStyle, QStyleOptionFrame
 
 from helpers import qt

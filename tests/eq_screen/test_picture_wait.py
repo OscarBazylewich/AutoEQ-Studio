@@ -1969,8 +1969,8 @@ def _change(tw, what):
         tw.name.setText("My name")
         tw.name.textEdited.emit("My name")
     elif what == "shows":
-        # (the user selects a different row, "A target line" or "A measurement": the same row again is no change,
-        # 2026-11-12)
+        # (the user selects a different row, the last one ("A target line as the difference from a target") or the
+        # first one ("A measurement"): the same row again is no change, 2026-11-12)
         i = tw.shows.count() - 1 if tw.shows.currentIndex() != tw.shows.count() - 1 else 0
         tw.shows.setCurrentIndex(i)
         tw.shows.activated.emit(i)
