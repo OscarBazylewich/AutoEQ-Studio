@@ -255,9 +255,10 @@ step at a time.
 2. Trace: Trace automatically finds a curve (click it again for the next curve: left, right …), or click a curve to
    trace it. Make a line (manually), Erase (a box), Make smooth, Undo and Redo correct small areas. The tracer
    connects the spaces in dashed or dotted curves. Each curve has a name (L, R): together, the curves are one device.
-3. Save: Add as measurement (the curves become the measurement that you use), Add as target, or Save .txt…. If the
-   graph shows the difference from a target ("compensated"), select that target in "The graph shows". The tracer
-   then adds the target to the curves.
+3. Save: select the type of the graph in "The graph shows". The 4 types are a measurement, a target line, and each of
+   them as the difference from a target ("compensated"). For a difference from a target, also select that target in
+   "Target of the graph". The tracer then adds the target to the curves. The add button is Add as measurement (the
+   curves become the measurement that you use) or Add as target. Save .txt… makes a file for other apps.
 The automatic settings adjust the color tolerance, the points in each octave and the range to save for the picture.
 The tracer always reads the labels and follows the curves as accurately as possible (approximately 1 s). A value
 that you change is your value (↺ makes it automatic again).

@@ -16,8 +16,10 @@ HELP_TRACE = {'#tr-auto-on': ["The app adjusts the tracer's settings for the ima
  '#tr-fmin': 'The frequency range to save.',
  '#tr-name': "The saved file's name.",
  '#tr-dashed': 'The app follows dashed or dotted curves across their spaces.',
- '#tr-comp': ['The app adds a target to the curve, for a graph that shows the difference from a target.',
-              'compensated'],
+ '#tr-shows': ['The type of the graph in the picture: a measurement, a target line, or one of them as the '
+               'difference from a target.', 'compensated'],
+ '#tr-comp': ['The target of a graph that shows the difference from a target. The app adds this target to the '
+              'curve.', 'compensated'],
  '#tr-target-line': ['Adds the target line of the picture as a target. You give its name first.', 'tracer',
                      'databases']}
 
@@ -77,21 +79,44 @@ SETTINGS_TRACE = [{'title': 'Trace a graph image',
                              {'key': '#tr-dashed',
                               'title': 'Dashed or dotted line',
                               'body': ['For dashed or dotted curves: the traced line continues across the spaces.']},
+                             {'key': '#tr-shows',
+                              'title': 'The graph shows',
+                              'body': ['The type of the graph in the picture. The name of the add button and the gray '
+                                       'text below it change with your selection.',
+                                       ['A measurement: the picture shows the frequency response of an IEM or '
+                                        'headphone. Add as measurement saves the curve and does not change it.',
+                                        'A measurement as the difference from a target: the picture shows the '
+                                        'difference of an IEM or headphone from a target (a compensated graph). '
+                                        'Select that target in “Target of the graph”. Add as measurement adds the '
+                                        'target to the curve and saves the result.',
+                                        'A target line: the picture shows a target. Add as target saves the selected '
+                                        'curve as a target and does not change it.',
+                                        'A target line as the difference from a target: the picture shows the '
+                                        'difference of a target from a different target (a compensated graph). Select '
+                                        'the different target in “Target of the graph”. Add as target adds it to the '
+                                        'selected curve and saves the result as a target.'],
+                                       'For a picture from a website, the app makes the selection. For an entry of a '
+                                       'target or from Find a target, it selects “A target line”. For a picture with '
+                                       'only a target line, it also selects “A target line”. For other entries, it '
+                                       'selects “A measurement”. You can change the selection.']},
                              {'key': '#tr-comp',
-                              'title': 'The graph shows (compensated)',
-                              'body': ['If the graph shows the difference from a target (compensated), select that '
-                                       'target. The app adds the target to the curve when you save it. The target must '
-                                       'be in the app.']},
+                              'title': 'Target of the graph',
+                              'body': ['This list shows only for “A measurement as the difference from a target” and “A '
+                                       'target line as the difference from a target”. Select the target that the '
+                                       'graph shows the difference from. The app adds the target to the curve when '
+                                       'you save it. The target must be in the app.']},
                              {'key': '#tr-target-line',
                               'title': 'Add the target line as target…',
                               'body': ['Adds the target line of the picture as a target. You give its name first. It '
                                        'shows only when the app found a target line next to a measurement in a '
                                        'picture from a website.',
-                                       'If the picture has only a target line, the app traces that line as the curve, '
-                                       'and Add as target is the first button of 3 Save. Add as measurement also adds '
-                                       'it. If the picture has more than one target line, show only one target on the '
-                                       'graph of the website. Then copy a new picture.',
+                                       'If the picture has only a target line, the app traces that line as the curve '
+                                       'and selects “A target line” in “The graph shows”. Thus, the add button is Add '
+                                       'as target. If you select “A measurement”, Add as measurement also adds the '
+                                       'line. If the picture has more than one target line, show only one target on '
+                                       'the graph of the website. Then copy a new picture.',
                                        'Add as measurement does not add the target line. If you change the target line '
                                        '(for example, you erase a part of it or rename it), it becomes a measurement '
-                                       'curve. To add it as a target, select it. Then click Add as target. To remove '
-                                       'it from the measurement, click its ✕ (Remove curve) on 2 Trace.']}]}]
+                                       'curve. To add it as a target, select it. Select “A target line” in “The graph '
+                                       'shows”. Then click Add as target. To remove it from the measurement, click its '
+                                       '✕ (Remove curve) on 2 Trace.']}]}]

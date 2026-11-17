@@ -1,6 +1,7 @@
 """The tracer's window with a picture of a website's target (ui\\trace_window.py's read_graph and take_read for a read
-of the target line alone, trace_auto's target_only): 3 Save's note and its main action, the two adds, and the
-messages when the kind of the entry and the picture do not agree. The read is the real one on a drawn look-alike
+of the target line alone, trace_auto's target_only): 3 Save's note, the type in "The graph shows" and the name of the
+add button, the add as a target and as a measurement, and the messages when the kind of the entry and the picture do
+not agree. The read is the real one on a drawn look-alike
 (helpers.website_graph.target_graph), with the true words of the picture in place of Windows' text reader."""
 import re
 
@@ -53,9 +54,10 @@ def test_target_alone_in_3_save(eq_screen, monkeypatch, tmp_path, check):
     tw = page.tracer
     img, truth = target_graph(1200)
     _read(tw, monkeypatch, img, truth, ENTRY)
-    target = [("Add as target", True), ("Add as measurement", False), ("Save .txt…", False)]
+    target = [("Add as target", True), ("Save .txt…", False)]  # (one add button since 2026-11-16)
     seen = {"ok": tw.read_ok, "read_target": tw.read_target, "tab": tw.pages.currentIndex(),
             "note": tw.save_note.text(), "row": _row(tw), "line button": tw.save_line.isVisible(),
+            "shows": tw.shows.currentData(),
             "curves": [(c["label"], c.get("target")) for c in tw.t.curves]}
     pictures = {}
     usual = tw.size()
@@ -70,7 +72,7 @@ def test_target_alone_in_3_save(eq_screen, monkeypatch, tmp_path, check):
             tw.pages.currentWidget().grab().save(side)
             pic = QImage(side)
             fill = [pic.pixelColor(b.mapTo(tw.pages.currentWidget(), QPoint(5, b.height() // 2))).saturation()
-                    for b in (tw.save_tgt, tw.save_meas)]
+                    for b in (tw.save_btn, tw.download_btn)]
             note_whole = tw.save_note.height() >= tw.save_note.heightForWidth(tw.save_note.width())
             pictures[(which, name)] = (tuple(fill), note_whole)
     qt.light(eq_screen.qapp)
@@ -81,8 +83,12 @@ def test_target_alone_in_3_save(eq_screen, monkeypatch, tmp_path, check):
     monkeypatch.setattr(page.svc, "call", lambda route, body=None: (sent.append((route, body)), {"error": "Test."})[1]
                         if route == "/api/files/add" else real_call(route, body))
     monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: said.append(a[2] if len(a) > 2 else ""))
-    tw.save("target")
-    tw.save("measurement")
+    tw.save_btn.click()  # (Add as target: the app's selection)
+    i = tw.shows.findData("measurement")  # (the user selects "A measurement": the line alone as a measurement)
+    tw.shows.setCurrentIndex(i)
+    tw.shows.activated.emit(i)
+    seen["as a measurement"] = (tw.save_btn.text(), tw.save_note.text().endswith("click Add as measurement."))
+    tw.save_btn.click()
     tw.remove_image()
     seen["after remove"] = (tw.read_target, _row(tw)[0])
     # (a new picture of the user after a target read: Add as measurement is the main action again)
@@ -100,14 +106,17 @@ def test_target_alone_in_3_save(eq_screen, monkeypatch, tmp_path, check):
     check("tracer: after Remove image, and after a new picture of the user, Add as measurement is the main action "
           "again", seen["after remove"] == (False, ("Add as measurement", True))
           and seen["after a new picture"] == (True, False, ("Add as measurement", True)), seen)
-    check("tracer: Add as target is the first button of 3 Save, in the accent; Add the target line as target… does "
-          "not show", seen["row"] == target and seen["line button"] is False, seen)
+    check("tracer: “The graph shows” has “A target line”, and the add button of 3 Save is Add as target, in the "
+          "accent; Add the target line as target… does not show", seen["row"] == target and seen["shows"] == "target"
+          and seen["line button"] is False, seen)
     check("tracer: the pictures (light and dark, the usual and the smallest size): Add as target has the accent color, "
-          "Add as measurement has none, and the note shows all its lines", len(pictures) == 4
+          "Save .txt… has none, and the note shows all its lines", len(pictures) == 4
           and all(t > 80 and m < 40 and whole for (t, m), whole in pictures.values()), pictures)
     files = [b["files"] for r, b in sent]
-    check("tracer: Add as target and Add as measurement each send the target line as one file of 400 points or more "
-          "(no message that there is no curve)", [b["kind"] for _r, b in sent] == ["target", "measurement"]
+    check("tracer: Add as target, and Add as measurement after the user selects “A measurement” (the note then says "
+          "Add as measurement), each send the target line as one file of 400 points or more (no message that there "
+          "is no curve)", [b["kind"] for _r, b in sent] == ["target", "measurement"]
+          and seen["as a measurement"] == ("Add as measurement", True)
           and all(len(f) == 1 and f[0]["content"].count("\n") > 400 for f in files) and said == ["Test.", "Test."],
           ([(b["kind"], [x["name"] for x in b["files"]]) for _r, b in sent], said))
 
@@ -135,10 +144,11 @@ def test_kind_of_entry_and_picture_disagree(eq_screen, monkeypatch, tmp_path, ch
     tw.remove_image()
     img, truth = website_graph(plot_w=1000, target="solid", curves=False)
     _read(tw, monkeypatch, img, truth, {k: v for k, v in ENTRY.items() if k != "kind"})
-    seen["no kind"] = (tw.read_ok, bool(NOTE.match(tw.save_note.text())), _row(tw)[0])
+    seen["no kind"] = (tw.read_ok, bool(NOTE.match(tw.save_note.text())), _row(tw)[0], tw.shows.currentData())
     tw.remove_image()
     _read(tw, monkeypatch, img, truth, dict(ENTRY, **{"as": "measurement"}))
-    seen["as a measurement"] = (tw.read_ok, tw.save_note.text().endswith("click Add as measurement."), _row(tw)[0])
+    seen["as a measurement"] = (tw.read_ok, tw.save_note.text().endswith("click Add as measurement."), _row(tw)[0],
+                                tw.shows.currentData())
     tw.remove_image()
     # (two target lines, 8 dB apart: trace_single of a target line alone, the verifier's M2)
     img, truth = website_graph(plot_w=1396, target="solid", curves=False, db_range=(-20, 20),
@@ -169,7 +179,7 @@ def test_kind_of_entry_and_picture_disagree(eq_screen, monkeypatch, tmp_path, ch
           "and the status line tells to show only one target and to copy a new picture",
           seen["two targets"] == (False, 1, head + trace_auto.MORE_TARGETS + "\n" + NOT_GRAPH), seen["two targets"])
     check("tracer: an entry with no kind, a picture with only a target line: a target, Add as target first",
-          seen["no kind"] == (True, True, ("Add as target", True)), seen["no kind"])
+          seen["no kind"] == (True, True, ("Add as target", True), "target"), seen["no kind"])
     check("tracer: Find… for a measurement on an entry of a target (\"as\": \"measurement\"): the note says Add as "
-          "measurement, and it is first", seen["as a measurement"] == (True, True, ("Add as measurement", True)),
-          seen["as a measurement"])
+          "measurement, and it is first", seen["as a measurement"] == (True, True, ("Add as measurement", True),
+                                                                      "measurement"), seen["as a measurement"])

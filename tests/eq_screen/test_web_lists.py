@@ -185,15 +185,16 @@ def test_words_of_a_website_entry(check):
     target = ("For an entry of a target, show only the target on the graph of the website. The tracer then traces the "
               "target line. If the line stops before an end of the frequency axis, 3 Save shows its first and last "
               "frequency.",
-              "For an entry of a target or from Find a target, Add as target is the first button. The text on 3 Save "
-              "tells you to click it. If the app cannot trace only the target line, remove the measurement curve from "
-              "the graph of the website. Then copy a new picture.")
+              # (2026-11-16: one add button, whose name follows the type in "The graph shows")
+              "For an entry of a target or from Find a target, the tracer selects “A target line”. Thus, the add "
+              "button is Add as target. The text on 3 Save tells you to click it. If the app cannot trace only the "
+              "target line, remove the measurement curve from the graph of the website. Then copy a new picture.")
     sentences = [s for p in paras for s in re.split(r"(?<=[.!?])\s+(?=[A-Z])", p)]
     check("website words: Help tells to show only the target for an entry of a target, each sentence 20 words or "
           "fewer, each paragraph 6 sentences or fewer",
           all(p in paras for p in target)
           and all(len(s.split()) <= 20 for p in target for s in re.split(r"(?<=[.])\s+", p))
-          and " ".join(paras).count("Add as target is the first button") == 1  # (one sentence tells it)
+          and " ".join(paras).count("the add button is Add as target") == 1  # (one sentence tells it)
           and all(len(re.split(r"(?<=[.!?])\s+(?=[A-Z])", p)) <= 6 for p in paras)
           and all(len(s.split()) <= 25 for s in sentences), [s for s in sentences if len(s.split()) > 25])
     words = {"BROWSE_NOTE": databases.BROWSE_NOTE, "REFUSED_NOTE": databases.REFUSED_NOTE, "Help": " ".join(paras)}

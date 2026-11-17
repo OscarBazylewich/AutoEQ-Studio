@@ -685,8 +685,9 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'For an entry of a target, show only the target on the graph of the website. The '
                                     'tracer then traces the target line. If the line stops before an end of the '
                                     'frequency axis, 3 Save shows its first and last frequency.',
-                                    'For an entry of a target or from Find a target, Add as target is the first '
-                                    'button. The text on 3 Save tells you to click it. If the app '
+                                    'For an entry of a target or from Find a target, the tracer selects “A target '
+                                    'line”. Thus, the add button is Add as target. The text on 3 Save tells you to '
+                                    'click it. If the app '
                                     'cannot trace only the target line, remove the measurement curve from the graph '
                                     'of the website. Then copy a new picture.',
                                     'A small picture, or a second curve in almost the same color, can cause errors. '
