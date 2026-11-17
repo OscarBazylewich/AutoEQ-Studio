@@ -5,7 +5,8 @@ changing: at the top of what the page shows, or at its bottom when the control i
 
 It comes with an edit of the filters (the table, the sliders, Add filter, Sort) and follows each one (the page's draw,
 and a handle held on the EQ graph: follow); it goes when the graph comes back into sight, when the filters scroll out
-of it, or with its ✕. The editor's tick box "Show the graph while editing" (next to its tools) turns it off and on,
+of it, or with its ✕. While a job runs it makes way for Cancel: hidden while its place is over Cancel, back at the
+job's end. The editor's tick box "Show the graph while editing" (next to its tools) turns it off and on,
 kept for the next start (the switcher's "live_graph"); its ✕ turns it off too. Drawn as the graph is (its colours,
 log frequency axis) on a card with Windows 11's flyout border."""
 import numpy as np
@@ -153,7 +154,7 @@ class EqLive:
     def place_live_graph(self):
         """Where the floating graph goes now, or that it goes: none while the graph is in sight, the filters out of it,
         or no room; else at the top of what the page shows, right-aligned, or at its bottom when the control in use
-        (or, with none, the filters) is under the top place."""
+        (or, with none, the filters) is under the top place. None while a job runs if that place is over Cancel."""
         lg = getattr(self, "live_graph", None)
         if not getattr(self, "_live_wanted", False):
             if lg is not None:
@@ -181,10 +182,24 @@ class EqLive:
         clear = ([p for p in places if not p.intersects(editor)]
                  or [p for p in places if held is not None and not p.intersects(held)])
         pick = clear[0] if clear else min(places, key=lambda p: (p.intersected(editor).height(), places.index(p)))
+        # (never over Cancel while a job runs: in a window 841 px wide the top place covered all 90 px of Cancel, and
+        # no click could stop the job: measured, 2026-11-16. It is still wanted: run() and _poll_job place it again)
+        if self.cancel_btn.isVisible() and pick.intersects(rect_of(self.cancel_btn)):
+            lg.hide()
+            return
         lg.setGeometry(pick)
         self.update_live_graph()
         lg.show()
         lg.raise_()
+
+    def live_graph_as_a_job_starts(self):
+        """Cancel has just been shown: the floating graph's place again, once the page has given Cancel its place
+        (a Cancel never shown before has none yet). Each pass of the posted layouts can post one more, for a parent."""
+        if not getattr(self, "_live_wanted", False):
+            return
+        for _ in range(6):
+            QApplication.sendPostedEvents(None, QEvent.LayoutRequest)
+        self.place_live_graph()
 
     def update_live_graph(self):
         """The floating graph's curves as the page's graph has them now (its scale too), and the result's numbers."""

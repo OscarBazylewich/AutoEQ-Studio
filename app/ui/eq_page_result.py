@@ -74,6 +74,7 @@ class EqResult:
         if retry:  # (the page follows the job, UI-RULES 30: Retry is on the result card, its progress under Run)
             self._scroll_to(self.progress)
         self._run_view = self._scroll_value()  # (moved from here meanwhile: the result isn't scrolled to after)
+        QTimer.singleShot(0, self, self.live_graph_as_a_job_starts)  # (the floating graph never over Cancel)
         self._poll.start()
 
     def say_progress(self, text):
@@ -100,6 +101,7 @@ class EqResult:
             (back if usable else self.run_btn).setFocus(Qt.OtherFocusReason)
         self._run_focus = None
         self.cancel_btn.hide()
+        self.place_live_graph()  # (the floating graph back, if it made way for Cancel)
         self.progress.hide()
         if j.get("status") == "done":
             self.runs += 1

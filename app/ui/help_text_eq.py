@@ -442,7 +442,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'error and the pre-amp. It is not on the control that you change. It is at the top '
                                     'of the window, or at the bottom if the control is at the top. It follows each '
                                     'change. It closes when you scroll to the graph or to a part with no filters. Its '
-                                    '✕ or this tick box disables it.']},
+                                    '✕ or this tick box disables it.',
+                                    'While the app calculates, the copy does not show if it is on Cancel.']},
                           {'key': '#eq-graph',
                            'title': 'The EQ graph: edit on the curve',
                            'body': ['Below the graph: the EQ on the result card, with a handle for each filter. Each '
