@@ -137,6 +137,7 @@ class Listen(QGroupBox):
         self.playing, self.blind_order, self.revealed = False, None, False
         self.file_data, self.file_name = None, ""
         self.pins, self.pins_for = [], None  # this IEM's EQs to compare, and which IEM they're for
+        self._rows_of = None  # the list that the rows of the EQs to compare show (render_pins)
         st = page.sw.s.get("listen") or {}
         v = QVBoxLayout(self)
         # (one gray line under the title, with all its help text: the IEM, and "Start with a low volume" once; the keys
@@ -550,7 +551,11 @@ class Listen(QGroupBox):
 
     def refresh(self, rows=True):
         """After a new result, an edit, or another IEM: the versions and the buttons. rows=False when only a name
-        changed (_show_new_names): the rows of the EQs to compare stay, with their new names."""
+        changed (_show_new_names): the rows of the EQs to compare stay, with their new names.
+        The rows also stay when they show this list already (a new result, an edit: the list is the same). They
+        were made again each time: a calculation that ended while a person typed in a name box recorded the name
+        as it was, took a space at its end out of the box, put the recorded name into a box with no text, and left
+        Ctrl+Z with no step to undo (2026-11-22)."""
         vs = self.versions()
         keys = [k for k, *_ in vs]
         if self.engine:
@@ -570,7 +575,7 @@ class Listen(QGroupBox):
             self.abx_end(finished=False, why=stops)  # (what was answered is said, and why it stopped)
         self._apply_to_engine()
         self.render_versions()
-        if rows:
+        if rows and not self._rows_show_the_list():
             self.render_pins()
         else:
             self._name_pins()
@@ -1018,10 +1023,11 @@ class Listen(QGroupBox):
         """Your EQs to compare as a table, a row each, in columns: its colour (its curve's on the graph), its name
         (edit it to rename it), its filters and where it's from, Graph, ✕."""
         # (a row's control with the focus is made again below: Graph or ✕ after a key or a click on it, or a name box
-        # when a calculation ends. Hidden with the focus, it gave the focus to the next control of the page: The
-        # selected EQ, where the next Space added an EQ, 2026-11-16. The focus goes off the old rows first, then to
-        # the same control of the row now in that place, else of the last row, else to The selected EQ under the
-        # empty list: UI-RULES 30. A new name does not make the rows again: _rename)
+        # that is this window's focus control while History's window adds an EQ. Hidden with the focus, it gave the
+        # focus to the next control of the page: The selected EQ, where the next Space added an EQ, 2026-11-16. The
+        # focus goes off the old rows first, then to the same control of the row now in that place, else of the last
+        # row, else to The selected EQ under the empty list: UI-RULES 30. A new name and a new result do not make
+        # the rows again: _rename, refresh)
         f = self.window().focusWidget()
         place = f.property("pin_place") if f is not None and self.pins_box.isAncestorOf(f) else None
         # (a name box with the focus: its text, its caret and the other end of its selection, read now, as a box
@@ -1077,6 +1083,7 @@ class Listen(QGroupBox):
             for kind, w in rows[i].items():
                 w.setProperty("pin_place", f"{kind}:{i}")
         self.pin_rows = rows
+        self._rows_of = (bool(self.pins_for), list(self.pins))
         self._name_pins()
         # (the new rows in their place in the Tab sequence, after the ABX test above them and before the buttons
         # that add an EQ: Qt put them after those buttons, 2026-11-16)
@@ -1094,6 +1101,14 @@ class Listen(QGroupBox):
                 # emoji, 2 positions for Qt, and the next letter typed took the emoji out of the name, 2026-11-22)
                 at, other = caret[1:]
                 w.setSelection(other, at - other)
+
+    def _rows_show_the_list(self):
+        """Whether the rows are the rows of this list: made for an IEM or for none, as now (the line of an empty
+        list tells which), and for these same EQs in this order. The same objects, not only equal ones: the
+        controls of each row work on the EQ that the row was made for."""
+        made = self._rows_of
+        return (made is not None and made[0] == bool(self.pins_for) and len(made[1]) == len(self.pins)
+                and all(a is b for a, b in zip(made[1], self.pins)))
 
     def _name_pins(self):
         """Each row of the list with the name of its EQ as it is now: the name box, and the names of the row's

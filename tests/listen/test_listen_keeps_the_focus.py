@@ -14,7 +14,7 @@ Two more parts of the card (2026-11-17):
   the name while a mouse button is down, and shows it on the card when the button is up.
 - A click or a drag in the name box of a different row after a new name put the caret at the end of that name with
   nothing selected: the rows were made again after the click. Now the rows stay, and only their names change.
-Enter after a new name in a name box (2026-11-22) made the rows again, as a calculation that ends does. The new name
+Enter after a new name in a name box (2026-11-22) made the rows again, as a calculation that ended did. The new name
 box of that row had its caret at the end of the name with nothing selected, and the next letter went there. A new
 box now gets the caret and the selection of the box that it replaces, when it has the same text. When the app records
 the name differently (no space at its two ends, one space for each group of spaces, 80 characters at most), the caret
@@ -28,6 +28,10 @@ A new name keeps its name box (2026-11-22). Enter after a new name, Tab, and a c
 the rows again, as a mouse click did before 2026-11-17. After Enter, the name box was a new control: Ctrl+Z did
 not take the typed letters out again, and a name wider than its box moved under the caret. A space typed before
 a change to a different program went out of the box. Now the rows stay, and only the names on the card change.
+A calculation that ends keeps the rows (2026-11-22): the list is the same. The rows were made again, and a person
+who typed in a name box then got a new box: the half-typed name was recorded, a space at its end went out of the
+box, a box with no text got the recorded name again, and Ctrl+Z did nothing. Now the rows are made again only when
+the list has different EQs (one added or removed, Graph, another IEM).
 Real mouse clicks and real keys. One page for the file (the eq_screen fixture), with a result and two EQs to compare.
 Nothing is played (tests\\listen\\conftest.py stands in for the sound card)."""
 import pytest
@@ -736,4 +740,72 @@ def test_a_new_name_keeps_its_name_box(eq_screen, listen, check):
           "words with the space between them (the box lost the space, and the two words became one word)",
           away == (True, "My ", 3, "", "My") and back == (True, "My EQ", 5, "", "My")
           and new == (True, "My EQ", 5, "", "My EQ"), (name, away, back, new))
+    listen()
+
+
+@pytest.mark.timeout(1500)  # (the Best fit run for the result, and three more: each allowed 180 s times the time factor)
+def test_a_calculation_that_ends_keeps_a_name_box_as_it_is(eq_screen, listen, check):
+    page = eq_screen.page
+
+    def calculate(lis):
+        """A calculation that ends while the name box of row 1 has the focus: whether that box is the same control
+        after it."""
+        box = _rows(lis, QLineEdit)[0]
+        eqpage.quick_run(eq_screen)
+        qt.pump(150)
+        return _rows(lis, QLineEdit)[0] is box
+
+    lis, name = _in_name_box(page, listen)
+    _ctrl(Qt.Key_A)
+    _keys(Qt.Key_Delete)
+    kept = calculate(lis)
+    ended = _name_box(lis)
+    _write("N")
+    typed = _name_box(lis)
+    _key(Qt.Key_Return)
+    new = _name_box(lis)
+    check("listen: a calculation that ends while the name box of an EQ to compare has no text (the person removed the "
+          "name to type a new name): the box stays empty with the focus, and the letter typed then is the new name "
+          "(the recorded name came into the box again, and the letter went to its end)",
+          kept and ended == (True, "", 0, "", name) and typed == (True, "N", 1, "", name)
+          and new == (True, "N", 1, "", "N"), (name, kept, ended, typed, new))
+    lis, name = _in_name_box(page, listen)
+    _ctrl(Qt.Key_A)
+    _write("My ")
+    kept = calculate(lis)
+    ended = _name_box(lis)
+    _write("EQ")
+    typed = _name_box(lis)
+    _key(Qt.Key_Return)
+    new = _name_box(lis)
+    check("listen: a calculation that ends after a word and a space typed in the name box of an EQ to compare: the box "
+          "keeps the space, the name is recorded only at Enter, and the second word typed then comes after the "
+          "space (the calculation recorded the first word, the space went out of the box, and the two words became "
+          "one word)",
+          kept and ended == (True, "My ", 3, "", name) and typed == (True, "My EQ", 5, "", name)
+          and new == (True, "My EQ", 5, "", "My EQ"), (name, kept, ended, typed, new))
+    lis, name = _in_name_box(page, listen)
+    _write("abc")
+    kept = calculate(lis)
+    _ctrl(Qt.Key_Z)
+    undone = _name_box(lis)
+    check("listen: letters typed in the name of an EQ to compare, then a calculation that ends, then Ctrl+Z: the "
+          "letters go out of the name box (Ctrl+Z did nothing: the name box was a new control, and the calculation "
+          "recorded the name with the letters)",
+          kept and undone[:2] == (True, name) and undone[4] == name, (name, kept, undone))
+    # (the rows are made again when the list has a different EQ: History's Keep to compare adds one from its window,
+    # while the name box is the focus control of the main window)
+    lis, name = _in_name_box(page, listen)
+    _keys(Qt.Key_Right, 3, shift=True)
+    box, before = _rows(lis, QLineEdit)[0], _name_box(lis)
+    added = lis.add("From History", [{"type": "PK", "freq": 1234, "gain": 2, "q": 1}], say=lambda *_a: None)
+    qt.pump(150)
+    boxes = _rows(lis, QLineEdit)
+    after = _name_box(lis)
+    check("listen: an EQ that comes into the list while the name box of a different EQ has the focus (Keep to compare "
+          "in the window of History): the list shows the new EQ in a new row, and the name box keeps the focus, its "
+          "caret and its selected letters",
+          added and len(before[3]) == 3 and after == before and [b.text() for b in boxes] == [p["name"] for p in lis.pins]
+          and len(boxes) == 3 and boxes[2].text() == "From History" and boxes[0] is not box,
+          (added, before, after, [b.text() for b in boxes], boxes[0] is box))
     listen()
