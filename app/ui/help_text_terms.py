@@ -22,19 +22,19 @@ TERMS = [{'title': 'Curves and sound',
                      'body': ['The loudness of each frequency that an IEM or headphone plays, from the deep bass '
                               '(20 Hz) to the highest treble (20 kHz). The graph shows it as a curve: low '
                               'frequencies on the left, high frequencies on the right, more loudness at the top.',
-                              'Two earphones with the same measurement have the same tone. An EQ changes the '
-                              'frequency response. Thus, an EQ for a target makes the sound of the earphone '
+                              'Two IEMs or headphones with the same measurement have the same tone. An EQ changes the '
+                              'frequency response. Thus, an EQ for a target makes the sound of the IEM or headphone '
                               'nearer to the sound of that target.'],
                      'see': ['target', 'measurement', 'db', 'hz']},
                     {'id': 'target',
                      'title': 'Target',
-                     'body': ['The frequency response that you want for your earphone. It is a curve for a neutral '
-                              'or good sound (Harman, a diffuse-field curve, or the curve of a person who measures '
-                              'earphones). The app adjusts the EQ to make your measurement agree with the '
-                              'target.',
+                     'body': ['The frequency response that you want for your IEM or headphone. It is a curve for a '
+                              'neutral or good sound (Harman, a diffuse-field curve, or the curve of a person who '
+                              'measures IEMs or headphones). The app adjusts the EQ to make your measurement agree '
+                              'with the target.',
                               'A target is for one rig, because different rigs give different measurements of the '
-                              'same earphone. If your measurement comes from a different rig, the app tells you. '
-                              'It can change the target for that rig.'],
+                              'same IEM or headphone. If your measurement comes from a different rig, the app tells '
+                              'you. It can change the target for that rig.'],
                      'see': ['measurement', 'rig', 'rig-conversion', 'target-adjustments']},
                     {'id': 'measurement',
                      'title': 'Measurement',
@@ -43,8 +43,8 @@ TERMS = [{'title': 'Curves and sound',
                               'for each channel (L, R). Some measurements also have a file for each seating. The '
                               'app uses the average of the selected files.',
                               'Units of one model are different, and the position in the ear and the tips are '
-                              'also different. Thus, a measurement is a good guide to your earphone, but not an '
-                              'accurate copy.'],
+                              'also different. Thus, a measurement is a good guide to your IEM or headphone, but not '
+                              'an accurate copy.'],
                      'see': ['seatings', 'unit-variation', 'rig', 'databases']},
                     {'id': 'db',
                      'title': 'dB (decibel)',
@@ -121,8 +121,8 @@ TERMS = [{'title': 'Curves and sound',
                               'one octave. A high Q (5-10) gives a thin notch or peak. Q 1.41 is approximately one '
                               'octave wide, and Q 4.3 is approximately 1/3 of an octave.',
                               'Wide filters change the general tone, and small changes in the position of the '
-                              'earphone in your ear have almost no effect on them. Thin filters correct a sharp '
-                              'peak. But the position of the peak changes with the earphone position and the tips. '
+                              'IEM in your ear have almost no effect on them. Thin filters correct a sharp '
+                              'peak. But the position of the peak changes with the IEM position and the tips. '
                               'Thus, a very thin filter can be at an incorrect frequency for your ears. The Q '
                               'limits stop where a higher Q did not help in tests.'],
                      'see': ['peaking-filter', 'shelf', 'unit-variation']},
@@ -170,9 +170,9 @@ TERMS = [{'title': 'Curves and sound',
          {'title': 'Rigs and measurements',
           'terms': [{'id': 'rig',
                      'title': 'Rig (ear simulator): 711, 5128, 43AG, HMS',
-                     'body': ['The device that measures an earphone. It has the shape of an ear (or of a head with '
-                              'ears), with a microphone at the position of the eardrum. Each type gives a '
-                              'different measurement of the same earphone. The differences are largest above '
+                     'body': ['The device that measures an IEM or headphone. It has the shape of an ear (or of a head '
+                              'with ears), with a microphone at the position of the eardrum. Each type gives a '
+                              'different measurement of the same IEM or headphone. The differences are largest above '
                               '2 kHz.',
                               ['711: a 711-type IEC 60318-4 coupler (or a copy of one), the most usual rig for '
                                'IEMs.',
@@ -232,7 +232,7 @@ TERMS = [{'title': 'Curves and sound',
                     {'id': 'seatings',
                      'title': 'Channels, seatings and averages',
                      'body': ['Many measurements have more than one file: the left and right channels (L, R). Some '
-                              'measurements also have more than one seating (the person removed the earphone and '
+                              'measurements also have more than one seating (the person removed the IEM and '
                               'put it in the ear again). The app uses the average of the selected files, as '
                               'squiglink does. The average is a more stable curve than each file.',
                               'Where the seatings do not agree (frequently above 10 kHz), the measurement is not '
@@ -269,11 +269,11 @@ TERMS = [{'title': 'Curves and sound',
                      'see': ['scored-range', 'seatings', 'rig-conversion']},
                     {'id': 'compensated',
                      'title': 'Compensated graph (difference from a target)',
-                     'body': ['Some graphs show the difference of an earphone from a target (a flat line = the same '
-                              'as the target), not its frequency response. When you trace such a graph, select '
+                     'body': ['Some graphs show the difference of an IEM or headphone from a target (a flat line = the '
+                              'same as the target), not its frequency response. When you trace such a graph, select '
                               '“A measurement as the difference from a target” in “The graph shows”. Then select '
                               'that target in “Target of the graph”. When you save the curve, the app adds the '
-                              'target again. Thus, the file has the frequency response of the earphone.'],
+                              'target again. Thus, the file has the frequency response of the IEM or headphone.'],
                      'see': ['tracer']},
                     {'id': 'tracer',
                      'title': 'Trace a graph image',
@@ -333,7 +333,7 @@ TERMS = [{'title': 'Curves and sound',
                               'difference of 0.25 dB or less at all frequencies, as the ear hears it. The app makes the difference smooth as the ear does, and it ignores the general '
                               'level. 0.25 dB is approximately the smallest wide change that persons heard in pink '
                               'noise, the sound that shows differences best. A small number of wide filters is '
-                              'easier to enter, and the position of the earphone has less effect on it.',
+                              'easier to enter, and the position of the IEM or headphone has less effect on it.',
                               'The limits of your EQ app, or a measurement that filters cannot follow, can keep all '
                               'results farther from the target. Then the app selects the minimum number of filters '
                               'for the same sound as the nearest result. The result shows how far from the '
@@ -484,7 +484,7 @@ TERMS = [{'title': 'Curves and sound',
                                'The data.'],
                               'It can also calculate the average of more than one measurement from one rig.',
                               'The rig of each source is the rig that it gives, or the usual rig for that type of '
-                              'database. The sorted list is not always correct for your earphone: units, the '
+                              'database. The sorted list is not always correct for your IEM or headphone: units, the '
                               'position in the ear and the tips are different.'],
                      'see': ['rig-conversion', 'seal', 'seatings']},
                     {'id': 'history',
@@ -540,7 +540,7 @@ QUESTIONS = [{'id': 'q-which-method',
                        'range. Below approximately 0.5 dB, the EQ is very near to the target. You cannot hear '
                        'differences of 0.05 dB or less. Two units of one model are different by approximately '
                        '1 dB. Thus, an error that is 0.1 dB smaller only follows the measurement, not your '
-                       'earphone.'],
+                       'IEM or headphone.'],
               'see': ['error', 'unit-variation']},
              {'id': 'q-treble',
               'q': 'The treble does not agree with the target, and the error stops at 10 kHz.',
@@ -605,7 +605,7 @@ QUESTIONS = [{'id': 'q-which-method',
                        'on measurements of IEMs and headphones:',
                        ['Error range: to the frequency where the files of your measurement (seatings, channels) '
                         'agree, frequently approximately 10 kHz. Above it, a measurement changes with the position '
-                        'and the depth of the earphone in the ear. Thus, an EQ that follows it there does not help.',
+                        'and the depth of the IEM in the ear. Thus, an EQ that follows it there does not help.',
                         'Filter counts: to the number where the result does not become better (32 filters for '
                         'Best fit, 20 rows for the website). It keeps the minimum number of filters for the '
                         'same sound as the target (0.25 dB or less, as the ear hears it). The previous method was '
