@@ -5,7 +5,7 @@ page's order). help_texts.py joins them with the other screens'. Words only: not
 """
 # flake8: noqa
 
-HELP_EQ = {'slot:target': ['The curve that you want for your earphone.', 'target', 'rig'],
+HELP_EQ = {'slot:target': ['The curve that you want for your IEM or headphone.', 'target', 'rig'],
  'slot:measurement': ['The measured frequency response of your IEM or headphone.',
                       'measurement',
                       'seatings',
@@ -152,9 +152,9 @@ HELP_EQ = {'slot:target': ['The curve that you want for your earphone.', 'target
 SETTINGS_EQ = [{'title': 'Select and calculate',
                 'items': [{'key': 'slot:target',
                            'title': 'Target',
-                           'body': ['The sound that you want for your earphone: a target curve (Harman, diffuse field, '
-                                    "a person's target). Select one from the app, this PC or the online databases. The "
-                                    'app adjusts the EQ to this target.']},
+                           'body': ['The sound that you want for your IEM or headphone: a target curve (Harman, '
+                                    "diffuse field, a person's target). Select one from the app, this PC or the online "
+                                    'databases. The app adjusts the EQ to this target.']},
                           {'key': 'slot:measurement',
                            'title': 'Measurement',
                            'body': ['The frequency response of your IEM or headphone, from the app, this PC or the '
@@ -202,9 +202,10 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                           {'key': 'rig_convert.enabled',
                            'title': "Change the target for the measurement's rig",
                            'body': ['Your measurement and target come from different rigs, and different rigs measure '
-                                    'the same earphone differently (usually above 2 kHz). On: the app changes the '
-                                    'target for the rig of the measurement. Thus, the EQ corrects the earphone, not '
-                                    'the difference between the rigs. Off: the app uses the target as it is.']}]},
+                                    'the same IEM or headphone differently (usually above 2 kHz). On: the app changes '
+                                    'the target for the rig of the measurement. Thus, the EQ corrects the IEM or '
+                                    'headphone, not the difference between the rigs. Off: the app uses the target as '
+                                    'it is.']}]},
                {'title': 'Target › Adjust',
                 'items': [{'key': 'target_adjust.tilt',
                            'title': 'Tilt (dB/oct)',
@@ -296,7 +297,7 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                           {'key': 'best_fit.q_max',
                            'title': 'Maximum Q values',
                            'body': ['The highest permitted Q. The app tries each value in the list, for example 3, 5. '
-                                    'A high Q can correct a sharp peak. But if the position of your earphone in your '
+                                    'A high Q can correct a sharp peak. But if the position of your IEM in your '
                                     'ear is different from the measurement, the filter can be at an incorrect '
                                     'frequency.']},
                           {'key': 'best_fit.low_shelf_freq',
@@ -421,7 +422,7 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                           {'key': 'res.maxq',
                            'title': 'Maximum Q',
                            'body': ['The highest Q of the filters. Above approximately 5, a filter is sensitive to the '
-                                    'position of the earphone in the ear.']},
+                                    'position of the IEM in the ear.']},
                           {'key': 'res.boost', 'title': 'Maximum gain', 'body': ['The highest gain of the filters.']},
                           {'key': 'fcounts',
                            'title': 'Number of filters',

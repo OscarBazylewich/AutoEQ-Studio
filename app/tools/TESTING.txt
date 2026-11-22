@@ -4,7 +4,7 @@ TESTING AUTOEQ STUDIO - thanks for trying it!
 AutoEQ Studio does two things in one window:
 - Make an EQ: compares a measurement of your IEMs or headphones with a target curve and finds the filters that make
   one match the other, saved as the file your EQ app needs.
-- Devices: gives each playback device on this PC its own EQ, switched by itself (plug in your earphones' dongle and
+- Devices: gives each playback device on this PC its own EQ, switched by itself (plug in your IEMs' dongle and
   their EQ is on). This part works through Equalizer APO (free: https://sourceforge.net/projects/equalizerapo/).
 This is a test copy: the point is to find out how it behaves on your PC. Anything odd is worth reporting, even small
 things.
@@ -32,7 +32,7 @@ THINGS TO TRY (tick what you managed; note anything that didn't work or looked w
   [ ] Find… next to Measurement: search for your own IEMs or headphones (the online databases have thousands),
       Use one and run it.
   [ ] Edit a filter in the result (the table or Sliders): the graph should follow.
-  [ ] Listen (under the result), with your earphones in and the volume low: play the music and switch between
+  [ ] Listen (under the result), with your IEMs or headphones on and the volume low: play the music and switch between
       "EQ off" and the EQ (keys 1 and 2). Do you hear the difference? Any clicks, crackles or silence?
   [ ] "Trace image" (by the graph's title): press its "Guide", then try it on a screenshot of any frequency
       response graph (e.g. from a review site).

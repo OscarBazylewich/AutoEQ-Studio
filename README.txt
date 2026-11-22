@@ -7,7 +7,7 @@ The parts:
 - Make an EQ (from AutoEQ Local): it makes an EQ that changes your headphones or IEMs to the sound of a target. It
   saves the EQ as the file that your EQ app uses, or "Use on device" puts the EQ directly on a device.
 - Devices (from EQ Switcher): each of your playback devices has its EQ, and the EQ changes automatically. When you
-  connect the dongle of your earphones or your Bluetooth earbuds, their EQ is on. Your speakers can have no EQ. It
+  connect the dongle of your IEMs or your Bluetooth earbuds, their EQ is on. Your speakers can have no EQ. It
   is the same as the EQ for each device in Poweramp, for Windows.
 
 All the functions of AutoEQ Local and EQ Switcher are in AutoEQ Studio.
@@ -86,9 +86,11 @@ The window looks almost the same as the apps of Windows 11. The primary buttons,
 items have your Windows accent color (on the same Colors page). On Windows 11, the background of the window is Mica,
 with a color from your desktop picture. The background has no color when a different window is active, or when
 Transparency effects are off.
-You can go to each control with Tab (in the top bar, go to the screens with the arrow keys). While you use the
-keyboard, a line around a control shows that the keys operate this control. After you click with the mouse, the line
-does not show. Each control has a name for a screen reader.
+You can go to each control with Tab (in the top bar, go to the screens with the arrow keys). In the tracer, Tab goes
+only to the text boxes, the lists, the slider, and the buttons Open image…, Remove image and Guide. You operate the
+other controls of the tracer with the mouse, and some of its buttons also have keys (refer to TRACE A GRAPH). While you
+use the keyboard, a line around a control shows that the keys operate this control. After you click with the mouse, the
+line does not show. Each control has a name for a screen reader.
 
 Guide: the 31 steps to make an EQ on Make an EQ (select, the settings, calculate, examine, save, listen and more),
 as in AutoEQ Local. Each step highlights a part of the screen, tells you about it and shows it in a short demo. In a
