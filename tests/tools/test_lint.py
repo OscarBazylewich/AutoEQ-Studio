@@ -12,7 +12,13 @@ of it.
   is let through.
 - In app\\, every layout given to another layout through ui.placed (an empty layout put in its place before its items):
   no use of addLayout or insertLayout outside placed.
-Each use of the name counts, not only a call: `add = v.addLayout` too."""
+Each use of the name counts, not only a call: `add = v.addLayout` too.
+
+A third rule, with the same reader: no new walk of Qt's focus chain from Python (nextInFocusChain,
+previousInFocusChain) in app\\ or tests\\. PySide6 6.11.2 records the control that such a call returns as a child of the
+control asked (measured, 2026-11-16; such records were a cause of an access violation in the tests, 2026-11-15). A
+test measures a Tab sequence with real keys (tests\\tracer\\test_trace_tab_keys.py's _tab_stops). The files of
+FOCUS_CHAIN_FILES had such a walk when this rule came (2026-11-22)."""
 import ast
 import os
 import subprocess
@@ -34,6 +40,21 @@ ITEM_AT_FILES = {
                            "nothing)",
 }
 VIEW_MARK = "(a view's itemAt"
+FOCUS_CHAIN = ("code: no new Python call of nextInFocusChain or previousInFocusChain in the app or its tests (PySide6 "
+               "records the returned control as a child of the control asked)")
+FOCUS_CHAIN_READER = ("code: the focus chain rule's reader finds a new call, a method kept and a known file with a "
+                      "different count, and no call in a comment")
+FOCUS_CHAIN_NAMES = {"nextInFocusChain", "previousInFocusChain"}
+# (the files with a walk of the focus chain on 2026-11-22, each with the count of its uses, not changed yet. A file
+# changed to real keys gets its new count or goes from this list: the check fails until then. No file comes into it)
+FOCUS_CHAIN_FILES = {
+    "app/ui/tour.py": 2,
+    "tests/eq_screen/test_focus_frame_page.py": 4,
+    "tests/eq_screen/test_picture_wait.py": 1,
+    "tests/eq_screen/test_result_narrow.py": 1,
+    "tests/eq_screen/test_run_keeps_the_page.py": 2,
+    "tests/eq_screen/test_your_value_tag_keeps_the_page.py": 2,
+}
 
 
 def test_ruff_finds_nothing(check):
@@ -107,6 +128,35 @@ def test_layouts_given_through_placed(check):
     found = [u for rel, text in _sources("app")
              for u in uses(text, rel, {"addLayout", "insertLayout"}, _placed_allowed)]
     check(PLACED, not found, found[:20])
+
+
+def chain_walks(sources, known):
+    """What is wrong with the uses of Qt's focus chain in sources ((rel, text) pairs) against the known counts
+    ({rel: count}; a file not in it: 0): {rel: (its uses as "rel:line name", its known count)} for each file whose
+    count of uses is not its known count."""
+    seen = {rel: uses(text, rel, FOCUS_CHAIN_NAMES, lambda *_a: False) for rel, text in sources}
+    return {rel: (seen.get(rel, []), known.get(rel, 0)) for rel in sorted(set(seen) | set(known))
+            if len(seen.get(rel, [])) != known.get(rel, 0)}
+
+
+def test_no_new_walk_of_the_focus_chain(check):
+    wrong = chain_walks(_sources("app", "tests"), FOCUS_CHAIN_FILES)
+    check(FOCUS_CHAIN, not wrong, wrong)
+
+
+def test_the_focus_chain_reader_on_made_up_code(check):
+    rel = "tests/ui/test_x.py"
+    walk = ("def order(w):\n    # (nextInFocusChain in a comment)\n    nxt = w.nextInFocusChain()\n"
+            "    back = w.previousInFocusChain\n    return nxt, back\n")
+    clean = 'def order(w):\n    """No nextInFocusChain here."""\n    return w\n'
+    hits = [f"{rel}:3 nextInFocusChain", f"{rel}:4 previousInFocusChain"]
+    seen = {"a new file": chain_walks([(rel, walk)], {}), "a known file": chain_walks([(rel, walk)], {rel: 2}),
+            "a known file with one more": chain_walks([(rel, walk)], {rel: 1}),
+            "a known file with none left": chain_walks([(rel, clean)], {rel: 2}),
+            "no call": chain_walks([(rel, clean)], {})}
+    check(FOCUS_CHAIN_READER,
+          seen == {"a new file": {rel: (hits, 0)}, "a known file": {}, "a known file with one more": {rel: (hits, 1)},
+                   "a known file with none left": {rel: ([], 2)}, "no call": {}}, seen)
 
 
 def test_the_rules_reader_on_made_up_code(check):
