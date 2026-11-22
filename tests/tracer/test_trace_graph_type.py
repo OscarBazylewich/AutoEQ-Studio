@@ -12,9 +12,11 @@ import math
 import os
 
 import numpy as np
+import shiboken6
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QImage
-from PySide6.QtWidgets import QFileDialog
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication, QFileDialog
 
 from helpers import paths, qt
 from ui.trace_window import sample_image
@@ -76,16 +78,31 @@ def _row(tw):
 
 
 def _tab_order(tw):
-    """The names, for a screen reader, of the controls of 3 Save that Tab reaches, in the order of Tab."""
+    """The names, for a screen reader, of the controls of 3 Save that Tab reaches, in the order of Tab. Measured with
+    real Tab keys from the picture, until the focus comes to a control again (as test_trace_tab_keys.py's
+    _tab_stops). Not with a Python call of nextInFocusChain: PySide6 6.11.2 then records the returned control as a
+    child of the control asked (AGENTS.md; such records were a cause of an access violation in the tests,
+    2026-11-15). Tab also goes to the side's scroll area one time, and to Open image…, Remove image and Guide: they
+    are not in the card of 3 Save. At the end the picture has the focus again, so the pictures of the card show no
+    control with the focus."""
     card = tw.pages.currentWidget()
-    out, w = [], tw.name
-    for _ in range(2000):
-        if card.isAncestorOf(w) and w.isVisibleTo(card) and w.isEnabled() and w.focusPolicy() & Qt.TabFocus \
-                and w.focusProxy() is None:
-            out.append(w.accessibleName())
-        w = w.nextInFocusChain()
-        if w is tw.name:
+    tw.activateWindow()  # (a key goes to an active window only)
+    qt.pump(120)
+    tw.stage.setFocus(Qt.OtherFocusReason)  # (as focus_picture does after a new picture)
+    qt.pump(30)
+    out, seen = [], set()
+    for _ in range(60):
+        QTest.keyClick(QApplication.focusWidget() or tw, Qt.Key_Tab)
+        qt.pump(20)
+        w = QApplication.focusWidget()
+        key = shiboken6.getCppPointer(w)[0] if w is not None else None
+        if w is None or w.window() is not tw or key in seen:
             break
+        seen.add(key)
+        if card.isAncestorOf(w):
+            out.append(w.accessibleName())
+    tw.stage.setFocus(Qt.OtherFocusReason)
+    qt.pump(30)
     return out
 
 
@@ -638,7 +655,6 @@ def test_targets_that_change_while_the_tracer_is_open(eq_screen, monkeypatch, ch
     only when it opened or got a picture: with no target in the app, the list stayed off with "No target in the
     app", and the gray line and the box of the add button told to add a target first, after the user did that
     (2026-11-16). The same targets shown again change nothing in an open list."""
-    from PySide6.QtTest import QTest
     from PySide6.QtWidgets import QPushButton
     page = eq_screen.page
     had, active = list(page.inputs["targets"]), page.S["files"].get("active_target")
