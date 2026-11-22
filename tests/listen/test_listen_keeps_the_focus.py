@@ -14,6 +14,9 @@ Two more parts of the card (2026-11-17):
   the name while a mouse button is down, and shows it on the card when the button is up.
 - A click or a drag in the name box of a different row after a new name put the caret at the end of that name with
   nothing selected: the rows were made again after the click. Now the rows stay, and only their names change.
+Enter after a new name in a name box (2026-11-22) makes the rows again, as a calculation that ends does. The new name
+box of that row had its caret at the end of the name with nothing selected, and the next letter went there. Now the
+new box gets the caret and the selection of the box that it replaces.
 Real mouse clicks and real keys. One page for the file (the eq_screen fixture), with a result and two EQs to compare.
 Nothing is played (tests\\listen\\conftest.py stands in for the sound card)."""
 import pytest
@@ -386,4 +389,123 @@ def test_a_click_in_a_name_box_after_a_new_name_keeps_its_caret(eq_screen, liste
           "in the names of its row that a screen reader reads",
           shown[:2] == (before + "x", before + "x") and all(before + "x" in n for n in shown[2])
           and shown[2][0] == f"Name of {before}x" and shown[3].endswith(before + "x"), shown)
+    listen()
+
+
+def _keys(key, times=1, shift=False):
+    """A real key to the control with the focus, a number of times; shift: with Shift down (it selects letters)."""
+    for _ in range(times):
+        QTest.keyClick(QApplication.focusWidget(), key, Qt.ShiftModifier if shift else Qt.NoModifier)
+    qt.pump(40)
+
+
+@pytest.mark.timeout(900)  # (the Best fit run for the result, when this test runs alone)
+def test_enter_after_a_new_name_keeps_the_caret_of_its_name_box(eq_screen, listen, check):
+    page = eq_screen.page
+
+    def start():
+        """The list made two EQs again, then a real mouse click between two letters near the start of the name box
+        of row 1: the card, the name of that EQ, and where the click put the caret."""
+        lis = listen()
+        box = _rows(lis, QLineEdit)[0]
+        page.page_area.ensureWidgetVisible(box, 0, 120)
+        qt.pump(40)
+        QTest.mouseClick(box, Qt.LeftButton, Qt.NoModifier, QPoint(40, box.height() // 2))
+        qt.pump(120)
+        return lis, lis.pins[0]["name"], box.cursorPosition()
+
+    def write(letters):
+        QTest.keyClicks(QApplication.focusWidget(), letters)
+
+    def now(lis):
+        """The name box of row 1 as it is now: whether it has the focus, its text, its caret and the letters
+        selected in it; then the name of its EQ in the list of the card."""
+        box = _rows(lis, QLineEdit)[0]
+        return (QApplication.focusWidget() is box, box.text(), box.cursorPosition(), box.selectedText(),
+                lis.pins[0]["name"])
+
+    lis, name, c = start()
+    _key(Qt.Key_Return)
+    base = now(lis)
+    check("listen: Enter in the name box of an EQ to compare, with no new name, keeps the caret where a click put "
+          "it, between two letters of the name",
+          0 < c < len(name) - 3 and base == (True, name, c, "", name), (c, base))
+    write("x")
+    _key(Qt.Key_Return)
+    one = now(lis)
+    saved = [e.get("name") for e in page.svc.call("/api/listen", {"device": lis.pins_for}).get("eqs") or []]
+    button = _versions(lis)[2].text()
+    write("y")
+    two = now(lis)
+    x, xy, xz = (name[:c] + new + name[c:] for new in ("x", "xy", "xz"))
+    check("listen: a letter typed in the middle of the name of an EQ to compare, then Enter: the name box of that row "
+          "has the focus with the caret after that letter, and the next letter goes there (the caret went to the "
+          "end of the name, and the next letter went there)",
+          one[:4] == (True, x, c + 1, "") and two[:4] == (True, xy, c + 2, ""), (c, one[:4], two[:4]))
+    check("listen: that Enter records the new name: the list of the card and its file have it, and the button of its "
+          "version shows it", one[4] == x and saved[:1] == [x] and button.endswith(x), (one[4], saved, button))
+    _keys(Qt.Key_Left, 2, shift=True)  # ("xy" selected, with the caret at its left end)
+    _key(Qt.Key_Return)
+    left = now(lis)
+    _keys(Qt.Key_Right, shift=True)  # (one letter less is selected then, as the caret is at the left end)
+    left_end = now(lis)[2:4]
+    write("z")  # (in the place of the selected "y")
+    _keys(Qt.Key_Right, 3, shift=True)  # (three letters selected, with the caret at their right end)
+    _key(Qt.Key_Return)
+    right = now(lis)
+    _keys(Qt.Key_Left, shift=True)
+    right_end = now(lis)[2:4]
+    check("listen: letters selected with Shift and an arrow key after a typed letter, then Enter: the name is "
+          "recorded, and the same letters stay selected in the name box of that row with the caret at the same end "
+          "of them, the left end or the right end (nothing was selected, with the caret at the end of the name)",
+          left == (True, xy, c, "xy", xy) and left_end == (c + 1, "y")
+          and right == (True, xz, c + 5, name[c:c + 3], xz) and right_end == (c + 4, name[c:c + 2]),
+          (c, left[0], left[2:], left_end, right[0], right[2:], right_end))
+    lis, name, c = start()
+    write("x")
+    eqpage.quick_run(eq_screen)  # (a calculation that ends makes the rows again, as Enter after a new name)
+    qt.pump(150)
+    ended = now(lis)
+    write("y")
+    ended_next = now(lis)[1]
+    _key(Qt.Key_Return)
+    check("listen: a calculation that ends after a letter typed in the middle of the name of an EQ to compare keeps "
+          "the focus in that name box with the caret after that letter, and the next letter goes there (the caret "
+          "went to the end of the name, and the next letter went there)",
+          ended[:4] == (True, name[:c] + "x" + name[c:], c + 1, "") and ended_next == name[:c] + "xy" + name[c:],
+          (c, ended[:4], ended_next))
+    # (a name that the app records with fewer characters than the box has)
+    lis, name, c = start()
+    _keys(Qt.Key_Left, c)  # (the caret to the start of the name, with the arrow key)
+    write(" q")
+    _key(Qt.Key_Return)
+    lead = now(lis)
+    write("r")
+    lead_next = now(lis)[1]
+    _key(Qt.Key_Return)  # (recorded: no letter that is not recorded stays in the box when the list is made again)
+    lis, name, c = start()
+    write("a  b")
+    _key(Qt.Key_Return)
+    spaces = now(lis)
+    write("c")
+    spaces_next = now(lis)[1]
+    _key(Qt.Key_Return)
+    lis, name, c = start()
+    _keys(Qt.Key_End)
+    write("w" * (90 - len(name)))
+    _keys(Qt.Key_Left, 20, shift=True)  # (the last 20 of the 90 characters selected, with the caret at their left end)
+    _key(Qt.Key_Return)
+    cut = now(lis)
+    write("v")  # (in the place of the selected letters)
+    cut_next = now(lis)[1]
+    _key(Qt.Key_Return)
+    a_b, long = name[:c] + "a b" + name[c:], (name + "w" * 90)[:80]
+    check("listen: Enter after a new name that the app records with fewer characters (a space at its start, two "
+          "spaces between two letters, more than 80 characters): the caret stays after the same letter, the "
+          "selected letters stop at the end of the name, and the next letter goes there (the caret went to the end "
+          "of the name with nothing selected)",
+          lead == (True, "q" + name, 1, "", "q" + name) and lead_next == "qr" + name
+          and spaces == (True, a_b, c + 3, "", a_b) and spaces_next == name[:c] + "a bc" + name[c:]
+          and cut == (True, long, 70, "w" * 10, long) and cut_next == long[:70] + "v",
+          (c, lead[:4], lead_next, spaces[:4], spaces_next, cut[0], len(cut[1]), cut[2:4], len(cut_next)))
     listen()
