@@ -1059,7 +1059,9 @@ class Listen(QGroupBox):
             theme.mark(sw, listen_mark=COLOURS[p.get("color", i) % len(COLOURS)])  # (theme_sheet.py's listen part)
             grid.addWidget(sw, i, 0)
             name = QLineEdit(p["name"])
-            name.editingFinished.connect(lambda p=p, name=name: self._rename(p, name.text()))
+            # (Enter tells returnPressed, then editingFinished: the second call has no more to do)
+            name.returnPressed.connect(lambda p=p, name=name: self._rename(p, name, enter=True))
+            name.editingFinished.connect(lambda p=p, name=name: self._rename(p, name))
             grid.addWidget(name, i, 1)
             note = QLabel(f"{len(p['filters'])} filter{'' if len(p['filters']) == 1 else 's'}" +(f" · {p['note']}" if p.get("note") else ""))
             theme.mark(note, role="muted")
@@ -1107,8 +1109,9 @@ class Listen(QGroupBox):
             row["graph"].setAccessibleName(f"Show {name} on the graph")
             row["x"].setAccessibleName(f"Remove {name} from the EQs to compare")
 
-    def _rename(self, p, text):
-        """A new name from a name box: recorded, and shown on the card and the graph.
+    def _rename(self, p, box, enter=False):
+        """A new name from a name box (enter: the Enter key; else the box lost the keyboard): recorded, and shown on
+        the card and the graph.
         A mouse press on another control takes the focus from the name box, and the box tells its new name before
         that control gets the press. The rows and the versions' buttons were made again then: the press and its
         release went to a removed control, and Graph or ✕ of a row did nothing (2026-11-17). So while a mouse button
@@ -1116,22 +1119,28 @@ class Listen(QGroupBox):
         the lists that open at a press. The card shows it when the button is up (_show_new_names): after the
         control did what the click asked, and no control moved under the pointer before that. The rows are not made
         again then either: a click or a drag in the name box of another row put its caret at the end of the name
-        with nothing selected, as the new box of that row had the focus (2026-11-17)."""
-        text = text.strip()[:80]
-        if not text or text == p["name"]:
-            return
-        p["name"] = text
-        if QGuiApplication.mouseButtons() == Qt.NoButton:  # (Tab, Enter, another app's window: no click to keep)
-            self.save_pins()
-            return
-        kept = self._store_pins()
-        if kept is not None:
+        with nothing selected, as the new box of that row had the focus (2026-11-17).
+        After Enter, or when the focus went to another control, the box shows the recorded name. It kept text that
+        the name did not have: a space at one end, the letters after 80 characters, or no text at all, which is no
+        name (2026-11-22). While another program has the keyboard, the box is still the focus control of this
+        window and keeps its text: the person may be getting a name there."""
+        text = box.text().strip()[:80]
+        if text and text != p["name"]:
+            p["name"] = text
+            if QGuiApplication.mouseButtons() == Qt.NoButton:  # (Tab, Enter, another app's window: no click to keep)
+                self.save_pins()
+                return
+            kept = self._store_pins()
+            if kept is None:
+                return
             for mine, theirs in zip(self.pins, kept):
                 mine.update(theirs)
             self.update_sound()
             self._fill_sides()
             self._abx_fill()
             self._names_timer.start()
+        if box.text() != p["name"] and (enter or box is not self.window().focusWidget()):
+            box.setText(p["name"])
 
     def _show_new_names(self):
         """A new name recorded during a mouse press (_rename), on the card and the graph: when the button is up and

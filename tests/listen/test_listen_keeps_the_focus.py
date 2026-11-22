@@ -20,10 +20,15 @@ new box gets the caret and the selection of the box that it replaces, when it ha
 the name differently (no space at its two ends, one space for each group of spaces, 80 characters at most), the caret
 stays at the end of the name: a position counted again went between the two halves of an emoji (2 positions in a
 name box), and the next letter took the emoji out of the name.
+A name box shows the recorded name (2026-11-22). After Enter, or when the focus went to a different control, the
+box kept text that the name did not have: a space at one end, the letters after 80 characters, or no text when
+the person removed the name. Now the box shows the recorded name then. While the person uses a different
+program, the box with the focus keeps its text: the person can get a name from that program.
 Real mouse clicks and real keys. One page for the file (the eq_screen fixture), with a result and two EQs to compare.
 Nothing is played (tests\\listen\\conftest.py stands in for the sound card)."""
 import pytest
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QEvent, QPoint, Qt
+from PySide6.QtGui import QFocusEvent
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QCheckBox, QLineEdit, QPushButton
 
@@ -567,4 +572,111 @@ def test_enter_after_a_new_name_keeps_the_caret_of_its_name_box(eq_screen, liste
           mid == (True, new, c + 2, "", new) and mid_next == (name[:c] + EMOJI + "y" + name[c:], c + 3)
           and lis.pins[0]["name"] == name[:c] + EMOJI + "y" + name[c:],
           ascii((c, mid, mid_next, lis.pins[0]["name"])))
+    listen()
+
+
+def _in_name_box(page, listen):
+    """The list made two EQs again, then a real mouse click between two letters near the start of the name box of
+    row 1: the card, and the name of that EQ."""
+    lis = listen()
+    box = _rows(lis, QLineEdit)[0]
+    page.page_area.ensureWidgetVisible(box, 0, 120)
+    qt.pump(40)
+    QTest.mouseClick(box, Qt.LeftButton, Qt.NoModifier, QPoint(40, box.height() // 2))
+    qt.pump(120)
+    return lis, lis.pins[0]["name"]
+
+
+def _name_box(lis):
+    """The name box of row 1 as it is now: whether it has the focus, its text, its caret and the letters selected
+    in it; then the name of its EQ in the list of the card."""
+    box = _rows(lis, QLineEdit)[0]
+    return (QApplication.focusWidget() is box, box.text(), box.cursorPosition(), box.selectedText(),
+            lis.pins[0]["name"])
+
+
+def _write(letters):
+    QTest.keyClicks(QApplication.focusWidget(), letters)
+    qt.pump(40)
+
+
+def _ctrl(key):
+    """A real key with Ctrl down to the control with the focus (Ctrl+A selects the full name)."""
+    QTest.keyClick(QApplication.focusWidget(), key, Qt.ControlModifier)
+    qt.pump(40)
+
+
+def _window_has_the_keyboard(has):
+    """The person goes to a different program (has False) or comes back (has True): the event that Qt then gives to
+    the control with the focus. That control stays the focus control of its window. (No test makes the window of a
+    different program.)"""
+    kind = QEvent.FocusIn if has else QEvent.FocusOut
+    QApplication.sendEvent(QApplication.focusWidget(), QFocusEvent(kind, Qt.ActiveWindowFocusReason))
+    qt.pump(100)
+
+
+@pytest.mark.timeout(900)  # (the Best fit run for the result, when this test runs alone)
+def test_a_name_box_shows_the_recorded_name(eq_screen, listen, check):
+    page = eq_screen.page
+    lis, name = _in_name_box(page, listen)
+    _keys(Qt.Key_End)
+    _write(" ")
+    _key(Qt.Key_Return)
+    end = _name_box(lis)
+    lis, name = _in_name_box(page, listen)
+    _keys(Qt.Key_Home)
+    _write(" ")
+    _key(Qt.Key_Return)
+    lead = _name_box(lis)
+    same = (True, name, len(name), "", name)
+    check("listen: a space typed at the end or at the start of the name of an EQ to compare, then Enter: the name box "
+          "shows the recorded name, which has no space at its two ends, with the caret at its end (the box kept the "
+          "space, and the recorded name had none)", end == same and lead == same, (name, end, lead))
+    lis, name = _in_name_box(page, listen)
+    _keys(Qt.Key_End)
+    _write("w" * (80 - len(name)))
+    _key(Qt.Key_Return)
+    full = name + "w" * (80 - len(name))
+    _write("v")
+    _key(Qt.Key_Return)
+    enter = _name_box(lis)
+    _write("u")
+    on = _key(Qt.Key_Tab)[0]
+    tab = _name_box(lis)
+    button = _versions(lis)[2].text()
+    check("listen: one more letter at the end of a name of 80 characters, then Enter or Tab: the name box shows the "
+          "80 recorded characters, as the button of its version (the box kept each letter: 81 characters, then 82, "
+          "and the recorded name had 80)",
+          enter == (True, full, 80, "", full) and tab[1] == full and tab[4] == full
+          and on is _at(_rows(lis, QCheckBox), 0) and button.endswith(full),
+          (len(full), enter[0], len(enter[1]), enter[2:4], len(enter[4]), len(tab[1]), len(tab[4]), _name(on),
+           len(button)))
+    lis, name = _in_name_box(page, listen)
+    _ctrl(Qt.Key_A)
+    _keys(Qt.Key_Delete)
+    held = _name_box(lis)[1]
+    _key(Qt.Key_Return)
+    enter = _name_box(lis)
+    _ctrl(Qt.Key_A)
+    _keys(Qt.Key_Delete)
+    on = _key(Qt.Key_Tab)[0]
+    tab = _name_box(lis)
+    check("listen: Enter or Tab in the name box of an EQ to compare with no text in it: the EQ keeps its name, and the "
+          "name box shows that name again (the box stayed empty)",
+          held == "" and enter == same and on is _at(_rows(lis, QCheckBox), 0) and tab[1] == name and tab[4] == name,
+          (name, held, enter, _name(on), tab))
+    lis, name = _in_name_box(page, listen)
+    _ctrl(Qt.Key_A)
+    _keys(Qt.Key_Delete)
+    _window_has_the_keyboard(False)
+    away = _name_box(lis)
+    _window_has_the_keyboard(True)
+    _write("N")
+    back = _name_box(lis)
+    _key(Qt.Key_Return)
+    new = _name_box(lis)
+    check("listen: the name box of an EQ to compare with no text in it stays empty while the person uses a different "
+          "program (the person can get a name there), and the letter typed after that is the new name",
+          away == (True, "", 0, "", name) and back == (True, "N", 1, "", name) and new == (True, "N", 1, "", "N"),
+          (name, away, back, new))
     listen()
