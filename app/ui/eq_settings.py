@@ -644,6 +644,10 @@ class EqSettings:
             b.setChecked(view == "table")
             theme.mark(b, nav=True, flush=True)
             b.clicked.connect(lambda _=False, view=view: show(view))
+            # (8 px more between the two tabs: 14 px apart, as on the result card. At 6 px apart the focus frame,
+            # which keeps clear of the next tab, was 1 px from their words: the user, 2026-11-17)
+            if view == "sliders":
+                row.addSpacing(8)
             row.addWidget(b)
         row.addSpacing(12)
         add = QPushButton("Add filter")

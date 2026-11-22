@@ -59,8 +59,9 @@ control's own parent (measured), and its place and shape come from the style, no
 A control with no padding at its sides (the property flush: the tabs in a card or a window, whose words start at the
 left edge of the labels under them) has its frame further out at its left and right (FLUSH, side_margin): at MARGIN,
 the frame's lines touched the words (2026-11-17). The frame keeps clear of the other controls of the tab's row, so
-it is less far out when one is near (Your filters' Table and Sliders are 6 px apart: 4 px). The tracer's tabs take
-no keyboard focus (trace_window.py's _no_focus), so they get no frame (measured with real Tab keys, 2026-11-17).
+it is less far out when one is near (Your filters' Table and Sliders were 6 px apart: 4 px; they are 14 px apart
+now, as on the result card). The tracer's tabs take no keyboard focus (trace_window.py's _no_focus), so they get no
+frame (measured with real Tab keys, 2026-11-17).
 """
 import weakref
 
@@ -81,7 +82,8 @@ INNER = 1
 RADIUS = 4 + MARGIN
 # At the left and right of a control with no padding at its sides (side_margin): the frame this far out, which
 # leaves 5 px between its lines and the words, and at least KEEP away from the next control of the row (the two
-# values are inferred: the rows of tabs are 20, 14 and 6 px apart, measured 2026-11-17).
+# values are inferred: the rows of tabs were 20, 14 and 6 px apart, measured 2026-11-17; the 6 px row, Your
+# filters', is 14 px apart now).
 FLUSH = 8
 KEEP = 2
 KINDS = (QAbstractButton, QComboBox, QSlider)

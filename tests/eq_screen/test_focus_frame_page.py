@@ -8,7 +8,8 @@ the page leaves the frame; a ✕ button and a drop-down list in the first row of
 filter editor's sliders keep their own ring; the graph that floats over the page is above the frame; the Guide shows
 no frame on the page under it, and the frame is back at its end when a key ended it; in each window of the page
 (Find…, Sources, History, Queue, All results, Compare, Which measurement, the wait for a picture, the tracer, a
-question) each control that gets the frame has it, whole, with the keyboard in use; one move of the focus takes less
+question) each control that gets the frame has it, whole, with the keyboard in use; Table and Sliders of Your filters
+are as far apart as on the result card, with the frame as far out at their sides; one move of the focus takes less
 than 1 ms. One page for the file (the eq_screen fixture)."""
 import statistics
 import time
@@ -474,6 +475,95 @@ def test_the_guide_and_the_frame(eq_screen, check):
           "its next step; ended with Esc, the control of the page that gets the focus has the frame (the keyboard "
           "is in use); ended with a click on its ✕, there is no frame",
           all(all(d.values()) for d in seen.values()) and len(seen) == 2, seen)
+
+
+def _tab_until(win, w, most=40):
+    """Real Tab keys in win, from the control with the focus, until w has the focus. Whether it got there."""
+    for _ in range(most):
+        _key(win, Qt.Key_Tab)
+        if QApplication.focusWidget() is w:
+            return True
+    return False
+
+
+def _frame_out(w, got):
+    """How far out the focus frame is at w's left, top, right and bottom (px), with the frame whole on w in the
+    window's picture; else what is wrong."""
+    if not got:
+        return "Tab did not get there"
+    if not _frame_on(w):
+        return "no whole frame"
+    win = w.window()
+    ring, b = _rings(win)[0], _box(w)
+    g = QRect(ring.mapTo(win, QPoint(0, 0)), ring.size())
+    return [b.left() - g.left(), b.top() - g.top(), g.right() - b.right(), g.bottom() - b.bottom()]
+
+
+def test_table_and_sliders_of_your_filters_as_on_the_result_card(eq_screen, monkeypatch, check):
+    # (the user, 2026-11-17: Table and Sliders were 6 px apart in Your filters, and 14 px apart on the result card.
+    # The frame of a tab keeps clear of the next tab, so it was 4 px out at their sides there: 1 px from the words)
+    from PySide6.QtWidgets import QDialog
+    page = eq_screen.page
+    _quick(page)
+    if not page.current()[1]:
+        eqpage.quick_run(eq_screen)
+    page.set_view("table", remember=False)
+    page.resize(1000, 900)
+    qt.pump(150)
+    page.activateWindow()
+    _mouse_up(page)
+    area, more, form = page.page_area, page.settings.adv.btn, page.settings.adv_form
+    was = (more.isChecked(), form.pages.currentIndex(), page.S["best_fit"]["start_filters"])
+    seen = {}
+
+    def measure(where, tabs, reach):
+        """The px between the two tabs, and how far out the frame is on each after a real Tab key."""
+        d = {"px apart": _box(tabs[1]).left() - _box(tabs[0]).right() - 1}
+        for b in tabs:
+            got = reach(b)
+            if b.window() is page:
+                area.ensureWidgetVisible(b, 0, 120)
+                qt.pump(60)
+            d[b.text()] = _frame_out(b, got)
+        seen[where] = d
+
+    def shown(dlg):  # (the window's exec: shown as it opens, measured, then Cancel: your own filters stay as they were)
+        dlg.show()
+        dlg.activateWindow()
+        qt.pump(200)
+        _mouse_up(dlg)
+        tabs = [next(b for b in dlg.findChildren(QPushButton) if b.text() == name) for name in ("Table", "Sliders")]
+        measure("Your filters", tabs, lambda b: _tab_until(dlg, b))
+        dlg.hide()
+        return QDialog.Rejected
+    monkeypatch.setattr(QDialog, "exec", shown)
+    reached = False
+    try:
+        measure("the result card", [page.view_btns["table"], page.view_btns["sliders"]], _tab_to)
+        page.S["best_fit"]["start_filters"] = "Filter 1: ON PK Fc 1000 Hz Gain 2 dB Q 1"
+        more.setChecked(True)
+        form.show_tab(next(i for i, b in form.tab_btns.items() if b.text() == "Best fit"))
+        qt.pump(150)
+        edit = next(b for b in page.settings.adv.findChildren(QPushButton) if b.text() == "Edit as a table…")
+        reached = _tab_to(edit)
+        if reached:
+            _key(page, Qt.Key_Space)  # (the window opens: shown() measures it)
+    finally:
+        page.S["best_fit"]["start_filters"] = was[2]
+        form.show_tab(was[1])
+        more.setChecked(was[0])
+        _mouse_in_use(page)
+        area.verticalScrollBar().setValue(0)
+        qt.pump(60)
+    card, own = seen.get("the result card", {}), seen.get("Your filters", {})
+    check("eq windows: in Your filters (More settings, Edit as a table…, opened with Space), Table and Sliders are as "
+          "far apart as on the result card (they were 6 px apart, and 14 px apart on the card), and a real Tab key "
+          "shows the focus frame on each of the two as on the card: whole, 8 px out at its left and right, and 3 px "
+          "out above and below (the frame keeps clear of the next tab: it was 4 px out at the sides, 1 px from the "
+          "words)",
+          "px apart" in card and card["px apart"] == own.get("px apart")
+          and all(d.get(tab) == [8, 3, 8, 3] for d in (card, own) for tab in ("Table", "Sliders")),
+          {"Tab got to Edit as a table…": reached, **seen})
 
 
 @pytest.mark.timeout(600)
