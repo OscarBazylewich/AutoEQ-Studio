@@ -16,7 +16,10 @@ Two more parts of the card (2026-11-17):
   nothing selected: the rows were made again after the click. Now the rows stay, and only their names change.
 Enter after a new name in a name box (2026-11-22) makes the rows again, as a calculation that ends does. The new name
 box of that row had its caret at the end of the name with nothing selected, and the next letter went there. Now the
-new box gets the caret and the selection of the box that it replaces.
+new box gets the caret and the selection of the box that it replaces, when it has the same text. When the app records
+the name differently (no space at its two ends, one space for each group of spaces, 80 characters at most), the caret
+stays at the end of the name: a position counted again went between the two halves of an emoji (2 positions in a
+name box), and the next letter took the emoji out of the name.
 Real mouse clicks and real keys. One page for the file (the eq_screen fixture), with a result and two EQs to compare.
 Nothing is played (tests\\listen\\conftest.py stands in for the sound card)."""
 import pytest
@@ -399,6 +402,23 @@ def _keys(key, times=1, shift=False):
     qt.pump(40)
 
 
+EMOJI = "\U0001F3A7"  # (headphones: one letter for Python, 2 positions in a name box, as most emoji)
+
+
+def _symbol(text):
+    """A symbol to the control with the focus, as one real key event that has the whole symbol as its text (no
+    test opens the emoji panel of Windows; a probe with QTest.keyClicks and an emoji stopped its process,
+    2026-11-22)."""
+    for action in (QTest.KeyAction.Press, QTest.KeyAction.Release):
+        QTest.sendKeyEvent(action, QApplication.focusWidget(), Qt.Key_unknown, text, Qt.NoModifier)
+    qt.pump(40)
+
+
+def _units(text):
+    """The number of positions of a text in a name box (Qt counts in UTF-16: 2 for an emoji as EMOJI)."""
+    return len(text.encode("utf-16-le")) // 2
+
+
 @pytest.mark.timeout(900)  # (the Best fit run for the result, when this test runs alone)
 def test_enter_after_a_new_name_keeps_the_caret_of_its_name_box(eq_screen, listen, check):
     page = eq_screen.page
@@ -474,7 +494,8 @@ def test_enter_after_a_new_name_keeps_the_caret_of_its_name_box(eq_screen, liste
           "went to the end of the name, and the next letter went there)",
           ended[:4] == (True, name[:c] + "x" + name[c:], c + 1, "") and ended_next == name[:c] + "xy" + name[c:],
           (c, ended[:4], ended_next))
-    # (a name that the app records with fewer characters than the box has)
+    # (a name that the app records with fewer characters than the box has: the new box has a different text, and
+    # stays as it is made)
     lis, name, c = start()
     _keys(Qt.Key_Left, c)  # (the caret to the start of the name, with the arrow key)
     write(" q")
@@ -496,16 +517,54 @@ def test_enter_after_a_new_name_keeps_the_caret_of_its_name_box(eq_screen, liste
     _keys(Qt.Key_Left, 20, shift=True)  # (the last 20 of the 90 characters selected, with the caret at their left end)
     _key(Qt.Key_Return)
     cut = now(lis)
-    write("v")  # (in the place of the selected letters)
+    write("v")
     cut_next = now(lis)[1]
     _key(Qt.Key_Return)
-    a_b, long = name[:c] + "a b" + name[c:], (name + "w" * 90)[:80]
+    q, a_b, long = "q" + name, name[:c] + "a b" + name[c:], (name + "w" * 90)[:80]
     check("listen: Enter after a new name that the app records with fewer characters (a space at its start, two "
-          "spaces between two letters, more than 80 characters): the caret stays after the same letter, the "
-          "selected letters stop at the end of the name, and the next letter goes there (the caret went to the end "
-          "of the name with nothing selected)",
-          lead == (True, "q" + name, 1, "", "q" + name) and lead_next == "qr" + name
-          and spaces == (True, a_b, c + 3, "", a_b) and spaces_next == name[:c] + "a bc" + name[c:]
-          and cut == (True, long, 70, "w" * 10, long) and cut_next == long[:70] + "v",
-          (c, lead[:4], lead_next, spaces[:4], spaces_next, cut[0], len(cut[1]), cut[2:4], len(cut_next)))
+          "spaces between two letters, more than 80 characters): the name box of that row has the focus with the "
+          "caret at the end of the recorded name and nothing selected, and the next letter goes to the end of the "
+          "name",
+          lead == (True, q, len(q), "", q) and lead_next == q + "r"
+          and spaces == (True, a_b, len(a_b), "", a_b) and spaces_next == a_b + "c"
+          and cut == (True, long, 80, "", long) and cut_next == long + "v",
+          (c, len(name), lead[:4], lead_next, spaces[:4], spaces_next, cut[0], len(cut[1]), cut[2:4], len(cut_next)))
+    # (an emoji at the end of the name, and a space after it that the app does not record: a different text)
+    lis, name, c = start()
+    _keys(Qt.Key_End)
+    _symbol(EMOJI)
+    held = now(lis)[1:3]
+    write(" ")
+    _key(Qt.Key_Return)
+    end = now(lis)
+    write("y")
+    _key(Qt.Key_Return)
+    last = now(lis)
+    saved = [e.get("name") for e in page.svc.call("/api/listen", {"device": lis.pins_for}).get("eqs") or []]
+    button = _versions(lis)[2].text()
+    n, new = _units(name), name + EMOJI
+    check("listen: an emoji at the end of the name of an EQ to compare (2 positions in the name box), a space, then "
+          "Enter: the name is recorded with no space, and the caret is at the end of the name, after the emoji; "
+          "the next letter and Enter put that letter after the emoji in the name box, in the list of the card, in "
+          "its file and on the button of its version (the caret went between the two halves of the emoji, and the "
+          "next letter took the emoji out of the name)",
+          held == (new, n + 2) and end == (True, new, n + 2, "", new)
+          and last == (True, new + "y", n + 3, "", new + "y") and saved[:1] == [new + "y"]
+          and button.endswith(new + "y"),
+          ascii((n, held[1], end[0], end[2], _units(end[1]), end[3], last[:3], last[4], saved[:1], button)))
+    # (an emoji in the middle of the name: the same text in the new box)
+    lis, name, c = start()
+    _symbol(EMOJI)
+    _key(Qt.Key_Return)
+    mid = now(lis)
+    write("y")
+    mid_next = now(lis)[1:3]
+    _key(Qt.Key_Return)
+    new = name[:c] + EMOJI + name[c:]
+    check("listen: an emoji typed in the middle of the name of an EQ to compare, then Enter: the name is recorded "
+          "with the emoji, the caret is immediately after the emoji, and the next letter goes there (the caret "
+          "went to the end of the name, and the next letter went there)",
+          mid == (True, new, c + 2, "", new) and mid_next == (name[:c] + EMOJI + "y" + name[c:], c + 3)
+          and lis.pins[0]["name"] == name[:c] + EMOJI + "y" + name[c:],
+          ascii((c, mid, mid_next, lis.pins[0]["name"])))
     listen()

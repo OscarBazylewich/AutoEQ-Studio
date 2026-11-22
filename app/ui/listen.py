@@ -1026,8 +1026,9 @@ class Listen(QGroupBox):
         f = self.window().focusWidget()
         place = f.property("pin_place") if f is not None and self.pins_box.isAncestorOf(f) else None
         # (a name box with the focus, Enter after a new name: its text, its caret and the other end of its selection,
-        # read now, as a box that loses the focus clears its selection. The new box of that row gets them below: it
-        # had its caret at the end of the name, and the next letter typed went there, 2026-11-22)
+        # read now, as a box that loses the focus clears its selection. The new box of that row gets them below when
+        # it has the same text: it had its caret at the end of the name, and the next letter typed went there,
+        # 2026-11-22)
         caret = None
         if place and isinstance(f, QLineEdit):
             at = f.cursorPosition()
@@ -1085,15 +1086,14 @@ class Listen(QGroupBox):
             w = rows[min(int(row), len(rows) - 1)][kind] if rows else self.add_sel_btn
             table.show()  # (now, as the version's button above: with the focus not yet on the row, Tab after a new
             w.setFocus(Qt.OtherFocusReason)  # name moved the page to the list, 7 px)
-            if caret and isinstance(w, QLineEdit):
-                # (the same text: the same caret and selection. A different text: the recorded name has one space
-                # for each group of spaces, none at its two ends, and 80 characters at most (eq\listening.py), so
-                # each position is counted again in the text before it as the name keeps it, and stays after the
-                # same letter and in the name. "x": a letter after the position, which keeps a space before it)
-                was, at, other = caret
-                same, end = w.text() == was, len(w.text())
-                fit = lambda n: n if same else min(len(" ".join((was[:n] + "x").split())) - 1, end)
-                w.setSelection(fit(other), fit(at) - fit(other))
+            if caret and isinstance(w, QLineEdit) and w.text() == caret[0]:
+                # (the same text only: the same caret and selection, with Qt's own positions. A different text, as
+                # the name is recorded with no space at its two ends, one space for each group of spaces and 80
+                # characters at most: the box stays as it is made, the caret at the end of the name and nothing
+                # selected. Positions counted again in Python's letters put the caret between the two halves of an
+                # emoji, 2 positions for Qt, and the next letter typed took the emoji out of the name, 2026-11-22)
+                at, other = caret[1:]
+                w.setSelection(other, at - other)
 
     def _name_pins(self):
         """Each row of the list with the name of its EQ as it is now: the name box, and the names of the row's
