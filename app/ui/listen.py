@@ -1025,6 +1025,15 @@ class Listen(QGroupBox):
         # list: UI-RULES 30)
         f = self.window().focusWidget()
         place = f.property("pin_place") if f is not None and self.pins_box.isAncestorOf(f) else None
+        # (a name box with the focus, Enter after a new name: its text, its caret and the other end of its selection,
+        # read now, as a box that loses the focus clears its selection. The new box of that row gets them below when
+        # it has the same text: it had its caret at the end of the name, and the next letter typed went there,
+        # 2026-11-22)
+        caret = None
+        if place and isinstance(f, QLineEdit):
+            at = f.cursorPosition()
+            ends = (f.selectionStart(), f.selectionEnd()) if f.hasSelectedText() else (at, at)
+            caret = (f.text(), at, ends[1] if at == ends[0] else ends[0])
         if place:
             self.pins_box.setFocus(Qt.OtherFocusReason)
         # (the table before: hidden now, deleted a moment later, as the control that changed the list is in it)
@@ -1077,6 +1086,14 @@ class Listen(QGroupBox):
             w = rows[min(int(row), len(rows) - 1)][kind] if rows else self.add_sel_btn
             table.show()  # (now, as the version's button above: with the focus not yet on the row, Tab after a new
             w.setFocus(Qt.OtherFocusReason)  # name moved the page to the list, 7 px)
+            if caret and isinstance(w, QLineEdit) and w.text() == caret[0]:
+                # (the same text only: the same caret and selection, with Qt's own positions. A different text, as
+                # the name is recorded with no space at its two ends, one space for each group of spaces and 80
+                # characters at most: the box stays as it is made, the caret at the end of the name and nothing
+                # selected. Positions counted again in Python's letters put the caret between the two halves of an
+                # emoji, 2 positions for Qt, and the next letter typed took the emoji out of the name, 2026-11-22)
+                at, other = caret[1:]
+                w.setSelection(other, at - other)
 
     def _name_pins(self):
         """Each row of the list with the name of its EQ as it is now: the name box, and the names of the row's
