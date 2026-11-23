@@ -11,16 +11,19 @@ Play all steps, one after another, and the demos' speed, ¼× to 4×) and ✕ (c
 progress bar, "Demo · your work does not change" in gray under it, the title and words, the demo's actions (while it
 plays, only the one playing now), Play demo / Replay, Pause (P), Skip demo, a step's own buttons (e.g. Open Help),
 Start again (the last step), Back / Next (← →). The card goes
-where it covers least of what's lit, what the demo uses and the pointer, and stays put while that's as good as
-anywhere else.
+where it covers least of what's lit, what the demo uses and the pointer (and no marker, when it can), and stays put
+while that's as good as anywhere else.
 The look is Windows 11's, as the rest of the app: the card and what a demo shows inside the tour are styled by name in
 ui\\theme_sheet.py's guide_and_help part (#tourCard, #tourMock, #tourNote …); what's drawn here by hand takes
 theme.tokens() as it's drawn: the accent (Windows' own colour) marks what's lit, what the pointer is on, a click and a
 drag; the card's symbols and its list of actions are drawn again when the theme changes.
-The page can be scrolled at any time (the wheel, Page Up/Down): the spotlight follows; scrolling while a demo plays
-pauses it, and Resume scrolls back to where the demo was and carries on.
-With Windows' animation effects off nothing moves: each action is a numbered marker on its control, with the list of
-actions in the card.
+The page can be scrolled at any time (the wheel, Page Up/Down, Up/Down): the spotlight follows, and the keys still
+scroll the page once what was lit is out of sight; scrolling while a demo plays pauses it, and Resume scrolls back to
+where the demo was and carries on.
+With Windows' animation effects off nothing plays: each action is a numbered marker on its control, with the list of
+actions in the card. As the markers show, the page moves once at most, to where the most of them show without
+taking what's lit out of sight (show_markers). A marker stays on its control when the page scrolls, and is drawn
+while its disc is whole in sight and off the card (marker_points).
 
 A step: {"chapter", "title", "text" (str or fn), "target": fn -> a widget or [widgets] (lit), "alt": fn -> the
 control(s) lit when the target isn't on screen (with "alt_text" and "alt_demo"), "ready": fn -> bool (offered in the
@@ -58,6 +61,12 @@ PAD = 6
 CARD_W = 390
 SIDE_MIN = 420  # (a window a demo shows goes beside the card when it can be this wide there: 527 px at the smallest)
 SPEEDS = [0.25, 0.5, 1.0, 2.0, 4.0]
+# The numbered markers (Windows' animation effects off), in px:
+MARK_R = 13      # a marker's disc (11) and its outline (2): what must be in sight for it to be drawn
+MARK_GAP = 3     # the card stays this far from a marker's disc
+MARK_EDGE = 8    # a marker's control counts as shown when it's this far inside its page's view, top and bottom,
+MARK_STRIP = 60  # or, taller than this, with this much of it there (the graph: a strip the disc fits in)
+MARK_COST = 10 ** 8  # the card over a marker: more than any area it can cover (the fewest markers first, then area)
 _kept = {"speed": 1.0, "all": False}  # (the speed and Play all steps, for this session)
 _themed = {"hooked": False, "tours": []}  # (the tours made, held weakly: drawn again when the theme changes)
 
@@ -885,6 +894,7 @@ class _Steps(QFrame):
         self.show()
         self.raise_()
         tr.layer.raise_()
+        tr.layer.update()  # (a marker under the list isn't drawn: all of the layer, not only the list's part of it)
         if now is not None:
             self.list.setCurrentItem(now)
             self.list.scrollToItem(now, QListWidget.PositionAtCenter)  # (the steps before and after it in sight)
@@ -893,6 +903,7 @@ class _Steps(QFrame):
     def close_list(self):
         if self.isVisible():
             self.hide()
+            self.tour.layer.update()  # (the markers that were under the list)
             self.tour.setFocus()
 
     def _chosen(self, it):
@@ -933,7 +944,8 @@ class Tour(QWidget):
         self.ripple = None         # (x, y, 0-1)
         self.trail = None          # (from QPointF, to QPointF)
         self.typed = []            # [[control, text]]: text drawn over a field
-        self.markers = []          # [(QPointF, n)]: the demo's actions with animation effects off
+        self.markers = []          # [(control, x, y, n)]: the demo's actions with animation effects off
+        self.marks_seen = ([], [])  # the markers in sight and the ones drawn, as follow() last saw them
         self.file_chip = None      # [QPointF, name]: a file being dragged in
         self.acts, self.act_now = [], -1
         self.say = ""
@@ -1268,13 +1280,20 @@ class Tour(QWidget):
         self.card_timer.start()
 
     def follow(self, force=False):
-        """The lit parts measured again: what they light moved or changed size (a list filled, the page scrolled)."""
+        """The lit parts measured again: what they light moved or changed size (a list filled, the page scrolled).
+        The markers too: they can move while the lit rectangles stay as they are (what is lit is out of sight), and
+        which of them are drawn changes when the card or the step list moves."""
         if not self.isVisible() and not force:
             return
         hs = self._holes()
-        if force or [h.getRect() for h in hs] != [h.getRect() for h in self.holes]:
+        spots = self._marker_spots() if self.markers else []
+        seen = ([(p.x(), p.y(), n) for p, n in spots], [n for _p, n in self.marker_points(spots)])
+        moved = force or [h.getRect() for h in hs] != [h.getRect() for h in self.holes] or seen[0] != self.marks_seen[0]
+        if moved or seen != self.marks_seen:
             self.holes = hs
+            self.marks_seen = seen
             self.update()
+        if moved:  # (not for the markers drawn alone: placing the card closes the step list, which hides markers)
             self.card_timer.start()
 
     def place(self, move_card=False):
@@ -1329,25 +1348,33 @@ class Tour(QWidget):
     def place_card(self, stay=True):
         """The card where it covers least of what's lit (×3), what the demo uses (the last ×8, a window it shows ×8,
         others ×1) and the pointer (×4): beside, under or over each lit part, then around the window's edges; it stays
-        where it is while that's as good."""
+        where it is while that's as good. While markers show, the card first covers as few of them as it can, then
+        least of the rest (a marker under the card isn't drawn: marker_points), and it also tries the places beside,
+        under and over each marker (2026-11-22: the card kept off the lit part only, and markers were drawn on
+        it)."""
         if not hasattr(self, "bubble"):
             return
         bw, bh, W, H, m, gap = self.bubble.width(), self.bubble.height(), self.width(), self.height(), 8, 14
         fit = lambda x, y: QRect(int(max(m, min(x, W - bw - m))), int(max(m, min(y, H - bh - m))), bw, bh)
         lit, avoid = self.holes, self._avoid_rects()
         cur = QRect(int(self.cur.x()) - 12, int(self.cur.y()) - 10, 76, 52) if self.cur is not None and self.demo_running else None
+        marks = [self._disc(pt, MARK_GAP).toAlignedRect() for pt, _n in self._marker_spots()] if self.markers else []
 
         def cost(r):
             c = sum(_overlap(r, h) * 3 for h in lit)
             c += sum(_overlap(r, a) * k for a, k in avoid)
+            c += sum(MARK_COST for mk in marks if r.intersects(mk))
             return c + (_overlap(r, cur) * 4 if cur is not None else 0)
         tries = []
         for h in lit:
             tries += [(h.right() + gap, h.top()), (h.left() - gap - bw, h.top()), (h.left(), h.bottom() + gap),
                       (h.left(), h.top() - gap - bh), (h.right() + gap, h.bottom() - bh), (h.left() - gap - bw, h.bottom() - bh)]
-        for fy in (1, 0, 0.5):
-            for fx in (1, 0, 0.5):
-                tries.append((m + (W - bw - 2 * m) * fx, m + (H - bh - 2 * m) * fy))
+        edges_x = [m + (W - bw - 2 * m) * fx for fx in (1, 0, 0.5)]
+        edges_y = [m + (H - bh - 2 * m) * fy for fy in (1, 0, 0.5)]
+        tries += [(x, y) for y in edges_y for x in edges_x]
+        for mk in marks:
+            tries += [(x, y) for x in (mk.right() + 1, mk.left() - bw) for y in edges_y]
+            tries += [(x, y) for y in (mk.bottom() + 1, mk.top() - bh) for x in edges_x]
         best, best_cost = None, None
         for x, y in tries:
             r = fit(x, y)
@@ -1365,6 +1392,8 @@ class Tour(QWidget):
         self.bubble.move(best.topLeft())
         if self.step_list.isVisible():
             self.step_list.hide()
+        if self.markers:  # (which markers are drawn goes with where the card is: all of the layer drawn again)
+            self.layer.update()
 
     def update(self, *a):
         super().update(*a)
@@ -1553,20 +1582,145 @@ class Tour(QWidget):
         self._tick()
 
     def show_markers(self, actions):
-        """The demo as numbered markers on its controls and the numbered list in the card."""
+        """The demo as numbered markers on its controls and the numbered list in the card (Windows' animation effects
+        off). A marker keeps its control and where on it, and is drawn where the control is now (marker_points). The
+        page moves once at most, before anything is drawn: back to what the step lights (you scrolled away, then
+        Show the steps), then to where the most markers show (_page_to_markers); the card then goes off the markers.
+        (2026-11-22. Each marker was a point, measured after the page scrolled to its control: the page ended at the
+        last control, what was lit could be out of sight, and the markers before the last were where their controls
+        had been. A page that never moved was tried first and taken out the same day: "Your values" then had no
+        marker in a window 1000 px wide and 670 px or less high, where it had one before.)"""
+        scroll_all_into_view(self.target or [])
         self.markers = []
         for a in actions:
             if not a.get("say"):
                 continue
-            w = _control(a)
-            p = self._point(w, a.get("x", 0.5), a.get("y", 0.5)) if w is not None else None
-            self.markers.append((p, len(self.markers) + 1))
-        self.markers = [(p, n) for p, n in self.markers if p is not None]
+            self.markers.append((_control(a), a.get("x", 0.5), a.get("y", 0.5), len(self.markers) + 1))
+        self.markers = [mk for mk in self.markers if mk[0] is not None and mk[0].isVisible()]
+        pages = []  # [(a scrolling page, its markers)]: a marker goes with the nearest page that scrolls up and down
+        for w, fx, fy, _n in self.markers:
+            area = next((p for p in self._ancestors(w) if isinstance(p, QScrollArea) and p.widget() is not None
+                         and p.widget().isAncestorOf(w) and p.verticalScrollBar().maximum() > 0), None)
+            if area is not None:
+                marks = next((ms for a, ms in pages if a is area), None)
+                if marks is None:
+                    marks = []
+                    pages.append((area, marks))
+                marks.append((w, fx, fy))
+        for area, marks in pages:
+            self._page_to_markers(area, marks)
         self.act_now = -1
         self._show_acts()
-        self.place()
+        self.place(move_card=True)
         if self.all_chk.isChecked():
             self._schedule_next(2600 + 1200 * len(self.markers))
+
+    def _page_to_markers(self, area, marks):
+        """A scrolling page moved to where the most of its markers show: marks, [(control, x, y)]. A marker shows
+        where its control is all in the page's view, MARK_EDGE px from its top and bottom (of a control taller than
+        MARK_STRIP px that much is enough), and its disc is whole in sight. The page goes only where what the step
+        lights on it is as much in sight as now; when no marker shows at such a place, where the lit part keeps 60 %
+        of what it shows now ("Your values" in a low window: the tick box of its second marker is above the lit
+        settings, and they can't be all in sight together). Of the places with as many markers: the most of the lit
+        part, then the nearest. The page stays when no place shows more markers than it does now."""
+        bar, vp = area.verticalScrollBar(), area.viewport()
+        at = bar.value()
+        view = QRect(vp.mapTo(self.win, QPoint(0, 0)), vp.size())
+        for _a, r in self._views(area):  # (a page inside another: only what that one shows of it)
+            view = view.intersected(r)
+        view = view.intersected(self.rect())
+        if view.height() < 2 * MARK_R:
+            return
+        y0, y1, x0, x1 = view.top(), view.top() + view.height(), view.left(), view.left() + view.width()
+        ctrls = []  # [(top, height, y)] in the window now: of each control, what scrolling parts inside the page show
+        for w, fx, fy in marks:
+            r = QRect(w.mapTo(self.win, QPoint(0, 0)), w.size())
+            for a, inner in self._views(w):
+                if a is area:
+                    break
+                r = r.intersected(inner)
+            left, right = max(r.left(), x0), min(r.left() + r.width(), x1)
+            x = left + (right - left) * fx
+            if r.height() >= 2 and right - left >= 2 and x - MARK_R >= x0 and x + MARK_R <= x1:
+                ctrls.append((r.top(), r.height(), fy))
+        lit = []  # [(top, height, width)]: what the step lights on this page
+        for w in _shown(self.spots):
+            if area.widget().isAncestorOf(w):
+                r = QRect(w.mapTo(self.win, QPoint(0, 0)), w.size())
+                lit.append((r.top(), r.height(), max(0, min(r.left() + r.width(), x1) - max(r.left(), x0))))
+
+        def lit_at(dv):
+            """The area of the lit part in the view with the page dv px further down."""
+            return sum(max(0, min(top - dv + h, y1) - max(top - dv, y0)) * width for top, h, width in lit)
+
+        def shown_at(dv):
+            """How many markers show with the page dv px further down."""
+            n = 0
+            for top, h, fy in ctrls:
+                top -= dv
+                a, b = max(top, y0), min(top + h, y1)  # (the part in the view: the marker is on it, as _point has it)
+                y = a + (b - a) * fy
+                n += (b - a >= 2 and y - MARK_R >= y0 and y + MARK_R <= y1
+                      and min(top + h, y1 - MARK_EDGE) - max(top, y0 + MARK_EDGE) >= min(h, MARK_STRIP))
+            return n
+        lit_now = lit_at(0)
+        # the best place with the lit part as it is now, and with 60 % of it: ((markers, lit area, -distance), place)
+        whole = part = None
+        for v in range(bar.minimum(), bar.maximum() + 1):
+            area_lit = lit_at(v - at)
+            if 10 * area_lit < 6 * lit_now:
+                continue
+            place = ((shown_at(v - at), area_lit, -abs(v - at)), v)
+            if part is None or place[0] > part[0]:
+                part = place
+            if area_lit >= lit_now and (whole is None or place[0] > whole[0]):
+                whole = place
+        best = whole if whole is not None and whole[0][0] else part
+        if best is not None and best[0][0] > shown_at(0):
+            bar.setValue(best[1])
+
+    def _views(self, w):
+        """The views of the scrolling parts that hold a control, the nearest first: [(part, its view in the window)]."""
+        out = []
+        p = w.parentWidget()
+        while p is not None and p is not self.win:
+            if isinstance(p, QAbstractScrollArea) and p.viewport().isAncestorOf(w):
+                out.append((p, QRect(p.viewport().mapTo(self.win, QPoint(0, 0)), p.viewport().size())))
+            p = p.parentWidget()
+        return out
+
+    @staticmethod
+    def _disc(pt, more=0):
+        """The square around a marker's disc at a point, `more` px wider on each side."""
+        r = MARK_R + more
+        return QRectF(pt.x() - r, pt.y() - r, 2 * r, 2 * r)
+
+    def _marker_spots(self):
+        """The markers in sight now, the card not counted: [(the point in the window, the number)]. A marker is on
+        the part of its control that its scrolling parts show (_point), and has no point while the window or one of
+        those parts' views would cut its disc: a marker is never drawn half, or over the top bar."""
+        out = []
+        for w, fx, fy, n in self.markers:
+            pt = self._point(w, fx, fy, scroll=False)
+            if pt is None:
+                continue
+            disc = self._disc(pt)
+            if QRectF(self.rect()).contains(disc) and all(QRectF(r).contains(disc) for _a, r in self._views(w)):
+                out.append((pt, n))
+        return out
+
+    def marker_points(self, spots=None):
+        """The markers drawn now, [(the point in the window, the number)]: those in sight (_marker_spots; spots: these,
+        just measured) whose disc is off the card, and off the step list while it's open. The markers' layer is above
+        both, so one drawn there would be on the card's words or buttons. A marker that isn't drawn keeps its line
+        in the card's list. Public: the tests read it."""
+        spots = self._marker_spots() if spots is None else spots
+        if not spots:
+            return []
+        over = [QRectF(self.bubble.geometry())]
+        if self.step_list.isVisible():
+            over.append(QRectF(self.step_list.geometry()))
+        return [(pt, n) for pt, n in spots if not any(o.intersects(self._disc(pt)) for o in over)]
 
     def toggle_pause(self):
         if not self.demo_running:
@@ -1684,12 +1838,13 @@ class Tour(QWidget):
             return
         self.timer.start(max(0, int((ms or 0) / self.speed)))
 
-    def _point(self, w, fx=0.5, fy=0.5):
+    def _point(self, w, fx=0.5, fy=0.5, scroll=True):
         """Where on a control the pointer goes (in the window), or None when it isn't shown. The page scrolls to it
-        (or a window the demo shows, when it scrolls inside its frame)."""
+        (or a window the demo shows, when it scrolls inside its frame); scroll=False (a marker's point): nothing
+        scrolls, and a control out of sight has no point."""
         if w is None or not _alive(w) or not w.isVisible():
             return None
-        if w.window() is self.win and w is not self:
+        if scroll and w.window() is self.win and w is not self:
             scroll_into_view(w)
         r = self._w_rect(w).toRect()
         if r.width() < 2 or r.height() < 2:
@@ -1854,7 +2009,7 @@ class Tour(QWidget):
         typed in), a drag's trail, a click's ripple, the numbered markers, the pointer and its words; the accent
         marks them all (the graph's own colours stay the graph's)."""
         t = theme.tokens()
-        for pt, n in self.markers:
+        for pt, n in self.marker_points():
             p.setPen(QPen(QColor(t["card"]), 2))
             p.setBrush(QColor(t["accent"]))
             p.drawEllipse(pt, 11, 11)
@@ -1980,6 +2135,21 @@ class Tour(QWidget):
                     best = (a, r.width() * r.height())
         return best[0] if best else None
 
+    def _key_scroll_area(self):
+        """What Page Up, Page Down, Up and Down scroll: the scrolling part under the first lit rectangle. When that
+        gives none (nothing lit is in sight: you scrolled it away), a scrolling part that holds the step's control:
+        the outermost one that has it out of its view, else the nearest. (2026-11-22: with nothing lit in sight the
+        keys did nothing, so the keys alone could not bring the lit part back.)"""
+        a = self._scroll_area_at(self.holes[0].center()) if self.holes else None
+        w = next(iter(_shown(self.target)), None)
+        if a is not None or w is None:
+            return a
+        areas = [p for p in self._ancestors(w) if isinstance(p, QAbstractScrollArea) and p.viewport().isAncestorOf(w)
+                 and p.verticalScrollBar().maximum() > 0]
+        hiding = [p for p in areas
+                  if not p.viewport().rect().intersects(QRect(w.mapTo(p.viewport(), QPoint(0, 0)), w.size()))]
+        return hiding[-1] if hiding else areas[0] if areas else None
+
     def wheelEvent(self, e):
         """The page scrolls under the tour (the spotlight follows); while a demo plays it pauses."""
         a = self._scroll_area_at(e.position())
@@ -2029,7 +2199,7 @@ class Tour(QWidget):
         elif k == Qt.Key_P and self.demo_running:
             self.toggle_pause()
         elif k in (Qt.Key_PageUp, Qt.Key_PageDown, Qt.Key_Up, Qt.Key_Down):
-            a = self._scroll_area_at(self.holes[0].center()) if self.holes else None
+            a = self._key_scroll_area()
             if a is not None:
                 self._pause_for_scroll()
                 bar = a.verticalScrollBar()
