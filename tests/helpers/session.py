@@ -254,7 +254,13 @@ def prepare():
                AUTOEQSTUDIO_DOWNLOADS=os.path.join(home, "Downloads"),  # (Windows' own answer ignores USERPROFILE)
                AUTOEQSTUDIO_APO_CONFIG=apo_config, AUTOEQSTUDIO_OLD_SETTINGS=os.path.join(root, "old", "settings.json"),
                AUTOEQSTUDIO_NO_MESSAGE_BOX="1", AUTOEQSTUDIO_TEST_SESSION=root, QT_QPA_PLATFORM="offscreen",
-               PYTHONDONTWRITEBYTECODE="1", PYTHONIOENCODING="utf-8")
+               PYTHONDONTWRITEBYTECODE="1", PYTHONIOENCODING="utf-8",
+               # (a Guide's demo plays in every test process and in what it starts, whatever Windows' "Animation
+               # effects" are on the machine: ui\tour.py's _animations_on reads this first. With the effects off a
+               # demo is numbered markers: 2 tests that play a demo failed on GitHub's machine, and on this PC with
+               # the effects taken as off, 2026-11-22. A test of the markers sets t.glide = False, or gives a Python
+               # of its own AUTOEQSTUDIO_ANIMATIONS="0")
+               AUTOEQSTUDIO_ANIMATIONS="1")
     for k, v in (("AUTOEQSTUDIO_MAX_WORKERS", "2"), ("AUTOEQSTUDIO_TIME_FACTOR", "1"),
                  ("QT_QPA_FONTDIR", os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts")),
                  ("OPENBLAS_NUM_THREADS", "1"), ("OMP_NUM_THREADS", "1"), ("MKL_NUM_THREADS", "1")):

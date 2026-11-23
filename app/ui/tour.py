@@ -44,6 +44,7 @@ A demo's actions (each with "say": a few words, shown in the card and beside the
 problems() lists the steps whose control or demo's control isn't there or can't be seen (for checks).
 """
 import inspect
+import os
 import weakref
 
 from PySide6.QtCore import QEvent, QMargins, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt, QTimer
@@ -192,7 +193,13 @@ def _joined(rects):
 
 
 def _animations_on():
-    """Windows' "Animation effects" (Accessibility › Visual effects): off, the demo's pointer jumps."""
+    """Windows' "Animation effects" (Accessibility › Visual effects): off, a demo is numbered markers.
+    AUTOEQSTUDIO_ANIMATIONS answers first, "1" for on and "0" for off: the tests set it (tests\\helpers\\session.py),
+    so a demo plays the same on every machine (2026-11-22: 2 tests that play a demo failed on GitHub's machine, and
+    on this PC with the effects taken as off)."""
+    asked = os.environ.get("AUTOEQSTUDIO_ANIMATIONS")
+    if asked in ("0", "1"):
+        return asked == "1"
     try:
         import ctypes
         v = ctypes.c_int(1)
@@ -926,7 +933,7 @@ class Tour(QWidget):
         self.ripple = None         # (x, y, 0-1)
         self.trail = None          # (from QPointF, to QPointF)
         self.typed = []            # [[control, text]]: text drawn over a field
-        self.markers = []          # [(QPointF, n)]: the demo's actions with animation effects off
+        self.markers = []          # [(control, x, y, n)]: the demo's actions with animation effects off
         self.file_chip = None      # [QPointF, name]: a file being dragged in
         self.acts, self.act_now = [], -1
         self.say = ""
@@ -1546,20 +1553,29 @@ class Tour(QWidget):
         self._tick()
 
     def show_markers(self, actions):
-        """The demo as numbered markers on its controls and the numbered list in the card."""
+        """The demo as numbered markers on its controls and the numbered list in the card. The page stays where the
+        step put it: each marker is drawn where its control is now, while that control is in sight (paint_demo).
+        (2026-11-22: each marker was a point measured after the page scrolled to its control. The page ended at the
+        last control, the step's lit part out of sight, and the markers before it were where their controls had
+        been: at 1000x768, 4 of the 5 markers of "How to make an EQ" were on the graph.)"""
         self.markers = []
         for a in actions:
             if not a.get("say"):
                 continue
-            w = _control(a)
-            p = self._point(w, a.get("x", 0.5), a.get("y", 0.5)) if w is not None else None
-            self.markers.append((p, len(self.markers) + 1))
-        self.markers = [(p, n) for p, n in self.markers if p is not None]
+            self.markers.append((_control(a), a.get("x", 0.5), a.get("y", 0.5), len(self.markers) + 1))
+        self.markers = [m for m in self.markers if m[0] is not None and m[0].isVisible()]
         self.act_now = -1
         self._show_acts()
         self.place()
         if self.all_chk.isChecked():
             self._schedule_next(2600 + 1200 * len(self.markers))
+
+    def marker_points(self):
+        """The markers in sight now, [(the point in the window, the number)]. A marker whose control is out of
+        sight has no point: its number stays in the card's list, and the marker shows when the page scrolls to it.
+        Public: the tests read it."""
+        points = [(self._point(w, fx, fy, scroll=False), n) for w, fx, fy, n in self.markers]
+        return [(pt, n) for pt, n in points if pt is not None]
 
     def toggle_pause(self):
         if not self.demo_running:
@@ -1677,12 +1693,13 @@ class Tour(QWidget):
             return
         self.timer.start(max(0, int((ms or 0) / self.speed)))
 
-    def _point(self, w, fx=0.5, fy=0.5):
+    def _point(self, w, fx=0.5, fy=0.5, scroll=True):
         """Where on a control the pointer goes (in the window), or None when it isn't shown. The page scrolls to it
-        (or a window the demo shows, when it scrolls inside its frame)."""
+        (or a window the demo shows, when it scrolls inside its frame); scroll=False: nothing scrolls, and a control
+        out of sight has no point (a marker's)."""
         if w is None or not _alive(w) or not w.isVisible():
             return None
-        if w.window() is self.win and w is not self:
+        if scroll and w.window() is self.win and w is not self:
             scroll_into_view(w)
         r = self._w_rect(w).toRect()
         if r.width() < 2 or r.height() < 2:
@@ -1847,7 +1864,7 @@ class Tour(QWidget):
         typed in), a drag's trail, a click's ripple, the numbered markers, the pointer and its words; the accent
         marks them all (the graph's own colours stay the graph's)."""
         t = theme.tokens()
-        for pt, n in self.markers:
+        for pt, n in self.marker_points():
             p.setPen(QPen(QColor(t["card"]), 2))
             p.setBrush(QColor(t["accent"]))
             p.drawEllipse(pt, 11, 11)

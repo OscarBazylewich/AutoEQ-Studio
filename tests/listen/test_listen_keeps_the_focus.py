@@ -37,7 +37,7 @@ the list has different EQs (one added or removed, Graph, another IEM).
 Real mouse clicks and real keys. One page for the file (the eq_screen fixture), with a result and two EQs to compare.
 Nothing is played (tests\\listen\\conftest.py stands in for the sound card)."""
 import pytest
-from PySide6.QtCore import QEvent, QPoint, Qt
+from PySide6.QtCore import QEvent, QPoint, QRect, Qt
 from PySide6.QtGui import QFocusEvent
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QCheckBox, QLabel, QLineEdit, QPushButton
@@ -103,6 +103,12 @@ def _key(key):
     return f, popup is not None
 
 
+def _in_sight(page, *ws):
+    """Is each of the controls all in the page's view?"""
+    vp = page.page_area.viewport()
+    return all(vp.rect().contains(QRect(w.mapTo(vp, QPoint(0, 0)), w.size())) for w in ws)
+
+
 def _versions(lis):
     return [b for b in lis.ab_box.findChildren(QPushButton) if b.isVisible()]
 
@@ -137,8 +143,14 @@ def test_the_versions_keep_the_focus(eq_screen, listen, check):
           "that version's button, and selects no other version (the focus went to Ears)",
           last[:3] == (True, False, "sel") and f is _at(_versions(lis), 3) and not f.isChecked()
           and lis.active == "sel", (last, _name(f), lis.active))
+    # (2026-11-22: Ears in sight before the keys below. Tab to a control out of sight moves the page to it, as a
+    # scroll area does. With the font Segoe UI and no Segoe UI Variable, as on GitHub's machine, the click left the
+    # versions' buttons at the bottom edge of the view and Ears 38 px below it: the page moved 88 px at Tab)
+    page.page_area.ensureWidgetVisible(lis.ears, 0, 120)
+    qt.pump(40)
     _click(page, _versions(lis)[0])
     at = bar.value()
+    seen = _in_sight(page, lis.ears, *_versions(lis))
     clicked = QApplication.focusWidget()
     on0 = clicked is _versions(lis)[0]
     first, opened1 = _key(Qt.Key_Space)
@@ -160,9 +172,10 @@ def test_the_versions_keep_the_focus(eq_screen, listen, check):
     back = _key(Qt.Key_Backtab)[0]
     check("listen: the Right key on the lit version's button selects the next version and gives its button the focus, "
           "and the next Right selects the version after it (the first Right gave the focus to Ears, and the second "
-          "Right selected no version); then Tab goes to Ears, and Shift+Tab back to the lit version's button",
+          "Right selected no version); then Tab goes to Ears, and Shift+Tab back to the lit version's button; with "
+          "Ears and the versions' buttons all in sight before the keys, the page does not move",
           [ok for _n, ok in right] == [True, True] and out is lis.ears and back is _at(_versions(lis), 2)
-          and bar.value() == at, (right, _name(out), _name(back), at, bar.value()))
+          and seen and bar.value() == at, (right, _name(out), _name(back), seen, at, bar.value()))
     f = _key(Qt.Key_1)[0]
     check("listen: the key 1 while a version's button has the focus selects version 1 and gives its button the focus "
           "(the focus went to Ears)",
