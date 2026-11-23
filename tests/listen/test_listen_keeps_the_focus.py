@@ -1,6 +1,6 @@
 """Listen's card keeps the focus on the parts that it makes again (ui\\listen.py's render_versions and render_pins;
 found by the verifier of the Tab sequence, 2026-11-16). A key or a click on a version's button, on Graph or ✕ of an
-EQ to compare, or a new name in its name box makes those controls again. The control with the focus was taken out
+EQ to compare, or a new name in its name box made those controls again. The control with the focus was taken out
 with it, and Qt gave the focus to the next control of the page: Ears, where the next Space opened its list, or The
 selected EQ, where the next Space added an EQ; Tab after a new name went past Graph and ✕ of each row.
 Now the focus goes to the control that takes its place: the button of the same version (of the version selected,
@@ -14,18 +14,33 @@ Two more parts of the card (2026-11-17):
   the name while a mouse button is down, and shows it on the card when the button is up.
 - A click or a drag in the name box of a different row after a new name put the caret at the end of that name with
   nothing selected: the rows were made again after the click. Now the rows stay, and only their names change.
-Enter after a new name in a name box (2026-11-22) makes the rows again, as a calculation that ends does. The new name
-box of that row had its caret at the end of the name with nothing selected, and the next letter went there. Now the
-new box gets the caret and the selection of the box that it replaces, when it has the same text. When the app records
+Enter after a new name in a name box (2026-11-22) made the rows again, as a calculation that ended did. The new name
+box of that row had its caret at the end of the name with nothing selected, and the next letter went there. A new
+box now gets the caret and the selection of the box that it replaces, when it has the same text. When the app records
 the name differently (no space at its two ends, one space for each group of spaces, 80 characters at most), the caret
 stays at the end of the name: a position counted again went between the two halves of an emoji (2 positions in a
 name box), and the next letter took the emoji out of the name.
+A name box shows the recorded name (2026-11-22). After Enter, or when the focus went to a different control, the
+box kept text that the name did not have: a space at one end, the letters after 80 characters, or no text when
+the person removed the name. Now the box shows the recorded name then. While the person uses a different
+program, the box with the focus keeps its text: the person can get a name from that program. Back from that
+program, Tab or a click with no new letter shows the recorded name too (Qt told the end of the edit only when the
+program changed). The recorded name goes into the box as an edit: Ctrl+Z gives the typed text again.
+A new name keeps its name box (2026-11-22). Enter after a new name, Tab, and a change to a different program made
+the rows again, as a mouse click did before 2026-11-17. After Enter, the name box was a new control: Ctrl+Z did
+not take the typed letters out again, and a name wider than its box moved under the caret. A space typed before
+a change to a different program went out of the box. Now the rows stay, and only the names on the card change.
+A calculation that ends keeps the rows (2026-11-22): the list is the same. The rows were made again, and a person
+who typed in a name box then got a new box: the half-typed name was recorded, a space at its end went out of the
+box, a box with no text got the recorded name again, and Ctrl+Z did nothing. Now the rows are made again only when
+the list has different EQs (one added or removed, Graph, another IEM).
 Real mouse clicks and real keys. One page for the file (the eq_screen fixture), with a result and two EQs to compare.
 Nothing is played (tests\\listen\\conftest.py stands in for the sound card)."""
 import pytest
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QEvent, QPoint, Qt
+from PySide6.QtGui import QFocusEvent
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QCheckBox, QLineEdit, QPushButton
+from PySide6.QtWidgets import QApplication, QCheckBox, QLabel, QLineEdit, QPushButton
 
 from helpers import eqpage, qt
 
@@ -483,7 +498,7 @@ def test_enter_after_a_new_name_keeps_the_caret_of_its_name_box(eq_screen, liste
           (c, left[0], left[2:], left_end, right[0], right[2:], right_end))
     lis, name, c = start()
     write("x")
-    eqpage.quick_run(eq_screen)  # (a calculation that ends makes the rows again, as Enter after a new name)
+    eqpage.quick_run(eq_screen)  # (a calculation that ends: it made the rows again, as Enter after a new name did)
     qt.pump(150)
     ended = now(lis)
     write("y")
@@ -494,8 +509,8 @@ def test_enter_after_a_new_name_keeps_the_caret_of_its_name_box(eq_screen, liste
           "went to the end of the name, and the next letter went there)",
           ended[:4] == (True, name[:c] + "x" + name[c:], c + 1, "") and ended_next == name[:c] + "xy" + name[c:],
           (c, ended[:4], ended_next))
-    # (a name that the app records with fewer characters than the box has: the new box has a different text, and
-    # stays as it is made)
+    # (a name that the app records with fewer characters than the box has: the box gets the recorded name, with
+    # the caret at its end)
     lis, name, c = start()
     _keys(Qt.Key_Left, c)  # (the caret to the start of the name, with the arrow key)
     write(" q")
@@ -552,7 +567,7 @@ def test_enter_after_a_new_name_keeps_the_caret_of_its_name_box(eq_screen, liste
           and last == (True, new + "y", n + 3, "", new + "y") and saved[:1] == [new + "y"]
           and button.endswith(new + "y"),
           ascii((n, held[1], end[0], end[2], _units(end[1]), end[3], last[:3], last[4], saved[:1], button)))
-    # (an emoji in the middle of the name: the same text in the new box)
+    # (an emoji in the middle of the name: the recorded name is the text of the box, which stays as it is)
     lis, name, c = start()
     _symbol(EMOJI)
     _key(Qt.Key_Return)
@@ -567,4 +582,300 @@ def test_enter_after_a_new_name_keeps_the_caret_of_its_name_box(eq_screen, liste
           mid == (True, new, c + 2, "", new) and mid_next == (name[:c] + EMOJI + "y" + name[c:], c + 3)
           and lis.pins[0]["name"] == name[:c] + EMOJI + "y" + name[c:],
           ascii((c, mid, mid_next, lis.pins[0]["name"])))
+    listen()
+
+
+def _in_name_box(page, listen):
+    """The list made two EQs again, then a real mouse click between two letters near the start of the name box of
+    row 1: the card, and the name of that EQ."""
+    lis = listen()
+    box = _rows(lis, QLineEdit)[0]
+    page.page_area.ensureWidgetVisible(box, 0, 120)
+    qt.pump(40)
+    QTest.mouseClick(box, Qt.LeftButton, Qt.NoModifier, QPoint(40, box.height() // 2))
+    qt.pump(120)
+    return lis, lis.pins[0]["name"]
+
+
+def _name_box(lis):
+    """The name box of row 1 as it is now: whether it has the focus, its text, its caret and the letters selected
+    in it; then the name of its EQ in the list of the card."""
+    box = _rows(lis, QLineEdit)[0]
+    return (QApplication.focusWidget() is box, box.text(), box.cursorPosition(), box.selectedText(),
+            lis.pins[0]["name"])
+
+
+def _write(letters):
+    QTest.keyClicks(QApplication.focusWidget(), letters)
+    qt.pump(40)
+
+
+def _ctrl(key):
+    """A real key with Ctrl down to the control with the focus (Ctrl+A selects the full name)."""
+    QTest.keyClick(QApplication.focusWidget(), key, Qt.ControlModifier)
+    qt.pump(40)
+
+
+def _window_has_the_keyboard(has):
+    """The person goes to a different program (has False) or comes back (has True): the event that Qt then gives to
+    the control with the focus. That control stays the focus control of its window. (No test makes the window of a
+    different program.)"""
+    kind = QEvent.FocusIn if has else QEvent.FocusOut
+    QApplication.sendEvent(QApplication.focusWidget(), QFocusEvent(kind, Qt.ActiveWindowFocusReason))
+    qt.pump(100)
+
+
+@pytest.mark.timeout(900)  # (the Best fit run for the result, when this test runs alone)
+def test_a_name_box_shows_the_recorded_name(eq_screen, listen, check):
+    page = eq_screen.page
+    lis, name = _in_name_box(page, listen)
+    _keys(Qt.Key_End)
+    _write(" ")
+    _key(Qt.Key_Return)
+    end = _name_box(lis)
+    lis, name = _in_name_box(page, listen)
+    _keys(Qt.Key_Home)
+    _write(" ")
+    _key(Qt.Key_Return)
+    lead = _name_box(lis)
+    same = (True, name, len(name), "", name)
+    check("listen: a space typed at the end or at the start of the name of an EQ to compare, then Enter: the name box "
+          "shows the recorded name, which has no space at its two ends, with the caret at its end (the box kept the "
+          "space, and the recorded name had none)", end == same and lead == same, (name, end, lead))
+    lis, name = _in_name_box(page, listen)
+    _keys(Qt.Key_End)
+    _write("w" * (80 - len(name)))
+    _key(Qt.Key_Return)
+    full = name + "w" * (80 - len(name))
+    _write("v")
+    _key(Qt.Key_Return)
+    enter = _name_box(lis)
+    _write("u")
+    on = _key(Qt.Key_Tab)[0]
+    tab = _name_box(lis)
+    button = _versions(lis)[2].text()
+    check("listen: one more letter at the end of a name of 80 characters, then Enter or Tab: the name box shows the "
+          "80 recorded characters, as the button of its version (the box kept each letter: 81 characters, then 82, "
+          "and the recorded name had 80)",
+          enter == (True, full, 80, "", full) and tab[1] == full and tab[4] == full
+          and on is _at(_rows(lis, QCheckBox), 0) and button.endswith(full),
+          (len(full), enter[0], len(enter[1]), enter[2:4], len(enter[4]), len(tab[1]), len(tab[4]), _name(on),
+           len(button)))
+    lis, name = _in_name_box(page, listen)
+    _ctrl(Qt.Key_A)
+    _keys(Qt.Key_Delete)
+    held = _name_box(lis)[1]
+    _key(Qt.Key_Return)
+    enter = _name_box(lis)
+    _ctrl(Qt.Key_A)
+    _keys(Qt.Key_Delete)
+    on = _key(Qt.Key_Tab)[0]
+    tab = _name_box(lis)
+    check("listen: Enter or Tab in the name box of an EQ to compare with no text in it: the EQ keeps its name, and the "
+          "name box shows that name again (the box stayed empty)",
+          held == "" and enter == same and on is _at(_rows(lis, QCheckBox), 0) and tab[1] == name and tab[4] == name,
+          (name, held, enter, _name(on), tab))
+    lis, name = _in_name_box(page, listen)
+    _ctrl(Qt.Key_A)
+    _keys(Qt.Key_Delete)
+    _window_has_the_keyboard(False)
+    away = _name_box(lis)
+    _window_has_the_keyboard(True)
+    _write("N")
+    back = _name_box(lis)
+    _key(Qt.Key_Return)
+    new = _name_box(lis)
+    check("listen: the name box of an EQ to compare with no text in it stays empty while the person uses a different "
+          "program (the person can get a name there), and the letter typed after that is the new name",
+          away == (True, "", 0, "", name) and back == (True, "N", 1, "", name) and new == (True, "N", 1, "", "N"),
+          (name, away, back, new))
+    # (text that is not the recorded name, a different program, back, then Tab or a click with no new letter: Qt
+    # tells the end of an edit when the program changes, and tells no second one at the Tab or the click)
+    name = listen().pins[0]["name"]
+    texts = {"two spaces between two letters": ("a  b", "a b"), "85 letters": ("w" * 85, "w" * 80),
+             "spaces at the start": ("  My", "My"), "no text": ("", name), "a space at the end": (name + " ", name)}
+    seen = {}
+    for way in ("Tab", "a click"):
+        for case, (text, recorded) in texts.items():
+            lis, _name_was = _in_name_box(page, listen)
+            _ctrl(Qt.Key_A)
+            _keys(Qt.Key_Delete)
+            _write(text)
+            _window_has_the_keyboard(False)
+            away = _rows(lis, QLineEdit)[0].text()
+            _window_has_the_keyboard(True)
+            if way == "Tab":
+                _key(Qt.Key_Tab)
+            else:
+                _click(page, _versions(lis)[0])  # (a version's button: its click does not make the rows again)
+            box = _rows(lis, QLineEdit)[0]
+            seen[f"{case}, {way}"] = (away == text, box.text() == recorded, lis.pins[0]["name"] == recorded,
+                                      QApplication.focusWidget() is not box, len(box.text()), len(lis.pins[0]["name"]))
+    check("listen: text typed in the name box of an EQ to compare, then a different program (the box keeps the text), "
+          "then Tab or a click on a different control with no new letter: the name box shows the recorded name (the "
+          "box kept its text: two spaces between two letters, 85 letters, spaces at the start, no text, or a space "
+          "at the end)", all(v[:4] == (True, True, True, True) for v in seen.values()), seen)
+    listen().choose("sel")  # (the selected EQ heard again, as before the clicks on a version's button)
+
+
+@pytest.mark.timeout(900)  # (the Best fit run for the result, when this test runs alone)
+def test_a_new_name_keeps_its_name_box(eq_screen, listen, check):
+    page = eq_screen.page
+    lis, name = _in_name_box(page, listen)
+    c = _name_box(lis)[2]
+    abc = name[:c] + "abc" + name[c:]
+    _write("abc")
+    _key(Qt.Key_Return)
+    after = _name_box(lis)
+    _ctrl(Qt.Key_Z)
+    undone = _name_box(lis)
+    _key(Qt.Key_Return)
+    again = _name_box(lis)
+    check("listen: letters typed in the name of an EQ to compare, then Enter, then Ctrl+Z: the letters go out of the "
+          "name box, as in a text box of Windows, and the next Enter records the name without them (Ctrl+Z did "
+          "nothing: after Enter, the name box was a new control with no step to undo)",
+          0 < c < len(name) and after == (True, abc, c + 3, "", abc) and undone[:2] == (True, name)
+          and undone[4] == abc and again[:2] == (True, name) and again[4] == name, (c, after, undone, again))
+    lis, name = _in_name_box(page, listen)
+    _keys(Qt.Key_End)
+    _write("abc ")
+    _key(Qt.Key_Return)
+    after = _name_box(lis)
+    steps = []
+    for _ in range(3):
+        _ctrl(Qt.Key_Z)
+        steps.append(_name_box(lis)[1])
+    _key(Qt.Key_Return)
+    again = _name_box(lis)
+    check("listen: letters and a space typed at the end of the name of an EQ to compare, then Enter (the name is "
+          "recorded with no space at its end, and the box shows it), then Ctrl+Z: the first one puts the typed text "
+          "into the box again, the second one takes it out, and the next Enter records the name without the "
+          "letters (Ctrl+Z did nothing: the box got the recorded name as a new text, with no step to undo)",
+          after == (True, name + "abc", len(name) + 3, "", name + "abc") and steps == [name + "abc ", name, name]
+          and again[:2] == (True, name) and again[4] == name, (after, steps, again))
+    lis, name = _in_name_box(page, listen)
+    _ctrl(Qt.Key_A)
+    _write("W" * 75)
+    _key(Qt.Key_Return)
+    box = _rows(lis, QLineEdit)[0]
+    wide = (box.fontMetrics().horizontalAdvance(box.text()), box.width())
+    _keys(Qt.Key_Left, 20)  # (the caret from the end of the name to its middle: the box shows the end of the name)
+    _write("i")
+    typed = (box.text(), box.cursorPosition(), box.cursorRect().x())
+    _key(Qt.Key_Return)
+    box = _rows(lis, QLineEdit)[0]
+    entered = (box.text(), box.cursorPosition(), box.cursorRect().x())
+    check("listen: a letter typed in the middle of a name of an EQ to compare that is wider than its box, then Enter: "
+          "the name stays where it is in the box, and the caret also (the name moved under the caret: 254 px in a "
+          "box of 744 px)",
+          wide[0] > wide[1] and typed == entered and typed[:2] == ("W" * 55 + "i" + "W" * 20, 56)
+          and lis.pins[0]["name"] == typed[0], (wide, typed[1:], entered[1:], len(lis.pins[0]["name"])))
+    lis, name = _in_name_box(page, listen)
+    _ctrl(Qt.Key_A)
+    _write("My ")
+    _window_has_the_keyboard(False)
+    away = _name_box(lis)
+    _window_has_the_keyboard(True)
+    _write("EQ")
+    back = _name_box(lis)
+    _key(Qt.Key_Return)
+    new = _name_box(lis)
+    check("listen: a word and a space typed in the name box of an EQ to compare, then a different program, then a "
+          "second word: the name box keeps the space while the person uses that program, and the name has the two "
+          "words with the space between them (the box lost the space, and the two words became one word)",
+          away == (True, "My ", 3, "", "My") and back == (True, "My EQ", 5, "", "My")
+          and new == (True, "My EQ", 5, "", "My EQ"), (name, away, back, new))
+    listen()
+
+
+@pytest.mark.timeout(1500)  # (the Best fit run for the result, and three more: each allowed 180 s times the time factor)
+def test_a_calculation_that_ends_keeps_a_name_box_as_it_is(eq_screen, listen, check):
+    page = eq_screen.page
+
+    def calculate(lis):
+        """A calculation that ends while the name box of row 1 has the focus: whether that box is the same control
+        after it."""
+        box = _rows(lis, QLineEdit)[0]
+        eqpage.quick_run(eq_screen)
+        qt.pump(150)
+        return _rows(lis, QLineEdit)[0] is box
+
+    lis, name = _in_name_box(page, listen)
+    _ctrl(Qt.Key_A)
+    _keys(Qt.Key_Delete)
+    kept = calculate(lis)
+    ended = _name_box(lis)
+    _write("N")
+    typed = _name_box(lis)
+    _key(Qt.Key_Return)
+    new = _name_box(lis)
+    check("listen: a calculation that ends while the name box of an EQ to compare has no text (the person removed the "
+          "name to type a new name): the box stays empty with the focus, and the letter typed then is the new name "
+          "(the recorded name came into the box again, and the letter went to its end)",
+          kept and ended == (True, "", 0, "", name) and typed == (True, "N", 1, "", name)
+          and new == (True, "N", 1, "", "N"), (name, kept, ended, typed, new))
+    lis, name = _in_name_box(page, listen)
+    _ctrl(Qt.Key_A)
+    _write("My ")
+    kept = calculate(lis)
+    ended = _name_box(lis)
+    _write("EQ")
+    typed = _name_box(lis)
+    _key(Qt.Key_Return)
+    new = _name_box(lis)
+    check("listen: a calculation that ends after a word and a space typed in the name box of an EQ to compare: the box "
+          "keeps the space, the name is recorded only at Enter, and the second word typed then comes after the "
+          "space (the calculation recorded the first word, the space went out of the box, and the two words became "
+          "one word)",
+          kept and ended == (True, "My ", 3, "", name) and typed == (True, "My EQ", 5, "", name)
+          and new == (True, "My EQ", 5, "", "My EQ"), (name, kept, ended, typed, new))
+    lis, name = _in_name_box(page, listen)
+    _write("abc")
+    kept = calculate(lis)
+    _ctrl(Qt.Key_Z)
+    undone = _name_box(lis)
+    check("listen: letters typed in the name of an EQ to compare, then a calculation that ends, then Ctrl+Z: the "
+          "letters go out of the name box (Ctrl+Z did nothing: the name box was a new control, and the calculation "
+          "recorded the name with the letters)",
+          kept and undone[:2] == (True, name) and undone[4] == name, (name, kept, undone))
+    # (the rows are made again when the list has a different EQ: History's Keep to compare adds one from its window,
+    # while the name box is the focus control of the main window)
+    lis, name = _in_name_box(page, listen)
+    _keys(Qt.Key_Right, 3, shift=True)
+    box, before = _rows(lis, QLineEdit)[0], _name_box(lis)
+    added = lis.add("From History", [{"type": "PK", "freq": 1234, "gain": 2, "q": 1}], say=lambda *_a: None)
+    qt.pump(150)
+    boxes = _rows(lis, QLineEdit)
+    after = _name_box(lis)
+    check("listen: an EQ that comes into the list while the name box of a different EQ has the focus (Keep to compare "
+          "in the window of History): the list shows the new EQ in a new row, and the name box keeps the focus, its "
+          "caret and its selected letters",
+          added and len(before[3]) == 3 and after == before and [b.text() for b in boxes] == [p["name"] for p in lis.pins]
+          and len(boxes) == 3 and boxes[2].text() == "From History" and boxes[0] is not box,
+          (added, before, after, [b.text() for b in boxes], boxes[0] is box))
+    # (an empty list has one line, which tells whether a measurement is selected: a manual EQ shows the card with no
+    # measurement, and the measurement selected then has a list with no EQs. The two lists are empty: the line
+    # is made again for the measurement)
+    lis = listen()
+    device = lis.pins_for
+
+    def line():
+        return [w.text() for w in lis.pins_box.findChildren(QLabel) if w.isVisible() and w.text() != "■"]
+
+    lis.pins = []
+    lis.save_pins()  # (the list of this measurement has no EQs, on the card and in its file)
+    qt.pump(60)
+    none = line()
+    lis.pins, lis.pins_for = [], None  # (the card as it is with no measurement)
+    lis.refresh()
+    qt.pump(60)
+    no_measurement = line()
+    lis.load_pins(device)  # (the measurement comes, as the page tells the card)
+    qt.pump(60)
+    measurement = line()
+    check("listen: the line of an empty list of EQs to compare follows the measurement: with no measurement it tells "
+          "to select one, and when a measurement with no EQs comes it tells how to add an EQ",
+          lis.pins_for == device and none == measurement and len(none) == 1 and none[0].startswith("No EQs.")
+          and len(no_measurement) == 1 and no_measurement[0].startswith("Select a measurement."),
+          (none, no_measurement, measurement))
     listen()

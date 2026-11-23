@@ -26,7 +26,7 @@ The sound itself is ui/audio.py (sounddevice); nothing plays until Play.
 import math
 import os
 
-from PySide6.QtCore import QPoint, QRect, QSignalBlocker, QSize, Qt, QTimer
+from PySide6.QtCore import QPoint, QRect, QSignalBlocker, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QFileDialog, QGridLayout, QGroupBox,
                                QHBoxLayout, QLabel, QLayout, QLineEdit, QMessageBox, QPushButton, QSlider,
@@ -67,6 +67,19 @@ class _PlayButton(QPushButton):
         if symbol != self.symbol:
             self.symbol = symbol
             icons.put(self, symbol)
+
+
+class _NameBox(QLineEdit):
+    """The name box of an EQ to compare. left: each time it loses the keyboard (not to a list or menu that opens
+    over it). Qt's own editingFinished comes at a loss of the keyboard only after an edit since it came last, and it
+    comes when another program takes the keyboard. Back from that program, Tab or a click with no new letter told
+    nothing, and the box kept text that the name did not have (2026-11-22)."""
+    left = Signal()
+
+    def focusOutEvent(self, e):
+        super().focusOutEvent(e)
+        if e.reason() != Qt.PopupFocusReason:
+            self.left.emit()
 
 
 class _Rows(QLayout):
@@ -137,6 +150,7 @@ class Listen(QGroupBox):
         self.playing, self.blind_order, self.revealed = False, None, False
         self.file_data, self.file_name = None, ""
         self.pins, self.pins_for = [], None  # this IEM's EQs to compare, and which IEM they're for
+        self._rows_of = None  # the list that the rows of the EQs to compare show (render_pins)
         st = page.sw.s.get("listen") or {}
         v = QVBoxLayout(self)
         # (one gray line under the title, with all its help text: the IEM, and "Start with a low volume" once; the keys
@@ -550,7 +564,11 @@ class Listen(QGroupBox):
 
     def refresh(self, rows=True):
         """After a new result, an edit, or another IEM: the versions and the buttons. rows=False when only a name
-        changed (_show_new_names): the rows of the EQs to compare stay, with their new names."""
+        changed (_show_new_names): the rows of the EQs to compare stay, with their new names.
+        The rows also stay when they show this list already (a new result, an edit: the list is the same). They
+        were made again each time: a calculation that ended while a person typed in a name box recorded the name
+        as it was, took a space at its end out of the box, put the recorded name into a box with no text, and left
+        Ctrl+Z with no step to undo (2026-11-22)."""
         vs = self.versions()
         keys = [k for k, *_ in vs]
         if self.engine:
@@ -570,7 +588,7 @@ class Listen(QGroupBox):
             self.abx_end(finished=False, why=stops)  # (what was answered is said, and why it stopped)
         self._apply_to_engine()
         self.render_versions()
-        if rows:
+        if rows and not self._rows_show_the_list():
             self.render_pins()
         else:
             self._name_pins()
@@ -1017,18 +1035,17 @@ class Listen(QGroupBox):
     def render_pins(self):
         """Your EQs to compare as a table, a row each, in columns: its colour (its curve's on the graph), its name
         (edit it to rename it), its filters and where it's from, Graph, ✕."""
-        # (a row's control with the focus is made again below: Graph or ✕ after a key or a click on it, or the control
-        # that Tab, Enter or a click gives the focus to after a new name in a name box. Hidden with the focus, it gave
-        # the focus to the next control of the page: The selected EQ, where the next Space added an EQ, and Tab after
-        # a new name went past the row's Graph and ✕, 2026-11-16. The focus goes off the old rows first, then to the
-        # same control of the row now in that place, else of the last row, else to The selected EQ under the empty
-        # list: UI-RULES 30)
+        # (a row's control with the focus is made again below: Graph or ✕ after a key or a click on it, or a name box
+        # that is this window's focus control while History's window adds an EQ. Hidden with the focus, it gave the
+        # focus to the next control of the page: The selected EQ, where the next Space added an EQ, 2026-11-16. The
+        # focus goes off the old rows first, then to the same control of the row now in that place, else of the last
+        # row, else to The selected EQ under the empty list: UI-RULES 30. A new name and a new result do not make
+        # the rows again: _rename, refresh)
         f = self.window().focusWidget()
         place = f.property("pin_place") if f is not None and self.pins_box.isAncestorOf(f) else None
-        # (a name box with the focus, Enter after a new name: its text, its caret and the other end of its selection,
-        # read now, as a box that loses the focus clears its selection. The new box of that row gets them below when
-        # it has the same text: it had its caret at the end of the name, and the next letter typed went there,
-        # 2026-11-22)
+        # (a name box with the focus: its text, its caret and the other end of its selection, read now, as a box
+        # that loses the focus clears its selection. The new box of that row gets them below when it has the same
+        # text: it had its caret at the end of the name, and the next letter typed went there, 2026-11-22)
         caret = None
         if place and isinstance(f, QLineEdit):
             at = f.cursorPosition()
@@ -1058,8 +1075,9 @@ class Listen(QGroupBox):
             sw = QLabel("■")
             theme.mark(sw, listen_mark=COLOURS[p.get("color", i) % len(COLOURS)])  # (theme_sheet.py's listen part)
             grid.addWidget(sw, i, 0)
-            name = QLineEdit(p["name"])
-            name.editingFinished.connect(lambda p=p, name=name: self._rename(p, name.text()))
+            name = _NameBox(p["name"])
+            name.returnPressed.connect(lambda p=p, name=name: self._rename(p, name, enter=True))
+            name.left.connect(lambda p=p, name=name: self._rename(p, name))
             grid.addWidget(name, i, 1)
             note = QLabel(f"{len(p['filters'])} filter{'' if len(p['filters']) == 1 else 's'}" +(f" · {p['note']}" if p.get("note") else ""))
             theme.mark(note, role="muted")
@@ -1077,6 +1095,7 @@ class Listen(QGroupBox):
             for kind, w in rows[i].items():
                 w.setProperty("pin_place", f"{kind}:{i}")
         self.pin_rows = rows
+        self._rows_of = (bool(self.pins_for), list(self.pins))
         self._name_pins()
         # (the new rows in their place in the Tab sequence, after the ABX test above them and before the buttons
         # that add an EQ: Qt put them after those buttons, 2026-11-16)
@@ -1084,8 +1103,8 @@ class Listen(QGroupBox):
         if place:
             kind, _, row = place.partition(":")
             w = rows[min(int(row), len(rows) - 1)][kind] if rows else self.add_sel_btn
-            table.show()  # (now, as the version's button above: with the focus not yet on the row, Tab after a new
-            w.setFocus(Qt.OtherFocusReason)  # name moved the page to the list, 7 px)
+            table.show()  # (now, as the version's button above: a new control gets the focus only when it shows;
+            w.setFocus(Qt.OtherFocusReason)  # with the focus not yet on the row, the page moved to the list, 7 px)
             if caret and isinstance(w, QLineEdit) and w.text() == caret[0]:
                 # (the same text only: the same caret and selection, with Qt's own positions. A different text, as
                 # the name is recorded with no space at its two ends, one space for each group of spaces and 80
@@ -1094,6 +1113,14 @@ class Listen(QGroupBox):
                 # emoji, 2 positions for Qt, and the next letter typed took the emoji out of the name, 2026-11-22)
                 at, other = caret[1:]
                 w.setSelection(other, at - other)
+
+    def _rows_show_the_list(self):
+        """Whether the rows are the rows of this list: made for an IEM or for none, as now (the line of an empty
+        list tells which), and for these same EQs in this order. The same objects, not only equal ones: the
+        controls of each row work on the EQ that the row was made for."""
+        made = self._rows_of
+        return (made is not None and made[0] == bool(self.pins_for) and len(made[1]) == len(self.pins)
+                and all(a is b for a, b in zip(made[1], self.pins)))
 
     def _name_pins(self):
         """Each row of the list with the name of its EQ as it is now: the name box, and the names of the row's
@@ -1107,8 +1134,9 @@ class Listen(QGroupBox):
             row["graph"].setAccessibleName(f"Show {name} on the graph")
             row["x"].setAccessibleName(f"Remove {name} from the EQs to compare")
 
-    def _rename(self, p, text):
-        """A new name from a name box: recorded, and shown on the card and the graph.
+    def _rename(self, p, box, enter=False):
+        """A new name from a name box (enter: the Enter key; else the box lost the keyboard): recorded, and shown on
+        the card and the graph.
         A mouse press on another control takes the focus from the name box, and the box tells its new name before
         that control gets the press. The rows and the versions' buttons were made again then: the press and its
         release went to a removed control, and Graph or ✕ of a row did nothing (2026-11-17). So while a mouse button
@@ -1116,31 +1144,44 @@ class Listen(QGroupBox):
         the lists that open at a press. The card shows it when the button is up (_show_new_names): after the
         control did what the click asked, and no control moved under the pointer before that. The rows are not made
         again then either: a click or a drag in the name box of another row put its caret at the end of the name
-        with nothing selected, as the new box of that row had the focus (2026-11-17)."""
-        text = text.strip()[:80]
-        if not text or text == p["name"]:
-            return
-        p["name"] = text
-        if QGuiApplication.mouseButtons() == Qt.NoButton:  # (Tab, Enter, another app's window: no click to keep)
-            self.save_pins()
-            return
-        kept = self._store_pins()
-        if kept is not None:
+        with nothing selected, as the new box of that row had the focus (2026-11-17).
+        With no mouse button down (Enter, Tab, another program's window), the card shows the name at once, and the
+        rows stay too. They were made again: after Enter the name box was a new control, where Ctrl+Z did not take
+        the typed letters out again and a name wider than the box moved under the caret; a space typed before
+        going to another program was gone from the box (2026-11-22).
+        After Enter, or when the focus went to another control, the box shows the recorded name. It kept text that
+        the name did not have: a space at one end, the letters after 80 characters, or no text at all, which is no
+        name (2026-11-22). While another program has the keyboard, the box is still the focus control of this
+        window and keeps its text: the person may be getting a name there."""
+        text = box.text().strip()[:80]
+        if text and text != p["name"]:
+            p["name"] = text
+            kept = self._store_pins()
+            if kept is None:
+                return
             for mine, theirs in zip(self.pins, kept):
                 mine.update(theirs)
-            self.update_sound()
-            self._fill_sides()
-            self._abx_fill()
-            self._names_timer.start()
+            if not self._show_new_names():  # (a mouse button is down: on the card when it is up)
+                self.update_sound()
+                self._fill_sides()
+                self._abx_fill()
+                self._names_timer.start()
+        if box.text() != p["name"] and (enter or box is not self.window().focusWidget()):
+            # (in the place of the full text, as an edit: Ctrl+Z gives the typed text again. setText left no step to
+            # undo)
+            box.selectAll()
+            box.insert(p["name"])
 
     def _show_new_names(self):
-        """A new name recorded during a mouse press (_rename), on the card and the graph: when the button is up and
-        no list or menu shows (a list that the press opened stays as it is while it shows). The rows stay: the
-        control that the click was on keeps its caret and its selection."""
-        if QGuiApplication.mouseButtons() == Qt.NoButton and QApplication.activePopupWidget() is None:
-            self._names_timer.stop()
-            self.refresh(rows=False)
-            self.page.draw()
+        """A new name that _rename recorded, on the card and the graph: when no mouse button is down and no list or
+        menu shows (a list that the press opened stays as it is while it shows). The rows stay: the name box, or the
+        control that the click was on, keeps its caret and its selection. Returns whether it showed the name."""
+        if QGuiApplication.mouseButtons() != Qt.NoButton or QApplication.activePopupWidget() is not None:
+            return False
+        self._names_timer.stop()
+        self.refresh(rows=False)
+        self.page.draw()
+        return True
 
     def _remove(self, p):
         """✕: off the list, with Undo in the window's message line (UI-RULES 20, 24: the row of its own that was here
