@@ -62,7 +62,8 @@ def selftest():
                          text=True, encoding="utf-8", errors="replace")
     if out.returncode:
         fails = [l for l in out.stdout.splitlines() if l.startswith("FAIL")]
-        raise SystemExit("\n".join(fails or [out.stderr[-800:]]) + "\n\nNo zip made: the self-test fails.")
+        raise SystemExit("\n".join(fails or [out.stderr[-800:]])
+                         + "\n\nThe tool made no zip file, because the self-test found errors.")
 
 
 def plan(stamp):
@@ -71,12 +72,12 @@ def plan(stamp):
 
     def add(arc, src):
         if os.path.basename(arc) in NEVER:
-            raise SystemExit(f"Refusing to put {arc} in the zip.")
+            raise SystemExit(f"The zip file must not contain {arc}. The tool made no zip file.")
         entries.append((TOP + "/" + arc.replace("\\", "/"), src))
 
     missing = [n for n in LAUNCHERS if not os.path.isfile(os.path.join(ROOT, n))]
     if missing:
-        raise SystemExit(f"Missing: {', '.join(missing)}")
+        raise SystemExit(f"These files are missing: {', '.join(missing)}. The tool made no zip file.")
     for n in LAUNCHERS:
         add(n, os.path.join(ROOT, n))
     add("TESTING.txt", os.path.join(TOOLS, "TESTING.txt"))
@@ -165,8 +166,8 @@ def development_files(sp=None):
     for name in sorted(dev):
         listed = installed[name].files
         if listed is None:  # (its RECORD is gone: its files can't be told apart, so nothing is made)
-            raise SystemExit(f"Can't tell which files are {name}'s (its list of files is missing): no runtime made. "
-                             f"Install it again: pip install --force-reinstall {name}")
+            raise SystemExit(f"The package {name} has no list of its files, thus the tool cannot find them. The tool "
+                             f"made no runtime. Install the package again: pip install --force-reinstall {name}")
         files |= {os.path.normcase(os.path.abspath(installed[name].locate_file(f))) for f in listed}
     return files
 
@@ -227,30 +228,60 @@ READY_BAT = (b"@echo off\r\n"
              b"exit /b 0\r\n"
              b"\r\n"
              b":toolong\r\n"
-             b"echo This folder's path is too long for AutoEQ Studio's files (Windows allows 260 characters):\r\n"
+             b"echo This folder's path is too long for AutoEQ Studio's files (the maximum in Windows is 260 characters):\r\n"
              b"echo \"%HERE%\"\r\n"
-             b"echo Move the AutoEQ Studio folder somewhere shorter, e.g. straight into Documents, and start it again.\r\n"
+             # (not Documents: Documents\AutoEQ Studio is the folder of your files, paths.DEFAULT_FILES)
+             b"echo Move the AutoEQ Studio folder to a shorter path, for example to the Desktop.\r\n"
+             b"echo Then start AutoEQ Studio again.\r\n"
              b"pause\r\n"
              b"exit /b 1\r\n")
 
 
+# TESTING.txt for the ready-to-run zip (its Python is in runtime\): the parts of app\tools\TESTING.txt about Python,
+# its packages and setup.log, and what this zip's TESTING.txt has in their place. Each part must be in TESTING.txt
+# exactly one time: text.replace() changes nothing when a part is not found, and the zip then went out with the
+# steps for Python in it.
+READY_HEADS = ("START THE APP (", "DO THESE TESTS\n")  # (READY_START replaces the text from the first to the second)
+READY_START = (
+    "START THE APP (1 minute)\n"
+    '  1. To unzip the zip file, right-click it. Click "Extract All". Then click "Extract". It is not sufficient to\n'
+    '     double-click the zip file, because the app cannot start from the zip file. Open the "AutoEQ Studio" folder\n'
+    "     that you get.\n"
+    '  2. Double-click "AutoEQ Studio.bat". If Windows shows "Windows protected your PC", click "More info". Then '
+    "click\n"
+    '     "Run anyway". This message is usual for a program from the internet, and Windows shows it only one time. '
+    "You\n"
+    '     do not install other items: Python and all the parts that the app uses are in the "runtime" folder.\n'
+    "  The app opens, with an icon near the clock (the tray). If you cannot see the icon, click the ^ arrow.\n\n")
+READY_CHANGES = (
+    ('    - The files app.log and setup.log from the "data" folder. They contain none of your files. A folder path in\n'
+     "      them can show the name of your Windows account.\n",
+     '    - The file app.log from the "data" folder. It contains none of your files. A folder path in it can show the\n'
+     "      name of your Windows account.\n"),
+    ("  - All the parts of the app operate on your PC. The app connects to the internet only to download its packages\n"
+     "    one time, and to search for curves and download them. If you click Online (at the top right), the app becomes\n"
+     "    offline and does not connect to the internet.\n",
+     "  - All the parts of the app operate on your PC. The app connects to the internet only to search for curves and\n"
+     "    to download them. If you click Online (at the top right), the app becomes offline and does not connect to\n"
+     "    the internet.\n"),
+    # (the venv folder only: an installed copy keeps its downloads and lists in %LOCALAPPDATA%\AutoEQ Studio too)
+    ("      5. If the black window showed that it put the packages in %LOCALAPPDATA%\\AutoEQ Studio\\venv, also delete\n"
+     "         that folder.\n", ""))
+
+
 def ready_testing_text(text):
-    """TESTING.txt for the ready-to-run zip: no Python to install, no first-start download."""
-    a = text.index("GETTING IT RUNNING")
-    b = text.index("THINGS TO TRY")
-    return (text[:a] + "GETTING IT RUNNING (a minute)\r\n"
-            "  1. Unzip: right-click the zip > Extract All > Extract. (Not just double-clicking into the zip: the app can't\r\n"
-            "     run from inside it.) Open the \"AutoEQ Studio\" folder that comes out.\r\n"
-            "  2. Double-click \"AutoEQ Studio.bat\". If Windows asks first (\"Windows protected your PC\": click \"More\r\n"
-            "     info\", then \"Run anyway\"), that's normal for any program from the internet, and it only asks once.\r\n"
-            "     Nothing needs installing: Python and everything the app uses are in the runtime folder. The app opens,\r\n"
-            "     with an icon by the clock (the tray: click the ^ arrow if it's hidden).\r\n\r\n"
-            # (and the lines about setting up Python, which this zip doesn't do)
-            + text[b:].replace("the files app.log and setup.log from", "the file app.log from")
-            .replace("It only goes online to download its packages once and to search/download curves;",
-                     "It only goes online to search/download curves;")
-            .replace("    (If the black window said it put its packages in %LOCALAPPDATA%\\AutoEQ Studio, delete that "
-                     "folder too.)\r\n", ""))
+    """TESTING.txt for the ready-to-run zip, with CRLF line ends: no Python to install, no first-start download."""
+    text = text.replace("\r\n", "\n")
+    for part in READY_HEADS + tuple(old for old, _new in READY_CHANGES):
+        if text.count(part) != 1:
+            raise SystemExit(f"TESTING.txt must have this text one time, but has it {text.count(part)} times:\n{part}\n"
+                             "The tool made no zip file. Change TESTING.txt, or READY_HEADS and READY_CHANGES in "
+                             "make_share_zip.py.")
+    start, tests = (text.index(head) for head in READY_HEADS)
+    text = text[:start] + READY_START + text[tests:]
+    for old, new in READY_CHANGES:
+        text = text.replace(old, new)
+    return text.replace("\n", "\r\n")
 
 
 def write_zip(out, entries):
@@ -285,7 +316,7 @@ def check_runtime(folder):
     import time
     py = os.path.join(folder, TOP, "runtime", "python.exe")
     if not os.path.isfile(py):
-        raise SystemExit(f"No runtime\\python.exe in {folder}")
+        raise SystemExit(f"There is no runtime\\python.exe in {folder}.")
     work = tempfile.mkdtemp(prefix="aeqs-runtime-check-")
     try:
         env = dict(os.environ, PYTHONIOENCODING="utf-8", QT_QPA_PLATFORM="offscreen",
@@ -347,18 +378,18 @@ def main():
                    for a, s in entries]
     if ready:
         entries = [(a, READY_BAT if a == f"{TOP}/AutoEQ Studio.bat" else
-                    ready_testing_text(open(s, encoding="utf-8").read().replace("\r\n", "\n").replace("\n", "\r\n")).encode()
+                    ready_testing_text(open(s, encoding="utf-8").read()).encode()
                     if a == f"{TOP}/TESTING.txt" else s) for a, s in entries]
         entries = [(a, s) for a, s in entries if not a.endswith("/app/setup.bat") and not a.endswith("requirements.txt")]
         entries += runtime_entries()
     write_zip(out, entries)
     size = os.path.getsize(out) / 2**20
-    print(f"Made: {out}")
+    print(f"Result: {out}")
     print(f"  {len(entries)} files, {size:.1f} MB")
-    print(f"  starts with: {os.path.basename(PRELOAD['measurement'][0])} -> "
+    print(f"  The app starts with: {os.path.basename(PRELOAD['measurement'][0])} -> "
           f"{os.path.splitext(os.path.basename(PRELOAD['target'][0]))[0]}")
-    print("Send the zip; START HERE.txt inside says how to start it." if use else
-          "Send the zip; TESTING.txt inside tells your testers what to do and how to send feedback.")
+    print("Send the zip file. START HERE.txt in it tells how to start the app." if use else
+          "Send the zip file. TESTING.txt in it gives the tests to do and the information to send.")
 
 
 if __name__ == "__main__":

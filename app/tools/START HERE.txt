@@ -1,33 +1,44 @@
 AUTOEQ STUDIO
 =============
 
-AutoEQ Studio makes EQs for headphones and IEMs, and gives each playback device on your PC its own EQ.
-- Make an EQ: compares a measurement of your headphones or IEMs with a target curve (the sound you want) and finds
-  the filters that make one match the other, saved as the file your EQ app needs.
-- Devices: gives each playback device its own EQ, switched by itself (plug in your IEMs' dongle and their EQ
-  is on). This part works through Equalizer APO (free: https://sourceforge.net/projects/equalizerapo/).
+AutoEQ Studio makes EQs for IEMs and headphones, and gives each playback device on your PC its EQ.
+- Make an EQ: it compares a measurement of your IEMs or headphones with a target curve (the sound that you want).
+  It finds the filters that make the measurement agree with the target. It saves them as the file that your EQ app
+  uses.
+- Devices: each playback device has its EQ, and the EQ changes automatically. When you connect the dongle of your
+  IEMs, their EQ is on. This part operates through Equalizer APO (free software:
+  https://sourceforge.net/projects/equalizerapo/).
 
-STARTING IT
-  1. Unzip: right-click the zip > Extract All > Extract. (Not just double-clicking into the zip: it can't run from
-     inside it.) Put the "AutoEQ Studio" folder somewhere it can stay, e.g. Documents.
-  2. Double-click "AutoEQ Studio.bat". If Windows asks first ("Windows protected your PC": click "More info", then
-     "Run anyway"), that's normal for any program from the internet, and it only asks once. Nothing needs
-     installing: everything it uses is in its runtime folder.
-  3. It opens on Make an EQ with a sample IEM and target already in: press Run to see what it does. "Guide" (top
-     right) walks you through each part, and Help (or F1 on any setting) explains every term.
-  Closing the window leaves it running in the tray by the clock (click the ^ arrow if the icon is hidden): that's
-  what keeps your devices' EQs switching. Quit is in the tray icon's right-click menu.
+START IT
+  1. To unzip the zip file, right-click it. Click "Extract All". Then click "Extract". It is not sufficient to
+     double-click the zip file, because the app cannot start from the zip file. Put the "AutoEQ Studio" folder
+     where it can stay (for example, on the Desktop).
+  2. Double-click "AutoEQ Studio.bat". If Windows shows "Windows protected your PC", click "More info". Then click
+     "Run anyway". This message is usual for a program from the internet, and Windows shows it only one time. You
+     do not install other items: all the parts that the app uses are in its "runtime" folder.
+  3. The app opens on Make an EQ, with a sample IEM and a sample target. To see how it operates, click Calculate.
+     Guide (at the top right) shows you each part. Help tells you about each name that the app uses. When the
+     pointer is on a setting, press F1: Help opens at that setting.
+  When you close the window, the app stays in the tray near the clock. There, it continues to control the EQs of
+  your devices. If you cannot see its icon, click the ^ arrow. "Stop AutoEQ Studio" is in the right-click menu of
+  the tray icon.
 
-YOUR OWN IEMs OR HEADPHONES
-  Find… next to Measurement searches thousands of measurements online (or Add… a file from your PC). Pick your EQ
-  app, Run, then Save filters, or "Use on device" to put the EQ straight onto a device through Equalizer APO.
+YOUR IEMs OR HEADPHONES
+  1. Click Find… (the Measurement row). It searches thousands of measurements in the online databases. Or click
+     Add… to add a file from your PC.
+  2. In "Your EQ app", select your EQ app.
+  3. Click Calculate.
+  4. Click Save filters. Or click "Use on device" to put the EQ directly on a device through Equalizer APO.
 
-GOOD TO KNOW
-  - Everything stays on your PC. It only goes online to search for and download curves; Offline (top right) stops
-    even that.
-  - Your files are in Documents\AutoEQ Studio: Targets, Measurements, Saved EQs, Presets (Settings > Your files
-    opens it or chooses another folder). The app's settings are in its own data\ folder. Settings > Backup puts
-    them all in one .zip.
-  - To remove it: Settings > "Take AutoEQ Studio out of APO…" (if you set it up), untick Start with Windows, quit
-    it from the tray, delete the folder.
-  - README.txt explains every part in detail.
+MORE INFORMATION
+  - All your data stays on your PC. The app connects to the internet only to search for curves and to download
+    them. If you click Online (at the top right), the app becomes offline and does not connect to the internet.
+  - Your files are in Documents\AutoEQ Studio: Targets, Measurements, Saved EQs, Presets. Settings > Your files
+    opens this folder, or selects a different folder. The settings of the app are in its "data" folder. Settings >
+    Backup saves your files and the settings in one zip file.
+  - To remove the app:
+      1. If you added AutoEQ Studio to APO, click Settings > "Remove AutoEQ Studio from APO…".
+      2. In Settings, clear the Start with Windows tick box.
+      3. In the right-click menu of the tray icon, click "Stop AutoEQ Studio".
+      4. Delete the "AutoEQ Studio" folder.
+  - README.txt gives more information about each part of the app.
