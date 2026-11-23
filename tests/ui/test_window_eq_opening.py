@@ -16,6 +16,9 @@ thread while it's watched:
 - the gate: never with AUTOEQSTUDIO_PRELOAD=0 (the tests' copies), before a first opening, or while files wait to
   be moved; the window's memory given back to Windows 30 s after it closes to the tray, only in the app's own window;
 - the end of Make an EQ's Guide in the window: the focus on a control of the page in sight, not in the top bar;
+- that Guide with Windows' animation effects off (2026-11-22): a demo's numbered markers on their controls, the page
+  where the step put it or moved once for a marker, no marker on the card, and the scroll keys once nothing lit is in
+  sight;
 - AUTOEQSTUDIO_ANIMATIONS, with which the tests decide Windows' animation effects for a Guide's demo.
 """
 import json
@@ -607,8 +610,9 @@ def test_symbols_font_looked_up_at_a_quiet_moment(check, tmp_path):
 
 # The Guide of Make an EQ in the window (2026-11-15, round 4 of the fault of Calculate, the mutation R10 of the
 # verifier of round 3): Calculate with the focus in the middle of the view, the Guide started, Esc on its first step
-# (the page at its top: Calculate out of the view). Where the focus goes.
-GUIDE_END = COMMON + r'''
+# (the page at its top: Calculate out of the view). Where the focus goes. In parts: GUIDE_START to the first step,
+# what a test does on that step, GUIDE_ESC, and the line that prints what was seen.
+GUIDE_START = COMMON + r'''
 from PySide6.QtCore import QPoint, QRect, Qt
 from PySide6.QtTest import QTest
 win = make_window("eq")
@@ -629,7 +633,8 @@ win.start_guide()
 pump(10, lambda: getattr(win, "tour", None) is not None and win.tour.isVisible())
 t = win.tour
 t.all_chk.setChecked(False)
-pump(0.5)
+'''
+GUIDE_ESC = r'''
 QTest.keyClick(t, Qt.Key_Escape)
 pump(0.5)
 f = QApplication.focusWidget()
@@ -637,7 +642,160 @@ out.update(had=had, closed=not t.isVisible(), on_target=f is page.target_combo,
            in_view=f is not None and area.isAncestorOf(f)
            and vp.rect().contains(QRect(f.mapTo(vp, QPoint(0, 0)), f.size())),
            focus=type(f).__name__ + " " + repr(f.accessibleName()) if f is not None else None)
-print(json.dumps(out))
+'''
+GUIDE_SEEN = "print(json.dumps(out))\n"
+GUIDE_END = GUIDE_START + "pump(0.5)\n" + GUIDE_ESC + GUIDE_SEEN
+
+# The same Guide with Windows' animation effects off (the Python of its own gets AUTOEQSTUDIO_ANIMATIONS=0): a step's
+# demo is numbered markers, about half a second after the step shows. One window for all of it. On the first step, at
+# 1000x768: what shows with the markers; the Guide's scroll keys, and Show the steps with the page scrolled away; the
+# card, then the open step list, put over the first marker; Esc. Then, the window resized and the Guide started
+# again for each: "Your values" at 1000x600 and at the smallest size, "Your EQs to compare" at the smallest size, the
+# last step at 1400x900. Each part's findings are printed as it ends (the tests read the last line printed), so a part
+# that stops on an error keeps what it had found, and the other parts theirs.
+GUIDE_MARKERS = GUIDE_START + r'''
+from PySide6.QtWidgets import QPushButton
+R = 12  # (a marker as it's drawn: a disc of 11 px, and the outer half of its 2 px outline)
+
+
+def part(name, look, *more):
+    seen = out[name] = {}
+    try:
+        look(seen, *more)
+    except Exception as e:
+        seen["error"] = type(e).__name__ + ": " + str(e)
+    print(json.dumps(out))
+    sys.stdout.flush()
+
+
+def in_win(w):
+    return QRect(w.mapTo(win, QPoint(0, 0)), w.size())
+
+
+def disc(p):
+    return QRect(p.toPoint() - QPoint(R, R), p.toPoint() + QPoint(R - 1, R - 1))
+
+
+def lit(tour):
+    """How much of what the step lights is in the page's view (of its area, 0 to 1)."""
+    view, whole, seen = in_win(vp), 0, 0
+    for w in tour.target:
+        r = in_win(w)
+        whole += r.width() * r.height()
+        if area.isAncestorOf(w):
+            r = r.intersected(view)
+        seen += max(0, r.width()) * max(0, r.height())
+    return round(seen / whole, 3)
+
+
+def button(words):
+    return next(b for b in page.listen.findChildren(QPushButton) if b.text().startswith(words) and b.isVisible())
+
+
+def controls(title):
+    """The controls of a step's markers, by number (None: that line of the card's list has no control)."""
+    if title == "How to make an EQ":
+        return [page.target_combo, page.measurement_combo, page.sa, page.run_btn, page.plot]
+    if title == "Your values":
+        return [None, page.settings.auto_on]
+    if title == "Your EQs to compare":
+        return [button("The selected EQ"), button("From an EQ file"), button("Paste filters")]
+    return [win.help_btn, page.sa]
+
+
+def drawn(tour, title):
+    """The markers drawn now, by number: [on its control, its disc whole in the window (and in the page's view, for
+    a control on the page), off the card, the control all in the page's view]."""
+    view, card, seen = in_win(vp), tour.bubble.geometry(), {}
+    for p, n in tour.marker_points():
+        w, d = controls(title)[n - 1], disc(p)
+        on_page = area.isAncestorOf(w)
+        seen[n] = [in_win(w).contains(p.toPoint()), win.rect().contains(d) and (view.contains(d) or not on_page),
+                   not card.intersects(d), view.contains(in_win(w)) or not on_page]
+    return seen
+
+
+def numbers(tour):
+    return sorted(n for _p, n in tour.marker_points())
+
+
+def with_markers(seen, title):
+    """What shows on the step that the Guide is on, once its markers do: where the page is (as the step showed, and
+    now) and each time it moved, how much of the lit part is in view (then, and now), the markers drawn."""
+    moves = []
+    note = moves.append
+    bar.valueChanged.connect(note)
+    at, lit_then = bar.value(), lit(t)
+    shown = pump(5, lambda: bool(t.markers))
+    pump(0.3)
+    bar.valueChanged.disconnect(note)
+    seen.update(size=[win.width(), win.height()], shown=shown, glide=t.glide, markers=len(t.markers),
+                page=[at, bar.value()], moves=moves, lit=[lit_then, lit(t)], button=t.replay_btn.text(),
+                listed=[str(n) + "." in t.acts_lab.text() for n in (1, 2, 5)])
+    seen["drawn"] = drawn(t, title)
+
+
+def started_again(seen, title, size):
+    """The same in the window made this size: the Guide started again there, taken to the step before this one, and
+    on to it with the Right key (the page is then where a person going through the steps has it); then ended."""
+    global t
+    win.resize(*size)
+    pump(0.5)
+    old = t
+    win.start_guide()
+    pump(10, lambda: win.tour is not old and win.tour.isVisible())
+    t = win.tour
+    t.all_chk.setChecked(False)
+    t.go_to_step(next(n for n, st in enumerate(t.steps) if st["title"] == title) - 1)
+    pump(0.2)
+    QTest.keyClick(t, Qt.Key_Right)
+    seen["step"] = t.title.text()
+    try:
+        with_markers(seen, title)
+    finally:
+        t.end()
+        pump(0.3)
+
+
+def covered(seen):
+    """The card, then the open step list, put over the first marker: the markers drawn each time."""
+    seen["at first"] = numbers(t)
+    p = next(p for p, n in t.marker_points() if n == 1)
+    t.bubble.move(p.toPoint() - QPoint(40, 40))
+    seen["the card on it"] = numbers(t)
+    t.place_card()
+    seen["the card placed again"] = [numbers(t), not t.bubble.geometry().intersects(disc(p))]
+    t.count_btn.click()
+    pump(0.2)
+    t.step_list.move(p.toPoint() - QPoint(40, 40))
+    seen["the list on it"] = [t.step_list.isVisible(), numbers(t)]
+    t.step_list.close_list()
+    seen["the list closed"] = numbers(t)
+
+
+def keys(seen):
+    """The page's place and the number of lit rectangles in sight after each of the Guide's keys, then after Show the
+    steps with the page scrolled away."""
+    seen["at first"] = [bar.value(), len(t.holes)]
+    for name, key in (("Page Down", Qt.Key_PageDown), ("Up", Qt.Key_Up), ("Down", Qt.Key_Down),
+                      ("Page Up", Qt.Key_PageUp), ("Page Down again", Qt.Key_PageDown)):
+        QTest.keyClick(t, key)
+        pump(0.2)
+        seen[name] = [bar.value(), len(t.holes)]
+    t.replay_btn.click()
+    pump(0.3)
+    seen["Show the steps"] = [bar.value(), len(t.holes), lit(t)]
+
+
+part("first", with_markers, "How to make an EQ")
+part("keys", keys)
+part("covered", covered)
+''' + GUIDE_ESC + r'''
+smallest = (1, 1)  # (the window stops at its own smallest size)
+part("values", started_again, "Your values", (1000, 600))
+part("values, smallest", started_again, "Your values", smallest)
+part("compare, smallest", started_again, "Your EQs to compare", smallest)
+part("last", started_again, "Help, and the end of the Guide", (1400, 900))
 '''
 
 
@@ -651,6 +809,106 @@ def test_the_guide_ended_on_its_first_step_gives_the_focus_to_the_page(check, tm
           "page, in sight (it went to Make an EQ in the top bar)",
           d.get("ready") is True and d.get("had") is True and d.get("closed") is True and d.get("on_target") is True
           and d.get("in_view") is True, d or err)
+
+
+@pytest.fixture(scope="module")
+def markers(tmp_path_factory):
+    top = str(tmp_path_factory.mktemp("markers"))
+    return _run(GUIDE_MARKERS, top, dict(_studio(top), AUTOEQSTUDIO_ANIMATIONS="0"))
+
+
+def _drawn_right(seen, *numbers, whole_controls=False):
+    """A step as GUIDE_MARKERS saw it: are the markers with these numbers drawn, and is each marker drawn on its
+    control, its disc whole in sight and off the card (whole_controls: and its control all in the page's view)?"""
+    drawn = seen.get("drawn") or {}
+    return all(str(n) in drawn for n in numbers) and all(all(m if whole_controls else m[:3]) for m in drawn.values())
+
+
+def _lit_kept(seen, part):
+    """A step as GUIDE_MARKERS saw it: is what it lights in the page's view by at least this part of what was in view
+    as the step showed, before its markers?"""
+    then, now = seen.get("lit") or [0, 0]
+    return then > 0 and now >= part * then
+
+
+@pytest.mark.slow
+def test_the_guide_markers_with_what_the_step_lights(markers, check):
+    # (2026-11-22, found when the check of the Guide's end failed on GitHub's machine, as it did on this PC with
+    # Windows' animation effects taken as off: each marker of a demo was a point measured after the page scrolled to
+    # its control. In a window of 1000x768 the page of the first step ended at the graph, the step's two cards out of
+    # sight, 4 of the 5 markers where their controls had been, and Esc then gave the focus to the graph. A page that
+    # never moved, tried first the same day, lost the only marker of "Your values" in a window 670 px high or less,
+    # and the smallest window cut the 3 markers of "Your EQs to compare". Now the page moves once at most, to where
+    # the most markers show with what is lit, and a marker is drawn on its control while its disc is whole in sight)
+    d, err = markers
+    first, keys = d.get("first") or {}, d.get("keys") or {}
+    check("window: with Windows' animation effects off, the demo of the first step of Make an EQ's Guide is its 5 "
+          "numbered markers and the list in the card, and the page stays where the step put it: the Target and "
+          "Measurement cards all in sight, and each marker drawn is on its control, its disc whole in the page's view "
+          "(the page went to the graph, and 4 markers were not on their controls)",
+          d.get("ready") is True and d.get("had") is True and first.get("glide") is False and first.get("shown") is True
+          and first.get("markers") == 5 and first.get("listed") == [True, True, True]
+          and first.get("button") == "Show the steps" and first.get("moves") == [] and first.get("lit") == [1.0, 1.0]
+          and _drawn_right(first, 1, 2), first or err)
+    again = keys.get("Show the steps") or [None, 0, 0]
+    check("window: with Windows' animation effects off, Show the steps with the page scrolled away from what the step "
+          "lights brings the page back to it (the page went to the last control of the demo)",
+          keys.get("Page Down again", [0, 1])[1] == 0 and again[0] == (first.get("page") or ["?"])[0] and again[1] > 0
+          and again[2] == 1.0, keys or err)
+    check("window: with Windows' animation effects off, Esc on the first step of Make an EQ's Guide gives the focus "
+          "to the Target box at the top of the page, in sight (it went to the graph)",
+          d.get("closed") is True and d.get("on_target") is True and d.get("in_view") is True, d or err)
+    low, small = d.get("values") or {}, d.get("values, smallest") or {}
+    check("window: with Windows' animation effects off, the step Your values in a window 1000x600 and in the smallest "
+          "window has the marker of its second line on the tick box Automatic settings, the tick box all in sight: "
+          "the page moves once at most, and the lit settings keep 60 % or more of what they showed (with a page that "
+          "never moved, no marker showed there)",
+          all(x.get("step") == "Your values" and x.get("shown") is True and _drawn_right(x, 2, whole_controls=True)
+              and len(x.get("moves") or []) <= 1 and _lit_kept(x, 0.6) for x in (low, small)),
+          (low, small) if low or small else err)
+    eqs = d.get("compare, smallest") or {}
+    check("window: with Windows' animation effects off, the step Your EQs to compare in the smallest window has its "
+          "markers on buttons that are all in sight, what it lights as much in sight as before (with a page that never "
+          "moved, the window cut the 3 markers)",
+          eqs.get("step") == "Your EQs to compare" and eqs.get("shown") is True and len(eqs.get("drawn") or {}) >= 2
+          and _drawn_right(eqs, whole_controls=True) and len(eqs.get("moves") or []) <= 1 and _lit_kept(eqs, 1),
+          eqs or err)
+
+
+@pytest.mark.slow
+def test_the_guide_markers_keep_off_the_card(markers, check):
+    # (2026-11-22: the markers are drawn on a layer above the Guide's card, and the card kept off the lit part only.
+    # At 1400x900 the marker of the last step's second line was on the card's Open Help button, its control under the
+    # card. Now the card goes where it covers no marker when it can, and a marker under the card or under the open
+    # step list isn't drawn)
+    d, err = markers
+    first, last, over = d.get("first") or {}, d.get("last") or {}, d.get("covered") or {}
+    check("window: with Windows' animation effects off, no marker is drawn on the Guide's card: on the last step at "
+          "1400x900 both markers are drawn, the second one on Settings to try (it was on the card's Open Help), and "
+          "on the first step at 1000x768 no marker's disc touches the card",
+          last.get("step") == "Help, and the end of the Guide" and last.get("shown") is True and last.get("markers") == 2
+          and _drawn_right(last, 1, 2) and _drawn_right(first, 1, 2), (last, first.get("drawn")) if last or first else err)
+    shown = over.get("at first") or []
+    check("window: with Windows' animation effects off, a marker that the card or the open step list is over isn't "
+          "drawn; the card, placed again, goes off the marker, and the list closed shows it again",
+          1 in shown and 1 not in over.get("the card on it", [1]) and over.get("the card placed again") == [shown, True]
+          and over.get("the list on it", [False, [1]])[0] is True and 1 not in over["the list on it"][1]
+          and over.get("the list closed") == shown, over or err)
+
+
+@pytest.mark.slow
+def test_the_guide_scroll_keys_with_nothing_lit_in_sight(markers, check):
+    # (2026-11-22: the Guide's Page Up, Page Down, Up and Down scrolled the scrolling part under the first lit
+    # rectangle, and nothing once no lit part was in sight: after one Page Down on the first step, only the wheel or
+    # another step brought what was lit back. Now the keys then scroll the part that holds the step's control)
+    d, err = markers
+    k = d.get("keys") or {}
+    at, down, up, down2, back = (k.get(name) or [0, -1] for name in ("at first", "Page Down", "Up", "Down", "Page Up"))
+    check("window: on the first step of Make an EQ's Guide, Page Down takes what is lit out of sight, and the Guide's "
+          "Up, Down and Page Up still scroll the page: Page Up brings what is lit back (once nothing lit was in sight, "
+          "the 4 keys did nothing)",
+          at[1] > 0 and down[0] > at[0] and down[1] == 0 and up[0] == down[0] - 60 and up[1] == 0
+          and down2 == down and back == at, k or err)
 
 
 def test_the_tests_decide_the_animation_effects(monkeypatch, check):
