@@ -26,7 +26,7 @@ The sound itself is ui/audio.py (sounddevice); nothing plays until Play.
 import math
 import os
 
-from PySide6.QtCore import QPoint, QRect, QSignalBlocker, QSize, Qt, QTimer
+from PySide6.QtCore import QPoint, QRect, QSignalBlocker, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QFileDialog, QGridLayout, QGroupBox,
                                QHBoxLayout, QLabel, QLayout, QLineEdit, QMessageBox, QPushButton, QSlider,
@@ -67,6 +67,19 @@ class _PlayButton(QPushButton):
         if symbol != self.symbol:
             self.symbol = symbol
             icons.put(self, symbol)
+
+
+class _NameBox(QLineEdit):
+    """The name box of an EQ to compare. left: each time it loses the keyboard (not to a list or menu that opens
+    over it). Qt's own editingFinished comes at a loss of the keyboard only after an edit since it came last, and it
+    comes when another program takes the keyboard. Back from that program, Tab or a click with no new letter told
+    nothing, and the box kept text that the name did not have (2026-11-22)."""
+    left = Signal()
+
+    def focusOutEvent(self, e):
+        super().focusOutEvent(e)
+        if e.reason() != Qt.PopupFocusReason:
+            self.left.emit()
 
 
 class _Rows(QLayout):
@@ -1062,10 +1075,9 @@ class Listen(QGroupBox):
             sw = QLabel("■")
             theme.mark(sw, listen_mark=COLOURS[p.get("color", i) % len(COLOURS)])  # (theme_sheet.py's listen part)
             grid.addWidget(sw, i, 0)
-            name = QLineEdit(p["name"])
-            # (Enter tells returnPressed, then editingFinished: the second call has no more to do)
+            name = _NameBox(p["name"])
             name.returnPressed.connect(lambda p=p, name=name: self._rename(p, name, enter=True))
-            name.editingFinished.connect(lambda p=p, name=name: self._rename(p, name))
+            name.left.connect(lambda p=p, name=name: self._rename(p, name))
             grid.addWidget(name, i, 1)
             note = QLabel(f"{len(p['filters'])} filter{'' if len(p['filters']) == 1 else 's'}" +(f" · {p['note']}" if p.get("note") else ""))
             theme.mark(note, role="muted")
@@ -1091,8 +1103,8 @@ class Listen(QGroupBox):
         if place:
             kind, _, row = place.partition(":")
             w = rows[min(int(row), len(rows) - 1)][kind] if rows else self.add_sel_btn
-            table.show()  # (now, as the version's button above: with the focus not yet on the row, Tab after a new
-            w.setFocus(Qt.OtherFocusReason)  # name moved the page to the list, 7 px)
+            table.show()  # (now, as the version's button above: a new control gets the focus only when it shows;
+            w.setFocus(Qt.OtherFocusReason)  # with the focus not yet on the row, the page moved to the list, 7 px)
             if caret and isinstance(w, QLineEdit) and w.text() == caret[0]:
                 # (the same text only: the same caret and selection, with Qt's own positions. A different text, as
                 # the name is recorded with no space at its two ends, one space for each group of spaces and 80
@@ -1155,7 +1167,10 @@ class Listen(QGroupBox):
                 self._abx_fill()
                 self._names_timer.start()
         if box.text() != p["name"] and (enter or box is not self.window().focusWidget()):
-            box.setText(p["name"])
+            # (in the place of the full text, as an edit: Ctrl+Z gives the typed text again. setText left no step to
+            # undo)
+            box.selectAll()
+            box.insert(p["name"])
 
     def _show_new_names(self):
         """A new name that _rename recorded, on the card and the graph: when no mouse button is down and no list or
