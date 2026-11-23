@@ -15,7 +15,9 @@ thread while it's watched:
   shows (about a second after);
 - the gate: never with AUTOEQSTUDIO_PRELOAD=0 (the tests' copies), before a first opening, or while files wait to
   be moved; the window's memory given back to Windows 30 s after it closes to the tray, only in the app's own window;
-- the end of Make an EQ's Guide in the window: the focus on a control of the page in sight, not in the top bar.
+- the end of Make an EQ's Guide in the window: the focus on a control of the page in sight, not in the top bar;
+- the same with Windows' animation effects off (2026-11-22): the demo's markers leave the page where the step put it,
+  each marker in sight on its control; and AUTOEQSTUDIO_ANIMATIONS, with which the tests decide those effects.
 """
 import json
 import os
@@ -606,8 +608,9 @@ def test_symbols_font_looked_up_at_a_quiet_moment(check, tmp_path):
 
 # The Guide of Make an EQ in the window (2026-11-15, round 4 of the fault of Calculate, the mutation R10 of the
 # verifier of round 3): Calculate with the focus in the middle of the view, the Guide started, Esc on its first step
-# (the page at its top: Calculate out of the view). Where the focus goes.
-GUIDE_END = COMMON + r'''
+# (the page at its top: Calculate out of the view). Where the focus goes. In parts: GUIDE_START to the first step,
+# what a test does on that step, GUIDE_ESC, and the line that prints what was seen.
+GUIDE_START = COMMON + r'''
 from PySide6.QtCore import QPoint, QRect, Qt
 from PySide6.QtTest import QTest
 win = make_window("eq")
@@ -628,7 +631,8 @@ win.start_guide()
 pump(10, lambda: getattr(win, "tour", None) is not None and win.tour.isVisible())
 t = win.tour
 t.all_chk.setChecked(False)
-pump(0.5)
+'''
+GUIDE_ESC = r'''
 QTest.keyClick(t, Qt.Key_Escape)
 pump(0.5)
 f = QApplication.focusWidget()
@@ -636,8 +640,43 @@ out.update(had=had, closed=not t.isVisible(), on_target=f is page.target_combo,
            in_view=f is not None and area.isAncestorOf(f)
            and vp.rect().contains(QRect(f.mapTo(vp, QPoint(0, 0)), f.size())),
            focus=type(f).__name__ + " " + repr(f.accessibleName()) if f is not None else None)
-print(json.dumps(out))
 '''
+GUIDE_SEEN = "print(json.dumps(out))\n"
+GUIDE_END = GUIDE_START + "pump(0.5)\n" + GUIDE_ESC + GUIDE_SEEN
+
+# The same with Windows' animation effects off (the Python of its own gets AUTOEQSTUDIO_ANIMATIONS=0): the demo of the
+# first step is numbered markers, 0.45 s after the step shows. Where the page is then, if the step's two cards are
+# all in sight, and each marker in sight: is it on its control, in the page's view. Then Esc. Then the Guide again,
+# and its Page Down (the Guide scrolls the page): the markers in sight after it.
+GUIDE_MARKERS = GUIDE_START + r'''
+view = QRect(vp.mapTo(win, QPoint(0, 0)), vp.size())
+demo = [page.target_combo, page.measurement_combo, page.sa, page.run_btn, page.plot]
+
+
+def on_controls(tour):
+    return {n: QRect(demo[n - 1].mapTo(win, QPoint(0, 0)), demo[n - 1].size()).contains(p.toPoint())
+            and view.contains(p.toPoint()) for p, n in tour.marker_points()}
+
+
+at_step = bar.value()
+out["shown"] = pump(5, lambda: bool(t.markers))
+pump(0.3)
+out.update(glide=t.glide, markers=len(t.markers), page=[at_step, bar.value()], on_controls=on_controls(t),
+           lit=[vp.rect().contains(QRect(w.mapTo(vp, QPoint(0, 0)), w.size()))
+                for w in (page.target_box, page.measurement_box)],
+           listed="1." in t.acts_lab.text() and "5." in t.acts_lab.text(), button=t.replay_btn.text())
+''' + GUIDE_ESC + r'''
+win.start_guide()
+again = win.tour
+out["again"] = again is not t and pump(10, lambda: again.isVisible()) and pump(5, lambda: bool(again.markers))
+pump(0.3)
+at_step, first = bar.value(), on_controls(again)
+QTest.keyClick(again, Qt.Key_PageDown)
+pump(0.3)
+out.update(page_down=[at_step, bar.value()], on_controls_first=first, on_controls_down=on_controls(again))
+again.end()
+pump(0.2)
+''' + GUIDE_SEEN
 
 
 @pytest.mark.slow
@@ -650,6 +689,70 @@ def test_the_guide_ended_on_its_first_step_gives_the_focus_to_the_page(check, tm
           "page, in sight (it went to Make an EQ in the top bar)",
           d.get("ready") is True and d.get("had") is True and d.get("closed") is True and d.get("on_target") is True
           and d.get("in_view") is True, d or err)
+
+
+@pytest.mark.slow
+def test_the_guide_with_the_animation_effects_off_keeps_the_page(check, tmp_path):
+    # (2026-11-22, found when the check above failed on GitHub's machine, as it did on this PC with Windows'
+    # animation effects taken as off: the markers of the first step's demo were each measured after the page
+    # scrolled to its control. In a window of 1000x768 the page ended at the graph, the step's two cards out of
+    # sight, and 4 of the 5 markers were where their controls had been; Esc then gave the focus to the graph. Now
+    # the page stays, and a marker is drawn on its control while that control is in sight)
+    top = str(tmp_path)
+    d, err = _run(GUIDE_MARKERS, top, dict(_studio(top), AUTOEQSTUDIO_ANIMATIONS="0"))
+    on, page = d.get("on_controls") or {}, d.get("page") or [None, "?"]
+    check("window: with Windows' animation effects off, the demo of the first step of Make an EQ's Guide is its 5 "
+          "numbered markers and the list in the card, and the page stays where the step put it: the Target and "
+          "Measurement cards all in sight, and each marker in sight on its control (the page went to the graph, and "
+          "4 markers were not on their controls)",
+          d.get("ready") is True and d.get("had") is True and d.get("glide") is False and d.get("shown") is True
+          and d.get("markers") == 5 and d.get("listed") is True and d.get("button") == "Show the steps"
+          and page[0] == page[1] and d.get("lit") == [True, True] and on.get("1") is True and on.get("2") is True
+          and all(on.values()), d or err)
+    check("window: with Windows' animation effects off, Esc on the first step of Make an EQ's Guide gives the focus "
+          "to the Target box at the top of the page, in sight (it went to the graph)",
+          d.get("closed") is True and d.get("on_target") is True and d.get("in_view") is True, d or err)
+    first, down, moved = d.get("on_controls_first") or {}, d.get("on_controls_down") or {}, d.get("page_down") or [0, 0]
+    check("window: with Windows' animation effects off, a marker whose control is out of sight shows on its control "
+          "when the page scrolls to it (Page Down in the Guide), and each marker in sight stays on its control",
+          d.get("again") is True and moved[1] > moved[0] and bool(set(down) - set(first)) and all(first.values())
+          and all(down.values()), d or err)
+
+
+def test_the_tests_decide_the_animation_effects(monkeypatch, check):
+    # (2026-11-22: 2 tests that play a demo failed on GitHub's machine, and on this PC with Windows' animation
+    # effects taken as off: a tour then shows markers and plays nothing. helpers.session sets
+    # AUTOEQSTUDIO_ANIMATIONS=1 for every test process and what it starts. Windows is stood in here: its setting is
+    # never changed)
+    import ctypes
+
+    from ui import tour
+    real = ctypes.windll.user32.SystemParametersInfoW
+    windows, asked = [0], []
+
+    def answer(action, param, value, ini):
+        if action != 0x1042:  # (SPI_GETCLIENTAREAANIMATION: only this question is stood in)
+            return real(action, param, value, ini)
+        asked.append(action)
+        ctypes.cast(value, ctypes.POINTER(ctypes.c_int)).contents.value = windows[0]
+        return 1
+    in_session = os.environ.get("AUTOEQSTUDIO_ANIMATIONS")
+    monkeypatch.setattr(ctypes.windll.user32, "SystemParametersInfoW", answer, raising=False)
+    seen = {}
+    for name, said, effects in (("1, Windows off", "1", 0), ("0, Windows on", "0", 1), ("not set, Windows off", None, 0),
+                                ("not set, Windows on", None, 1), ("other words, Windows off", "on", 0)):
+        if said is None:
+            monkeypatch.delenv("AUTOEQSTUDIO_ANIMATIONS", raising=False)
+        else:
+            monkeypatch.setenv("AUTOEQSTUDIO_ANIMATIONS", said)
+        windows[0] = effects
+        seen[name] = tour._animations_on()
+    check("guide: AUTOEQSTUDIO_ANIMATIONS decides before Windows if a demo plays (1) or is numbered markers (0), and "
+          "Windows is not asked; without it, or with other words, Windows' animation effects decide; the tests' "
+          "session sets it to 1",
+          seen == {"1, Windows off": True, "0, Windows on": False, "not set, Windows off": False,
+                   "not set, Windows on": True, "other words, Windows off": False}
+          and len(asked) == 3 and in_session == "1", (seen, len(asked), in_session))
 
 
 def _window(stub_app, tmp_path):
