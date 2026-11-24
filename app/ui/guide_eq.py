@@ -15,6 +15,24 @@ from ui.guide_demos import (adjust_demo, button, choose_row, point_at_menu_row, 
 # a row ending in " ▸" is a submenu's, Windows 11's chevron at its right, as the app's menus draw it.)
 
 
+def app_paths(page):
+    """The settings that the user sets for an EQ app, in the sequence of the Settings form (the "user" items of the
+    page's EQ apps, eq_apps.user_items): Peace bands, Peace max gain, FxSound's Band counts to try."""
+    return [it["path"] for a in page.meta.get("eq_apps", []) for it in a.get("user") or []
+            if it["path"] in page.settings.form.fields]
+
+
+def first_value_box(st):
+    """The box of the step Your values: of the number and list boxes in sight in the Settings form (Error and
+    selection aside), the first that the automatic settings fill, else the first. With Peace it is Filter counts to
+    try (the two Peace boxes are never automatic, so the demo does not give them a "your value" tag); with FxSound,
+    Band counts to try. Public: the tests read it."""
+    auto = set(st.auto_paths)
+    fields = [f for p, f in st.form.fields.items() if f.kind in ("num", "intlist", "numlist", "ranges")
+              and f.box.isVisible() and not p.startswith("scoring")]
+    return next((f for f in fields if f.path in auto), None) or (fields[0] if fields else None)
+
+
 # ---------------------------------------------------------------- Make an EQ's Guide
 def eq_steps(page):
     """Make an EQ's Guide."""
@@ -234,11 +252,14 @@ def eq_steps(page):
             return
         api.say("Type your value. Press Enter")
         v = f.box.text().strip()
+        only = (st.limits.of(f.path) or {}).get("of")
         try:
             n = float(v)
             new = str(int(n * 1.5) if n >= 10 else int(n) + 2)
         except ValueError:
             new = "1-8"
+        if only:  # (a box that takes only some values, Band counts to try: one of them, not the one that it shows)
+            new = next((str(x) for x in reversed(only[:2]) if str(x) != v), str(only[0]))
         yield from api.type(f.box, new, keep=True, hold=300)
         yield from api.key("Enter", 700)
         old = f.tag.text() if f.tag.isVisible() else None
@@ -249,10 +270,24 @@ def eq_steps(page):
         yield from api.at(f.tag, 0.5, 0.5, 1400)
 
     def _first_box():
-        auto = set(st.auto_paths)
-        fields = [f for p, f in st.form.fields.items() if f.kind in ("num", "intlist", "numlist", "ranges")
-                  and f.box.isVisible() and not p.startswith("scoring")]
-        return next((f for f in fields if f.path in auto), None) or (fields[0] if fields else None)
+        return first_value_box(st)
+
+    def app_rows_demo(api):
+        """The boxes of an EQ app in Settings (Peace bands, Peace max gain, Band counts to try): the first one in
+        sight; with another EQ app none shows, and the pointer goes to the place where they show (the label of the
+        first box of the method, else the top of the form). Only the pointer moves: no setting changes, and the
+        pointer stays on the form that the step lights."""
+        words = "The boxes of your EQ app (Peace, FxSound) are here"
+        f = next((st.form.fields[p] for p in app_paths(page) if st.form.fields[p].box.isVisible()), None)
+        if f is not None:
+            yield from api.at(f.box, 0.5, 0.5, 1500, say=words)
+            return
+        first = _first_box()
+        lab = first.parentWidget().parentWidget().findChild(QLabel) if first is not None else None
+        if lab is not None and lab.isVisible():
+            yield from api.at(lab, 0.5, 0.5, 1500, say=words)
+        else:
+            yield from api.at(st.form, 0.1, 0.1, 1500, say=words)
 
     def run_demo(api):
         was = (page.run_btn.isEnabled(), not page.cancel_btn.isHidden(), not page.progress.isHidden(),
@@ -659,7 +694,8 @@ def eq_steps(page):
          "text": "Select the app or device that will use the EQ (Windows, Mac, Linux, Android, iPhone, a DAC or "
                  "squig.link). It is above the tabs, because it is for the two tabs. The EQ stays in its limits (bands, "
                  "gain, Q, the sliders of a graphic EQ). Save filters saves the file that the app or device imports. The "
-                 "ⓘ after its label shows the limits.",
+                 "ⓘ after its label shows the limits. For Peace, Settings has Peace bands and Peace max gain: enter the "
+                 "values that you set in Peace. For FxSound, Settings has Band counts to try.",
          "demo": [{"click": lambda: page.app_combo, "say": "Click Your EQ app", "then": app_demo}]},
         {"chapter": "2 · Settings", "title": "Select an EQ method", "target": lambda: [page.mode_combo, page.mode_hint],
          "before": auto_on, "after": auto_off,
@@ -690,9 +726,14 @@ def eq_steps(page):
         {"chapter": "2 · Settings", "title": "Your values", "target": lambda: [st.form],
          "before": settings_open, "after": settings_close,
          "text": "If you change a setting, it shows “your value”, and new files do not change it. Click “your value ↺” "
-                 "to make it automatic again, or disable Automatic settings.",
+                 "to make it automatic again, or disable Automatic settings. With Peace or FxSound, the boxes of that "
+                 "app are also here.",
+         # (the boxes of an EQ app last: with Windows' animation effects off the lines of a demo are numbered, and
+         # the marker of line 2 is on the tick box Automatic settings, test_window_eq_opening.py; a line that the
+         # demo itself plays has no marker)
          "demo": [{"run": your_value_demo, "say": "Type your value. Press Enter"},
-                  {"at": lambda: st.auto_on, "x": 0.1, "say": "Or disable Automatic settings"}]},
+                  {"at": lambda: st.auto_on, "x": 0.1, "say": "Or disable Automatic settings"},
+                  {"run": app_rows_demo, "say": "The boxes of your EQ app (Peace, FxSound) are here"}]},
         {"chapter": "2 · Settings", "title": "Start from your filters",
          "target": lambda: st.adv_form.fields["best_fit.start_filters"] if st.adv_form.fields["best_fit.start_filters"].isVisible() else None,
          "alt": lambda: page.mode_combo, "before": auto_settings_open, "after": auto_settings_close,

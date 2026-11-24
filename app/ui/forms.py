@@ -4,7 +4,9 @@ A Field shows and edits one setting (a dotted path in the EQ part's settings: "b
 "scoring.band_hz.1"). Kinds: num, intlist ("4-10" or "4, 6, 8"), numlist, ranges ("-12..6, -10..20"), lines (one
 per line), check, choice ([(value, label)]), text. A value is checked as it's typed against the EQ part's own limits
 (eq.settings LIMITS and LIMIT_PAIRS: a "from" below its "to"): a wrong one turns the box red with the reason (and
-isn't used); leaving a box with a value past a limit moves it to the limit and says so. Every box has its tooltip
+isn't used); leaving a box with a value past a limit moves it to the limit and says so. A limit with "of" (the band
+counts that an EQ app has) allows only those values: leaving the box keeps the values that are offered, or takes
+the nearest offered one. Every box has its tooltip
 (help_texts.HELP; a "to" box shares its "from" box's).
 
 The automatic settings: a box they fill in has a tag beside it, "automatic", or "your value ↺" once you've changed it
@@ -95,6 +97,11 @@ class Limits:
         lim = self.of(key)
         if not lim:
             return ""
+        if lim.get("of"):  # (only these values, e.g. the band counts of an EQ app: "5, 10, 15, 20, or 31")
+            names = [number_text(x) for x in lim["of"]]
+            if len(names) < 3:
+                return " or ".join(names)
+            return ", ".join(names[:-1]) + ", or " + names[-1]
         s = f"{number_text(lim['min'])} to {number_text(lim['max'])}{(' ' + lim['unit']) if lim.get('unit') else ''}"
         if lim.get("list"):
             s = "each value " + s
@@ -109,6 +116,8 @@ class Limits:
             return None
         flat = [x for x in (sum(v, []) if v and isinstance(v[0], list) else v) if x is not None] \
             if isinstance(v, list) else ([] if v is None else [v])
+        if lim.get("of") and any(x not in lim["of"] for x in flat):
+            return "range", "Allowed: " + self.text(key)
         if any(x < lim["min"] or x > lim["max"] for x in flat):
             return "range", "Allowed: " + self.text(key)
         if lim.get("int") and any(x != int(x) for x in flat):
@@ -131,6 +140,14 @@ class Limits:
         lim = self.of(key)
         if not lim or v is None:
             return v
+        if lim.get("of"):
+            # (a limit with "of": the values that are offered stay; when none is, the offered value nearest to the
+            # first one given: "5-31" becomes 5, 10, 15, 20, 31 and "12" becomes 10)
+            given = v if isinstance(v, list) else [v]
+            kept = sorted({x for x in given if x in lim["of"]})
+            if not kept and given:
+                kept = [min(lim["of"], key=lambda o: abs(o - given[0]))]
+            return kept if isinstance(v, list) else (kept[0] if kept else v)
 
         def c(x):
             y = min(max(x, lim["min"]), lim["max"])

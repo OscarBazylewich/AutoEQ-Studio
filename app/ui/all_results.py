@@ -1,5 +1,6 @@
 """Every result of a run (AutoEQ Local's "All N results" window, results.js renderRuns/renderGrid, natively):
-- the grid: the lowest error for each filter count (or the website's filter rows) and max Q, shaded when it sounds
+- the grid (not for a graphic EQ's results, one for each band count): the lowest error for each filter count (or the
+  website's filter rows) and max Q, shaded when it sounds
   the same as the target (the audible pick's rule); a click shows that result (Best fit and the website sweep, with
   several results). Best fit's rows say how many filters the run tried ("6 filters", or "up to 7 filters" when a
   result there kept fewer: that cell says its own count, "· 6f", as the website sweep's cells do)
@@ -67,6 +68,10 @@ def _table_look(t):
     t.horizontalHeader().setDefaultAlignment(LEFT)
     t.horizontalHeader().setHighlightSections(False)
     t.verticalHeader().setDefaultAlignment(LEFT)
+
+
+def _is_num(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
 
 
 class _Num(QTableWidgetItem):
@@ -191,7 +196,10 @@ class AllResults(QDialog):
         run, page = self.run, self.page
         # the grid
         rs = run["results"]
-        show = run["mode"] in ("site_sweep", "best_fit") and len(rs) > 1
+        # (no grid for a run of a graphic EQ's results, one for each band count of FxSound: each count has its own
+        # Q, so the grid would be filled only on its diagonal. The table below has every result)
+        graphic = all(r.get("engine") == "graphic" for r in rs)
+        show = run["mode"] in ("site_sweep", "best_fit") and len(rs) > 1 and not graphic
         for w in (self.grid_title, self.grid, self.grid_note):
             w.setVisible(show)
         if show:
@@ -275,10 +283,13 @@ class AllResults(QDialog):
             t.insertRow(i)
             err = _Num(f"{r['rms']:.3f}" + ("  ✓ selected for you" if r["id"] == run["pick"] else ""), r["rms"])
             err.setData(Qt.UserRole, r["id"])
-            pre = r.get("preamp")
+            pre, lo, hi = r.get("preamp"), r.get("gain_min"), r.get("gain_max")
             cells = [err, _Num(str(r["n_filters"]), r["n_filters"]), _Num(str(r.get("rows") or ""), r.get("rows")),
                      _Num(f"{r.get('freq_low', '')}–{r.get('freq_high', '')}" if r.get("freq_low") is not None else "", None),
-                     _Num(f"{r.get('gain_min', '')} to {r.get('gain_max', '')}" if r.get("gain_min") is not None else "", None),
+                     # (":g": a graphic EQ's slider range is kept as -12.0 and 12.0, and "-12.0 to 12.0" was cut
+                     # short in its column: "-12 to 12")
+                     _Num(f"{lo:g} to {hi:g}" if _is_num(lo) and _is_num(hi)
+                          else f"{lo} to {'' if hi is None else hi}" if lo is not None else "", None),
                      _Num(f"{r.get('q_max', '')}", r.get("q_max")), _Num(f"+{r['max_boost']:.1f}", r["max_boost"]),
                      _Num(page.preamp_text(pre) if pre is not None else "", pre)]
             for c, it in enumerate(cells):

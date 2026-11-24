@@ -19,8 +19,8 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 import textfile
 from ui import bubble
-from ui.eq_page_parts import (MESSAGE_NAMES, MODE_SHORT, and_list, file_base_name, first_names, modal, row_name,
-                              update_row_words, use_menu_order)
+from ui.eq_page_parts import (MESSAGE_NAMES, MODE_SHORT, and_list, count_words, file_base_name, first_names, modal,
+                              row_name, update_row_words, use_menu_order)
 from ui.search_combo import natural_key
 
 # By hand's Start from: an EQ's sources in the order every such list has (.claude/notes/UI-RULES.md 16), each with the
@@ -189,7 +189,7 @@ class EqResult:
             by_n[shown["n_filters"]] = shown
         self.count_combo.clear()
         for n, x in sorted(by_n.items()):
-            self.count_combo.addItem(f"{n} filter{'' if n == 1 else 's'}  ·  {x['rms']:.2f} dB"
+            self.count_combo.addItem(f"{count_words(n, x.get('engine'))}  ·  {x['rms']:.2f} dB"
                                      + ("  ✓ selected for you" if x["id"] == run["pick"] else ""), x["id"])
         self.count_combo.setCurrentIndex(max(0, self.count_combo.findData(rid)))
         self.count_combo.sort_items()
@@ -208,18 +208,19 @@ class EqResult:
         hz = lambda v: (f"{v / 1000:.1f} kHz" if v >= 1000 else f"{v:.0f} Hz") if v else ""
         if r.get("ear") is None or not case:
             return ""
+        things = "bands" if r.get("engine") == "graphic" else "filters"  # (a graphic EQ's results differ by band count)
         if r["id"] != run.get("pick"):  # (where the largest difference is: only when it is over the limit)
             return f"Within {r['ear']:.2f} dB of target" + (
                 f" · Peak deviation near {hz(r['ear_at'])}" if r.get("ear_at") and r["ear"] > lim else "")
         if case == "target":
-            return (f"Audibly matches target: within {r['ear']:.2f} dB (limit: {lim:g} dB), using the fewest filters "
+            return (f"Audibly matches target: within {r['ear']:.2f} dB (limit: {lim:g} dB), using the fewest {things} "
                     "needed")
         # (no EQ reaches the target: the nearest one's difference, and "(fewer filters)" when this EQ is not that one
         # but sounds the same with fewer filters)
         best = min((x for x in run["results"] if x.get("ear") is not None), key=lambda x: x["ear"], default=r)
         where = hz(best.get("ear_at"))
         return (f"Couldn't match target: closest is {best['ear']:.2f} dB off" + (f" near {where}" if where else "")
-                + ("" if best["id"] == r["id"] else " (fewer filters)"))
+                + ("" if best["id"] == r["id"] else f" (fewer {things})"))
 
     # ---------------------------------------------------------------- runs this session (results.js RUNS)
     def use_these_settings(self):

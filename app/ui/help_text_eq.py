@@ -36,6 +36,12 @@ HELP_EQ = {'slot:target': ['Desired frequency response for your IEM or headphone
  'target_adjust.air_q': ['Slope of the air shelf', 'shelf'],
  'best_fit.filter_counts': ['', 'simplest', 'peaking-filter', 'q-filters'],
  'best_fit.low_shelf': ['Include a low-shelf filter; useful when the entire bass region needs adjustment', 'shelf'],
+ # (what the user sets for an EQ app, eq_apps.user_items: the keys are the paths of the settings)
+ 'best_fit.per_app.peace.bands': ['Number of sliders set in Peace (each shelf uses one)', 'eq-app', 'layout'],
+ 'best_fit.per_app.peace.gain': ['“Maximum dB” in Peace settings › Sizes and Amounts', 'eq-app', 'db'],
+ 'best_fit.per_app.fxsound.band_counts': ['FxSound band counts to try (5, 10, 15, 20, or 31)',
+                                          'fixed-bands',
+                                          'simplest'],
  'best_fit.freq_range': ['', 'scored-range'],
  'best_fit.gain_min': ['', 'db'],
  'best_fit.gain_max': ['', 'preamp'],
@@ -173,7 +179,9 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'filters writes the file that the app imports. The ⓘ after the label Your EQ app '
                                     'tells its limits, with a link to their source. Not in the '
                                     'list, or '
-                                    'not sure: no limits, and an Equalizer APO file, which many apps can read.']},
+                                    'not sure: no limits, and an Equalizer APO file, which many apps can read. For '
+                                    'Peace and FxSound, Settings › Best fit has the values that you set in that '
+                                    'app.']},
                           {'key': 'slot:method',
                            'title': 'EQ method',
                            'body': ['How the app finds the filters. Best fit (for all EQ apps) adjusts them directly '
@@ -274,6 +282,27 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'body': ['Best fit also adjusts a low shelf: a wide change (+ or −) of the bass below a '
                                     'corner frequency. It helps if all the bass is too high or too low. Automatic '
                                     'settings enable it if the bass is 3 dB or more from the target.']},
+                          {'key': 'best_fit.per_app.peace.bands',
+                           'title': 'Peace bands',
+                           'body': ['The number of sliders that you use in Peace (1 to 31; the + button of Peace or '
+                                    'its settings change it). Best fit uses no more filters than this number; a shelf '
+                                    'uses one slider. It limits Best fit only: an EQ that you make manually is not '
+                                    'limited.']},
+                          {'key': 'best_fit.per_app.peace.gain',
+                           'title': 'Peace max gain (± dB)',
+                           'body': ['The “Maximum dB” of Peace (its settings, tab Sizes and Amounts; Peace starts at '
+                                    '30). No filter of Best fit gets a higher gain or a lower cut. Best fit itself '
+                                    'stays between -16 and +35 dB, so a value above 30 has an effect only on a '
+                                    'maximum gain value above 30 dB. With a value below 16, the cut stops at that '
+                                    'value, also when Minimum gain shows a lower number.']},
+                          {'key': 'best_fit.per_app.fxsound.band_counts',
+                           'title': 'Band counts to try',
+                           'body': ['For FxSound, which has 5, 10, 15, 20 or 31 bands. Enter one count or a list, for '
+                                    'example 10 or 10, 31. The app calculates one EQ for each count, and Best result '
+                                    'selects one. Automatic settings try all five. In FxSound (1.2.14 or later), set '
+                                    'the same number of bands and Filter Q 1.0. With 5 or 10 bands, set each band to '
+                                    'the frequency in the filter table (Restore Defaults gives these frequencies). '
+                                    'Then set the sliders to the gains in the table.']},
                           {'key': 'best_fit.freq_range',
                            'title': 'Filters from … to (Hz)',
                            'body': ['Where the app can put peaking filters (from … to). The app calculates the error '
@@ -314,7 +343,7 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                 'items': [{'key': 'best_fit.layout',
                            'title': 'Layout',
                            'body': ['The type of EQ, for Best fit. Parametric filters: an app with no limits '
-                                    '(Equalizer APO, Peace…). Graphic EQ: the sliders of a graphic EQ, and Best fit '
+                                    '(Equalizer APO…). Graphic EQ: the sliders of a graphic EQ, and Best fit '
                                     'adjusts only their gains. The layout of an EQ app: its number of filters and its '
                                     'ranges. Your EQ app sets this.']},
                           {'key': 'best_fit.bands.freqs',
@@ -422,7 +451,9 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                           {'key': 'fcounts',
                            'title': 'Number of filters',
                            'body': ['The best result for each number of filters. With one click, you get a smaller '
-                                    'number of filters (easier to enter) or a nearer result.']},
+                                    'number of filters (easier to enter) or a nearer result. For a graphic EQ app '
+                                    'with more than one band count (FxSound), the list has the best result for each '
+                                    'band count.']},
                           {'key': 'f_retry',
                            'title': 'Calculate from these filters',
                            'body': ['Calculates again with Best fit, from the filters on the result card, for this '

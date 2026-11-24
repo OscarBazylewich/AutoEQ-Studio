@@ -355,3 +355,28 @@ def test_numbers_of_your_result_without_a_help_line(eq_screen, check):
                            "set-res-error")
           and got["preamp"] == ("Volume reduction to prevent clipping (highest EQ boost plus extra headroom)", "Pre-amp",
                                 "", "set-res-preamp"), got)
+
+
+def test_every_setting_of_an_eq_app_has_help(eq_screen, check):
+    # (2026-11-24: what the user sets for an EQ app, eq_apps.user_items: Peace bands, Peace max gain, FxSound's Band
+    # counts to try. Each is a box of Settings with its line of Help by its path and its entry in Every setting)
+    from eq import eq_apps
+    from ui import help_window
+    from ui.help_text_eq import HELP_EQ, SETTINGS_EQ
+    page = eq_screen.page
+    items = [it for a in eq_apps.listing() for it in a["user"]]
+    titles = {i["key"]: i["title"] for g in SETTINGS_EQ for i in g["items"]}
+    best_fit = [i["key"] for g in SETTINGS_EQ if g["title"] == "Best fit" for i in g["items"]]
+    got = {it["path"]: (bool(HELP_EQ.get(it["path"], [""])[0]), titles.get(it["path"]) == it["label"],
+                        it["path"] in best_fit and best_fit.index(it["path"]) > best_fit.index("best_fit.low_shelf"),
+                        help_window.entry_for(it["path"]) == help_window.setting_id(it["path"]),
+                        page.settings.form.fields[it["path"]].box.property("help_key") == it["path"],
+                        page.settings.form.fields[it["path"]].box.accessibleName() == it["label"])
+           for it in items}
+    check("help: each setting of an EQ app (Peace bands, Peace max gain, Band counts to try) has a line of Help with "
+          "words, an entry in Every setting › Best fit after Low shelf with the label as its title, its tag for F1 "
+          "and its label as the name for a screen reader",
+          len(got) == 3 and all(all(v) for v in got.values()), got)
+    ids = {t["id"] for g in help_window.WIKI["groups"] for t in g["terms"]}
+    see = {it["path"]: [s for s in HELP_EQ[it["path"]][1:] if s not in ids] for it in items}
+    check("help: the See also entries of these settings are entries of Help", not any(see.values()), see)

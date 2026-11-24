@@ -348,7 +348,19 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
             # words follow it)
             shapes = ("Band shapes for this app aren't published, so the actual EQ may differ slightly from the "
                       "preview") if a.get("approx") else ""
-            text = html.escape(f"{a.get('note') or a.get('summary')}"
+            note = a.get("note") or a.get("summary")
+            if a.get("note_form"):
+                # (an app whose line follows what the user set for it, Peace: the form filled with the app's own
+                # values and, while the layout in use is the app's, the user's values of Settings › Best fit on top.
+                # With another layout those values limit nothing, and the line gives the app's own)
+                bf = self.S["best_fit"]
+                mine = (bf.get("per_app") or {}).get(key) if bf.get("layout") == a.get("layout") else None
+                values = {**(a.get("user_defaults") or {}), **(mine if isinstance(mine, dict) else {})}
+                try:
+                    note = a["note_form"].format(**values)
+                except (KeyError, IndexError, ValueError):  # (a form that names a value the app does not have)
+                    pass
+            text = html.escape(f"{note}"
                                + (f". {shapes}" + ("" if own else ".") if shapes else "")
                                + ("" if own else " (Custom Best fit layout overrides this EQ app's limits.)")).strip()
             return text + (f' <a href="{html.escape(a["source"])}">Source</a>' if a.get("source") else "")

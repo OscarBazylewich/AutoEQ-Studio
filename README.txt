@@ -160,6 +160,8 @@ One column, from the top to the bottom:
   and Save writes its file. Then select how to make the EQ, on two tabs: Automatically or Manually (it opens on the
   tab that you selected last). Below the tabs: Settings and More settings (click to open or close them), then
   Calculate or Start.
+  For Peace, Settings has the number of sliders and the maximum gain that you set in Peace. For FxSound (1.2.14 or
+  later), Settings has the band counts to try: 5, 10, 15, 20 or 31.
   Automatically: the method, Settings to try and Calculate. The methods are Best fit for EQ apps, and the Website
   methods for the AutoEQ of squig.link. Settings to try shows the number of EQs that the app tries, and the time that
   is necessary on this PC. Its tooltip shows the settings.
