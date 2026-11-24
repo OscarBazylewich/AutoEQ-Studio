@@ -51,7 +51,7 @@ from ui.eq_page_history import EqHistory
 from ui.eq_page_live import EqLive
 from ui.eq_page_parts import FORMAT_NAMES, MODE_HINT, Notices, label
 from ui.eq_page_result import EqResult
-from ui.window_parts import not_opened, not_opened_state
+from ui.window_parts import not_opened
 
 # (not used here: other files still import them from here, as before the split: listen.py MODE_SHORT, queue_window.py
 # and the tests (tests\eq_screen\test_run_and_result.py) file_base_name; TICKS too)
@@ -224,7 +224,7 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
                 if "error" in st:
                     # (the message names the log: the error goes into it here, as no exception wrote it)
                     print(f"Make an EQ could not open: {st['error']}")
-                    self._not_opened(not_opened_state(st["error"]))
+                    self._not_opened(not_opened(st["error"]))
                     return
                 self.meta, self.S = st, st["settings"]
                 self._brought = brought

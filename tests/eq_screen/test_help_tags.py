@@ -124,3 +124,54 @@ def test_help_names_the_info_mark_of_your_eq_app(eq_screen, check):
           isinstance(note, InfoMark) and len(words) == 2
           and all("The ⓘ after the label Your EQ app tells" in w and "its limits" in w and "line below" not in w
                   for w in words) and not [w for w in entries if "how to load the EQ" in w], words)
+
+
+def test_every_eq_app_has_its_steps_in_help(eq_screen, check):
+    # (2026-11-24: the steps to load an EQ in each EQ app left the ⓘ after Your EQ app with the text survey; they are
+    # in Help now, in one entry. ui\help_text_apps.py cannot import the EQ part, so its keys, names and platforms
+    # are compared with eq\eq_apps.py here)
+    from eq import eq_apps
+    from ui import help_window
+    from ui.help_text_apps import LOAD_EQ
+    listed = {key: (name, platform) for platform, apps in LOAD_EQ for key, name, _steps in apps}
+    real = {key: (a["name"], a["platforms"][0]) for key, a in eq_apps.APPS.items()}
+    steps = {key: steps for _platform, apps in LOAD_EQ for key, _name, steps in apps}
+    order = [platform for platform, _apps in LOAD_EQ]
+    check("help: each app of the Your EQ app list has steps to load the EQ, by its name as the list shows it, in "
+          "the list of its first platform (the platforms in the order of the app's list)",
+          listed == real and sum(len(apps) for _p, apps in LOAD_EQ) == len(real)
+          and order == [p for p in eq_apps.PLATFORMS if p in order]
+          and all(s.strip() == s and s.endswith(".") and len(s) > 20 for s in steps.values()),
+          ({k: (listed.get(k), real.get(k)) for k in set(listed) | set(real) if listed.get(k) != real.get(k)}, order))
+    by = help_window._by_id()
+    entry = by.get("load-eq", {})
+    lines = [x for part in entry.get("body", []) if isinstance(part, list) for x in part]
+    question = by.get("q-load", {})
+    check("help: the entry “Load the EQ in your EQ app” has one line for each app (its name, then its steps), the "
+          "question “How do you put the EQ into your app?” opens it as its first link, and the entry refers to "
+          "Saved file formats for the files",
+          entry.get("title") == "Load the EQ in your EQ app"
+          and sorted(lines) == sorted(f"{real[k][0]}: {steps[k]}" for k in real)
+          and (question.get("see") or [None])[0] == "load-eq" and "file-formats" in entry.get("see", [])
+          and "F1" not in str(entry), (entry.get("title"), len(lines), question.get("see")))
+
+
+def test_help_search_finds_an_eq_app_by_its_name(eq_screen, check):
+    # (2026-11-24: the name of an app typed in Search Help… shows the entry with its steps)
+    from eq import eq_apps
+    from ui import help_window
+    w = help_window.open_at()
+    missed = []
+    try:
+        for a in eq_apps.APPS.values():
+            w.q.setText(a["name"])
+            if w.items["load-eq"].isHidden() or w.found < 1:
+                missed.append(a["name"])
+        w.q.setText("Qudelix-T71")  # (a name that only this entry has: the page shows the entry)
+        shown = (w.found, w.page_now, "Qudelix-T71: In the PEQ of the Qudelix app" in w.view.toPlainText())
+        w.q.setText("")
+    finally:
+        w.close()
+    check("help: the search finds the entry “Load the EQ in your EQ app” by the name of each app of the Your EQ app "
+          "list, and a name that only this entry has shows the entry on the page",
+          not missed and shown == (1, "load-eq", True), (missed, shown))

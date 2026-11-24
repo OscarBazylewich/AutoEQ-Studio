@@ -126,8 +126,8 @@ def test_moved_value_note_names_the_setting_and_the_values(check):
     down = last({"mode": "site_single", "site_single": {"gain_max": -10}, "auto": {"manual": ["site_single.gain_max"]}})
     check("automatic settings: the note of a value moved past your own “from” or “to” value names the setting and "
           "gives the new value and your value with their unit",
-          up == ("scoring.band_hz.1", "Auto-adjusted Fit up to to 15 kHz (your minimum is 12 kHz)")
-          and down == ("site_single.gain_min", "Auto-adjusted Gain from to -11 dB (your maximum is -10 dB)")
+          up == ("scoring.band_hz.1", "Auto-adjusted Fit up to: 15 kHz (your minimum is 12 kHz)")
+          and down == ("site_single.gain_min", "Auto-adjusted Gain from: -11 dB (your maximum is -10 dB)")
           and settings.AUTO_NAMES["scoring.band_hz.1"] == "Fit up to"
           and settings.AUTO_NAMES["site_single.gain_min"] == "Gain from", (up, down))
 
@@ -283,7 +283,10 @@ def test_whole_text_says_one_without_s(check):
     found = {"one row": autoset.describe(settings.with_auto({"mode": "site_single", "site_single": {"rows": 1}})),
              "one growing EQ": autoset.describe(_short_cfg(filter_counts=[4])),
              "one EQ of 1": autoset.describe(scratch([1])),
-             "your one filter": autoset.describe(_short_cfg(start_filters=MINE, start_add=False))}
+             "your one filter": autoset.describe(_short_cfg(start_filters=MINE, start_add=False)),
+             # (2026-11-24: the layout "any" has the name "Parametric filters": the text said "filters filters")
+             "your one, adjusted, any": autoset.describe(_short_cfg(start_filters=MINE, start_add=False,
+                                                                    start_keep=False))}
     found["up to one"] = autoset.describe(_short_cfg(filter_counts=[1]))
     found["your one, adjusted"] = autoset.describe(_short_cfg(start_filters=MINE, start_add=False, start_keep=False,
                                                               layout="app:moondrop_free_dsp"))
@@ -298,8 +301,10 @@ def test_whole_text_says_one_without_s(check):
           and found["up to one"].startswith("1 EQ (1 gain × 1 Q): adds up to 1 filter one by one")
           and found["one EQ of 1"].startswith("1 EQ (1 filter count × 1 gain × 1 Q), ")
           and found["your one filter"] == "Evaluates the error of your 1 filter"
+          # (2026-11-24: no period at the end: the tooltip of Settings to try showed "filters. · Est. time: ~3 s")
           and found["your one, adjusted"] == "Your 1 filter, adjusted once per limit set (1 gain × 1 Q); it uses all "
-                                             "Moondrop Free DSP filters.", (wrong, found))
+                                             "Moondrop Free DSP filters"
+          and found["your one, adjusted, any"].endswith("; it uses all Parametric filters"), (wrong, found))
 
 
 def test_whole_text_of_each_kind_of_run(check):

@@ -679,6 +679,9 @@ class EqSettings:
         for n in notes:
             text = n["text"].replace("&", "&amp;").replace("<", "&lt;")
             if n.get("path") in mine:  # ("yours" in the accent as text: 4.5:1 on the card, light or dark)
+                # (a note that is a sentence, as the limits of an EQ app, loses its last period here: "(overridden)"
+                # follows it as the last word of the line)
+                text = text[:-1] if text.endswith(".") and not text.endswith("..") else text
                 items.append(f"<li><span style='color:{t['accent_text']}'>your value</span> · Automatic: {text} "
                              "(overridden)</li>")
             else:

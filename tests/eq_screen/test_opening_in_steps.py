@@ -320,8 +320,9 @@ def test_failed_opening_lets_go(tmp_path, monkeypatch, check):
     import paths
     from ui import window_parts
     try:
-        # (an error in the answer for the state: one line, with the full path of the log, paths.LOG)
-        said = qt.wait_for(lambda: page.loading.text() == "Couldn't open Make an EQ: made up for the test. Check "
+        # (an error in the answer for the state: the same 2 lines as every failed opening, the second with the full
+        # path of the log, paths.LOG)
+        said = qt.wait_for(lambda: page.loading.text() == "Couldn't open Make an EQ: made up for the test\nCheck "
                            f"{paths.LOG} for details.", 60)
         words = page.loading.text()
         o.watch.stop()

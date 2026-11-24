@@ -19,6 +19,10 @@ user's decision it has no steps to load the EQ, no words about what the maker do
 do not add them back (the sentence about band shapes of "approx" is not part of it: the page adds that one). A
 number in a note that differs from the limit the fit uses (Poweramp "5–32 bands", Peace "±60 dB max") is what the
 app can be set to, not what Best fit does.
+
+The steps to load the EQ in each app are in Help (ui/help_text_apps.py LOAD_EQ, by the key and the name of the app
+here; the user, 2026-11-24): an app added, renamed or moved to another first platform here changes there too
+(tests/eq_screen/test_help_tags.py compares them).
 """
 
 PLATFORMS = ("Web", "Windows", "macOS", "Linux", "Android", "iOS", "Devices")

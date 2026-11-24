@@ -16,28 +16,20 @@ SAID_MS, UNDO_MS = 6000, 20000  # (how long a message line keeps what it says at
 READ_MS = 70  # (and as long as its words take to read: about this long a letter; 30 words, about 12 s)
 # (the start of the message that shows in the place of Make an EQ when it could not open. The main window looks
 # for this start to know that the page failed: then the Guide and Presets stop waiting for it)
-NOT_OPENED = "Could not open Make an EQ"
-# (the start of the same message when the EQ part answered its state with an error: the text survey gave that case
-# words of its own, on one line)
-NOT_OPENED_STATE = "Couldn't open Make an EQ"
+NOT_OPENED = "Couldn't open Make an EQ"
 
 
 def not_opened(error):
-    """The message in the place of Make an EQ when it could not open: the error, and the full path of the app's log
-    (paths.LOG, read at the time of the message: AppData for the installed app, the data folder of a copy that
-    runs from its folder)."""
+    """The message in the place of Make an EQ when it could not open, the same 2 lines in every case (the user,
+    2026-11-24: one wording): the error, then the full path of the app's log (paths.LOG, read at the time of the
+    message: AppData for the installed app, the data folder of a copy that runs from its folder). The error is
+    shown as it is: no period is added after it, so an error that ends with one does not get 2."""
     return f"{NOT_OPENED}: {error}\nCheck {paths.LOG} for details."
 
 
-def not_opened_state(error):
-    """The same message for an error that the EQ part gave as the answer for its state. The error loses its last
-    period: the sentence of the message ends it."""
-    return f"{NOT_OPENED_STATE}: {str(error).rstrip('.')}. Check {paths.LOG} for details."
-
-
 def is_not_opened(text):
-    """True when the words in the place of Make an EQ are one of the 2 messages above (the page failed to open)."""
-    return text.startswith((NOT_OPENED, NOT_OPENED_STATE))
+    """True when the words in the place of Make an EQ are the message above (the page failed to open)."""
+    return text.startswith(NOT_OPENED)
 
 
 def fit_to_screen(window, size, smallest=None):
