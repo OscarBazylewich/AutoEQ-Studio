@@ -98,7 +98,13 @@ class EqFiles:
         for batch in ([read] if kind == "measurement" else [[x] for x in read]) if read else []:
             r = self.svc.call("/api/files/add", {"kind": kind, "files": batch, "settings": self.S})
             if r.get("error"):
-                said.append(f"Couldn't add {', '.join(x['name'] for x in batch)}: {r['error']}")
+                # (one file with too few points: eq.inputs.add_files starts its message with the name of the file,
+                # with ".txt" added when the name has no known ending, so the name is not said here a second time.
+                # A set of files: all the names here, since none was added, then the message with the file at fault)
+                one = batch[0]["name"] if len(batch) == 1 else None
+                named = one is not None and r["error"].startswith((one + ": ", one + ".txt: "))
+                said.append(f"Couldn't add {r['error']}" if named
+                            else f"Couldn't add {', '.join(x['name'] for x in batch)}: {r['error']}")
             elif r.get("settings"):
                 self.S = r["settings"]
         if said:

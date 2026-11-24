@@ -597,3 +597,29 @@ def test_empty_list_tells_how_to_add_an_eq(card, check):
     check("listen: with no EQs to compare, one line tells the two ways to get one (Keep to compare, or add an EQ "
           "with a button below the line)",
           said == ["No saved EQs yet. Click Keep to compare on a result, or add one below."], said)
+
+
+def test_full_list_names_the_real_limit(card, dialogs, monkeypatch, check):
+    # (2026-11-24: the bubble said "max 12" also when the service gave a different limit)
+    lis = card.lis
+    n = len(lis.pins)
+    monkeypatch.setattr(lis, "max_pins", n, raising=False)
+    dialogs.reset()
+    added = lis.add("One too many", [{"type": "PK", "freq": 432, "gain": 1.5, "q": 1}])
+    told = [text for kind, text in dialogs.asked if kind == "bubble"]
+    check("listen: a full list of EQs to compare is refused with the limit that the service gave, not always 12",
+          n != 12 and added is False and len(lis.pins) == n
+          and told == [f"EQs to compare is full (max {n}). Remove one first."], (n, added, told))
+
+
+def test_undo_of_x_says_restored(card, check):
+    # (2026-11-24: the Undo of ✕ said "Added …" with the same IEM selected and "Restored …" with a different one)
+    lis, said = card.lis, card.said
+    n = len(lis.pins)
+    lis.add("Undo check", [{"type": "PK", "freq": 444, "gain": 1.5, "q": 1}], "a note")
+    lis._remove(lis.pins[-1])
+    card.s.undo()
+    back = (len(lis.pins), lis.pins[-1]["name"], lis.pins[-1].get("note"), said[-1])
+    lis._remove(lis.pins[-1])  # (the list as it was)
+    check("listen: the Undo of ✕ puts the EQ back and says Restored, with the name of the EQ and the IEM",
+          back == (n + 1, "Undo check", "a note", f"Restored “Undo check” to EQs to compare for {lis.pins_for}"), back)

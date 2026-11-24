@@ -464,3 +464,36 @@ def test_tooltips_of_the_filter_controls(own_editor, check):
     check("filters: the tooltip of a frequency or Q box of the sliders is its filter and value, then the limits in ( )",
           bool(lim_f) and bool(lim_q) and freq == f"Filter 3 frequency ({lim_f})" and q == f"Filter 3 Q ({lim_q})",
           (freq, q))
+
+
+def test_tooltip_back_after_a_value_that_is_not_permitted(own_editor, check):
+    # (2026-11-24: the box kept the problem message as its tooltip after a correct value was typed)
+    ed = own_editor
+    seen = {}
+    try:
+        for view in ("table", "sliders"):
+            ed.set_view(view)
+            qt.pump(50)
+            if view == "table":
+                box = ed.table.cellWidget(0, 5)
+            else:
+                from PySide6.QtWidgets import QLineEdit
+                box = next(w for w in ed.sliders_scroll.widget().findChildren(QLineEdit)
+                           if w.accessibleName() == "Filter 1 Q")
+            usual = box.toolTip()
+            box.setText("abc")
+            box.textEdited.emit(box.text())
+            problem = (box.toolTip(), box.property("bad"))
+            box.setText("1.2")
+            box.textEdited.emit(box.text())
+            typed = (box.toolTip(), box.property("bad"))
+            box.setText("99999")
+            box.textEdited.emit(box.text())
+            box.editingFinished.emit()  # (Enter or the focus gone: the value is adjusted to the limit)
+            seen[view] = (usual, problem, typed, (box.toolTip(), box.property("bad")))
+    finally:
+        ed.set_view("table")
+    check("filters: a Q box shows the problem as its tooltip while its value is not permitted, and its usual tooltip "
+          "again after a correct value is typed or the value is adjusted (the table and the sliders)",
+          all(usual and problem == ("Enter a number", True) and typed == (usual, None)
+              and done == (usual, None) for usual, problem, typed, done in seen.values()), seen)

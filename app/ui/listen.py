@@ -970,8 +970,9 @@ class Listen(QGroupBox):
         if any(sig(p["filters"]) == sig(filters) for p in self.pins):
             (say or self.page.status)("Already in EQs to compare")
             return False
-        if len(self.pins) >= getattr(self, "max_pins", 12):
-            bubble.tell(None, "EQs to compare is full (max 12). Remove one first.", near=near)
+        most = getattr(self, "max_pins", 12)  # (the limit of the service, load_pins; 12 before a list was loaded)
+        if len(self.pins) >= most:
+            bubble.tell(None, f"EQs to compare is full (max {most}). Remove one first.", near=near)
             return False
         import uuid
         used = {p.get("color", i) % len(COLOURS) for i, p in enumerate(self.pins)}  # (a colour not in use, as eqlist.js)
@@ -1194,7 +1195,10 @@ class Listen(QGroupBox):
     def _put_back(self, device, p):
         """Undo of ✕ (eqlist.js undoRemove): back in the list it came from, also after another IEM was chosen."""
         if device == self.pins_for:
-            self.add(p["name"], p["filters"], p.get("note", ""))
+            # (add says nothing by itself here, only a refusal through say: the Undo has one message for the two
+            # cases, the "Restored" one below; it said "Added …" for this case before 2026-11-24)
+            if self.add(p["name"], p["filters"], p.get("note", ""), say=self.page.status):
+                self.page.status(f"Restored “{p['name']}” to EQs to compare for {device}", 6000)
             return
         r = self.page.svc.call("/api/listen", {"device": device})
         eqs = (r.get("eqs") or []) + [p]

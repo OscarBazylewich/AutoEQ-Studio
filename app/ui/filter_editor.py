@@ -243,11 +243,20 @@ class FilterEditor(QWidget):
             return None
 
     def _mark(self, box, msg):
+        """A box red with the problem as its tooltip (msg), or as usual again (None). The usual tooltip (the limits;
+        in the Sliders view the filter too) is kept on the box while the problem shows, and put back with the next
+        correct value: before 2026-11-24 the problem stayed as the tooltip of a correct value."""
         box.setProperty("bad", True if msg else None)
         box.style().unpolish(box)
         box.style().polish(box)
+        usual = box.property("usual_tip")
         if msg:
+            if usual is None:  # (not a second problem in a row: then the tooltip is the first problem's message)
+                box.setProperty("usual_tip", box.toolTip())
             box.setToolTip(msg)
+        elif usual is not None:
+            box.setToolTip(usual)
+            box.setProperty("usual_tip", None)
 
     def _typed(self, f, key, box):
         v = self._read(box)

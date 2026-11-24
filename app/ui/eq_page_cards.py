@@ -472,7 +472,7 @@ class EqCards:
         self.hand_close = QPushButton("Close")
         icons.put(self.hand_close, "close")
         self.hand_close.setToolTip("Return to previous EQ (edits stay in the list)")
-        help_window.tag(self.hand_close, "#hand-close")  # (a screen reader's name too: "Close (an EQ by hand)")
+        help_window.tag(self.hand_close, "#hand-close")  # (a screen reader's name too: "Close (a manual EQ)")
         self.hand_close.clicked.connect(self.close_manual)
         self.hand_close.hide()
         head.addWidget(self.hand_close, 0, Qt.AlignTop)
