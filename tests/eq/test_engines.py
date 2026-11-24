@@ -233,7 +233,7 @@ def test_empty_scored_range_said(sample_curves, check):
     curves = sample_curves[0]
     # was eq_checks.py:409
     check("scoring: a scored range without curve points is said (was NaN)",
-          "has no curve points" in (raises(engines.rms_error, curves["f"], curves["meas"], curves["target"], [19900, 20000]) or ""))
+          "needs at least 2 curve points" in (raises(engines.rms_error, curves["f"], curves["meas"], curves["target"], [19900, 20000]) or ""))
 
 
 def test_queue_errors_hidden_only_while_stopping(monkeypatch, check):
@@ -311,7 +311,8 @@ def test_absurd_db_values_said(sample_curves, eq_cfg, check):
     tt = sample_curves[2]
     huge = "".join(f"{20 * 1.1 ** i:.2f}\t{900000 if i == 40 else 80}\n" for i in range(80))
     # was eq_checks.py:483
-    check("curves: absurd dB values give a clear message", "values that the app cannot use" in (raises(engines.load_curves, eq_cfg, [huge], tt) or ""))
+    check("curves: absurd dB values give a clear message", raises(engines.load_curves, eq_cfg, [huge], tt)
+          == "Invalid measurement data. Check that the file contains valid frequency/dB pairs.")
 
 
 def test_previews_one_v8_per_thread(sample_curves, eq_cfg, monkeypatch, check):

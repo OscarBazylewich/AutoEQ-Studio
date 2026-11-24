@@ -26,7 +26,7 @@ def _read_lists():
 def _clean_device_name(name):
     name = " ".join(str(name or "").split())[:300]
     if not name:
-        raise ValueError("First, select a measurement: each IEM or headphone has a different list.")
+        raise ValueError("Select a measurement first")
     return name
 
 

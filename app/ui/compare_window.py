@@ -237,7 +237,7 @@ class CompareWindow(QDialog):
         def done(res, err):
             self.busy = False
             self.go.setEnabled(True)
-            if (res or {}).get("error", "").startswith("The online database lists are not available at this time"):
+            if (res or {}).get("error") == self.svc.LISTS_NOT_READY:
                 if not self.isVisible():  # (closed meanwhile: nothing more is compared or downloaded)
                     return
                 self.status.setText("The app loads the online database lists first…")

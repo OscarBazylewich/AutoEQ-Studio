@@ -66,7 +66,7 @@ def test_too_many_or_unnamed_refused(iem_a, check):
     check("EQs to compare: at most 12 per IEM; an EQ without filters or an IEM without a name is refused (and named)",
           "The maximum is 12" in (raises(listening.put, "IEM A", [{"filters": fl}] * 13) or "")
           and "has no filters" in (raises(listening.put, "IEM A", [{"name": "E", "filters": []}]) or "")
-          and "select a measurement" in (raises(listening.get, "  ") or "") and listening.get("IEM A") == kept)
+          and raises(listening.get, "  ") == "Select a measurement first" and listening.get("IEM A") == kept)
 
 
 def test_emptied_list_goes(iem_a, check):

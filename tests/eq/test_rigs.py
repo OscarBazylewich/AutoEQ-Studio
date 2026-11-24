@@ -225,3 +225,12 @@ def test_target_rig_says_where_it_is_from(check):
     check("rigs: a target from a database says “from {its database}”, one by its name “from its name”",
           recorded == ("5128", "from Hangout.Audio IEMs (Crinacle, 5128)") and named == ("711", "from its name"),
           (recorded, named))
+
+
+def test_target_saved_from_adjust_says_your_adjusted(check):
+    # (Save as a target… of Adjust records rigs.ADJUSTED and the name of the target it was made from. A record made
+    # before 2026-11-24 has the words of that time in the file: it shows with the words of today.)
+    new = rigs.target_rig("Mine.csv", {"Mine.csv": {"site": rigs.ADJUSTED + "Harman IE 2019", "rig": "711"}})
+    old = rigs.target_rig("Mine.csv", {"Mine.csv": {"site": "your adjustments of Harman IE 2019", "rig": "711"}})
+    check("rigs: a target saved from Adjust says “from your adjusted {target}”, an older record too",
+          new == old == ("711", "from your adjusted Harman IE 2019"), (new, old))

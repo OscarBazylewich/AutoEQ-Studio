@@ -281,7 +281,7 @@ def eq_steps(page):
         api.say("The bar and the line show how much is completed while the app calculates")
         n = len(demo_filters(page)) or 6
         yield from api.tween(1800, lambda p: (page.progress.setValue(int(p * 100)), page.progress_text.setText(
-            f"Best fit adds one filter at a time: {max(1, round(n * p))}/{n} · {max(1, round(p * 4))} s")))
+            f"Best fit (adding filters): {max(1, round(n * p))}/{n} · {max(1, round(p * 4))} s")))
         if page.curves:
             api.say("The graph shows your IEM with the EQ (blue)")
             yield from api.pin_graph(page, page.run_btn)

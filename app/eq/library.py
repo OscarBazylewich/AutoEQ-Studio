@@ -333,5 +333,5 @@ def item(item_id):
     with _lock:
         g = _by_id.get(str(item_id))
     if not g:
-        raise ValueError("That file is not in the index. Search the folders again. Then try again.")
+        raise ValueError("File not in the This PC list. Run Search again in Find… › Sources… › This PC, then retry.")
     return g
