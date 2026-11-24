@@ -122,7 +122,7 @@ def test_settings_boxes_without_a_help_line(eq_screen, check):
     from PySide6.QtWidgets import QLabel
     from ui import help_window
     page, st = eq_screen.page, eq_screen.page.settings
-    fields ={**st.form.fields, **st.adv_form.fields}
+    fields = {**st.form.fields, **st.adv_form.fields}
 
     def label(path):  # (the label above the box: the one label that the cell itself has; "to" is in the boxes' row)
         cell = fields[path].parentWidget().parentWidget()
