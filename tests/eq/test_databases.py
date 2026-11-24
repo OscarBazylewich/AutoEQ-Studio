@@ -383,3 +383,20 @@ def test_too_large_file_names_the_limit(monkeypatch, check):
             said[limit] = str(e)
     check("databases: a file past the size limit is refused with the limit in MB",
           said == {20_000_000: "file is too large (over 20 MB)", 3_000_000: "file is too large (over 3 MB)"}, said)
+
+
+def test_list_error_has_no_python_type_name(db_guard, monkeypatch, tmp_path, check):
+    # (2026-11-24: Sources shows this error as the tooltip of "did not load". It started with the Python name of the
+    # error's type: "ValueError: file is too large (over 20 MB)")
+    site = {"name": "Test", "url": "https://example.invalid/", "short": "T"}
+    monkeypatch.setattr(databases, "CACHE_PATH", os.path.join(tmp_path, "db-error.json"))
+    said = {}
+    for name, error in (("message", ValueError("file is too large (over 20 MB)")), ("empty", TimeoutError())):
+        def fails(url, error=error, **k):
+            raise error
+        db_guard.stub_get(fails)
+        databases.refresh_now([site], force=True)
+        said[name] = [s.get("error") for s in databases.status()["sites"]]
+    check("databases: the error of a list that did not load is the message of the error alone, without the Python name "
+          "of its type; an error with no message gives that name (all there is)",
+          said == {"message": ["file is too large (over 20 MB)"], "empty": ["TimeoutError"]}, said)

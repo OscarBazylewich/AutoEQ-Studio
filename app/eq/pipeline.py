@@ -98,19 +98,13 @@ def workers(cfg):
 
 # ---------------------------------------------------------------- running
 def band_problem(curves, band):
-    """Why the scored range can't be used (it has no curve points), or None."""
-    f = curves["f"]
-    if ((f >= band[0]) & (f <= band[1])).sum() >= 2:
-        return None
-    return (f"Frequency range ({band[0]:g}–{band[1]:g} Hz) has no curve data (curves cover 20 Hz–20 kHz). "
-            f"Adjust the range.")
+    """Why the scored range can't be used (fewer than 2 points of the curves in it), or None. The words are
+    engines.band_problem's."""
+    return engines.band_problem(curves["f"], band)
 
 
 def check_run(mode, cfg, curves):
     """A clear message for settings a run can't use, instead of an error from deep inside the method."""
-    problem = band_problem(curves, cfg["scoring"]["band_hz"])
-    if problem:
-        raise ValueError(problem)
     used = {mode, "scoring"}
     for lo, hi, strict in settings.LIMIT_PAIRS:
         if lo.split(".")[0] not in used:
@@ -120,6 +114,10 @@ def check_run(mode, cfg, curves):
             b = min(b) if isinstance(b, list) else b
             raise ValueError(f"{settings.PAIR_NAMES.get(lo, lo)}: minimum ({a:g}) must be "
                              f"{'less than' if strict else 'at most'} maximum ({b:g})")
+    # (after the pairs: Fit from larger than Fit up to also holds no curve points, and its cause is the order)
+    problem = band_problem(curves, cfg["scoring"]["band_hz"])
+    if problem:
+        raise ValueError(problem)
     if "site_sweep" in used and engines.sweep_size(cfg["site_sweep"]) > engines.MAX_SITE_RUNS:
         raise ValueError(f"Too many website EQs to calculate: {engines.sweep_size(cfg['site_sweep']):,} (max "
                          f"{engines.MAX_SITE_RUNS:,}). Reduce the number of values in More settings › Website best "

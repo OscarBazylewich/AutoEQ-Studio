@@ -286,3 +286,18 @@ def test_many_filters_note_names_each_limit(eq_cfg, tmp_path, check):
           said == {20: [], 21: ["Note: this EQ has 21 filters (some apps limit imports to 20)."],
                    32: ["Note: this EQ has 32 filters (some apps limit imports to 20)."],
                    33: ["Note: this EQ has 33 filters (some apps limit imports to 20 or 32)."]}, said)
+
+
+def test_pasted_filter_outside_limits_plain_number_and_line(check):
+    # (2026-11-24: a shelf with a slope of 1 dB and a gain of 90 dB is read as a shelf at 3.16e15 Hz. The message gave
+    # that number as "3.16228e+15", and the number of the filter ("Your filters: Filter 2") where the messages of
+    # lines that can't be read give the line.) Line 1 is empty, line 2 a comment, line 3 a good filter.
+    said = [raises(exports.parse_filters, text) for text in (
+        "\n# mine\n100 3 1\nFilter 2: ON LS 1 dB Fc 100 Hz Gain 90 dB", "100 3 0.00001", "100 3 1\n\n200 50 1")]
+    check("your filters: a value outside the limits shows as a plain number (no exponent), with the line it is on",
+          said == ["Your filters, line 4: frequency (3162280000000000) must be between 20 and 20000 Hz",
+                   "Your filters, line 1: Q (0.00001) must be between 0.03 and 27",
+                   "Your filters, line 3: gain (50) must be between -36 and 35 dB"], said)
+    check("formats: a filter of a card outside the limits is still named by its number, the value a plain number",
+          raises(exports.clean_filters, [{"freq": 100, "gain": 1, "q": 1}, {"freq": 3.16228e15, "gain": 1, "q": 1}])
+          == "Filter 2: frequency (3162280000000000) must be between 20 and 20000 Hz")

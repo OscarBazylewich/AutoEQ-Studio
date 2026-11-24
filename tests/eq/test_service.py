@@ -341,13 +341,15 @@ def test_report_card_words_are_text(api, chain, check):
 
 
 def test_report_no_points_in_scored_range(api, chain, check):
-    # (19.9-20 kHz: within the limits and in order, but between the grid's points at 19,897 and 20,186 Hz)
+    # (19.9-20 kHz: within the limits and in order, but between the grid's points at 19,897 and 20,186 Hz. Inside
+    # the curves, so the range is too narrow: until 2026-11-24 it said "has no curve data (curves cover 20 Hz-20
+    # kHz)", which did not explain it)
     S = _every_format(_small(chain["S"]))
     code, r = _ask(api, "/api/report", {"settings": dict(S, scoring=dict(S["scoring"], band_hz=[19900, 20000])),
                                         "cards": [{"title": "A", "filters": F}], "open": False, "name": "Empty band"})
     # was eq_checks.py:1181
     check("requests: a report with no curve points in the scored range says so (was \"nan dB\")",
-          code == 400 and "has no curve data" in r.get("error", ""), r)
+          code == 400 and "is too narrow and needs at least 2 curve points" in r.get("error", ""), r)
 
 
 def test_existing_report_replaced_only_when_asked(api, chain, check):

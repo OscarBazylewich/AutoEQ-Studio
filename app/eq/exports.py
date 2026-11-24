@@ -5,6 +5,7 @@ report.
 
 A filter is {"type": "PK" | "LSQ" | "HSQ", "freq", "gain", "q", "enabled" (optional, default on)}.
 """
+import decimal
 import json
 import math
 import os
@@ -23,6 +24,35 @@ FORMATS = ("apo", "graphic", "poweramp", "uapp", "soundsource", "voicemeeter", "
 TYPES = ("PK", "LSQ", "HSQ")
 
 
+def _plain(v):
+    """A number for a message, as "{v:g}" gives it (6 digits that count) but never in exponent form: a shelf read
+    at 3.16e15 Hz showed as "3.16228e+15", a Q of 0.00001 as "1e-05"."""
+    return format(decimal.Decimal(f"{v:g}"), "f")
+
+
+def _clean_filter(f):
+    """One filter as sent by the page, checked (clean_filters). Raises ValueError with what is wrong, without the
+    filter's number or line: the caller knows which of the two the user can find."""
+    g = {"type": f.get("type") or "PK", "enabled": f.get("enabled", True) is not False}
+    if g["type"] not in TYPES:
+        raise ValueError(f"unknown type “{g['type']}” (use PK, LSQ, or HSQ)")
+    for k, what in (("freq", "frequency"), ("gain", "gain"), ("q", "Q")):
+        v = f.get(k)
+        if isinstance(v, bool) or not isinstance(v, (int, float)):  # (numbers stay as they are: 105 prints as 105)
+            try:
+                v = float(v)
+            except (TypeError, ValueError):
+                v = math.nan
+        g[k] = v
+        if not math.isfinite(g[k]):
+            raise ValueError(f"{what} must be a number")
+        lim = settings.UI_LIMITS["edit." + k]  # (the filter table's own limits: Q 0 or 0 Hz would break an EQ app)
+        if not lim["min"] <= v <= lim["max"]:
+            raise ValueError(f"{what} ({_plain(v)}) must be between {lim['min']:g} and {lim['max']:g}"
+                             f"{' ' + lim['unit'] if lim.get('unit') else ''}")
+    return g
+
+
 def clean_filters(filters):
     """Filters as sent by the page, checked: numbers as numbers (text like "100" too), a known type, on or off.
     Raises ValueError naming the filter that can't be used."""
@@ -32,24 +62,10 @@ def clean_filters(filters):
     for i, f in enumerate(filters, 1):
         if not isinstance(f, dict):
             raise ValueError(f"Filter {i} is invalid")
-        g = {"type": f.get("type") or "PK", "enabled": f.get("enabled", True) is not False}
-        if g["type"] not in TYPES:
-            raise ValueError(f"Filter {i}: unknown type “{g['type']}” (use PK, LSQ, or HSQ)")
-        for k, what in (("freq", "frequency"), ("gain", "gain"), ("q", "Q")):
-            v = f.get(k)
-            if isinstance(v, bool) or not isinstance(v, (int, float)):  # (numbers stay as they are: 105 prints as 105)
-                try:
-                    v = float(v)
-                except (TypeError, ValueError):
-                    v = math.nan
-            g[k] = v
-            if not math.isfinite(g[k]):
-                raise ValueError(f"Filter {i}: {what} must be a number")
-            lim = settings.UI_LIMITS["edit." + k]  # (the filter table's own limits: Q 0 or 0 Hz would break an EQ app)
-            if not lim["min"] <= v <= lim["max"]:
-                raise ValueError(f"Filter {i}: {what} ({v:g}) must be between {lim['min']:g} and {lim['max']:g}"
-                                 f"{' ' + lim['unit'] if lim.get('unit') else ''}")
-        out.append(g)
+        try:
+            out.append(_clean_filter(f))
+        except ValueError as e:
+            raise ValueError(f"Filter {i}: {e}") from None
     return out
 
 
@@ -66,7 +82,8 @@ _FORMATS_HINT = ("Use Equalizer APO format (Filter 1: ON PK Fc 100 Hz Gain 3 dB 
 def parse_filters(text, fs=eqtext.FS):
     """Filters from text a person pastes: Equalizer APO lines, or one filter per line as "frequency gain Q" (with the
     type first if it isn't a peaking filter: "LSQ 105 4 0.7"). Pre-amp lines, comments and switched-off filters are
-    skipped. Raises ValueError naming the line it can't read, or the filter outside the filter table's limits.
+    skipped. Raises ValueError naming the line it can't read, or the line of a filter outside the filter table's
+    limits (the line, not the filter's number: lines without a filter aren't counted in that number).
     (Make an EQ's "By hand" reads whole files with eqtext.read, which names what it leaves out instead.)"""
     out = []
     for i, line in enumerate(str(text or "").splitlines(), 1):
@@ -84,16 +101,16 @@ def parse_filters(text, fs=eqtext.FS):
                                  f"supported (only peaking, low-shelf, and high-shelf)")
             if kind == "bad":
                 raise ValueError(f"Your filters, line {i}: couldn't parse “{s[:60]}” ({value}). {_FORMATS_HINT}")
-            out.append({k: value[k] for k in ("type", "freq", "gain", "q")})
-            continue
-        f = eqtext.plain_line(s)
-        if f is None:
-            raise ValueError(f"Your filters, line {i}: couldn't parse “{s[:60]}”. {_FORMATS_HINT}")
-        out.append(f)
-    try:
-        return clean_filters(out)
-    except ValueError as e:
-        raise ValueError(f"Your filters: {e}") from None
+            f = {k: value[k] for k in ("type", "freq", "gain", "q")}
+        else:
+            f = eqtext.plain_line(s)
+            if f is None:
+                raise ValueError(f"Your filters, line {i}: couldn't parse “{s[:60]}”. {_FORMATS_HINT}")
+        try:
+            out.append(_clean_filter(f))
+        except ValueError as e:
+            raise ValueError(f"Your filters, line {i}: {e}") from None
+    return out
 
 
 def filters_text(filters):

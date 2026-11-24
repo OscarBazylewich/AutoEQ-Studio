@@ -57,11 +57,14 @@ def get(device):
 def _clean(e, i):
     if not isinstance(e, dict):
         raise ValueError(f"EQ {i + 1} in the list is invalid")
+    # (an EQ needs no name: it gets "EQ 1", "EQ 2" by its place. The message below uses that name too: with the
+    # name as sent, an EQ with no name and no filters gave empty quotes)
+    name = " ".join(str(e.get("name") or "").split())[:80] or f"EQ {i + 1}"
     filters = exports.clean_filters(e.get("filters"))
     if not filters:
-        raise ValueError(f"“{str(e.get('name') or '')[:60]}” has no filters")
+        raise ValueError(f"“{name[:60]}” has no filters")
     color = e.get("color")
-    return {"key": str(e.get("key") or f"eq{i}")[:40], "name": " ".join(str(e.get("name") or f"EQ {i + 1}").split())[:80] or f"EQ {i + 1}",
+    return {"key": str(e.get("key") or f"eq{i}")[:40], "name": name,
             "note": str(e.get("note") or "")[:200], "filters": filters, "shown": e.get("shown") is not False,
             "color": color if isinstance(color, int) and not isinstance(color, bool) and 0 <= color < 64 else i,
             "added": float(e["added"]) if isinstance(e.get("added"), (int, float)) and not isinstance(e.get("added"), bool) else time.time()}

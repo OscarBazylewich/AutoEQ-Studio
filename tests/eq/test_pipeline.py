@@ -11,7 +11,7 @@ import time
 import numpy as np
 import pytest
 
-from eq import inputs, pipeline, settings
+from eq import engines, inputs, pipeline, settings
 from helpers import studio
 from helpers.checks import raises  # (eq_checks.py's raises, line 50: the message of a ValueError, or None)
 
@@ -102,3 +102,40 @@ def test_audible_pick_where_growing_stops(sample_curves, check):
           out["pick_case"] == "target" and p["ear"] <= lim and not fewer
           and max(r["rows"] for r in out["results"]) < 32 and p.get("ear_at"),
           (out["pick_case"], p["n_filters"], round(p["ear"], 3), round(time.time() - t0, 1), fewer[:1]))
+
+
+NO_DATA = "Frequency range ({}–{} Hz) has no curve data (curves cover 20 Hz–20 kHz). Adjust the range."
+NARROW = "Frequency range ({}–{} Hz) is too narrow and needs at least 2 curve points. Widen the range."
+
+
+def test_scored_range_message_fits_its_cause(sample_curves, check):
+    # (2026-11-24: a range between two points of the curves, inside 20 Hz-20 kHz, said "has no curve data (curves
+    # cover 20 Hz-20 kHz)": that hint does not explain it. And the score took a range with 1 point, while the check
+    # before a run refused it.) The curves have points at 19,897 and 20,186 Hz and none between.
+    curves = sample_curves[0]
+    f = curves["f"]
+    one = [float(f[100]) - 0.01, float(f[100]) + 0.01]  # (1 point of the curves)
+
+    def score(band):
+        return raises(engines.rms_error, f, curves["meas"], curves["target"], band)
+    said = {name: (pipeline.band_problem(curves, band), score(band))
+            for name, band in (("between", [19900, 19950]), ("one", one), ("above", [30000, 40000]), ("below", [5, 10]),
+                               ("good", [20, 10000]))}
+    check("scoring: a range inside the curves with no point or 1 point is too narrow, to the check before a run and "
+          "to the score alike",
+          said["between"] == (NARROW.format(19900, 19950),) * 2
+          and said["one"] == (NARROW.format(f"{one[0]:g}", f"{one[1]:g}"),) * 2, (said["between"], said["one"]))
+    check("scoring: a range outside the curves has no curve data, to the check before a run and to the score alike",
+          said["above"] == (NO_DATA.format(30000, 40000),) * 2 and said["below"] == (NO_DATA.format(5, 10),) * 2,
+          (said["above"], said["below"]))
+    check("scoring: a range with 2 or more points of the curves is accepted", said["good"] == (None, None), said["good"])
+
+
+def test_fit_range_in_the_wrong_order_said_first(sample_curves, check):
+    # (2026-11-24: Fit from 10005 with Fit up to 10000 gave the message of a range with no curve points: that check
+    # ran before the one of minimum and maximum)
+    cfg = settings.with_auto({"mode": "site_single"})
+    cfg["scoring"]["band_hz"] = [10005, 10000]
+    said = raises(pipeline.check_run, "site_single", cfg, sample_curves[0])
+    check("runs: Fit from larger than Fit up to gives the message of minimum and maximum, not one of the curve points",
+          said == "Fit range: minimum (10005) must be less than maximum (10000)", said)

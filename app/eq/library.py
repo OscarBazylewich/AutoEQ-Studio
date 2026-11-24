@@ -11,6 +11,7 @@ import re
 import threading
 import time
 
+from . import inputs
 from . import paths
 import textfile
 from .inputs import CHANNEL_RE, EXTS, TARGET_RE  # noqa: F401 - (CHANNEL_RE: used here and by other modules)
@@ -79,7 +80,8 @@ def sniff(path):
 
 def sniff_text(text):
     """{"points", "fmin", "fmax"} when the text holds a frequency response (at least 32 rising frequencies covering
-    100 Hz-8 kHz), else None."""
+    100 Hz-8 kHz), else None. The 32 is inputs.MIN_POINTS, the number that Add files gives in its message, read at
+    each call: the search then never lists a file that Add files refuses for its number of points."""
     fs = []
     for line in text.splitlines():
         line = line.strip()
@@ -95,7 +97,7 @@ def sniff_text(text):
         if not (0 < f < 50000 and -250 < v < 250):
             continue
         fs.append(f)
-    if len(fs) < 32:
+    if len(fs) < inputs.MIN_POINTS:
         return None
     rising = sum(b > a for a, b in zip(fs, fs[1:]))
     if rising < 0.9 * (len(fs) - 1) or min(fs) > 100 or max(fs) < 8000:
