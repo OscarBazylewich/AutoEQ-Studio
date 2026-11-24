@@ -7,6 +7,12 @@ import pytest
 
 from helpers import eqpage
 
+# The keys of HELP whose line is empty on purpose: the text survey of 2026-11-24 removed the tooltip of their
+# controls (ui\help_texts.py tells the mechanism). This is the one list of them: a key whose tooltip is removed
+# later is added here, and a line that becomes empty by accident fails test_controls_without_a_tooltip.
+NO_TOOLTIP = {"#opt-view", "#target-save", "#compare-results", "#make-way", "#by-hand", "#hand-start",
+              "#use-device", "#use-try", "#use-update"}
+
 
 @pytest.mark.timeout(600)  # (the tracer's labels read and three Auto traces first)
 def test_every_tagged_control_has_help(eq_screen, check):
@@ -21,6 +27,47 @@ def test_every_tagged_control_has_help(eq_screen, check):
     # was eq_checks.py:2638
     check("help: every control tagged for F1 (Make an EQ, the tracer) has a help text", len(tagged) > 60 and not unknown,
           (len(tagged), unknown))
+    # (2026-11-24: a control gets its tooltip from the line of its key, so a tagged control with a line must show
+    # words; only the keys of NO_TOOLTIP have none)
+    from ui.help_texts import HELP
+
+    def line(key):
+        h = HELP[help_window.help_key(key)]
+        return h[0] if isinstance(h, list) else h
+    silent = sorted({w.property("help_key") for root in (page, page.tracer) for w in root.findChildren(QWidget)
+                     if w.property("help_key") and help_window.help_key(w.property("help_key"))
+                     and line(w.property("help_key")) and not w.toolTip()})
+    check("help: every tagged control whose Help line has words shows a tooltip", not silent, silent)
+
+
+def test_controls_without_a_tooltip(eq_screen, check):
+    # (2026-11-24, the text survey: 9 short lines of Make an EQ removed. Their keys stay, so F1, the name for a
+    # screen reader and the links of the Help entry stay)
+    from ui import help_window
+    from ui.help_texts import HELP
+    page = eq_screen.page
+    empty = {k for k, h in HELP.items() if not (h[0] if isinstance(h, list) else h)}
+    entries = {k: help_window.entry_for(k) for k in NO_TOOLTIP}
+    check("help: the keys with an empty line are the listed ones, and each still has its entry in Help",
+          empty == NO_TOOLTIP and all(entries.values()), (sorted(empty ^ NO_TOOLTIP), entries))
+    check("help: Use for 5 minutes on and Update a profile keep the links of their entries",
+          HELP["#use-try"] == ["", "q-try", "set-use-device", "set-use-update"]
+          and HELP["#use-update"] == ["", "set-use-device", "set-use-try", "set-prof-edit"],
+          (HELP["#use-try"], HELP["#use-update"]))
+    bare = {"View": page.view_combo, "Start from": page.hand_source, "Start": page.hand_start,
+            "Use on device": page.use_btn}
+    got = {n: (w.toolTip(), w.accessibleName(), w.accessibleDescription(), w.property("help_key"))
+           for n, w in bare.items()}
+    check("help: View, Start from, Start and Use on device show no tooltip, and keep their name for a screen reader "
+          "and their tag for F1",
+          got == {"View": ("", "View", "", "#opt-view"), "Start from": ("", "Start from", "", "#by-hand"),
+                  "Start": ("", "Start (Manually)", "", "#hand-start"),
+                  "Use on device": ("", "Use on device (Make an EQ)", "", "#use-device")}, got)
+    own = {"Compare…": page.cmp_btn, "Automatically": page.way_btns["auto"], "Manually": page.way_btns["hand"]}
+    got = {n: (bool(w.toolTip()), bool(w.accessibleName()), w.accessibleDescription()) for n, w in own.items()}
+    check("help: Compare… and the tabs Automatically and Manually keep the tooltip of their own, and a screen reader "
+          "reads only their name (no line of Help after it)",
+          all(v == (True, True, "") for v in got.values()), got)
 
 
 def test_buttons_named_in_help_as_they_read(eq_screen, check):
@@ -62,11 +109,10 @@ def test_use_on_device_has_its_own_help(eq_screen, check):
     btn = eq_screen.page.use_btn
     entry = help_window.entry_for(btn.property("help_key") or "")
     e = help_window._by_id().get(entry or "", {})  # (as tests/ui/test_help.py reads the entries)
-    check("help: Use on device has its own Help entry, whose tooltip names its 3 functions and whose entry links to "
-          "Update a profile and Use for 5 minutes on",
-          btn.property("help_key") == "#use-device" and entry == "set-use-device"
-          and btn.toolTip().startswith("Uses the EQ on a device: as a new profile of the device, in a profile that you "
-                                       "have (Update a profile), or for 5 minutes.")
+    # (2026-11-24, the text survey: the button has no tooltip any more; its entry tells its 3 functions)
+    check("help: Use on device has its own Help entry, which links to Update a profile and Use for 5 minutes on, and "
+          "no tooltip",
+          btn.property("help_key") == "#use-device" and entry == "set-use-device" and btn.toolTip() == ""
           and e.get("title") == "Use on device (Make an EQ)" and e.get("see") == ["set-use-update", "set-use-try"],
           (btn.property("help_key"), entry, btn.toolTip(), e.get("title"), e.get("see")))
 
@@ -80,10 +126,10 @@ def test_update_words_are_true_for_each_device(check):
     from ui.help_texts import HELP
     with open(os.path.join(paths.PROJECT_APP, "ui", "guide_eq.py"), encoding="utf-8") as fh:
         guide = fh.read()
+    # (2026-11-24, the text survey: Update a profile has no short help any more, so no short line can be untrue)
     short = HELP["#use-update"][0]
-    check("help: the short help of Update a profile says what is true for each device, and Help gives the conditions",
-          short == "Puts the EQ into a profile that you have. The profile keeps its name and its devices. Help tells "
-                   "when each device uses the new EQ." and "have it on use the new" not in guide, (short,))
+    check("help: Update a profile has no short help, and the Guide does not say that all its devices use the new EQ",
+          short == "" and "have it on use the new" not in guide, (short,))
     # (2026-11-12: only the short help was checked; the long help can lose its conditions, and the message rule)
     from ui.help_text_devices import SETTINGS_DEVICES
     body = next(e["body"] for g in SETTINGS_DEVICES for e in g["items"] if e["key"] == "#use-update")

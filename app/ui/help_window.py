@@ -404,11 +404,13 @@ class HelpWindow(QWidget):
 
 def tag(widget, key):
     """A control belongs to a setting: its line as the tooltip (when it has none), and F1 on it opens the setting's
-    entry (the tooltip does not say so, to stay short: Help, the Guide and README.txt tell about F1)."""
+    entry (the tooltip does not say so, to stay short: Help, the Guide and README.txt tell about F1). An empty
+    line in HELP (help_texts.py) means no tooltip from here and no description for a screen reader: the control
+    keeps its tag, its name and a tooltip that its own code gave it."""
     widget.setProperty("help_key", key)
     h = HELP.get(help_key(key) or "")
     line = (h[0] if isinstance(h, list) else h) if h else ""
-    if h and not widget.toolTip():
+    if line and not widget.toolTip():
         widget.setToolTip(line)
     # (for a screen reader: the setting's name, as Help names it, and its line)
     e = _by_id().get(entry_for(key) or "")

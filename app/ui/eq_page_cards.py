@@ -636,7 +636,7 @@ class EqCards:
         self.use_menu = QMenu(self.use_btn)
         self.use_menu.aboutToShow.connect(self._fill_use_menu)
         self.use_btn.setMenu(self.use_menu)
-        help_window.tag(self.use_btn, "#use-device")  # (its 3 functions: a new profile, Update, for 5 minutes)
+        help_window.tag(self.use_btn, "#use-device")  # (F1: its 3 functions; its line is empty: no tooltip)
         self.report_btn = report = QPushButton("Report")
         icons.put(report, "report")  # (every button in the row with its symbol, UI-RULES 9)
         report.setToolTip("Open HTML report with graph and filters")
