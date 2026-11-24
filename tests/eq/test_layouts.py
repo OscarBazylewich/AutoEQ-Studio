@@ -64,13 +64,16 @@ def test_shared_layout_band_count(check):
 
 
 def test_each_eq_app_described(check):
-    # the EQ apps (eq_apps.py): each described, sourced, with a layout Best fit knows and a file the app can write
+    # the EQ apps (eq_apps.py): each described, sourced, with a layout Best fit knows and a file the app can write.
+    # (the text survey, 2026-11-23: the steps to load the EQ, "how", went; "note" is the one line of limits that the ⓘ
+    # of Your EQ app shows, with no end period and no "how" beside it)
     bad_apps = [k for k, a in eq_apps.APPS.items()
-                if not (a["name"] and a["how"] and a.get("source", "").startswith("http") and a["platforms"]
+                if not (a["name"] and a["note"] and not a["note"].endswith(".") and "how" not in a
+                        and a.get("source", "").startswith("http") and a["platforms"]
                         and set(a["platforms"]) <= set(eq_apps.PLATFORMS) and a["kind"] in ("parametric", "graphic", "curve", "site")
                         and eq_apps.layout_key(k) in layouts.KEYS and (a.get("file") is None or a["file"] in exports.FORMATS))]
     # was eq_checks.py:516
-    check("EQ apps: each has platforms, a source, how to load the EQ, a known layout and file", not bad_apps, bad_apps)
+    check("EQ apps: each has platforms, a source, its one line of limits, a known layout and file", not bad_apps, bad_apps)
 
 
 def test_eq_app_choice_kept(check):

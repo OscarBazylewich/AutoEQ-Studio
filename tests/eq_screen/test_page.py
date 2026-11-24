@@ -420,30 +420,43 @@ def test_start_from_with_no_profile(eq_screen, dialogs, check):
                     "none": none + " Edit filters on the graph or table below.", "start": [("bubble", none)]}, found)
 
 
-def test_band_shapes_sentence_ends_only_before_more_words(eq_screen, check):
-    # (the text survey, 2026-11-23: the sentence about the band shapes has no period of its own. It gets one only
-    # when the steps to load the EQ or the note about the layout follow it)
+def test_your_eq_app_shows_one_line_of_limits(eq_screen, check):
+    # (the text survey, 2026-11-23: the ⓘ of Your EQ app shows the app's one line of limits only. The steps to load
+    # the EQ and the sentence about band shapes that are not published went, also for an app with "approx")
     import html
     from types import SimpleNamespace
+    from eq import eq_apps
     words = type(eq_screen.page).app_note_text
-    shapes = "Band shapes for this app aren't published, so the actual EQ may differ slightly from the preview"
 
     def note(app, layout):
         page = SimpleNamespace(eq_app=lambda key: dict(app, layout="its own"),
                                S={"eq_app": "k", "best_fit": {"layout": layout}})
         return html.unescape(words(page, "k"))
-    found = {"alone": note({"note": "10 bands.", "approx": True}, "its own"),
-             "then how": note({"note": "10 bands.", "approx": True, "how": "Set its sliders."}, "its own"),
-             "then the layout": note({"note": "10 bands.", "approx": True}, "yours"),
+    found = {"alone": note({"note": "10 fixed bands", "approx": True}, "its own"),
+             "no steps": note({"note": "10 fixed bands", "approx": True, "how": "Set its sliders."}, "its own"),
+             "then the layout": note({"note": "10 fixed bands", "approx": True}, "yours"),
              "no app": words(eq_screen.page, ""), "not in the list": words(eq_screen.page, "other")}
-    check("make the EQ: the ⓘ of Your EQ app: the sentence about band shapes that are not published ends without a "
-          "period when it is the last one, and with one before the steps or the note about a custom layout",
-          found == {"alone": f"10 bands. {shapes}", "then how": f"10 bands. {shapes}. Set its sliders.",
-                    "then the layout": f"10 bands. {shapes}. (Custom Best fit layout overrides this EQ app's limits.)",
+    check("make the EQ: the ⓘ of Your EQ app shows the one line of limits of the app, with no sentence about band "
+          "shapes and no steps to load the EQ, and the note about a custom layout after it",
+          found == {"alone": "10 fixed bands", "no steps": "10 fixed bands",
+                    "then the layout": "10 fixed bands (Custom Best fit layout overrides this EQ app's limits.)",
                     "no app": "Choose your playback EQ app or device to match its band, gain, and Q limits and "
                               "export format",
                     "not in the list": "No filter limits. Exports in Equalizer APO format, supported by most EQ "
                                        "apps."}, found)
+    # each app of the list, as the page shows it: its line, then the link to the source, and nothing else
+    page = eq_screen.page
+    shown = {a["key"]: words(page, a["key"]) for a in page.meta["eq_apps"] if a["key"] != (page.S.get("eq_app") or "")}
+    wrong = {k: t for k, t in shown.items()
+             if t != html.escape(eq_apps.APPS[k]["note"])
+             + f' <a href="{html.escape(eq_apps.APPS[k]["source"])}">Source</a>'}
+    line = {k: html.unescape(shown[k].split(" <a ")[0]) for k in ("fxsound", "poweramp", "apo", "rockbox")}
+    check("make the EQ: the ⓘ of Your EQ app, each app of the list: its one line of limits and the link Source only",
+          len(shown) >= len(eq_apps.APPS) - 1 and not wrong
+          and line == {"fxsound": "10 fixed bands (5–31 configurable) · ±12 dB (1 dB steps) · shared Q",
+                       "poweramp": "5–32 bands · ±15 dB · Q 0.1–12", "apo": "No limits",
+                       "rockbox": "Up to 8 peaking + low/high shelf · 20 Hz–22.04 kHz · ±24 dB · Q 0.1–6.4"},
+          (wrong, line))
 
 
 def test_other_measurements_has_no_tooltip(eq_screen, check):

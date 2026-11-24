@@ -335,18 +335,15 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
             self.settings.refresh()
 
     def app_note_text(self, key):
-        """The line under Your EQ app for an app (its limits, how to load its file, its source), as rich text."""
+        """The words of the ⓘ after Your EQ app for an app (its limits in one line, its source), as rich text."""
         a = self.eq_app(key) if key not in ("", "other") else None
         if a:
             import html
             own = self.S["best_fit"].get("layout") == a.get("layout") or a.get("kind") == "site" \
                 or key != (self.S.get("eq_app") or "")  # (another app, as the Guide shows it: its own limits)
-            how = a.get("how", "")
-            # (the sentence about the band shapes has no period of its own: it gets one only when more words follow)
+            # (the text survey, 2026-11-23: only the app's one line of limits, eq_apps "note". The steps to load the
+            # EQ and the sentence about band shapes that are not published went: the user wants a short line)
             text = html.escape(f"{a.get('note') or a.get('summary')}"
-                               + (" Band shapes for this app aren't published, so the actual EQ may differ slightly from "
-                                  "the preview" + ("." if how or not own else "") if a.get("approx") else "")
-                               + (f" {how}" if how else "")
                                + ("" if own else " (Custom Best fit layout overrides this EQ app's limits.)")).strip()
             return text + (f' <a href="{html.escape(a["source"])}">Source</a>' if a.get("source") else "")
         return ("No filter limits. Exports in Equalizer APO format, supported by most EQ apps."

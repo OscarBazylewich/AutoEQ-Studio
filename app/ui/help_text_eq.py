@@ -176,7 +176,7 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'body': ['The app or device that will use the EQ. The EQ stays in its limits (the number of '
                                     'bands, the gain, Q and frequency ranges, the sliders of a graphic EQ). Save '
                                     'filters writes the file that the app imports. The ⓘ after the label Your EQ app '
-                                    'tells how to load the EQ, with a link to the source of its limits. Not in the '
+                                    'tells its limits, with a link to their source. Not in the '
                                     'list, or '
                                     'not sure: no limits, and an Equalizer APO file, which many apps can read.']},
                           {'key': 'slot:method',
