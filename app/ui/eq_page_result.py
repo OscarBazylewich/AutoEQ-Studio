@@ -190,7 +190,7 @@ class EqResult:
         self.count_combo.clear()
         for n, x in sorted(by_n.items()):
             self.count_combo.addItem(f"{n} filter{'' if n == 1 else 's'}  ·  {x['rms']:.2f} dB"
-                                     + ("  ✓ selected for you" if x["id"] == run["pick"] else ""), x["id"])
+                                     + ("  ✓ recommended" if x["id"] == run["pick"] else ""), x["id"])
         self.count_combo.setCurrentIndex(max(0, self.count_combo.findData(rid)))
         self.count_combo.sort_items()
         self.count_combo.setEnabled(len(by_n) > 1)
@@ -381,8 +381,8 @@ class EqResult:
             return
         st, ed = self.stats(), self.edited()
         manual = run.get("mode") == "manual"
-        # (the title says "recommended" for the app's pick: the words of the text survey, 2026-11-24. The filter counts'
-        # list, All results…, Compare… and the report still say "selected for you": their texts are other survey items)
+        # (the title says "recommended" for the app's pick, as the filter counts' list, All results…, Compare… and
+        # the report do: one word for it everywhere, the owner, 2026-11-24)
         tag = "" if manual else "recommended" if r["id"] == run["pick"] else "lowest error" if r["id"] == run["best"] else ""
         self.res_title.setText(MODE_SHORT.get(run["mode"], run["mode"]) + (f"  ·  {tag}" if tag else "")
                                + ("  ·  edited" if ed else ""))
@@ -535,7 +535,7 @@ class EqResult:
         made_for, here = run.get("device"), (self.curves or {}).get("name")
         other = (f" Made for the {made_for}. This report shows it on the {here}." if not own_files and made_for and here
                  and made_for != here else "")
-        cards = [{"title": title, "badge": "selected for you" if r["id"] == run.get("pick") else "", "fields": fields,
+        cards = [{"title": title, "badge": "recommended" if r["id"] == run.get("pick") else "", "fields": fields,
                   "text": self.run_label(run, r) + "." + other, "filters": self.enabled_filters()}]
         for p in [p for p in self.listen.pins if p.get("shown", True)][:2]:
             cards.append({"title": p["name"], "text": "", "filters": [f for f in p["filters"] if f.get("enabled", True) is not False]})

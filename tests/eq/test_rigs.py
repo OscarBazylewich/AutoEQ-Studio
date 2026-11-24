@@ -141,8 +141,9 @@ def test_unknown_per_entry_rig_not_used(monkeypatch, check):
     fine_rig = rigmap.lookup({"site_url": "https://m.squig.link/", "name": "Fine"})
     monkeypatch.undo()  # (rigmap.json's own data back, as the old check's finally did)
     # was eq_checks.py:1013
+    # (2026-11-24: the answer had a third value, words on how the rig was found, that no screen showed: removed)
     check("rigs: a per-entry rig the app doesn't know isn't used (it broke the comparison)",
-          odd_rig[:2] == (None, False) and fine_rig[:2] == ("5128", True), (odd_rig, fine_rig))
+          odd_rig == (None, False) and fine_rig == ("5128", True), (odd_rig, fine_rig))
 
 
 def test_targets_rigs_read_sources_once(monkeypatch, check):
@@ -210,8 +211,7 @@ def test_rig_notes_of_the_tags(monkeypatch, check):
           "individually. Low confidence", notes.get("C"))
     check("rig notes: a database on none of the rigs that the app knows",
           notes.get("D") == "matches none of the 4 known rigs: estimated from 9 shared models (40% match this rig)"
-          and unknown == (None, False, "matches none of the 4 known rigs (e.g., MiniDSP EARS or custom rig): estimated "
-                          "from 9 shared models (40% match this rig)"), (notes.get("D"), unknown))
+          and unknown == (None, False), (notes.get("D"), unknown))
     check("rig notes: a weak result gives no note, and no note has doubled punctuation",
           "E" not in notes and not any(bad in t for t in notes.values() for bad in ("..", ". .", " ,", "  ")), notes)
 

@@ -88,6 +88,18 @@ def test_poweramp_gain_limit_said(check):
           len(notes) == 1 and "+15 dB" in notes[0], notes)
 
 
+def test_gain_limit_range_has_no_minus_at_the_dash(check):
+    # (the owner, 2026-11-24: "-20–+20 dB" had the minus sign adjacent to the dash. A range with a negative minimum
+    # reads "-20 to +20 dB"; a range of positive numbers keeps the dash, as Rockbox's Q above)
+    notes, vm = [], []
+    exports.uapp_xml([{"type": "PK", "freq": 1000, "gain": 25, "q": 12}], -25, "x", notes)
+    exports.voicemeeter_xml([{"type": "PK", "freq": 1000, "gain": 20, "q": 1}], -20, vm)
+    check("formats: a gain limit reads “-20 to +20 dB” (no minus sign adjacent to a dash), a Q limit keeps the dash",
+          any("gain is limited to -20 to +20 dB" in n and "Q is limited to 0.1–10" in n for n in notes)
+          and any("gain is limited to -36 to +18 dB" in n for n in vm)
+          and not any("–+" in n or "-20–" in n or "-36–" in n for n in notes + vm), (notes, vm))
+
+
 def test_small_preamp_by_hand_not_blamed(eq_cfg, check):
     cfg = eq_cfg
     notes = []

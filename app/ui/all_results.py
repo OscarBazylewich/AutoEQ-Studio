@@ -122,7 +122,7 @@ class AllResults(QDialog):
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        # (the error's column as wide as its words: "0.225  ✓ selected for you" ended in "…" in a shared width)
+        # (the error's column as wide as its words: "0.225  ✓ recommended" ended in "…" in a shared width)
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.table.cellClicked.connect(lambda row, _c: self.select_result(self.table.item(row, 0).data(Qt.UserRole)))
         v.addWidget(self.table, 1)
@@ -273,7 +273,7 @@ class AllResults(QDialog):
         for r in sorted(rs, key=lambda x: x["rms"])[:500]:
             i = t.rowCount()
             t.insertRow(i)
-            err = _Num(f"{r['rms']:.3f}" + ("  ✓ selected for you" if r["id"] == run["pick"] else ""), r["rms"])
+            err = _Num(f"{r['rms']:.3f}" + ("  ✓ recommended" if r["id"] == run["pick"] else ""), r["rms"])
             err.setData(Qt.UserRole, r["id"])
             pre = r.get("preamp")
             cells = [err, _Num(str(r["n_filters"]), r["n_filters"]), _Num(str(r.get("rows") or ""), r.get("rows")),

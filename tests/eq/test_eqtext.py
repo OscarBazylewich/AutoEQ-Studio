@@ -189,6 +189,18 @@ Preamp: -0,5 dB
 """
 
 
+def test_filter_outside_a_range_with_a_negative_minimum(check):
+    # (the owner, 2026-11-24: "outside -36–35 dB" had the minus sign adjacent to the dash)
+    from eq import settings
+    lim = settings.UI_LIMITS["edit.gain"]
+    gain = eqtext.outside_limits({"freq": 1000, "gain": lim["min"] - 4, "q": 1})
+    freq = eqtext.outside_limits({"freq": 45000, "gain": 0, "q": 1})
+    check("eqtext: a gain outside the limits reads “outside -36 to 35 dB” (no minus sign adjacent to a dash); a "
+          "frequency range keeps the dash",
+          lim["min"] < 0 and gain == f"with gain ({lim['min'] - 4:g}) outside {lim['min']:g} to {lim['max']:g} dB"
+          and "–" not in gain and freq == "with frequency (45000) outside 20–20000 Hz", (gain, freq))
+
+
 def test_apo_lines(check):
     r = eqtext.read(APO)
     got = [(f["type"], f["freq"], f["gain"], f["q"], f["enabled"]) for f in r["filters"]]

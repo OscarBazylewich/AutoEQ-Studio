@@ -101,7 +101,9 @@ def outside_limits(f):
         lim = settings.UI_LIMITS["edit." + key]
         if not lim["min"] <= f[key] <= lim["max"]:
             unit = f" {lim['unit']}" if lim.get("unit") else ""
-            return f"with {what} ({round(f[key], 3):g}) outside {lim['min']:g}–{lim['max']:g}{unit}"
+            # (" to " after a negative minimum: "-36–35 dB" has the minus sign adjacent to the dash)
+            sep = " to " if lim["min"] < 0 else "–"
+            return f"with {what} ({round(f[key], 3):g}) outside {lim['min']:g}{sep}{lim['max']:g}{unit}"
     return ""
 
 

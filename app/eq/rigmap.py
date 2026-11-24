@@ -40,7 +40,7 @@ def _note(u):
 
 
 def lookup(it):
-    """(rig or None, sure, how) for a database entry, or None when rigmap.json has nothing useful on it."""
+    """(rig or None, sure) for a database entry, or None when rigmap.json has nothing useful on it."""
     u = data()["units"].get(unit_key(it))
     if not u or u.get("confidence") in (None, "stated", "low"):
         return None  # (stated rigs come from the sources themselves; a weak inference isn't used)
@@ -48,11 +48,11 @@ def lookup(it):
     if one:
         from . import rigs  # (it imports this module)
         if one not in rigs.RIGS:  # ("unknown" or a rig the app doesn't know: not a rig to use)
-            return None, False, "matches none of the 4 known rigs: " + _note(u)
-        return one, True, "estimated by comparing this measurement against known-rig sources"
+            return None, False
+        return one, True
     if u["rig"] == "unknown":
-        return None, False, "matches none of the 4 known rigs (e.g., MiniDSP EARS or custom rig): " + _note(u)
-    return u["rig"], u["confidence"] == "high", _note(u)
+        return None, False
+    return u["rig"], u["confidence"] == "high"
 
 
 def site_notes():
