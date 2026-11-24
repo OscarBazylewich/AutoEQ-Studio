@@ -288,16 +288,38 @@ def test_many_filters_note_names_each_limit(eq_cfg, tmp_path, check):
                    33: ["Note: this EQ has 33 filters (some apps limit imports to 20 or 32)."]}, said)
 
 
-def test_pasted_filter_outside_limits_plain_number_and_line(check):
+def test_pasted_filter_outside_limits_plain_number_and_filter(check):
     # (2026-11-24: a shelf with a slope of 1 dB and a gain of 90 dB is read as a shelf at 3.16e15 Hz. The message gave
-    # that number as "3.16228e+15", and the number of the filter ("Your filters: Filter 2") where the messages of
-    # lines that can't be read give the line.) Line 1 is empty, line 2 a comment, line 3 a good filter.
+    # that number as "3.16228e+15".) The filter is named by its number after "Your filters: ", the words the owner
+    # kept in the text survey (answers-area-10.json, eq-errors-2-filters-other-error-filters: "keep"; the form with
+    # the line was its option a, not selected). Line 1 is empty, line 2 a comment, line 3 a good filter.
     said = [raises(exports.parse_filters, text) for text in (
         "\n# mine\n100 3 1\nFilter 2: ON LS 1 dB Fc 100 Hz Gain 90 dB", "100 3 0.00001", "100 3 1\n\n200 50 1")]
-    check("your filters: a value outside the limits shows as a plain number (no exponent), with the line it is on",
-          said == ["Your filters, line 4: frequency (3162280000000000) must be between 20 and 20000 Hz",
-                   "Your filters, line 1: Q (0.00001) must be between 0.03 and 27",
-                   "Your filters, line 3: gain (50) must be between -36 and 35 dB"], said)
+    check("your filters: a value outside the limits shows as a plain number (no exponent), after “Your filters: ” "
+          "and the number of its filter",
+          said == ["Your filters: Filter 2: frequency (3162280000000000) must be between 20 and 20000 Hz",
+                   "Your filters: Filter 1: Q (0.00001) must be between 0.03 and 27",
+                   "Your filters: Filter 2: gain (50) must be between -36 and 35 dB"], said)
     check("formats: a filter of a card outside the limits is still named by its number, the value a plain number",
           raises(exports.clean_filters, [{"freq": 100, "gain": 1, "q": 1}, {"freq": 3.16228e15, "gain": 1, "q": 1}])
           == "Filter 2: frequency (3162280000000000) must be between 20 and 20000 Hz")
+
+
+def test_value_outside_limits_is_short_and_as_typed(check):
+    # (2026-11-24: with no exponent form at all, a Q of 1e-320 was a message of more than 320 zeros in a message
+    # box, and 1e300 Hz one of 301 digits; a Q of 123456789 showed as "123457000", not the number typed)
+    said = [raises(exports.parse_filters, text) for text in (
+        "100 3 1e-320", "1e30 3 1", "1e300 3 1", "100 3 123456789", "100 3 0.000000002", "100 123.4567891 1")]
+    check("your filters: a value too small or too large to write out keeps its exponent form (a short message), and "
+          "a typed value outside the limits shows with the digits typed",
+          said == ["Your filters: Filter 1: Q (1e-320) must be between 0.03 and 27",
+                   "Your filters: Filter 1: frequency (1e+30) must be between 20 and 20000 Hz",
+                   "Your filters: Filter 1: frequency (1e+300) must be between 20 and 20000 Hz",
+                   "Your filters: Filter 1: Q (123456789) must be between 0.03 and 27",
+                   "Your filters: Filter 1: Q (0.000000002) must be between 0.03 and 27",
+                   "Your filters: Filter 1: gain (123.4567891) must be between -36 and 35 dB"], said)
+    card = [raises(exports.clean_filters, [{"freq": f, "gain": 1, "q": 1}]) for f in (3162277660168379, 5e-324, 105000)]
+    check("formats: a whole number of a card shows digit for digit, the smallest number there is in exponent form",
+          card == ["Filter 1: frequency (3162277660168379) must be between 20 and 20000 Hz",
+                   "Filter 1: frequency (5e-324) must be between 20 and 20000 Hz",
+                   "Filter 1: frequency (105000) must be between 20 and 20000 Hz"], card)

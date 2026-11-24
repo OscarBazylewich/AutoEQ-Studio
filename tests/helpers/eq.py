@@ -10,6 +10,7 @@ reset_caches()         the EQ part's caches back to as-loaded (only the modules 
 file_reset(settings)   what tests\\eq and tests\\eq_screen run before every file: no run going, nothing set aside,
                        offline, the studio as new, no window left open
 """
+import importlib
 import sys
 import time
 
@@ -97,23 +98,28 @@ def _wait(cond, sec):
     return cond()
 
 
+def _loaded(name):
+    """The module of this name when the app has imported it (None when it hasn't), whole: the app imports the EQ
+    part in a thread of its own once a window shows Make an EQ (ui.preload), and a module is in sys.modules from the
+    first line of its import, before it has its names. Importing it here waits for that thread to finish it."""
+    return importlib.import_module(name) if name in sys.modules else None
+
+
 def reset_caches():
     """The EQ part's caches as-loaded, in the modules already imported: the curves files read last
     (pipeline._LAST_TEXTS) and the site runs kept for reuse (_SWEEPS), the last comparison (compare._LAST), This
     PC's list (when it isn't being searched: waited for), and the database lists loaded (when they aren't being
     loaded: waited for)."""
-    mods = sys.modules
-    if "eq.pipeline" in mods:
-        mods["eq.pipeline"]._LAST_TEXTS.clear()
-        mods["eq.pipeline"]._SWEEPS.clear()
-    if "eq.compare" in mods:
-        mods["eq.compare"]._LAST.clear()
-    if "eq.library" in mods:
-        lib = mods["eq.library"]
+    pipeline, compare, lib, db = (_loaded("eq." + name) for name in ("pipeline", "compare", "library", "databases"))
+    if pipeline is not None:
+        pipeline._LAST_TEXTS.clear()
+        pipeline._SWEEPS.clear()
+    if compare is not None:
+        compare._LAST.clear()
+    if lib is not None:
         if _wait(lambda: not lib._state["scanning"], 30):
             lib._state.update(scanning=False, seen=0, found=0, cloud=0, folders=[], finished=None, items=[], error="")
-    if "eq.databases" in mods:
-        db = mods["eq.databases"]
+    if db is not None:
         if _wait(lambda: not db._state["loading"], 30):
             db.set_items([])
             db._state.update(loading=False, sites=[], updated=None)
@@ -131,8 +137,8 @@ def file_reset(settings=None):
     waited for, the set-aside listeners and notices emptied, offline, every window left open closed and deleted
     (first, so none of them saves anything afterwards), and the studio as new (helpers.studio.reset, which empties
     the caches)."""
-    if "eq.service" in sys.modules:
-        service = sys.modules["eq.service"]
+    service = _loaded("eq.service")
+    if service is not None:
         service.SET_ASIDE.clear()  # (first: a page that's gone mustn't be told anything by the requests below)
         if service.JOB.get("status") == "running":
             service.call("/api/cancel")

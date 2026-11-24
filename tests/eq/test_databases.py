@@ -17,6 +17,7 @@ import types
 import pytest
 
 from eq import databases, settings
+import net
 import textfile
 from helpers import qt
 from helpers.eq import DbGuard
@@ -400,3 +401,26 @@ def test_list_error_has_no_python_type_name(db_guard, monkeypatch, tmp_path, che
     check("databases: the error of a list that did not load is the message of the error alone, without the Python name "
           "of its type; an error with no message gives that name (all there is)",
           said == {"message": ["file is too large (over 20 MB)"], "empty": ["TimeoutError"]}, said)
+
+
+def test_list_error_of_the_code_keeps_its_type_name(db_guard, monkeypatch, tmp_path, check):
+    # (2026-11-24: with the message alone, a KeyError (a site list with a field missing) was only a quoted word in
+    # the tooltip of "did not load": 'items'. The message of such an error is not a sentence: the name of its type
+    # stays before it. An error of the app's own checks (ValueError) or of the connection (OSError) has a sentence)
+    import urllib.error
+    site = {"name": "Test", "url": "https://example.invalid/", "short": "T"}
+    monkeypatch.setattr(databases, "CACHE_PATH", os.path.join(tmp_path, "db-error.json"))
+    said = {}
+    for name, error in (("key", KeyError("items")), ("type", TypeError("string indices must be integers")),
+                        ("index", IndexError()), ("http", urllib.error.HTTPError("u", 404, "Not Found", None, None)),
+                        ("connection", urllib.error.URLError("no answer")), ("offline", net.Offline("Offline."))):
+        def fails(url, error=error, **k):
+            raise error
+        db_guard.stub_get(fails)
+        databases.refresh_now([site], force=True)
+        said[name] = [s.get("error") for s in databases.status()["sites"]]
+    check("databases: an error of the code (a missing field) keeps the name of its type before its message, an error "
+          "of the connection or of the app's own checks is its message alone",
+          said == {"key": ["KeyError: 'items'"], "type": ["TypeError: string indices must be integers"],
+                   "index": ["IndexError"], "http": ["HTTP Error 404: Not Found"],
+                   "connection": ["<urlopen error no answer>"], "offline": ["Offline."]}, said)

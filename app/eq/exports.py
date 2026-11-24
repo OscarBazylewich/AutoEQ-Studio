@@ -25,14 +25,29 @@ TYPES = ("PK", "LSQ", "HSQ")
 
 
 def _plain(v):
-    """A number for a message, as "{v:g}" gives it (6 digits that count) but never in exponent form: a shelf read
-    at 3.16e15 Hz showed as "3.16228e+15", a Q of 0.00001 as "1e-05"."""
-    return format(decimal.Decimal(f"{v:g}"), "f")
+    """A number for a message, written out without an exponent: a shelf read at 3.16e15 Hz showed as "3.16228e+15",
+    a Q of 0.00001 as "1e-05". A typed number (15 digits or fewer) shows digit for digit; one with more digits is
+    the result of a calculation (0.1 + 0.2, the shelf above) and shows with 6, as "{v:g}" gives it. A number too
+    small or too large to write out keeps the exponent form: 1e-320 written out is more than 320 zeros in a message
+    box."""
+    if isinstance(v, int):  # (a whole number of a card: Python has its digits exactly)
+        return str(v) if abs(v) < _WRITTEN_OUT[1] else repr(float(v))
+    if v and not _WRITTEN_OUT[0] <= abs(v) < _WRITTEN_OUT[1]:
+        return repr(v)  # (not "{v:g}": the smallest numbers have fewer than 6 digits, 1e-320 gave 9.99989e-321)
+    d = decimal.Decimal(repr(v))  # (repr: the shortest digits that give this number back, so the digits typed)
+    if len(d.as_tuple().digits) > 15:
+        d = decimal.Decimal(f"{v:g}")
+    s = format(d, "f")
+    return s.rstrip("0").rstrip(".") if "." in s else s
+
+
+# (the numbers _plain writes out: from 9 decimals to 21 digits, a message of one line at most)
+_WRITTEN_OUT = (1e-9, 1e21)
 
 
 def _clean_filter(f):
     """One filter as sent by the page, checked (clean_filters). Raises ValueError with what is wrong, without the
-    filter's number or line: the caller knows which of the two the user can find."""
+    filter's number: clean_filters puts it before."""
     g = {"type": f.get("type") or "PK", "enabled": f.get("enabled", True) is not False}
     if g["type"] not in TYPES:
         raise ValueError(f"unknown type “{g['type']}” (use PK, LSQ, or HSQ)")
@@ -82,8 +97,9 @@ _FORMATS_HINT = ("Use Equalizer APO format (Filter 1: ON PK Fc 100 Hz Gain 3 dB 
 def parse_filters(text, fs=eqtext.FS):
     """Filters from text a person pastes: Equalizer APO lines, or one filter per line as "frequency gain Q" (with the
     type first if it isn't a peaking filter: "LSQ 105 4 0.7"). Pre-amp lines, comments and switched-off filters are
-    skipped. Raises ValueError naming the line it can't read, or the line of a filter outside the filter table's
-    limits (the line, not the filter's number: lines without a filter aren't counted in that number).
+    skipped. Raises ValueError naming the line it can't read, or the filter outside the filter table's limits
+    ("Your filters: Filter 2: …": the filter's number, not its line. The owner kept these words in the text survey
+    of 2026-11-24 and did not select the form with the line, so the limits are checked after all lines are read).
     (Make an EQ's "By hand" reads whole files with eqtext.read, which names what it leaves out instead.)"""
     out = []
     for i, line in enumerate(str(text or "").splitlines(), 1):
@@ -101,16 +117,16 @@ def parse_filters(text, fs=eqtext.FS):
                                  f"supported (only peaking, low-shelf, and high-shelf)")
             if kind == "bad":
                 raise ValueError(f"Your filters, line {i}: couldn't parse “{s[:60]}” ({value}). {_FORMATS_HINT}")
-            f = {k: value[k] for k in ("type", "freq", "gain", "q")}
-        else:
-            f = eqtext.plain_line(s)
-            if f is None:
-                raise ValueError(f"Your filters, line {i}: couldn't parse “{s[:60]}”. {_FORMATS_HINT}")
-        try:
-            out.append(_clean_filter(f))
-        except ValueError as e:
-            raise ValueError(f"Your filters, line {i}: {e}") from None
-    return out
+            out.append({k: value[k] for k in ("type", "freq", "gain", "q")})
+            continue
+        f = eqtext.plain_line(s)
+        if f is None:
+            raise ValueError(f"Your filters, line {i}: couldn't parse “{s[:60]}”. {_FORMATS_HINT}")
+        out.append(f)
+    try:
+        return clean_filters(out)
+    except ValueError as e:
+        raise ValueError(f"Your filters: {e}") from None
 
 
 def filters_text(filters):

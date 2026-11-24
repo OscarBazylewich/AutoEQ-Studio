@@ -735,8 +735,12 @@ def refresh_now(sites, force=False):
         # (the words of the error alone: Sources shows them as the tooltip of "did not load", and the Python name of
         # the error's type before them is not for the user ("ValueError: file is too large (over 20 MB)"; offline
         # they started "Offline: Offline."). An error with no words (a TimeoutError) gives that name: all there is)
-        except Exception as e:  # noqa: BLE001 - a site that's down: an older list is kept if there is one
+        except (OSError, ValueError) as e:  # (the connection, the site's answer, the app's own checks: a sentence)
             return site, c, str(e) or type(e).__name__
+        # (an error of the code, as a KeyError for a list with a field missing: its words are no sentence ('items'),
+        # so the name of its type stays before them; it is what a report of the fault needs)
+        except Exception as e:  # noqa: BLE001 - a site that's down: an older list is kept if there is one
+            return site, c, f"{type(e).__name__}: {e}" if str(e) else type(e).__name__
 
     with ThreadPoolExecutor(10) as ex:
         results = {site["url"]: (c, err) for site, c, err in ex.map(one, sites)}
