@@ -89,11 +89,25 @@ def eq_gain(freqs, filters, fs):
     return g
 
 
+def band_problem(freqs, band):
+    """Why the scored range can't be used, or None: it needs 2 points of the curves. The one place for the two
+    messages, so the check before a run (pipeline.band_problem) and the score (rms_error) refuse the same ranges with
+    the same words. A range that touches no part of the curves has no curve data; a range inside them that holds no
+    point or 1 point (19,900 to 19,950 Hz lies between two points) is too narrow: "curves cover 20 Hz–20 kHz" would
+    not explain that one."""
+    if ((freqs >= band[0]) & (freqs <= band[1])).sum() >= 2:
+        return None
+    if not len(freqs) or band[1] < freqs.min() or band[0] > freqs.max():
+        return (f"Frequency range ({band[0]:g}–{band[1]:g} Hz) has no curve data (curves cover 20 Hz–20 kHz). "
+                f"Adjust the range.")
+    return (f"Frequency range ({band[0]:g}–{band[1]:g} Hz) is too narrow and needs at least 2 curve points. "
+            f"Widen the range.")
+
+
 def rms_error(freqs, eq_curve, target, band):
     m = (freqs >= band[0]) & (freqs <= band[1])
-    if not m.any():  # (else NaN: "nan dB" on a report, and pick() can't compare results)
-        raise ValueError(f"The error range ({band[0]:g}–{band[1]:g} Hz) has no curve points: change “Fit from” or "
-                         f"“Fit up to”.")
+    if m.sum() < 2:  # (no point: NaN, "nan dB" on a report, and pick() can't compare results; 1 point: no range)
+        raise ValueError(band_problem(freqs, band))
     return float(np.sqrt(np.mean((eq_curve[m] - target[m]) ** 2)))
 
 
@@ -229,8 +243,7 @@ def load_curves(cfg, meas_texts, target_text):
     _, c = js_context(cfg, meas_texts, target_text)
     for key, what in (("meas", "measurement"), ("target", "target")):
         if any(v is None for v in c[key]):  # (the site's levelling overflows: V8's Infinity/NaN arrive as null)
-            raise ValueError(f"The {what} has values that the app cannot use (dB values larger than ±250?). "
-                             f"Examine the file: it must have pairs of frequency and dB values.")
+            raise ValueError(f"Invalid {what} data. Check that the file contains valid frequency/dB pairs.")
     return {"f": np.array(c["f"]), "meas": np.array(c["meas"]), "target": np.array(c["target"]),
             "channels": [np.array(ch) for ch in c["channels"]],
             "p_norm": c["pNorm"], "t_norm": c["tNorm"], "n_files": c["nch"]}

@@ -35,9 +35,10 @@ def test_trials_and_the_verdict(check):
     check("abx: each trial's X is A or B at random (both appear), heard as its version; 16 of 16 can't be guessing "
           "(you can tell them apart); 9 of 16 could be luck (said so)",
           set(xs) == {"A", "B"} and heard == [("off" if x == "A" else "sel") for x in xs] and t.done and t.correct_count() == 16
-          and "This result shows that you can hear a difference" in sure and "less than 0.1 %" in sure
-          and "does not show that you can hear a difference" in half.verdict()
-          and "40 %" in half.verdict(), (xs, sure, half.verdict()))
+          and sure == "16 of 16 correct (< 0.1% chance of scoring 16+ by guessing). You can hear a difference."
+          and half.verdict() == "9 of 16 correct (40% chance of scoring 9+ by guessing). No clear audible difference."
+          and abx.Abx("off", "sel", 8).verdict() == "No trials completed"
+          and abx.percent(0.038) == "3.8%", (xs, sure, half.verdict()))
 
 
 @pytest.fixture(scope="module")
@@ -87,7 +88,7 @@ def test_a_whole_test(lis, eq_screen, check):
           (a, b, during, saved, saved_during, lit, note, heard_a, heard_b, after_key))
     check("abx: answered to the end, the score and what it means are said (and kept for the session); Listen's own "
           "choices are back (not level-matched, a version in each ear, as they were; heard so too)",
-          lis.abx is None and "16 of 16 correct" in said and "This result shows that you can hear a difference" in said
+          lis.abx is None and "16 of 16 correct" in said and said.endswith("You can hear a difference.")
           and len(lis.abx_results) == 1
           and not lis.lm.isChecked() and lis.ears.currentData() == "split" and not lis.abx_box.isVisibleTo(lis)
           and (lis.engine.level_match, lis.engine.ears) == (False, "split") and sw.s.get("listen") == saved,
@@ -117,8 +118,9 @@ def test_play_first_said_while_stopped(lis, check):
     lis.play()  # (nothing is heard: tests\listen\conftest.py)
     playing = lis.abx_text.text()
     lis.abx_end(finished=False, quiet=True)
-    check("abx: while nothing plays, the trial says to Play first; pressing Play takes that away at once",
-          "(Play first.)" in stopped and "(Play first.)" not in playing, (stopped, playing))
+    check("abx: while nothing plays, the trial says to click Play; pressing Play takes that away at once",
+          stopped == "Trial 1 of 16: A = EQ off, B = Selected EQ (manual) · Click Play to start"
+          and playing == "Trial 1 of 16: A = EQ off, B = Selected EQ (manual)", (stopped, playing))
 
 
 def test_stopped_part_way(lis, check):
@@ -129,8 +131,8 @@ def test_stopped_part_way(lis, check):
     lis.abx_end(finished=False)
     said = lis.abx_said.text()
     check("abx: Stop the test says what was answered so far (and that it stopped), with the earlier test this session",
-          said.startswith("The test stopped after 3 of 16 trials") and "3 of 3 correct" in said
-          and "Previous ABX tests" in said,
+          said.startswith("Stopped after 3 of 16 trials. EQ off vs Selected EQ (manual): 3 of 3 correct (")
+          and "\nPrevious tests: EQ off vs Selected EQ (manual): 16 of 16" in said,
           said)
 
 
@@ -151,10 +153,10 @@ def test_ended_when_its_version_goes(lis, eq_screen, check):
             lis.refresh()
     check("abx: a version the test uses going away ends it, said by its name as it was when the test began (before "
           "an answer; and with one answered, in the result too)",
-          said[0] == (True, "The ABX test stopped before you completed a trial: Selected EQ (manual) is not available.")
+          said[0] == (True, "ABX test stopped before any trial finished: Selected EQ (manual) is unavailable")
           and said[1][0]
-          and said[1][1].startswith("The test stopped after 1 of 16 trials (Selected EQ (manual) is not available). "
-                                    "EQ off and Selected EQ (manual): "), said)
+          and said[1][1].startswith("Stopped after 1 of 16 trials (Selected EQ (manual) is unavailable). "
+                                    "EQ off vs Selected EQ (manual): "), said)
 
 
 def test_ended_when_its_version_changes(lis, eq_screen, check):
@@ -174,7 +176,7 @@ def test_ended_when_its_version_changes(lis, eq_screen, check):
         page.live_update()
     check("abx: the selected EQ edited while it's tested ends the test (its other trials would test another EQ): "
           "what was answered is said, and why",
-          went_on and ended and said.startswith("The test stopped after 2 of 16 trials (Selected EQ (manual) changed)."),
+          went_on and ended and said.startswith("Stopped after 2 of 16 trials (Selected EQ (manual) filters changed). "),
           (went_on, ended, said))
 
 

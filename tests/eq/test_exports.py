@@ -77,7 +77,7 @@ def test_rockbox_q_limit_said(check):
     notes = []
     exports.rockbox_cfg([{"type": "PK", "freq": 6000, "gain": 6, "q": 8.44}], -6, notes)
     # was eq_checks.py:182
-    check("formats: Rockbox says how much its Q limit (6.4) changes the EQ", any("Q goes from 0.1 to 6.4" in n for n in notes), notes)
+    check("formats: Rockbox says how much its Q limit (6.4) changes the EQ", any("Q is limited to 0.1–6.4" in n for n in notes), notes)
 
 
 def test_poweramp_gain_limit_said(check):
@@ -167,13 +167,13 @@ def test_convolution_refuses_too_high(check):
 def test_filters_not_numbers_named(check):
     # was eq_checks.py:216
     check("formats: filters that aren't numbers are named", raises(exports.clean_filters, [{"freq": 100, "gain": "x", "q": 1}])
-          == "Filter 1: its gain is not a number.")
+          == "Filter 1: gain must be a number")
 
 
 def test_filters_outside_limits_named(check):
     # was eq_checks.py:218
     check("formats: filters outside the filter table's limits are named (Q 0 would break an EQ app)",
-          raises(exports.clean_filters, [{"freq": 100, "gain": 1, "q": 0}]) == "Filter 1: its Q (0) is not in the range 0.03 to 27.")
+          raises(exports.clean_filters, [{"freq": 100, "gain": 1, "q": 0}]) == "Filter 1: Q (0) must be between 0.03 and 27")
 
 
 def test_long_names_keep_the_method(check):
@@ -198,7 +198,7 @@ def test_uapp_preamp_too_low_said(check):
                      -24.0, "x", notes)
     # was eq_checks.py:2197
     check("files: USB Audio Player PRO's file says when its pre-amp can't go low enough (it can clip)",
-          any("Clipping can occur" in n for n in notes), notes)
+          any("Clipping may occur" in n for n in notes), notes)
 
 
 def test_tiny_q_written_as_smallest_step(check):
@@ -225,7 +225,7 @@ def test_apo_width_and_slopes_read(check):
 def test_other_apo_type_named(check):
     # was eq_checks.py:343
     check("formats: another APO filter type is named as not supported",
-          "the app cannot use “HP” filters" in (raises(exports.parse_filters, "Filter 1: ON HP Fc 30 Hz") or ""))
+          "“HP” filters aren't supported" in (raises(exports.parse_filters, "Filter 1: ON HP Fc 30 Hz") or ""))
 
 
 def test_unknown_format_refused(eq_cfg, check):
@@ -271,3 +271,55 @@ def test_not_asked_about_a_file_it_wont_write(atomic, check):
     asked = exports.files_to_replace(all_on, "Atomic", ["apo", "uapp"], out_dir=out_tmp, filters=shelf)
     # was eq_checks.py:364
     check("formats: saving doesn't ask about an app's file it won't write", asked == ["Atomic - filters.txt"], asked)
+
+
+def test_many_filters_note_names_each_limit(eq_cfg, tmp_path, check):
+    # (the text survey, 2026-11-24: one short note; its second limit shows only for an EQ with more filters than it)
+    said = {}
+    for n in (20, 21, 32, 33):
+        notes = []
+        exports.write(eq_cfg, [{"type": "PK", "freq": 1000, "gain": 0.1, "q": 1}] * n, -0.1, f"Many {n}", ["apo"],
+                      out_dir=str(tmp_path), notes=notes)
+        said[n] = notes
+    check("formats: the Equalizer APO file's note for an EQ with many filters gives the limit of 20 filters from 21 "
+          "filters, and the limit of 32 too from 33 filters; 20 filters give no note",
+          said == {20: [], 21: ["Note: this EQ has 21 filters (some apps limit imports to 20)."],
+                   32: ["Note: this EQ has 32 filters (some apps limit imports to 20)."],
+                   33: ["Note: this EQ has 33 filters (some apps limit imports to 20 or 32)."]}, said)
+
+
+def test_pasted_filter_outside_limits_plain_number_and_filter(check):
+    # (2026-11-24: a shelf with a slope of 1 dB and a gain of 90 dB is read as a shelf at 3.16e15 Hz. The message gave
+    # that number as "3.16228e+15".) The filter is named by its number after "Your filters: ", the words the owner
+    # kept in the text survey (answers-area-10.json, eq-errors-2-filters-other-error-filters: "keep"; the form with
+    # the line was its option a, not selected). Line 1 is empty, line 2 a comment, line 3 a good filter.
+    said = [raises(exports.parse_filters, text) for text in (
+        "\n# mine\n100 3 1\nFilter 2: ON LS 1 dB Fc 100 Hz Gain 90 dB", "100 3 0.00001", "100 3 1\n\n200 50 1")]
+    check("your filters: a value outside the limits shows as a plain number (no exponent), after “Your filters: ” "
+          "and the number of its filter",
+          said == ["Your filters: Filter 2: frequency (3162280000000000) must be between 20 and 20000 Hz",
+                   "Your filters: Filter 1: Q (0.00001) must be between 0.03 and 27",
+                   "Your filters: Filter 2: gain (50) must be between -36 and 35 dB"], said)
+    check("formats: a filter of a card outside the limits is still named by its number, the value a plain number",
+          raises(exports.clean_filters, [{"freq": 100, "gain": 1, "q": 1}, {"freq": 3.16228e15, "gain": 1, "q": 1}])
+          == "Filter 2: frequency (3162280000000000) must be between 20 and 20000 Hz")
+
+
+def test_value_outside_limits_is_short_and_as_typed(check):
+    # (2026-11-24: with no exponent form at all, a Q of 1e-320 was a message of more than 320 zeros in a message
+    # box, and 1e300 Hz one of 301 digits; a Q of 123456789 showed as "123457000", not the number typed)
+    said = [raises(exports.parse_filters, text) for text in (
+        "100 3 1e-320", "1e30 3 1", "1e300 3 1", "100 3 123456789", "100 3 0.000000002", "100 123.4567891 1")]
+    check("your filters: a value too small or too large to write out keeps its exponent form (a short message), and "
+          "a typed value outside the limits shows with the digits typed",
+          said == ["Your filters: Filter 1: Q (1e-320) must be between 0.03 and 27",
+                   "Your filters: Filter 1: frequency (1e+30) must be between 20 and 20000 Hz",
+                   "Your filters: Filter 1: frequency (1e+300) must be between 20 and 20000 Hz",
+                   "Your filters: Filter 1: Q (123456789) must be between 0.03 and 27",
+                   "Your filters: Filter 1: Q (0.000000002) must be between 0.03 and 27",
+                   "Your filters: Filter 1: gain (123.4567891) must be between -36 and 35 dB"], said)
+    card = [raises(exports.clean_filters, [{"freq": f, "gain": 1, "q": 1}]) for f in (3162277660168379, 5e-324, 105000)]
+    check("formats: a whole number of a card shows digit for digit, the smallest number there is in exponent form",
+          card == ["Filter 1: frequency (3162277660168379) must be between 20 and 20000 Hz",
+                   "Filter 1: frequency (5e-324) must be between 20 and 20000 Hz",
+                   "Filter 1: frequency (105000) must be between 20 and 20000 Hz"], card)

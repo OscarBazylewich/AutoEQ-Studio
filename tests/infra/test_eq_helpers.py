@@ -69,8 +69,8 @@ def test_save_result(screen, check):
 def test_show_from_history(screen, check):
     eqpage.show_from_history(screen, screen.entry)
     page = screen.page
-    check("eq helpers: show_from_history brings the saved EQ back as a result of its own (“From History”)",
-          page.run_result.get("history") == screen.entry["base"] and page.res_sub.text().startswith("From History"),
+    check("eq helpers: show_from_history brings the saved EQ back as a result of its own (“History (date)”)",
+          page.run_result.get("history") == screen.entry["base"] and page.res_sub.text().startswith("History ("),
           page.res_sub.text())
 
 
@@ -197,3 +197,48 @@ def test_file_reset(check):
           "the session's studio",
           not still and not os.path.exists(os.path.join(S.studio, "downloads")) and os.path.isfile(keep), still)
     os.remove(keep)
+
+
+# (a stand-in for eq\databases.py that takes a moment to import: in sys.modules from its first line, and with what
+# reset_caches() empties only at its end)
+SLOW_DATABASES = '''import time
+time.sleep(0.6)
+emptied = []
+_state = {"loading": False}
+_confs, _rows_made, _dir_failed, _extra_sites, _dir_sites = {}, {}, {}, {}, {}
+set_items = emptied.append
+'''
+
+
+def test_reset_caches_waits_for_a_module_still_being_imported(tmp_path, monkeypatch, check):
+    # (2026-11-24: tests\ui\test_window.py shows Make an EQ, and the app then imports the EQ part in a thread of its
+    # own (ui\preload.py). The next file's reset read eq.databases from sys.modules while that thread was still
+    # importing it: "partially initialized module 'eq.databases' has no attribute '_state'", for all 16 tests of
+    # tests\eq_screen\test_filter_editor.py run after it in one process)
+    import sys
+    import eq as eq_part
+    from eq import databases as real
+    with open(tmp_path / "databases.py", "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(SLOW_DATABASES)
+    monkeypatch.setattr(eq_part, "databases", real)  # (the import below puts the stand-in here: put back after)
+    monkeypatch.setattr(eq_part, "__path__", [str(tmp_path)] + list(eq_part.__path__))
+    monkeypatch.delitem(sys.modules, "eq.databases")
+    importer = threading.Thread(target=__import__, args=("eq.databases",))
+    importer.start()
+    try:
+        end = time.monotonic() + qt.time_limit(10)
+        while "eq.databases" not in sys.modules and time.monotonic() < end:
+            time.sleep(0.01)
+        half_made = "eq.databases" in sys.modules and not hasattr(sys.modules["eq.databases"], "_state")
+        try:
+            eq.reset_caches()
+            error = None
+        except AttributeError as e:
+            error = str(e)
+    finally:
+        importer.join()
+    stand_in = sys.modules["eq.databases"]
+    check("eq helpers: reset_caches() waits for a module of the EQ part that another thread still imports (the app's "
+          "own loading of Make an EQ's code), then empties its caches",
+          half_made and error is None and stand_in is not real and stand_in.emptied == [[]],
+          (half_made, error, getattr(stand_in, "emptied", None)))

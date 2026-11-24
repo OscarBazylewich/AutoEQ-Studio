@@ -7,6 +7,23 @@ import pytest
 
 from helpers import eqpage
 
+# The keys of HELP whose line is empty on purpose: the text survey of 2026-11-24 removed the tooltip of their
+# controls (ui\help_texts.py tells the mechanism). This is the one list of them: a key whose tooltip is removed
+# later is added here, and a line that becomes empty by accident fails test_controls_without_a_tooltip.
+NO_TOOLTIP = {"#opt-view", "#target-save", "#compare-results", "#make-way", "#by-hand", "#hand-start",
+              "#use-device", "#use-try", "#use-update",
+              # (area 13 of the survey: the row Settings to try, and 10 settings boxes of Make an EQ)
+              "sa", "best_fit.filter_counts", "best_fit.freq_range", "best_fit.gain_min", "best_fit.gain_max",
+              "best_fit.q_min", "best_fit.q_max", "best_fit.low_shelf_freq", "best_fit.start_filters",
+              "best_fit.layout", "scoring.pick",
+              # (area 14: 6 boxes of the website methods, the 4 numbers of Your result, Number of filters, Calculate
+              # from these filters, 8 file formats, Sample rate, Smoothing level and CPU cores)
+              "site_single.freq_low", "site_sweep.freq_low", "site_sweep.freq_high", "site_sweep.q_min",
+              "site_sweep.q_max", "res.error", "res.preamp", "res.maxq", "res.boost", "fcounts", "f_retry",
+              "export.apo", "export.graphic", "export.poweramp", "export.uapp", "export.soundsource",
+              "export.voicemeeter", "export.rockbox", "export.convolution", "site.sample_rate", "site.smooth_level",
+              "performance.cores"}
+
 
 @pytest.mark.timeout(600)  # (the tracer's labels read and three Auto traces first)
 def test_every_tagged_control_has_help(eq_screen, check):
@@ -21,6 +38,149 @@ def test_every_tagged_control_has_help(eq_screen, check):
     # was eq_checks.py:2638
     check("help: every control tagged for F1 (Make an EQ, the tracer) has a help text", len(tagged) > 60 and not unknown,
           (len(tagged), unknown))
+    # (2026-11-24: a control gets its tooltip from the line of its key, so a tagged control with a line must show
+    # words; only the keys of NO_TOOLTIP have none)
+    from ui.help_texts import HELP
+
+    def line(key):
+        h = HELP[help_window.help_key(key)]
+        return h[0] if isinstance(h, list) else h
+    silent = sorted({w.property("help_key") for root in (page, page.tracer) for w in root.findChildren(QWidget)
+                     if w.property("help_key") and help_window.help_key(w.property("help_key"))
+                     and line(w.property("help_key")) and not w.toolTip()})
+    check("help: every tagged control whose Help line has words shows a tooltip", not silent, silent)
+
+
+def test_controls_without_a_tooltip(eq_screen, check):
+    # (2026-11-24, the text survey: 9 short lines of Make an EQ removed, then 11 and 22 lines of its settings. Their
+    # keys stay, so F1, the name for a screen reader and the links of the Help entry stay)
+    from ui import help_window
+    from ui.help_texts import HELP
+    page = eq_screen.page
+    empty = {k for k, h in HELP.items() if not (h[0] if isinstance(h, list) else h)}
+    entries = {k: help_window.entry_for(k) for k in NO_TOOLTIP}
+    check("help: the keys with an empty line are the listed ones, and each still has its entry in Help",
+          empty == NO_TOOLTIP and all(entries.values()), (sorted(empty ^ NO_TOOLTIP), entries))
+    check("help: Use for 5 minutes on and Update a profile keep the links of their entries",
+          HELP["#use-try"] == ["", "q-try", "set-use-device", "set-use-update"]
+          and HELP["#use-update"] == ["", "set-use-device", "set-use-try", "set-prof-edit"],
+          (HELP["#use-try"], HELP["#use-update"]))
+    bare = {"View": page.view_combo, "Start from": page.hand_source, "Start": page.hand_start,
+            "Use on device": page.use_btn}
+    got = {n: (w.toolTip(), w.accessibleName(), w.accessibleDescription(), w.property("help_key"))
+           for n, w in bare.items()}
+    check("help: View, Start from, Start and Use on device show no tooltip, and keep their name for a screen reader "
+          "and their tag for F1",
+          got == {"View": ("", "View", "", "#opt-view"), "Start from": ("", "Start from", "", "#by-hand"),
+                  "Start": ("", "Start (Manually)", "", "#hand-start"),
+                  "Use on device": ("", "Use on device (Make an EQ)", "", "#use-device")}, got)
+    own = {"Compare…": page.cmp_btn, "Automatically": page.way_btns["auto"], "Manually": page.way_btns["hand"]}
+    got = {n: (bool(w.toolTip()), bool(w.accessibleName()), w.accessibleDescription()) for n, w in own.items()}
+    check("help: Compare… and the tabs Automatically and Manually keep the tooltip of their own, and a screen reader "
+          "reads only their name (no line of Help after it)",
+          all(v == (True, True, "") for v in got.values()), got)
+
+
+def test_settings_boxes_without_a_help_line(eq_screen, check):
+    # (2026-11-24, the text survey, area 13: the line of 10 settings boxes and of the row Settings to try removed.
+    # A box with limits then shows only its limits, with no empty first line; a list or a text box and each label
+    # show no tooltip; a box whose line has words shows the line, then its limits)
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QLabel
+    from ui import help_window
+    page, st = eq_screen.page, eq_screen.page.settings
+    fields ={**st.form.fields, **st.adv_form.fields}
+
+    def label(path):  # (the label above the box: the one label that the cell itself has; "to" is in the boxes' row)
+        cell = fields[path].parentWidget().parentWidget()
+        own = cell.findChildren(QLabel, options=Qt.FindDirectChildrenOnly)
+        return own[0] if len(own) == 1 else None
+    limits = ["best_fit.filter_counts", "best_fit.freq_range.0", "best_fit.freq_range.1", "best_fit.gain_min",
+              "best_fit.gain_max", "best_fit.q_min", "best_fit.q_max", "best_fit.low_shelf_freq.0",
+              "best_fit.low_shelf_freq.1"]
+    got = {p: fields[p].box.toolTip() for p in limits}
+    check("help: a settings box whose Help line is removed shows only its limits, on one line",
+          all(t.startswith("Allowed: ") and "\n" not in t for t in got.values()), got)
+    got = {p: fields[p].box.toolTip() for p in ("best_fit.start_filters", "best_fit.layout", "scoring.pick")}
+    check("help: Start from your filters, Layout and Best result (no limits) show no tooltip",
+          set(got.values()) == {""}, got)
+    labels = {p: label(p) for p in limits + list(got) if not p.endswith(".1")}
+    got = {p: (w.text(), w.toolTip()) if w is not None else None for p, w in labels.items()}
+    check("help: the label of each of these boxes shows no tooltip",
+          all(v and v[0] and v[1] == "" for v in got.values()), got)
+    got = {p: (fields[p].box.property("help_key"), help_window.entry_for(p), bool(fields[p].box.accessibleName()))
+           for p in limits + ["best_fit.start_filters", "best_fit.layout", "scoring.pick"]}
+    check("help: each of these boxes keeps its tag for F1, its entry in Help and its name for a screen reader",
+          all(k == p and e and named for p, (k, e, named) in got.items()), got)
+    got = (page.sa.toolTip(), page.sa.accessibleName(), page.sa.accessibleDescription(), bool(page.estimate.toolTip()))
+    check("help: the row Settings to try has no tooltip of its own and a screen reader reads only its name; the "
+          "text of the row keeps its tooltip", got == ("", "Settings to try", "", True), got)
+    got = {p: fields[p].box.toolTip().split("\n") for p in ("scoring.band_hz.0", "scoring.band_hz.1",
+                                                              "best_fit.bands.gain_min", "best_fit.bands.gain_max")}
+    check("help: a settings box whose Help line has words shows the line, then its limits",
+          [t[0] for t in got.values()] == ["Frequency range used to measure EQ error"] * 2
+          + ["Minimum slider gain (dB)", "Maximum slider gain (dB)"]
+          and all(len(t) == 2 and t[1].startswith("Allowed: ") for t in got.values()), got)
+    adj = st.adjust()  # (the page's own window, made hidden at its first use)
+    rows = {w.text(): w.toolTip().split("\n") for w in adj.dlg.findChildren(QLabel)
+            if w.text() in ("Tilt", "Bass", "Half-tilt", "Ear gain", "Treble", "Air")}
+    boxes = {k: adj.form.fields["target_adjust." + k].box.toolTip().split("\n")
+             for k in ("tilt", "bass_freq", "bass_q", "ear_q")}
+    check("help: Adjust the target: the name of a row and its value box show the same line and limits",
+          rows["Tilt"] == boxes["tilt"] and rows["Tilt"][0] == "Tilts the full target: − gives more bass, + gives "
+          "more treble" and [len(v) for v in rows.values()] == [2] * 6
+          and rows["Air"][0] == "Boosts (+) or cuts (−) upper treble (“air”) above ~10 kHz", rows)
+    check("help: Adjust the target: an Hz box shows its line and limits, a Q list only its line",
+          boxes["bass_freq"][0] == "Corner frequency for the bass shelf" and len(boxes["bass_freq"]) == 2
+          and boxes["bass_q"] == ["Slope of the bass shelf"] and boxes["ear_q"] == ["Width of the ear-gain filter"],
+          boxes)
+
+
+def test_more_settings_without_a_help_line(eq_screen, check):
+    # (2026-11-24, the text survey, area 14: 22 more lines removed. A number box shows only its limits; a list, a
+    # tick box of a file format and Number of filters show no tooltip; Calculate from these filters keeps the tooltip
+    # that the page gives it, and a screen reader reads that one)
+    from ui import help_window
+    from ui.help_texts import HELP
+    page, st = eq_screen.page, eq_screen.page.settings
+    fields = {**st.form.fields, **st.adv_form.fields}
+    limits = ["site_single.freq_low", "site_single.freq_high", "site_sweep.freq_low", "site_sweep.freq_high",
+              "site_sweep.q_min", "site_sweep.q_max", "site.smooth_level", "performance.cores"]
+    got = {p: fields[p].box.toolTip() for p in limits}
+    check("help: a box of the website methods, Smoothing level and CPU cores show only their limits, on one line",
+          all(t.startswith("Allowed: ") and "\n" not in t for t in got.values()), got)
+    formats = ["export." + k for k in ("apo", "graphic", "poweramp", "uapp", "soundsource", "voicemeeter", "rockbox",
+                                       "convolution")]
+    got = {p: (fields[p].box.toolTip(), bool(fields[p].box.text()), fields[p].box.accessibleDescription())
+           for p in formats}
+    check("help: the tick box of each of the 8 file formats shows no tooltip; its words stay",
+          all(v == ("", True, "") for v in got.values()), got)
+    got = fields["site.sample_rate"].box.toolTip()
+    check("help: the list Sample rate shows no tooltip", got == "", got)
+    got = {p: (fields[p].box.property("help_key"), help_window.entry_for(p), bool(fields[p].box.accessibleName() or fields[p].box.text()))
+           for p in limits + formats + ["site.sample_rate"]}
+    check("help: each of these boxes keeps its tag for F1, its entry in Help and its name for a screen reader",
+          all(k == p and e and named for p, (k, e, named) in got.items()), got)
+    combo, retry = page.count_combo, page.retry_btn
+    got = (combo.toolTip(), combo.accessibleName(), combo.accessibleDescription(), combo.property("help_key"),
+           retry.toolTip(), retry.accessibleDescription(), retry.property("help_key"))
+    check("help: Number of filters shows no tooltip; Calculate from these filters keeps the tooltip of its own; a "
+          "screen reader reads no line of Help for them",
+          got == ("", "Number of filters", "", "fcounts", "Recalculate Best fit starting from these filters", "",
+                  "f_retry"), got)
+    # (the lines that the survey changed: on the box with its limits after it, and on a list alone)
+    got = {p: fields[p].box.toolTip().split("\n") for p in ("site_single.gain_min", "site_single.gain_max",
+                                                            "site_single.q_max", "export.extra_headroom")}
+    check("help: a number box whose line the survey changed shows the new line, then its limits",
+          [t[0] for t in got.values()] == ["Minimum and maximum allowed gain per filter"] * 2
+          + ["Minimum and maximum allowed Q per filter", "Extra negative pre-amp applied for more clipping headroom"]
+          and all(len(t) == 2 and t[1].startswith("Allowed: ") for t in got.values()), got)
+    got = {p: fields[p].box.toolTip() for p in ("site.profile", "export.preamp_rounding", "export.report")}
+    check("help: a list or a tick box whose line the survey changed shows only the new line",
+          got == {p: HELP[p][0] for p in got}
+          and got["export.report"] == "Standalone HTML report with the response graph and filter table", got)
+    got = (page.name_edit.toolTip(), page.name_edit.accessibleName())
+    check("help: File name shows its new line", got == ("Base name for exported files", "File name"), got)
 
 
 def test_buttons_named_in_help_as_they_read(eq_screen, check):
@@ -62,11 +222,10 @@ def test_use_on_device_has_its_own_help(eq_screen, check):
     btn = eq_screen.page.use_btn
     entry = help_window.entry_for(btn.property("help_key") or "")
     e = help_window._by_id().get(entry or "", {})  # (as tests/ui/test_help.py reads the entries)
-    check("help: Use on device has its own Help entry, whose tooltip names its 3 functions and whose entry links to "
-          "Update a profile and Use for 5 minutes on",
-          btn.property("help_key") == "#use-device" and entry == "set-use-device"
-          and btn.toolTip().startswith("Uses the EQ on a device: as a new profile of the device, in a profile that you "
-                                       "have (Update a profile), or for 5 minutes.")
+    # (2026-11-24, the text survey: the button has no tooltip any more; its entry tells its 3 functions)
+    check("help: Use on device has its own Help entry, which links to Update a profile and Use for 5 minutes on, and "
+          "no tooltip",
+          btn.property("help_key") == "#use-device" and entry == "set-use-device" and btn.toolTip() == ""
           and e.get("title") == "Use on device (Make an EQ)" and e.get("see") == ["set-use-update", "set-use-try"],
           (btn.property("help_key"), entry, btn.toolTip(), e.get("title"), e.get("see")))
 
@@ -80,10 +239,10 @@ def test_update_words_are_true_for_each_device(check):
     from ui.help_texts import HELP
     with open(os.path.join(paths.PROJECT_APP, "ui", "guide_eq.py"), encoding="utf-8") as fh:
         guide = fh.read()
+    # (2026-11-24, the text survey: Update a profile has no short help any more, so no short line can be untrue)
     short = HELP["#use-update"][0]
-    check("help: the short help of Update a profile says what is true for each device, and Help gives the conditions",
-          short == "Puts the EQ into a profile that you have. The profile keeps its name and its devices. Help tells "
-                   "when each device uses the new EQ." and "have it on use the new" not in guide, (short,))
+    check("help: Update a profile has no short help, and the Guide does not say that all its devices use the new EQ",
+          short == "" and "have it on use the new" not in guide, (short,))
     # (2026-11-12: only the short help was checked; the long help can lose its conditions, and the message rule)
     from ui.help_text_devices import SETTINGS_DEVICES
     body = next(e["body"] for g in SETTINGS_DEVICES for e in g["items"] if e["key"] == "#use-update")
@@ -175,3 +334,24 @@ def test_help_search_finds_an_eq_app_by_its_name(eq_screen, check):
     check("help: the search finds the entry “Load the EQ in your EQ app” by the name of each app of the Your EQ app "
           "list, and a name that only this entry has shows the entry on the page",
           not missed and shown == (1, "load-eq", True), (missed, shown))
+
+
+def test_numbers_of_your_result_without_a_help_line(eq_screen, check):
+    # (2026-11-24, the text survey, area 14: the Help lines of the 4 numbers of Your result removed. Maximum gain and
+    # Maximum Q show no tooltip; Error and Pre-amp show the tooltip that the page gives them with a result. The last
+    # test of this file, because it calculates an EQ on the shared page)
+    from ui import help_window
+    page = eq_screen.page
+    eqpage.quick_run(eq_screen)
+    chips = page.chips
+    got = {k: (c.toolTip(), c.accessibleName(), c.accessibleDescription(), help_window.entry_for(c.property("help_key")))
+           for k, c in chips.items()}
+    check("help: Maximum gain and Maximum Q of Your result show no tooltip, and a screen reader reads only their name",
+          got["boost"] == ("", "Maximum gain", "", "set-res-boost") and got["maxq"] == ("", "Maximum Q", "", "set-res-maxq"),
+          got)
+    check("help: Error and Pre-amp of Your result keep the tooltip of their own, with no line of Help for a screen "
+          "reader, and their entry in Help",
+          got["error"] == ("Average difference between the EQ'd response and target (lower is better)", "Error", "",
+                           "set-res-error")
+          and got["preamp"] == ("Volume reduction to prevent clipping (highest EQ boost plus extra headroom)", "Pre-amp",
+                                "", "set-res-preamp"), got)

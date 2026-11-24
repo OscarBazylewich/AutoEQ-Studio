@@ -78,6 +78,7 @@ layout_reported = 0                        # how many of LAYOUT_BREAKS have been
 OPENED_URLS: list[str] = []            # what the app asked Windows to open (a website, a folder): never opened
 _made = []
 _watch = []
+_plain = {}  # (the font and colours of the QApplication as it was made, for no_theme)
 
 
 def time_limit(sec) -> float:
@@ -318,6 +319,8 @@ def app():
             url, "toString") else str(url)), True)[1])
         sys.excepthook = _excepthook(sys.excepthook)
         _watch_layout_calls()
+        if not qapp.styleSheet():
+            _plain.update(font=qapp.font(), palette=qapp.palette())
         _made.append(qapp)
     return qapp
 
@@ -431,6 +434,25 @@ def dark(qapp):
     """The app's dark theme on the whole application."""
     from ui import theme
     theme.apply(qapp, dark=True)
+
+
+def no_theme(qapp=None):
+    """The application back to how it draws before the app's theme is applied (ui.theme.apply): no stylesheet, the
+    font and the colours it was made with. Nothing when no QApplication is made yet or no theme is on it. A theme
+    stays on the application for the whole process: a part of the tests that measures plain windows (tests\\ui) calls
+    this before each file, so its sizes are the same whatever ran before it in the process (with the theme's font and
+    padding, every control is wider). What the theme keeps beside these stays: its names for a screen reader and its
+    focus frame, and the colours ui.theme.tokens() gives."""
+    if qapp is None:
+        if "PySide6.QtWidgets" not in sys.modules:
+            return
+        from PySide6.QtWidgets import QApplication
+        qapp = QApplication.instance()
+    if not _plain or qapp is None or not qapp.styleSheet():
+        return
+    qapp.setStyleSheet("")
+    qapp.setFont(_plain["font"])
+    qapp.setPalette(_plain["palette"])
 
 
 def picture(widget):

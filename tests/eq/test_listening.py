@@ -64,9 +64,9 @@ def test_too_many_or_unnamed_refused(iem_a, check):
     fl, kept = iem_a.fl, iem_a.kept
     # was eq_checks.py:639
     check("EQs to compare: at most 12 per IEM; an EQ without filters or an IEM without a name is refused (and named)",
-          "The maximum is 12" in (raises(listening.put, "IEM A", [{"filters": fl}] * 13) or "")
+          "Limit of 12 EQs" in (raises(listening.put, "IEM A", [{"filters": fl}] * 13) or "")
           and "has no filters" in (raises(listening.put, "IEM A", [{"name": "E", "filters": []}]) or "")
-          and "select a measurement" in (raises(listening.get, "  ") or "") and listening.get("IEM A") == kept)
+          and raises(listening.get, "  ") == "Select a measurement first" and listening.get("IEM A") == kept)
 
 
 def test_emptied_list_goes(iem_a, check):
@@ -123,3 +123,13 @@ def test_damaged_file_kept_aside(check):
         os.remove(listening.PATH + ".bad")
     listening.put("IEM C", [])
     textfile.take_set_aside()  # (the notice it left for the window: no later test should see it)
+
+
+def test_no_filters_and_no_name_said_with_the_name_it_would_get(check):
+    # (2026-11-24: an EQ with no name and no filters gave “” has no filters. An EQ needs no name here: it gets
+    # "EQ 1", "EQ 2", by its place, and the message uses that name)
+    said = [raises(listening.put, "IEM N", eqs) for eqs in ([{"filters": []}], [{"name": "  ", "filters": []}],
+                                                           [{"name": "A", "filters": one_filter()}, {"filters": []}])]
+    check("EQs to compare: an EQ with no filters and no name is refused with the name of its place, not empty quotes",
+          said == ["“EQ 1” has no filters", "“EQ 1” has no filters", "“EQ 2” has no filters"]
+          and listening.get("IEM N") == [], said)

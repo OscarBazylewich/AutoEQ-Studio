@@ -41,8 +41,8 @@ SOUNDS = [("music", "Music (short, it starts again at the end)"), ("pink", "Pink
           ("sweep", "Sweep 20 Hz-20 kHz"),
           ("tone", "Tone (select a frequency)"), ("file", "Your audio file…")]
 COLOURS = ["c3", "c5", "c4", "c2"]  # (the EQs to compare on the graph, in turn)
-ABX_TIP = ("In each trial, X is a random selection of A or B. Listen to A, B and X. Then click “X is A” or "
-           "“X is B”. At the end, the test shows your result and how frequently random selections get the same result.")
+ABX_TIP = ("Each trial randomly assigns X to A or B. Listen and pick whether X is A or B. Shows your score and the odds "
+           "of guessing that well.")
 
 
 class _PlayButton(QPushButton):
@@ -153,10 +153,11 @@ class Listen(QGroupBox):
         self._rows_of = None  # the list that the rows of the EQs to compare show (render_pins)
         st = page.sw.s.get("listen") or {}
         v = QVBoxLayout(self)
-        # (one gray line under the title, with all its help text: the IEM, and "Start with a low volume" once; the keys
-        # 1-9 are in the version buttons' tooltips. The UI audit, 2026-11-08: a second line under the ears' row said
-        # the volume again, and read as the ABX test's)
-        self.note = QLabel("Listen to the EQ with your IEM or headphone. Start with a low volume.")
+        # (one gray line under the title: the IEM, and with one version only how to get a second, render_versions;
+        # the keys 1-9 are in the version buttons' tooltips. The UI audit, 2026-11-08: a second line under the ears'
+        # row read as the ABX test's. The text survey, 2026-11-24: "Start with a low volume." is in Help only, at
+        # Volume)
+        self.note = QLabel("Listen with your IEM or headphone.")
         self.note.setWordWrap(True)
         theme.mark(self.note, role="muted")
         v.addWidget(self.note)
@@ -189,7 +190,7 @@ class Listen(QGroupBox):
         self.vol_lab = QLabel()
         row.addWidget(self.vol_lab)
         self.lm = QCheckBox("Same level")
-        self.lm.setToolTip("All versions have the same loudness. Thus, you compare the EQ and not the volume")
+        self.lm.setToolTip("Matches loudness across all versions so volume doesn't skew comparisons")
         self.lm.setChecked(st.get("lm", True))
         self.lm.toggled.connect(self.same_level_changed)
         for w, key in ((self.src, "#snd-src"), (self.vol, "#snd-vol"), (self.lm, "#snd-lm")):
@@ -232,7 +233,7 @@ class Listen(QGroupBox):
         icons.put(pick, "open")
         pick.clicked.connect(self.select_file)
         fr.addWidget(pick)
-        self.file_lab = QLabel("mp3, flac, wav, ogg …")
+        self.file_lab = QLabel("MP3, FLAC, WAV, OGG…")
         theme.mark(self.file_lab, role="muted")
         fr.addWidget(self.file_lab, 1)
         v.addWidget(self.file_row)
@@ -270,7 +271,7 @@ class Listen(QGroupBox):
         # ABX test disables as one; the Play row stays enabled. The UI audit, 2026-11-08)
         ears.addWidget(self.lm)
         self.blind = QCheckBox("Hide the names")
-        self.blind.setToolTip("Shows the versions as A, B, C … in a random sequence, until you click “Show the names”")
+        self.blind.setToolTip("Labels versions A, B, C… in random order until you click “Show the names”")
         self.blind.toggled.connect(self.hide_names_changed)
         ears.addWidget(self.blind)
         self.reveal_btn = QPushButton("Show the names")
@@ -421,12 +422,12 @@ class Listen(QGroupBox):
         version buttons hidden (one lit would give X away), X heard first."""
         from ui import abx as abx_mod
         if len(self.versions()) < 2:
-            bubble.tell(None, "An ABX test must have two versions. Calculate an EQ, make a manual EQ, or add one of your "
-                        "EQs to compare.", near=self)
+            bubble.tell(None, "ABX testing requires two versions. Calculate an EQ, create a manual EQ, or add an EQ to "
+                        "compare.", near=self)
             return
         a, b = self.abx_a.currentData(), self.abx_b.currentData()
         if a is None or b is None or a == b:
-            bubble.tell(None, "Select two different versions for A and B.", near=self)
+            bubble.tell(None, "Select two different versions for A and B", near=self)
             return
         self.abx = abx_mod.Abx(a, b, self.abx_n.currentData())
         vs = self.versions()
@@ -485,9 +486,9 @@ class Listen(QGroupBox):
         t, now = self.abx, self._abx_filters(vs)
         for k in (t.a, t.b):
             if k not in now:
-                return f"{self._abx_labels.get(k, k)} is not available"
+                return f"{self._abx_labels.get(k, k)} is unavailable"
             if now[k] != self._abx_heard.get(k):
-                return f"{self._abx_labels.get(k, k)} changed"
+                return f"{self._abx_labels.get(k, k)} filters changed"
         return ""
 
     def abx_render(self):
@@ -495,8 +496,8 @@ class Listen(QGroupBox):
         if t is None:
             return
         names = {k: label for k, label, *_ in self.versions()}
-        self.abx_text.setText(f"Trial {t.trial + 1} of {t.n}: A is {names.get(t.a, t.a)}, B is {names.get(t.b, t.b)}"
-                              + ("" if self.playing else " (Play first.)"))
+        self.abx_text.setText(f"Trial {t.trial + 1} of {t.n}: A = {names.get(t.a, t.a)}, B = {names.get(t.b, t.b)}"
+                              + ("" if self.playing else " · Click Play to start"))
         self.abx_box.show()
         self.render_versions()
 
@@ -520,17 +521,17 @@ class Listen(QGroupBox):
         names = {**{k: label for k, label, *_ in self.versions()}, **self._abx_labels}  # (as they were when it began)
         because = f" ({why})" if why else ""
         if not quiet and t.answers:
-            self.abx_results = (self.abx_results + [{"what": f"{names.get(t.a, t.a)} and {names.get(t.b, t.b)}",
+            self.abx_results = (self.abx_results + [{"what": f"{names.get(t.a, t.a)} vs {names.get(t.b, t.b)}",
                                                      "score": f"{t.correct_count()} of {len(t.answers)}",
                                                      "verdict": t.verdict()}])[-5:]
             now, earlier = self.abx_results[-1], self.abx_results[:-1]
-            head = "" if finished else f"The test stopped after {len(t.answers)} of {t.n} trials{because}. "
+            head = "" if finished else f"Stopped after {len(t.answers)} of {t.n} trials{because}. "
             self.abx_said.setText(head + f"{now['what']}: {now['verdict']}" + (
-                "\nPrevious ABX tests: " + " · ".join(f"{r['what']}: {r['score']}" for r in earlier)
+                "\nPrevious tests: " + " · ".join(f"{r['what']}: {r['score']}" for r in earlier)
                 if earlier else ""))
             self.abx_said.show()
         elif not quiet and why:
-            self.abx_said.setText(f"The ABX test stopped before you completed a trial: {why}.")
+            self.abx_said.setText(f"ABX test stopped before any trial finished: {why}")
             self.abx_said.show()
         self._abx_fill()
         self.render_versions()
@@ -680,14 +681,12 @@ class Listen(QGroupBox):
                 b.show()  # (now, not after the event loop as Qt does it: a new control gets the focus only when
                 b.setFocus(Qt.OtherFocusReason)  # it shows, and until then the focus is on no control)
         self._fill_sides()
-        note = "Listen to the EQ with your IEM or headphone. "
+        note = "Listen with your IEM or headphone."
         if self.page.curves:
-            note = f"Listen with the {self.page.curves['name']}. "
+            note = f"Listen with {self.page.curves['name']}."
         if len(self.versions()) < 2:
-            note += "To hear more than one version, calculate an EQ or keep EQs to compare. "
-        if split:
-            note += "Also interchange the sides: your two ears are different. "
-        self.note.setText(note + "Start with a low volume.")
+            note += " To compare versions, calculate an EQ or add EQs to compare."
+        self.note.setText(note)
 
     def _fill_sides(self):
         """Left's and Right's lists: the versions, what was selected kept."""
@@ -779,13 +778,13 @@ class Listen(QGroupBox):
             self.engine.start()
         except Exception as e:  # noqa: BLE001 - no sound card, a driver refusing: said
             self.play_btn.setText("Play")
-            QMessageBox.warning(self, "Listen", f"The app cannot open the sound card: {e}")
+            QMessageBox.warning(self, "Listen", f"Couldn't open playback device: {e}")
             return
         self.playing = True
         self.play_btn.setText("Stop")
         if kind in ("tone", "sweep"):
             self.marker_timer.start()
-        self.abx_render()  # (an ABX test's trial: "Play first." goes)
+        self.abx_render()  # (an ABX test's trial: "Click Play to start" goes)
 
     def stop(self):
         if self.engine:
@@ -874,19 +873,19 @@ class Listen(QGroupBox):
         self.ensure_engine()
         from ui import audio
         name, sr = os.path.basename(f), self.engine.sr
-        self.file_lab.setText(f"{name} (in progress…)")
+        self.file_lab.setText(f"{name} (loading…)")
         self._file_seq = seq = getattr(self, "_file_seq", 0) + 1
 
         def done(data, err):
             if seq != self._file_seq:  # (another file chosen while this one was read: that one, not this)
                 return
             if err is not None:
-                self.file_lab.setText(f"The app cannot read {name}. Use mp3, wav, flac or ogg.")
+                self.file_lab.setText(f"Couldn't read {name}. Use an MP3, FLAC, WAV, or OGG file.")
                 if play_after:
                     self.stop()
                 return
             self.file_data, self.file_name = data, name
-            self.file_lab.setText(f"{name} ({round(len(data) / sr)} s, it starts again at the end)")
+            self.file_lab.setText(f"{name} ({round(len(data) / sr)} s, loops)")
             self.src.setCurrentIndex(self.src.findData("file"))
             self.source_changed()
             if play_after and not self.playing:
@@ -906,15 +905,15 @@ class Listen(QGroupBox):
         self.apo_box.setVisible(on)
         if on:
             from switcher.core import shown
-            self.apo_text.setText(f"The EQ of {shown(rec)} is on (“{name}”, Devices). You hear it with the EQ here. "
-                                  "Thus, “EQ off” is not fully off. Disable it while you compare.")
+            self.apo_text.setText(f"{shown(rec)} has “{name}” active, which stacks on playback here. Disable it while "
+                                  "comparing.")
 
     def device_eq_off(self):
         key, rec = self.page.sw.playing()
         if rec:
             self.page.sw.set_active(key, None)
             from switcher.core import shown
-            self.page.status(f"The EQ of {shown(rec)} is off (enable it again in Devices or in the tray).", 8000)
+            self.page.status(f"Turned off EQ for {shown(rec)}. Re-enable it in Devices or the system tray.", 8000)
         self.render_device_eq()
 
     # ---------------------------------------------------------------- your EQs to compare (one list per IEM)
@@ -964,15 +963,16 @@ class Listen(QGroupBox):
             return False
         filters = [dict(f) for f in filters if f.get("enabled", True) is not False and f.get("freq") and f.get("q")]
         if not filters:
-            bubble.tell(None, "That EQ has no filters to compare.", near=near)
+            bubble.tell(None, "This EQ has no filters to compare", near=near)
             return False
         sig = lambda fl: sorted((f.get("type", "PK"), float(f["freq"]), float(f["gain"]), float(f["q"])) for f in fl
                                 if f.get("enabled", True) is not False)
         if any(sig(p["filters"]) == sig(filters) for p in self.pins):
-            (say or self.page.status)("That EQ is in the list.")
+            (say or self.page.status)("Already in EQs to compare")
             return False
-        if len(self.pins) >= getattr(self, "max_pins", 12):
-            bubble.tell(None, "The list is full (12). Remove an EQ first.", near=near)
+        most = getattr(self, "max_pins", 12)  # (the limit of the service, load_pins; 12 before a list was loaded)
+        if len(self.pins) >= most:
+            bubble.tell(None, f"EQs to compare is full (max {most}). Remove one first.", near=near)
             return False
         import uuid
         used = {p.get("color", i) % len(COLOURS) for i, p in enumerate(self.pins)}  # (a colour not in use, as eqlist.js)
@@ -982,13 +982,13 @@ class Listen(QGroupBox):
         if not self.save_pins():
             return False
         if say is None:  # (a window of its own says it in its line: History's; said behind it, it took the Undo there)
-            self.page.status(f"“{name}” is in your EQs to compare for the {self.pins_for}. You can hear it in Listen.")
+            self.page.status(f"Added “{name}” to EQs to compare for {self.pins_for}")
         return True
 
     def add_selected(self):
         run, r = self.page.current()
         if not r:  # (on all along: what's needed said in a bubble at the button, UI-RULES 25)
-            bubble.tell(None, "There is no EQ on the result card. Calculate an EQ or make a manual EQ first.", near=self)
+            bubble.tell(None, "No EQ to add. Calculate an EQ or create a manual EQ first.", near=self)
             return
         st = self.page.stats()
         from ui.eq_page import MODE_SHORT
@@ -1006,13 +1006,13 @@ class Listen(QGroupBox):
         try:
             text = textfile.read(f)
         except OSError as e:  # (no rights, an offline OneDrive file, one another program holds)
-            QMessageBox.warning(self, "EQs to compare", f"The app cannot read the file: {e}")
+            QMessageBox.warning(self, "EQs to compare", f"Couldn't read file: {e}")
             return
         self._add_text(text, os.path.splitext(os.path.basename(f))[0], f"from {os.path.basename(f)}")
 
     def add_paste(self):
         from ui.eq_page_parts import paste_dialog
-        got = paste_dialog(self, "Paste filters", "For example, Crinacle's EQ", "Equalizer APO lines, Room EQ Wizard "
+        got = paste_dialog(self, "Paste filters", "e.g., Crinacle's EQ", "Equalizer APO lines, Room EQ Wizard "
                            "filters, or one filter on each line as “frequency gain Q”", "Add")
         if got:
             self._add_text(got[1], got[0] or "Pasted EQ", "pasted")
@@ -1025,7 +1025,7 @@ class Listen(QGroupBox):
         left = r.get("left_out") or []
         if r.get("error") or not r.get("filters"):
             QMessageBox.warning(self, "EQs to compare", r.get("error") or (
-                f"Listen cannot use these items: {' · '.join(left)}." if left else "There are no filters in this text."))
+                f"Unsupported items: {' · '.join(left)}" if left else "No filters found in this text"))
             return
         added = self.add(name, [dict(f, enabled=f.get("enabled", True) is not False) for f in r["filters"]], note)
         if added and left:  # (refused, there or full: what was left out of an EQ never added isn't said)
@@ -1066,8 +1066,8 @@ class Listen(QGroupBox):
         grid.setColumnStretch(1, 1)
         self.pins_lay.addWidget(table)
         if not self.pins:
-            empty = QLabel("No EQs. Keep the result (Keep to compare), or add an EQ with a button below this text."
-                           if self.pins_for else "Select a measurement. Each IEM has a different list.")
+            empty = QLabel("No saved EQs yet. Click Keep to compare on a result, or add one below."
+                           if self.pins_for else "Select a measurement")
             theme.mark(empty, role="muted")
             grid.addWidget(empty, 0, 0, 1, 5)
         rows = []
@@ -1087,8 +1087,9 @@ class Listen(QGroupBox):
             graph.toggled.connect(lambda on, p=p: (p.__setitem__("shown", on), self.save_pins()))
             grid.addWidget(graph, i, 3)
             x = QPushButton("✕")
-            theme.mark(x, quiet=True)  # (no fill until pointed at, as every ✕)
-            x.setToolTip("Remove from the list")
+            # (no fill until pointed at, as every ✕; no tooltip: the symbol is the usual one, the text survey,
+            # 2026-11-24. A screen reader reads its name, _name_pins)
+            theme.mark(x, quiet=True)
             x.clicked.connect(lambda _=False, p=p: self._remove(p))
             grid.addWidget(x, i, 4)
             rows.append({"name": name, "graph": graph, "x": x})
@@ -1189,12 +1190,15 @@ class Listen(QGroupBox):
         self.pins = [x for x in self.pins if x is not p]
         if self.save_pins():
             device = self.pins_for
-            self.page.status(f"You removed “{p['name']}” from your EQs to compare.", undo=lambda: self._put_back(device, p))
+            self.page.status(f"Removed “{p['name']}” from EQs to compare", undo=lambda: self._put_back(device, p))
 
     def _put_back(self, device, p):
         """Undo of ✕ (eqlist.js undoRemove): back in the list it came from, also after another IEM was chosen."""
         if device == self.pins_for:
-            self.add(p["name"], p["filters"], p.get("note", ""))
+            # (add says nothing by itself here, only a refusal through say: the Undo has one message for the two
+            # cases, the "Restored" one below; it said "Added …" for this case before 2026-11-24)
+            if self.add(p["name"], p["filters"], p.get("note", ""), say=self.page.status):
+                self.page.status(f"Restored “{p['name']}” to EQs to compare for {device}", 6000)
             return
         r = self.page.svc.call("/api/listen", {"device": device})
         eqs = (r.get("eqs") or []) + [p]
@@ -1202,4 +1206,4 @@ class Listen(QGroupBox):
         if r.get("error"):
             QMessageBox.warning(self, "EQs to compare", r["error"])
         else:
-            self.page.status(f"“{p['name']}” is in the EQs to compare for {device} again.", 6000)
+            self.page.status(f"Restored “{p['name']}” to EQs to compare for {device}", 6000)

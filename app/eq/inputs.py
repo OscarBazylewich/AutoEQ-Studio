@@ -10,6 +10,7 @@ import textfile
 
 TARGET_DIR, MEAS_DIR = paths.TARGET_DIR, paths.MEAS_DIR
 EXTS = (".txt", ".csv", ".tsv", ".frd")  # frequency-response files (text)
+MIN_POINTS = 32  # a file with fewer frequency/dB points is refused (the message of add_files gives this number)
 # "GATe Wide L1", "HD600_R", "X (Left)": (device, channel, seating number)
 CHANNEL_RE = re.compile(r"^(.*?)[\s_-]+(?:\(|\[)?(L|R|Left|Right)(?:\)|\])?[\s_-]*(\d{0,2})$", re.IGNORECASE)
 # a file name that says it's a target
@@ -70,12 +71,12 @@ def selected(cfg, target=None, measurements=None):
         st = state(cfg)
         if target is None:
             if not st["active_target"]:
-                raise ValueError("No target file. Drag one onto the Target box.")
+                raise ValueError("No target selected")
             target = os.path.join(TARGET_DIR, st["active_target"])
         if measurements is None:
             measurements = [os.path.join(MEAS_DIR, m["name"]) for m in st["measurements"] if m["included"]]
     if not measurements:
-        raise ValueError("No measurement files. Drag one or more onto the Measurement box.")
+        raise ValueError("No measurement selected")
     return target, measurements
 
 
@@ -106,8 +107,8 @@ def add_files(kind, files):
             name = "file" + ext
         content = textfile.normalize_fr(content)
         n = engines.count_points(content)
-        if n < 32:
-            raise ValueError(f"{name}: the app found only {n} frequency/dB points. Is this a frequency response file?")
+        if n < MIN_POINTS:
+            raise ValueError(f"{name}: only {n} frequency/dB points found (at least {MIN_POINTS} required)")
         ready.append((name, content))
     for k in range(1, 1000):
         names = [_numbered(name, k) for name, _ in ready]
@@ -144,7 +145,7 @@ def _plain_name(name):
     """A file's name without any folder part; never empty, "." or ".." (those would mean the folder itself)."""
     base = os.path.basename(name) if isinstance(name, str) else ""
     if base.strip(" .") == "":
-        raise ValueError("There is no file name.")
+        raise ValueError("Missing file name")
     return base
 
 
@@ -172,10 +173,10 @@ def move_file(kind, name):
     name = _plain_name(name)
     src = os.path.join(src_dir, name)
     if not os.path.isfile(src):
-        raise ValueError(f"{name} is not in the {kind} folder.")
+        raise ValueError(f"{name} is not in the {kind} folder")
     os.makedirs(dst_dir, exist_ok=True)
     if not _free_or_same(os.path.join(dst_dir, name), textfile.read(src)):
         other = "Measurement" if kind == "target" else "Target"
-        raise ValueError(f"{other} has a different “{name}”: first, remove or rename one of them.")
+        raise ValueError(f"{other} already has a different “{name}”. Delete or rename one of the files first.")
     _in_use_retry(os.replace, src, os.path.join(dst_dir, name))
     return name

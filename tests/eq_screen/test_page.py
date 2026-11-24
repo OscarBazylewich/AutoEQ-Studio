@@ -516,3 +516,32 @@ def test_other_measurements_has_no_tooltip(eq_screen, check):
     page = eq_screen.page
     tips = [b.toolTip() for b in page.findChildren(QPushButton) if b.text() == "Other measurements of this model…"]
     check("make an EQ: “Other measurements of this model…” has no tooltip of its own", tips == [""], tips)
+
+
+def test_add_names_a_file_with_too_few_points_once(eq_screen, dialogs, tmp_path, check):
+    # (2026-11-24: "Couldn't add My curve.txt: My curve.txt: only 3 …": the name of the file was there twice)
+    from eq import inputs
+    page = eq_screen.page
+    short = "\n".join(f"{hz} 0.0" for hz in (100, 1000, 10000))
+    enough = "\n".join(f"{20 * 1.2 ** i:.2f} 0.0" for i in range(36))
+    files = {"My curve.txt": short, "Pair L.txt": enough, "Pair R.txt": short}
+    for name, text in files.items():
+        (tmp_path / name).write_text(text, encoding="utf-8")
+    before = sorted(os.listdir(inputs.folder("measurement")))
+
+    def add(kind, *names):
+        dialogs.reset()
+        dialogs.answer("getOpenFileNames", ([str(tmp_path / n) for n in names], ""))
+        page.add_files(kind)
+        return [text for k, text in dialogs.asked if k == "warning"]
+    one = add("target", "My curve.txt")
+    check("make an EQ: Add of one file with too few points names the file one time",
+          one == ["Couldn't add My curve.txt: only 3 frequency/dB points found (at least 32 required)"], one)
+    two = add("measurement", "Pair L.txt", "Pair R.txt")
+    after = sorted(os.listdir(inputs.folder("measurement")))
+    # (the files of a measurement are added as one set, or none of them: the message names the set, then the file
+    # with the problem)
+    check("make an EQ: Add of two measurement files, one with too few points: the message names the two files that "
+          "were not added, then the file with the problem",
+          two == ["Couldn't add Pair L.txt, Pair R.txt: Pair R.txt: only 3 frequency/dB points found (at least 32 "
+                  "required)"] and after == before, (two, sorted(set(after) ^ set(before))))

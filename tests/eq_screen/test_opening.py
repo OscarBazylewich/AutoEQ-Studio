@@ -52,7 +52,7 @@ def test_says_what_save_writes_from_the_start(eq_screen, check):
     page = eq_screen.page
     line = page.formats_line.text()
     check("ui: the line under File name says what Save filters writes as soon as the page opens",
-          line.startswith("Save filters writes"), line)
+          line.startswith("Will save: ") and not line.endswith("."), line)
 
 
 def test_eq_app_sets_method_and_files(eq_screen, check):

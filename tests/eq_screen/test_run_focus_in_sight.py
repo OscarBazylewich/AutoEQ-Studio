@@ -95,6 +95,7 @@ def test_a_focus_out_of_sight_does_not_keep_the_card_away(eq_screen, check):
     find = next(b for b in page.target_box.findChildren(QPushButton) if b.text() == "Find…")
     try:
         d = _run_at(eq_screen, (1000, 768), during=lambda p: find.setFocus(Qt.OtherFocusReason))
+        low = _run_at(eq_screen, (1000, 650), during=lambda p: find.setFocus(Qt.OtherFocusReason))
     finally:
         page.resize(1000, 900)
         qt.pump(200)
@@ -102,9 +103,23 @@ def test_a_focus_out_of_sight_does_not_keep_the_card_away(eq_screen, check):
           "the result card comes into sight from its top all the same, and the page does not go to that control",
           d["done"] and d["focus"] is find and not d["focus in sight"] and d["card top in sight"],
           {k: v for k, v in d.items() if k != "focus"})
-    # (2026-11-15, round 3: the verifier's mutation D3, the card's top at the view's top edge, no test found it)
+    # (2026-11-15, round 3: the verifier's mutation D3, the card's top at the view's top edge, no test found it.
+    # 2026-11-24: this check read the card's top in the view of 768 px, where the card was 704 px high: not higher
+    # than the view, but too high for 40 px of room above and below it (704 + 80 > 768), so its top was at 40 px. The
+    # line under the card's numbers then went from two lines of text to one: the card 685 px, 685 + 80 < 768, all of
+    # it in sight with 40 px under its end and 43 px above its top, as _follow_result intends. So the view of 650 px
+    # here, with a check that the card is higher than it: the text of the card can change its height, and the check
+    # keeps its meaning)
+    check("eq page: in a view of 650 px the result card is higher than the view (what the next check needs)",
+          low["done"] and low["card height"] > low["view height"], (low["card height"], low["view height"]))
     check("eq page: a card higher than the view comes into sight with 40 px of room above its top (its title not at "
-          "the edge of the view)", d["card top"] == 40, d["card top"])
+          "the edge of the view)", low["card top"] == 40, low["card top"])
+    # (the view of 768 px: the card with the room of 40 px on each side fits or does not, by the text on the card)
+    fits = d["card height"] + 80 <= d["view height"]
+    check("eq page: a card that fits in the view with 40 px of room above and below comes into sight with 40 px "
+          "under its end, and a card too high for that with 40 px above its top (a view of 768 px)",
+          d["view height"] - d["card top"] - d["card height"] == 40 if fits else d["card top"] == 40,
+          (fits, d["card top"], d["card height"], d["view height"]))
 
 
 def test_a_card_in_sight_keeps_the_page_where_it_is(eq_screen, check):

@@ -63,6 +63,10 @@ def rig_tag(rig):
 
 # ---------------------------------------------------------------- where the app's files came from
 SOURCES_PATH = paths.SOURCES_PATH
+# The source of a target saved from Adjust is these words and the name of the target it was made from
+# (eq.service records it; target_rig shows it after "from"). OLD_ADJUSTED: the words in records made before
+# 2026-11-24, which stay in the file as they are and show with the words of today.
+ADJUSTED, OLD_ADJUSTED = "your adjusted ", "your adjustments of "
 _SOURCES_LOCK = threading.Lock()  # (the server answers requests in parallel: one change to the file at a time)
 
 
@@ -203,7 +207,10 @@ def target_rig(name, recorded=None):
     if rec:
         rig, _ = source_rig(rec)
         if rig:
-            return rig, f"it came from {rec['site']}"
+            site = rec["site"]
+            if site.startswith(OLD_ADJUSTED):
+                site = ADJUSTED + site[len(OLD_ADJUSTED):]
+            return rig, f"from {site}"
     n = name.lower()
     for pat, rig in _TARGET_NAME_RIGS:
         if re.search(pat, n):
@@ -213,7 +220,7 @@ def target_rig(name, recorded=None):
     for it in idx.get(stem, []) + idx.get(stem + " target", []):
         rig, _ = source_rig(it)
         if rig:
-            return rig, f"it comes from {it['site']}"
+            return rig, f"from {it['site']}"
     return None, "unknown"
 
 

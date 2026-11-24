@@ -583,7 +583,7 @@ class Stage(QWidget):
                 pen.setDashPattern([6 / 1.5, 4 / 1.5])
             p.setPen(pen)
             v = str(t.v[val]).strip()
-            text = f"type {unit}" if v == "" else f"{v} {unit}"
+            text = f"Enter {unit}" if v == "" else f"{v} {unit}"
             if horiz:
                 y = self.to_scr(0, t.cal[key])[1]
                 p.drawLine(QPointF(ix0, y), QPointF(ix1, y))

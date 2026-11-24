@@ -123,3 +123,16 @@ def test_folders_looked_at_in_the_search_thread(monkeypatch, check):
     check("This PC: which folders exist is seen in the search's own thread, never on the one that asked (a network "
           "folder that doesn't answer held the window for seconds); the search then has those that exist",
           started is True and len(looked) >= 2 and not any(looked) and searched == [mine], (started, looked, searched))
+
+
+def test_least_number_of_points_is_one_number(monkeypatch, check):
+    # (2026-11-24: This PC's search had a 32 of its own beside inputs.MIN_POINTS, the number that Add files gives in
+    # its message: a change of one would have left the search finding files that Add files refuses, or the opposite)
+    from eq import inputs
+    text = "\n".join(f"{20 * 1.2 ** i:.2f} {i % 5}" for i in range(36))  # (36 points, 20 Hz to 11.8 kHz)
+    as_set = library.sniff_text(text)
+    monkeypatch.setattr(inputs, "MIN_POINTS", 40)
+    more = library.sniff_text(text)
+    check("This PC: the search takes the least number of points of a file from inputs.MIN_POINTS, the number of Add "
+          "files (36 points: found at 32, not found at 40)",
+          inputs.MIN_POINTS == 40 and as_set and as_set["points"] == 36 and more is None, (as_set, more))

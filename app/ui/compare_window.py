@@ -67,8 +67,10 @@ class _Row(QFrame):
 
 
 def _not_loaded(errors):
-    """The measurements that did not load, in a fold "Not loaded (n)", one on each line; when they all have one cause
-    (offline: "to download it, change to Online"), it is said once, at the end."""
+    """The measurements that did not load, in a fold "Not loaded (n)", one on each line; when the text after
+    "name (source): " is the same for all of them (a network error, for example), that cause is said once, at the end.
+    A cause that names its measurement or website (the offline one: "No local copy of … from …, and you're offline.
+    Switch to Online (top right) to download it.") differs from line to line, so each line keeps its own."""
     fold = Fold(f"Not loaded ({len(errors)})")
     names, causes = [], []
     for e in errors:
@@ -237,7 +239,7 @@ class CompareWindow(QDialog):
         def done(res, err):
             self.busy = False
             self.go.setEnabled(True)
-            if (res or {}).get("error", "").startswith("The online database lists are not available at this time"):
+            if (res or {}).get("error") == self.svc.LISTS_NOT_READY:
                 if not self.isVisible():  # (closed meanwhile: nothing more is compared or downloaded)
                     return
                 self.status.setText("The app loads the online database lists first…")

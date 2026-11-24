@@ -195,9 +195,8 @@ def test_words_of_a_website_entry(check):
     words = {"BROWSE_NOTE": databases.BROWSE_NOTE, "REFUSED_NOTE": databases.REFUSED_NOTE, "Help": " ".join(paras)}
     check("website words: the messages and Help say that the app opens the website, not the entry (a link can be the "
           "page of the database)",
-          databases.BROWSE_NOTE.endswith("The app opens the website and traces a picture of the graph of the entry.")
-          and databases.REFUSED_NOTE.endswith("Thus, the app opens the website and traces a picture of the graph of "
-                                              "the entry.")
+          databases.BROWSE_NOTE.endswith("Click Use to open the page and trace the graph.")
+          and databases.REFUSED_NOTE.endswith("Opening the page to trace the graph instead.")
           and not any("opens the entry" in w or "open it on its website" in w for w in words.values()), words)
 
 

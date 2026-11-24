@@ -188,7 +188,8 @@ class FilterEditor(QWidget):
             x = QToolButton()
             theme.mark(x, quiet=True)  # (a row's ✕: every list's one look, UI-RULES 18)
             x.setText("✕")
-            x.setToolTip("Remove this filter")
+            # (no tooltip: the text survey, 2026-11-24. In every list ✕ removes the item. The name is for a screen
+            # reader, and the editor finds the control by it after a rebuild)
             x.setAccessibleName(f"Remove filter {i + 1}")
             x.clicked.connect(lambda _=False, i=i: self.delete(i))
             t.setCellWidget(i, 6, x)
@@ -242,11 +243,20 @@ class FilterEditor(QWidget):
             return None
 
     def _mark(self, box, msg):
+        """A box red with the problem as its tooltip (msg), or as usual again (None). The usual tooltip (the limits;
+        in the Sliders view the filter too) is kept on the box while the problem shows, and put back with the next
+        correct value: before 2026-11-24 the problem stayed as the tooltip of a correct value."""
         box.setProperty("bad", True if msg else None)
         box.style().unpolish(box)
         box.style().polish(box)
+        usual = box.property("usual_tip")
         if msg:
+            if usual is None:  # (not a second problem in a row: then the tooltip is the first problem's message)
+                box.setProperty("usual_tip", box.toolTip())
             box.setToolTip(msg)
+        elif usual is not None:
+            box.setToolTip(usual)
+            box.setProperty("usual_tip", None)
 
     def _typed(self, f, key, box):
         v = self._read(box)
@@ -329,7 +339,7 @@ class FilterEditor(QWidget):
             s.setSingleStep(1)
             s.setPageStep(10)
             s.setEnabled(on)
-            s.setToolTip(f"Filter {i + 1}: drag it, or use the arrow keys (0.1 dB). Double-click for 0 dB.")
+            s.setToolTip(f"Filter {i + 1} gain: drag or use arrow keys (±0.1 dB). Double-click for 0 dB.")
             s.valueChanged.connect(lambda v, f=f, val=val: (f.__setitem__("gain", round(v / 10, 1)),
                                                              val.setText(f"{v / 10:+.1f}"), self._edited()))
             g.addWidget(s, 2, col, Qt.AlignHCenter)
@@ -342,8 +352,9 @@ class FilterEditor(QWidget):
                 box.setAlignment(Qt.AlignCenter)
                 box.setFixedWidth(64)
                 lim_text = self.limits.text("edit." + key)
-                box.setToolTip(f"Filter {i + 1}'s {'frequency (Hz)' if key == 'freq' else 'Q'}"
-                               + (f". Permitted: {lim_text}." if lim_text else ""))
+                # (the unit is in the limits: "Filter 2 frequency (20 to 20000 Hz)")
+                box.setToolTip(f"Filter {i + 1} {'frequency' if key == 'freq' else 'Q'}"
+                               + (f" ({lim_text})" if lim_text else ""))
                 box.textEdited.connect(lambda text, f=f, key=key, box=box: self._typed(f, key, box))
                 box.editingFinished.connect(lambda f=f, key=key, box=box: self._edit_finished(f, key, box))
                 box.setEnabled(f.get("enabled", True) is not False)
@@ -355,7 +366,8 @@ class FilterEditor(QWidget):
                 typ.addItem(name, k)
             typ.sort_items(pinned=1)  # ("Peak" on top)
             typ.setCurrentIndex(max(0, typ.findData(f.get("type", "PK"))))
-            typ.setToolTip(f"Filter {i + 1}'s type")
+            # (the type, the tick box and the ✕ of a column have no tooltip: the text survey, 2026-11-24. The labels
+            # at the left end of the rows name them. Their accessible names stay)
             typ.setAccessibleName(f"Filter {i + 1} type")
             typ.activated.connect(lambda _x, f=f, typ=typ: (f.__setitem__("type", typ.currentData()), self._edited()))
             typ.setEnabled(on)
@@ -366,7 +378,6 @@ class FilterEditor(QWidget):
             fl.setSpacing(2)
             tick = QCheckBox()
             tick.setChecked(on)
-            tick.setToolTip(f"Filter {i + 1} on or off")
             tick.setAccessibleName(f"Filter {i + 1} on")
             tick.toggled.connect(lambda v, f=f: (f.__setitem__("enabled", v), self._edited(),
                                                  QTimer.singleShot(0, self.rebuild)))  # (not inside its own signal)
@@ -374,7 +385,6 @@ class FilterEditor(QWidget):
             x = QToolButton()
             theme.mark(x, quiet=True)
             x.setText("✕")
-            x.setToolTip(f"Remove filter {i + 1}")
             x.setAccessibleName(f"Remove filter {i + 1}")
             x.clicked.connect(lambda _=False, i=i: self.delete(i))
             fl.addWidget(x)

@@ -17,6 +17,7 @@ import types
 import pytest
 
 from eq import databases, settings
+import net
 import textfile
 from helpers import qt
 from helpers.eq import DbGuard
@@ -343,3 +344,83 @@ def test_refresh_after_failed_one(api, db_guard, monkeypatch, check):
         time.sleep(0.05)
     # was eq_checks.py:2214
     check("databases: a refresh after a failed one isn't refused with \"Missing 'url'\"", "url" not in str(r.get("error", "")), r)
+
+
+def test_offline_list_error_has_no_doubled_word(db_guard, monkeypatch, tmp_path, check):
+    # (the text survey, 2026-11-24: Sources shows this error as the tooltip of "did not load". With the name of the
+    # error's type before it, as the other errors have, it started "Offline: Offline.")
+    site = {"name": "Test", "url": "https://example.invalid/", "short": "T"}
+    monkeypatch.setattr(databases, "CACHE_PATH", os.path.join(tmp_path, "db-offline.json"))
+    db_guard.stub_get(db_guard.saved["attrs"]["_get"])  # (the real one: offline, it refuses before any connection)
+    databases.refresh_now([site], force=True)
+    errors = [s.get("error") for s in databases.status()["sites"]]
+    check("databases: offline, the error of a list that did not load is “Offline. Switch to Online to download.” alone",
+          errors == ["Offline. Switch to Online to download."], errors)
+
+
+def test_too_large_file_names_the_limit(monkeypatch, check):
+    class Answer:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self, n):
+            return b"x" * n
+
+        def geturl(self):
+            return "https://example.invalid/"
+
+    import net
+    monkeypatch.setattr(net, "check", lambda what=None: None)  # (no connection is made: urlopen is stood in for)
+    monkeypatch.setattr(databases.urllib.request, "urlopen", lambda req, timeout=0: Answer())
+    said = {}
+    for limit in (20_000_000, 3_000_000):
+        try:
+            databases._get("https://example.invalid/big", limit=limit)
+            said[limit] = None
+        except ValueError as e:
+            said[limit] = str(e)
+    check("databases: a file past the size limit is refused with the limit in MB",
+          said == {20_000_000: "file is too large (over 20 MB)", 3_000_000: "file is too large (over 3 MB)"}, said)
+
+
+def test_list_error_has_no_python_type_name(db_guard, monkeypatch, tmp_path, check):
+    # (2026-11-24: Sources shows this error as the tooltip of "did not load". It started with the Python name of the
+    # error's type: "ValueError: file is too large (over 20 MB)")
+    site = {"name": "Test", "url": "https://example.invalid/", "short": "T"}
+    monkeypatch.setattr(databases, "CACHE_PATH", os.path.join(tmp_path, "db-error.json"))
+    said = {}
+    for name, error in (("message", ValueError("file is too large (over 20 MB)")), ("empty", TimeoutError())):
+        def fails(url, error=error, **k):
+            raise error
+        db_guard.stub_get(fails)
+        databases.refresh_now([site], force=True)
+        said[name] = [s.get("error") for s in databases.status()["sites"]]
+    check("databases: the error of a list that did not load is the message of the error alone, without the Python name "
+          "of its type; an error with no message gives that name (all there is)",
+          said == {"message": ["file is too large (over 20 MB)"], "empty": ["TimeoutError"]}, said)
+
+
+def test_list_error_of_the_code_keeps_its_type_name(db_guard, monkeypatch, tmp_path, check):
+    # (2026-11-24: with the message alone, a KeyError (a site list with a field missing) was only a quoted word in
+    # the tooltip of "did not load": 'items'. The message of such an error is not a sentence: the name of its type
+    # stays before it. An error of the app's own checks (ValueError) or of the connection (OSError) has a sentence)
+    import urllib.error
+    site = {"name": "Test", "url": "https://example.invalid/", "short": "T"}
+    monkeypatch.setattr(databases, "CACHE_PATH", os.path.join(tmp_path, "db-error.json"))
+    said = {}
+    for name, error in (("key", KeyError("items")), ("type", TypeError("string indices must be integers")),
+                        ("index", IndexError()), ("http", urllib.error.HTTPError("u", 404, "Not Found", None, None)),
+                        ("connection", urllib.error.URLError("no answer")), ("offline", net.Offline("Offline."))):
+        def fails(url, error=error, **k):
+            raise error
+        db_guard.stub_get(fails)
+        databases.refresh_now([site], force=True)
+        said[name] = [s.get("error") for s in databases.status()["sites"]]
+    check("databases: an error of the code (a missing field) keeps the name of its type before its message, an error "
+          "of the connection or of the app's own checks is its message alone",
+          said == {"key": ["KeyError: 'items'"], "type": ["TypeError: string indices must be integers"],
+                   "index": ["IndexError"], "http": ["HTTP Error 404: Not Found"],
+                   "connection": ["<urlopen error no answer>"], "offline": ["Offline."]}, said)

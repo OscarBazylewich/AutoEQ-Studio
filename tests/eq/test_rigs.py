@@ -185,3 +185,52 @@ def test_traced_file_rig_from_its_record(check):
     check("rigs: a traced file's rig comes from its record when the name has no tag (or a number after it)",
           after == [("5128", True), ("5128", True)] and before[0] == (None, False) and before[1] != ("5128", True),
           (before, after))
+
+
+def test_rig_notes_of_the_tags(monkeypatch, check):
+    # (the text survey, 2026-11-24: how the app found a rig, in the tooltip of a rig tag. Each part ends without a
+    # period, so the joined text has no doubled punctuation)
+    units = {"https://a.squig.link": {"name": "A", "rig": "5128", "confidence": "stated", "source": "its About page"},
+             "https://b.squig.link": {"name": "B", "rig": "711", "confidence": "high", "models": 41, "wins": 0.93},
+             "https://c.squig.link": {"name": "C", "rig": "711", "confidence": "medium", "models": 12, "wins": 0.67,
+                                      "loose": True, "mixed": True},
+             "https://d.squig.link": {"name": "D", "rig": "unknown", "confidence": "high", "models": 9, "wins": 0.4},
+             "https://e.squig.link": {"name": "E", "rig": "711", "confidence": "low", "models": 3, "wins": 0.5}}
+    monkeypatch.setitem(rigmap._data, "d", {"units": units})
+    notes = rigmap.site_notes()
+    unknown = rigmap.lookup({"site_url": "https://d.squig.link/", "name": "X"})
+    monkeypatch.undo()
+    check("rig notes: a rig that the source gives, with the place", notes.get("A") == "from source (its About page)",
+          notes.get("A"))
+    check("rig notes: a rig from the measurements, sure", notes.get("B") == "estimated from 41 shared models (93% match "
+          "this rig)", notes.get("B"))
+    check("rig notes: a weaker match, entries with a rig of their own, and not sure: one sentence each",
+          notes.get("C") == "estimated from 12 shared models (67% match this rig). Weaker match than same-rig "
+          "measurements (likely a clone or different rig). Some measurements match another rig and are labeled "
+          "individually. Low confidence", notes.get("C"))
+    check("rig notes: a database on none of the rigs that the app knows",
+          notes.get("D") == "matches none of the 4 known rigs: estimated from 9 shared models (40% match this rig)"
+          and unknown == (None, False, "matches none of the 4 known rigs (e.g., MiniDSP EARS or custom rig): estimated "
+                          "from 9 shared models (40% match this rig)"), (notes.get("D"), unknown))
+    check("rig notes: a weak result gives no note, and no note has doubled punctuation",
+          "E" not in notes and not any(bad in t for t in notes.values() for bad in ("..", ". .", " ,", "  ")), notes)
+
+
+def test_target_rig_says_where_it_is_from(check):
+    # (the list "Rig of your target" shows it in ( ) after the rig: "Automatic: … (from its name)")
+    rec = {"My target.txt": {"site_url": "https://graph.hangout.audio/iem/5128/",
+                             "site": "Hangout.Audio IEMs (Crinacle, 5128)", "name": "My target"}}
+    recorded = rigs.target_rig("My target.txt", rec)
+    named = rigs.target_rig("Harman IE 2019.txt", {})
+    check("rigs: a target from a database says “from {its database}”, one by its name “from its name”",
+          recorded == ("5128", "from Hangout.Audio IEMs (Crinacle, 5128)") and named == ("711", "from its name"),
+          (recorded, named))
+
+
+def test_target_saved_from_adjust_says_your_adjusted(check):
+    # (Save as a target… of Adjust records rigs.ADJUSTED and the name of the target it was made from. A record made
+    # before 2026-11-24 has the words of that time in the file: it shows with the words of today.)
+    new = rigs.target_rig("Mine.csv", {"Mine.csv": {"site": rigs.ADJUSTED + "Harman IE 2019", "rig": "711"}})
+    old = rigs.target_rig("Mine.csv", {"Mine.csv": {"site": "your adjustments of Harman IE 2019", "rig": "711"}})
+    check("rigs: a target saved from Adjust says “from your adjusted {target}”, an older record too",
+          new == old == ("711", "from your adjusted Harman IE 2019"), (new, old))

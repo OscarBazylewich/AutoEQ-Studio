@@ -94,6 +94,16 @@ def _read(path):
 # (eq_checks.py's module_checks; the ones that change your files or settings start and end with the studio as new,
 # as the old requests started on a copy the modules part had put back to the default settings)
 
+def test_which_measurement_says_when_the_lists_load(fresh_studio, eq_cfg, monkeypatch, check):
+    # (Which measurement waits and tries again when the answer is exactly service.LISTS_NOT_READY: compare_window.py)
+    monkeypatch.setattr(databases, "status", lambda: {"loading": True})
+    loading = raises(service.compare_run, {"query": "Some IEM", "settings": eq_cfg})
+    monkeypatch.undo()
+    check("Which measurement: while the database lists load, the answer is the message that the window waits on",
+          loading == service.LISTS_NOT_READY == "Online database lists are unavailable. Try again in a few seconds.",
+          loading)
+
+
 def test_undo_after_averaging_removes_the_new_file(fresh_studio, eq_cfg, monkeypatch, check):
     cfg = eq_cfg
     avg = {}
@@ -116,7 +126,7 @@ def test_use_refuses_an_unknown_as(check):
     # was eq_checks.py:679
     check("use: an unknown \"as\" is refused (was taken for a measurement)",
           raises(service.use, {"src": "app", "kind": "measurement", "names": ["x"], "as": "Target"})
-          == "The type is missing: target or measurement.")
+          == "Internal error: missing file type (target or measurement)")
 
 
 def test_run_uses_only_its_own_analysis(fresh_studio, eq_cfg, monkeypatch, check):
@@ -255,7 +265,7 @@ def test_retry_with_no_filters_on_refused(api, chain, check):
         code, r = _ask(api, "/api/run", {"mode": "best_fit", "settings": _small(chain["S"]),
                                          "retry": {"filters": [dict(MINE[2])], "add": False}})
         # was eq_checks.py:1136
-        check("requests: retry with no filters switched on is refused with a message", code == 400 and "no filters" in r.get("error", ""), r)
+        check("requests: retry with no filters switched on is refused with a message", code == 400 and r.get("error") == "No active filters to start from. Add or enable at least one filter.", r)
     finally:
         _no_run_left()  # (had it started, the next test's first run would be refused)
 
@@ -331,13 +341,15 @@ def test_report_card_words_are_text(api, chain, check):
 
 
 def test_report_no_points_in_scored_range(api, chain, check):
-    # (19.9-20 kHz: within the limits and in order, but between the grid's points at 19,897 and 20,186 Hz)
+    # (19.9-20 kHz: within the limits and in order, but between the grid's points at 19,897 and 20,186 Hz. Inside
+    # the curves, so the range is too narrow: until 2026-11-24 it said "has no curve data (curves cover 20 Hz-20
+    # kHz)", which did not explain it)
     S = _every_format(_small(chain["S"]))
     code, r = _ask(api, "/api/report", {"settings": dict(S, scoring=dict(S["scoring"], band_hz=[19900, 20000])),
                                         "cards": [{"title": "A", "filters": F}], "open": False, "name": "Empty band"})
     # was eq_checks.py:1181
     check("requests: a report with no curve points in the scored range says so (was \"nan dB\")",
-          code == 400 and "has no data" in r.get("error", ""), r)
+          code == 400 and "is too narrow and needs at least 2 curve points" in r.get("error", ""), r)
 
 
 def test_existing_report_replaced_only_when_asked(api, chain, check):
@@ -437,18 +449,25 @@ def test_unknown_address(api, check):
     check("requests: unknown address", _ask(api, "/api/nope")[0] == 404)
 
 
+def test_missing_field_named_without_quote_marks(check):
+    # (a field the code reads directly: the KeyError as text was "'id'", so the message was "Missing 'id'")
+    for path in ("/api/use", "/api/preview"):
+        check(f"requests: {path} without its id answers “Missing id”, no quote marks around the field",
+              service.call(path, {"src": "pc"}) == {"error": "Missing id"}, service.call(path, {"src": "pc"}))
+
+
 def test_body_not_a_dict(api, check):
     # (straight to eq.service, as the old check sent it: not through JSON)
     # was eq_checks.py:1232
     check("requests: a body that isn't a dict is read as empty (a missing field is named)",
-          api.call("/api/files/move", ["not", "a", "dict"]).get("error") == "The type is missing: target or "
-          "measurement.")
+          api.call("/api/files/move", ["not", "a", "dict"]).get("error") == "Internal error: missing file type (target "
+          "or measurement)")
 
 
 def test_missing_field_named(api, chain, check):
     # was eq_checks.py:1235
     check("requests: missing field named", _ask(api, "/api/files/move", {"settings": _every_format(_small(chain["S"]))})[1].get("error")
-          == "The type is missing: target or measurement.")
+          == "Internal error: missing file type (target or measurement)")
 
 
 def test_preset_read_changes_no_file(api, chain, check):
@@ -479,7 +498,9 @@ def test_wrong_kinds_of_values(api, check):
              for p in ("/api/files/add", "/api/files/remove", "/api/files/move", "/api/presets/load", "/api/presets/read",
                        "/api/listen")]
     # was eq_checks.py:1239
-    check("requests: wrong kinds of values get plain messages", all(e.startswith("The ") and e.endswith(("is missing.", "are missing.")) for e in wrong), wrong)
+    check("requests: wrong kinds of values get plain messages",
+          wrong == ["Missing name", "Missing names", "Missing name", "Missing name", "Missing name", "Missing device"],
+          wrong)
 
 
 def test_opens_nothing_outside_its_folder(api, check):
@@ -523,7 +544,7 @@ def test_compare_odd_queries(api, db_guard, eq_cfg, check):
         said = [(r.get("query"), r.get("error"), len(r.get("items") or [])) for r in [blank] + odd]
         # was eq_checks.py:2115
         check("compare: a query that isn't text is answered (no crash); average with odd keys says what to choose",
-              all("Traceback" not in json.dumps(r) for r in odd) and "Select the measurements" in avg.get("error", "")
+              all("Traceback" not in json.dumps(r) for r in odd) and avg.get("error") == "Select measurements to average"
               and blank.get("query") and all("error" not in r and isinstance(r.get("items"), list)
                                              and r.get("query") == blank.get("query") for r in [blank] + odd),
               (said, avg))
@@ -550,7 +571,7 @@ def test_db_entry(api, db_guard, eq_cfg, check):
           and set(e) == {"id", "kind", "name", "sub", "tag", "site", "site_url", "link", "site_page"}, r)
     bad = api.call("/api/db/entry", {"id": "no-such-entry"})
     check("service: /api/db/entry with an id that is not there gives a plain error",
-          "not there" in bad.get("error", "") and "Traceback" not in json.dumps(bad), bad)
+          "Entry not found in the database lists" in bad.get("error", "") and "Traceback" not in json.dumps(bad), bad)
 
 
 def test_files_add_source(fresh_studio, eq_cfg, check):

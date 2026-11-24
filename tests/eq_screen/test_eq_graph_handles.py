@@ -200,7 +200,7 @@ def test_double_click_with_no_eq_begins_one(eq_screen, check):
         if page.run_result is None:
             page.run_result, page.sel = keep
     check("handles: with no EQ shown, a double-click on the EQ graph begins an EQ by hand with that filter",
-          got == ("manual", "started on the EQ graph", [(2500, 3.0)]), got)
+          got == ("manual", "from EQ graph", [(2500, 3.0)]), got)
 
 
 def test_a_tried_eq_follows_the_edits(eq_screen, check):

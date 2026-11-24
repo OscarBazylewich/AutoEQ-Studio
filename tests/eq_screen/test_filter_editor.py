@@ -37,7 +37,7 @@ def test_editing_a_filter(eq_screen, chain, check):
     check("ui: editing a filter: the error, the title (edited), the file name (… edited) and the line on how it sounds "
           "follow at once",
           after[0] != before[0] and after[1].endswith("edited") and after[2] == before[1] + " edited"
-          and (after[3].startswith("Edited: the sound is") or not run.get("pick_case")), (before, after))
+          and (after[3].startswith("Edited: within ") and after[3].endswith(" dB)") or not run.get("pick_case")), (before, after))
 
 
 def test_value_past_the_edit_limits(eq_screen, chain, check):
@@ -389,15 +389,23 @@ def test_slider_moves_where_it_is_clicked_and_dragged(own_editor, check):
         QTest.mouseRelease(s, Qt.LeftButton, Qt.NoModifier, QPoint(cx, y + 3 - 40))
         dragged = s.value()
         QTest.mouseDClick(s, Qt.LeftButton, Qt.NoModifier, QPoint(cx, top + 5))
+        # (mouseDClick sends only the double-click, its button down: the let-go that ends a real one is sent here)
+        QTest.mouseRelease(s, Qt.LeftButton, Qt.NoModifier, QPoint(cx, top + 5))
         double = s.value()
         gain = ed.filters[0]["gain"]
     finally:
         ed.set_view("table")
+    from PySide6.QtWidgets import QApplication
+    left_down = QApplication.mouseButtons()
     per_px = (s.maximum() - s.minimum()) / (bot - top)
     check("filters: a click on a slider's track puts its thumb there (the top: its highest gain; the middle: 0 dB); "
           "pressed on the thumb it stays under the pointer as it's dragged; double-click: 0 dB; the filter's gain follows",
           at_top == s.maximum() and abs(at_middle) <= 1 and held == 0 and abs(dragged - 40 * per_px) <= 2
           and double == 0 and gain == 0.0, (at_top, at_middle, held, dragged, double, gain))
+    # (Qt keeps the buttons of the last mouse event for the whole process: left down here, the EQ graph of a later
+    # file took a filter's handle as still held and never drew, tests\eq_screen\test_eq_graph_handles.py)
+    check("filters: the test of the sliders leaves no mouse button down for the tests after it",
+          left_down == Qt.NoButton, left_down)
 
 
 def test_table_has_room_for_its_columns_and_scroll_bar(eq_screen, check):
@@ -432,3 +440,68 @@ def test_table_has_room_for_its_columns_and_scroll_bar(eq_screen, check):
           "one (a scroll bar across showed, and ✕ was cut), and a corner of its own (white in light), light and dark",
           all(f["bar across"] == (False, 0) and f["columns"] <= f["room"] and f["corner"]
               and f["bar up and down"] == (n == 20) for (_d, n), f in found.items()), found)
+
+
+def test_tooltips_of_the_filter_controls(own_editor, check):
+    # (the text survey, 2026-11-24: the ✕ of a row and the type, the tick box and the ✕ of a slider column show no
+    # tooltip; a screen reader still reads their names. The slider and the frequency and Q boxes keep a tooltip)
+    from PySide6.QtWidgets import QCheckBox, QLineEdit, QToolButton
+    from ui.search_combo import SearchCombo
+    ed = own_editor
+    row_x = ed.table.cellWidget(0, 6)
+    table = (row_x.toolTip(), row_x.accessibleName())
+    try:
+        sl = _sliders(ed)
+        holder = ed.sliders_scroll.widget()
+        named = lambda kind, name: next(w for w in holder.findChildren(kind) if w.accessibleName() == name)
+        quiet = [named(SearchCombo, "Filter 1 type"), named(QCheckBox, "Filter 1 on"),
+                 named(QToolButton, "Remove filter 1")]
+        tips = [w.toolTip() for w in quiet]
+        slider = sl[0].toolTip()
+        freq = named(QLineEdit, "Filter 3 frequency (Hz)").toolTip()
+        q = named(QLineEdit, "Filter 3 Q").toolTip()
+        lim_f, lim_q = ed.limits.text("edit.freq"), ed.limits.text("edit.q")
+    finally:
+        ed.set_view("table")
+    check("filters: the ✕ of a table row has no tooltip and keeps its name for a screen reader",
+          table == ("", "Remove filter 1"), table)
+    check("filters: the type, the tick box and the ✕ of a slider column have no tooltip (their names stay)",
+          tips == ["", "", ""], tips)
+    check("filters: the tooltip of a slider gives its filter, the keys and the double-click",
+          slider == "Filter 1 gain: drag or use arrow keys (±0.1 dB). Double-click for 0 dB.", slider)
+    check("filters: the tooltip of a frequency or Q box of the sliders is its filter and value, then the limits in ( )",
+          bool(lim_f) and bool(lim_q) and freq == f"Filter 3 frequency ({lim_f})" and q == f"Filter 3 Q ({lim_q})",
+          (freq, q))
+
+
+def test_tooltip_back_after_a_value_that_is_not_permitted(own_editor, check):
+    # (2026-11-24: the box kept the problem message as its tooltip after a correct value was typed)
+    ed = own_editor
+    seen = {}
+    try:
+        for view in ("table", "sliders"):
+            ed.set_view(view)
+            qt.pump(50)
+            if view == "table":
+                box = ed.table.cellWidget(0, 5)
+            else:
+                from PySide6.QtWidgets import QLineEdit
+                box = next(w for w in ed.sliders_scroll.widget().findChildren(QLineEdit)
+                           if w.accessibleName() == "Filter 1 Q")
+            usual = box.toolTip()
+            box.setText("abc")
+            box.textEdited.emit(box.text())
+            problem = (box.toolTip(), box.property("bad"))
+            box.setText("1.2")
+            box.textEdited.emit(box.text())
+            typed = (box.toolTip(), box.property("bad"))
+            box.setText("99999")
+            box.textEdited.emit(box.text())
+            box.editingFinished.emit()  # (Enter or the focus gone: the value is adjusted to the limit)
+            seen[view] = (usual, problem, typed, (box.toolTip(), box.property("bad")))
+    finally:
+        ed.set_view("table")
+    check("filters: a Q box shows the problem as its tooltip while its value is not permitted, and its usual tooltip "
+          "again after a correct value is typed or the value is adjusted (the table and the sliders)",
+          all(usual and problem == ("Enter a number", True) and typed == (usual, None)
+              and done == (usual, None) for usual, problem, typed, done in seen.values()), seen)

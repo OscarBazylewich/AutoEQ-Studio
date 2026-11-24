@@ -15,6 +15,7 @@ def test_offline_nothing_fetched(check):
     # opened, with a message that says the app is offline and that Online turns it back on; and the
     # service's download request comes back as an answer (an error the window shows), not a crash or a download. Had the
     # switch let it through, the only address tried would be 127.0.0.1:9, on this PC, refused at once.
+    # (the text survey, 2026-11-24: the message is these words alone; "Files from the online databases: " was before them)
     from eq import databases, service
     was_offline = net.offline()
     try:
@@ -26,7 +27,7 @@ def test_offline_nothing_fetched(check):
         r = service.call("/api/db/download", {"id": "x", "settings": {}})
     # was eq_checks.py:1305
     check("studio: offline, nothing is fetched from the internet (said plainly, before any connection)",
-          was_offline and said.endswith("Offline. Switch to Online to download.") and isinstance(r, dict)
+          was_offline and said == "Offline. Switch to Online to download." and isinstance(r, dict)
           and _check_says(None) == "Offline. Switch to Online to download."
           and _check_says("The list") == "The list: Offline. Switch to Online to download.", (was_offline, said, r))
 

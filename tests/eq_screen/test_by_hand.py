@@ -47,7 +47,7 @@ def test_start_empty_and_add_a_filter(eq_screen, check):
     page.add_filter()
     check("by hand: Start empty puts an EQ of your own on the result card (titled By hand, no filter counts to choose "
           "from, a line saying how to add one, Listen there); Add filter adds one, the numbers and the name following",
-          empty[0] == "manual" and empty[1] == "Manually" and not empty[2] and not empty[3] and "No filters:" in empty[4]
+          empty[0] == "manual" and empty[1] == "Manually" and not empty[2] and not empty[3] and empty[4].startswith("No filters yet. Double-click the EQ graph or click Add filter.")
           and empty[5] == [] and empty[6] and empty[7] and len(page.EDIT) == 1 and page.chips["error"].text().startswith("Error")
           and page.name_edit.text().endswith(" - manual 1f") and "edited" in page.res_title.text(),
           (empty, page.chips["error"].text(), page.name_edit.text()))
@@ -76,7 +76,7 @@ def test_pasted_filters(eq_screen, check, monkeypatch):
     _start(page, "paste")
     run, _ = page.current()
     check("by hand: Paste filters… takes Equalizer APO lines, a switched-off filter staying off",
-          [(f["type"], f["enabled"]) for f in page.EDIT] == [("PK", True), ("HSQ", False)] and run["source"] == "pasted",
+          [(f["type"], f["enabled"]) for f in page.EDIT] == [("PK", True), ("HSQ", False)] and run["source"] == "from pasted filters",
           page.EDIT)
 
 
@@ -126,17 +126,17 @@ def test_a_copy_of_the_eq_shown(eq_screen, check):
     run, _ = page.current()
     check("by hand: A copy of the selected EQ starts another EQ by hand with its filters as they are now, the one before "
           "kept in this session's runs",
-          len(page.session_runs) == before + 1 and run["source"] == "a copy of your manual EQ" and len(page.EDIT) == 2
+          len(page.session_runs) == before + 1 and run["source"] == "copy of manual EQ" and len(page.EDIT) == 2
           and not page.edited(), (run.get("source"), page.EDIT))
 
 
 def test_saved_and_kept_as_a_result(eq_screen, check):
     page = eq_screen.page
-    page.start_manual([{"type": "PK", "freq": 1000, "gain": 2, "q": 1}], "pasted", "Kept")
+    page.start_manual([{"type": "PK", "freq": 1000, "gain": 2, "q": 1}], "from pasted filters", "Kept")
     entry = eqpage.save_result(eq_screen, "By hand check")
     runs = [page.runs_combo.itemText(i) for i in range(page.runs_combo.count())]
     check("by hand: Save filters writes it and keeps it in History (By hand); this session's runs list it",
-          entry["mode"] == "manual" and entry["label"].startswith("Manually · pasted") and any("Manually" in t for t in runs)
+          entry["mode"] == "manual" and entry["label"] == "from pasted filters · 1 filter" and any("Manually" in t for t in runs)
           and "saved" in eq_screen.said[-1], (entry.get("label"), runs, eq_screen.said[-1:]))
 
 
@@ -164,7 +164,7 @@ def test_edits_kept_when_another_run_is_shown(eq_screen, check):
     first = page.run_result
     page.EDIT[0]["gain"] = 5
     page.live_update()
-    page.start_manual([], "from an empty EQ")
+    page.start_manual([], "from scratch")
     page.choose_run(id(first))
     check("by hand: an EQ by hand keeps your changes when another run is shown and it's chosen again in Runs this "
           "session (Revert still goes back to how it began)",
@@ -236,5 +236,5 @@ def test_close_on_pasted_filters_offers_undo(eq_screen, check):
     page.show_run(None)
     check("by hand: Close on an EQ by hand as it began (pasted) takes it off this session's runs with Undo in the "
           "window's line, and Undo brings it back as it was; an empty one goes without a word",
-          empty == [] and offered[0] and offered[1].startswith("You closed “#") and not offered[2]
+          empty == [] and offered[0] and offered[1].startswith("Closed “#") and offered[1].endswith("Manually”") and not offered[2]
           and back == (True, True, 1), (empty, offered, back))

@@ -163,7 +163,7 @@ def test_huge_sweep_refused_and_estimated_quickly(sample_curves, check):
     est = autoset.estimate(big, "site_sweep")
     # was eq_checks.py:480
     check("methods: a huge sweep is refused, and its estimate stays quick",
-          "The maximum is" in (raises(pipeline.check_run, "site_sweep", big, curves) or "") and time.time() - t0 < 1 and est > 3600)
+          "(max 20,000). Reduce" in (raises(pipeline.check_run, "site_sweep", big, curves) or "") and time.time() - t0 < 1 and est > 3600)
 
 
 # ---------------------------------------------------------------- every method and slider end

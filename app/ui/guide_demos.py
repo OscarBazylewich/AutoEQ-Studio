@@ -205,7 +205,7 @@ def stage_result(page):
 
 
 def stage_manual(page):
-    """An EQ by hand on the result card, as By hand's Start from an empty EQ makes it (the Guide's: nothing is kept),
+    """An EQ by hand on the result card, as Manually's Start from “An empty EQ” makes it (the Guide's: nothing is kept),
     so its step can show Close. The function it returns puts the page back as it was: the result shown (with edits not
     yet saved), this session's runs, the file name, Make the EQ's way. None while an ABX test runs (a new EQ shown
     would end it)."""
@@ -214,7 +214,7 @@ def stage_manual(page):
     keep = (page.run_result, page.sel, page.EDIT, page.ORIG, page.name_edit.text(), page.name_edit.property("auto"),
             list(page.session_runs), page.runs, page.listen.isVisible(), getattr(page, "hand_before", None),
             getattr(page, "way", "auto"))
-    page.start_manual([], "from an empty EQ")
+    page.start_manual([], "from scratch")
 
     def undo():
         run, sel, edit, orig, name, auto, runs, n, heard, before, was_way = keep

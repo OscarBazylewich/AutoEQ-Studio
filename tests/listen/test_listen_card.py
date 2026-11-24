@@ -70,12 +70,12 @@ def test_layout_of_the_card(card, check):
     texts = [lab.text() for lab in lis.findChildren(QLabel)]
     tips = [b.toolTip().split(" · ")[0] for b in lis.ab_box.findChildren(QPushButton)][:3]
     first = next(lab.text() for lab in lis.abx_row.findChildren(QLabel))
-    check("listen: one gray line of help at the top (with Start with a low volume once, no keys in it); Same level "
+    check("listen: one gray line of help at the top (the IEM, no keys in it, no word about the volume); Same level "
           "in the row of how you compare, with the ears and Hide the names; the ABX test under a title, its row "
           "begins with A; the version buttons say their keys in their tooltips; during a test the question "
           "Which version is X?",
-          texts.count("Listen to the EQ with your IEM or headphone. Start with a low volume.") <= 1
-          and lis.note.text().count("Start with a low volume") == 1 and "Keys" not in lis.note.text()
+          texts.count(lis.note.text()) == 1 and lis.note.text() == f"Listen with {card.page.curves['name']}."
+          and "Keys" not in lis.note.text()
           and in_row == [lis.ears, lis.lm, lis.blind] and lis.abx_head.text() == "ABX test"
           and lis.abx_head.property("role") == "section" and first == "A" and tips == ["Key 1", "Key 2", "Key 3"][:len(tips)]
           and len(tips) >= 2 and "Which version is X?" in texts and lis.abx_text.property("role") == "section",
@@ -113,7 +113,7 @@ def test_keep_to_compare(card, check):
     check("listen: Keep to compare adds the result once (kept for this IEM, on the graph, a version to hear)",
           len(lis.pins) == n + 1 and len(saved) == n + 1 and lis.pins[-1]["name"] in names
           and lis.pins[-1]["key"] in [s["key"] for s in lis.engine.slots]
-          and any("That EQ is in the list." in s for s in said), (len(lis.pins), names))
+          and any(s == "Already in EQs to compare" for s in said), (len(lis.pins), names))
 
 
 def test_blind_test(card, check):
@@ -138,6 +138,22 @@ def test_version_in_each_ear_and_swap(card, check):
     check("listen: a different version in each ear (EQ off left, the EQ right; Swap)",
           (lis.engine.ears, lis.engine.left, lis.engine.right) == ("split", "off", "sel") and not lis.blind.isEnabled()
           and (lis.interchange_sides() or (lis.engine.left, lis.engine.right) == ("sel", "off")), (lis.engine.left, lis.engine.right))
+    # (the text survey, 2026-11-24: the line had one more sentence with a version in each ear, and the volume)
+    check("listen: with a different version in each ear, the gray line at the top is the same one sentence",
+          lis.note.text() == f"Listen with {card.page.curves['name']}.", lis.note.text())
+
+
+def test_one_version_tells_how_to_get_a_second(card, monkeypatch, check):
+    lis = card.lis
+    with monkeypatch.context() as m:
+        m.setattr(lis, "versions", lambda: [("off", "EQ off", [], "meas")])
+        lis.render_versions()
+        one = lis.note.text()
+    lis.render_versions()
+    check("listen: with EQ off as the only version, the gray line at the top also tells how to get a second version; "
+          "with two versions it does not",
+          one == f"Listen with {card.page.curves['name']}. To compare versions, calculate an EQ or add EQs to compare."
+          and lis.note.text() == f"Listen with {card.page.curves['name']}.", (one, lis.note.text()))
 
 
 def test_history_listen_for_another_iem(card, check):
@@ -153,7 +169,7 @@ def test_history_listen_for_another_iem(card, check):
 
 
 def test_history_says_already_in_its_own_line(card, check):
-    # (2026-10-27, the rules' review: "That EQ is in the list already." was said in the main window's line, behind
+    # (2026-10-27, the rules' review: that the EQ is in the list already was said in the main window's line, behind
     # History)
     page, lis, entry = card.page, card.lis, card.entry
     hw = HistoryWindow(page, True)
@@ -165,7 +181,7 @@ def test_history_says_already_in_its_own_line(card, check):
     hw.close()
     lis._remove(added)  # (the list as it was: the checks after this one count it)
     check("listen: History's Keep to compare of an EQ that's in the list already says so in History's own line",
-          kept_once and "That EQ is in the list." in told, told)
+          kept_once and told == "Already in EQs to compare", told)
 
 
 def test_one_filter_named_filter(card, check, monkeypatch):
@@ -197,8 +213,10 @@ def test_one_filter_named_filter(card, check, monkeypatch):
 def test_device_eq_said(card, check):
     lis = card.lis
     # was eq_checks.py:2973
+    said = lis.apo_text.text()
     check("listen: the device's own EQ (Use on device switched it on) is said: it plays on top", lis.apo_box.isVisibleTo(lis)
-          and "Headset" in lis.apo_text.text(), lis.apo_text.text())
+          and "Headset" in said.split(" has “")[0]
+          and said.endswith("” active, which stacks on playback here. Disable it while comparing."), said)
 
 
 def test_device_eq_in_a_warning_card(card, check):
@@ -230,8 +248,11 @@ def test_device_eq_switched_off(card, check):
     lis, sw = card.lis, card.sw
     lis.device_eq_off()
     # was eq_checks.py:2976
-    check("listen: Switch it off turns the device's EQ off", sw.record("Headset|EarPods")["active"] is None
-          and not lis.apo_box.isVisibleTo(lis))
+    said = card.said[-1]
+    check("listen: Switch it off turns the device's EQ off, and the window's line says so",
+          sw.record("Headset|EarPods")["active"] is None and not lis.apo_box.isVisibleTo(lis)
+          and said.startswith("Turned off EQ for ") and "Headset" in said
+          and said.endswith(". Re-enable it in Devices or the system tray."), said)
 
 
 def test_remove_and_stop(card, check):
@@ -292,10 +313,15 @@ def test_tone_shown_pasted_eq_and_undo(card, check):
     tone_text = lis.tone_lab.text()
     lis._add_text("Filter 1: ON PK Fc 333 Hz Gain 2 dB Q 1", "Pasted check", "pasted")
     pasted_note = lis.pins[-1]["note"] if lis.pins else ""
+    added_said = card.said[-1]
     lis._remove(lis.pins[-1])
+    removed_said = card.said[-1]
     undo_shown = card.s.undo_offered()  # (Undo beside the message, in the window's line)
     n = len(lis.pins)
     card.s.undo()
+    check("listen: the window's line says an EQ added to the EQs to compare (with its IEM) and one removed",
+          added_said == f"Added “Pasted check” to EQs to compare for {lis.pins_for}"
+          and removed_said == "Removed “Pasted check” from EQs to compare", (added_said, removed_said))
     # was eq_checks.py:1921
     check("review: Listen: the tone's frequency shown from the start; a pasted EQ says so; ✕ offers Undo, which puts it back",
           tone_text.endswith("Hz") and pasted_note == "pasted" and undo_shown and len(lis.pins) == n + 1,
@@ -430,6 +456,11 @@ def test_eqs_to_compare_x_quiet_and_names(card, check):
     names = [_read_as(w) for w in lis.pins_box.findChildren(QLineEdit) if w.isVisible()]
     check("restyle: each EQ to compare's ✕ is quiet as every ✕ (no fill or border until pointed at)",
           len(xs) == len(lis.pins) >= 2 and all(quiet), (len(xs), quiet))
+    # (the text survey, 2026-11-24: its tooltip "Remove from the list" is gone)
+    check("listen: each EQ to compare's ✕ has no tooltip, and a screen reader reads what it removes",
+          len(xs) >= 2 and [(b.toolTip(), b.accessibleName()) for b in xs]
+          == [("", f"Remove {p['name']} from the EQs to compare") for p in lis.pins],
+          [(b.toolTip(), b.accessibleName()) for b in xs])
     check("access: each EQ to compare's name box has a name a screen reader reads (“Name of” its EQ)",
           names == [f"Name of {p['name']}" for p in lis.pins] and len(names) >= 2, names)
 
@@ -510,6 +541,13 @@ def test_eq_file_read_as_by_hand_reads_it(card, dialogs, check):
     if len(lis.pins) > n:  # (the list as it was, for the checks after this one)
         lis.pins = lis.pins[:n]
         lis.save_pins()
+    lis._add_text("Filter  1: ON  LP       Fc   18000 Hz\n", "Low-pass only", "pasted")
+    lis._add_text("no EQ here", "Nothing", "pasted")
+    refused = [t for kind, t in dialogs.asked if kind == "warning"][-2:]
+    check("listen: text with only items that an EQ here can't have, and text with no filters: each is refused with "
+          "its own words, and no EQ is added",
+          len(lis.pins) == n and len(refused) == 2 and refused[0].startswith("Unsupported items: ")
+          and not refused[0].endswith(".") and refused[1] == "No filters found in this text", refused)
     check("listen: an EQ file or pasted text is read as By hand reads it (a Room EQ Wizard export: its peak and its "
           "shelf), and what an EQ here can't have (its low-pass) is said",
           added.get("name") == "REW check" and len(added.get("filters", [])) == 2 and told and "These items are not in" in told[-1],
@@ -558,4 +596,30 @@ def test_empty_list_tells_how_to_add_an_eq(card, check):
         qt.pump(50)
     check("listen: with no EQs to compare, one line tells the two ways to get one (Keep to compare, or add an EQ "
           "with a button below the line)",
-          said == ["No EQs. Keep the result (Keep to compare), or add an EQ with a button below this text."], said)
+          said == ["No saved EQs yet. Click Keep to compare on a result, or add one below."], said)
+
+
+def test_full_list_names_the_real_limit(card, dialogs, monkeypatch, check):
+    # (2026-11-24: the bubble said "max 12" also when the service gave a different limit)
+    lis = card.lis
+    n = len(lis.pins)
+    monkeypatch.setattr(lis, "max_pins", n, raising=False)
+    dialogs.reset()
+    added = lis.add("One too many", [{"type": "PK", "freq": 432, "gain": 1.5, "q": 1}])
+    told = [text for kind, text in dialogs.asked if kind == "bubble"]
+    check("listen: a full list of EQs to compare is refused with the limit that the service gave, not always 12",
+          n != 12 and added is False and len(lis.pins) == n
+          and told == [f"EQs to compare is full (max {n}). Remove one first."], (n, added, told))
+
+
+def test_undo_of_x_says_restored(card, check):
+    # (2026-11-24: the Undo of ✕ said "Added …" with the same IEM selected and "Restored …" with a different one)
+    lis, said = card.lis, card.said
+    n = len(lis.pins)
+    lis.add("Undo check", [{"type": "PK", "freq": 444, "gain": 1.5, "q": 1}], "a note")
+    lis._remove(lis.pins[-1])
+    card.s.undo()
+    back = (len(lis.pins), lis.pins[-1]["name"], lis.pins[-1].get("note"), said[-1])
+    lis._remove(lis.pins[-1])  # (the list as it was)
+    check("listen: the Undo of ✕ puts the EQ back and says Restored, with the name of the EQ and the IEM",
+          back == (n + 1, "Undo check", "a note", f"Restored “Undo check” to EQs to compare for {lis.pins_for}"), back)

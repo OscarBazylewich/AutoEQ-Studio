@@ -21,6 +21,9 @@ stub_app        a stand-in for the app the window talks to, for a test that make
 Each window is closed and deleted when its file is done (helpers.qt.close), once the questions it asked APO (in the
 background) have their answers. No theme is applied here: the old self-test drew these screens unthemed, and the
 accessibility test counts on that (tests that need the theme apply it in a Python of their own: themed_window).
+A theme that tests of another part left on the application (tests\\eq_screen applies the app's, and it stays for the
+whole process) is taken off before each file here (no_theme_before_file): with it every control is wider, and the
+window could not be made as narrow as test_window.py asks.
 """
 import dataclasses
 import os
@@ -179,6 +182,11 @@ def _take_down(w):
     QThreadPool.globalInstance().waitForDone(int(qt.time_limit(30) * 1000))
     qt.pump(50)  # (their answers delivered while the window is still there)
     qt.close(w.win)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def no_theme_before_file():
+    qt.no_theme()
 
 
 @pytest.fixture

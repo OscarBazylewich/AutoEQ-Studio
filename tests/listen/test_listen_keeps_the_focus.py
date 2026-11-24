@@ -888,7 +888,7 @@ def test_a_calculation_that_ends_keeps_a_name_box_as_it_is(eq_screen, listen, ch
     measurement = line()
     check("listen: the line of an empty list of EQs to compare follows the measurement: with no measurement it tells "
           "to select one, and when a measurement with no EQs comes it tells how to add an EQ",
-          lis.pins_for == device and none == measurement and len(none) == 1 and none[0].startswith("No EQs.")
-          and len(no_measurement) == 1 and no_measurement[0].startswith("Select a measurement."),
+          lis.pins_for == device and none == measurement and len(none) == 1 and none[0].startswith("No saved EQs yet.")
+          and len(no_measurement) == 1 and no_measurement[0] == "Select a measurement",
           (none, no_measurement, measurement))
     listen()

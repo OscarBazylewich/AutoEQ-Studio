@@ -41,6 +41,9 @@ from . import rigs
 from . import settings
 import textfile
 
+# What /api/compare answers while the database lists load (Which measurement waits and tries again when it gets
+# exactly this message, so the two places use this one name)
+LISTS_NOT_READY = "Online database lists are unavailable. Try again in a few seconds."
 ROUTES = {}
 
 
@@ -84,7 +87,8 @@ def call(path, body=None):
         return {"error": f"Unknown {e}"}
     except KeyError as e:
         traceback.print_exc()
-        return {"error": f"The {e} is missing."}
+        # (the name of the field alone: a KeyError as text has quote marks around it, "Missing 'id'")
+        return {"error": f"Missing {e.args[0] if e.args else 'field'}"}
     except net.Offline as e:  # (expected while offline: the message is enough, no traceback in the log)
         return {"error": str(e)}
     except Exception as e:  # noqa: BLE001 - shown to the user
@@ -103,7 +107,7 @@ def text_of(body, key):
     """A text field of the request (a clear message, not a Python error, when it's missing or isn't text)."""
     v = body.get(key)
     if not isinstance(v, str):
-        raise ValueError(f"The {key} is missing.")
+        raise ValueError(f"Missing {key}")
     return v
 
 
@@ -111,13 +115,13 @@ def names_of(body):
     """The file names a request is about: "names" (a list) or one "name"."""
     names = body.get("names") or [text_of(body, "name")]
     if not (isinstance(names, list) and all(isinstance(n, str) for n in names)):
-        raise ValueError("The names are missing.")
+        raise ValueError("Missing names")
     return names
 
 
 def kind_of(body):
     if body.get("kind") not in ("target", "measurement"):
-        raise ValueError("The type is missing: target or measurement.")
+        raise ValueError("Internal error: missing file type (target or measurement)")
     return body["kind"]
 
 
@@ -226,7 +230,7 @@ def files_add(body):
     if isinstance(many, list) and many:
         if not all(isinstance(f, dict) and isinstance(f.get("name"), str) and isinstance(f.get("content"), str)
                    for f in many):
-            raise ValueError("Each file must have a name and a text.")
+            raise ValueError("Each file must have a name and content")
         files = [(f["name"], f["content"]) for f in many]
     else:
         files = [(text_of(body, "name"), text_of(body, "content"))]
@@ -267,10 +271,10 @@ def target_save(body):
     cfg = cfg_from(body)
     name = text_of(body, "name").strip()
     if not name:
-        raise ValueError("Give the target a name.")
+        raise ValueError("Enter a target name")
     target, meas = inputs.selected(cfg)
     if not any(cfg["target_adjust"].get(k) for k in ADJUST_GAINS):
-        raise ValueError("The target has no adjustments to save.")
+        raise ValueError("No target adjustments to save")
     plain = copy.deepcopy(cfg)
     plain["rig_convert"]["enabled"] = False
     c, _, _ = pipeline.load(plain, target, meas)
@@ -279,7 +283,7 @@ def target_save(body):
     fname = inputs.add_file("target", name + ".csv", text)
     rig, _how = rigs.target_rig(os.path.basename(target))
     if rig:
-        rigs.record_source([fname], {"site": f"your adjustments of {os.path.splitext(os.path.basename(target))[0]}",
+        rigs.record_source([fname], {"site": f"{rigs.ADJUSTED}{os.path.splitext(os.path.basename(target))[0]}",
                                      "rig": rig})
     else:
         rigs.forget_source([fname])
@@ -334,7 +338,7 @@ def _source_files(body):
         # (no This PC search after it: the downloads folder isn't searched, these are the online entry's files)
         files, it = databases.download(body["id"], lambda text: (library.sniff_text(text) or {"points": 0})["points"])
         return files, it["name"], it["kind"]
-    raise ValueError("The source is unknown.")
+    raise ValueError("Unknown source")
 
 
 @route("/api/use")
@@ -449,9 +453,9 @@ def compare_run(body):
     q = body.get("query")  # (not text: as if none was typed)
     query = (q if isinstance(q, str) else "").strip() or compare.clean_query(st["device"] or "")
     if not query:
-        raise ValueError("Type the name of the model.")
+        raise ValueError("Enter a model name")
     if databases.status()["loading"]:
-        raise ValueError("The online database lists are not available at this time. Try again after some seconds.")
+        raise ValueError(LISTS_NOT_READY)
     target = st["active_target"]
     r = compare.compare(cfg, query, target, body.get("rig") if isinstance(body.get("rig"), str) and body.get("rig") else None)
     if body.get("auto"):
@@ -470,7 +474,7 @@ def compare_average(body):
     cfg = cfg_from(body)
     keys, name = body.get("keys"), body.get("name")
     if not isinstance(keys, list) or not all(isinstance(k, str) for k in keys):
-        raise ValueError("Select the measurements for the average.")
+        raise ValueError("Select measurements to average")
     fname, text, rig, of = compare.average(keys, (name if isinstance(name, str) and name.strip() else "Average").strip())
     before = copy.deepcopy(cfg["files"])  # (a copy: called directly, nothing is serialised in between)
     there = set(os.listdir(inputs.MEAS_DIR)) if os.path.isdir(inputs.MEAS_DIR) else set()
@@ -497,7 +501,7 @@ def _run_job(job_id, mode, cfg, analysis=None):
                 JOB.update(done=done, total=total, message=msg)
     try:
         target, meas = inputs.selected(cfg)
-        progress(0, 1, "The app loads the files")
+        progress(0, 1, "Loading files…")
         curves, meas_texts, target_text = pipeline.load(cfg, target, meas)
         if cfg["auto"]["enabled"]:  # the same automatic values the window showed (in case it hadn't caught up)
             key = autoset.analysis_key(cfg, meas_texts, target_text)
@@ -532,23 +536,23 @@ def _run_job(job_id, mode, cfg, analysis=None):
 @route("/api/run")
 def run(body):
     if body.get("mode") not in settings.MODES:
-        raise ValueError("The EQ method is missing.")
+        raise ValueError("Missing EQ method")
     cfg = cfg_from(body)
     settings.save(cfg)
     retry = body.get("retry")
     if retry is not None:  # this run only: Best fit from the filters on the result card (the saved settings stay)
         if body["mode"] != "best_fit" or not isinstance(retry, dict):
-            raise ValueError("You can use “Calculate from these filters” only with Best fit.")
+            raise ValueError("“Calculate from these filters” only works with Best fit")
         filters = [f for f in exports.clean_filters(retry.get("filters")) if f["enabled"]]
         if not filters:
-            raise ValueError("There are no filters to start from: add a filter, or enable a filter.")
+            raise ValueError("No active filters to start from. Add or enable at least one filter.")
         add = bool(retry.get("add"))
         cfg = copy.deepcopy(cfg)
         # (as they are: kept ones must stay exactly the card's, not rounded like a saved file)
         cfg["best_fit"].update(start_filters=exports.filters_text(filters), start_keep=add, start_add=add)
     with JOB_LOCK:
         if JOB.get("status") == "running":
-            raise ValueError("The app calculates a different EQ at this time.")
+            raise ValueError("Another EQ calculation is already in progress")
         CANCEL.clear()
         job_id = uuid.uuid4().hex
         JOB.clear()
@@ -742,7 +746,7 @@ def open_folder(body):
     """Open one of the app's folders (by name) in Explorer. (Only these: opening any file would also start programs.)"""
     what = body.get("what")
     if not (isinstance(what, str) and what in OPENABLE):
-        raise ValueError("The folder to open is not a folder of the app.")
+        raise ValueError("Cannot open folder: not an AutoEQ Studio folder")
     where = OPENABLE[what]
     os.makedirs(where, exist_ok=True)
     open_path(where)
