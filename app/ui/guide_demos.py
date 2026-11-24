@@ -214,7 +214,7 @@ def stage_manual(page):
     keep = (page.run_result, page.sel, page.EDIT, page.ORIG, page.name_edit.text(), page.name_edit.property("auto"),
             list(page.session_runs), page.runs, page.listen.isVisible(), getattr(page, "hand_before", None),
             getattr(page, "way", "auto"))
-    page.start_manual([], "from an empty EQ")
+    page.start_manual([], "from scratch")
 
     def undo():
         run, sel, edit, orig, name, auto, runs, n, heard, before, was_way = keep

@@ -541,7 +541,7 @@ def run(body):
             raise ValueError("You can use “Calculate from these filters” only with Best fit.")
         filters = [f for f in exports.clean_filters(retry.get("filters")) if f["enabled"]]
         if not filters:
-            raise ValueError("There are no filters to start from: add a filter, or enable a filter.")
+            raise ValueError("No active filters to start from. Add or enable at least one filter.")
         add = bool(retry.get("add"))
         cfg = copy.deepcopy(cfg)
         # (as they are: kept ones must stay exactly the card's, not rounded like a saved file)

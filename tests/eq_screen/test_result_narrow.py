@@ -101,7 +101,7 @@ def test_no_sideways_scroll_at_the_smallest_width(eq_screen, check):
 def test_a_manual_eq_at_the_smallest_width(eq_screen, check):
     page = _run(eq_screen)
     try:
-        page.start_manual([], "from an empty EQ")
+        page.start_manual([], "from scratch")
         qt.pump(100)
         seen = _seen(page, NARROW)
     finally:

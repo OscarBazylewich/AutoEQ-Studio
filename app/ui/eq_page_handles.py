@@ -251,7 +251,7 @@ class EqHandles:
         f = {"enabled": True, "type": "PK", "freq": round(freq) if freq >= 100 else round(freq, 1),
              "gain": round(self._limited("gain", gain), 1), "q": 1.0}
         if not self.current()[1]:
-            self.start_manual([], "started on the EQ graph")
+            self.start_manual([], "from EQ graph")
         self.EDIT.append(f)
         self.editor.rebuild()
         self.live_update()

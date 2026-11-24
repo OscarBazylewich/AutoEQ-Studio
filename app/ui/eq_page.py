@@ -328,9 +328,9 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
         self.mode_hint.setText(MODE_HINT.get(S["mode"], ""))
         on = [FORMAT_NAMES[k] for k in list(FORMAT_NAMES) if S["export"].get(k)]
         if hasattr(self, "formats_line"):
-            self.formats_line.setText("Save filters writes: " + ", ".join(on) + "." if on else
-                                      "Save filters writes no files: select your EQ app, or select a file type in "
-                                      "More settings › Saved files.")
+            self.formats_line.setText("Will save: " + ", ".join(on) if on else
+                                      "No output format selected. Choose your EQ app, or enable a format in More "
+                                      "settings › Saved files.")
         if hasattr(self, "settings"):
             self.settings.refresh()
 

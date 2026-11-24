@@ -50,7 +50,7 @@ class EqResult:
             bubble.tell(None, self.no_curves_words(), near=self.run_btn)
             return
         if retry is not None and not retry["filters"]:
-            bubble.tell(None, "There are no filters to start from: add a filter, or enable a filter.",
+            bubble.tell(None, "No active filters to start from. Add or enable at least one filter.",
                         near=self.retry_btn)
             return
         if self.S["auto"]["enabled"]:
@@ -147,26 +147,23 @@ class EqResult:
                             "freq": f["freq"], "gain": f["gain"], "q": f["q"]} for f in fs]
         self.ORIG = same(r.get("start", r["filters"]) if manual else r["filters"])
         self.EDIT = same(r["filters"])
-        made_for = f" · made for {run.get('device')} → {run.get('target_name')}"
+        made_for = f" · {run.get('device')} → {run.get('target_name')}"  # (the IEM and the target it was made for)
         if manual:
-            self.res_sub.setText((f"From History ({run['when']}) · " if run.get("history") else "")
+            self.res_sub.setText((f"History ({run['when']}) · " if run.get("history") else "")
                                  + self.run_label(run, r) + (made_for if run.get("device") and run.get("target_name") else ""))
         else:
-            self.res_sub.setText((f"From History ({run['when']})" if run.get("history") else f"#{run.get('n', 1)}")
+            self.res_sub.setText((f"History ({run['when']})" if run.get("history") else f"#{run.get('n', 1)}")
                                  + f" · {self.run_label(run, r)}" + made_for)
         self.count_lab.setVisible(not manual)  # (one EQ: no other filter counts to choose from)
         self.count_combo.setVisible(not manual)
         self.hand_close.setVisible(manual)
-        self.revert_btn.setToolTip("Use the initial filters again (the filters that you started with)" if manual else
-                                   "Use the initial filters again (as the app made them)")
         self.listen.show()  # (an EQ by hand can be heard without a measurement too)
         note = self.pick_note(run, r)
         self.pick_lab.setText(note)
         self.pick_lab.setVisible(bool(note))
-        self.chips["error"].setToolTip("The average difference between the measurement with the EQ and the target, in "
-                                       "the error range (a lower value is better)")
-        self.chips["preamp"].setToolTip("To prevent clipping, the app decreases the gain of the full EQ by this value "
-                                        "(the sum of the filter gains where they overlap)")
+        # (these two replace the Help lines that help_window.tag put on the numbers as the card was made)
+        self.chips["error"].setToolTip("Average difference between the EQ'd response and target (lower is better)")
+        self.chips["preamp"].setToolTip("Volume reduction to prevent clipping (highest EQ boost plus extra headroom)")
         # the best result for each filter count (the pick for its own count), as AutoEQ Local's chips (an EQ by hand
         # has one result, and no error worked out by a run: none to list)
         by_n = {}
@@ -198,18 +195,18 @@ class EqResult:
         hz = lambda v: (f"{v / 1000:.1f} kHz" if v >= 1000 else f"{v:.0f} Hz") if v else ""
         if r.get("ear") is None or not case:
             return ""
-        if r["id"] != run.get("pick"):
-            return f"The sound is {r['ear']:.2f} dB or less from the target at all frequencies (as the ear hears it)" + (
-                f". The largest difference is near {hz(r['ear_at'])}." if r.get("ear_at") and r["ear"] > lim else ".")
+        if r["id"] != run.get("pick"):  # (where the largest difference is: only when it is over the limit)
+            return f"Within {r['ear']:.2f} dB of target" + (
+                f" · Peak deviation near {hz(r['ear_at'])}" if r.get("ear_at") and r["ear"] > lim else "")
         if case == "target":
-            return (f"The same sound as the target: {r['ear']:.2f} dB or less from it at all frequencies, as the ear hears "
-                    f"it (the limit: {lim:g} dB). This EQ has the minimum number of filters for this sound.")
+            return (f"Audibly matches target: within {r['ear']:.2f} dB (limit: {lim:g} dB), using the fewest filters "
+                    "needed")
+        # (no EQ reaches the target: the nearest one's difference, and "(fewer filters)" when this EQ is not that one
+        # but sounds the same with fewer filters)
         best = min((x for x in run["results"] if x.get("ear") is not None), key=lambda x: x["ear"], default=r)
-        return (f"No EQ can be the same as the target here: your EQ app has limits, or the filters cannot follow small "
-                f"changes in the target. The nearest EQ is {best['ear']:.2f} dB from the target near "
-                f"{hz(best.get('ear_at'))}. "
-                + ("This EQ is the nearest one." if best["id"] == r["id"] else
-                   "This EQ has the same sound as the nearest one, with a smaller number of filters."))
+        where = hz(best.get("ear_at"))
+        return (f"Couldn't match target: closest is {best['ear']:.2f} dB off" + (f" near {where}" if where else "")
+                + ("" if best["id"] == r["id"] else " (fewer filters)"))
 
     # ---------------------------------------------------------------- runs this session (results.js RUNS)
     def use_these_settings(self):
@@ -226,7 +223,7 @@ class EqResult:
         self.S["mode"] = "site_single"
         self.changed()
         self.settings.refresh()
-        self.status("The app copied the values into Website AutoEQ: one set.", 6000)
+        self.status("Switched to Website AutoEQ", 6000)
 
     def open_all_results(self):
         """Every result of the run shown, and the error grid (ui/all_results.py)."""
@@ -246,8 +243,8 @@ class EqResult:
         """Two EQs side by side (ui/compare_results.py)."""
         from ui.compare_results import CompareResults, options
         if len(options(self)) < 2:  # (what's needed first: a bubble at the button, as Calculate's, UI-RULES 25)
-            bubble.tell(None, "There is no other EQ to compare with. Calculate again, or select a different number of "
-                        "filters or an EQ from History.", near=self.cmp_btn)
+            bubble.tell(None, "No other EQ to compare. Calculate another, pick a different filter count, or load one "
+                        "from History.", near=self.cmp_btn)
             return
         modal(CompareResults(self))
 
@@ -301,7 +298,7 @@ class EqResult:
         self.show_run(self.session_runs[-1] if self.session_runs else None)
         if run is not None and at is not None:
             what = "From History" if run.get("history") else f"#{run.get('n', 1)}"
-            self.status(f"You removed “{what} · {MODE_SHORT.get(run['mode'], run['mode'])}” from EQs that you made.",
+            self.status(f"Removed “{what} · {MODE_SHORT.get(run['mode'], run['mode'])}” from the list",
                         undo=lambda: self._put_run_back(run, at))
 
     def _put_run_back(self, run, at):
@@ -325,7 +322,7 @@ class EqResult:
         back = before if mine is run and any(x is before for x in others) else (others[-1] if others else None)
         self.show_run(back)
         if dropped and had and at is not None:
-            self.status(f"You closed “#{run.get('n', 1)} · {MODE_SHORT['manual']}”.",
+            self.status(f"Closed “#{run.get('n', 1)} · {MODE_SHORT['manual']}”",
                         undo=lambda: self._put_run_back(run, at))
 
     # ---------------------------------------------------------------- the filters being edited
@@ -371,17 +368,17 @@ class EqResult:
             return
         st, ed = self.stats(), self.edited()
         manual = run.get("mode") == "manual"
-        # (the pick's one name everywhere: "picked for you", as the filter counts' list says it; it was "recommended"
-        # here, "pick" and "(picked)" in the windows)
-        tag = "" if manual else "selected for you" if r["id"] == run["pick"] else "lowest error" if r["id"] == run["best"] else ""
+        # (the title says "recommended" for the app's pick: the words of the text survey, 2026-11-24. The filter counts'
+        # list, All results…, Compare… and the report still say "selected for you": their texts are other survey items)
+        tag = "" if manual else "recommended" if r["id"] == run["pick"] else "lowest error" if r["id"] == run["best"] else ""
         self.res_title.setText(MODE_SHORT.get(run["mode"], run["mode"]) + (f"  ·  {tag}" if tag else "")
                                + ("  ·  edited" if ed else ""))
         if manual:  # (its filters as they are now: kept when another run is shown, and on its lines in the lists)
             r["filters"], r["n_filters"] = [dict(f) for f in self.EDIT], st["n"]
             note = self.manual_note(st)
         elif ed:  # (the run's line was about the filters before the edit)
-            note = (f"Edited: the sound is {st['ear']:.2f} dB or less from the target at all frequencies, as the ear "
-                    f"hears it (the limit: {run.get('ear_db') or 0.25:g} dB)." if run.get("pick_case") and st["ear"] is not None else "")
+            note = (f"Edited: within {st['ear']:.2f} dB of target (limit: {run.get('ear_db') or 0.25:g} dB)"
+                    if run.get("pick_case") and st["ear"] is not None else "")
         else:
             note = self.pick_note(run, r)
         self.pick_lab.setText(note)
@@ -390,13 +387,13 @@ class EqResult:
         site = run["mode"].startswith("site") and r.get("rows") is not None
         self.site_row.setVisible(site)
         if site:
+            # (the same line after an edit of the filters: the title's "edited" tells that they changed)
             self.site_text.setText(
-                "Type in the AutoEQ panel of squiglink: Filter rows <b>{rows}</b> · Frequency Range <b>{freq_low}</b> to "
+                "Enter in squiglink AutoEQ: Filter rows <b>{rows}</b> · Frequency Range <b>{freq_low}</b> to "
                 "<b>{freq_high}</b> · Gain Range <b>{gain_min}</b> to <b>{gain_max}</b> · Q Range <b>{q_min}</b> to "
-                "<b>{q_max}</b> → the website shows Pre-amp <b>{pre:.1f} dB</b>".format(
+                "<b>{q_max}</b> → Pre-amp <b>{pre:.1f} dB</b>".format(
                     pre=float(r.get("preamp") or 0), **{k: r.get(k, "–") for k in ("rows", "freq_low", "freq_high",
-                                                                                      "gain_min", "gain_max", "q_min", "q_max")})
-                + (" <i>(because you edited the filters, the website will not make these values)</i>" if ed else ""))
+                                                                                      "gain_min", "gain_max", "q_min", "q_max")}))
             self.site_use.setVisible(run["mode"] == "site_sweep")
         self.revert_btn.setEnabled(ed)  # (always there, off until an edit: nothing moves when you edit, UI-RULES 25)
         if hasattr(self, "listen"):
@@ -612,7 +609,7 @@ class EqResult:
         (UI-RULES 25: no EQ on the result card to copy, no profile yet)."""
         key = self.hand_source.currentData() or "empty"
         if key == "empty":
-            self.start_manual([], "from an empty EQ")
+            self.start_manual([], "from scratch")
         elif key == "copy":
             if not self.current()[1]:
                 bubble.tell(None, "No EQ in results yet. Calculate one first or start from a different item.",
@@ -631,7 +628,7 @@ class EqResult:
     def start_manual(self, filters, source, name="", profile=None, left_out=()):
         """An EQ of your own on the result card, made by hand from these filters (none: start empty), as a run of its
         own in this session's runs: Save, Use on device, Listen and the rest take it as they take a run's. It's for
-        the measurement and target chosen, if any (its error then shows); source: where it began ("from an empty EQ",
+        the measurement and target chosen, if any (its error then shows); source: where it began ("from scratch",
         "from KZ.txt"); profile: the profile it was read from (Use on device can then update it)."""
         c = self.curves or {}
         self.runs += 1
@@ -700,11 +697,9 @@ class EqResult:
         """Under an EQ by hand's numbers: how to add a filter while it has none, and how it sounds next to the target."""
         parts = []
         if not self.EDIT:
-            parts.append("No filters: double-click the EQ graph (below the graph) where you want a filter, or click Add "
-                         "filter.")
+            parts.append("No filters yet. Double-click the EQ graph or click Add filter.")
         if st["ear"] is not None:
-            parts.append(f"The sound is {st['ear']:.2f} dB or less from the target at all frequencies, as the ear hears "
-                         "it.")
+            parts.append(f"Within {st['ear']:.2f} dB of target")
         return " ".join(parts)
 
     def manual_from_file(self):
@@ -725,7 +720,7 @@ class EqResult:
         got = paste_dialog(self, "Paste filters", "For example, New EQ", "Equalizer APO lines, Room EQ Wizard "
                            "filters, or one filter on each line as “frequency gain Q”", "Start")
         if got:
-            self._manual_from_text(got[1], "pasted", got[0] or "Pasted EQ")
+            self._manual_from_text(got[1], "from pasted filters", got[0] or "Pasted EQ")
 
     def manual_from_profile(self, pid):
         """A device's profile as an EQ by hand (Profiles' Edit in Make an EQ too); Use on device can update it."""
@@ -737,16 +732,16 @@ class EqResult:
         except OSError as e:
             QMessageBox.warning(self, "Manually", f"AutoEQ Studio cannot read the profile's file: {e}")
             return
-        self._manual_from_text(text, f"from the profile “{p['name']}”", p["name"], profile=pid)
+        self._manual_from_text(text, f"from “{p['name']}”", p["name"], profile=pid)
 
     def manual_from_shown(self):
         run, r = self.current()
         if not r:
             return
-        what = "your manual EQ" if run.get("mode") == "manual" else \
+        what = "manual EQ" if run.get("mode") == "manual" else \
             f"#{run.get('n', 1)} ({MODE_SHORT.get(run['mode'], 'EQ')})"
         own = self.name_edit.text().strip() if self.name_edit.property("auto") is False else ""
-        self.start_manual([dict(f) for f in self.EDIT], f"a copy of {what}", own or (run.get("source_name") or ""))
+        self.start_manual([dict(f) for f in self.EDIT], f"copy of {what}", own or (run.get("source_name") or ""))
 
     def _manual_from_text(self, text, source, name, profile=None):
         """An EQ by hand from a file's or pasted text, read as Equalizer APO plays it (eq\\eqtext.py): what it has that

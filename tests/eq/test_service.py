@@ -255,7 +255,7 @@ def test_retry_with_no_filters_on_refused(api, chain, check):
         code, r = _ask(api, "/api/run", {"mode": "best_fit", "settings": _small(chain["S"]),
                                          "retry": {"filters": [dict(MINE[2])], "add": False}})
         # was eq_checks.py:1136
-        check("requests: retry with no filters switched on is refused with a message", code == 400 and "no filters" in r.get("error", ""), r)
+        check("requests: retry with no filters switched on is refused with a message", code == 400 and r.get("error") == "No active filters to start from. Add or enable at least one filter.", r)
     finally:
         _no_run_left()  # (had it started, the next test's first run would be refused)
 

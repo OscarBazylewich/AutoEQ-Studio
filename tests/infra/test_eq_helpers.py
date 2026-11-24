@@ -70,7 +70,7 @@ def test_show_from_history(screen, check):
     eqpage.show_from_history(screen, screen.entry)
     page = screen.page
     check("eq helpers: show_from_history brings the saved EQ back as a result of its own (“From History”)",
-          page.run_result.get("history") == screen.entry["base"] and page.res_sub.text().startswith("From History"),
+          page.run_result.get("history") == screen.entry["base"] and page.res_sub.text().startswith("History ("),
           page.res_sub.text())
 
 

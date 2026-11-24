@@ -97,7 +97,12 @@ def test_website_method_line_and_use_in_single_run(eq_screen, chain, check):
     page.run_result = fake
     page.show_result(1)
     shown = (page.site_row.isVisibleTo(page), "Filter rows <b>5</b>" in page.site_text.text(), page.site_use.isVisibleTo(page))
+    line, sub = page.site_text.text(), page.res_sub.text()
+    page.EDIT[0]["gain"] = -4  # (an edit of the filters: the title says "edited", and the website line stays as it was)
+    page.live_update()
+    edited = (page.res_title.text(), page.site_text.text())
     page.use_these_settings()
+    said = (eq_screen.said or [""])[-1]
     copied = (page.S["mode"], page.S["site_single"]["rows"], "site_single.rows" in page.S["auto"]["manual"])
     page.S["mode"] = mode
     page.S["auto"]["manual"] = [m for m in page.S["auto"]["manual"] if not m.startswith("site_single.")]
@@ -108,6 +113,28 @@ def test_website_method_line_and_use_in_single_run(eq_screen, chain, check):
     # was eq_checks.py:1859
     check("review: a website method's result says what to type into squiglink's panel; Use in single run copies it",
           shown == (True, True, True) and copied == ("site_single", 5, True), (shown, copied))
+    check("result: a website method's lines have the units and the names of the website's boxes, and the message "
+          "after Use these settings tells the new method",
+          sub == "#99 · 5 rows · 20–10000 Hz · -12 to 6 dB · Q 0.5–3 · X → Y"
+          and line == ("Enter in squiglink AutoEQ: Filter rows <b>5</b> · Frequency Range <b>20</b> to <b>10000</b> · "
+                       "Gain Range <b>-12</b> to <b>6</b> · Q Range <b>0.5</b> to <b>3</b> → Pre-amp <b>-1.5 dB</b>")
+          and said == "Switched to Website AutoEQ", (sub, line, said))
+    check("result: after an edit of the filters, the website line has no added words (the title says “edited”)",
+          edited == ("Website best settings  ·  recommended  ·  edited", line), edited)
+
+
+def test_tooltips_of_the_filter_tools(eq_screen, check):
+    from PySide6.QtWidgets import QPushButton
+
+    from ui.help_texts import HELP
+    page = eq_screen.page
+    tips = {b.text(): b.toolTip() for b in page.result_box.findChildren(QPushButton)
+            if b.text() in ("Add filter", "Sort", "Undo all")}
+    check("result: Add filter and Undo all have no tooltip (their names tell what they do); Sort has one",
+          tips == {"Add filter": "", "Sort": "Sort filters by frequency", "Undo all": ""}, tips)
+    line = HELP["#live-graph"][0]
+    check("result: the tooltip of Show the graph while you edit is the line of its Help entry",
+          bool(line) and page.live_check.toolTip() == line, (page.live_check.toolTip(), line))
 
 
 def test_pick_note(eq_screen, check):
@@ -124,9 +151,15 @@ def test_pick_note(eq_screen, check):
     # was eq_checks.py:2296
     check("result: says it sounds the same as the target, or how far off the closest is and where (none for an old run); "
           "the closest one itself isn't said to have fewer filters (review 2)",
-          same.startswith("The same sound as the target: 0.18 dB or less") and "0.47 dB from the target near 6.2 kHz" in out
-          and "a smaller number of filters" in out and "largest difference is near 6.2 kHz" in other and none == ""
-          and alone.endswith("This EQ is the nearest one."), (same, out, other, none, alone))
+          same == "Audibly matches target: within 0.18 dB (limit: 0.25 dB), using the fewest filters needed"
+          and out == "Couldn't match target: closest is 0.47 dB off near 6.2 kHz (fewer filters)"
+          and other == "Within 0.47 dB of target · Peak deviation near 6.2 kHz" and none == ""
+          and alone == "Couldn't match target: closest is 0.52 dB off near 2.5 kHz", (same, out, other, none, alone))
+    # (a result that is not the app's pick, within the limit: no place of the largest difference)
+    near = page.pick_note({"pick": 1, "pick_case": "target", "ear_db": 0.25, "results": [best, r]},
+                          {"id": 3, "ear": 0.2, "ear_at": 900.0})
+    check("result: a result within the limit that the app did not select shows only how near it is",
+          near == "Within 0.20 dB of target", near)
 
 
 def test_number_of_filters_keeps_one_width(eq_screen, chain, check):

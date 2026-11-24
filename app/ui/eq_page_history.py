@@ -21,21 +21,23 @@ class EqHistory:
         lay = next((l for l in self.meta.get("layouts", []) if l["key"] == r.get("layout")), None)
         if run.get("mode") == "manual":  # (an EQ made by hand: where it began, and its filters)
             n = r.get("n_filters", len(r.get("filters") or []))
-            return f"Manually · {run.get('source') or 'your filters'} · {n} filter{'' if n == 1 else 's'}"
+            # (no "Manually" at the start: the card's title, the report's title and History's Method column say it)
+            return f"{run.get('source') or 'your filters'} · {n} filter{'' if n == 1 else 's'}"
         if r.get("engine") == "graphic":
             return (f"{lay['name'] if lay else 'Graphic EQ'}: {r['n_filters']} bands, {r.get('gain_min')} to "
-                    f"+{r.get('gain_max')} dB in {r.get('step')} dB steps")
+                    f"+{r.get('gain_max')} dB ({r.get('step')} dB steps)")
         if run["mode"] == "best_fit":
             yours, added = r.get("yours") or 0, max(0, r["n_filters"] - (r.get("yours") or 0))
             mine = ""
-            if yours:
-                mine = (f"your {yours} + {added} added" if r.get("rows") else f"only your {yours}" if r.get("keep")
-                        else f"your {yours}, adjusted") + ("" if r.get("keep") or not r.get("rows") else " (adjusted)") + " · "
+            if yours:  # (Best fit from your filters: kept as they are, or adjusted; with filters added, or yours alone)
+                kept = "" if r.get("keep") else " (adjusted)"
+                mine = (f"your {yours}{kept} + {added} added" if r.get("rows") else f"only your {yours}" if r.get("keep")
+                        else f"your {yours}{kept}") + " · "
             return (mine + (f"{lay['name']} · " if lay and lay["key"] != "any" else "")
                     + f"{r['n_filters']} filter{'' if r['n_filters'] == 1 else 's'}, Q ≤ {r.get('q_max')}, gain ≤ "
-                    f"+{r.get('gain_max')}")
-        return (f"{r.get('rows')} row{'' if r.get('rows') == 1 else 's'} · {r.get('freq_low')}–{r.get('freq_high')} · {r.get('gain_min')} to "
-                f"{r.get('gain_max')} · Q {r.get('q_min')}–{r.get('q_max')}")
+                    f"+{r.get('gain_max')} dB")
+        return (f"{r.get('rows')} row{'' if r.get('rows') == 1 else 's'} · {r.get('freq_low')}–{r.get('freq_high')} Hz · "
+                f"{r.get('gain_min')} to {r.get('gain_max')} dB · Q {r.get('q_min')}–{r.get('q_max')}")
 
     @staticmethod
     def filters_fingerprint(filters):

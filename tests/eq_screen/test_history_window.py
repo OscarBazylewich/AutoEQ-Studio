@@ -53,7 +53,7 @@ def test_show_brings_it_back(eq_screen, chain, check):
     # was eq_checks.py:1585
     check("ui: History's Show brings the EQ back as a result of its own (its filters, “From History”)",
           shown[0].get("history") == kept[0]["base"] and len(page.EDIT) == len(kept[0]["filters"])
-          and page.res_sub.text().startswith("From History"), page.res_sub.text())
+          and page.res_sub.text().startswith("History ("), page.res_sub.text())
 
 
 def test_history_window_lists_and_removes(eq_screen, chain, check):
