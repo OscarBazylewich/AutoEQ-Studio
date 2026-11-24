@@ -574,7 +574,7 @@ class EqCards:
             self.view_btns[key] = b
         tools.space(12)
         for text, symbol, fn, tip in (("Add filter", "add", self.add_filter, "A new filter at 1 kHz, 0 dB"),
-                                      ("Sort", "sort", self.sort_filters, "Sort the filters by frequency"),
+                                      ("Sort", "sort", self.sort_filters, "Sort filters by frequency"),
                                       ("Undo all", "undo", self.undo_all, "Use the initial filters again (as the app made them)")):
             b = QPushButton(text)
             icons.put(b, symbol)

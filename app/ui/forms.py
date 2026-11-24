@@ -110,7 +110,7 @@ class Limits:
         flat = [x for x in (sum(v, []) if v and isinstance(v[0], list) else v) if x is not None] \
             if isinstance(v, list) else ([] if v is None else [v])
         if any(x < lim["min"] or x > lim["max"] for x in flat):
-            return "range", "Permitted: " + self.text(key)
+            return "range", "Allowed: " + self.text(key)
         if lim.get("int") and any(x != int(x) for x in flat):
             return "range", "Integers only: " + self.text(key)
         lo_of = lambda x: min(sum(x, []) if x and isinstance(x[0], list) else x) if isinstance(x, list) else x
@@ -123,10 +123,8 @@ class Limits:
             if a is None or b is None or not (a > b or (strict and a == b)):
                 continue
             unit = (" " + lim["unit"]) if lim.get("unit") else ""
-            return "pair", (f"The value must be {'less than' if strict else 'equal to or less than'} the “to” value "
-                            f"({number_text(b)}{unit})" if key == lo
-                            else f"The value must be {'more than' if strict else 'equal to or more than'} the “from” "
-                            f"value ({number_text(a)}{unit})")
+            return "pair", (f"Must be {'less than' if strict else 'at most'} {number_text(b)}{unit}" if key == lo
+                            else f"Must be {'more than' if strict else 'at least'} {number_text(a)}{unit}")
         return None
 
     def clamp(self, key, v):
@@ -199,7 +197,7 @@ class Field(QWidget):
         lay.addWidget(self.box, 0)
         self.step = (form.steps or {}).get(path) if kind == "num" else None
         if self.step:  # (− and +, and ↑ ↓ or the wheel in the box: a step down or up, as AutoEQ Local's number boxes)
-            for sign, text, tip in ((-1, "−", "Decrease (or ↓ in the box)"), (1, "+", "Increase (or ↑ in the box)")):
+            for sign, text, tip in ((-1, "−", "Decrease (or press ↓)"), (1, "+", "Increase (or press ↑)")):
                 b = QToolButton()
                 b.setText(text)
                 b.setToolTip(tip)
@@ -219,7 +217,7 @@ class Field(QWidget):
             lay.addStretch(1)
         tip = help_of(path)
         allowed = form.limits.text(path)
-        self.base_tip = tip + (f"\nPermitted: {allowed}." if allowed else "")
+        self.base_tip = tip + (f"\nAllowed: {allowed}" if allowed else "")
         self.box.setToolTip(self.base_tip)
         self.box.setProperty("help_key", path)  # (F1 on it: its entry in Help)
 
@@ -260,13 +258,13 @@ class Field(QWidget):
         t = self.box.text().strip()
         if self.kind == "intlist":
             v = parse_list(t, True)
-            return v if v is not None else ("bad", "Enter numbers, for example 4-10 or 4, 6, 8")
+            return v if v is not None else ("bad", "Enter integers, e.g. 4-10 or 4, 6, 8")
         if self.kind == "numlist":
             v = parse_list(t, False)
-            return v if v is not None else ("bad", "Enter numbers, for example 4, 6, 8")
+            return v if v is not None else ("bad", "Enter numbers, e.g. 4, 6, 8")
         if self.kind == "ranges":
             v = parse_ranges(t)
-            return v if v is not None else ("bad", "Write each range as low..high, for example -12..6")
+            return v if v is not None else ("bad", "Enter ranges as low..high, e.g. -12..6")
         if self.kind == "num":
             if t == "" and (self.form.limits.of(self.path) or {}).get("empty"):
                 return None
@@ -311,8 +309,8 @@ class Field(QWidget):
             if not self.form.limits.check(self.path, c, self.form.get):
                 self._commit(c)
                 self.show_value(c)
-                self.form.say(f"The value changed to {fmt_list(c) if isinstance(c, list) else number_text(c)}. "
-                              f"Permitted: {self.form.limits.text(self.path)}.")
+                self.form.say(f"Adjusted to {fmt_list(c) if isinstance(c, list) else number_text(c)} "
+                              f"(allowed: {self.form.limits.text(self.path)}).")
                 return
         if isinstance(v, tuple) and self.box.text().strip() == "":
             self.show_value(self.form.get(self.path))
@@ -355,8 +353,8 @@ class Field(QWidget):
         self.tag.setVisible(bool(state))
         if state:
             self.tag.setText("your value ↺" if state == "yours" else "automatic")
-            self.tag.setToolTip("You set this value. Click to make it automatic." if state == "yours"
-                                else "The automatic settings set this value. Change it to use your value.")
+            self.tag.setToolTip("Custom value. Click to reset to automatic." if state == "yours"
+                                else "Set automatically. Edit to override.")
             self.tag.setEnabled(state == "yours")
 
 

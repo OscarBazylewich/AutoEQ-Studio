@@ -262,11 +262,34 @@ def test_own_filters_one_filter_says_filter(eq_screen, check, monkeypatch, tmp_p
     finally:
         page.S["best_fit"]["start_filters"] = kept
         page.changed()
-    said = [s for s in said if s.startswith("Best fit starts")]
+    said = [s for s in said if s.startswith(("Loaded ", "Best fit starts"))]
     check("filters: Best fit's line says “1 filter” for one of your own filters (from a file, or OK in Your own "
           "filters; it said “1 filters”), and “2 filters” for two",
-          said[:3] == ["Best fit starts from the 1 filter in the file.", "Best fit starts from the 2 filters in the file.",
+          said[:3] == ["Loaded 1 starting filter for Best fit.", "Loaded 2 starting filters for Best fit.",
                        "Best fit starts from 1 filter."], said)
+
+
+def test_own_filters_ok_with_no_filter_never_says_0_filters(eq_screen, check, monkeypatch):
+    # (the text survey, 2026-11-23: OK in Your filters with no filter on said "Best fit starts from 0 filters.")
+    from PySide6.QtWidgets import QDialog
+    page = eq_screen.page
+    said = []
+    monkeypatch.setattr(page, "status", lambda text, *a, **k: said.append(text))
+    monkeypatch.setattr(QDialog, "exec", lambda dlg, *a: QDialog.Accepted)
+    kept = page.S["best_fit"]["start_filters"]
+    try:
+        page.S["best_fit"]["start_filters"] = "Preamp: -3 dB"  # (text, but no filter: OK empties the box)
+        page.settings.edit_your_filters()
+        emptied = (list(said), page.S["best_fit"]["start_filters"])
+        del said[:]
+        page.settings.edit_your_filters()  # (an empty box that stays empty)
+        empty = list(said)
+    finally:
+        page.S["best_fit"]["start_filters"] = kept
+        page.changed()
+    check("filters: OK in Your filters with no filter says that the starting filters are cleared (it said “0 filters”); "
+          "with an empty box it says nothing",
+          emptied == (["Cleared starting filters for Best fit."], "") and empty == [], (emptied, empty))
 
 
 def test_own_filters_window_ends_as_every_window(eq_screen, check, monkeypatch):
