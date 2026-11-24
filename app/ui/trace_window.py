@@ -1834,8 +1834,8 @@ class TraceWindow(QWidget):
             # (the site in quotation marks: a cut site ended in "…" and then the period of the sentence, 2026-11-12)
             site = e.get("site", "")
             # (a curve that goes out of the grid: where, and to where the app traced it, in the words of trace_curve;
-            # the saved measurement ends there. The instruction then starts a new line: a paragraph has 6 sentences
-            # at most, in STE)
+            # the saved measurement ends there. The instruction then starts a new line: these words can be several
+            # sentences, and the new line keeps the instruction easy to find)
             out = getattr(r, "out_words", "")
             # (the name of the add button and the words about a target line follow "The graph shows": auto_words)
             self.auto_note = (f"The app traced the {'target' if only else 'graph of'} "
@@ -1851,7 +1851,7 @@ class TraceWindow(QWidget):
             not_graph = first.name == "axes_plot"
             # (not a graph: nothing to correct on a step, a new picture is necessary; the label read then gives 1 Axes
             # its own note, as for any picture). The instruction to correct a step starts a new line: the reason of
-            # trace_curve has up to 5 sentences, and a paragraph has 6 sentences at most, in STE
+            # trace_curve has up to 5 sentences, and the new line keeps the instruction easy to find
             # (trace_kind: the picture has the other kind of curve than the entry; trace_single of a target line
             # alone: two target lines. The reason tells what to change on the website, then a new picture)
             new = first.name == "trace_kind" or (only and first.name == "trace_single")

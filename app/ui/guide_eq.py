@@ -244,7 +244,7 @@ def eq_steps(page):
         yield from api.key("Enter", 700)
         old = f.tag.text() if f.tag.isVisible() else None
         f.set_tag("yours")
-        # (the tag's words: "yours ↺" before the STE words, "your value ↺" after; "auto" / "automatic" otherwise)
+        # (the tag's words: "yours ↺" in older versions, "your value ↺" now; "auto" / "automatic" otherwise)
         api.undo(lambda: f.set_tag(None if old is None else "yours" if old.startswith("your") else "auto"))
         api.say("It shows “your value ↺”. Click it to make it automatic again")
         yield from api.at(f.tag, 0.5, 0.5, 1400)

@@ -41,7 +41,7 @@ def trace_steps(tw):
         else:
             api.spot_on(tw.save_btn)
             yield from api.at(tw.save_btn, 0.5, 0.5, 1500, say="The add button has the name of the type")
-    # (each step text has 6 sentences or fewer, with this note too: two texts had 7, 2026-11-12)
+    # (on the sample graph only: one more sentence at the end of the first step's text)
     sample = " This sample graph closes at the end of the Guide." if getattr(tw, "sample_open", False) else ""
     steps = [
         {"chapter": "The parts of this window", "title": "How to trace a graph", "target": lambda: tw.stage,

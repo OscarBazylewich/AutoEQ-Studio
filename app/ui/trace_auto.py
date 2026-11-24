@@ -23,7 +23,7 @@ auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph") does it all:
 5. A line in another color (the target line, gray, solid or dashed): a second curve "Target", marked "target": True;
    none when the curve has values on less than MIN_TRACED of the grid's width, except when the curve passes
    trace_curve and is out of the grid only at its ends (a bass roll-off under the grid).
-6. Checks: each one passes or fails, with a reason the user reads (in STE). The names start with "axes_" or "trace_"
+6. Checks: each one passes or fails, with a reason the user reads. The names start with "axes_" or "trace_"
    (the window opens the tab where the user can correct it).
 7. A picture with only a target line (a website's graph of a target: a dB axis also around 0 dB, DB_TARGET_LOWEST;
    no strong color on half of the grid's columns or more, so a blue logo is not a measurement): find_target with
@@ -1875,7 +1875,7 @@ def line_alone(tg, lw, t, lo_c, hi_c, pw, hz_at, out_of, f1):
     return {"checks": checks, "out_words": words, "drop": drop}
 
 
-# ---------------------------------------------------------------- the words of the checks (STE)
+# ---------------------------------------------------------------- the words of the checks (what the user reads)
 def _count(n, one, more):
     return f"{n} {one if n == 1 else more}"
 
