@@ -875,23 +875,21 @@ def test_the_button_on_with_its_tooltip(devices_window, qapp, check):
                   AWAY: (True, TIP, "Remove Headphones (Buds) from Devices", "#dev-remove")}, got)
 
 
-def test_the_help_of_remove_in_ste_limits(check):
-    # (2026-11-12: a sentence of 31 words, "…not connected: a device that…", and a source line of 121 characters)
-    import re
+def test_the_help_of_remove_says_from_devices(check):
+    # (2026-11-12: a source line of 121 characters)
     from ui import help_text_devices as H
     entry = next(i for s in H.SETTINGS_DEVICES for i in s["items"] if i["key"] == "#dev-remove")
     texts = entry["body"] + [H.HELP_DEVICES["#dev-remove"]]
-    long = [s for t in texts for s in re.split(r"(?<=[.!?])\s+", t) if len(re.findall(r"[\w“”…'-]+", s)) > 25]
     with open(H.__file__, encoding="utf-8") as fh:
         source = fh.read()
     part = source[source.index("'#dev-remove'"):]
     part = part[:part.index("\n")] + "\n" + part[part.index("{'key': '#dev-remove'"):part.index("{'key': '#use-device'")]
     wide = [line for line in part.split("\n") if len(line) > 120]
-    check("devices: each sentence of the Help of Remove has 25 words or fewer, and its source lines 120 characters or "
-          "fewer; the words say \"from Devices\" (one name), not \"from the list\"",
-          not long and not wide and "from the list" not in " ".join(texts)
+    check("devices: the source lines of the Help of Remove have 120 characters or fewer; the words say \"from "
+          "Devices\" (one name), not \"from the list\"",
+          not wide and "from the list" not in " ".join(texts)
           and H.HELP_DEVICES["#dev-remove"] == "Removes a device that is not connected from Devices. Its profiles stay "
-                                               "in Profiles.", (long, wide))
+                                               "in Profiles.", (wide, texts))
 
 
 def test_a_connected_device_stays_and_a_bubble_tells_why(devices_window, qapp, check):

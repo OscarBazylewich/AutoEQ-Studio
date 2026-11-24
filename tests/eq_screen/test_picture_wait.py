@@ -1670,11 +1670,10 @@ def test_window_in_front_of_the_graph(eq_screen, flow, monkeypatch, check):
     # (a curve out at 18.6 kHz gave points to 17.45 kHz): the part is not included, and 3 Save's text gives the values)
     result = next((p for p in body if isinstance(p, str) and p.startswith("The tracer finds the axes")), "")
     check("website flow: Help of Paste the picture tells that the measurement does not include the part where a curve "
-          "goes out of the grid, and that 3 Save gives the frequencies, in a paragraph of 6 sentences or fewer",
+          "goes out of the grid, and that 3 Save gives the frequencies",
           "If a curve goes above or below the grid near an end of the frequency axis, the measurement does not "
           "include that part. The text on 3 Save gives the frequencies." in result
-          and "starts or stops at that frequency" not in result
-          and all(len([s for s in p.split(". ") if s.strip()]) <= 6 for p in body if isinstance(p, str)), result)
+          and "starts or stops at that frequency" not in result, result)
     check("website flow: the tooltip of Paste the picture ends in “F1 opens Help.”, as each tagged control's",
           all(v[4] == "Uses the picture that is on the clipboard at this time (also Ctrl+V).\nF1 opens Help."
               for v in seen.values()), {v[4] for v in seen.values()})

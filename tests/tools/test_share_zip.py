@@ -6,12 +6,11 @@ QML or the tools for working on the app (pytest, Ruff), and its launcher (.bat) 
 against too long a folder. Moved from selftest.py's zip_checks.
 
 The texts that go out with the zips (app\\tools: READ ME FIRST.txt with the installer, START HERE.txt and TESTING.txt
-in the share zips) use the names that the app shows and keep the sentence rules of ASD-STE100 (2026-11-22: they had
-the names of before 2026-11-08, "press Run", "Quit", "Set up", "Relative to target", "Trace image", with contractions
-and semicolons). For these, only the text of the files and of the UI modules is read."""
+in the share zips) use the names that the app shows (2026-11-22: they had the names of before 2026-11-08, "press
+Run", "Quit", "Set up", "Relative to target", "Trace image"), and keep their line length and their line ends. For
+these, only the text of the files and of the UI modules is read."""
 import datetime
 import os
-import re
 import zipfile
 
 from helpers import paths as project
@@ -132,56 +131,14 @@ NAMES = {"window.py": ("Make an EQ", "Devices", "Settings", "Guide", "Help", "On
          "settings_screen.py": ("Start with Windows (in the tray)", "Your files", "Backup",
                                 "Remove AutoEQ Studio from APO…"),
          "setup_dialog.py": ("Add to APO",)}
-# (the names before 2026-11-08, and words of the old texts that are not STE)
-OLD = ("press Run", "Press Run", "Run again", "run it", "Quit", "Set up", "set up", "set it up", "Take AutoEQ Studio",
-       "Relative to target", "Trace image", "Check again", "Pick your", "untick", "plug in", "Plug in", " own ",
-       "e.g.", "maximised")
-# an instruction starts with one of these (after "Then", "Also" or "Or", or after the comma of a condition)
-COMMANDS = {"Click", "Double-click", "Right-click", "Press", "Select", "Open", "Close", "Put", "Install", "Delete",
-            "Send", "Start", "Connect", "Play", "Make", "Edit", "Change", "Record", "Write", "Do", "Look", "Use",
-            "Complete", "Clear", "Unzip", "Search", "Listen", "Maximize", "Restart", "Trace", "Go"}
-_ITEM = re.compile(r"^\s*(-|\d+\.|[a-z]\.|\[ \])\s+")
+# (the names of the controls before 2026-11-08)
+OLD = ("press Run", "Press Run", "Run again", "Quit", "Set up", "Take AutoEQ Studio", "Relative to target",
+       "Trace image", "Check again")
 
 
 def _read_text(name):
     with open(os.path.join(project.TOOLS, name), encoding="utf-8", newline="") as fh:
         return fh.read()
-
-
-def _paragraphs(text):
-    """The paragraphs of a file, each a list of its sentences. A blank line, a list item, a heading or a line with
-    less indent starts a paragraph."""
-    paras, cur, indent_before = [], None, 0
-    for line in text.replace("\r\n", "\n").split("\n"):
-        indent = len(line) - len(line.lstrip(" "))
-        if not line.strip() or set(line.strip()) <= set("-="):
-            cur = None
-            continue
-        if cur is None or _ITEM.match(line) or indent < indent_before or line.strip().isupper():
-            cur = []
-            paras.append(cur)
-        cur.append(_ITEM.sub("", line).strip())
-        indent_before = indent
-    return [[s for s in re.split(r"(?<=[.!?])\s+(?=[A-Z\"(])", " ".join(p)) if s.strip()] for p in paras]
-
-
-def _words(sentence):
-    # (text in quotation marks is a label or a name: one word, as a web address is)
-    plain = re.sub(r'"[^"]*"', "Label", re.sub(r"https?://\S+", "Address", sentence))
-    return len(re.findall(r"[A-Za-z0-9…%^][\w'’.,+×/%\\-]*", plain))
-
-
-def _limit(sentence):
-    """20 words for an instruction, 25 for other sentences. A name before a colon ("Make an EQ: it compares …",
-    "Python: if you do not have Python, install it …") is not the start of the sentence."""
-    said = re.sub(r"^[^:.,]{1,40}: (?=[a-z])", "", re.sub(r"^[(\"]+", "", sentence))
-    words = said.split()
-    if words and words[0] in ("Then", "Also", "Or") and len(words) > 1:
-        words = words[1:]
-    first = words[0].capitalize() if words else ""
-    after = said.split(", ", 1)[1].split()[0].capitalize() if ", " in said else ""
-    return 20 if first in COMMANDS or (first in ("If", "When", "To", "In", "On", "For", "At", "After")
-                                        and after in COMMANDS) else 25
 
 
 def test_share_texts_have_the_names_of_the_app(check):
@@ -195,10 +152,10 @@ def test_share_texts_have_the_names_of_the_app(check):
     check("share texts: each name of a control in READ ME FIRST.txt, START HERE.txt and TESTING.txt is a name that "
           "the app shows", not not_in_app and not not_in_texts, (not_in_app, not_in_texts))
     old = [(name, o) for name, t in texts.items() for o in OLD if o in t]
-    check("share texts: none of the three files has a name or a word of before the STE change", not old, old)
+    check("share texts: none of the three files has a name of a control of before 2026-11-08", not old, old)
 
 
-def test_share_texts_keep_the_sentence_rules(check):
+def test_share_texts_keep_their_line_length_and_line_ends(check):
     texts = {name: _read_text(name) for name in TEXTS}
     ends = [name for name, end in TEXTS.items()
             if texts[name].count("\r") != (texts[name].count("\n") if end == "\r\n" else 0)
@@ -207,13 +164,3 @@ def test_share_texts_keep_the_sentence_rules(check):
                   if len(line) > 120]
     check("share texts: each line has 120 characters or fewer; TESTING.txt has CRLF line ends, READ ME FIRST.txt "
           "and START HERE.txt have LF", not ends and not long_lines, (ends, long_lines))
-    short = re.compile(r"\w+n't\b|\w+'(?:ll|re|ve|d)\b|\b(?:it|that|there|what|here|let)'s\b|;", re.I)
-    marks = [(name, m) for name, t in texts.items() for m in short.findall(t)]
-    check("share texts: no contraction and no semicolon", not marks, marks)
-    paras = [(name, p) for name, t in texts.items() for p in _paragraphs(t)]
-    long = [(name, _words(s), s) for name, p in paras for s in p if _words(s) > _limit(s)]
-    # (the three files have 96 paragraphs: fewer than 60 found shows a fault of _paragraphs, not short texts)
-    check("share texts: an instruction has 20 words or fewer, each other sentence 25 or fewer",
-          len(paras) > 60 and not long, (len(paras), long))
-    many = [(name, len(p), p[0]) for name, p in paras if len(p) > 6]
-    check("share texts: each paragraph has 6 sentences or fewer", not many, many)

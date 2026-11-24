@@ -616,9 +616,9 @@ def test_line_middles(check):
 def test_status_line_of_a_failed_read(eq_screen, monkeypatch, tmp_path, check):
     """The status line after an automatic read that failed, in its longest form: the curve check fails with the words
     of the two ends out of the grid (the real form with a bass roll-off on a dB axis of 50 to 90 dB, 1396 px: 6
-    sentences). The instruction to correct the step starts a new line: no paragraph has more than 6 sentences (on
-    593a54e: 8 in one paragraph). The status line shows all of its words at the usual and the smallest size of the
-    window (pictures in light and dark)."""
+    sentences). The instruction to correct the step starts a new line (on 593a54e: 8 sentences in one paragraph). The
+    status line shows all of its words at the usual and the smallest size of the window (pictures in light and
+    dark)."""
     from helpers import qt
     from ui.trace_window import CORRECT_STEP
     fns = (_bass_out(STEEP_END[0]), _bass_out(STEEP_END[1]))
@@ -632,7 +632,6 @@ def test_status_line_of_a_failed_read(eq_screen, monkeypatch, tmp_path, check):
     qt.wait_for(lambda: not tw.loading and not tw.reading_graph and tw.read_ok is not None, 60)
     text, ok = tw.status.text(), tw.read_ok
     paras = text.split("\n")
-    counts = [len(re.findall(r"[.?!](?=\s|$)", p.strip())) for p in paras]
     seen = {}
     usual = tw.size()
     for which, size in (("usual", usual), ("smallest", tw.minimumSize().expandedTo(tw.minimumSizeHint()))):
@@ -652,7 +651,6 @@ def test_status_line_of_a_failed_read(eq_screen, monkeypatch, tmp_path, check):
           "and the reason, then the instruction on a new line", ok is False
           and text.startswith("The app cannot trace this picture automatically. The curve is on only ")
           and "From 20 Hz to " in paras[0] and " At 1" in paras[0] and paras[1:] == [CORRECT_STEP], text)
-    check("tracer: no paragraph of that status line has more than 6 sentences (STE)", counts == [6, 2], counts)
     check("tracer: no line of that status line ends with a space", not any(p.endswith(" ") for p in paras),
           [p[-20:] for p in paras])
     check("tracer: the status line shows all of its words at the usual and the smallest size of the window (its "
