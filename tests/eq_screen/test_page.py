@@ -190,6 +190,35 @@ def test_yours_and_the_legend_read_well(eq_screen, check):
                                   and f["legend"][2] >= 4.5 for f in found.values()), found)
 
 
+def test_overridden_follows_a_note_without_a_period(eq_screen, check):
+    # (2026-11-24: a note of the automatic settings that ends with a period showed as "… cause. (overridden)" for a
+    # value of yours; "(overridden)" now follows the note with no period before it. A note without a period, and
+    # a note of a value that is not yours, show as they are)
+    import re
+    page = eq_screen.page
+    st = page.settings
+    kept = (json.loads(json.dumps(page.S["auto"])), list(page.S["best_fit"]["filter_counts"]), page.auto)
+    try:
+        st.auto_switched(True)
+        page.refresh_auto()
+        st.changed("best_fit.filter_counts", [1, 2, 3, 4, 5, 6])  # (a value of yours)
+        page.auto = dict(page.auto or {}, notes=[
+            {"path": "best_fit.filter_counts", "text": "Maximum 16 filters: made up for the test, with its cause."},
+            {"path": "best_fit.filter_counts", "text": "Maximum 16 filters: no period"},
+            {"path": "best_fit.gain_max", "text": "Not a value of yours."}])
+        st.refresh()
+        lines = [re.sub(r"<[^>]+>", "", li) for li in st.why.text().split("<li>")[1:]]
+    finally:
+        page.S["auto"], page.S["best_fit"]["filter_counts"] = kept[0], kept[1]
+        page.auto = kept[2]
+        page.changed()
+    check("settings: in About these settings, “(overridden)” follows the note of a value of yours with no period "
+          "before it; the other notes show as they are",
+          lines == ["your value · Automatic: Maximum 16 filters: made up for the test, with its cause (overridden)",
+                    "your value · Automatic: Maximum 16 filters: no period (overridden)", "Not a value of yours."],
+          lines)
+
+
 def test_long_names_and_empty_notes(eq_screen, check):
     page = eq_screen.page
     combo = page.measurement_combo
@@ -407,17 +436,25 @@ def test_start_from_with_no_profile(eq_screen, dialogs, check):
         n = len(dialogs.asked)
         page.start_from_source()
         found["start"] = dialogs.asked[n:]
+        # (2026-11-24: the words for a profile said "then use Use on device": the same word 2 times)
+        box.addItem("Made up for the test", "profile:made up for the test")
+        box.setCurrentIndex(box.findData("profile:made up for the test"))
+        found["a profile"] = page.hand_src_note.text()
     finally:
         box.setCurrentIndex(was)
         if added:
             box.removeItem(box.findData("profile:"))
+        if box.findData("profile:made up for the test") >= 0:
+            box.removeItem(box.findData("profile:made up for the test"))
         page.manual_source_changed()
     none = "No device profiles yet. Add one in Devices first, then select it here."
     check("make the EQ: the ⓘ of Start from has the words of the selected item only, and with no profile the bubble "
           "at Start says the same words without the sentence about the filters",
           found == {"empty": "Double-click the graph or click Add filter to add bands, then drag handles or edit the "
                              "table below",
-                    "none": none + " Edit filters on the graph or table below.", "start": [("bubble", none)]}, found)
+                    "none": none + " Edit filters on the graph or table below.", "start": [("bubble", none)],
+                    "a profile": "Edit a device profile's filters on the graph or table below, then click Use on "
+                                 "device › Update to save back to it"}, found)
 
 
 def test_your_eq_app_shows_one_line_of_limits(eq_screen, check):

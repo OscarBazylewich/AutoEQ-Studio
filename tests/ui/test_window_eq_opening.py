@@ -1059,10 +1059,10 @@ def test_code_that_cant_load_is_said(qapp, stub_app, tmp_path, monkeypatch, chec
                             for w in words]}
     finally:
         qt.close(win)
-    check("window: Make an EQ's code that can't be loaded (a damaged copy) is said where Make an EQ shows (“Could "
-          "not open Make an EQ: …”, then the full path of the log), not “Opening Make an EQ…” for ever; nothing "
+    check("window: Make an EQ's code that can't be loaded (a damaged copy) is said where Make an EQ shows (“"
+          "Couldn't open Make an EQ: …”, then the full path of the log), not “Opening Make an EQ…” for ever; nothing "
           "raises and the Guide doesn't wait",
-          seen == {"raised": None, "page": "eq", "made": False, "says": ["Could not open Make an EQ"],
+          seen == {"raised": None, "page": "eq", "made": False, "says": ["Couldn't open Make an EQ"],
                    "guide waits": False, "tours": 0, "the log": [True]}, seen)
 
 

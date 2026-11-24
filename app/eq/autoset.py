@@ -82,13 +82,13 @@ def _keep_pairs_in_order(cfg, v, notes):
                 b if ok(a, b) else _round_beyond(hi, a, True)
             if new != b and ok(a, min(new) if isinstance(new, list) else new):
                 v[hi] = new
-                notes.append((hi, f"Auto-adjusted {settings.AUTO_NAMES.get(hi, hi)} to {_fmt_value(hi, new)} "
+                notes.append((hi, f"Auto-adjusted {settings.AUTO_NAMES.get(hi, hi)}: {_fmt_value(hi, new)} "
                                   f"(your minimum is {_fmt_value(lo, a)})"))
         else:
             bm = min(b) if isinstance(b, list) else b
             if not ok(a, bm) and ok(_round_beyond(lo, bm, False), bm):
                 v[lo] = _round_beyond(lo, bm, False)
-                notes.append((lo, f"Auto-adjusted {settings.AUTO_NAMES.get(lo, lo)} to {_fmt_value(lo, v[lo])} "
+                notes.append((lo, f"Auto-adjusted {settings.AUTO_NAMES.get(lo, lo)}: {_fmt_value(lo, v[lo])} "
                                   f"(your maximum is {_fmt_value(hi, bm)})"))
 
 
@@ -494,8 +494,11 @@ def describe(cfg, mode=None):
             they = "it uses" if n_mine == 1 else "they use"
             if bf.get("start_keep", True):
                 return f"Evaluates the error of your {_many(n_mine, 'filter')}"
+            # (no period at the end, as the other texts here: the tooltip of Settings to try puts " · Est. time"
+            # after this text. The layout "any" has the name "Parametric filters": no second "filters" after it)
+            whose = layouts.name(bf["layout"])
             return (f"Your {_many(n_mine, 'filter')}, adjusted once per limit set ({limits_text}); {they} all "
-                    f"{layouts.name(bf['layout'])} filters.")
+                    + (whose if whose.endswith(" filters") else f"{whose} filters"))
         mine = f", on top of your {_many(n_mine, 'filter')}" if n_mine else ""
         limits_of = f", within {layouts.name(bf['layout'])} limits" if bf["layout"] in layouts.DEVICES else ""
         if engines.grows(bf, n_mine):

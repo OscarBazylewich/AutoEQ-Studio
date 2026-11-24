@@ -1,9 +1,11 @@
 """The Help page's words that every screen shares (help_window.py shows them; help_texts.py joins them into
 WIKI with the screens' own): INTRO, the line at the top of the page; STEPS, an EQ job in five steps; TERMS, the
 five groups of terms (Curves and sound, EQ and filters, Rigs and measurements, Fitting and scoring, Apps, files
-and listening); QUESTIONS, the answers to the questions that come up most. Words only: nothing is imported here.
+and listening); QUESTIONS, the answers to the questions that come up most. Words only: the one import is the
+entry with the steps to load an EQ in each EQ app (help_text_apps.py, words only too).
 """
 # flake8: noqa
+from ui.help_text_apps import LOAD_EQ_TERM
 
 INTRO = ('This page gives all the names that the app uses, and help for frequent problems. Put the cursor on '
          'a setting to see a short text about it. The full text is on this page.')
@@ -441,7 +443,7 @@ TERMS = [{'title': 'Curves and sound',
                               'For apps without a file (Qudelix, FiiO, Moondrop…), enter the filters manually from '
                               'the filter table or the report. “Not in the list, or not sure”: no limits, saved as '
                               'an Equalizer APO file, which many apps read.'],
-                     'see': ['file-formats', 'layout', 'preamp']},
+                     'see': ['load-eq', 'file-formats', 'layout', 'preamp']},
                     {'id': 'file-formats',
                      'title': 'Saved file formats',
                      'body': [['Equalizer APO / squiglink (.txt): Equalizer APO, Peace, EasyEffects, the Import of '
@@ -454,7 +456,8 @@ TERMS = [{'title': 'Curves and sound',
                               'Each file stays in the limits of its app. If this changes the EQ by 0.1 dB or more, '
                               'the app tells you by how much when you save. In More settings › Saved files, you can '
                               'select other formats. The files go to your Saved EQs folder (Settings › Your files).'],
-                     'see': ['eq-app', 'impulse-response', 'preamp']},
+                     'see': ['eq-app', 'load-eq', 'impulse-response', 'preamp']},
+                    LOAD_EQ_TERM,
                     {'id': 'databases',
                      'title': 'Online databases and This PC',
                      'body': ['The search list finds curves in 3 sources:',
@@ -633,8 +636,9 @@ QUESTIONS = [{'id': 'q-which-method',
               'body': ['Select it as Your EQ app. '
                        'Save filters '
                        'writes its file to your Saved EQs folder (“Open the Saved EQs folder” on the result card). '
-                       'For apps without a file, type the filters from the table (or the report) into the app.'],
-              'see': ['eq-app', 'file-formats']},
+                       'For apps without a file, type the filters from the table (or the report) into the app.',
+                       'The steps for each app are in “Load the EQ in your EQ app” (the first link below).'],
+              'see': ['load-eq', 'eq-app', 'file-formats']},
              {'id': 'q-graph',
               'q': 'You have only a picture of a graph. Can you use it?',
               'body': ['Yes. Click Trace a graph image… (near the title of the graph). Drag, paste or open the '

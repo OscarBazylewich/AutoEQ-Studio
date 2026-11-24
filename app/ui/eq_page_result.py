@@ -601,8 +601,9 @@ class EqResult:
         if key == "profile:":
             note = NO_PROFILES + " Edit filters on the graph or table below."
         elif key.startswith("profile:"):
-            note = ("Edit a device profile's filters on the graph or table below, then use Use on device › Update to "
-                    "save back to it")
+            # ("click", not "use": "then use Use on device" had the same word 2 times; the user, 2026-11-24)
+            note = ("Edit a device profile's filters on the graph or table below, then click Use on device › Update "
+                    "to save back to it")
         self.hand_src_note.setText(note)
         self.hand_start.setText("Start…" if key in ("file", "paste") else "Start")
 
