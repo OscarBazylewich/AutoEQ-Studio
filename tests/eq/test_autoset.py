@@ -38,7 +38,98 @@ def test_device_notes_give_its_limits(check):
         "layout": "app:moondrop_free_dsp"}}), AN)["notes"])
     # was eq_checks.py:301
     check("automatic settings: a device's notes give its limits (9 filters, +3 dB)", "Maximum 9 filters" in notes
-          and "Maximum gain +3 dB" in notes, notes[:200])
+          and "Max gain +3 dB" in notes, notes[:200])
+
+
+def _notes(cfg, **an):
+    """{path: text} of the notes for these settings and the made-up analysis AN with these values over."""
+    return {n["path"]: n["text"] for n in autoset.plan(settings.with_auto(cfg), dict(AN, **an))["notes"]}
+
+
+def test_notes_say_which_limit_lowered_the_gain_and_q(check):
+    # (the text survey, 2026-11-23: "Max gain +3 dB: largest needed is +8.0 dB" looked like a mistake; the note now
+    # says that the EQ app's or the website's own limit set the value. No such words when the curves set it.)
+    free = _notes({"mode": "best_fit"})
+    app = _notes({"mode": "best_fit", "best_fit": {"layout": "app:moondrop_free_dsp"}})  # (gain to +3 dB, Q to 10)
+    app_q = _notes({"mode": "best_fit", "best_fit": {"layout": "app:minidsp_2x4hd"}}, q_need=8)  # (Q to 6)
+    site, site_ok = _notes({"mode": "site_single"}, need_boost=25, q_need=8), _notes({"mode": "site_single"})
+    sweep = _notes({"mode": "site_sweep"}, need_boost=25, q_need=8)
+    found = {"free": (free["best_fit.gain_max"], free["best_fit.q_max"]),
+             "app": (app["best_fit.gain_max"], app["best_fit.q_max"]), "app q": app_q["best_fit.q_max"],
+             "site": (site["site_single.gain_max"], site["site_single.q_max"]),
+             "site ok": (site_ok["site_single.gain_max"], site_ok["site_single.q_max"]),
+             "sweep": (sweep["site_sweep.gain_ranges"], sweep["site_sweep.q_max"])}
+    check("automatic settings: a gain or Q note says “(app limit)” or “(website limit)” when that limit, not the "
+          "curves, set its value, and not otherwise",
+          found == {"free": ("Max gain +10 dB: largest needed is +8.0 dB",
+                             "Max Q 4 (also tries Q 5): sharpest peak/dip is Q 3.0"),
+                    "app": ("Max gain +3 dB (app limit): largest needed is +8.0 dB",
+                            "Max Q 4 (also tries Q 5): sharpest peak/dip is Q 3.0"),
+                    "app q": "Max Q 6 (app limit): sharpest peak/dip is ~Q 8.0",
+                    "site": ("Max gain +20 dB (website limit): largest needed is +25.0 dB",
+                             "Max Q 5 (website limit): sharpest peak/dip is ~Q 8.0"),
+                    "site ok": ("Max gain +10 dB: largest needed is +8.0 dB", "Max Q 4: sharpest peak/dip is ~Q 3.0"),
+                    "sweep": ("Max gain +20 dB (website limit): largest needed is +25.0 dB",
+                              "Max Q 5 (website limit): sharpest peak/dip is ~Q 8.0")}, found)
+
+
+def test_no_note_for_what_the_eq_app_cannot_take(check):
+    # (the text survey, 2026-11-23: with your own filters in every filter of the EQ app, the list said "Maximum 1
+    # filter" though no filter is added; and "Low shelf on" for an app with no shelves, or with no free filter)
+    low = {"bass_step": -4}  # (the bass 4 dB above the target: Low shelf on)
+    full9 = "\n".join(f"Filter {i}: ON PK Fc {100 * i} Hz Gain 2 dB Q 1" for i in range(1, 10))
+    full10 = full9 + "\nFilter 10: ON PK Fc 5000 Hz Gain 2 dB Q 1"
+    free = _notes({"mode": "best_fit"}, **low)
+    no_shelves = _notes({"mode": "best_fit", "best_fit": {"layout": "app:moondrop_free_dsp"}}, **low)
+    filled = _notes({"mode": "best_fit", "best_fit": {"layout": "app:moondrop_free_dsp", "start_filters": full9}}, **low)
+    shelves = _notes({"mode": "best_fit", "best_fit": {"layout": "app:minidsp_2x4hd"}}, **low)
+    no_room = _notes({"mode": "best_fit", "best_fit": {"layout": "app:minidsp_2x4hd", "start_filters": full10}}, **low)
+    found = {"free": (free.get("best_fit.filter_counts"), free.get("best_fit.low_shelf")),
+             "no shelves": (no_shelves.get("best_fit.filter_counts"), no_shelves.get("best_fit.low_shelf")),
+             "filled": (filled.get("best_fit.filter_counts"), filled.get("best_fit.low_shelf")),
+             "shelves": (shelves.get("best_fit.filter_counts"), shelves.get("best_fit.low_shelf")),
+             "no room": (no_room.get("best_fit.filter_counts"), no_room.get("best_fit.low_shelf"))}
+    shelf = "Low shelf on: bass is 4.0 dB above target"
+    check("automatic settings: no “Maximum … filters” note when your filters use every filter of the EQ app, and no "
+          "“Low shelf on” note when the EQ app has no shelves or no free filter (the two notes stay in other cases)",
+          found == {"free": ("Maximum 32 filters: 12 peaks/dips to correct", shelf),
+                    "no shelves": ("Maximum 9 filters: 12 peaks/dips to correct", None), "filled": (None, None),
+                    "shelves": ("Maximum 9 filters: 12 peaks/dips to correct", shelf), "no room": (None, None)}
+          and "best_fit.gain_max" in filled and "best_fit.layout" in filled, (found, sorted(filled)))
+
+
+def test_graphic_eq_has_only_the_range_note(check):
+    # (the text survey, 2026-11-23: the line "{layout}: Best fit adjusts only the gains of the bands." is gone; the
+    # gray line below Best fit in Settings says it)
+    notes = _notes({"mode": "best_fit", "best_fit": {"layout": "graphic_10"}})
+    check("automatic settings: a graphic EQ layout has only the note of the fit range (no line that Best fit adjusts "
+          "only the gains)", notes == {"scoring.band_hz.1": "Fit up to 10 kHz (default): measurements above 10 kHz "
+                                                            "vary with fit"}, notes)
+
+
+def test_range_note_gives_its_cause(check):
+    found = [_notes({"mode": "site_single"}, **an)["scoring.band_hz.1"] for an in (
+        {"band_why": "agree", "band_top": 16000, "n_files": 4}, {"band_why": "data", "band_top": 8000, "data_top": 8500},
+        {"band_why": "unstable", "band_top": 8000, "unstable_from": 8600, "n_files": 3})]
+    check("automatic settings: the note of the fit range gives its cause (the files agree, no data, the files diverge)",
+          found == ["Fit up to 16 kHz: your 4 files stay consistent until here",
+                    "Fit up to 8 kHz: no measurement data above 8.5 kHz",
+                    "Fit up to 8 kHz: your 3 files diverge above 8.6 kHz"], found)
+
+
+def test_moved_value_note_names_the_setting_and_the_values(check):
+    # (the text survey, 2026-11-23: the note said only "Set above your “from” value (12000)."; it now names the
+    # setting as Settings does (settings.AUTO_NAMES) and gives the new value and yours with their unit)
+    def last(cfg):
+        return [(n["path"], n["text"]) for n in autoset.plan(settings.with_auto(cfg), dict(AN))["notes"]][-1]
+    up = last({"mode": "best_fit", "scoring": {"band_hz": [12000, 20000]}, "auto": {"manual": ["scoring.band_hz.0"]}})
+    down = last({"mode": "site_single", "site_single": {"gain_max": -10}, "auto": {"manual": ["site_single.gain_max"]}})
+    check("automatic settings: the note of a value moved past your own “from” or “to” value names the setting and "
+          "gives the new value and your value with their unit",
+          up == ("scoring.band_hz.1", "Auto-adjusted Fit up to to 15 kHz (your minimum is 12 kHz)")
+          and down == ("site_single.gain_min", "Auto-adjusted Gain from to -11 dB (your maximum is -10 dB)")
+          and settings.AUTO_NAMES["scoring.band_hz.1"] == "Fit up to"
+          and settings.AUTO_NAMES["site_single.gain_min"] == "Gain from", (up, down))
 
 
 def test_q_note_says_the_second_limit_is_tried_too(check):
@@ -46,10 +137,10 @@ def test_q_note_says_the_second_limit_is_tried_too(check):
     # the app also tries; Best fit tries two Q limits, a single run one)
     def q_note(cfg):
         return next(n["text"] for n in autoset.plan(settings.with_auto(cfg), dict(AN))["notes"]
-                    if n["text"].startswith("Maximum Q"))
+                    if n["text"].startswith("Max Q"))
     two, one = q_note({"mode": "best_fit"}), q_note({"mode": "site_single"})
     check("automatic settings: the Q note says the app also tries the second Q limit (and is a line)",
-          "(the app also tries Q " in two and len(two) <= 80 and "also tries" not in one and "approximately" in one,
+          "(also tries Q " in two and len(two) <= 80 and "also tries" not in one and "is ~Q " in one,
           (two, one))
 
 
@@ -193,12 +284,66 @@ def test_whole_text_says_one_without_s(check):
              "one growing EQ": autoset.describe(_short_cfg(filter_counts=[4])),
              "one EQ of 1": autoset.describe(scratch([1])),
              "your one filter": autoset.describe(_short_cfg(start_filters=MINE, start_add=False))}
-    wrong = [w for w in ("1 filters", "1 filter rows", "1 gain limits", "1 Q limits", "1 filter counts", "1 EQs",
-                         "1 EQ that add ", "they use") if any(w in t for t in found.values())]
-    check("automatic settings: the whole text says “1 filter row”, “1 gain limit”, “1 Q limit”, “1 filter count”, "
-          "“1 EQ”, “your 1 filter” (it said “1 filter rows”, “1 gain limits”, “your 1 filters”)",
+    found["up to one"] = autoset.describe(_short_cfg(filter_counts=[1]))
+    found["your one, adjusted"] = autoset.describe(_short_cfg(start_filters=MINE, start_add=False, start_keep=False,
+                                                              layout="app:moondrop_free_dsp"))
+    # (the words of the text survey, 2026-11-23: "1 gain × 1 Q" has no word to count any more)
+    wrong = [w for w in ("1 filters", "1 filter rows", "1 filter counts", "1 EQs", "1 random starts", "they use")
+             if any(w in t for t in found.values())]
+    check("automatic settings: the whole text says “1 filter row”, “1 filter count”, “1 EQ”, “up to 1 filter”, "
+          "“your 1 filter” and “it uses” (it said “1 filter rows”, “your 1 filters”)",
           not wrong and found["one row"] == "1 website EQ with 1 filter row"
-          and found["one growing EQ"].startswith("1 EQ that adds one filter at a time, to a maximum of 4 (1 gain limit "
-                                                 "× 1 Q limit)")
-          and found["one EQ of 1"].startswith("1 EQ (1 filter count × 1 gain limit × 1 Q limit)")
-          and found["your one filter"].startswith("only your 1 filter, not changed (it uses all"), (wrong, found))
+          and found["one growing EQ"] == "1 EQ (1 gain × 1 Q): adds up to 4 filters one by one, stopping once it "
+                                         "matches the target"
+          and found["up to one"].startswith("1 EQ (1 gain × 1 Q): adds up to 1 filter one by one")
+          and found["one EQ of 1"].startswith("1 EQ (1 filter count × 1 gain × 1 Q), ")
+          and found["your one filter"] == "Evaluates the error of your 1 filter"
+          and found["your one, adjusted"] == "Your 1 filter, adjusted once per limit set (1 gain × 1 Q); it uses all "
+                                             "Moondrop Free DSP filters.", (wrong, found))
+
+
+def test_whole_text_of_each_kind_of_run(check):
+    # (the words of the text survey, 2026-11-23, with each part that shows only in some condition)
+    two = MINE + "\n" + MINE.replace("100 Hz", "200 Hz")
+    grown = _short_cfg(filter_counts=[2, 3], start_filters=two, layout="app:moondrop_free_dsp",
+                       fight_penalty=[0.003, 0.01])
+    lowest = dict(grown, scoring=dict(grown["scoring"], pick="lowest"))
+    alone = _short_cfg(filter_counts=[2, 3], start_filters=two, start_keep=False, layout="app:moondrop_free_dsp")
+    alone["best_fit"]["build"] = "scratch"
+    fixed = _short_cfg(layout="graphic_10")
+    found = {"grown": autoset.describe(grown), "lowest": autoset.describe(lowest), "alone": autoset.describe(alone),
+             "fixed": autoset.describe(fixed)}
+    from eq import engines, layouts
+    lo, hi, step = layouts.sliders(fixed["best_fit"])
+    check("automatic settings: the whole text of a run: EQs that add filters one by one (with 2 penalties, your "
+          "filters and the limits of an EQ app; with and without the stop at the target), EQs from random starts, "
+          "and the band gains of a graphic EQ",
+          found == {"grown": "2 EQs (1 gain × 1 Q × 2 opposite-filter penalties): adds up to 3 filters one by one, "
+                             "stopping once it matches the target, on top of your 2 filters, within Moondrop Free "
+                             "DSP limits",
+                    "lowest": "2 EQs (1 gain × 1 Q × 2 opposite-filter penalties): adds up to 3 filters one by one, "
+                              "on top of your 2 filters, within Moondrop Free DSP limits",
+                    "alone": f"{engines.fit_count(autoset.device_settings(alone['best_fit']), 2)} EQs (2 filter counts "
+                             f"× 1 gain × 1 Q), {engines.RANDOM_STARTS} random starts each, on top of your 2 filters "
+                             "(Best fit can adjust them), within Moondrop Free DSP limits",
+                    "fixed": f"10-band graphic EQ: 10 band gains, {lo:g} to +{hi:g} dB ({step:g} dB steps)"}, found)
+
+
+def test_time_is_short(check):
+    found = [autoset.fmt_time(s) for s in (0.4, 20, 120, 7200)]
+    check("automatic settings: the time of a run is “~1 s”, “~20 s”, “~2.0 min”, “~2.0 h”",
+          found == ["~1 s", "~20 s", "~2.0 min", "~2.0 h"], found)
+
+
+def test_limits_line_of_an_eq_app(check):
+    from eq import layouts
+    found = [layouts.summary(k) for k in ("app:roon", "app:hiby", "app:moondrop_free_dsp", "app:minidsp_il_dsp")]
+    check("layouts: the line of an EQ app's limits in About these settings (no limit, filters of the two kinds, "
+          "peaking filters, with shelves; gain, Q and frequency)",
+          found == ["Roon (MUSE parametric EQ) limits: unlimited filters, gain -24 to +24 dB",
+                    "HiBy Music (and HiBy devices) limits: up to 10 peaking/shelf filters, gain -12 to +12 dB, Q 0.2 "
+                    "to 20, frequency 20 Hz to 20 kHz",
+                    "Moondrop Free DSP limits: up to 9 peaking filters, gain -12 to +3 dB, Q 0.2 to 10, frequency "
+                    "40 Hz to 10 kHz",
+                    "miniDSP IL-DSP limits: up to 8 peaking filters + low/high shelves, gain -16 to +16 dB, Q 0.5 "
+                    "to 6"], found)

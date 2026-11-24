@@ -363,7 +363,7 @@ class EqCards:
         self.mode_combo.setFixedWidth(CHOICE_MOST)
         g.addWidget(self.mode_combo, 0, 1, 1, 3, Qt.AlignLeft)
         g.addWidget(name("Settings to try"), 1, 0)
-        # what a run tries and how long it takes, in one short line ("36 EQs, 1 to 32 filters · approximately 20 s");
+        # what a run tries and how long it takes, in one short line ("36 EQs, 1 to 32 filters · ~20 s");
         # the whole text in its tooltip and in Help (the UI audit, 2026-11-08: 2 lines, 5 numbers, 3 settings)
         self.sa = QWidget()
         sa = QVBoxLayout(self.sa)

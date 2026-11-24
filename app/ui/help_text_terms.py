@@ -295,7 +295,7 @@ TERMS = [{'title': 'Curves and sound',
                      'see': ['scored-range', 'simplest', 'unit-variation']},
                     {'id': 'scored-range',
                      'title': 'Error range',
-                     'body': ['The frequencies where the app calculates the error (Error from … to). Above and below '
+                     'body': ['The frequencies where the app calculates the error (Fit from … to). Above and below '
                               'this range, the EQ has no limits: filters can go there, but the app does not '
                               'calculate the error there. The automatic settings set it from the range where your '
                               'measurement is accurate.'],

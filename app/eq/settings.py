@@ -183,7 +183,18 @@ PAIR_NAMES = {"site_single.freq_low": "Frequency range", "site_single.gain_min":
               "best_fit.freq_range.0": "Filter frequency range", "best_fit.gain_min": "Minimum and maximum gain",
               "best_fit.q_min": "Q range", "best_fit.low_shelf_freq.0": "Low shelf frequencies",
               "best_fit.high_shelf_freq.0": "High shelf frequencies", "best_fit.bands.gain_min": "The sliders' range",
-              "scoring.band_hz.0": "Error range"}
+              "scoring.band_hz.0": "Fit range"}
+# What Settings calls each setting that can be automatic ("Custom values: …" there, and the notes of the automatic
+# settings that name one: autoset)
+AUTO_NAMES = {
+    "scoring.band_hz.1": "Fit up to", "site_single.rows": "Filter rows", "site_single.freq_high": "Frequency to",
+    "site_single.gain_min": "Gain from", "site_single.gain_max": "Gain to", "site_single.q_max": "Q to",
+    "site_sweep.filter_rows": "Filter rows to try", "site_sweep.freq_high": "Frequency “to” values",
+    "site_sweep.gain_ranges": "Gain ranges", "site_sweep.q_max": "Q “to” values", "best_fit.filter_counts": "Filter counts",
+    "best_fit.freq_range.1": "Filters up to", "best_fit.gain_min": "Minimum gain", "best_fit.gain_max": "Maximum gain values",
+    "best_fit.q_max": "Maximum Q values", "best_fit.low_shelf": "Low shelf", "best_fit.high_shelf": "High shelf",
+    "scoring.pick": "Best result", "scoring.ear_db": "Same sound below",
+    "best_fit.fight_penalty": "Penalties for opposite filters"}
 # Settings with a fixed set of values (the page's dropdowns): anything else goes back to the default
 CHOICES = {"mode": list(MODES), "eq_app": ["", eq_apps.OTHER, *eq_apps.APPS], "scoring.pick": ["audible", "lowest"], "site.normalization": ["Hz~", "Hz", "dB"],
            "site.phon_table": ["ISO 226:2023", "ISO 226:2003"], "site.sample_rate": [44100, 48000, 88200, 96000],

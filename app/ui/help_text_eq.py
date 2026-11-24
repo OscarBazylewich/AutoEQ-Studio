@@ -343,7 +343,7 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'steps. Thus, the app calculates the error with the values that you set.']}]},
                {'title': 'Error and selection',
                 'items': [{'key': 'scoring.band_hz',
-                           'title': 'Error from … to (Hz)',
+                           'title': 'Fit from … to (Hz)',
                            'body': ['The frequency range in which the app calculates the error (from … to). At other '
                                     'frequencies, the EQ has no limits. Automatic settings stop where the seatings of '
                                     'the measurement do not agree, frequently at approximately 10 kHz.']},

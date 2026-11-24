@@ -103,7 +103,7 @@ def band_problem(curves, band):
     if ((f >= band[0]) & (f <= band[1])).sum() >= 2:
         return None
     return (f"The error range ({band[0]:g}–{band[1]:g} Hz) has no data: the curves go from 20 Hz to 20 kHz. "
-            f"Change “Error from” or “Error to”.")
+            f"Change “Fit from” or “Fit up to”.")
 
 
 def check_run(mode, cfg, curves):

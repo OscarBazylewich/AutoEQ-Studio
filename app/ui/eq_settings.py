@@ -39,15 +39,6 @@ from ui.forms import Field, Fold, Form, Limits, fmt_list
 
 ADJUST_GAINS = ("tilt", "bass_gain", "halftilt_gain", "ear_gain", "treble_gain", "air_gain")  # (eq.service's)
 CURVE_KEYS = ("target_adjust.","site.", "scoring.band_hz", "files.", "rig_convert.")  # (settings.js)
-LABELS = {  # (auto.js: what "Set by you" calls each one)
-    "scoring.band_hz.1": "Error to", "site_single.rows": "Filter rows", "site_single.freq_high": "Frequency to",
-    "site_single.gain_min": "Gain from", "site_single.gain_max": "Gain to", "site_single.q_max": "Q to",
-    "site_sweep.filter_rows": "Filter rows to try", "site_sweep.freq_high": "Frequency “to” values",
-    "site_sweep.gain_ranges": "Gain ranges", "site_sweep.q_max": "Q “to” values", "best_fit.filter_counts": "Filter counts",
-    "best_fit.freq_range.1": "Filters up to", "best_fit.gain_min": "Minimum gain", "best_fit.gain_max": "Maximum gain values",
-    "best_fit.q_max": "Maximum Q values", "best_fit.low_shelf": "Low shelf", "best_fit.high_shelf": "High shelf",
-    "scoring.pick": "Best result", "scoring.ear_db": "Same sound below",
-    "best_fit.fight_penalty": "Penalties for opposite filters"}
 FORMATS = [("apo", "Equalizer APO / squiglink filters (.txt)"), ("graphic", "GraphicEQ for Wavelet (.txt)"),
            ("poweramp", "Poweramp / Poweramp Equalizer preset (.json)"),
            ("uapp", "USB Audio Player PRO parametric EQ preset (.xml)"),
@@ -163,7 +154,7 @@ class EqSettings:
                 ("Shelf", [("best_fit.low_shelf", "check")], shelves),
                 (self.fixed_note, [], fixed)]),
             ("Error and selection", [
-                ("Error from (Hz)", [("scoring.band_hz.0", "num"), ("scoring.band_hz.1", "num")]),
+                ("Fit from (Hz)", [("scoring.band_hz.0", "num"), ("scoring.band_hz.1", "num")]),
                 ("Best result", [("scoring.pick", "choice",
                                   [("audible", "Minimum number of filters for the same sound"),
                                    ("lowest", "Lowest error")])], multi),
@@ -698,7 +689,8 @@ class EqSettings:
         self.why_head.setText(f"About these settings ({len(notes)})" if notes else "About these settings")
         self.redraw_adjust()
         self.mine_box.setVisible(on and bool(mine))
-        self.mine_text.setText("Custom values: " + ", ".join(LABELS.get(p, p) for p in mine)
+        # (eq.settings' names for these settings: the automatic notes that name a setting use them too)
+        self.mine_text.setText("Custom values: " + ", ".join(self.eq_settings.AUTO_NAMES.get(p, p) for p in mine)
                                + " (click “your value ↺” to reset)")
         tags = {p: ("yours" if p in mine else "auto") for p in self.auto_paths} if on else {}
         self.form.refresh(tags)

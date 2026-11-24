@@ -124,12 +124,12 @@ def test_one_search(eq_screen, check):
     page.S["auto"] = kept
     page.refresh_auto()
     # was eq_checks.py:2316
-    # (the UI audit, 2026-11-08: one short line, "36 EQs, 1 to 32 filters · approximately 20 s"; the whole text in its
+    # (the UI audit, 2026-11-08: one short line, "36 EQs, 1 to 32 filters · ~20 s"; the whole text in its
     # tooltip)
     check("search: one search, every limit with both fighting-filter penalties, said in one short line with its time "
           "(the whole text in its tooltip); no buttons; an older copy's level dropped and its one penalty made a list",
-          bf["fight_penalty"] == [0.003, 0.01] and len(bf["q_max"]) >= 4 and "penalties for opposite filters" in what
-          and "EQs, 1 to " in est and "approximately" in est and " · Est. time: " in what
+          bf["fight_penalty"] == [0.003, 0.01] and len(bf["q_max"]) >= 4 and "opposite-filter penalties" in what
+          and "EQs, 1 to " in est and " · ~" in est and " · Est. time: " in what
           and not hasattr(page, "sa_btns")
           and "level" not in old["auto"] and old["best_fit"]["fight_penalty"] == [0.004],
           (bf["fight_penalty"], bf["q_max"], what, est, old["auto"], old["best_fit"]["fight_penalty"]))
