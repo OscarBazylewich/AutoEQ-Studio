@@ -11,7 +11,11 @@ from helpers import eqpage
 # controls (ui\help_texts.py tells the mechanism). This is the one list of them: a key whose tooltip is removed
 # later is added here, and a line that becomes empty by accident fails test_controls_without_a_tooltip.
 NO_TOOLTIP = {"#opt-view", "#target-save", "#compare-results", "#make-way", "#by-hand", "#hand-start",
-              "#use-device", "#use-try", "#use-update"}
+              "#use-device", "#use-try", "#use-update",
+              # (area 13 of the survey: the row Settings to try, and 10 settings boxes of Make an EQ)
+              "sa", "best_fit.filter_counts", "best_fit.freq_range", "best_fit.gain_min", "best_fit.gain_max",
+              "best_fit.q_min", "best_fit.q_max", "best_fit.low_shelf_freq", "best_fit.start_filters",
+              "best_fit.layout", "scoring.pick"}
 
 
 @pytest.mark.timeout(600)  # (the tracer's labels read and three Auto traces first)
@@ -41,8 +45,8 @@ def test_every_tagged_control_has_help(eq_screen, check):
 
 
 def test_controls_without_a_tooltip(eq_screen, check):
-    # (2026-11-24, the text survey: 9 short lines of Make an EQ removed. Their keys stay, so F1, the name for a
-    # screen reader and the links of the Help entry stay)
+    # (2026-11-24, the text survey: 9 short lines of Make an EQ removed, then 11 lines of its settings. Their keys
+    # stay, so F1, the name for a screen reader and the links of the Help entry stay)
     from ui import help_window
     from ui.help_texts import HELP
     page = eq_screen.page
@@ -68,6 +72,61 @@ def test_controls_without_a_tooltip(eq_screen, check):
     check("help: Compare… and the tabs Automatically and Manually keep the tooltip of their own, and a screen reader "
           "reads only their name (no line of Help after it)",
           all(v == (True, True, "") for v in got.values()), got)
+
+
+def test_settings_boxes_without_a_help_line(eq_screen, check):
+    # (2026-11-24, the text survey, area 13: the line of 10 settings boxes and of the row Settings to try removed.
+    # A box with limits then shows only its limits, with no empty first line; a list or a text box and each label
+    # show no tooltip; a box whose line has words shows the line, then its limits)
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QLabel
+    from ui import help_window
+    page, st = eq_screen.page, eq_screen.page.settings
+    fields ={**st.form.fields, **st.adv_form.fields}
+
+    def label(path):  # (the label above the box: the one label that the cell itself has; "to" is in the boxes' row)
+        cell = fields[path].parentWidget().parentWidget()
+        own = cell.findChildren(QLabel, options=Qt.FindDirectChildrenOnly)
+        return own[0] if len(own) == 1 else None
+    limits = ["best_fit.filter_counts", "best_fit.freq_range.0", "best_fit.freq_range.1", "best_fit.gain_min",
+              "best_fit.gain_max", "best_fit.q_min", "best_fit.q_max", "best_fit.low_shelf_freq.0",
+              "best_fit.low_shelf_freq.1"]
+    got = {p: fields[p].box.toolTip() for p in limits}
+    check("help: a settings box whose Help line is removed shows only its limits, on one line",
+          all(t.startswith("Allowed: ") and "\n" not in t for t in got.values()), got)
+    got = {p: fields[p].box.toolTip() for p in ("best_fit.start_filters", "best_fit.layout", "scoring.pick")}
+    check("help: Start from your filters, Layout and Best result (no limits) show no tooltip",
+          set(got.values()) == {""}, got)
+    labels = {p: label(p) for p in limits + list(got) if not p.endswith(".1")}
+    got = {p: (w.text(), w.toolTip()) if w is not None else None for p, w in labels.items()}
+    check("help: the label of each of these boxes shows no tooltip",
+          all(v and v[0] and v[1] == "" for v in got.values()), got)
+    got = {p: (fields[p].box.property("help_key"), help_window.entry_for(p), bool(fields[p].box.accessibleName()))
+           for p in limits + ["best_fit.start_filters", "best_fit.layout", "scoring.pick"]}
+    check("help: each of these boxes keeps its tag for F1, its entry in Help and its name for a screen reader",
+          all(k == p and e and named for p, (k, e, named) in got.items()), got)
+    got = (page.sa.toolTip(), page.sa.accessibleName(), page.sa.accessibleDescription(), bool(page.estimate.toolTip()))
+    check("help: the row Settings to try has no tooltip of its own and a screen reader reads only its name; the "
+          "text of the row keeps its tooltip", got == ("", "Settings to try", "", True), got)
+    got = {p: fields[p].box.toolTip().split("\n") for p in ("scoring.band_hz.0", "scoring.band_hz.1",
+                                                              "best_fit.bands.gain_min", "best_fit.bands.gain_max")}
+    check("help: a settings box whose Help line has words shows the line, then its limits",
+          [t[0] for t in got.values()] == ["Frequency range used to measure EQ error"] * 2
+          + ["Minimum slider gain (dB)", "Maximum slider gain (dB)"]
+          and all(len(t) == 2 and t[1].startswith("Allowed: ") for t in got.values()), got)
+    adj = st.adjust()  # (the page's own window, made hidden at its first use)
+    rows = {w.text(): w.toolTip().split("\n") for w in adj.dlg.findChildren(QLabel)
+            if w.text() in ("Tilt", "Bass", "Half-tilt", "Ear gain", "Treble", "Air")}
+    boxes = {k: adj.form.fields["target_adjust." + k].box.toolTip().split("\n")
+             for k in ("tilt", "bass_freq", "bass_q", "ear_q")}
+    check("help: Adjust the target: the name of a row and its value box show the same line and limits",
+          rows["Tilt"] == boxes["tilt"] and rows["Tilt"][0] == "Tilts the full target: − gives more bass, + gives "
+          "more treble" and [len(v) for v in rows.values()] == [2] * 6
+          and rows["Air"][0] == "Boosts (+) or cuts (−) upper treble (“air”) above ~10 kHz", rows)
+    check("help: Adjust the target: an Hz box shows its line and limits, a Q list only its line",
+          boxes["bass_freq"][0] == "Corner frequency for the bass shelf" and len(boxes["bass_freq"]) == 2
+          and boxes["bass_q"] == ["Slope of the bass shelf"] and boxes["ear_q"] == ["Width of the ear-gain filter"],
+          boxes)
 
 
 def test_buttons_named_in_help_as_they_read(eq_screen, check):

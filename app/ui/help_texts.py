@@ -7,7 +7,8 @@ A control with NO tooltip keeps its key with an empty text ("" or ["", ...ids]):
 removed the tooltip, but the key must stay, because F1 on the control, its name for a screen reader and the "See
 also" links of its Help entry are all found through the key. Never delete the key to remove a tooltip.
 tests\\eq_screen\\test_help_tags.py lists these keys (NO_TOOLTIP). A settings box (forms.Field) adds its
-"Allowed: …" line to the text: emptying the text of a settings box does not yet take that line away.
+"Allowed: …" line to the text: with an empty text, the tooltip of the box is only that line (a box without
+limits, as a list or a text box, has no tooltip then), and the label of the box has no tooltip.
 
 The words themselves are kept per screen and joined here: help_text_terms.py (what every screen shares: the
 introduction, the steps, the terms, the questions), help_text_eq.py (Make an EQ and its windows),

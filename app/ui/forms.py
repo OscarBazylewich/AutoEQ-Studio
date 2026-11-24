@@ -217,7 +217,9 @@ class Field(QWidget):
             lay.addStretch(1)
         tip = help_of(path)
         allowed = form.limits.text(path)
-        self.base_tip = tip + (f"\nAllowed: {allowed}" if allowed else "")
+        # (the line of Help, then the limits. An empty line in HELP, help_texts.py, means the survey removed the
+        # words: the tooltip is then only the limits, with no empty first line; with no limits either, no tooltip)
+        self.base_tip = "\n".join(t for t in (tip, f"Allowed: {allowed}" if allowed else "") if t)
         self.box.setToolTip(self.base_tip)
         self.box.setProperty("help_key", path)  # (F1 on it: its entry in Help)
 

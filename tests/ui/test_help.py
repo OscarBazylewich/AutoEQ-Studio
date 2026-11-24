@@ -184,13 +184,18 @@ def test_f1_on_a_control(qapp, check):
     from PySide6.QtWidgets import QCheckBox
     from ui import help_window as hw
     box = QCheckBox("x")
-    hw.tag(box, "best_fit.filter_counts.1")
+    hw.tag(box, "scoring.band_hz.1")
     # was selftest.py:903
-    # (2026-11-23, the text survey: the tooltip is the setting's line only, without "F1 opens Help." at its end)
+    # (2026-11-23, the text survey: the tooltip is the setting's line only, without "F1 opens Help." at its end.
+    # 2026-11-24: the setting of this check was Filter counts to try, whose line the survey then removed)
     check("help: F1 on a control opens its setting's entry (a “to” box: its “from” box's); its tooltip is the line of "
           "the setting, with no “F1 opens Help.”",
-          hw.entry_of_widget(box) == "set-best-fit-filter-counts" and box.toolTip()
+          hw.entry_of_widget(box) == "set-scoring-band-hz" and box.toolTip()
           and "F1 opens Help." not in box.toolTip() and "\n" not in box.toolTip(), box.toolTip())
+    bare = QCheckBox("x")
+    hw.tag(bare, "best_fit.filter_counts.1")
+    check("help: F1 on a control whose line is removed still opens its setting's entry; the control has no tooltip",
+          hw.entry_of_widget(bare) == "set-best-fit-filter-counts" and bare.toolTip() == "", bare.toolTip())
 
 
 LOOK = r'''
