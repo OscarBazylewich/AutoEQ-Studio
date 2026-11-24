@@ -30,14 +30,12 @@ def unit_key(it):
 
 def _note(u):
     n, w = u.get("models", 0), u.get("wins", 0)
-    base = (f"calculated from {n} models that are also in sources with a known rig "
-            f"(this rig agrees best with {round(w * 100)}% of them)")
-    if u.get("loose"):
-        base += (". Its measurements agree less with this rig than two measurements on one rig agree (very "
-                 "possibly a copy of the rig, or a different rig)")
-    if u.get("mixed"):
-        return base + (". Some of its measurements agree with a different rig (the person who measured changed "
-                       "rigs): the app shows the rig of each of these measurements")
+    # (shared models: the models of this database that are also in sources with a known rig)
+    base = f"estimated from {n} shared models ({round(w * 100)}% match this rig)"
+    if u.get("loose"):  # (its measurements agree less with the rig than two measurements on one rig agree)
+        base += ". Weaker match than same-rig measurements (likely a clone or different rig)"
+    if u.get("mixed"):  # (some entries have a rig of their own: lookup gives it for each of them)
+        return base + ". Some measurements match another rig and are labeled individually"
     return base
 
 
@@ -50,12 +48,10 @@ def lookup(it):
     if one:
         from . import rigs  # (it imports this module)
         if one not in rigs.RIGS:  # ("unknown" or a rig the app doesn't know: not a rig to use)
-            return None, False, "its measurements agree with none of the 4 rigs that the app knows: " + _note(u)
-        return one, True, ("calculated from this measurement (the app compares it with the same model from sources "
-                           "with a known rig)")
+            return None, False, "matches none of the 4 known rigs: " + _note(u)
+        return one, True, "estimated by comparing this measurement against known-rig sources"
     if u["rig"] == "unknown":
-        return None, False, ("its measurements agree with none of the 4 rigs that the app knows, for example a "
-                             "MiniDSP EARS or a different rig: ") + _note(u)
+        return None, False, "matches none of the 4 known rigs (e.g., MiniDSP EARS or custom rig): " + _note(u)
     return u["rig"], u["confidence"] == "high", _note(u)
 
 
@@ -66,11 +62,11 @@ def site_notes():
         if u.get("confidence") in (None, "low"):
             continue
         if u.get("confidence") == "stated":
-            text = "from the source" + (f" ({u['source']})" if u.get("source") else "")
+            text = "from source" + (f" ({u['source']})" if u.get("source") else "")
         elif u["rig"] == "unknown":
-            text = "its measurements agree with none of the 4 rigs that the app knows: " + _note(u)
+            text = "matches none of the 4 known rigs: " + _note(u)
         else:
-            text = _note(u) + ("" if u["confidence"] == "high" else " (the app is not fully sure)")
+            text = _note(u) + ("" if u["confidence"] == "high" else ". Low confidence")
         if key.startswith("autoeq|"):
             _, src, form = key.split("|", 2)
             out[f"AutoEq (GitHub)|{src} · {form}"] = text

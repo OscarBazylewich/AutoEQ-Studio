@@ -203,7 +203,7 @@ def target_rig(name, recorded=None):
     if rec:
         rig, _ = source_rig(rec)
         if rig:
-            return rig, f"it came from {rec['site']}"
+            return rig, f"from {rec['site']}"
     n = name.lower()
     for pat, rig in _TARGET_NAME_RIGS:
         if re.search(pat, n):
@@ -213,7 +213,7 @@ def target_rig(name, recorded=None):
     for it in idx.get(stem, []) + idx.get(stem + " target", []):
         rig, _ = source_rig(it)
         if rig:
-            return rig, f"it comes from {it['site']}"
+            return rig, f"from {it['site']}"
     return None, "unknown"
 
 

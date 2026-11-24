@@ -324,8 +324,7 @@ class HelpWindow(QWidget):
             self.toc.blockSignals(False)
         self.found = found
         if words and not found:
-            self.view.setHtml(self._css() + "<p class='muted'>No results with all of these words. Type a smaller number "
-                              "of words.</p>")
+            self.view.setHtml(self._css() + "<p class='muted'>No results matching all words. Try fewer words.</p>")
         elif words:
             show = now if now in _by_id() and not self.items[now].isHidden() else first
             self.show_page(show, keep=keep or show == now)

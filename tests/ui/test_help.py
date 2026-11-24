@@ -48,7 +48,7 @@ def test_search_and_going_to_an_entry(qapp, check):
         w.q.setText("rig change database")  # ("rig change" alone is in 16 entries)
         found = w.found
         w.q.setText("zzzz qqqq")
-        none = "No results with all of these words" in w.view.toPlainText()
+        none = "No results matching all words. Try fewer words." in w.view.toPlainText()
         w.q.setText("rig")
         w.show_entry("set-best-fit-filter-counts")
         cur = _current(w)

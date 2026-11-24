@@ -432,3 +432,35 @@ def test_table_has_room_for_its_columns_and_scroll_bar(eq_screen, check):
           "one (a scroll bar across showed, and ✕ was cut), and a corner of its own (white in light), light and dark",
           all(f["bar across"] == (False, 0) and f["columns"] <= f["room"] and f["corner"]
               and f["bar up and down"] == (n == 20) for (_d, n), f in found.items()), found)
+
+
+def test_tooltips_of_the_filter_controls(own_editor, check):
+    # (the text survey, 2026-11-24: the ✕ of a row and the type, the tick box and the ✕ of a slider column show no
+    # tooltip; a screen reader still reads their names. The slider and the frequency and Q boxes keep a tooltip)
+    from PySide6.QtWidgets import QCheckBox, QLineEdit, QToolButton
+    from ui.search_combo import SearchCombo
+    ed = own_editor
+    row_x = ed.table.cellWidget(0, 6)
+    table = (row_x.toolTip(), row_x.accessibleName())
+    try:
+        sl = _sliders(ed)
+        holder = ed.sliders_scroll.widget()
+        named = lambda kind, name: next(w for w in holder.findChildren(kind) if w.accessibleName() == name)
+        quiet = [named(SearchCombo, "Filter 1 type"), named(QCheckBox, "Filter 1 on"),
+                 named(QToolButton, "Remove filter 1")]
+        tips = [w.toolTip() for w in quiet]
+        slider = sl[0].toolTip()
+        freq = named(QLineEdit, "Filter 3 frequency (Hz)").toolTip()
+        q = named(QLineEdit, "Filter 3 Q").toolTip()
+        lim_f, lim_q = ed.limits.text("edit.freq"), ed.limits.text("edit.q")
+    finally:
+        ed.set_view("table")
+    check("filters: the ✕ of a table row has no tooltip and keeps its name for a screen reader",
+          table == ("", "Remove filter 1"), table)
+    check("filters: the type, the tick box and the ✕ of a slider column have no tooltip (their names stay)",
+          tips == ["", "", ""], tips)
+    check("filters: the tooltip of a slider gives its filter, the keys and the double-click",
+          slider == "Filter 1 gain: drag or use arrow keys (±0.1 dB). Double-click for 0 dB.", slider)
+    check("filters: the tooltip of a frequency or Q box of the sliders is its filter and value, then the limits in ( )",
+          bool(lim_f) and bool(lim_q) and freq == f"Filter 3 frequency ({lim_f})" and q == f"Filter 3 Q ({lim_q})",
+          (freq, q))

@@ -41,7 +41,7 @@ class LiveGraph(QFrame):
         x = QToolButton()
         theme.mark(x, quiet=True)  # (as every ✕)
         x.setText("✕")
-        x.setToolTip("Hide the graph (Show the graph while you edit, adjacent to the filters, shows it again)")
+        x.setToolTip("Hide graph")
         x.setAccessibleName("Hide the graph while you edit")
         x.clicked.connect(on_close)
         head.addWidget(x)
