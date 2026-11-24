@@ -1,7 +1,7 @@
 """Make an EQ made in steps (ui\\eq_page.py, ui\\eq_page_cards.py, 2026-10-24: made in one go, the page froze the
 window for ~0.45 s; now one step per turn of the window's event loop, each a few ms). What's checked, not how long
 anything takes (timing checks come and go on a busy PC; the measurements are in the work's report):
-- the page grows over many turns, ready only once it's whole, "Opening the EQ part…" until then and the page shown
+- the page grows over many turns, ready only once it's whole, "Opening Make an EQ…" until then and the page shown
   whole at once;
 - each part goes into its final place in the step that makes it (the page's frame in the page before any card is
   made, nothing made in one step and placed in a later one), and the finished page's parts are where they were;
@@ -188,12 +188,12 @@ def test_made_in_steps_and_ready_only_when_whole(ahead, check):
     turns = ahead.turns
     making = [t for t in turns if not t["ready"]]
     first_ready = next((t for t in turns if t["ready"]), {})
-    grew = sorted({t["widgets"] for t in making if t["widgets"] > 1})  # (1: "Opening the EQ part…" alone)
+    grew = sorted({t["widgets"] for t in making if t["widgets"] > 1})  # (1: "Opening Make an EQ…" alone)
     check("eq page: Make an EQ is made in steps, one per turn of the window's event loop (it grew in at least 8 of "
           "them: made in one go, it froze the window for ~0.45 s), ready only once it's whole",
           ahead.before["opened"] and len(grew) >= 8 and first_ready.get("widgets", 0) >= max(grew, default=1),
           (len(grew), grew[:12], first_ready.get("widgets")))
-    check("eq page: while it's made, only “Opening the EQ part…” shows, and the page is shown whole in the turn it's "
+    check("eq page: while it's made, only “Opening Make an EQ…” shows, and the page is shown whole in the turn it's "
           "ready (never seen half-made, nor used before it's ready)",
           bool(making) and all(t["opening shown"] and not t["page shown"] for t in making)
           and first_ready.get("page shown") is True and first_ready.get("opening shown") is False,
@@ -267,7 +267,8 @@ def test_says_nothing_until_first_seen(ahead, check):
           before["opened"] and not before["asked"] and not before["said"] and before["current"], before)
     check("eq page: once first shown, what it kept is said: the files set aside (one box) and the status line "
           "(AutoEQ Local's files brought over)",
-          len(boxes) == 1 and any(t.startswith("AutoEQ Studio copied 2 files from AutoEQ Local") for t in after["said"]),
+          len(boxes) == 1 and any(t == "Imported 2 files from AutoEQ Local. Your original AutoEQ Local files were kept."
+                                   for t in after["said"]),
           after)
 
 
@@ -283,7 +284,7 @@ def test_damaged_history_said(ahead, check):
     bad = _history_file() + ".bad"
     check("eq page: a damaged history.json at opening is said (kept as history.json.bad, a new one started): it was "
           "set aside without a word (its notice came with History's answer, which the opening dropped)",
-          any("cannot read history.json" in b and "history.json.bad" in b for b in boxes) and os.path.exists(bad),
+          any("Couldn't read history.json. Backed up as history.json.bad and created a new file." in b for b in boxes) and os.path.exists(bad),
           (boxes, os.path.exists(bad)))
 
 
@@ -316,15 +317,23 @@ def test_failed_opening_lets_go(tmp_path, monkeypatch, check):
                         if path == "/api/state" else real(path, body))
     o = _open(str(tmp_path), monkeypatch, False)
     page = o.s.page
+    import paths
+    from ui import window_parts
     try:
-        said = qt.wait_for(lambda: page.loading.text().startswith("The EQ part cannot open"), 60)
+        # (an error in the answer for the state: one line, with the full path of the log, paths.LOG)
+        said = qt.wait_for(lambda: page.loading.text() == "Couldn't open Make an EQ: made up for the test. Check "
+                           f"{paths.LOG} for details.", 60)
+        words = page.loading.text()
         o.watch.stop()
         holds = list(o.holds)
     finally:
         eqpage.close_screen(o.s)
     check("eq page: when the EQ part can't open, ui.preload is let go too (held for good, the code it loads ahead "
           "would wait for ever), and the page says so", said and holds == [("hold", False), ("release", False)],
-          (said, holds))
+          (said, holds, words))
+    check("eq page: the main window knows these words as a failed opening (the Guide and Presets stop waiting), and "
+          "the log they name has a full path", window_parts.is_not_opened(words) and os.path.isabs(paths.LOG),
+          (words, paths.LOG))
 
 
 def test_deleted_half_way(tmp_path, monkeypatch, check):

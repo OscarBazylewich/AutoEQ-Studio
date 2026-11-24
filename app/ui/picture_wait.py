@@ -334,9 +334,8 @@ class PictureWait(QDialog):
         if site and shown_site != f"“{site}”":
             self.intro.setToolTip(plain_tip(site))
         band, self.paste_btn = dialog_band(self, "Paste the picture", self.paste)
-        # (set before tag(): tag() adds "F1 opens Help.", as for the other tagged controls. F1 opens Help in a window
-        # that blocks the others, as this one does, since such a window gets an F1 shortcut of its own (ui\window.py's
-        # F1Anywhere), 2026-11-12)
+        # (set before tag(): tag() keeps a tooltip that is there. F1 opens Help in a window that blocks the others,
+        # as this one does, since such a window gets an F1 shortcut of its own (ui\window.py's F1Anywhere), 2026-11-12)
         self.paste_btn.setToolTip("Uses the picture that is on the clipboard at this time (also Ctrl+V).")
         help_window.tag(self.paste_btn, "#pw-paste")
         outer.addWidget(band)

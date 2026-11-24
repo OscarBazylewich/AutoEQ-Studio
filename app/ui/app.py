@@ -316,11 +316,10 @@ class App:
         self.sw.set("autostart", winsys.autostart_on())
 
     def set_offline(self, on):
-        """Online / Offline (the top bar, Settings): saved, and the whole app follows (net.py)."""
+        """Online / Offline (the top bar, Settings): saved, and the whole app follows (net.py). No message: the
+        button of the top bar shows the state (the text survey, 2026-11-23)."""
         net.set_offline(on)
         self.sw.set("offline", bool(on))
-        self.win.status("Offline: AutoEQ Studio does not connect to the internet." if on else
-                        "Online: AutoEQ Studio can use the internet (the online databases).", 5000)
 
     def restart(self):
         """Quit and start again (after a restore: everything loaded changed). The new copy waits for this one."""

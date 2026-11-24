@@ -337,7 +337,7 @@ class Sources(QDialog):
         if kind != "site" or col != 2 or d["extra"]:
             return
         if net.offline():  # (said in this window's line, as every "Offline: …", UI-RULES 7)
-            self.footer.say("Offline: to open websites, change to Online (top right).")
+            self.footer.say("Offline: switch to Online to open websites")
         else:
             QDesktopServices.openUrl(QUrl(d["url"]))
 

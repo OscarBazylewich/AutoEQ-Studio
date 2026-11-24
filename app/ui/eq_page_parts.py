@@ -32,8 +32,9 @@ FORMAT_NAMES = {"apo": "Equalizer APO / squiglink (.txt)", "graphic": "GraphicEQ
                 "report": "a report (.html)"}  # (AutoEQ Local's export.js)
 MODE_SHORT = {"site_single": "Website AutoEQ", "site_sweep": "Website best settings", "best_fit": "Best fit",
               "manual": "Manually"}
-MODE_HINT = {"best_fit": "For EQ apps and devices: the nearest EQ to the target",
-             "site_sweep": "For the squiglink / listener800 website", "site_single": "Uses one set of website values"}
+MODE_HINT = {"best_fit": "Closest match to the target for your EQ app or device",
+             "site_sweep": "Matches the squig.link or listener800 web AutoEQ",
+             "site_single": "Uses a single fixed set of web AutoEQ parameters"}
 TICKS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
 
 

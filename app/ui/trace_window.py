@@ -997,7 +997,7 @@ class TraceWindow(QWidget):
                 g.addWidget(_label(short, "muted", wrap=False), r, 1 + 2 * c)
                 b = QLineEdit()
                 b.setAccessibleName(text)
-                b.setToolTip(help_of(f"#tr-{key}") + f"\nPermitted: {self.limits.text(lim)}.")
+                b.setToolTip(help_of(f"#tr-{key}") + f"\nAllowed: {self.limits.text(lim)}")
                 b.textEdited.connect(lambda _t, k=key, lim=lim: self.value_typed(k, lim))
                 b.editingFinished.connect(lambda k=key, lim=lim: self.value_left(k, lim))
                 g.addWidget(b, r, 2 + 2 * c)
@@ -1151,7 +1151,7 @@ class TraceWindow(QWidget):
         self.fmin, self.fmax = _RangeBox(), _RangeBox()
         for key, b in (("fmin", self.fmin), ("fmax", self.fmax)):
             b.setMaximumWidth(80)
-            b.setToolTip(help_of("#tr-fmin") + f"\nPermitted: {self.limits.text('trace.save')}.")
+            b.setToolTip(help_of("#tr-fmin") + f"\nAllowed: {self.limits.text('trace.save')}")
             b.textEdited.connect(lambda _t, k=key: self.value_typed(k, "trace.save"))
             b.editingFinished.connect(lambda k=key: self.value_left(k, "trace.save"))
             self.boxes[key] = b
@@ -1244,8 +1244,8 @@ class TraceWindow(QWidget):
             b.setVisible(on)
             b.setEnabled(yours)
             b.setText("your value ↺" if yours else "automatic")
-            b.setToolTip("You set this value. Click to make it automatic." if yours else
-                         "The automatic settings set this value. Change it to use your value.")
+            b.setToolTip("Custom value. Click to reset to automatic." if yours else
+                         "Set automatically. Edit to override.")
 
     def update_ui(self):
         t = self.t
@@ -2013,7 +2013,7 @@ class TraceWindow(QWidget):
             except ValueError:
                 bad = ("bad", "Enter a number")
             theme.mark(b, bad=bool(bad))
-            b.setToolTip(bad[1] if bad else help_of(f"#tr-{key if key[0] in 'df' else 'fmin'}") + f"\nPermitted: {self.limits.text(lim)}.")
+            b.setToolTip(bad[1] if bad else help_of(f"#tr-{key if key[0] in 'df' else 'fmin'}") + f"\nAllowed: {self.limits.text(lim)}")
             if bad:
                 return
             t.v[key] = text

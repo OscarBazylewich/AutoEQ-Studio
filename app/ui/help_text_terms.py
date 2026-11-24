@@ -295,7 +295,7 @@ TERMS = [{'title': 'Curves and sound',
                      'see': ['scored-range', 'simplest', 'unit-variation']},
                     {'id': 'scored-range',
                      'title': 'Error range',
-                     'body': ['The frequencies where the app calculates the error (Error from … to). Above and below '
+                     'body': ['The frequencies where the app calculates the error (Fit from … to). Above and below '
                               'this range, the EQ has no limits: filters can go there, but the app does not '
                               'calculate the error there. The automatic settings set it from the range where your '
                               'measurement is accurate.'],
@@ -436,8 +436,8 @@ TERMS = [{'title': 'Curves and sound',
                      'body': ['The app or device that will play the EQ (Equalizer APO, Poweramp, Wavelet, a '
                               'Qudelix…). When you select it, the EQ stays in its limits (bands, gain, Q and '
                               'frequency ranges, graphic EQ sliders). It also selects the file that the app imports, '
-                              'for Save filters. The ⓘ after the label Your EQ app tells you how to load the EQ, with '
-                              'a link to the source of its limits.',
+                              'for Save filters. The ⓘ after the label Your EQ app tells you its limits, with '
+                              'a link to their source.',
                               'For apps without a file (Qudelix, FiiO, Moondrop…), enter the filters manually from '
                               'the filter table or the report. “Not in the list, or not sure”: no limits, saved as '
                               'an Equalizer APO file, which many apps read.'],
@@ -630,7 +630,7 @@ QUESTIONS = [{'id': 'q-which-method',
               'see': ['own-filters', 'retry']},
              {'id': 'q-load',
               'q': 'How do you put the EQ into your app?',
-              'body': ['Select it as Your EQ app. The ⓘ after the label Your EQ app tells you how to load the EQ. '
+              'body': ['Select it as Your EQ app. '
                        'Save filters '
                        'writes its file to your Saved EQs folder (“Open the Saved EQs folder” on the result card). '
                        'For apps without a file, type the filters from the table (or the report) into the app.'],

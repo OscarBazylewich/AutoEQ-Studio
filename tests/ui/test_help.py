@@ -186,8 +186,11 @@ def test_f1_on_a_control(qapp, check):
     box = QCheckBox("x")
     hw.tag(box, "best_fit.filter_counts.1")
     # was selftest.py:903
-    check("help: F1 on a control opens its setting's entry (a “to” box: its “from” box's)",
-          hw.entry_of_widget(box) == "set-best-fit-filter-counts" and "F1" in box.toolTip(), box.toolTip())
+    # (2026-11-23, the text survey: the tooltip is the setting's line only, without "F1 opens Help." at its end)
+    check("help: F1 on a control opens its setting's entry (a “to” box: its “from” box's); its tooltip is the line of "
+          "the setting, with no “F1 opens Help.”",
+          hw.entry_of_widget(box) == "set-best-fit-filter-counts" and box.toolTip()
+          and "F1 opens Help." not in box.toolTip() and "\n" not in box.toolTip(), box.toolTip())
 
 
 LOOK = r'''

@@ -71,9 +71,9 @@ def _messages(name):
             (databases.REFUSED_NOTE.format(site=site), None),
             (databases.BROWSE_NOTE.format(site=site), None),
             ("No new picture came in 10 minutes. Select the entry again.", None),
-            (f"The app moved “{name}” to Measurement.", lambda: None),
-            (f"The app moved “{name}” to Target.", lambda: None),
-            ("The app cannot use that file: The file is not in the app. Select the file again in Find….", None)]
+            (f"Moved “{name}” to Measurement", lambda: None),
+            (f"Moved “{name}” to Target", lambda: None),
+            ("Couldn't apply selection: The file is not in the app. Select the file again in Find….", None)]
 
 
 @pytest.mark.parametrize("look", ["light", "dark"])
@@ -126,7 +126,7 @@ def test_tabs_say_what_the_mark_means(eq_screen, check):
     body = " ".join(b for b in help_window._by_id().get("set-pk-src", {}).get("body", []) if isinstance(b, str))
     # (the first sentence is for each tab: All shows all sources, so "one source" alone was not true for it)
     seen = {"tooltips say it": sorted(n for n, t in tips.items() if "“…”: the app continues to search this PC or to "
-                                      "load the online lists." in t and t.endswith("F1 opens Help.")
+                                      "load the online lists." in t and "F1 opens Help." not in t
                                       and t.startswith("Shows the items of all sources or of one source, and their "
                                                        "number.")),
             "F1 entries": sorted(set(entries.values())),

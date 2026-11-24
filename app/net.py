@@ -38,5 +38,4 @@ def on_change(fn):
 def check(what=None):
     """Raise Offline when the app is offline: call before any connection."""
     if _state["offline"]:
-        raise Offline((f"{what}: " if what else "") + "AutoEQ Studio must connect to the internet, but it is offline. "
-                      "To connect, change to Online (top right).")
+        raise Offline((f"{what}: " if what else "") + "Offline. Switch to Online to download.")

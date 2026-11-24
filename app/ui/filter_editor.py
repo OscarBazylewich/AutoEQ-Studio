@@ -181,7 +181,7 @@ class FilterEditor(QWidget):
                 box.setAccessibleName(f"Filter {i + 1} " + {"freq": "frequency (Hz)", "gain": "gain (dB)", "q": "Q"}[key])
                 box.setAlignment(Qt.AlignCenter)
                 lim = self.limits.text("edit." + key)
-                box.setToolTip(f"Permitted: {lim}." if lim else "")
+                box.setToolTip(f"Allowed: {lim}" if lim else "")
                 box.textEdited.connect(lambda text, f=f, key=key, box=box: self._typed(f, key, box))
                 box.editingFinished.connect(lambda f=f, key=key, box=box: self._edit_finished(f, key, box))
                 t.setCellWidget(i, c, box)
@@ -263,7 +263,7 @@ class FilterEditor(QWidget):
         if v is not None and self.limits.check("edit." + key, v, lambda p: None):
             c = self.limits.clamp("edit." + key, v)
             f[key] = c
-            self.say(f"The value changed to {number_text(c)}. Permitted: {self.limits.text('edit.' + key)}.")
+            self.say(f"Adjusted to {number_text(c)} (allowed: {self.limits.text('edit.' + key)}).")
             self._edited()
         box.setText(number_text(f[key]))
         self._mark(box, None)

@@ -182,7 +182,7 @@ def test_presets_chevron_and_its_menu(themed_window, shapes, check, fake_apo, tm
           "as it opens (before Make an EQ has opened, a note saying when presets are ready); Help names it as it reads",
           d.get("text") == "Presets" and d.get("menu") is True
           and all(m.get("chevron") is True and (m.get("gap") or 0) >= 4 and (m.get("after") or 0) >= 6 for m in seen)
-          and d.get("notes") == [["The presets are available after Make an EQ opens", False]]
+          and d.get("notes") == [["Available once Make an EQ opens", False]]
           and title.startswith(f"{d.get('text')} ") and "▾" not in title,
           dict(d, help=title) if d else out.stderr[-300:])
 
@@ -273,10 +273,72 @@ def test_guide_with_presets_on_make_an_eq_only(devices_window, check):
 
 def test_closing_leaves_the_app_in_the_tray(devices_window, check):
     w = devices_window
-    w.win.close()
+    told = []
+    w.app.tray_message = lambda title, text: told.append((title, text))  # (the stand-in keeps only the title)
+    try:
+        w.win.close()
+        w.win.show()
+        w.win.close()
+    finally:
+        del w.app.tray_message
     # was selftest.py:591
-    check("window: closing it leaves the app in the tray (said once)",
-          not w.win.isVisible() and w.app.said and w.sw.s["told_tray"], (w.win.isVisible(), w.app.said))
+    check("window: closing it leaves the app in the tray (said once, in the words of the text survey)",
+          not w.win.isVisible() and w.sw.s["told_tray"]
+          and told == [("Running in the system tray",
+                        "Device EQs remain active. Right-click the tray icon to switch EQs or quit.")],
+          (w.win.isVisible(), told))
+
+
+def test_top_bar_tooltips(devices_window, online, check):
+    """The text survey, 2026-11-23: Guide, Help, the bar of an EQ for 5 minutes and its 2 buttons have no tooltip of
+    their own; Presets and Online / Offline have the new words. A top bar button in a narrow window shows its name as
+    the tooltip (the "tip" property keeps the tooltip for a wide window)."""
+    from PySide6.QtWidgets import QPushButton
+    win = devices_window.win
+    seen = {"guide": (win.guide_btn.property("tip") or "", win.guide_btn.toolTip() in ("", "Guide")),
+            "help": (win.help_btn.property("tip") or "", win.help_btn.toolTip() in ("", "Help")),
+            "presets": win.presets_btn.property("tip"),
+            "trial buttons": sorted((b.text(), b.toolTip()) for b in win.trial_bar.findChildren(QPushButton))}
+    win.sw.trial = {"name": "Trial EQ", "key": "Headset|EarPods", "until": 4102444800}
+    try:
+        win.render_trial()
+        seen["trial bar"] = (win.trial_bar.toolTip(), win.trial_text.text())
+    finally:
+        win.sw.trial = None
+        win.render_trial()
+    seen["online"] = win.online_btn.toolTip()
+    win.online_btn.click()
+    seen["offline"] = win.online_btn.toolTip()
+    win.online_btn.click()
+    check("window: Guide, Help, the bar of an EQ for 5 minutes, Keep it and Do not keep it have no tooltip; Presets "
+          "and Online / Offline have the words of the text survey; the bar says “(all apps)”",
+          seen == {"guide": ("", True), "help": ("", True),
+                   "presets": "Save or load Make an EQ settings as a preset (settings only)",
+                   "trial buttons": [("Do not keep it", ""), ("Keep it", "")],
+                   "trial bar": ("", "“Trial EQ” on Headset (EarPods) (all apps)"),
+                   "online": "Online: can access online databases. Click to go Offline (local data only).",
+                   "offline": "Offline: local data only, no internet access. Click to go Online."}, seen)
+
+
+def test_online_offline_shows_no_message(check):
+    """The text survey, 2026-11-23: the change to Offline or Online shows no message bubble (the button of the top bar
+    shows the state). The setting is still saved and the whole app still follows."""
+    import types
+
+    from ui.app import App
+    said, saved = [], []
+    fake = types.SimpleNamespace(sw=types.SimpleNamespace(set=lambda k, v: saved.append((k, v))),
+                                 win=types.SimpleNamespace(status=lambda *a, **k: said.append(a)))
+    was = net.offline()
+    try:
+        App.set_offline(fake, True)
+        off = net.offline()
+        App.set_offline(fake, False)
+        on = not net.offline()
+    finally:
+        net.set_offline(was)
+    check("app: Online / Offline changes the whole app and saves the setting, with no message",
+          said == [] and off and on and saved == [("offline", True), ("offline", False)], (said, off, on, saved))
 
 
 def test_starting_hidden_on_make_an_eq(check, fake_apo, tmp_path):

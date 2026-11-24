@@ -123,7 +123,9 @@ def test_second_damaged_copy_kept_beside_the_first(tmp_path, check):
             first_bad = fh.read()
         # was eq_checks.py:824
         check("files: a second damaged copy is kept beside the first (twice.json.2.bad), and the page is told",
-              first_bad == "{ first" and os.path.exists(bad + ".2.bad") and "twice.json.2.bad" in said
+              first_bad == "{ first" and os.path.exists(bad + ".2.bad")
+              and "Couldn't read twice.json. Backed up as twice.json.bad and created a new file." in said
+              and "Couldn't read twice.json. Backed up as twice.json.2.bad and created a new file." in said
               and textfile.take_set_aside() == "", said)
     finally:
         textfile.take_set_aside()  # (nothing of this test's left for another to find)

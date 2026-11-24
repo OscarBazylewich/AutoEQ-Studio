@@ -405,7 +405,7 @@ class HelpWindow(QWidget):
 
 def tag(widget, key):
     """A control belongs to a setting: its line as the tooltip (when it has none), and F1 on it opens the setting's
-    entry (the tooltip says so)."""
+    entry (the tooltip does not say so, to stay short: Help, the Guide and README.txt tell about F1)."""
     widget.setProperty("help_key", key)
     h = HELP.get(help_key(key) or "")
     line = (h[0] if isinstance(h, list) else h) if h else ""
@@ -417,8 +417,6 @@ def tag(widget, key):
         widget.setAccessibleName(e["title"] if e and e.get("title") else line.split(".")[0])
     if line and not widget.accessibleDescription():
         widget.setAccessibleDescription(line)
-    if entry_for(key) and widget.toolTip() and "F1" not in widget.toolTip():
-        widget.setToolTip(widget.toolTip() + "\nF1 opens Help.")
     return widget
 
 

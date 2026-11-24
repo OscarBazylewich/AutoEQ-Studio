@@ -46,7 +46,7 @@ def test_past_a_limit_and_to_below_from(eq_screen, fold, check):
     hi._typed()
     # was eq_checks.py:1512
     check("ui: settings: past a limit it moves to the limit on leaving (said); a “to” below its “from” is red",
-          page.S["scoring"]["band_hz"][0] == 20 and any("The value changed to 20" in s for s in said) and hi.box.property("bad"),
+          page.S["scoring"]["band_hz"][0] == 20 and any("Adjusted to 20" in s for s in said) and hi.box.property("bad"),
           (page.S["scoring"]["band_hz"], said[-1:]))
 
 
@@ -78,6 +78,40 @@ def test_automatic_settings_off(eq_screen, fold, check):
           not f.tag.isVisible() and "off" in st.why.text().lower(), st.why.text())
 
 
+def test_rows_say_the_condition_and_the_tick_box_says_nothing(eq_screen, check, monkeypatch):
+    # (the text survey, 2026-11-23: the Settings row says "automatic" or "manual"; the Automatic settings tick box
+    # no longer puts a message in the status line; the More settings row lists only what the method in use has there;
+    # the column title Value of Adjust… has no tooltip, as the ⓘ after it has those words)
+    from PySide6.QtWidgets import QLabel
+    page, st = eq_screen.page, eq_screen.page.settings
+    said = []
+    monkeypatch.setattr(page, "status", lambda text, *a, **k: said.append(text))
+    kept = (json.loads(json.dumps(page.S["auto"])), page.S["mode"])
+    rows, more = {}, {}
+    try:
+        for on in (True, False):
+            st.auto_switched(on)
+            rows[on] = st.fold.summary.text().split(" · ")[0]
+        for mode in ("best_fit", "site_sweep", "site_single"):
+            page.set_mode(mode)
+            more[mode] = st.adv.summary.text()
+    finally:
+        page.S["auto"], page.S["mode"] = kept
+        page.changed()
+        st.refresh()
+    tips = {h.text(): h.toolTip() for h in st.adjust().dlg.findChildren(QLabel) if h.text() in ("Value", "Hz", "Q")}
+    check("ui: settings: the Settings row says automatic or manual, and the tick box Automatic settings puts no "
+          "message in the status line", rows == {True: "automatic", False: "manual"} and said == [], (rows, said))
+    check("ui: settings: the More settings row lists the layout and the limits only with Best fit, and the search "
+          "ranges only with Website AutoEQ: find the best settings",
+          more == {"best_fit": "Layout, limits, website values, saved files, history, and CPU",
+                   "site_sweep": "Search ranges, website values, saved files, history, and CPU",
+                   "site_single": "Website values, saved files, history, and CPU"}, more)
+    check("ui: Adjust…: the column title Value has no tooltip (the ⓘ after it has the words); Hz and Q have theirs",
+          tips == {"Value": "", "Hz": "Shelf start frequency, or center frequency for half-tilt and ear gain",
+                   "Q": "Shelf slope, or ear gain width"}, tips)
+
+
 def test_one_search(eq_screen, check):
     from eq import settings
     page = eq_screen.page
@@ -90,12 +124,12 @@ def test_one_search(eq_screen, check):
     page.S["auto"] = kept
     page.refresh_auto()
     # was eq_checks.py:2316
-    # (the UI audit, 2026-11-08: one short line, "36 EQs, 1 to 32 filters · approximately 20 s"; the whole text in its
+    # (the UI audit, 2026-11-08: one short line, "36 EQs, 1 to 32 filters · ~20 s"; the whole text in its
     # tooltip)
     check("search: one search, every limit with both fighting-filter penalties, said in one short line with its time "
           "(the whole text in its tooltip); no buttons; an older copy's level dropped and its one penalty made a list",
-          bf["fight_penalty"] == [0.003, 0.01] and len(bf["q_max"]) >= 4 and "penalties for opposite filters" in what
-          and "EQs, 1 to " in est and "approximately" in est and "Time to calculate" in what
+          bf["fight_penalty"] == [0.003, 0.01] and len(bf["q_max"]) >= 4 and "opposite-filter penalties" in what
+          and "EQs, 1 to " in est and " · ~" in est and " · Est. time: " in what
           and not hasattr(page, "sa_btns")
           and "level" not in old["auto"] and old["best_fit"]["fight_penalty"] == [0.004],
           (bf["fight_penalty"], bf["q_max"], what, est, old["auto"], old["best_fit"]["fight_penalty"]))

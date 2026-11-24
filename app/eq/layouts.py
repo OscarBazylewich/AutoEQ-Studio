@@ -125,16 +125,16 @@ def summary(key):
     if key == OWN_BANDS:
         return "The frequencies and Q that you set: Best fit adjusts only their gains."
     d = DEVICES[key]
-    parts = (["no limit on the number of filters"] if d.get("open") else
-             [f"maximum {d['bands']} filters (peaking or shelf)"] if "bands" in d else
-             [f"maximum {d['peaks']} peaking filters" + (", and a low and a high shelf" if d["shelves"] else "")])
+    parts = (["unlimited filters"] if d.get("open") else
+             [f"up to {d['bands']} peaking/shelf filters"] if "bands" in d else
+             [f"up to {d['peaks']} peaking filters" + (" + low/high shelves" if d["shelves"] else "")])
     if "gain" in d:
         parts.append(f"gain {d['gain'][0]:+g} to {d['gain'][1]:+g} dB")
     if "q" in d:
-        parts.append(f"Q {d['q'][0]:g}–{d['q'][1]:g}")
+        parts.append(f"Q {d['q'][0]:g} to {d['q'][1]:g}")
     if "freq" in d:
-        parts.append(f"{_hz(d['freq'][0])}–{_hz(d['freq'][1])}")
-    return f"{d['name']}: " + ", ".join(parts) + ". The settings stay in these limits."
+        parts.append(f"frequency {_hz(d['freq'][0])} to {_hz(d['freq'][1])}")
+    return f"{d['name']} limits: " + ", ".join(parts)
 
 
 def _hz(v):

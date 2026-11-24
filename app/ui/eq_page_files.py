@@ -28,7 +28,7 @@ class EqFiles:
         for n in sorted(inputs["targets"], key=lambda n: natural_key(os.path.splitext(n)[0])):  # (A to Z)
             t.addItem(os.path.splitext(n)[0], n)
         t.setCurrentIndex(max(0, t.findData(inputs["active_target"])))
-        set_note(self.target_note, "" if inputs["targets"] else "No targets: click Add… to add a target from this PC.")
+        set_note(self.target_note, "" if inputs["targets"] else "No targets: click Find… or Add… to add a target")
         from eq import inputs as eq_inputs
         groups = {}
         for m in sorted(inputs["measurements"], key=lambda m: natural_key(m["name"])):
@@ -43,12 +43,11 @@ class EqFiles:
                 current = current or dev
         mc.setCurrentIndex(max(0, mc.findData(current)))
         if not groups:
-            set_note(self.measurement_note, "No measurements: click Add… to add a measurement from this PC (L and R, or more "
-                 "than one seating).")
+            set_note(self.measurement_note, "No measurements: click Find… or Add… to add a measurement")
         else:
             on = [f["name"] for f in groups.get(current, []) if f["included"]]
             rigs = {inputs.get("rigs", {}).get(n) for n in on} - {None, ""}
-            set_note(self.measurement_note, f"{len(on)} file{'s' if len(on) != 1 else ''} used"
+            set_note(self.measurement_note, f"{len(on)} file{'s' if len(on) != 1 else ''} selected"
                  + (f" · measured on {', '.join(sorted(rigs))}" if rigs else ""))
         # (the tracer, when it is there: its "Target of the graph" follows the targets of the app. It read them only
         # when it opened or got a picture: after Add… here or Add as target there, the list stayed off with "No
@@ -72,7 +71,7 @@ class EqFiles:
         used (the page's line by itself: UI-RULES 7)."""
         def done(res, err):
             if err or (res or {}).get("error"):
-                (say or self.status)(f"The app cannot use that file: {err or res['error']}")
+                (say or self.status)(f"Couldn't apply selection: {err or res['error']}")
                 return
             if res.get("inputs"):
                 self.show_inputs(res["inputs"])
@@ -93,13 +92,13 @@ class EqFiles:
             try:
                 read.append({"name": os.path.basename(f), "content": textfile.read(f)})
             except OSError as e:
-                said.append(f"{os.path.basename(f)}: {e}")
+                said.append(f"Couldn't add {os.path.basename(f)}: {e}")
         # (a measurement's files as one set: one number for all when names are taken, so they stay one device;
         # targets each on their own)
         for batch in ([read] if kind == "measurement" else [[x] for x in read]) if read else []:
             r = self.svc.call("/api/files/add", {"kind": kind, "files": batch, "settings": self.S})
             if r.get("error"):
-                said.append(f"{', '.join(x['name'] for x in batch)}: {r['error']}")
+                said.append(f"Couldn't add {', '.join(x['name'] for x in batch)}: {r['error']}")
             elif r.get("settings"):
                 self.S = r["settings"]
         if said:
@@ -279,8 +278,7 @@ class EqFiles:
                 self.show_inputs(r["inputs"])
             self.show_settings()
             self._save_files()
-        self.notify(f"The app saved “{os.path.splitext(res['name'])[0]}” as a target and uses it. The target has the "
-                    "adjustments in it. Thus, the adjustments are 0 again.", undo)
+        self.notify(f"Saved “{os.path.splitext(res['name'])[0]}” as your active target", undo)
 
     # ---------------------------------------------------------------- what Find… calls back (ui/picker.py)
     def use_target(self, name):
@@ -303,8 +301,8 @@ class EqFiles:
         self.show_settings()
         self.load_curves()
         n = len(res.get("names") or [])
-        self.notify(f"“{res.get('name')}” is the target." if res.get("kind") == "target" else
-                    f"The measurement is “{res.get('name')}”" + (f" ({n} file{'s' if n != 1 else ''})." if n else "."),
+        self.notify(f"Target set to “{res.get('name')}”" if res.get("kind") == "target" else
+                    f"Measurement set to “{res.get('name')}”" + (f" ({n} file{'s' if n != 1 else ''})" if n else ""),
                     self._undo_use(res) if res.get("before") and res.get("settings") else None)
 
     def _undo_use(self, res):
@@ -335,7 +333,7 @@ class EqFiles:
                 return
             self.S["files"] = before
             self._save_files()
-        (say or self.notify)(f"The app moved “{name}” to {'Measurement' if kind == 'target' else 'Target'}.", undo)
+        (say or self.notify)(f"Moved “{name}” to {'Measurement' if kind == 'target' else 'Target'}", undo)
 
     def reload_state(self):
         st = self.svc.call("/api/state")

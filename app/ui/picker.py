@@ -380,7 +380,7 @@ class Picker(QDialog):
         self.footer = Footer(self, [sources, trace])
         # (its message line wraps its words onto more lines when they need them, as the status line above the list:
         # at Find…'s smallest width, 680 px, the line has about 177 px between the buttons, and each message was cut
-        # there, "The app moved “Truthear Ga", 2026-11-11. Its tooltip has the whole message too)
+        # there, "Moved “Truthear Ga", 2026-11-11. Its tooltip has the whole message too)
         self.footer.line.text.setWordWrap(True)
         v.addWidget(self.footer)
         self._later = QTimer(self, singleShot=True, interval=80, timeout=self.render)

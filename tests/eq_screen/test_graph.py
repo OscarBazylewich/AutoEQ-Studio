@@ -47,12 +47,15 @@ def test_graph_views_and_the_values_under_the_pointer(eq_screen, check):
     pl = page.plot
     page._hover(pl.mapToScene(QPoint(int(pl.width() * 0.5), int(pl.height() * 0.5))))
     read = page.hover_lab.text()
+    curves = len(page._drawn["series"])
     page.set_graph_option(**keep)
     page._graph_timer.stop()
     # was eq_checks.py:2018
     check("graph views: Relative to target (the target at 0 dB, the axis Δ dB), a 30 dB Y range, the values under "
-          "the pointer (Hz and each curve's dB); kept in the settings", rel_ok and abs((hi - lo) - 30) < 0.01
-          and "Hz" in read and "Measurement" in read and (page.sw.s.get("graph") or {}).get("view") == keep.get("view", "abs"),
+          "the pointer (Hz and each curve's dB, each value with its unit); kept in the settings",
+          rel_ok and abs((hi - lo) - 30) < 0.01
+          and "Hz" in read and "Measurement" in read and curves > 1 and read.count(" dB") == curves
+          and all(part.endswith(" dB") for part in read.split("  ·  ")[1:]) and (page.sw.s.get("graph") or {}).get("view") == keep.get("view", "abs"),
           (rel_ok, lo, hi, read))
 
 
@@ -86,6 +89,38 @@ def test_long_auto_message_keeps_the_page_width(eq_screen, monkeypatch, check):
           found["text"].endswith("…") and len(found["text"]) < len(long) and found["tooltip"] == long
           and found["label width"] <= found["room"] and found["page width"] <= found["page width before"]
           and found["back"], found)
+
+
+def test_settings_to_try_tooltip_keeps_the_name_of_an_app(eq_screen, monkeypatch, check):
+    # (the text survey, 2026-11-23: the text of a graphic EQ starts with the name of its layout. The tooltip made
+    # the first letter a capital, so "foobar2000" showed as "Foobar2000" and "eqMac" as "EqMac")
+    import copy
+    from eq import autoset, settings
+    from helpers import qt
+    page = eq_screen.page
+    page.refresh_auto()
+    qt.pump(100)
+    before = (page.estimate.text(), page.estimate.toolTip())
+    cfg = settings.with_auto({"mode": "best_fit"})
+    cfg["best_fit"]["layout"] = "app:foobar2000"
+    text = autoset.describe(cfg)
+    real_call = page.svc.call
+
+    def call(path, body=None):
+        out = real_call(path, body)
+        return dict(copy.deepcopy(out), search=text, time="~1 s") if path == "/api/auto" else out
+    with monkeypatch.context() as m:
+        m.setattr(page.svc, "call", call)
+        page.refresh_auto()
+        qt.pump(100)
+        tip = page.estimate.toolTip()
+    page.refresh_auto()  # (the real line back)
+    qt.pump(100)
+    back = (page.estimate.text(), page.estimate.toolTip()) == before
+    check("make an EQ: the tooltip of Settings to try shows the text of a run as it is: for foobar2000 it starts "
+          "with “foobar2000 (its equalizer): 18 band gains”, with no capital letter put in",
+          text.startswith("foobar2000 (its equalizer): 18 band gains")
+          and tip == f"{text} · Est. time: ~1 s" and back, (text, tip, back))
 
 
 def test_empty_eq_graph_words_clear_of_the_0_db_line(eq_screen, check):

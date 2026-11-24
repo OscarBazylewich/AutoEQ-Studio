@@ -52,7 +52,7 @@ def test_handle_tooltip_names_its_menu(check):
     with open(os.path.join(paths.PROJECT_APP, "ui", "eq_page_handles.py"), encoding="utf-8") as fh:
         menu = re.search(r"def handle_menu.*?\n    def ", fh.read(), re.S).group(0)
     check("help: a graph handle's tooltip names the items of its right-click menu (its type, Remove; no On)",
-          tip.endswith("right-click: type, Remove") and 'addAction("Remove"' in menu and '"On"' not in menu, tip)
+          tip.endswith("\nDrag: freq & gain · Scroll: Q · Right-click: filter type or remove") and 'addAction("Remove"' in menu and '"On"' not in menu, tip)
 
 
 def test_use_on_device_has_its_own_help(eq_screen, check):
@@ -115,7 +115,12 @@ def test_help_names_the_info_mark_of_your_eq_app(eq_screen, check):
     from ui import help_window
     from ui.bubble import InfoMark
     note = eq_screen.page.app_note
-    words = [str(e) for e in help_window._by_id().values() if "how to load the EQ" in str(e)]
-    check("help: each Help text about how to load the EQ names the ⓘ after the label Your EQ app, not a line below it",
-          isinstance(note, InfoMark) and len(words) == 3
-          and all("The ⓘ after the label Your EQ app tells" in w and "line below" not in w for w in words), words)
+    # (the text survey, 2026-11-23: the ⓘ shows the limits of the app only, so Help no longer says that it tells how
+    # to load the EQ; the question “How do you put the EQ into your app?” lost that sentence)
+    entries = [str(e) for e in help_window._by_id().values()]
+    words = [w for w in entries if "after the label Your EQ app" in w]
+    check("help: each Help text about the limits of Your EQ app names the ⓘ after the label Your EQ app, not a line "
+          "below it, and no Help text says that the ⓘ tells how to load the EQ",
+          isinstance(note, InfoMark) and len(words) == 2
+          and all("The ⓘ after the label Your EQ app tells" in w and "its limits" in w and "line below" not in w
+                  for w in words) and not [w for w in entries if "how to load the EQ" in w], words)

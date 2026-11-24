@@ -534,7 +534,7 @@ class DevicesScreen:
             elif got:
                 ok, text = got[1], got[2]
                 lab.setText(("✓ " if ok else "") + check_line(ok, text))
-                lab.setToolTip(text + "\nF1 opens Help.")
+                lab.setToolTip(text)
                 theme.mark(lab, role="good" if ok else "warn" if ok is False else "muted")
             bad = bool(got) and got[1] is False
             if self.check_warn is not None:

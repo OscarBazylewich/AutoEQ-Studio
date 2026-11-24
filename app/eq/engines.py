@@ -92,8 +92,8 @@ def eq_gain(freqs, filters, fs):
 def rms_error(freqs, eq_curve, target, band):
     m = (freqs >= band[0]) & (freqs <= band[1])
     if not m.any():  # (else NaN: "nan dB" on a report, and pick() can't compare results)
-        raise ValueError(f"The error range ({band[0]:g}–{band[1]:g} Hz) has no curve points: change “Error from” or "
-                         f"“Error to”.")
+        raise ValueError(f"The error range ({band[0]:g}–{band[1]:g} Hz) has no curve points: change “Fit from” or "
+                         f"“Fit up to”.")
     return float(np.sqrt(np.mean((eq_curve[m] - target[m]) ** 2)))
 
 

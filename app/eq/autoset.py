@@ -82,12 +82,14 @@ def _keep_pairs_in_order(cfg, v, notes):
                 b if ok(a, b) else _round_beyond(hi, a, True)
             if new != b and ok(a, min(new) if isinstance(new, list) else new):
                 v[hi] = new
-                notes.append((hi, f"Set above your “from” value ({a:g})."))
+                notes.append((hi, f"Auto-adjusted {settings.AUTO_NAMES.get(hi, hi)} to {_fmt_value(hi, new)} "
+                                  f"(your minimum is {_fmt_value(lo, a)})"))
         else:
             bm = min(b) if isinstance(b, list) else b
             if not ok(a, bm) and ok(_round_beyond(lo, bm, False), bm):
                 v[lo] = _round_beyond(lo, bm, False)
-                notes.append((lo, f"Set below your “to” value ({bm:g})."))
+                notes.append((lo, f"Auto-adjusted {settings.AUTO_NAMES.get(lo, lo)} to {_fmt_value(lo, v[lo])} "
+                                  f"(your maximum is {_fmt_value(hi, bm)})"))
 
 
 # ---------------------------------------------------------------- looking at the curves
@@ -214,6 +216,19 @@ def _fmt_hz(v):
     return f"{round(v / 1000, 1):g} kHz" if v >= 1000 else f"{round(v):g} Hz"
 
 
+def _fmt_value(path, v):
+    """A setting's value as a note says it, with the setting's unit ("15 kHz", "+7 dB", "2.5"; a list: each value)."""
+    if isinstance(v, list):
+        return ", ".join(_fmt_value(path, x) for x in v)
+    unit = (settings.LIMITS.get(path) or {}).get("unit")
+    return _fmt_hz(v) if unit == "Hz" else f"{v:+g} dB" if unit == "dB" else f"{v:g}"
+
+
+def _over_ceiling(path, v, step=1):
+    """True when _round_within(path, v, step) is less than the curves ask for: the setting's ceiling cut it."""
+    return round(v / step) * step > _setting_range(path)[1]
+
+
 class _Plan:
     """The automatic values for one EQ method, each with its reason (plan() below)."""
 
@@ -249,14 +264,27 @@ class _Plan:
             c = [*range(2, 13, 2), *range(13, 23), *range(24, top + 1, 4)] if dense else [*range(2, 13, 2), *range(16, top + 1, 4)]
         return sorted({n for n in c if n <= top} | {top})
 
-    def gain_top(self, path):  # boost: what the target needs + 2 dB (at least 4)
-        return _round_within(path, math.ceil(max(4.0, self.an["need_boost"] + 2)))
+    def gain_want(self):  # boost: what the target needs + 2 dB (at least 4)
+        return math.ceil(max(4.0, self.an["need_boost"] + 2))
+
+    def gain_top(self, path):
+        return _round_within(path, self.gain_want())
 
     def cut_floor(self, path):  # cut: what it needs + 2 dB (at least 6)
         return _round_within(path, -math.ceil(max(6.0, -self.an["need_cut"] + 2)))
 
-    def q_top(self, path):  # Q: the narrowest peak or dip's, plus a quarter (at least 2)
-        return _round_within(path, max(2.0, self.an["q_need"] * 1.25), 0.5)
+    def q_want(self):  # Q: the narrowest peak or dip's, plus a quarter (at least 2)
+        return max(2.0, self.an["q_need"] * 1.25)
+
+    def q_top(self, path):
+        return _round_within(path, self.q_want(), 0.5)
+
+    def site_caps(self):
+        """(for the gain note, for the Q note): " (website limit)" when the website's own ceiling (+20 dB, Q 5) is
+        below what the curves ask for, so the note's value is lower than its fact; else ""."""
+        cap = " (website limit)"
+        return (cap if _over_ceiling("site_single.gain_max", self.gain_want()) else "",
+                cap if _over_ceiling("site_single.q_max", self.q_want(), 0.5) else "")
 
     def q_list(self, qt, Ls, path, k):
         """The Q limits to try. Tested on real measurements: with few filters Q 2 does best; with 8-16 filters
@@ -271,22 +299,24 @@ class _Plan:
         # (each note says the value and the fact about your curves it comes from; why the app works this way is
         # on the Help page: wiki.js "q-auto-why")
         an = self.an
-        need = f"{an['features']} peaks and dips to correct" if an["features"] else "no peaks or dips, only the general shape"
+        need = f"{an['features']} peaks/dips to correct" if an["features"] else "overall shape only"
         s = "" if n == 1 else "s"
-        self.note(path, f"{n} filter{s}: {need}." if single else f"Maximum {n} filter{s}: {need}.")
+        self.note(path, f"{n} filter{s}: {need}" if single else f"Maximum {n} filter{s}: {need}")
 
-    def note_boost(self, gt, path):
+    def note_boost(self, gt, path, cap=""):
+        """cap: " (app limit)" or " (website limit)" when that limit, not the curves, set the value (it is then lower
+        than the gain the note says is needed)."""
         boost = self.an["need_boost"]
-        self.note(path, f"Maximum gain +{gt} dB: the largest necessary gain is +{boost:.1f} dB.")
+        self.note(path, f"Max gain +{gt} dB{cap}: largest needed is +{boost:.1f} dB")
 
-    def note_q(self, qt, path, hi=None):
+    def note_q(self, qt, path, hi=None, cap=""):
         an = self.an
         # (a second limit that the app tries is in the list, as the penalties are: a note stays a line, 80
-        # characters at most, so with the second limit "approximately" gives its room to it)
+        # characters at most; with the second limit the "~" is left out, as "approximately" was for its room)
         also = hi and hi > qt
-        self.note(path, f"Maximum Q {qt:g}" + (f" (the app also tries Q {hi:g})" if also else "")
-                  + ((": the highest Q of a peak or dip is " + ("" if also else "approximately ")
-                      + f"Q {an['q_need']:.1f}") if an["q_at"] else ": no peaks or dips with a high Q") + ".")
+        self.note(path, f"Max Q {qt:g}{cap}" + (f" (also tries Q {hi:g})" if also else "")
+                  + ((": sharpest peak/dip is " + ("" if also else "~")
+                      + f"Q {an['q_need']:.1f}") if an["q_at"] else ": no sharp peaks or dips"))
 
     # ---- each part
     def scored_range(self):
@@ -294,13 +324,13 @@ class _Plan:
         self.values["scoring.band_hz.1"] = _round_within("scoring.band_hz.1", top)
         why = an["band_why"]
         if why == "agree":
-            text = f"Error to {_fmt_hz(top)}: your {n_files} files agree to this frequency."
+            text = f"Fit up to {_fmt_hz(top)}: your {n_files} files stay consistent until here"
         elif why == "data":
-            text = f"Error to {_fmt_hz(top)}: the measurement has no data above {_fmt_hz(an['data_top'])}."
+            text = f"Fit up to {_fmt_hz(top)}: no measurement data above {_fmt_hz(an['data_top'])}"
         elif an["unstable_from"]:
-            text = f"Error to {_fmt_hz(top)}: your {n_files} files are different above {_fmt_hz(an['unstable_from'])}."
-        else:
-            text = f"Error to {_fmt_hz(top)}."
+            text = f"Fit up to {_fmt_hz(top)}: your {n_files} files diverge above {_fmt_hz(an['unstable_from'])}"
+        else:  # (the default, 10 kHz: above it a measurement changes with how the IEM or headphone sits)
+            text = f"Fit up to {_fmt_hz(top)} (default): measurements above {_fmt_hz(top)} vary with fit"
         self.note("scoring.band_hz.1", text)
 
     def site_sweep_values(self, Ls):
@@ -330,22 +360,24 @@ class _Plan:
         self.values.update({"site_single.rows": rows, "site_single.freq_high": _round_within("site_single.freq_high", self.span),
                             "site_single.gain_min": self.cut_floor("site_single.gain_min"), "site_single.gain_max": gt,
                             "site_single.q_max": qt})
+        cap_g, cap_q = self.site_caps()
         self.note_filters(rows, "site_single.rows", single=True)
-        self.note_boost(gt, "site_single.gain_max")
-        self.note_q(qt, "site_single.q_max")
+        self.note_boost(gt, "site_single.gain_max", cap_g)
+        self.note_q(qt, "site_single.q_max", cap=cap_q)
 
     def site_sweep(self):
         vals, gt, qt, rows_top, qhi = self.site_sweep_values(self.L)
         self.values.update(vals)
+        cap_g, cap_q = self.site_caps()
         self.note_filters(rows_top, "site_sweep.filter_rows")
-        self.note_boost(gt, "site_sweep.gain_ranges")
-        self.note_q(qt, "site_sweep.q_max", qhi)
+        self.note_boost(gt, "site_sweep.gain_ranges", cap_g)
+        self.note_q(qt, "site_sweep.q_max", qhi, cap_q)
 
     def best_fit(self):
         an, L = self.an, self.L
         lay = self.cfg["best_fit"].get("layout", "any")
-        if layouts.is_fixed(lay):  # (only the bands' gains: none of the settings below are used)
-            self.note("best_fit.layout", f"{layouts.name(lay)}: Best fit adjusts only the gains of the bands.")
+        if layouts.is_fixed(lay):  # (only the bands' gains: none of the settings below are used, and the list has
+            # no line for it: the gray line below Best fit in Settings says it)
             return
         from . import engines
         grows = engines.grows(self.cfg["best_fit"])
@@ -381,19 +413,28 @@ class _Plan:
             # without more boost; 0 gained nothing more at 2.4x the time and +0.5 dB boost. Stronger ones only made
             # fits worse. Growing: both, above
             "best_fit.fight_penalty": fights})
+        full, shelf, cap_g, cap_q = False, self.values["best_fit.low_shelf"], "", ""
         if lay in layouts.DEVICES:  # (the notes say what the run uses: the device's limits apply to these values)
+            d = layouts.DEVICES[lay]
+            # (the EQ app's own limit below the value the curves ask for: the note says so, or "Max gain +3 dB:
+            # largest needed is +8.0 dB" looks like a mistake)
+            cap_g = " (app limit)" if "gain" in d and gt > d["gain"][1] else ""
+            cap_q = " (app limit)" if "q" in d and qt > d["q"][1] else ""
             dev = device_settings(apply(copy.deepcopy(self.cfg), self.values)["best_fit"])
             nmax, gt = min(nmax, max(dev["filter_counts"])), min(gt, max(dev["gain_max"]))
             qt, qhi = min(qt, max(dev["q_max"])), min(qhi, max(dev["q_max"]))
-        self.note_filters(nmax, "best_fit.filter_counts")
-        self.note_boost(gt, "best_fit.gain_max")
-        self.note_q(qt, "best_fit.q_max", qhi)
+            # (your own filters fill the app: no filter is added, so no line "Maximum 1 filter"; the app has no
+            # shelves, or no free filter for one: no line "Low shelf on")
+            full, shelf = dev.get("start_add") is False, shelf and bool(dev.get("low_shelf"))
+        if not full:
+            self.note_filters(nmax, "best_fit.filter_counts")
+        self.note_boost(gt, "best_fit.gain_max", cap_g)
+        self.note_q(qt, "best_fit.q_max", qhi, cap_q)
         if len(fights) > 1:
-            self.note("best_fit.fight_penalty", "Penalties for opposite filters " + " and ".join(f"{x:g}" for x in fights)
-                      + ", with each limit.")
-        if self.values["best_fit.low_shelf"]:
-            self.note("best_fit.low_shelf", f"Low shelf on: the bass is {abs(an['bass_step']):.1f} dB "
-                                            f"{'below' if an['bass_step'] > 0 else 'above'} the target.")
+            self.note("best_fit.fight_penalty", "Opposite-filter penalty: tries " + " and ".join(f"{x:g}" for x in fights))
+        if shelf:
+            self.note("best_fit.low_shelf", f"Low shelf on: bass is {abs(an['bass_step']):.1f} dB "
+                                            f"{'below' if an['bass_step'] > 0 else 'above'} target")
         if lay in layouts.DEVICES:
             self.note("best_fit.layout", layouts.summary(lay))
 
@@ -407,8 +448,8 @@ class _Plan:
         noticed in pink noise (Toole and Olive 1988). BENCHMARKS.md has the tests."""
         self.values["scoring.pick"] = "audible"
         self.values["scoring.ear_db"] = EAR_DB
-        # (the selection's own name, as in its list: a note stays a line, 80 characters at most)
-        self.note("scoring.pick", f"Minimum number of filters for the same sound ({EAR_DB:g} dB or less).")
+        # (the selection "Minimum number of filters for the same sound" of Best result, in fewer words)
+        self.note("scoring.pick", f"Fewest filters for the same sound (≤ {EAR_DB:g} dB)")
 
 
 def plan(cfg, an, mode=None):
@@ -441,34 +482,29 @@ def describe(cfg, mode=None):
         bf = cfg["best_fit"]
         if layouts.is_fixed(bf["layout"]):
             lo, hi, step = layouts.sliders(bf)  # (a graphic EQ app's own range and steps kept)
-            return (f"the gains of {_many(len(layouts.bands(bf)[0]), 'band')} ({layouts.name(bf['layout'])}), {lo:g} to "
-                    f"+{hi:g} dB in {step:g} dB steps")
+            return (f"{layouts.name(bf['layout'])}: {_many(len(layouts.bands(bf)[0]), 'band gain')}, {lo:g} to "
+                    f"+{hi:g} dB ({step:g} dB steps)")
         bf = device_settings(bf)
         nfit = engines.fit_count(bf, _count_mine(bf))  # (with your own filters: theirs too)
         fp = len(engines.fight_penalties(bf))
-        times = f" × {fp} penalties for opposite filters" if fp > 1 else ""
-        limits_text = f"{_many(len(bf['gain_max']), 'gain limit')} × {_many(len(bf['q_max']), 'Q limit')}{times}"
+        times = f" × {fp} opposite-filter penalties" if fp > 1 else ""
+        limits_text = f"{len(bf['gain_max'])} gain × {len(bf['q_max'])} Q{times}"
         n_mine = _count_mine(bf)
         if n_mine and bf.get("start_add") is False:  # (your filters fill the device: nothing is added)
             they = "it uses" if n_mine == 1 else "they use"
             if bf.get("start_keep", True):
-                return (f"only your {_many(n_mine, 'filter')}, not changed ({they} all the filters of "
-                        f"{layouts.name(bf['layout'])}): the app calculates {'its' if n_mine == 1 else 'their'} error")
-            return (f"only your {_many(n_mine, 'filter')} ({they} all the filters of {layouts.name(bf['layout'])}), "
-                    f"adjusted one time for each limit: {limits_text}")
-        mine = f", added to your {_many(n_mine, 'filter')}" if n_mine else ""
-        limits_of = f", in the limits of {layouts.name(bf['layout'])}" if bf["layout"] in layouts.DEVICES else ""
+                return f"Evaluates the error of your {_many(n_mine, 'filter')}"
+            return (f"Your {_many(n_mine, 'filter')}, adjusted once per limit set ({limits_text}); {they} all "
+                    f"{layouts.name(bf['layout'])} filters.")
+        mine = f", on top of your {_many(n_mine, 'filter')}" if n_mine else ""
+        limits_of = f", within {layouts.name(bf['layout'])} limits" if bf["layout"] in layouts.DEVICES else ""
         if engines.grows(bf, n_mine):
             limits = len(bf["gain_max"]) * len(bf["q_max"]) * fp
-            one = limits == 1
             stops = cfg["scoring"].get("pick") == "audible"
-            return (f"{_many(limits, 'EQ')} that {'adds' if one else 'add'} one filter at a time, to a maximum of "
-                    f"{max(bf['filter_counts'])} ({limits_text})"
-                    + (f", which {'stops' if one else 'stop'} at the first EQ with the same sound as the target"
-                       if stops else "")
-                    + mine + limits_of)
+            return (f"{_many(limits, 'EQ')} ({limits_text}): adds up to {_many(max(bf['filter_counts']), 'filter')} "
+                    "one by one" + (", stopping once it matches the target" if stops else "") + mine + limits_of)
         return (f"{_many(nfit, 'EQ')} ({_many(len(bf['filter_counts']), 'filter count')} × {limits_text}), "
-                f"{_many(engines.RANDOM_STARTS, 'random start')} for each"
+                f"{_many(engines.RANDOM_STARTS, 'random start')} each"
                 + (mine + ("" if bf.get("start_keep", True) else
                           f" (Best fit can adjust {'it' if n_mine == 1 else 'them'})") if n_mine else "")
                 + limits_of)
@@ -644,8 +680,8 @@ def learn(cfg, mode, seconds):
 
 
 def fmt_time(s):
-    return ("approximately 1 s" if s < 1.5 else f"approximately {round(s)} s" if s < 90 else
-            f"approximately {s / 60:.1f} min" if s < 5400 else f"approximately {s / 3600:.1f} h")
+    return ("~1 s" if s < 1.5 else f"~{round(s)} s" if s < 90 else
+            f"~{s / 60:.1f} min" if s < 5400 else f"~{s / 3600:.1f} h")
 
 
 def auto_result(cfg, an):

@@ -214,8 +214,7 @@ def eq_steps(page):
             api.stage(lambda: page.app_note.text(), page.app_note.setText, page.app_note_text(key))
         api.spot_on(page.app_note)
         api.say("The EQ stays in its limits, and Save filters saves the file that the app imports")
-        yield from api.at(page.app_note, 0.5, 0.5, 1700, say="The ⓘ after its label: its limits, their source, and how "
-                                                            "to load the EQ")
+        yield from api.at(page.app_note, 0.5, 0.5, 1700, say="The ⓘ after its label: its limits and their source")
 
     def mode_demo(api):
         combo = page.mode_combo

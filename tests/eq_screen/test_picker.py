@@ -386,7 +386,7 @@ def test_move_said_in_finds_own_line(eq_screen, check):
                 os.remove(os.path.join(where, name))
         page.reload_state()
     check("find: a file moved to Measurement is said in Find…'s own line with Undo (nothing behind it, in the main "
-          "window's), and Undo moves it back", said[0].startswith(f"The app moved “{name}” to Measurement") and said[1]
+          "window's), and Undo moves it back", said[0] == f"Moved “{name}” to Measurement" and said[1]
           and said[2] == [] and back, (said, back))
 
 
