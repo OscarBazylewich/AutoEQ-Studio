@@ -266,7 +266,7 @@ class HistoryWindow(QDialog):
                              f"({day_of(e['when'])} {time_of(e['when'])})", [dict(f) for f in e["filters"]],
                              f"made for {e.get('device')}" if other else
                              "from History" + (f" · error {e['rms']:.2f} dB" if e.get("rms") is not None else ""),
-                             say=self.footer.say, near=self)
+                             say=self.footer.say, near=self, engine=(e.get("result") or {}).get("engine"))
         if ok:
             self.footer.say(f"It is in your EQs to compare. That EQ is for {e.get('device')}. Thus, its sound on the "
                             f"{page.curves['name']} is not correct." if other else

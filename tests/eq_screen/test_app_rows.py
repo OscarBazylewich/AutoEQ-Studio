@@ -205,7 +205,7 @@ def test_band_counts_box(eq_screen, rows, check):
                       "settings › Best fit.", True, "10 bands"), off)
     # (the line of Help gives a fact that the label lacks; the band counts are in the line of the limits only)
     check("app rows: the tooltip of Band counts to try tells what a run does with the counts, then the allowed values",
-          off[7] == "One EQ per band count; Best result selects one\nAllowed: 5, 10, 15, 20, or 31", off[7])
+          off[7] == "One EQ per band count; Best result selects the recommended one\nAllowed: 5, 10, 15, 20, or 31", off[7])
     st.auto_switched(True)
     page.refresh_auto()
     auto = (f.box.text(), f.tag.isVisible() and f.tag.text(), page.S["best_fit"]["per_app"]["fxsound"],
@@ -391,7 +391,8 @@ def test_compare_and_history_say_bands(eq_screen, five_counts, check):
     hw = HistoryWindow(page, False)
     kept = []
     add = page.listen.add
-    page.listen.add = lambda name, *a, **k: kept.append(name) or True  # (the name only: no EQ goes into the list)
+    # (the name and the engine only: no EQ goes into the list)
+    page.listen.add = lambda name, *a, **k: kept.append((name, k.get("engine"))) or True
     try:
         lines = [w.text().replace(chr(0xA0), " ") for w in hw.findChildren(QLabel)
                  if " bands" in w.text().replace(chr(0xA0), " ")]
@@ -404,8 +405,10 @@ def test_compare_and_history_say_bands(eq_screen, five_counts, check):
     check("history: a saved result of a graphic EQ reads “N bands” in Compare's list and in the History window",
           entry["result"].get("engine") == "graphic" and any(h.endswith(f" · {n} bands") for h in hist)
           and any(f"· {n} bands ·" in t for t in lines), (hist, lines))
-    check("history: Keep to compare names the EQ of a graphic result “Best fit, N bands (day time)”",
-          len(kept) == 1 and kept[0].startswith(f"Best fit, {n} bands ("), kept)
+    # (its engine too: Listen's row of the EQ counts bands with it, 2026-11-24)
+    check("history: Keep to compare names the EQ of a graphic result “Best fit, N bands (day time)” and "
+          "gives Listen its engine",
+          len(kept) == 1 and kept[0][0].startswith(f"Best fit, {n} bands (") and kept[0][1] == "graphic", kept)
 
 
 @pytest.mark.timeout(600)

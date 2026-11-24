@@ -34,7 +34,7 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QFileDialo
 
 import textfile
 from ui import bubble, help_window, icons, own_items, placed, tasks, theme, window_parts
-from ui.eq_page_parts import tab_order
+from ui.eq_page_parts import count_words, tab_order
 from ui.search_combo import SearchCombo
 
 SOUNDS = [("music", "Music (short, it starts again at the end)"), ("pink", "Pink noise"), ("white", "White noise"),
@@ -952,10 +952,11 @@ class Listen(QGroupBox):
             return None
         return r.get("eqs", self.pins)
 
-    def add(self, name, filters, note="", say=None, near=None):
+    def add(self, name, filters, note="", say=None, near=None, engine=None):
         """An EQ into this IEM's list (the same filters twice: refused). Returns whether it went in. say: where a window
         of its own says it's there already (History's line; the page's by itself: UI-RULES 7). near: the window that
-        asked (History), where a refusal's bubble goes (said at this card, it was behind History, 2026-11-10)."""
+        asked (History), where a refusal's bubble goes (said at this card, it was behind History, 2026-11-10).
+        engine: the result's engine; "graphic" is kept with the EQ, so that its row counts "bands" (count_words)."""
         near = near or self
         if not self.pins_for:
             bubble.tell(None, "Select a measurement first. Each IEM or headphone has a different list of EQs to "
@@ -978,7 +979,7 @@ class Listen(QGroupBox):
         used = {p.get("color", i) % len(COLOURS) for i, p in enumerate(self.pins)}  # (a colour not in use, as eqlist.js)
         colour = next((i for i in range(len(COLOURS)) if i not in used), len(self.pins))
         self.pins.append({"key": uuid.uuid4().hex[:8], "name": name[:80], "filters": filters, "note": note, "shown": True,
-                          "color": colour})
+                          "color": colour, **({"engine": "graphic"} if engine == "graphic" else {})})
         if not self.save_pins():
             return False
         if say is None:  # (a window of its own says it in its line: History's; said behind it, it took the Undo there)
@@ -993,8 +994,9 @@ class Listen(QGroupBox):
         st = self.page.stats()
         from ui.eq_page import MODE_SHORT
         self.add(f"#{run.get('n', 1)}: {MODE_SHORT.get(run['mode'], 'EQ')}, "
-                 f"{st['n']} filter{'' if st['n'] == 1 else 's'}{' (edited)' if self.page.edited() else ''}", [dict(f) for f in self.page.enabled_filters()],
-                 f"error {st['rms']:.2f} dB" if st["rms"] is not None else "")
+                 f"{count_words(st['n'], r.get('engine'))}{' (edited)' if self.page.edited() else ''}",
+                 [dict(f) for f in self.page.enabled_filters()],
+                 f"error {st['rms']:.2f} dB" if st["rms"] is not None else "", engine=r.get("engine"))
 
     def add_file(self):
         """From an EQ file…: as By hand's (its files, from your Saved EQs folder, read the same way)."""
@@ -1079,7 +1081,7 @@ class Listen(QGroupBox):
             name.returnPressed.connect(lambda p=p, name=name: self._rename(p, name, enter=True))
             name.left.connect(lambda p=p, name=name: self._rename(p, name))
             grid.addWidget(name, i, 1)
-            note = QLabel(f"{len(p['filters'])} filter{'' if len(p['filters']) == 1 else 's'}" +(f" · {p['note']}" if p.get("note") else ""))
+            note = QLabel(count_words(len(p["filters"]), p.get("engine")) + (f" · {p['note']}" if p.get("note") else ""))
             theme.mark(note, role="muted")
             grid.addWidget(note, i, 2)
             graph = QCheckBox("Graph")
@@ -1197,7 +1199,7 @@ class Listen(QGroupBox):
         if device == self.pins_for:
             # (add says nothing by itself here, only a refusal through say: the Undo has one message for the two
             # cases, the "Restored" one below; it said "Added …" for this case before 2026-11-24)
-            if self.add(p["name"], p["filters"], p.get("note", ""), say=self.page.status):
+            if self.add(p["name"], p["filters"], p.get("note", ""), say=self.page.status, engine=p.get("engine")):
                 self.page.status(f"Restored “{p['name']}” to EQs to compare for {device}", 6000)
             return
         r = self.page.svc.call("/api/listen", {"device": device})
