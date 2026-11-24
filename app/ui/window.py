@@ -46,7 +46,7 @@ from ui.devices_screen import DevicesScreen, check_line  # noqa: F401 - (check_l
 from ui.profiles_screen import ProfilesScreen
 from ui.settings_screen import SettingsScreen
 from ui.setup_dialog import SetUpDialog  # noqa: F401 - (still taken from here, as before the screens had files)
-from ui.window_parts import NOT_OPENED, ScreenArea, fit_to_screen, glyph_label, not_opened, warning_card
+from ui.window_parts import ScreenArea, fit_to_screen, glyph_label, is_not_opened, not_opened, warning_card
 
 
 def online_mark(on):
@@ -541,7 +541,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
             return
         if page is None or not getattr(page, "ready", False):
             failed = (preload.error() is not None or self._eq_error is not None) if page is None else \
-                page.loading.text().startswith(NOT_OPENED)
+                is_not_opened(page.loading.text())
             if not failed:
                 if said:
                     self.status(said, 4000)
@@ -558,7 +558,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
             if page is None:  # (its code still loading; given up when Make an EQ couldn't open)
                 self._guide_waiting = preload.error() is None and self._eq_error is None
             else:
-                self._guide_waiting = not page.loading.text().startswith(NOT_OPENED)
+                self._guide_waiting = not is_not_opened(page.loading.text())
             if self._guide_waiting:
                 self.status("Guide will start once Make an EQ loads…", 4000)
                 QTimer.singleShot(300, self, self._guide_when_ready)

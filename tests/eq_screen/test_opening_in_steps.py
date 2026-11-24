@@ -267,7 +267,8 @@ def test_says_nothing_until_first_seen(ahead, check):
           before["opened"] and not before["asked"] and not before["said"] and before["current"], before)
     check("eq page: once first shown, what it kept is said: the files set aside (one box) and the status line "
           "(AutoEQ Local's files brought over)",
-          len(boxes) == 1 and any(t.startswith("AutoEQ Studio copied 2 files from AutoEQ Local") for t in after["said"]),
+          len(boxes) == 1 and any(t == "Imported 2 files from AutoEQ Local. Your original AutoEQ Local files were kept."
+                                   for t in after["said"]),
           after)
 
 
@@ -316,15 +317,23 @@ def test_failed_opening_lets_go(tmp_path, monkeypatch, check):
                         if path == "/api/state" else real(path, body))
     o = _open(str(tmp_path), monkeypatch, False)
     page = o.s.page
+    import paths
+    from ui import window_parts
     try:
-        said = qt.wait_for(lambda: page.loading.text() == "Could not open Make an EQ: made up for the test", 60)
+        # (an error in the answer for the state: one line, with the full path of the log, paths.LOG)
+        said = qt.wait_for(lambda: page.loading.text() == "Couldn't open Make an EQ: made up for the test. Check "
+                           f"{paths.LOG} for details.", 60)
+        words = page.loading.text()
         o.watch.stop()
         holds = list(o.holds)
     finally:
         eqpage.close_screen(o.s)
     check("eq page: when the EQ part can't open, ui.preload is let go too (held for good, the code it loads ahead "
           "would wait for ever), and the page says so", said and holds == [("hold", False), ("release", False)],
-          (said, holds))
+          (said, holds, words))
+    check("eq page: the main window knows these words as a failed opening (the Guide and Presets stop waiting), and "
+          "the log they name has a full path", window_parts.is_not_opened(words) and os.path.isabs(paths.LOG),
+          (words, paths.LOG))
 
 
 def test_deleted_half_way(tmp_path, monkeypatch, check):

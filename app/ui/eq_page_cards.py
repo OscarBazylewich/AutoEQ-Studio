@@ -108,12 +108,12 @@ class EqCards:
         # (each opens a window: "…", and the tracer's own words, as Find…'s, UI-RULES 11 and 16)
         self.trace_btn = QPushButton("Trace a graph image…")
         icons.put(self.trace_btn, "trace")
-        self.trace_btn.setToolTip("Make a frequency response from a picture of a graph")
+        self.trace_btn.setToolTip("Trace a graph image into a measurement or target")
         self.trace_btn.clicked.connect(self.open_trace)
         head.addWidget(self.trace_btn)
         self.hist_btn = QPushButton("History…")
         icons.put(self.hist_btn, "history")
-        self.hist_btn.setToolTip("Your EQs in History (the app keeps them when you close it)")
+        self.hist_btn.setToolTip("View saved EQs")
         self.hist_btn.clicked.connect(lambda: self.open_history(False))
         head.addWidget(self.hist_btn)
         opts = placed(v, QHBoxLayout())  # (the graph's views, as AutoEQ Local's: kept between sessions)
@@ -144,7 +144,7 @@ class EqCards:
         # (a view of the graph, with the others: it popped into the header between Trace and History, moving them)
         self.clear_prev_btn = QPushButton("Hide previews")  # (Find…'s Preview and Hide, and the legend's words)
         icons.put(self.clear_prev_btn, "hide")
-        self.clear_prev_btn.setToolTip("Remove the previews (dotted lines from Find…) from the graph")
+        self.clear_prev_btn.setToolTip("Hide preview curves on the graph")
         self.clear_prev_btn.clicked.connect(self.clear_previews)
         self.clear_prev_btn.hide()
         opts.addWidget(self.clear_prev_btn)
@@ -177,14 +177,14 @@ class EqCards:
         self.eqplot.scene().sigMouseClicked.connect(self.eq_graph_clicked)
         self.eqplot.setAccessibleName("EQ graph")
         # (with no EQ: words in its middle that tell what a double-click there does; the UI audit, 2026-11-08)
-        self.eq_empty = QLabel("Double-click here to add a filter and start a manual EQ.", self.eqplot)
+        self.eq_empty = QLabel("Double-click here to add a filter and start a manual EQ", self.eqplot)
         self.eq_empty.setAlignment(Qt.AlignCenter)
         self.eq_empty.setWordWrap(True)  # (on a narrow graph: two lines, never cut)
         self.eq_empty.setAttribute(Qt.WA_TransparentForMouseEvents)
         theme.mark(self.eq_empty, role="muted")
         self.eqplot.installEventFilter(self)  # (the words follow its size: eventFilter, eq_page)
-        self.eqplot.setToolTip("Drag a handle: frequency and gain. Mouse wheel on a handle: Q. Right-click a handle: type, "
-                               "Remove. Double-click an empty area: a new filter.")
+        self.eqplot.setToolTip("Drag handle: frequency & gain · Scroll on handle: Q · Right-click: filter type or "
+                               "remove · Double-click graph: add filter")
         help_window.tag(self.eqplot, "#eq-graph")
         # (both graphs' value axes one width, room for three characters ("-12", "100") in the font pyqtgraph draws
         # them in: left to themselves, each took the width of the first numbers it drew, so a page made ahead, first
@@ -232,15 +232,14 @@ class EqCards:
             setattr(self, f"{kind}_note", note)
             setattr(self, f"{kind}_under", u)
             if kind == "measurement":
-                other = QPushButton("Other measurements of this model…")
-                other.setToolTip("Find all the measurements of this model and the best one for your target")
+                other = QPushButton("Other measurements of this model…")  # (no tooltip: the text survey)
                 other.clicked.connect(self.open_other_measurements)
                 u.addWidget(other, 0, Qt.AlignLeft)
                 row2 = placed(u, QHBoxLayout())
                 self.eqd_before = label("", wrap=False)
                 row2.addWidget(self.eqd_before)
                 self.eqd_show = QPushButton("Show in History…")  # (it opens History, this IEM's: UI-RULES 11, 16)
-                self.eqd_show.setToolTip("History, with the EQs that you made for this IEM")
+                self.eqd_show.setToolTip("View past EQs for this IEM")
                 self.eqd_show.clicked.connect(lambda: self.open_history(True))
                 row2.addWidget(self.eqd_show)
                 row2.addStretch(1)
@@ -264,13 +263,13 @@ class EqCards:
         row.addWidget(combo, 1)
         find = QPushButton("Find…")
         icons.put(find, "find")
-        find.setToolTip("Search your files, this PC and the online databases")
+        find.setToolTip("Search local files and online databases")
         find.clicked.connect(lambda _=False, k=kind: self.find(k))
         row.addWidget(find)
         add = QPushButton("Add…")
         icons.put(add, "add")
-        add.setToolTip("Add target files from this PC" if kind == "target" else
-                       "Add measurement files from this PC (a set: L/R, seatings)")
+        add.setToolTip("Import target files from this PC" if kind == "target" else
+                       "Import measurement files from this PC")
         add.clicked.connect(lambda _=False, k=kind: self.add_files(k))
         row.addWidget(add)
         if kind == "measurement":
@@ -336,10 +335,9 @@ class EqCards:
         tabs = placed(v, QHBoxLayout())
         tabs.setSpacing(20)
         self.way_btns = {}
-        for key, words, tip in (("auto", "Automatically", "AutoEQ adjusts the filters for the target and your EQ "
-                                 "app: you select the method, then click Calculate"),
-                                ("hand", "Manually", "You make the filters: start from an empty EQ or from an EQ "
-                                 "that you have. Then change them on the EQ graph.")):
+        for key, words, tip in (("auto", "Automatically", "Automatically optimizes filters for your target and EQ "
+                                 "app"),
+                                ("hand", "Manually", "Build or edit filters yourself on the graph or in the table")):
             b = QPushButton(words)
             b.setCheckable(True)
             theme.mark(b, nav=True, flush=True)  # (its words start at the labels' left edge: the UI audit)
@@ -417,8 +415,7 @@ class EqCards:
         self.cancel_btn.hide()
         self.queue_btn = QPushButton("Queue…")
         icons.put(self.queue_btn, "list")  # (every button in the row with its symbol, UI-RULES 9)
-        self.queue_btn.setToolTip("EQs for more than one IEM or target, one after the other: each one saved and kept in "
-                                  "History")
+        self.queue_btn.setToolTip("Batch-generate EQs for multiple IEMs or targets; saves each to History")
         self.queue_btn.clicked.connect(self.open_queue)
         help_window.tag(self.queue_btn, "#queue")
         run_row.addWidget(self.run_btn)

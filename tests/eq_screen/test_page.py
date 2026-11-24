@@ -96,7 +96,7 @@ def test_as_wide_as_the_window(eq_screen, check):
         page.session_runs, page.run_result = list(runs), runs[1]
         page.show_result(1)
         page.graph_title.set_pair(LONG, LONG)
-        page.hover_lab.setText("1.28 kHz  ·  Target 61.2  ·  Measurement 62.8  ·  With the EQ 61.1 dB  ·  " * 3)
+        page.hover_lab.setText("1.28 kHz  ·  Target 61.2 dB  ·  Measurement 62.8 dB  ·  With the EQ 61.1 dB  ·  " * 3)
         for width in WIDTHS:
             page.resize(width, 900)
             qt.pump(300)
@@ -310,3 +310,145 @@ def test_settings_to_try_with_no_curves(eq_screen, check):
     check("make an EQ: with no curves (no measurement), Settings to try still says what a run tries and how long it "
           "takes (it had no value)", bool(found["text"]) and "EQ" in found["text"] and bool(found["tooltip"])
           and found["back"], found)
+
+
+def test_history_line_says_once_or_n_times(eq_screen, check):
+    # (the text survey, 2026-11-23: the line below Measurement counts the EQs as "once" or "n times")
+    import time
+
+    from ui.history_window import day_of
+    page = eq_screen.page
+    kept, on = page.history, page.S["history"].get("eqd_before")
+    when = time.time() - 30 * 86400
+    said = {}
+    try:
+        page.S["history"]["eqd_before"] = True
+        for n in (1, 2, 5):
+            page.history = [{"key": str(i), "device": page.curves["name"], "when": when - i} for i in range(n)]
+            page.history_note()
+            said[n] = page.eqd_before.text()
+    finally:
+        page.history, page.S["history"]["eqd_before"] = kept, on
+        page.history_note()
+    day = day_of(when)
+    check("make an EQ: the line below Measurement says “Previously EQ'd once” for 1 EQ in History and “n times” for "
+          "more, then the day of the last one",
+          said == {1: f"Previously EQ'd once · Last: {day}", 2: f"Previously EQ'd 2 times · Last: {day}",
+                   5: f"Previously EQ'd 5 times · Last: {day}"}, said)
+
+
+def test_calculate_with_no_curves_says_the_cause(eq_screen, dialogs, check):
+    # (the text survey, 2026-11-23: with files in the app whose curves failed, Calculate told to add a target and a
+    # measurement. Now it names the line below the EQ graph, which has the cause)
+    import paths
+    page = eq_screen.page
+    kept, groups = page.estimate.text(), page.groups
+    found = {}
+    try:
+        page.curves_loaded({"error": "No measurement is selected."})
+        n = len(dialogs.asked)
+        page.run()
+        found["files, a cause"] = dialogs.asked[n:]
+        page.groups = {}
+        n = len(dialogs.asked)
+        page.run()
+        found["no files"] = dialogs.asked[n:]
+        page.groups = groups
+        page.curves_loaded(None)  # (no curves and no cause from the EQ part)
+        found["no cause"] = page.graph_note.text()
+    finally:
+        page.groups = groups
+        page.load_curves()
+        eq_screen.wait_for(lambda: page.curves is not None, 60)
+        eq_screen.wait_for(lambda: page.estimate.text() == kept, 30)
+    check("make an EQ: Calculate with no curves says to add a target and a measurement only when the app has none; "
+          "with files whose curves failed, it names the line below the EQ graph; and that line names the log with "
+          "its full path when the EQ part gave no cause",
+          found == {"files, a cause": [("bubble", "Couldn't calculate curves for these files. See the line below the "
+                                        "EQ graph.")],
+                    "no files": [("bubble", "Add a target and at least one measurement first")],
+                    "no cause": f"Couldn't calculate curves. Check {paths.LOG} for details."}
+          and os.path.isabs(paths.LOG), found)
+
+
+def test_a_failed_calculation_names_the_log(eq_screen, dialogs, monkeypatch, check):
+    # (the text survey, 2026-11-23: a calculation that failed with no message of its own names the app's log)
+    import paths
+    page = eq_screen.page
+    real = page.svc.call
+    monkeypatch.setattr(page.svc, "call", lambda path, body=None: {"status": "error"} if path == "/api/job"
+                        else real(path, body))
+    n = len(dialogs.asked)
+    try:
+        page._poll_job()
+    finally:
+        monkeypatch.setattr(page.svc, "call", real)
+    said = dialogs.asked[n:]
+    check("make an EQ: a calculation that failed without a message says so in a box, with the full path of the log",
+          said == [("warning", f"Couldn't generate an EQ. Check {paths.LOG} for details.")]
+          and os.path.isabs(paths.LOG), said)
+
+
+def test_start_from_with_no_profile(eq_screen, dialogs, check):
+    # (the text survey, 2026-11-23: each note of Start from is whole, no sentence is added to it; with no profile,
+    # the bubble at Start has the first 2 sentences of the note)
+    page = eq_screen.page
+    box = page.hand_source
+    was = box.currentIndex()
+    added = box.findData("profile:") < 0
+    found = {}
+    try:
+        if added:  # (the test copy has a profile: the item for none, as the list has it with no profile)
+            box.addItem("A device's profile (none)", "profile:")
+        box.setCurrentIndex(box.findData("empty"))
+        found["empty"] = page.hand_src_note.text()
+        box.setCurrentIndex(box.findData("profile:"))
+        found["none"] = page.hand_src_note.text()
+        n = len(dialogs.asked)
+        page.start_from_source()
+        found["start"] = dialogs.asked[n:]
+    finally:
+        box.setCurrentIndex(was)
+        if added:
+            box.removeItem(box.findData("profile:"))
+        page.manual_source_changed()
+    none = "No device profiles yet. Add one in Devices first, then select it here."
+    check("make the EQ: the ⓘ of Start from has the words of the selected item only, and with no profile the bubble "
+          "at Start says the same words without the sentence about the filters",
+          found == {"empty": "Double-click the graph or click Add filter to add bands, then drag handles or edit the "
+                             "table below",
+                    "none": none + " Edit filters on the graph or table below.", "start": [("bubble", none)]}, found)
+
+
+def test_band_shapes_sentence_ends_only_before_more_words(eq_screen, check):
+    # (the text survey, 2026-11-23: the sentence about the band shapes has no period of its own. It gets one only
+    # when the steps to load the EQ or the note about the layout follow it)
+    import html
+    from types import SimpleNamespace
+    words = type(eq_screen.page).app_note_text
+    shapes = "Band shapes for this app aren't published, so the actual EQ may differ slightly from the preview"
+
+    def note(app, layout):
+        page = SimpleNamespace(eq_app=lambda key: dict(app, layout="its own"),
+                               S={"eq_app": "k", "best_fit": {"layout": layout}})
+        return html.unescape(words(page, "k"))
+    found = {"alone": note({"note": "10 bands.", "approx": True}, "its own"),
+             "then how": note({"note": "10 bands.", "approx": True, "how": "Set its sliders."}, "its own"),
+             "then the layout": note({"note": "10 bands.", "approx": True}, "yours"),
+             "no app": words(eq_screen.page, ""), "not in the list": words(eq_screen.page, "other")}
+    check("make the EQ: the ⓘ of Your EQ app: the sentence about band shapes that are not published ends without a "
+          "period when it is the last one, and with one before the steps or the note about a custom layout",
+          found == {"alone": f"10 bands. {shapes}", "then how": f"10 bands. {shapes}. Set its sliders.",
+                    "then the layout": f"10 bands. {shapes}. (Custom Best fit layout overrides this EQ app's limits.)",
+                    "no app": "Choose your playback EQ app or device to match its band, gain, and Q limits and "
+                              "export format",
+                    "not in the list": "No filter limits. Exports in Equalizer APO format, supported by most EQ "
+                                       "apps."}, found)
+
+
+def test_other_measurements_has_no_tooltip(eq_screen, check):
+    # (the text survey, 2026-11-23: the tooltip of this button went; the name of the button tells its function)
+    from PySide6.QtWidgets import QPushButton
+    page = eq_screen.page
+    tips = [b.toolTip() for b in page.findChildren(QPushButton) if b.text() == "Other measurements of this model…"]
+    check("make an EQ: “Other measurements of this model…” has no tooltip of its own", tips == [""], tips)

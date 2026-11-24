@@ -95,7 +95,7 @@ def test_one_search(eq_screen, check):
     check("search: one search, every limit with both fighting-filter penalties, said in one short line with its time "
           "(the whole text in its tooltip); no buttons; an older copy's level dropped and its one penalty made a list",
           bf["fight_penalty"] == [0.003, 0.01] and len(bf["q_max"]) >= 4 and "penalties for opposite filters" in what
-          and "EQs, 1 to " in est and "approximately" in est and "Time to calculate" in what
+          and "EQs, 1 to " in est and "approximately" in est and " · Est. time: " in what
           and not hasattr(page, "sa_btns")
           and "level" not in old["auto"] and old["best_fit"]["fight_penalty"] == [0.004],
           (bf["fight_penalty"], bf["q_max"], what, est, old["auto"], old["best_fit"]["fight_penalty"]))

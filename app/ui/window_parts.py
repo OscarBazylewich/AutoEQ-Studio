@@ -17,13 +17,27 @@ READ_MS = 70  # (and as long as its words take to read: about this long a letter
 # (the start of the message that shows in the place of Make an EQ when it could not open. The main window looks
 # for this start to know that the page failed: then the Guide and Presets stop waiting for it)
 NOT_OPENED = "Could not open Make an EQ"
+# (the start of the same message when the EQ part answered its state with an error: the text survey gave that case
+# words of its own, on one line)
+NOT_OPENED_STATE = "Couldn't open Make an EQ"
 
 
-def not_opened(error, log=True):
+def not_opened(error):
     """The message in the place of Make an EQ when it could not open: the error, and the full path of the app's log
     (paths.LOG, read at the time of the message: AppData for the installed app, the data folder of a copy that
-    runs from its folder). log False: an error that the app made itself and did not write to the log."""
-    return f"{NOT_OPENED}: {error}" + (f"\nCheck {paths.LOG} for details." if log else "")
+    runs from its folder)."""
+    return f"{NOT_OPENED}: {error}\nCheck {paths.LOG} for details."
+
+
+def not_opened_state(error):
+    """The same message for an error that the EQ part gave as the answer for its state. The error loses its last
+    period: the sentence of the message ends it."""
+    return f"{NOT_OPENED_STATE}: {str(error).rstrip('.')}. Check {paths.LOG} for details."
+
+
+def is_not_opened(text):
+    """True when the words in the place of Make an EQ are one of the 2 messages above (the page failed to open)."""
+    return text.startswith((NOT_OPENED, NOT_OPENED_STATE))
 
 
 def fit_to_screen(window, size, smallest=None):

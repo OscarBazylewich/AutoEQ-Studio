@@ -13,6 +13,7 @@ import os
 import tempfile
 
 import numpy as np
+import paths
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
@@ -23,15 +24,20 @@ from ui.eq_page_parts import (MESSAGE_NAMES, MODE_SHORT, and_list, file_base_nam
 from ui.search_combo import natural_key
 
 # By hand's Start from: an EQ's sources in the order every such list has (.claude/notes/UI-RULES.md 16), each with the
-# note under the box; then each device's profile ("profile:<id>"; "profile:" when there's none yet)
-HAND_SOURCES = (("empty", "An empty EQ", "Add filters on the EQ graph (double-click where you want a filter) or with "
-                 "Add filter."),
-                ("copy", "A copy of the selected EQ", "A copy of the EQ on the result card: you change the copy, not the "
-                 "EQ."),
-                ("file", "An EQ file", "Equalizer APO, AutoEq, Room EQ Wizard or Peace: you select the file when you "
-                 "click Start."),
-                ("paste", "Pasted filters", "Equalizer APO lines, Room EQ Wizard filters, or one filter on each line: "
-                 "you paste them when you click Start."))
+# whole note behind the ⓘ; then each device's profile ("profile:<id>"; "profile:" when there's none yet)
+HAND_SOURCES = (("empty", "An empty EQ", "Double-click the graph or click Add filter to add bands, then drag handles "
+                 "or edit the table below"),
+                ("copy", "A copy of the selected EQ", "Edits a copy of the current result (original stays unchanged). "
+                 "Adjust filters on the graph or in the table below."),
+                ("file", "An EQ file", "Click Start… to import an Equalizer APO, AutoEq, REW, or Peace file, then edit "
+                 "filters on the graph or table below"),
+                ("paste", "Pasted filters", "Click Start… to paste Equalizer APO, REW, or line-by-line filters, then "
+                 "edit them on the graph or table below"))
+# (Start from with no profile: the bubble at Start says these words, and the ⓘ adds the sentence about the filters)
+NO_PROFILES = "No device profiles yet. Add one in Devices first, then select it here."
+# (Calculate with no curves: no files, or files that gave no curves, whose cause is in the line below the EQ graph)
+NO_FILES = "Add a target and at least one measurement first"
+NO_CURVES = "Couldn't calculate curves for these files. See the line below the EQ graph."
 
 
 class EqResult:
@@ -41,7 +47,7 @@ class EqResult:
     def run(self, retry=None):
         """Run with the settings; retry: {"filters", "add"} (Best fit from the filters shown, this run only)."""
         if not self.curves:
-            bubble.tell(None, "Add a target and one or more measurements first.", near=self.run_btn)
+            bubble.tell(None, self.no_curves_words(), near=self.run_btn)
             return
         if retry is not None and not retry["filters"]:
             bubble.tell(None, "There are no filters to start from: add a filter, or enable a filter.",
@@ -77,6 +83,13 @@ class EqResult:
         QTimer.singleShot(0, self, self.live_graph_as_a_job_starts)  # (the floating graph never over Cancel)
         self._poll.start()
 
+    def no_curves_words(self):
+        """What Calculate says when it has no curves. With a target and a measurement in the app and a cause in the
+        line below the EQ graph, the files are there and their curves failed: to tell the person to add files would
+        be wrong, so the words name that line."""
+        files = bool(self.groups) and bool(self.inputs.get("targets"))
+        return NO_CURVES if files and self.graph_note.text() else NO_FILES
+
     def say_progress(self, text):
         """The line under Run: shown only while it says something (empty, it was a band of room under Run)."""
         self.progress_text.setText(text)
@@ -107,7 +120,7 @@ class EqResult:
             self.runs += 1
             self.run_result = dict(j["result"], n=self.runs)
             self.keep_run(self.run_result)
-            self.say_progress(f"Done in {j['result'].get('seconds')} s.")
+            self.say_progress(f"Done in {j['result'].get('seconds')} s")
             self.name_edit.clear()
             self.show_result(j["result"]["pick"])
             self.add_to_history(False)
@@ -115,9 +128,10 @@ class EqResult:
                 QTimer.singleShot(0, self, self._follow_result)  # takes 7-20 s, UI-RULES 30)
         elif j.get("status") == "error":
             self.say_progress("")
-            QMessageBox.warning(self, "Calculate", j.get("message") or "The app did not make an EQ.")
+            QMessageBox.warning(self, "Calculate",
+                                j.get("message") or f"Couldn't generate an EQ. Check {paths.LOG} for details.")
         elif j.get("status") == "cancelled":
-            self.say_progress("Canceled.")
+            self.say_progress("Canceled")
 
     # ---------------------------------------------------------------- the result
     def show_result(self, rid):
@@ -224,7 +238,7 @@ class EqResult:
         """Several EQs in one go (ui/queue_window.py)."""
         from ui.queue_window import QueueWindow
         if not self.groups or not self.inputs.get("targets"):
-            bubble.tell(None, "Add a target and one or more measurements first.", near=self.queue_btn)
+            bubble.tell(None, NO_FILES, near=self.queue_btn)
             return
         modal(QueueWindow(self))
 
@@ -585,11 +599,11 @@ class EqResult:
         key = self.hand_source.currentData() or "empty"
         note = next((n for k, _w, n in HAND_SOURCES if k == key), "")
         if key == "profile:":
-            note = "No profiles: add a profile in Devices (Add a profile). Then start from it here."
+            note = NO_PROFILES + " Edit filters on the graph or table below."
         elif key.startswith("profile:"):
-            note = "A device's profile: Use on device › Update writes your changes into it."
-        self.hand_src_note.setText(note + " Then change its filters on the EQ graph (drag a handle) or in the table below "
-                                   "Your result.")
+            note = ("Edit a device profile's filters on the graph or table below, then use Use on device › Update to "
+                    "save back to it")
+        self.hand_src_note.setText(note)
         self.hand_start.setText("Start…" if key in ("file", "paste") else "Start")
 
     def start_from_source(self):
@@ -600,7 +614,7 @@ class EqResult:
             self.start_manual([], "from an empty EQ")
         elif key == "copy":
             if not self.current()[1]:
-                bubble.tell(None, "There is no EQ on the result card: calculate an EQ, or start from a different item.",
+                bubble.tell(None, "No EQ in results yet. Calculate one first or start from a different item.",
                             near=self.hand_start)
                 return
             self.manual_from_shown()
@@ -609,8 +623,7 @@ class EqResult:
         elif key == "paste":
             self.manual_from_paste()
         elif key == "profile:":
-            bubble.tell(None, "No profiles: add a profile in Devices (Add a profile). Then start from it here.",
-                        near=self.hand_start)
+            bubble.tell(None, NO_PROFILES, near=self.hand_start)
         else:
             self.manual_from_profile(key.split(":", 1)[1])
 

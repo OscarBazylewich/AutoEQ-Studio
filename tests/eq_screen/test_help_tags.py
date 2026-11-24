@@ -52,7 +52,7 @@ def test_handle_tooltip_names_its_menu(check):
     with open(os.path.join(paths.PROJECT_APP, "ui", "eq_page_handles.py"), encoding="utf-8") as fh:
         menu = re.search(r"def handle_menu.*?\n    def ", fh.read(), re.S).group(0)
     check("help: a graph handle's tooltip names the items of its right-click menu (its type, Remove; no On)",
-          tip.endswith("right-click: type, Remove") and 'addAction("Remove"' in menu and '"On"' not in menu, tip)
+          tip.endswith("\nDrag: freq & gain · Scroll: Q · Right-click: filter type or remove") and 'addAction("Remove"' in menu and '"On"' not in menu, tip)
 
 
 def test_use_on_device_has_its_own_help(eq_screen, check):

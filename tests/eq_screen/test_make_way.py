@@ -108,5 +108,5 @@ def test_start_says_what_it_asks_and_what_it_needs(eq_screen, dialogs, check):
     check("make the EQ: By hand's Start reads “Start…” when it asks first (a file, pasted lines), else “Start”; a copy "
           "of the selected EQ with none on the result card says so in a bubble at Start, and starts nothing",
           words == {"empty": "Start", "copy": "Start", "file": "Start…", "paste": "Start…"}
-          and [k for k, _t in told] == ["bubble"] and "no EQ on the result card" in told[0][1] and nothing,
+          and [k for k, _t in told] == ["bubble"] and told[0][1] == "No EQ in results yet. Calculate one first or start from a different item." and nothing,
           (words, told, nothing))

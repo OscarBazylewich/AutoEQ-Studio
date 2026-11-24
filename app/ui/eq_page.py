@@ -51,7 +51,7 @@ from ui.eq_page_history import EqHistory
 from ui.eq_page_live import EqLive
 from ui.eq_page_parts import FORMAT_NAMES, MODE_HINT, Notices, label
 from ui.eq_page_result import EqResult
-from ui.window_parts import not_opened
+from ui.window_parts import not_opened, not_opened_state
 
 # (not used here: other files still import them from here, as before the split: listen.py MODE_SHORT, queue_window.py
 # and the tests (tests\eq_screen\test_run_and_result.py) file_base_name; TICKS too)
@@ -222,7 +222,9 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
                 if aside:
                     self._warn(aside)
                 if "error" in st:
-                    self._not_opened(not_opened(st["error"], log=False))
+                    # (the message names the log: the error goes into it here, as no exception wrote it)
+                    print(f"Make an EQ could not open: {st['error']}")
+                    self._not_opened(not_opened_state(st["error"]))
                     return
                 self.meta, self.S = st, st["settings"]
                 self._brought = brought
@@ -253,8 +255,8 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
         try:
             _freeze("built")  # (the page's controls too)
             if self._brought:
-                self.status(f"AutoEQ Studio copied {len(self._brought)} files from AutoEQ Local (your settings, History, "
-                            "targets, measurements and saved EQs). AutoEQ Local keeps its files.", 12000)
+                self.status(f"Imported {len(self._brought)} files from AutoEQ Local. Your original AutoEQ Local files "
+                            "were kept.", 12000)
             self.load_curves()
             # (the database lists, asked as the EQ part loaded: once they're in, the rig tags and the curves again)
             self._lists_timer = QTimer(self, interval=500, timeout=self._lists_loaded)
@@ -300,7 +302,7 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
     def _save_settings(self):
         def done(res, err):
             if err or (res or {}).get("error"):
-                self.status(f"AutoEQ Studio cannot save the settings: {err or res['error']}", 8000)
+                self.status(f"Couldn't save settings: {err or res['error']}", 8000)
         s = self.S
         tasks.background(lambda: self.svc.call("/api/settings", {"settings": s}), done, owner=self)
 
@@ -339,17 +341,17 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
             import html
             own = self.S["best_fit"].get("layout") == a.get("layout") or a.get("kind") == "site" \
                 or key != (self.S.get("eq_app") or "")  # (another app, as the Guide shows it: its own limits)
+            how = a.get("how", "")
+            # (the sentence about the band shapes has no period of its own: it gets one only when more words follow)
             text = html.escape(f"{a.get('note') or a.get('summary')}"
-                               + (" Because the shapes of its bands are not known, the result can have small differences."
-                                  if a.get("approx") else "")
-                               + f" {a.get('how', '')}"
-                               + ("" if own else " (Because you changed the layout of Best fit, its limits are not the limits "
-                                  "of this EQ app.)")).strip()
+                               + (" Band shapes for this app aren't published, so the actual EQ may differ slightly from "
+                                  "the preview" + ("." if how or not own else "") if a.get("approx") else "")
+                               + (f" {how}" if how else "")
+                               + ("" if own else " (Custom Best fit layout overrides this EQ app's limits.)")).strip()
             return text + (f' <a href="{html.escape(a["source"])}">Source</a>' if a.get("source") else "")
-        return ("No limits on the filters. Save filters writes an Equalizer APO file, which many apps can read."
+        return ("No filter limits. Exports in Equalizer APO format, supported by most EQ apps."
                 if key == "other" else
-                "Which app or device will use the EQ? The EQ stays in its limits (bands, gain, Q), and Save filters "
-                "writes its file.")
+                "Choose your playback EQ app or device to match its band, gain, and Q limits and export format")
 
     def open_link(self, url):
         """A website link (online only: offline the app never connects, net.py)."""

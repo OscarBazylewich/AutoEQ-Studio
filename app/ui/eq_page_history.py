@@ -84,8 +84,8 @@ class EqHistory:
         if on:
             from ui.history_window import day_of
             last = max(mine, key=lambda e: e["when"])
-            self.eqd_before.setText(f"History has {'1 EQ' if len(mine) == 1 else f'{len(mine)} EQs'} for this IEM · "
-                                    f"the last EQ: {day_of(last['when'])}")
+            self.eqd_before.setText(f"Previously EQ'd {'once' if len(mine) == 1 else f'{len(mine)} times'} · "
+                                    f"Last: {day_of(last['when'])}")
 
     def open_history(self, this_iem):
         from ui.history_window import HistoryWindow

@@ -7,6 +7,7 @@ EqGraph is a plain class (no __init__, no signals); EqPage (ui/eq_page.py) joins
 import json
 
 import numpy as np
+import paths
 import pyqtgraph as pg
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QColor, QFontMetrics
@@ -41,7 +42,9 @@ class EqGraph:
         if not c or c.get("error"):
             self.curves, self.rig_note = None, ""
             self.graph_title.setText("")
-            set_note(self.graph_note, str((c or {}).get("error") or "The app cannot calculate the curves."))
+            # (with no cause from the EQ part: the full path of the app's log, as the other messages that name it)
+            set_note(self.graph_note, str((c or {}).get("error")
+                                          or f"Couldn't calculate curves. Check {paths.LOG} for details."))
             self.chip_noeq.hide()
             self.draw()
             # (Settings to try for the settings as they are, with no curves to analyse: with no measurement the line
@@ -109,8 +112,8 @@ class EqGraph:
         # (one short line, its whole text in the tooltip: the UI audit, 2026-11-08)
         search, short = a.get("search") or "", a.get("short") or ""
         self.estimate.setText(" · ".join(x for x in (short, a.get("time") or "") if x))
-        self.estimate.setToolTip(((search[:1].upper() + search[1:] + ". ") if search else "")
-                                 + (f"Time to calculate on this PC: {a['time']}." if a.get("time") else ""))
+        self.estimate.setToolTip(" · ".join(x for x in (search[:1].upper() + search[1:],
+                                                        f"Est. time: {a['time']}" if a.get("time") else "") if x))
         if hasattr(self, "settings"):
             self.settings.refresh()  # (the values filled in, "Why these settings")
 
@@ -196,8 +199,8 @@ class EqGraph:
         hz = c["f"][i]
         parts = [f"{hz / 1000:.2f} kHz" if hz >= 1000 else f"{hz:.0f} Hz"]
         for name, vals in c["series"]:
-            parts.append(f"{name} {vals[i]:+.1f}" if c["rel"] else f"{name} {vals[i]:.1f}")
-        self.hover_lab.setText("  ·  ".join(parts) + " dB")
+            parts.append(f"{name} {vals[i]:+.1f} dB" if c["rel"] else f"{name} {vals[i]:.1f} dB")
+        self.hover_lab.setText("  ·  ".join(parts))
 
     def _after_draw(self):
         self.curve_names.from_legend(self.legend)

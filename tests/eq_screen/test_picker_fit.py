@@ -71,9 +71,9 @@ def _messages(name):
             (databases.REFUSED_NOTE.format(site=site), None),
             (databases.BROWSE_NOTE.format(site=site), None),
             ("No new picture came in 10 minutes. Select the entry again.", None),
-            (f"The app moved “{name}” to Measurement.", lambda: None),
-            (f"The app moved “{name}” to Target.", lambda: None),
-            ("The app cannot use that file: The file is not in the app. Select the file again in Find….", None)]
+            (f"Moved “{name}” to Measurement", lambda: None),
+            (f"Moved “{name}” to Target", lambda: None),
+            ("Couldn't apply selection: The file is not in the app. Select the file again in Find….", None)]
 
 
 @pytest.mark.parametrize("look", ["light", "dark"])

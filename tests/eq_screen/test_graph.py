@@ -47,12 +47,15 @@ def test_graph_views_and_the_values_under_the_pointer(eq_screen, check):
     pl = page.plot
     page._hover(pl.mapToScene(QPoint(int(pl.width() * 0.5), int(pl.height() * 0.5))))
     read = page.hover_lab.text()
+    curves = len(page._drawn["series"])
     page.set_graph_option(**keep)
     page._graph_timer.stop()
     # was eq_checks.py:2018
     check("graph views: Relative to target (the target at 0 dB, the axis Δ dB), a 30 dB Y range, the values under "
-          "the pointer (Hz and each curve's dB); kept in the settings", rel_ok and abs((hi - lo) - 30) < 0.01
-          and "Hz" in read and "Measurement" in read and (page.sw.s.get("graph") or {}).get("view") == keep.get("view", "abs"),
+          "the pointer (Hz and each curve's dB, each value with its unit); kept in the settings",
+          rel_ok and abs((hi - lo) - 30) < 0.01
+          and "Hz" in read and "Measurement" in read and curves > 1 and read.count(" dB") == curves
+          and all(part.endswith(" dB") for part in read.split("  ·  ")[1:]) and (page.sw.s.get("graph") or {}).get("view") == keep.get("view", "abs"),
           (rel_ok, lo, hi, read))
 
 
