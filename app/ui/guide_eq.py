@@ -22,6 +22,10 @@ def app_paths(page):
             if it["path"] in page.settings.form.fields]
 
 
+# The words of the last action of the step Your values (its bubble, and its line in the list of the demo)
+APP_ROWS_WORDS = "With Peace or FxSound, the boxes of that app show here"
+
+
 def first_value_box(st):
     """The box of the step Your values: of the number and list boxes in sight in the Settings form (Error and
     selection aside), the first that the automatic settings fill, else the first. With Peace it is Filter counts to
@@ -276,8 +280,9 @@ def eq_steps(page):
         """The boxes of an EQ app in Settings (Peace bands, Peace max gain, Band counts to try): the first one in
         sight; with another EQ app none shows, and the pointer goes to the place where they show (the label of the
         first box of the method, else the top of the form). Only the pointer moves: no setting changes, and the
-        pointer stays on the form that the step lights."""
-        words = "The boxes of your EQ app (Peace, FxSound) are here"
+        pointer stays on the form that the step lights. One text for the two states: with Equalizer APO no such box
+        is on the form, so the words do not say that the boxes "are here"."""
+        words = APP_ROWS_WORDS
         f = next((st.form.fields[p] for p in app_paths(page) if st.form.fields[p].box.isVisible()), None)
         if f is not None:
             yield from api.at(f.box, 0.5, 0.5, 1500, say=words)
@@ -733,7 +738,7 @@ def eq_steps(page):
          # demo itself plays has no marker)
          "demo": [{"run": your_value_demo, "say": "Type your value. Press Enter"},
                   {"at": lambda: st.auto_on, "x": 0.1, "say": "Or disable Automatic settings"},
-                  {"run": app_rows_demo, "say": "The boxes of your EQ app (Peace, FxSound) are here"}]},
+                  {"run": app_rows_demo, "say": APP_ROWS_WORDS}]},
         {"chapter": "2 · Settings", "title": "Start from your filters",
          "target": lambda: st.adv_form.fields["best_fit.start_filters"] if st.adv_form.fields["best_fit.start_filters"].isVisible() else None,
          "alt": lambda: page.mode_combo, "before": auto_settings_open, "after": auto_settings_close,

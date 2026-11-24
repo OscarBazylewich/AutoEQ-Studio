@@ -153,6 +153,10 @@ def test_capacity_and_summary_follow_the_users_values(check):
           # (the settings of another layout change nothing for this one)
           and layouts.summary("app:peace", dict(bf, layout="any")) == layouts.summary("app:peace"),
           (layouts.summary("app:peace", bf), layouts.summary("app:peace")))
+    _, one = peace(per={"bands": 1, "gain": 30})
+    check("Peace: the summary of the layout with 1 band says “1 peaking/shelf filter”",
+          layouts.summary("app:peace", one) == "Peace (for Equalizer APO) limits: up to 1 peaking/shelf filter, gain -30 to +30 dB",
+          layouts.summary("app:peace", one))
 
 
 def test_peace_note_follows_the_two_numbers(check):
@@ -162,6 +166,9 @@ def test_peace_note_follows_the_two_numbers(check):
           and eq_apps.note("peace") == eq_apps.APPS["peace"]["note"] == "Up to 31 bands · ±30 dB"
           and eq_apps.note("apo") == "No limits" and eq_apps.APPS["neutron"]["note"] == "4–130 bands",
           (eq_apps.note("peace", {"bands": 10}), eq_apps.note("peace")))
+    check("EQ apps: the note of Peace with 1 band says “Up to 1 band”",
+          eq_apps.note("peace", {"bands": 1}) == "Up to 1 band · ±30 dB" and eq_apps.note("peace", {"bands": 2}) == "Up to 2 bands · ±30 dB",
+          eq_apps.note("peace", {"bands": 1}))
 
 
 def test_user_items_are_the_one_description(check):
@@ -202,7 +209,7 @@ def test_listings_keep_their_keys(check):
     check("EQ apps: the new listing fields are empty for every other app",
           not others and len(apps) == len(eq_apps.APPS) > 2, (others, len(apps)))
     check("EQ apps: the listing of Peace has its form and defaults, that of FxSound its band counts",
-          by["peace"]["note_form"] == "Up to {bands} bands · ±{gain} dB" and by["peace"]["user_defaults"] == {"bands": 31, "gain": 30}
+          by["peace"]["note_form"] == "Up to {bands} {band_word} · ±{gain} dB" and by["peace"]["user_defaults"] == {"bands": 31, "gain": 30}
           and [i["path"] for i in by["peace"]["user"]] == ["best_fit.per_app.peace.bands", "best_fit.per_app.peace.gain"]
           and by["fxsound"]["band_counts"] == [5, 10, 15, 20, 31] and by["fxsound"]["summary"].startswith("10 graphic EQ bands")
           and by["fxsound"]["user_defaults"] == {"band_counts": [10]}, (by["peace"]["user_defaults"], by["fxsound"]["band_counts"]))
@@ -249,6 +256,48 @@ def test_fxsound_offers_its_five_counts(check):
     check("layouts: the summary of FxSound names its band counts",
           layouts.summary("app:fxsound") == "5, 10, 15, 20, or 31 bands: Best fit adjusts only their gains.",
           layouts.summary("app:fxsound"))
+
+
+def test_fxsound_bands_are_the_tables_of_its_source(check):
+    # The tables a second time, from the source: GraphicEqSet.cpp lines 118-250 and 430-492 of fxsound-app (main,
+    # file commit 5246dbd9 of 2026-08-22, fetched 2026-11-24): a changed inner frequency of eq_apps.py (115.734 ->
+    # 120 Hz) passed every other check, which look at the number of bands, the two ends and the Q
+    iso_31 = [20, 25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000,
+              2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000]  # (the ISO 1/3-octave centres)
+    source = {5: [62.5, 250, 1000, 4000, 16000],
+              10: [62.5, 115.734, 214.311, 396.85, 734.867, 1360.79, 2519.84, 4666.12, 8640.48, 16000],
+              15: [25, 40, 63, 100, 160, 250, 400, 630, 1000, 1600, 2500, 4000, 6300, 10000, 16000],
+              20: [20, 31.5, 40, 63, 80, 125, 160, 250, 315, 500, 630, 1000, 1250, 2000, 2500, 4000, 5000, 8000, 10000,
+                   16000],
+              31: iso_31}
+    sets = eq_apps.band_sets("fxsound")
+    wrong = {n: [(a, b) for a, b in zip(sets[n][0], f) if a != b] or len(sets[n][0]) - len(f)
+             for n, f in source.items() if list(sets.get(n, ([],))[0]) != f}
+    check("FxSound: every frequency of its 5, 10, 15, 20 and 31 bands is the one of the tables of FxSound",
+          sorted(sets) == sorted(source) and not wrong, wrong)
+    # (FxSound makes its 10 bands by a formula: evenly on a log scale from 62.5 Hz to 16 kHz)
+    by_formula = [62.5 * 256 ** (i / 9) for i in range(10)]
+    check("FxSound: its 10 bands are 62.5 Hz × 256^(i/9), within 0.01 Hz",
+          all(abs(a - b) < 0.01 for a, b in zip(sets[10][0], by_formula)),
+          [(a, round(b, 3)) for a, b in zip(sets[10][0], by_formula)])
+
+
+def test_count_of_a_card(check):
+    sets = eq_apps.band_sets("fxsound")
+    shown = lambda n: [round(f, 1) for f in sets[n][0]]  # (as the filter table shows a frequency: 115.7)
+    found = {"each count": [layouts.count_of("app:fxsound", sets[n][0]) for n in sorted(sets)],
+             "as shown, another order": layouts.count_of("app:fxsound", list(reversed(shown(10)))),
+             "one band moved": layouts.count_of("app:fxsound", [70.0, *sets[10][0][1:]]),
+             "a filter added": layouts.count_of("app:fxsound", [*sets[15][0], 300.0]),
+             "a band removed": layouts.count_of("app:fxsound", sets[10][0][:-1]),
+             "10 other filters": layouts.count_of("app:fxsound", [100.0 + 100 * i for i in range(10)]),
+             "no filters": layouts.count_of("app:fxsound", []), "not numbers": layouts.count_of("app:fxsound", ["x"]),
+             "a layout with no counts": layouts.count_of("graphic_10", sets[10][0])}
+    check("layouts: the band count of a card is known by the frequencies of all its filters: exactly the bands of one "
+          "count, else none",
+          found == {"each count": [5, 10, 15, 20, 31], "as shown, another order": 10, "one band moved": None,
+                    "a filter added": None, "a band removed": None, "10 other filters": None, "no filters": None,
+                    "not numbers": None, "a layout with no counts": None}, found)
 
 
 def test_counts_to_try(check):

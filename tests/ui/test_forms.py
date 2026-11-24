@@ -407,5 +407,31 @@ def test_a_box_of_offered_values(qapp, check):
                       "12": (bad, [10], "10", "Adjusted to 10 (allowed: 5, 10, 15, 20, or 31)."),
                       "40": (bad, [31], "31", "Adjusted to 31 (allowed: 5, 10, 15, 20, or 31)."),
                       "10, 31": ((False, "", [10, 31]), [10, 31], "10, 31", None)}, got)
+        # (a text that is no list of whole numbers: the message was that of every list of integers, "Enter integers,
+        # e.g. 4-10 or 4, 6, 8", and of those values only 5 and 10 are offered here)
+        unread = {}
+        for typed in ("abc", "10.5", ""):
+            store["n"] = [10]
+            f.box.setText(typed)
+            f._typed()
+            unread[typed] = (bool(f.box.property("bad")), f.box.toolTip(), list(store["n"]))
+        f.box.setText("10")
+        f._typed()
+        check("settings boxes: a text that is no list of whole numbers in a box of offered values is red with the "
+              "allowed values only, and not used",
+              unread == {t: (True, "Allowed: 5, 10, 15, 20, or 31", [10]) for t in ("abc", "10.5", "")}, unread)
+        other = {"n": [3]}
+        plain = forms.Form([("Best fit", [("Filter counts to try", [("n", "intlist", None, "e.g. 1-10")])])],
+                           forms.Limits({"n": {"min": 1, "max": 32, "int": True, "list": True}}, []), other.get,
+                           other.__setitem__, lambda p: None, said.append)
+        try:
+            plain.refresh()
+            plain.fields["n"].box.setText("abc")
+            plain.fields["n"]._typed()
+            kept = (bool(plain.fields["n"].box.property("bad")), plain.fields["n"].box.toolTip(), other["n"])
+        finally:
+            qt.close(plain)
+        check("settings boxes: a list of integers without offered values keeps its message for a text that is no list",
+              kept == (True, "Enter integers, e.g. 4-10 or 4, 6, 8", [3]), kept)
     finally:
         qt.close(form)

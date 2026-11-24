@@ -153,7 +153,7 @@ TERMS = [{'title': 'Curves and sound',
                               'calculates the error with the values that you set on the sliders.',
                               'Your EQ app sets this for graphic EQ apps. More settings › Best fit › Layout has '
                               'the usual 10, 15 and 31-band layouts, the Spotify layout, and Your bands. FxSound '
-                              'has more than one number of bands: Settings › Band counts to try.'],
+                              'has more than one number of bands: Settings › Best fit › Band counts to try.'],
                      'see': ['eq', 'layout', 'eq-app']},
                     {'id': 'impulse-response',
                      'title': 'Impulse response and convolution',

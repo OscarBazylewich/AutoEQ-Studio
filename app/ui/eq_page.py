@@ -356,6 +356,9 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
                 bf = self.S["best_fit"]
                 mine = (bf.get("per_app") or {}).get(key) if bf.get("layout") == a.get("layout") else None
                 values = {**(a.get("user_defaults") or {}), **(mine if isinstance(mine, dict) else {})}
+                # ({band_word} of the form: "Up to 1 band", as eq_apps.band_word gives it; the page does not load
+                # the EQ part for one word)
+                values["band_word"] = "band" if values.get("bands") == 1 else "bands"
                 try:
                     note = a["note_form"].format(**values)
                 except (KeyError, IndexError, ValueError):  # (a form that names a value the app does not have)

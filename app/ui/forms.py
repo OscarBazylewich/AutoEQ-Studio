@@ -281,6 +281,10 @@ class Field(QWidget):
         t = self.box.text().strip()
         if self.kind == "intlist":
             v = parse_list(t, True)
+            if v is None and (self.form.limits.of(self.path) or {}).get("of"):
+                # (a box that takes only some values, Band counts to try: the rule of the box, as for a value that
+                # is not offered. The examples of the other message, 4-10 and 4, 6, 8, are not values of this box)
+                return ("bad", "Allowed: " + self.form.limits.text(self.path))
             return v if v is not None else ("bad", "Enter integers, e.g. 4-10 or 4, 6, 8")
         if self.kind == "numlist":
             v = parse_list(t, False)

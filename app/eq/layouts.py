@@ -122,6 +122,21 @@ def counts_to_try(bf):
     return sorted({int(n) for n in stored if _is_number(n) and n in COUNTS[lay]}) or [DEFAULT_COUNT[lay]]
 
 
+def count_of(key, freqs):
+    """The band count of a layout with counts whose bands are exactly at these frequencies (in any order), or None.
+    For "Calculate from these filters": the filters of a result card, switched on or off, are the bands of one count
+    only when no band was added, removed or moved. Within 0.1 %: a frequency as the filter table shows it (115.7 Hz
+    for 115.734 Hz) is still that band, and the nearest band of another count is 0.8 % away (63 and 62.5 Hz)."""
+    try:
+        got = sorted(float(f) for f in freqs)
+    except (TypeError, ValueError):
+        return None
+    for n, (own_freqs, _q) in COUNTS.get(key, {}).items():
+        if len(got) == n and all(math.isclose(a, b, rel_tol=1e-3) for a, b in zip(got, sorted(own_freqs))):
+            return n
+    return None
+
+
 def listed(values, word):
     """Numbers in words: "5", "10 and 31", "5, 10, 15, 20, and 31" (word: "and" or "or")."""
     v = [f"{x:g}" for x in values]
@@ -211,7 +226,8 @@ def summary(key, bf=None):
         return "The frequencies and Q that you set: Best fit adjusts only their gains."
     d = device(bf) if bf and bf.get("layout") == key else DEVICES[key]
     parts = (["unlimited filters"] if d.get("open") else
-             [f"up to {d['bands']} peaking/shelf filters"] if "bands" in d else
+             # ("filter" for 1: Peace bands can be 1)
+             [f"up to {d['bands']} peaking/shelf filter{'' if d['bands'] == 1 else 's'}"] if "bands" in d else
              [f"up to {d['peaks']} peaking filters" + (" + low/high shelves" if d["shelves"] else "")])
     if "gain" in d:
         parts.append(f"gain {d['gain'][0]:+g} to {d['gain'][1]:+g} dB")

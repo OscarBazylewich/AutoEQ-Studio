@@ -544,6 +544,8 @@ def run(body):
         if body["mode"] != "best_fit" or not isinstance(retry, dict):
             raise ValueError("“Calculate from these filters” only works with Best fit")
         filters = [f for f in exports.clean_filters(retry.get("filters")) if f["enabled"]]
+        # ("card": every filter of the result card, also those switched off; a request without it: its filters)
+        card = exports.clean_filters(retry["card"]) if retry.get("card") else exports.clean_filters(retry.get("filters"))
         if not filters:
             raise ValueError("No active filters to start from. Add or enable at least one filter.")
         add = bool(retry.get("add"))
@@ -552,11 +554,14 @@ def run(body):
         cfg["best_fit"].update(start_filters=exports.filters_text(filters), start_keep=add, start_add=add)
         # A graphic EQ app with several band counts (FxSound): the card's filters are the bands of one count, so
         # this run fits that count only. With every count of the settings, the 10-band card became the selected
-        # 31-band result. (A fit of fixed bands starts from no filters: the card's gains are not used, as before.
-        # A number of active filters that is no band count of the app: the counts of the settings.)
+        # 31-band result. (A fit of fixed bands starts from no filters: the card's gains are not used, as before.)
+        # The count is known by the frequencies of all the card's filters, not by how many are switched on: a
+        # 10-band card with 5 bands off gave the 5-band EQ, at other frequencies than the card. A card that is not
+        # the bands of one count (a filter added, removed or moved): the counts of the settings.
         lay = cfg["best_fit"].get("layout")
-        if len(filters) in layouts.counts(lay):
-            settings.set_path(cfg, layouts.counts_path(lay), [len(filters)])
+        n_bands = layouts.count_of(lay, [f["freq"] for f in card])
+        if n_bands is not None:
+            settings.set_path(cfg, layouts.counts_path(lay), [n_bands])
             # (for this run the count is a value of the user: the automatic settings, which the run applies again,
             # would put every count back)
             cfg["auto"]["manual"] = [*cfg["auto"]["manual"], layouts.counts_path(lay)]

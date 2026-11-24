@@ -147,6 +147,17 @@ def test_peace_values(eq_screen, rows, check):
     check("app rows: 40 in Peace bands is red and not used; on leaving the box it becomes 31, and the message says so",
           red == (True, 4) and moved == (31, "31", "Adjusted to 31 (allowed: 1 to 31)."), (red, moved))
     _type(gain, "30")
+    # (1 is an allowed value of Peace bands: "Up to 1 bands" and "up to 1 peaking/shelf filters" were shown)
+    _type(bands, "1")
+    st.auto_switched(True)
+    page.refresh_auto()
+    one = (_line(page, "peace"), html.unescape(page.app_note.text().split(" <a ")[0]),
+           "up to 1 peaking/shelf filter, gain" in st.why.text())
+    st.auto_switched(False)
+    check("app rows: 1 typed into Peace bands: the ⓘ reads “Up to 1 band · ±30 dB”, and About these settings “up to "
+          "1 peaking/shelf filter”",
+          one == ("Up to 1 band · ±30 dB", "Up to 1 band · ±30 dB", True), (one, st.why.text()))
+    _type(bands, "31")
     page.choose_app("apo")
 
 
@@ -162,18 +173,19 @@ def test_the_info_mark_follows_only_the_layout_in_use(eq_screen, rows, check):
     def note(app, bf):
         stand_in = SimpleNamespace(eq_app=lambda key: dict(app, layout="its own"), S={"eq_app": "k", "best_fit": bf})
         return html.unescape(words(stand_in, "k"))
-    form = {"note": "Up to 31 bands", "note_form": "Up to {bands} bands · ±{gain} dB",
+    form = {"note": "Up to 31 bands", "note_form": "Up to {bands} {band_word} · ±{gain} dB",
             "user_defaults": {"bands": 31, "gain": 30}}
     found = {"another layout": away, "neutron": _line(page, "neutron"), "poweramp": _line(page, "poweramp"),
              "no values": note(form, {"layout": "its own"}),
              "one value": note(form, {"layout": "its own", "per_app": {"k": {"bands": 7}}}),
+             "1 band": note(form, {"layout": "its own", "per_app": {"k": {"bands": 1}}}),
              "a wrong kind": note(form, {"layout": "its own", "per_app": {"k": 3}}),
              "another layout, its values": note(form, {"layout": "yours", "per_app": {"k": {"bands": 7}}})}
     check("app rows: the ⓘ of Peace says the user's numbers only while its layout is in use, and a missing or wrong "
           "value is the app's own; Neutron reads 4–130 bands and Poweramp is as it was",
           found == {"another layout": "Up to 31 bands · ±30 dB", "neutron": "4–130 bands",
                     "poweramp": "5–32 bands · ±15 dB · Q 0.1–12", "no values": "Up to 31 bands · ±30 dB",
-                    "one value": "Up to 7 bands · ±30 dB", "a wrong kind": "Up to 31 bands · ±30 dB",
+                    "one value": "Up to 7 bands · ±30 dB", "1 band": "Up to 1 band · ±30 dB", "a wrong kind": "Up to 31 bands · ±30 dB",
                     "another layout, its values": "Up to 31 bands · ±30 dB (Custom Best fit layout overrides this "
                                                   "EQ app's limits.)"}, found)
 
@@ -191,13 +203,14 @@ def test_band_counts_box(eq_screen, rows, check):
           off[:7] == ({COUNTS: True, FILTERS: False, "best_fit.low_shelf": False, BANDS: False}, "10", False,
                       "e.g., 10 or 10, 31", "FxSound: Best fit adjusts band gains only. Edit range and step in More "
                       "settings › Best fit.", True, "10 bands"), off)
-    check("app rows: the tooltip of Band counts to try names the band counts of FxSound, then the allowed values",
-          off[7] == "FxSound band counts to try (5, 10, 15, 20, or 31)\nAllowed: 5, 10, 15, 20, or 31", off[7])
+    # (the line of Help gives a fact that the label lacks; the band counts are in the line of the limits only)
+    check("app rows: the tooltip of Band counts to try tells what a run does with the counts, then the allowed values",
+          off[7] == "One EQ per band count; Best result selects one\nAllowed: 5, 10, 15, 20, or 31", off[7])
     st.auto_switched(True)
     page.refresh_auto()
     auto = (f.box.text(), f.tag.isVisible() and f.tag.text(), page.S["best_fit"]["per_app"]["fxsound"],
             page.estimate.text().split(" · ")[0], page.estimate.toolTip().split(" · ")[0],
-            "Band counts: tries 5, 10, 15, 20, and 31 (all FxSound band counts)" in st.why.text())
+            "Band counts: tries 5, 10, 15, 20, and 31 (all that FxSound has)" in st.why.text())
     check("app rows: with Automatic settings on, Band counts to try reads 5, 10, 15, 20, 31 with the tag automatic, "
           "and Settings to try and About these settings say so",
           auto == ("5, 10, 15, 20, 31", "automatic", {"band_counts": ALL_COUNTS}, "5 EQs, 5 to 31 bands",
@@ -205,8 +218,15 @@ def test_band_counts_box(eq_screen, rows, check):
     _type(f, "10")
     yours = (dict(page.S["best_fit"]["per_app"]["fxsound"]), COUNTS in page.S["auto"]["manual"], f.tag.text(),
              st.mine_text.text())
+    mine_note = next((ln for ln in re.split(r"<li>|<br>", st.why.text()) if "Band counts" in ln), st.why.text())
+    _type(f, "10, 31")
+    eq_screen.wait_for(lambda: page.estimate.text().startswith("2 EQs"), 30)  # (the line follows after the plan)
+    two = page.estimate.text().split(" · ")[0]
     st.make_auto(COUNTS)
     back = (dict(page.S["best_fit"]["per_app"]["fxsound"]), COUNTS in page.S["auto"]["manual"], f.tag.text(), f.box.text())
+    check("app rows: the note of a value of the user says “band counts” one time, with one ( ) of its own",
+          mine_note.count("and counts") == 1 and "(all that FxSound has)" in mine_note, mine_note)
+    check("app rows: Settings to try names the two band counts of a list of two", two == "2 EQs, 10 and 31 bands", two)
     check("app rows: 10 typed is the user's value (your value ↺, named Band counts in Custom values); ↺ makes it "
           "automatic again",
           yours == ({"band_counts": [10]}, True, "your value ↺", "Custom values: Band counts (click “your value ↺” "
@@ -237,6 +257,15 @@ def test_band_counts_box(eq_screen, rows, check):
                            "Adjusted to 5, 10, 15, 20, 31 (allowed: 5, 10, 15, 20, or 31)."),
                   "12": ((True, [10]), [10], "10", "Adjusted to 10 (allowed: 5, 10, 15, 20, or 31)."),
                   "40": ((True, [10]), [31], "31", "Adjusted to 31 (allowed: 5, 10, 15, 20, or 31).")}, got)
+    unread = {}
+    for typed in ("abc", "10.5", ""):
+        _type(f, "10")
+        _type(f, typed, leave=False)
+        unread[typed] = (bool(f.box.property("bad")), f.box.toolTip(), page.S["best_fit"]["per_app"]["fxsound"]["band_counts"])
+    check("app rows: a text that is no list in Band counts to try is red, and its message names only counts that "
+          "FxSound has",
+          all(v == (True, "Allowed: 5, 10, 15, 20, or 31", [10]) for v in unread.values())
+          and all(int(n) in ALL_COUNTS for v in unread.values() for n in re.findall(r"\d+", v[1])), unread)
     _type(f, "10")
     page.choose_app("apo")
     sight = {}
@@ -282,8 +311,18 @@ def test_a_run_of_five_band_counts_on_the_result_card(eq_screen, five_counts, ch
           (got, want))
     check("app rows: each item of the list fits the width of the list (its longest item)",
           max(widths) <= fm.horizontalAdvance(COUNT_LONGEST), (widths, fm.horizontalAdvance(COUNT_LONGEST)))
-    check("app rows: the line of the result names the band count of the pick",
-          f"FxSound: {picked} bands, " in got[4], got[4])
+    # (the same form as Settings to try, "-12 to +12 dB (1 dB steps)": the line said "-12.0 to +12.0 dB (1.0 dB
+    # steps)")
+    check("app rows: the line of the result names the band count of the pick, and the range and step of the sliders "
+          "as Settings to try does",
+          f"FxSound: {picked} bands, -12 to +12 dB (1 dB steps)" in got[4], got[4])
+    half = page.run_label({"mode": "best_fit"}, {"engine": "graphic", "layout": "graphic_10", "n_filters": 10,
+                                                 "gain_min": -6.5, "gain_max": 6.5, "step": 0.5})
+    none = page.run_label({"mode": "best_fit"}, {"engine": "graphic", "layout": "graphic_10", "n_filters": 10})
+    check("app rows: the line of a graphic EQ's result keeps a half dB, and a result with no range (an old History "
+          "entry) still has its line",
+          half == "10-band graphic EQ: 10 bands, -6.5 to +6.5 dB (0.5 dB steps)" and none.startswith("10-band graphic EQ: 10 bands"),
+          (half, none))
     a, b = {"id": 1, "ear": 0.18, "ear_at": 2500.0, "engine": "graphic"}, {"id": 2, "ear": 0.47, "ear_at": 6200.0,
                                                                          "engine": "graphic"}
     far = dict(a, ear=0.52)
@@ -313,6 +352,23 @@ def test_all_results_of_five_band_counts_has_no_grid(eq_screen, five_counts, che
         ar.deleteLater()
 
 
+def test_the_report_of_five_band_counts_has_no_grid(eq_screen, five_counts, check):
+    # (the page sends "engine" with each result of the run: without it the Report drew the grid by filter count and
+    # maximum Q, filled only on its diagonal. eq.report.grids_for alone was tested)
+    page, run = eq_screen.page, five_counts
+    page.run_result = run
+    page.show_result(run["pick"])
+    path = page.report(open_it=False)
+    with open(path, encoding="utf-8") as fh:
+        text = fh.read()
+    shown = next(r for r in run["results"] if r["id"] == run["pick"])
+    check("report: the Report of a run of FxSound's band counts has no error grid, and has the filter table of the "
+          "result shown",
+          "error by filter count and maximum Q" not in text and "Best fit: error by" not in text
+          and text.count("<table") == 1 and f"{shown['n_filters']} bands" in text,
+          (path, text.count("<table"), "error by filter count" in text))
+
+
 def test_compare_and_history_say_bands(eq_screen, five_counts, check):
     from ui.compare_results import options
     from ui.history_window import HistoryWindow
@@ -328,16 +384,49 @@ def test_compare_and_history_say_bands(eq_screen, five_counts, check):
     entry = eqpage.save_result(eq_screen, "Band counts check")
     hist = [o["label"] for o in options(page) if o["run"] is None]
     hw = HistoryWindow(page, False)
+    kept = []
+    add = page.listen.add
+    page.listen.add = lambda name, *a, **k: kept.append(name) or True  # (the name only: no EQ goes into the list)
     try:
         lines = [w.text().replace(chr(0xA0), " ") for w in hw.findChildren(QLabel)
                  if " bands" in w.text().replace(chr(0xA0), " ")]
+        hw.keep_to_compare(entry)
     finally:
+        page.listen.add = add
         hw.close()
         hw.deleteLater()
     n = shown["n_filters"]
     check("history: a saved result of a graphic EQ reads “N bands” in Compare's list and in the History window",
           entry["result"].get("engine") == "graphic" and any(h.endswith(f" · {n} bands") for h in hist)
           and any(f"· {n} bands ·" in t for t in lines), (hist, lines))
+    check("history: Keep to compare names the EQ of a graphic result “Best fit, N bands (day time)”",
+          len(kept) == 1 and kept[0].startswith(f"Best fit, {n} bands ("), kept)
+
+
+@pytest.mark.timeout(600)
+def test_calculate_from_a_card_with_bands_switched_off_keeps_its_band_count(eq_screen, five_counts, check):
+    # (the band count of the card was taken from the number of filters switched on: the 10-band card with 5 bands
+    # off gave the 5-band EQ, at other frequencies than the card)
+    page, run = eq_screen.page, five_counts
+    page.run_result = run
+    ten = next(r for r in run["results"] if r["n_filters"] == 10)
+    page.show_result(ten["id"])
+    for f in page.EDIT[:5]:
+        f["enabled"] = False
+    sent = page.retry_from_card(False)
+    try:
+        page.retry_btn.menu().actions()[0].trigger()  # (Adjust them)
+        eq_screen.wait_for(lambda: page.run_btn.isEnabled() and page.run_result is not run, 180)
+        again = page.run_result
+        rows = [r.get("rows") for r in (again or {}).get("results") or []] if again is not run else None
+        freqs = [f["freq"] for f in again["results"][0]["filters"]] if rows else None
+    finally:
+        page.run_result = run
+        page.show_result(run["pick"])
+    check("app rows: Calculate from these filters on the 10-band FxSound card with 5 bands switched off sends the "
+          "whole card, and the new result has the 10 bands of the card",
+          len(sent["filters"]) == 5 and len(sent["card"]) == 10 and rows == [10]
+          and freqs == [f["freq"] for f in ten["filters"]], (len(sent["filters"]), len(sent["card"]), rows, freqs))
 
 
 @pytest.mark.timeout(600)
@@ -442,8 +531,10 @@ def test_the_guide_step_your_values(eq_screen, rows, check, monkeypatch):
     check("guide: the box of the step Your values is Filter counts to try with Peace (never a Peace box, which has "
           "no tag) and Band counts to try with FxSound",
           found == {"peace": FILTERS, "fxsound": COUNTS, "apo": FILTERS}, found)
+    # (one text, true with the boxes in sight and without: with Equalizer APO no box of an EQ app shows, and "are
+    # here" pointed at the label of another box)
     say = ["Type your value. Press Enter", "Or disable Automatic settings",
-           "The boxes of your EQ app (Peace, FxSound) are here"]
+           "With Peace or FxSound, the boxes of that app show here"]
     check("guide: the demo of Your values plays to its end with Peace, with FxSound and with another app, its "
           "last action about the boxes of the EQ app, and no setting, box or tag is changed after it",
           all(v == (True, [], True, say, True) for v in played.values()), played)

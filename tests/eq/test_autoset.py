@@ -126,7 +126,7 @@ def test_fxsound_band_counts_are_automatic(check):
           p["values"].get(FX_PATH) == [5, 10, 15, 20, 31] and p["values"].get("scoring.pick") == "audible"
           and p["values"].get("scoring.ear_db") == 0.25
           and notes == {"scoring.band_hz.1": RANGE_NOTE,
-                        FX_PATH: "Band counts: tries 5, 10, 15, 20, and 31 (all FxSound band counts)",
+                        FX_PATH: "Band counts: tries 5, 10, 15, 20, and 31 (all that FxSound has)",
                         "scoring.pick": "Fewest bands for the same sound (≤ 0.25 dB)"}
           # (no value of a parametric layout: none of them is used)
           and not [k for k in p["values"] if k.startswith("best_fit.") and k != FX_PATH], (p["values"], notes))
@@ -148,7 +148,12 @@ def test_fxsound_band_counts_are_automatic(check):
 
 def test_fxsound_texts_of_what_a_run_tries(check):
     five, one, default = _fx([5, 10, 15, 20, 31]), _fx([31]), _fx()
-    two = _fx([10, 31])
+    two, three = _fx([10, 31]), _fx([5, 20, 31])
+    # ("N EQs, a to b bands" says only the two ends: for two counts the line names both, so it is not read as each
+    # count from 10 to 31)
+    check("automatic settings: Settings to try names the two band counts of a run with two, and the ends for three",
+          (autoset.describe_short(two), autoset.describe_short(three)) == ("2 EQs, 10 and 31 bands", "3 EQs, 5 to 31 bands"),
+          (autoset.describe_short(two), autoset.describe_short(three)))
     found = {"five": (autoset.describe(five), autoset.describe_short(five)),
              "two": (autoset.describe(two), autoset.describe_short(two)),
              "one": (autoset.describe(one), autoset.describe_short(one)),
@@ -156,7 +161,7 @@ def test_fxsound_texts_of_what_a_run_tries(check):
     check("automatic settings: the texts of what a run tries for FxSound: the EQs and their band counts for more than "
           "one count, the text of every graphic EQ for one",
           found == {"five": ("FxSound: 5 EQs (5, 10, 15, 20, and 31 bands), -12 to +12 dB (1 dB steps)", "5 EQs, 5 to 31 bands"),
-                    "two": ("FxSound: 2 EQs (10 and 31 bands), -12 to +12 dB (1 dB steps)", "2 EQs, 10 to 31 bands"),
+                    "two": ("FxSound: 2 EQs (10 and 31 bands), -12 to +12 dB (1 dB steps)", "2 EQs, 10 and 31 bands"),
                     "one": ("FxSound: 31 band gains, -12 to +12 dB (1 dB steps)", "31 bands"),
                     "default": ("FxSound: 10 band gains, -12 to +12 dB (1 dB steps)", "10 bands")}, found)
     g10 = settings.with_auto({"mode": "best_fit", "best_fit": {"layout": "graphic_10"}})

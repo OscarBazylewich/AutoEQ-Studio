@@ -16,7 +16,7 @@ the screen has room, and within the screen's room (window_parts.fit_to_screen: a
 the taskbar). It ends with every window's footer (window_parts.Footer: its Close; it had none, only the title bar's
 ✕ and Esc), and Enter presses nothing (a cell or row is clicked).
 """
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QFontMetrics, QPalette
 from PySide6.QtWidgets import (QAbstractItemView, QDialog, QHeaderView, QLabel, QStyledItemDelegate, QTableWidget,
                                QTableWidgetItem, QVBoxLayout)
@@ -30,6 +30,9 @@ HEAD = [("Error (dB)", "rms"), ("Filters", "n_filters"), ("Rows", "rows"), ("Ran
 SAME = Qt.UserRole + 1  # (a grid cell's mark: sounds the same as the target)
 LEFT = Qt.AlignLeft | Qt.AlignVCenter  # (Windows 11's tables: words at the left, under their heading)
 NBSP = chr(0xA0)  # (a space that never ends a line: the words it joins stay together)
+# The room that a heading of the table has beside its words: the 8 px at each side of ui\theme_sheet.py's
+# "QHeaderView::section" and 2 px to spare; and the room of the sort arrow, in the one column that has it
+HEAD_PAD, HEAD_ARROW = 18, 16
 
 
 class _Shade(QStyledItemDelegate):
@@ -126,9 +129,10 @@ class AllResults(QDialog):
         self.table.verticalHeader().hide()
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        # (the error's column as wide as its words: "0.225  ✓ selected for you" ended in "…" in a shared width)
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        # (the widths of the columns: _fit_columns, with each change of the table's width and of its sort)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Fixed)
+        self.table.viewport().installEventFilter(self)
+        self.table.horizontalHeader().sortIndicatorChanged.connect(self._fit_columns)
         self.table.cellClicked.connect(lambda row, _c: self.select_result(self.table.item(row, 0).data(Qt.UserRole)))
         v.addWidget(self.table, 1)
         self.footer = Footer(self)
@@ -136,6 +140,40 @@ class AllResults(QDialog):
         enter_presses(self)
         self.render()
         self._widen_for_grid()
+
+    def eventFilter(self, obj, event):
+        if obj is self.table.viewport() and event.type() == QEvent.Resize:
+            self._fit_columns()
+        return super().eventFilter(obj, event)
+
+    def _fit_columns(self, *_):
+        """The widths of the table's columns. The error's column as wide as its words ("0.225  ✓ selected for you"
+        ended in "…" in a shared width); the others share the rest of the table's width evenly, as they did. When
+        that share is narrower than a heading or a value (a narrow window: "Maximum gain" was cut to "Maximum ga"),
+        each column is as wide as its own words and they share only what is left over; narrower than all the
+        words, the table scrolls sideways."""
+        t = self.table
+        h = t.horizontalHeader()
+        shown = [c for c in range(t.columnCount()) if not t.isColumnHidden(c)]
+        bold = QFont(h.font())
+        bold.setWeight(QFont.DemiBold)  # (the headings' weight in ui\theme_sheet.py)
+        fm = QFontMetrics(bold)
+        need = {c: max(fm.horizontalAdvance(HEAD[c][0]) + HEAD_PAD + (HEAD_ARROW if c == h.sortIndicatorSection() else 0),
+                       t.sizeHintForColumn(c)) for c in shown}
+        rest = [c for c in shown if c != 0]
+        room = t.viewport().width() - need[0]
+        even = room // max(1, len(rest))
+        if rest and even < max(need[c] for c in rest):
+            spare = max(0, room - sum(need[c] for c in rest)) // len(rest)
+            widths = {c: need[c] + spare for c in rest}
+        else:
+            widths = {c: even for c in rest}
+        if rest:  # (the last column to the table's edge: what the division left over)
+            widths[rest[-1]] += max(0, room - sum(widths.values()))
+        widths[0] = need[0] if rest else max(need[0], t.viewport().width())
+        for c, w in widths.items():
+            if h.sectionSize(c) != w:
+                h.resizeSection(c, w)
 
     def _widen_for_grid(self):
         """Opened wide enough for its whole grid when the screen has room (its rows' names and every column at its
@@ -302,3 +340,4 @@ class AllResults(QDialog):
         # (the lowest error at the top, its arrow up: Qt sorted them again from the highest when sorting came on;
         # the UI audit, 2026-11-08)
         t.sortByColumn(*sort)
+        self._fit_columns()

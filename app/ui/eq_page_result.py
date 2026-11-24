@@ -345,6 +345,14 @@ class EqResult:
         return [{"type": f.get("type", "PK"), "freq": f["freq"], "gain": f["gain"], "q": f["q"]}
                 for f in self.EDIT if f.get("enabled", True) is not False]
 
+    def retry_from_card(self, add):
+        """What "Calculate from these filters" sends: the filters switched on (the run starts from them) and "card",
+        every filter of the card with its switch. By the frequencies of all of them the run knows the band count of
+        a graphic EQ's card (FxSound), also when some bands are switched off."""
+        return {"filters": self.enabled_filters(), "add": add,
+                "card": [{"type": f.get("type", "PK"), "freq": f["freq"], "gain": f["gain"], "q": f["q"],
+                          "enabled": f.get("enabled", True) is not False} for f in self.EDIT]}
+
     def edited(self):
         key = lambda fl: sorted((f.get("enabled", True) is not False, f.get("type", "PK"), float(f["freq"]),
                                  float(f["gain"]), float(f["q"])) for f in fl)

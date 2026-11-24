@@ -598,8 +598,8 @@ class EqCards:
         help_window.tag(self.retry_btn, "f_retry")
         self.retry_btn.setToolTip("Recalculate Best fit starting from these filters")
         retry_menu = QMenu(self.retry_btn)
-        retry_menu.addAction("Adjust them", lambda: self.run(retry={"filters": self.enabled_filters(), "add": False}))
-        retry_menu.addAction("Keep them and add filters", lambda: self.run(retry={"filters": self.enabled_filters(), "add": True}))
+        retry_menu.addAction("Adjust them", lambda: self.run(retry=self.retry_from_card(False)))
+        retry_menu.addAction("Keep them and add filters", lambda: self.run(retry=self.retry_from_card(True)))
         self.retry_btn.setMenu(retry_menu)
         tools.addWidget(self.retry_btn)
         from ui.filter_editor import FilterEditor

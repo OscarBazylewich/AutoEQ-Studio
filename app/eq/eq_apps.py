@@ -21,7 +21,7 @@ number in a note that differs from the limit the fit uses (Poweramp "5–32 band
 app can be set to, not what Best fit does.
 Peace's note is the exception: it is made from "note_form", a form with the two numbers that the user sets for
 Peace (note()), so the ⓘ never says another number than the two boxes in Settings; its "note" is that form at the
-defaults.
+defaults. {band_word} in a form is "band" for 1 band, else "bands" (band_word(); 1 is a value the user can set).
 
 What the user sets per app (settings best_fit.per_app.<key>; user_items() is the one description, which the
 settings, the layouts, the Settings form, Help and the tests read):
@@ -71,7 +71,7 @@ APPS = {
             # default 30: ticket 94, answer of Peter Verbeek (the developer), 2021-08-22 (the field "Maximum dB" on the tab "Sizes and Amounts" of the settings of Peace; the sliders go from -30 to +30 dB by default), https://sourceforge.net/p/peace-equalizer-apo-extension/tickets/94/, fetched 2026-11-24. max 99: forum post of Peter Verbeek, 2020-05-26, not the manual ("max -99 to 99 dB"), https://sourceforge.net/p/peace-equalizer-apo-extension/discussion/general/thread/a68c458280/, fetched 2026-11-24. min 1: inferred
             "gain": {"label": "Peace max gain (± dB)", "min": 1, "max": 99, "default": 30, "unit": "dB"}},
         "source": "https://sourceforge.net/p/peace-equalizer-apo-extension/wiki/Features%20FAQ/",
-        "note_form": "Up to {bands} bands · ±{gain} dB", "note": "Up to 31 bands · ±30 dB"},
+        "note_form": "Up to {bands} {band_word} · ±{gain} dB", "note": "Up to 31 bands · ±30 dB"},
     "fxsound": {
         "name": "FxSound", "platforms": ["Windows"], "kind": "graphic", "file": None, "approx": True,
         # The band counts 5, 10, 15, 20, 31 and the default 10: fxsound-app docs/COMMAND_LINE_OPTIONS.md line 27 (--num_bands), main, fetched 2026-11-24.
@@ -299,6 +299,12 @@ def user_defaults():
     return out
 
 
+def band_word(values):
+    """{band_word} of a "note_form": "band" when the values have 1 band, else "bands". Public: the page fills the
+    form of the listing with the same word."""
+    return "band" if values.get("bands") == 1 else "bands"
+
+
 def note(key, own=None):
     """The app's one line of limits (the ⓘ after Your EQ app). An app with a "note_form": the form filled with the
     defaults of the app's user items and, on top, own: the user's values for the app ({name: value}); else its
@@ -309,7 +315,7 @@ def note(key, own=None):
         return a.get("note", "")
     values = {it["name"]: it["default"] for it in user_items(key)}
     values.update({k: v for k, v in (own or {}).items() if k in values})
-    return form.format(**values)
+    return form.format(**values, band_word=band_word(values))
 
 
 def summary(key):

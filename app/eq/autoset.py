@@ -386,8 +386,9 @@ class _Plan:
                 # pairs of the samples folder, 3 runs each).
                 path = layouts.counts_path(lay)
                 self.values[path] = list(offered)
-                self.note(path, f"Band counts: tries {layouts.listed(offered, 'and')} (all {layouts.name(lay)} band "
-                                "counts)")
+                # (the screen puts "your value · Automatic: " before and " (overridden)" after it: "band counts"
+                # one time only, and its ( ) says whose counts they are)
+                self.note(path, f"Band counts: tries {layouts.listed(offered, 'and')} (all that {layouts.name(lay)} has)")
             return
         from . import engines
         grows = engines.grows(self.cfg["best_fit"])
@@ -556,7 +557,10 @@ def describe_short(cfg, mode=None):
         if layouts.is_fixed(bf["layout"]):
             tried = layouts.counts_to_try(bf)  # (an EQ app with several band counts: one EQ for each)
             if len(tried) > 1:
-                return f"{_many(len(tried), 'EQ')}, {tried[0]} to {tried[-1]} bands"
+                # (two counts: both named. "10 to 31 bands" reads as each count between them, as "1 to 9
+                # filters" is; for three or more the ends, and the tooltip has the list)
+                return (f"2 EQs, {layouts.listed(tried, 'and')} bands" if len(tried) == 2 else
+                        f"{_many(len(tried), 'EQ')}, {tried[0]} to {tried[-1]} bands")
             return _many(tried[0] if tried else len(layouts.bands(bf)[0]), "band")
         bf = device_settings(bf)
         n_mine = _count_mine(bf)

@@ -39,7 +39,8 @@ HELP_EQ = {'slot:target': ['Desired frequency response for your IEM or headphone
  # (what the user sets for an EQ app, eq_apps.user_items: the keys are the paths of the settings)
  'best_fit.per_app.peace.bands': ['Number of sliders set in Peace (each shelf uses one)', 'eq-app', 'layout'],
  'best_fit.per_app.peace.gain': ['“Maximum dB” in Peace settings › Sizes and Amounts', 'eq-app', 'db'],
- 'best_fit.per_app.fxsound.band_counts': ['FxSound band counts to try (5, 10, 15, 20, or 31)',
+ # (a fact that the label Band counts to try lacks; the form adds the line "Allowed: 5, 10, 15, 20, or 31")
+ 'best_fit.per_app.fxsound.band_counts': ['One EQ per band count; Best result selects one',
                                           'fixed-bands',
                                           'simplest'],
  'best_fit.freq_range': ['', 'scored-range'],
@@ -301,8 +302,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'example 10 or 10, 31. The app calculates one EQ for each count, and Best result '
                                     'selects one. Automatic settings try all five. In FxSound (1.2.14 or later), set '
                                     'the same number of bands and Filter Q 1.0. With 5 or 10 bands, set each band to '
-                                    'the frequency in the filter table (Restore Defaults gives these frequencies). '
-                                    'Then set the sliders to the gains in the table.']},
+                                    'the frequency in the filter table (in FxSound 1.2.17 or later, Restore Defaults '
+                                    'gives these frequencies). Then set the sliders to the gains in the table.']},
                           {'key': 'best_fit.freq_range',
                            'title': 'Filters from … to (Hz)',
                            'body': ['Where the app can put peaking filters (from … to). The app calculates the error '

@@ -161,7 +161,8 @@ One column, from the top to the bottom:
   tab that you selected last). Below the tabs: Settings and More settings (click to open or close them), then
   Calculate or Start.
   For Peace, Settings has the number of sliders and the maximum gain that you set in Peace. For FxSound (1.2.14 or
-  later), Settings has the band counts to try: 5, 10, 15, 20 or 31.
+  later), Settings has the band counts to try: 5, 10, 15, 20 or 31. With 5 or 10 bands, set each band of FxSound to
+  the frequency in the filter table.
   Automatically: the method, Settings to try and Calculate. The methods are Best fit for EQ apps, and the Website
   methods for the AutoEQ of squig.link. Settings to try shows the number of EQs that the app tries, and the time that
   is necessary on this PC. Its tooltip shows the settings.
@@ -195,10 +196,10 @@ One column, from the top to the bottom:
 - Your result:
     - The error, the pre-amp, the maximum gain and the maximum Q.
     - "EQs that you made": open a different EQ that you made.
-    - "Number of filters": the best result for each number of filters. "All results…" shows each result that the
-      app tried, with a grid of the error for each filter count and maximum Q. "Compare…" shows this EQ and a second
-      EQ at the same time. The second EQ has a different number of filters, or it is from a different # or from
-      History.
+    - "Number of filters": the best result for each number of filters. For FxSound, the list has one result for
+      each band count ("10 bands"). "All results…" shows each result that the app tried, with a grid of the error
+      for each filter count and maximum Q. "Compare…" shows this EQ and a second EQ at the same time. The second EQ
+      has a different number of filters, or it is from a different # or from History.
     - The filters, to edit: a table, or Sliders (a graphic EQ). Each slider shows the gain of its filter from 0 dB, on
       a dB scale. It also has Undo all and Calculate from these filters. When the graph is not on the screen, a
       copy of the graph is above the page while you edit. The copy is not on the control that you change. If you
