@@ -19,10 +19,11 @@ def chance(k, n):
 
 
 def percent(p):
-    """A chance in words, as a percentage that says how small it is."""
+    """A chance as a percentage that says how small it is. No space before "%": the text survey gave "< 0.1%"
+    (2026-11-24), and the other values have the same form, as they show in the same place of the sentence."""
     if p < 0.001:
-        return "less than 0.1 %"
-    return f"{p * 100:.1f} %" if p < 0.1 else f"{p * 100:.0f} %"
+        return "< 0.1%"
+    return f"{p * 100:.1f}%" if p < 0.1 else f"{p * 100:.0f}%"
 
 
 class Abx:
@@ -61,11 +62,9 @@ class Abx:
         """The score and what it means, in words."""
         k, n = self.correct_count(), len(self.answers)
         if not n:
-            return "No trials are completed."
+            return "No trials completed"
         p = chance(k, n)
         if p < ENOUGH:
-            return (f"{k} of {n} correct. Random selections get {k} or more correct in only {percent(p)} of the tests. "
-                    "This result shows that you can hear a difference.")
-        return (f"{k} of {n} correct. Random selections get {k} or more correct in {percent(p)} of the tests. This "
-                "result does not show that you can hear a difference" + (" (a longer test can show a small difference)."
-                                                                          if n < 16 else "."))
+            return f"{k} of {n} correct ({percent(p)} chance of scoring {k}+ by guessing). You can hear a difference."
+        return (f"{k} of {n} correct ({percent(p)} chance of scoring {k}+ by guessing). No clear audible difference"
+                + (" (a longer test may detect small differences)." if n < 16 else "."))
