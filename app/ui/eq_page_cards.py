@@ -36,8 +36,10 @@ from ui.forms import CHOICE_MOST
 from ui.search_combo import SearchCombo
 
 
-# Number of filters' longest line (eq_page_result.show_result: a count, its error, the pick's words), for its width
-COUNT_LONGEST = "00 filters  ·  00.00 dB  ✓ selected for you"
+# Number of filters' longest line (eq_page_result.show_result: a count, its error, the pick's words), for its width.
+# "bands" (a graphic EQ's result, eq_page_parts.count_words), not "filters": in Segoe UI 9 pt "00 bands" is 47 px
+# and "00 filters" 44 px (measured with QFontMetrics, 2026-11-24)
+COUNT_LONGEST = "00 bands  ·  00.00 dB  ✓ recommended"
 
 
 class EqCards:

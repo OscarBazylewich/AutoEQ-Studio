@@ -223,7 +223,7 @@ class EqSettings:
                  mode("site_sweep")),
                 ("Frequency from", [("site_sweep.freq_low", "num")], mode("site_sweep")),
                 ("Frequency “to” values", [("site_sweep.freq_high", "numlist")], mode("site_sweep")),
-                ("Gain ranges", [("site_sweep.gain_ranges", "ranges", None, "e.g. -12..6, -12..12")], mode("site_sweep")),
+                ("Gain ranges", [("site_sweep.gain_ranges", "ranges", None, "e.g., -12..6, -12..9")], mode("site_sweep")),
                 ("Q from", [("site_sweep.q_min", "num")], mode("site_sweep")),
                 ("Q “to” values", [("site_sweep.q_max", "numlist")], mode("site_sweep"))]),
             ("Website", [

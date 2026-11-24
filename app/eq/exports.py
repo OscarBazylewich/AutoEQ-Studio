@@ -212,7 +212,9 @@ def note_change(app, filters, applied, past, preamp, notes):
     i = int(np.argmax(d)) if len(d) else 0
     name, rule = APPS[app]["name"], APPS[app]
     if len(d) and d[i] >= 0.1:
-        why = ", ".join(f"{_WHAT[k][0]} is limited to {rule[k][0]:g}–{rule[k][1]:{'+g' if k == 'gain' else 'g'}}"
+        # (a gain range has a negative minimum: " to ", so that no minus sign is adjacent to a dash)
+        why = ", ".join(f"{_WHAT[k][0]} is limited to {rule[k][0]:g}"
+                        f"{' to ' if k == 'gain' else '–'}{rule[k][1]:{'+g' if k == 'gain' else 'g'}}"
                         f"{_WHAT[k][1]}" for k in past) or "file format rounds filter values"
         if app == "rockbox" and not past:
             why = "Q rounds to 0.1 steps"

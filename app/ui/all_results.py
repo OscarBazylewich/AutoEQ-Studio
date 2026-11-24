@@ -147,7 +147,7 @@ class AllResults(QDialog):
         return super().eventFilter(obj, event)
 
     def _fit_columns(self, *_):
-        """The widths of the table's columns. The error's column as wide as its words ("0.225  ✓ selected for you"
+        """The widths of the table's columns. The error's column as wide as its words ("0.225  ✓ recommended"
         ended in "…" in a shared width); the others share the rest of the table's width evenly, as they did. When
         that share is narrower than a heading or a value (a narrow window: "Maximum gain" was cut to "Maximum ga"),
         each column is as wide as its own words and they share only what is left over; narrower than all the
@@ -319,7 +319,7 @@ class AllResults(QDialog):
         for r in sorted(rs, key=lambda x: x["rms"])[:500]:
             i = t.rowCount()
             t.insertRow(i)
-            err = _Num(f"{r['rms']:.3f}" + ("  ✓ selected for you" if r["id"] == run["pick"] else ""), r["rms"])
+            err = _Num(f"{r['rms']:.3f}" + ("  ✓ recommended" if r["id"] == run["pick"] else ""), r["rms"])
             err.setData(Qt.UserRole, r["id"])
             pre, lo, hi = r.get("preamp"), r.get("gain_min"), r.get("gain_max")
             cells = [err, _Num(str(r["n_filters"]), r["n_filters"]), _Num(str(r.get("rows") or ""), r.get("rows")),

@@ -91,7 +91,7 @@ def options(page):
             if r and rn is run and x["id"] == r["id"] and not page.edited():
                 continue
             out.append({"label": f"#{rn.get('n', '?')} · {count_words(k, x.get('engine'))} · {x['rms']:.2f} dB"
-                                 + ("  ✓ selected for you" if x["id"] == rn["pick"] else ""),
+                                 + ("  ✓ recommended" if x["id"] == rn["pick"] else ""),
                         "filters": _filters(x["filters"]), "run": rn, "rid": x["id"]})
     from ui.history_window import day_of, time_of
     for e in sorted((e for e in page.history if e.get("device") == name), key=lambda e: e["when"], reverse=True):

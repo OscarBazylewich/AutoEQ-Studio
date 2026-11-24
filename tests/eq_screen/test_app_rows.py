@@ -299,7 +299,7 @@ def test_a_run_of_five_band_counts_on_the_result_card(eq_screen, five_counts, ch
     page, run = eq_screen.page, five_counts
     by_n = {r["n_filters"]: r for r in run["results"]}
     items = [page.count_combo.itemText(i) for i in range(page.count_combo.count())]
-    want = [f"{n} bands  ·  {r['rms']:.2f} dB" + ("  ✓ selected for you" if r["id"] == run["pick"] else "")
+    want = [f"{n} bands  ·  {r['rms']:.2f} dB" + ("  ✓ recommended" if r["id"] == run["pick"] else "")
             for n, r in sorted(by_n.items())]
     picked = next(r for r in run["results"] if r["id"] == run["pick"])["n_filters"]
     fm = page.count_combo.fontMetrics()
@@ -311,6 +311,11 @@ def test_a_run_of_five_band_counts_on_the_result_card(eq_screen, five_counts, ch
           (got, want))
     check("app rows: each item of the list fits the width of the list (its longest item)",
           max(widths) <= fm.horizontalAdvance(COUNT_LONGEST), (widths, fm.horizontalAdvance(COUNT_LONGEST)))
+    # (in Segoe UI "00 bands" is wider than "00 filters": the longest line was the one with "filters")
+    forms = {w: fm.horizontalAdvance(f"00 {w}  ·  00.00 dB  ✓ recommended") for w in ("filters", "bands")}
+    check("app rows: the width of Number of filters takes the longer of the two words of a count, “filters” and "
+          "“bands”", fm.horizontalAdvance(COUNT_LONGEST) >= max(forms.values()),
+          (forms, fm.horizontalAdvance(COUNT_LONGEST)))
     # (the same form as Settings to try, "-12 to +12 dB (1 dB steps)": the line said "-12.0 to +12.0 dB (1.0 dB
     # steps)")
     check("app rows: the line of the result names the band count of the pick, and the range and step of the sliders "
@@ -342,7 +347,7 @@ def test_all_results_of_five_band_counts_has_no_grid(eq_screen, five_counts, che
         counts = sorted(ar.table.item(i, 1).value for i in range(ar.table.rowCount()))
         gains = {ar.table.item(i, 4).text() for i in range(ar.table.rowCount())}
         marked = [ar.table.item(i, 0).text() for i in range(ar.table.rowCount())
-                  if "selected for you" in ar.table.item(i, 0).text()]
+                  if "✓ recommended" in ar.table.item(i, 0).text()]
         check("all results: a run of a graphic EQ's band counts shows no error grid (each count has its own Q), and "
               "the table has a row for each of the 5 results, the pick marked, the slider range without decimals",
               hidden == (True, True, True) and counts == ALL_COUNTS and len(marked) == 1 and gains == {"-12 to 12"},
