@@ -205,7 +205,7 @@ def stage_result(page):
 
 
 def stage_manual(page):
-    """An EQ by hand on the result card, as By hand's Start from an empty EQ makes it (the Guide's: nothing is kept),
+    """An EQ by hand on the result card, as Manually's Start from “An empty EQ” makes it (the Guide's: nothing is kept),
     so its step can show Close. The function it returns puts the page back as it was: the result shown (with edits not
     yet saved), this session's runs, the file name, Make the EQ's way. None while an ABX test runs (a new EQ shown
     would end it)."""

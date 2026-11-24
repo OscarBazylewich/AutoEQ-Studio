@@ -87,7 +87,8 @@ def call(path, body=None):
         return {"error": f"Unknown {e}"}
     except KeyError as e:
         traceback.print_exc()
-        return {"error": f"Missing {e}"}
+        # (the name of the field alone: a KeyError as text has quote marks around it, "Missing 'id'")
+        return {"error": f"Missing {e.args[0] if e.args else 'field'}"}
     except net.Offline as e:  # (expected while offline: the message is enough, no traceback in the log)
         return {"error": str(e)}
     except Exception as e:  # noqa: BLE001 - shown to the user

@@ -447,6 +447,13 @@ def test_unknown_address(api, check):
     check("requests: unknown address", _ask(api, "/api/nope")[0] == 404)
 
 
+def test_missing_field_named_without_quote_marks(check):
+    # (a field the code reads directly: the KeyError as text was "'id'", so the message was "Missing 'id'")
+    for path in ("/api/use", "/api/preview"):
+        check(f"requests: {path} without its id answers “Missing id”, no quote marks around the field",
+              service.call(path, {"src": "pc"}) == {"error": "Missing id"}, service.call(path, {"src": "pc"}))
+
+
 def test_body_not_a_dict(api, check):
     # (straight to eq.service, as the old check sent it: not through JSON)
     # was eq_checks.py:1232

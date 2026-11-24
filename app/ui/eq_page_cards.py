@@ -77,7 +77,7 @@ class EqCards:
         self.settings = settings
         self.measurement_pad.follow(settings.adjust_btn)  # (the two drop-downs end at one x: Adjust… is the Target's)
         col.addWidget(self._result_card())
-        # (the settings shown again now the result card is there: its line under File name, "Save filters writes: …",
+        # (the settings shown again now the result card is there: its line under File name, "Will save: …",
         # was made after Make the EQ first showed them, and stayed empty until a setting changed, 2026-10-23)
         self.show_settings()
         yield "the result"
