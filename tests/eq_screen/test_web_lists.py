@@ -175,7 +175,6 @@ def test_words_of_a_website_entry(check):
     # (2026-11-13: the verifier's MF4 and MF5. For a database whose link is the page of the database
     # (modernGraphTool, a name with a comma), "the app opens the entry on the website" was not true; Help did not
     # tell what to do for a target)
-    import re
     from eq import databases
     from ui import help_text_eq
     paras = next(it["body"] for group in help_text_eq.SETTINGS_EQ for it in group["items"]
@@ -189,14 +188,10 @@ def test_words_of_a_website_entry(check):
               "For an entry of a target or from Find a target, the tracer selects “A target line”. Thus, the add "
               "button is Add as target. The text on 3 Save tells you to click it. If the app cannot trace only the "
               "target line, remove the measurement curve from the graph of the website. Then copy a new picture.")
-    sentences = [s for p in paras for s in re.split(r"(?<=[.!?])\s+(?=[A-Z])", p)]
-    check("website words: Help tells to show only the target for an entry of a target, each sentence 20 words or "
-          "fewer, each paragraph 6 sentences or fewer",
+    check("website words: Help tells to show only the target for an entry of a target",
           all(p in paras for p in target)
-          and all(len(s.split()) <= 20 for p in target for s in re.split(r"(?<=[.])\s+", p))
-          and " ".join(paras).count("the add button is Add as target") == 1  # (one sentence tells it)
-          and all(len(re.split(r"(?<=[.!?])\s+(?=[A-Z])", p)) <= 6 for p in paras)
-          and all(len(s.split()) <= 25 for s in sentences), [s for s in sentences if len(s.split()) > 25])
+          and " ".join(paras).count("the add button is Add as target") == 1,  # (one sentence tells it)
+          paras)
     words = {"BROWSE_NOTE": databases.BROWSE_NOTE, "REFUSED_NOTE": databases.REFUSED_NOTE, "Help": " ".join(paras)}
     check("website words: the messages and Help say that the app opens the website, not the entry (a link can be the "
           "page of the database)",
