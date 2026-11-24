@@ -389,15 +389,23 @@ def test_slider_moves_where_it_is_clicked_and_dragged(own_editor, check):
         QTest.mouseRelease(s, Qt.LeftButton, Qt.NoModifier, QPoint(cx, y + 3 - 40))
         dragged = s.value()
         QTest.mouseDClick(s, Qt.LeftButton, Qt.NoModifier, QPoint(cx, top + 5))
+        # (mouseDClick sends only the double-click, its button down: the let-go that ends a real one is sent here)
+        QTest.mouseRelease(s, Qt.LeftButton, Qt.NoModifier, QPoint(cx, top + 5))
         double = s.value()
         gain = ed.filters[0]["gain"]
     finally:
         ed.set_view("table")
+    from PySide6.QtWidgets import QApplication
+    left_down = QApplication.mouseButtons()
     per_px = (s.maximum() - s.minimum()) / (bot - top)
     check("filters: a click on a slider's track puts its thumb there (the top: its highest gain; the middle: 0 dB); "
           "pressed on the thumb it stays under the pointer as it's dragged; double-click: 0 dB; the filter's gain follows",
           at_top == s.maximum() and abs(at_middle) <= 1 and held == 0 and abs(dragged - 40 * per_px) <= 2
           and double == 0 and gain == 0.0, (at_top, at_middle, held, dragged, double, gain))
+    # (Qt keeps the buttons of the last mouse event for the whole process: left down here, the EQ graph of a later
+    # file took a filter's handle as still held and never drew, tests\eq_screen\test_eq_graph_handles.py)
+    check("filters: the test of the sliders leaves no mouse button down for the tests after it",
+          left_down == Qt.NoButton, left_down)
 
 
 def test_table_has_room_for_its_columns_and_scroll_bar(eq_screen, check):
