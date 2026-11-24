@@ -173,7 +173,8 @@ class EqResult:
         note = self.pick_note(run, r)
         self.pick_lab.setText(note)
         self.pick_lab.setVisible(bool(note))
-        # (these two replace the Help lines that help_window.tag put on the numbers as the card was made)
+        # (the tooltips of these two numbers are set here; their Help lines are empty, so help_window.tag gives
+        # none, and Maximum gain and Maximum Q show no tooltip: the text survey, 2026-11-24)
         self.chips["error"].setToolTip("Average difference between the EQ'd response and target (lower is better)")
         self.chips["preamp"].setToolTip("Volume reduction to prevent clipping (highest EQ boost plus extra headroom)")
         # the best result for each filter count (the pick for its own count), as AutoEQ Local's chips (an EQ by hand
