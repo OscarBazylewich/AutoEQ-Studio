@@ -174,8 +174,8 @@ def set_aside(path):
         bad, n = f"{path}.{n}.bad", n + 1
     os.replace(path, bad)
     print(f"{path} couldn't be read: it is kept as {bad} and a new one is started.")
-    _SET_ASIDE.append(f"AutoEQ Studio cannot read {os.path.basename(path)}. It kept that file as "
-                      f"{os.path.basename(bad)} in the data folder, and it made a new file.")
+    _SET_ASIDE.append(f"Couldn't read {os.path.basename(path)}. Backed up as {os.path.basename(bad)} and created a "
+                      "new file.")
     return bad
 
 

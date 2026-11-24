@@ -407,7 +407,7 @@ def test_unreadable_history_is_said(eq_screen, check, dialogs, fresh_studio):
         eq_screen.wait_for(lambda: dialogs.asked, 5)
         boxes = [text for _kind, text in dialogs.asked]
         # was eq_checks.py:1889
-        check("review: a data file that can't be read (History's) is said, kept as .bad", any("cannot read" in b for b in boxes)
+        check("review: a data file that can't be read (History's) is said, kept as .bad", any("Couldn't read" in b for b in boxes)
               and os.path.exists(hist + ".bad"), boxes[-1:])
     finally:
         with contextlib.suppress(FileNotFoundError):  # (the file this test set aside: fresh_studio leaves .bad files)

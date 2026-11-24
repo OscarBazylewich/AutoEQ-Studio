@@ -141,7 +141,8 @@ def _read(path):
 def test_banner_asks_to_set_apo_up(devices_window, check):
     win = devices_window.win
     # was selftest.py:373
-    check("window: the banner asks to set APO up", win.banner.isVisible() and "does not use AutoEQ Studio" in win.banner_text.text(),
+    check("window: the banner asks to set APO up", win.banner.isVisible()
+          and win.banner_text.text() == "Equalizer APO isn't loading AutoEQ Studio. Check config.txt.",
           (win.banner.isVisible(), win.banner_text.text()))
 
 

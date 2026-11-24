@@ -51,6 +51,7 @@ from ui.eq_page_history import EqHistory
 from ui.eq_page_live import EqLive
 from ui.eq_page_parts import FORMAT_NAMES, MODE_HINT, Notices, label
 from ui.eq_page_result import EqResult
+from ui.window_parts import not_opened
 
 # (not used here: other files still import them from here, as before the split: listen.py MODE_SHORT, queue_window.py
 # and the tests (tests\eq_screen\test_run_and_result.py) file_base_name; TICKS too)
@@ -104,7 +105,7 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
         self._hold = None
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
-        self.loading = label("The EQ part opens…", "muted")
+        self.loading = label("Opening Make an EQ…", "muted")
         self.loading.setAlignment(Qt.AlignCenter)
         lay.addWidget(self.loading)
         self._save_timer = QTimer(self, singleShot=True, interval=400, timeout=self._save_settings)
@@ -205,7 +206,7 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
 
         def loaded(res, err):
             if err:
-                self._not_opened(f"The EQ part cannot open: {err}\nFor more information, refer to data\\app.log.")
+                self._not_opened(not_opened(err))
                 return
             try:
                 brought, self.svc, st, hist = res
@@ -221,13 +222,13 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
                 if aside:
                     self._warn(aside)
                 if "error" in st:
-                    self._not_opened(f"The EQ part cannot open: {st['error']}")
+                    self._not_opened(not_opened(st["error"], log=False))
                     return
                 self.meta, self.S = st, st["settings"]
                 self._brought = brought
                 self._steps = self._build_steps()
             except Exception as e:
-                self._not_opened(f"The EQ part cannot open: {e}\nFor more information, refer to data\\app.log.")
+                self._not_opened(not_opened(e))
                 raise
             self._step()
         tasks.background(load, loaded, owner=self)
@@ -240,7 +241,7 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
             with theme.building(self):
                 more = next(self._steps, None) is not None
         except Exception as e:
-            self._not_opened(f"The EQ part cannot open: {e}\nFor more information, refer to data\\app.log.")
+            self._not_opened(not_opened(e))
             raise
         if more:
             QTimer.singleShot(0, self, self._step)
@@ -354,7 +355,7 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
         """A website link (online only: offline the app never connects, net.py)."""
         import net
         if net.offline():
-            self.status("Offline: to open websites, change to Online (top right).", 6000)
+            self.status("Offline: switch to Online to open websites", 6000)
             return
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QDesktopServices

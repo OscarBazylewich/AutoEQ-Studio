@@ -9,10 +9,21 @@ down only, never narrower than its content: Settings, a device's card)."""
 from PySide6.QtCore import QEvent, QObject, QSize, Qt, QTimer
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSizePolicy, QWidget
 
+import paths
 from ui import theme
 
 SAID_MS, UNDO_MS = 6000, 20000  # (how long a message line keeps what it says at least; with Undo beside it, longer)
 READ_MS = 70  # (and as long as its words take to read: about this long a letter; 30 words, about 12 s)
+# (the start of the message that shows in the place of Make an EQ when it could not open. The main window looks
+# for this start to know that the page failed: then the Guide and Presets stop waiting for it)
+NOT_OPENED = "Could not open Make an EQ"
+
+
+def not_opened(error, log=True):
+    """The message in the place of Make an EQ when it could not open: the error, and the full path of the app's log
+    (paths.LOG, read at the time of the message: AppData for the installed app, the data folder of a copy that
+    runs from its folder). log False: an error that the app made itself and did not write to the log."""
+    return f"{NOT_OPENED}: {error}" + (f"\nCheck {paths.LOG} for details." if log else "")
 
 
 def fit_to_screen(window, size, smallest=None):

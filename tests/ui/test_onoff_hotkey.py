@@ -86,13 +86,25 @@ def test_devices_while_off_for_now(on_device, qapp, check):
                         win.pages["devices"].findChildren(QLabel) if lab.isVisibleTo(win))  # (the old card's words)
     line = win._device_state(KEY)[1] if hasattr(win, "_device_state") else ""
     no_check = win.check_label is None
+    # (with no on/off hotkey, the line ends after how the EQ is off: no sentence about a key)
+    hotkey = w.sw.s.get("onoff_hotkey")
+    w.sw.s["onoff_hotkey"] = ""
+    try:
+        win.render_compare()
+        no_key = win.compare_text.text()
+    finally:
+        w.sw.s["onoff_hotkey"] = hotkey
+        win.render_compare()
     back.click()
     win.render_all()
     check("onoff: a bar at the window's top says a device's EQ is off for now (how, the key, Switch it back on), as a "
           "trial's does, and Devices its line, with no APO check meanwhile; Switch it back on ends it",
-          words.startswith("EQ off, to compare") and "Ctrl+Alt+Space" in words and back is not None and line == "EQ off, to compare"
+          words.startswith("EQ off, to compare: Headset (EarPods): ")
+          and words.endswith(". Press Ctrl+Alt+Space to turn EQ back on.") and back is not None
+          and no_key and words == f"EQ off, to compare: {no_key} Press Ctrl+Alt+Space to turn EQ back on."
+          and line == "EQ off, to compare"
           and no_check and card_gone and w.sw.compare is None and not win.compare_holder.isVisibleTo(win),
-          (line, words[:300], no_check, card_gone))
+          (line, words[:300], no_key, no_check, card_gone))
 
 
 def test_the_apps_notices(check):

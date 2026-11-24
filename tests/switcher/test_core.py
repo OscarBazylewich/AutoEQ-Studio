@@ -86,7 +86,9 @@ def test_damaged_settings(start, check):
     apo_after = _read(own, encoding="utf-8") if os.path.isfile(own) else None
     # was selftest.py:164
     check("core: a damaged settings file is kept as .bad and said; the app starts fresh; APO's file isn't written "
-          "(every EQ would go off: review 2)", os.path.exists(bad + ".bad") and "cannot read" in broken.problem
+          "(every EQ would go off: review 2)", os.path.exists(bad + ".bad")
+          and broken.problem.startswith(f"Couldn't read {os.path.basename(bad)}. Backed up as {os.path.basename(bad)}.bad "
+                                        "and created a new file. AutoEQ Studio did not change the EQs")
           and not broken.read_only and broken.s["profiles"] == {} and apo_after == apo_before,
           (broken.problem, apo_before, apo_after))
 

@@ -115,7 +115,7 @@ def test_the_banners_website_offline_said_in_the_line(devices_window, monkeypatc
     check("window: the banner's Get Equalizer APO is plain, with its symbol (a notice's action), and stays on while "
           "offline: clicked, it says so in a bubble, nothing opened",
           net.offline() and look == ("Get Equalizer APO", True, False, None) and opened == []
-          and said == "Offline: to open websites, change to Online (top right).", (look, said, opened))
+          and said == "Offline: switch to Online to open websites", (look, said, opened))
 
 
 def test_settings_hotkeys_lined_up_as_a_form(devices_window, check):

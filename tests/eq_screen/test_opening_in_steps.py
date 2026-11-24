@@ -283,7 +283,7 @@ def test_damaged_history_said(ahead, check):
     bad = _history_file() + ".bad"
     check("eq page: a damaged history.json at opening is said (kept as history.json.bad, a new one started): it was "
           "set aside without a word (its notice came with History's answer, which the opening dropped)",
-          any("cannot read history.json" in b and "history.json.bad" in b for b in boxes) and os.path.exists(bad),
+          any("Couldn't read history.json. Backed up as history.json.bad and created a new file." in b for b in boxes) and os.path.exists(bad),
           (boxes, os.path.exists(bad)))
 
 
@@ -317,7 +317,7 @@ def test_failed_opening_lets_go(tmp_path, monkeypatch, check):
     o = _open(str(tmp_path), monkeypatch, False)
     page = o.s.page
     try:
-        said = qt.wait_for(lambda: page.loading.text().startswith("The EQ part cannot open"), 60)
+        said = qt.wait_for(lambda: page.loading.text() == "Could not open Make an EQ: made up for the test", 60)
         o.watch.stop()
         holds = list(o.holds)
     finally:

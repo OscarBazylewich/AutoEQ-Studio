@@ -219,9 +219,7 @@ class Field(QWidget):
             lay.addStretch(1)
         tip = help_of(path)
         allowed = form.limits.text(path)
-        from ui import help_window
-        self.base_tip = tip + (f"\nPermitted: {allowed}." if allowed else "") + \
-            ("\nF1 opens Help." if tip and help_window.entry_for(path) else "")
+        self.base_tip = tip + (f"\nPermitted: {allowed}." if allowed else "")
         self.box.setToolTip(self.base_tip)
         self.box.setProperty("help_key", path)  # (F1 on it: its entry in Help)
 

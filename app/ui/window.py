@@ -46,7 +46,7 @@ from ui.devices_screen import DevicesScreen, check_line  # noqa: F401 - (check_l
 from ui.profiles_screen import ProfilesScreen
 from ui.settings_screen import SettingsScreen
 from ui.setup_dialog import SetUpDialog  # noqa: F401 - (still taken from here, as before the screens had files)
-from ui.window_parts import ScreenArea, fit_to_screen, glyph_label, warning_card
+from ui.window_parts import NOT_OPENED, ScreenArea, fit_to_screen, glyph_label, not_opened, warning_card
 
 
 def online_mark(on):
@@ -68,8 +68,6 @@ def online_mark(on):
     return QIcon(pm)
 
 
-# (the start of the message that Make an EQ shows when its part cannot open: eq_page.py)
-NOT_OPENED = ("The EQ part cannot", "The EQ part did not")
 PAGES = [("eq", "Make an EQ"), ("devices", "Devices"), ("profiles", "Profiles"), ("settings", "Settings")]
 
 
@@ -179,11 +177,9 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         words = self._bar_words(self.trial_title, self.trial_text)
         keep = QPushButton("Keep it")  # (plain, as every notice's action: UI-RULES 8)
         icons.put(keep, "check")
-        keep.setToolTip("Make it the active profile of the device")
         keep.clicked.connect(lambda: self.app.end_trial(True))
         stop = QPushButton("Do not keep it")
         icons.put(stop, "cancel")  # (✕: Windows 11's square "stop" read as an empty check box beside the words)
-        stop.setToolTip("Use the usual EQ of the device again")
         stop.clicked.connect(lambda: self.app.end_trial(False))
         tl.addWidget(clock)
         tl.addWidget(self.trial_time)
@@ -292,7 +288,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.presets_btn = QPushButton("Presets")  # (Make an EQ's settings: shown on that screen)
         theme.mark(self.presets_btn, nav=True)
         icons.put(self.presets_btn, "presets")
-        self.presets_btn.setToolTip("Save all the settings of Make an EQ with a name (you can load them again)")
+        self.presets_btn.setToolTip("Save or load Make an EQ settings as a preset (settings only)")
         from ui import help_window
         help_window.tag(self.presets_btn, "#presets")
         # (the menu the button's own, so it shows Windows 11's chevron as every button with a menu does (the theme's
@@ -304,7 +300,6 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.guide_btn = QPushButton("Guide")
         theme.mark(self.guide_btn, nav=True)
         icons.put(self.guide_btn, "guide")
-        self.guide_btn.setToolTip("The Guide to Make an EQ: each part and its function")
         self.guide_btn.clicked.connect(self.start_guide)
         h.addWidget(self.guide_btn)
         h.addSpacing(4)
@@ -313,7 +308,6 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.help_btn = helpb = QPushButton("Help")  # (its symbol is the question mark it had in its words)
         theme.mark(helpb, nav=True)
         icons.put(helpb, "help")
-        helpb.setToolTip("Data about audio and EQ, frequent problems and all settings (F1: Help for the item at the pointer)")
         helpb.clicked.connect(lambda: self.open_help())
         h.addWidget(helpb)
         self.online_btn = QPushButton()
@@ -377,7 +371,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         w = QWidget()
         lay = QVBoxLayout(w)
         lay.setContentsMargins(0, 0, 0, 0)
-        words = QLabel("The EQ part opens…")
+        words = QLabel("Opening Make an EQ…")
         words.setWordWrap(True)
         words.setAlignment(Qt.AlignCenter)
         theme.mark(words, role="muted")
@@ -447,7 +441,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
             traceback.print_exc()
             self._eq_error = e
             for words in self.pages["eq"].findChildren(QLabel):
-                words.setText(f"The EQ part cannot open: {e}\nFor more information, refer to data\\app.log.")
+                words.setText(not_opened(e))
             return
         page = EqPage(self.sw, self.status)
         placeholder = self.pages["eq"]
@@ -516,7 +510,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         page = self.eq_page
         if page is None or not getattr(page, "ready", False):
             self.presets_menu.clear()
-            self.presets_menu.addAction("The presets are available after Make an EQ opens").setEnabled(False)
+            self.presets_menu.addAction("Available once Make an EQ opens").setEnabled(False)
             return
         page.fill_presets(self.presets_menu)
 
@@ -566,7 +560,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
             else:
                 self._guide_waiting = not page.loading.text().startswith(NOT_OPENED)
             if self._guide_waiting:
-                self.status("The Guide starts after Make an EQ opens…", 4000)
+                self.status("Guide will start once Make an EQ loads…", 4000)
                 QTimer.singleShot(300, self, self._guide_when_ready)
             return
         self._guide_waiting = False
@@ -654,10 +648,9 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
             widths.append(self.online_btn.sizeHint().width())
         self.online_btn.setMinimumWidth(max(widths))
         self.online_btn.setText("Online" if not off else "Offline")
-        self.online_btn.setToolTip("Online: the app can use the internet (the online databases). Click for Offline: "
-                                   "no data goes to the internet." if not off else
-                                   "Offline: the app does not connect to the internet. It uses only the data on this "
-                                   "PC. Click for Online.")
+        self.online_btn.setToolTip("Online: can access online databases. Click to go Offline (local data only)."
+                                   if not off else
+                                   "Offline: local data only, no internet access. Click to go Online.")
         if hasattr(self, "chk_offline"):
             self.chk_offline.blockSignals(True)
             self.chk_offline.setChecked(off)
@@ -673,8 +666,8 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         if self._ahead_ok is not None:  # (the app's own: the memory the window used given back while it's hidden)
             self._trim_timer.start()
         if not self.sw.s.get("told_tray"):
-            self.app.tray_message("AutoEQ Studio is in the tray", "It continues to control the EQs of your devices. "
-                                  "Right-click its icon to change an EQ or to stop AutoEQ Studio.")
+            self.app.tray_message("Running in the system tray", "Device EQs remain active. Right-click the tray "
+                                  "icon to switch EQs or quit.")
             self.sw.set("told_tray", True)
 
     def show_front(self):
@@ -702,8 +695,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         left = max(0, int(t["until"] - time.time()))
         self.trial_time.setText(f"{left // 60}:{left % 60:02d}")
         self.trial_time.setAccessibleName(f"{left // 60}:{left % 60:02d} until the end")
-        self.trial_text.setText(f"“{t['name']}” on {shown(self.sw.record(t['key']))}, in all apps")
-        self.trial_bar.setToolTip("After the 5 minutes, the device uses its usual EQ again, if you do not keep this EQ.")
+        self.trial_text.setText(f"“{t['name']}” on {shown(self.sw.record(t['key']))} (all apps)")
         self.trial_holder.show()
 
     def render_compare(self):
@@ -716,8 +708,8 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         hk = self.sw.s.get("onoff_hotkey")
         how = (f"same level: {abs(c['db']):.1f} dB lower, for the same loudness as the EQ" if c.get("matched")
                and c.get("db") else "same level" if c.get("matched") else "fully off")
-        self.compare_text.setText(f"{shown(self.sw.record(c['key']))}: {how}" + (f". {hk} enables it again." if hk
-                                                                                 else "."))
+        self.compare_text.setText(f"{shown(self.sw.record(c['key']))}: {how}."
+                                  + (f" Press {hk} to turn EQ back on." if hk else ""))
         self.compare_holder.show()
 
     def render_all(self):
@@ -736,18 +728,16 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
             return
         self.banner_holder.show()
         if not apo.found:
-            text, btn, self._banner_do = ("Equalizer APO is not installed, and AutoEQ Studio must have it. Install "
-                                          "Equalizer APO. Select your devices in its Configurator. Then restart "
-                                          "Windows."), \
+            text, btn, self._banner_do = ("Equalizer APO is required. Install it, select your playback devices in "
+                                          "its Configurator, then restart Windows."), \
                 "Get Equalizer APO", "download"
         elif not apo.writable():
-            text, btn, self._banner_do = ("AutoEQ Studio cannot write to the config folder of Equalizer APO "
-                                          f"({apo.config}). Make sure that you can change this folder in "
-                                          "Windows. Then open AutoEQ Studio again."), "Open APO's config folder", \
+            text, btn, self._banner_do = (f"Cannot write to Equalizer APO's config folder ({apo.config}). Check "
+                                          "your Windows folder permissions, then restart AutoEQ Studio."), \
+                "Open APO's config folder", \
                 "folder"
         elif not apo.includes_studio():
-            text, btn, self._banner_do = ("Equalizer APO does not use AutoEQ Studio. One line in its config.txt "
-                                          "adds the EQ that you selected for each device."), \
+            text, btn, self._banner_do = "Equalizer APO isn't loading AutoEQ Studio. Check config.txt.", \
                 "Add AutoEQ Studio to APO…", "setup"
         else:
             self.banner_holder.hide()
@@ -762,7 +752,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         if self._banner_do == "download":
             if net.offline():  # (a website: offline, said in the window's line as every "Offline: …"; it was a button
                 # greyed out, its reason only in a tooltip)
-                self.status("Offline: to open websites, change to Online (top right).")
+                self.status("Offline: switch to Online to open websites")
                 return
             QDesktopServices.openUrl(QUrl(paths.APO_DOWNLOAD))
         elif self._banner_do == "folder":

@@ -270,7 +270,7 @@ class CompareWindow(QDialog):
             self.page.trace_from_website(entry_id, over=self, say=self.footer.say)
             return
         if net.offline():
-            self.footer.say("Offline: to open websites, change to Online (top right).")
+            self.footer.say("Offline: switch to Online to open websites")
             return
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QDesktopServices

@@ -252,15 +252,15 @@ def test_paste_takes_old_picture(eq_screen, flow, check):
     _copy(_graph())
     wait, _o = _use(flow)
     btn = wait.paste_btn
-    main = (btn.isDefault(), btn.property("help_key"), btn.text(), btn.toolTip().endswith("\nF1 opens Help."))
+    main = (btn.isDefault(), btn.property("help_key"), btn.text(), btn.toolTip())
     btn.click()
     came = _picture_came(page)
     check("website flow: Paste the picture takes the picture that was there before", came and _closed(wait)
           and page.tracer.entry["name"] == ENTRY, came)
-    # (2026-11-12: its tooltip names F1, as each tagged control's: F1 opens Help in a window that stops the other
-    # windows, fix/older-b)
+    # (2026-11-23, the text survey: no tooltip ends in "F1 opens Help." now; F1 still opens Help in this window)
     check("website flow: Paste the picture is the main button (the accent, Enter's) and has its help (its tooltip "
-          "ends in “F1 opens Help.”)", main == (True, "#pw-paste", "Paste the picture", True), main)
+          "does not end in “F1 opens Help.”)",
+          main == (True, "#pw-paste", "Paste the picture", "Uses the picture that is on the clipboard at this time (also Ctrl+V)."), main)
 
 
 def test_paste_with_nothing(eq_screen, flow, check):
@@ -1622,8 +1622,8 @@ def test_window_in_front_of_the_graph(eq_screen, flow, monkeypatch, check):
     """Step 1 tells the user to close a window of the website in front of the graph (at the first visit, a website
     shows "Welcome to Squiglink" on top of the graph: the screen copy then had no graph, 2026-11-11), and Help
     #pw-paste tells it too. The window is not wider for it, and no word is cut at 100 %, 125 %, 150 % and 175 % (the
-    room of each scale stood in). Also: Paste the picture's tooltip ends in "F1 opens Help." (help_window.tag), as
-    the other tagged controls' do."""
+    room of each scale stood in). Also: Paste the picture's tooltip is its own words only: help_window.tag adds no
+    "F1 opens Help." to a tooltip (the text survey, 2026-11-23)."""
     from PySide6.QtCore import QRect
     from PySide6.QtGui import QScreen
     from ui import help_window, picture_wait
@@ -1674,8 +1674,8 @@ def test_window_in_front_of_the_graph(eq_screen, flow, monkeypatch, check):
           "If a curve goes above or below the grid near an end of the frequency axis, the measurement does not "
           "include that part. The text on 3 Save gives the frequencies." in result
           and "starts or stops at that frequency" not in result, result)
-    check("website flow: the tooltip of Paste the picture ends in “F1 opens Help.”, as each tagged control's",
-          all(v[4] == "Uses the picture that is on the clipboard at this time (also Ctrl+V).\nF1 opens Help."
+    check("website flow: the tooltip of Paste the picture has no “F1 opens Help.” at its end, as each tagged control's",
+          all(v[4] == "Uses the picture that is on the clipboard at this time (also Ctrl+V)."
               for v in seen.values()), {v[4] for v in seen.values()})
 
 
