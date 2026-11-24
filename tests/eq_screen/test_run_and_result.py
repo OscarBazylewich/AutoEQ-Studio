@@ -176,7 +176,7 @@ def test_number_of_filters_keeps_one_width(eq_screen, chain, check):
         page.show_result(combo.itemData(i))
         widths.add(combo.width())
         xs.add(page.all_btn.x())
-    combo.addItem("99 filters  ·  99.99 dB  ✓ selected for you", "check")  # (a longer line than any of this run)
+    combo.addItem("99 filters  ·  99.99 dB  ✓ recommended", "check")  # (a longer line than any of this run)
     longer = combo.width()
     combo.removeItem(combo.count() - 1)
     page.show_result(sel)
@@ -189,6 +189,40 @@ def test_number_of_filters_keeps_one_width(eq_screen, chain, check):
           "without “s”", len(widths) == 1 and longer in widths and len(xs) == 1 and not found["policy"]
           and min(widths) >= min(found["room"], 360) and one and not any(t.startswith("1 filters") for t in lines),
           found)
+
+
+def test_one_word_for_the_apps_pick(eq_screen, chain, check, dialogs):
+    # (the owner, 2026-11-24: the result card's title said "recommended" for the app's pick, and Number of filters,
+    # All results…, Compare… and the report said "selected for you": one word for it everywhere)
+    from PySide6.QtCore import Qt
+    from ui.all_results import AllResults
+    from ui.compare_results import options
+    page = eq_screen.page
+    first = page.sel
+    run, _r = page.current()
+    page.show_result(run["pick"])
+    run, r = page.current()
+    found = {"the title": page.res_title.text(),
+             "Number of filters": page.count_combo.itemText(page.count_combo.findData(run["pick"]))}
+    ar = AllResults(page)
+    cells = [ar.table.item(i, 0) for i in range(ar.table.rowCount())]
+    found["All results"] = next((c.text() for c in cells if c.data(Qt.UserRole) == run["pick"]), "")
+    ar.close()
+    # (Compare… lists the pick of another run of this session: the result shown has the line "Shown: …")
+    extra = dict(run, n=99, pick="pick-99", best="pick-99", device=(page.curves or {}).get("name"),
+                 results=[dict(r, id="pick-99")])
+    page.session_runs.append(extra)
+    found["Compare"] = next((o["label"] for o in options(page) if o["rid"] == "pick-99"), "")
+    page.session_runs.remove(extra)
+    path = page.report(open_it=False)
+    with open(path, encoding="utf-8") as f:
+        html = f.read()
+    found["the report"] = '<span class="pill">recommended</span>' in html and "selected for you" not in html
+    page.show_result(first)
+    check("result: the app's pick has one word, “recommended”, in the title, Number of filters, All results…, "
+          "Compare… and the report",
+          "·  recommended" in found["the title"] and found["the report"] is True
+          and all(found[k].endswith("  ✓ recommended") for k in ("Number of filters", "All results", "Compare")), found)
 
 
 def test_file_name_shows_its_start(eq_screen, chain, check):

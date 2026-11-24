@@ -51,6 +51,39 @@ def test_every_tagged_control_has_help(eq_screen, check):
     check("help: every tagged control whose Help line has words shows a tooltip", not silent, silent)
 
 
+def test_screen_reader_line_is_the_tooltip(eq_screen, check):
+    # (the owner, 2026-11-24: Queue…, Adjust…, Close of a manual EQ and the EQ graph had a tooltip of their own
+    # and a different line in HELP, which a screen reader got. The line is now the words of the tooltip)
+    from PySide6.QtWidgets import QWidget
+    from ui import help_window
+    from ui.help_texts import HELP
+    page = eq_screen.page
+    want = {"#queue": "Batch-generate EQs for multiple IEMs or targets; saves each to History",
+            "#target-adjust": "Fine-tune the target’s tilt, bass, half-tilt, ear gain, treble, and air",
+            "#hand-close": "Return to previous EQ (edits stay in the list)",
+            "#eq-graph": "Drag handle: frequency & gain · Scroll on handle: Q · Right-click: filter type or remove · "
+                         "Double-click graph: add filter"}
+    found = {}
+    for w in page.findChildren(QWidget):
+        if w.property("help_key") in want:
+            h = HELP[help_window.help_key(w.property("help_key"))]
+            found.setdefault(w.property("help_key"), []).append(
+                (w.toolTip(), w.accessibleDescription(), h[0] if isinstance(h, list) else h))
+    check("help: Queue…, Adjust…, Close of a manual EQ and the EQ graph: the line for a screen reader and the line "
+          "in HELP are the words of the tooltip",
+          set(found) == set(want) and all(got == (want[k],) * 3 for k, ws in found.items() for got in ws), found)
+
+
+def test_gain_ranges_example_is_its_tooltips(eq_screen, check):
+    # (the owner, 2026-11-24: the gray example in the Gain ranges box was "e.g. -12..6, -12..12", and its tooltip
+    # gave "e.g., -12..6, -12..9")
+    st = eq_screen.page.settings
+    box = {**st.form.fields, **st.adv_form.fields}["site_sweep.gain_ranges"].box
+    check("settings: the gray example in Gain ranges is the example of its tooltip",
+          box.placeholderText() == "e.g., -12..6, -12..9" and "(" + box.placeholderText() + ")" in box.toolTip(),
+          (box.placeholderText(), box.toolTip()))
+
+
 def test_controls_without_a_tooltip(eq_screen, check):
     # (2026-11-24, the text survey: 9 short lines of Make an EQ removed, then 11 and 22 lines of its settings. Their
     # keys stay, so F1, the name for a screen reader and the links of the Help entry stay)

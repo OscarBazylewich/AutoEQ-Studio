@@ -42,7 +42,7 @@ def source_rig(it):
         return it["rig"], True
     m = rigmap.lookup(it)
     if m is not None:
-        return m[0], m[1]
+        return m
     site = databases.find_site(it.get("site_url")) or {}
     if site.get("rig"):
         return tuple(site["rig"])

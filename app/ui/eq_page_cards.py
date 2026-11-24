@@ -37,7 +37,7 @@ from ui.search_combo import SearchCombo
 
 
 # Number of filters' longest line (eq_page_result.show_result: a count, its error, the pick's words), for its width
-COUNT_LONGEST = "00 filters  ·  00.00 dB  ✓ selected for you"
+COUNT_LONGEST = "00 filters  ·  00.00 dB  ✓ recommended"
 
 
 class EqCards:
