@@ -543,8 +543,10 @@ class EqResult:
         body = {"settings": self.S, "cards": cards, "open": open_it, "name": own,
                 **({"meas_files": mf, "target_file": tf} if own_files else {})}
         if run["mode"] in ("site_sweep", "best_fit") and len(run["results"]) > 1:
+            # ("engine": report.grids_for makes no grid for the results of a graphic EQ, one for each band count)
             body.update(grid_mode=run["mode"], grid_results=[{k: x.get(k) for k in ("rows", "q_max", "rms", "freq_high",
-                                                                                     "n_filters", "max_boost", "ear")}
+                                                                                     "n_filters", "max_boost", "ear",
+                                                                                     "engine")}
                                                              for x in run["results"]])
         res = self.svc.call("/api/report", body)
         if res.get("exists"):

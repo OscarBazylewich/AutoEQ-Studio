@@ -550,6 +550,16 @@ def run(body):
         cfg = copy.deepcopy(cfg)
         # (as they are: kept ones must stay exactly the card's, not rounded like a saved file)
         cfg["best_fit"].update(start_filters=exports.filters_text(filters), start_keep=add, start_add=add)
+        # A graphic EQ app with several band counts (FxSound): the card's filters are the bands of one count, so
+        # this run fits that count only. With every count of the settings, the 10-band card became the selected
+        # 31-band result. (A fit of fixed bands starts from no filters: the card's gains are not used, as before.
+        # A number of active filters that is no band count of the app: the counts of the settings.)
+        lay = cfg["best_fit"].get("layout")
+        if len(filters) in layouts.counts(lay):
+            settings.set_path(cfg, layouts.counts_path(lay), [len(filters)])
+            # (for this run the count is a value of the user: the automatic settings, which the run applies again,
+            # would put every count back)
+            cfg["auto"]["manual"] = [*cfg["auto"]["manual"], layouts.counts_path(lay)]
     with JOB_LOCK:
         if JOB.get("status") == "running":
             raise ValueError("Another EQ calculation is already in progress")

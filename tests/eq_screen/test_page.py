@@ -504,7 +504,8 @@ def test_your_eq_app_shows_one_line_of_limits(eq_screen, check):
           and set(with_shapes) | {page.S.get("eq_app")} >= {"apple_music", "boom3d", "foobar2000", "fxsound",
                                                              "soundcore", "spotify"}
           and len(with_shapes) <= 6
-          and line == {"fxsound": "10 fixed bands (5–31 configurable) · ±12 dB (1 dB steps) · shared Q. " + shapes,
+          # (2026-11-24: FxSound has only these five band counts, and the app now tries them: eq_apps.py)
+          and line == {"fxsound": "5, 10, 15, 20, or 31 fixed bands · ±12 dB (1 dB steps) · shared Q. " + shapes,
                        "poweramp": "5–32 bands · ±15 dB · Q 0.1–12", "apo": "No limits",
                        "rockbox": "Up to 8 peaking + low/high shelf · 20 Hz–22.04 kHz · ±24 dB · Q 0.1–6.4"},
           (wrong, line))

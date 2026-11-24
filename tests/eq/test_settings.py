@@ -63,6 +63,95 @@ def test_not_settings_at_all(check):
           all(settings.with_auto(x)["mode"] == "best_fit" for x in ("text", 5, [], None)))
 
 
+# ---------------------------------------------------------------- what the user sets per EQ app (best_fit.per_app)
+PER_APP = {"peace": {"bands": 31, "gain": 30}, "fxsound": {"band_counts": [10]}}
+
+
+def _per(value):
+    """best_fit.per_app as the settings make it valid."""
+    return settings.with_auto({"best_fit": {"per_app": value}})["best_fit"]["per_app"]
+
+
+def test_old_settings_get_the_per_app_defaults(check):
+    old = settings.with_auto({"eq_app": "peace", "best_fit": {"layout": "app:peace", "filter_counts": [3, 5]}})
+    check("settings: settings from before best_fit.per_app load with Peace at 31 bands and ±30 dB and FxSound at 10 "
+          "bands, and keep their other values",
+          old["best_fit"]["per_app"] == PER_APP and old["best_fit"]["filter_counts"] == [3, 5]
+          and old["best_fit"]["layout"] == "app:peace" and old["eq_app"] == "peace"
+          and settings.with_auto({})["best_fit"]["per_app"] == PER_APP, old["best_fit"]["per_app"])
+    paths = ["best_fit.per_app.peace.bands", "best_fit.per_app.peace.gain", "best_fit.per_app.fxsound.band_counts"]
+    check("settings: the limits of the per-app settings come from eq_apps; only the band counts of FxSound are automatic",
+          [settings.LIMITS.get(p) for p in paths] == [
+              {"min": 1, "max": 31, "int": True}, {"min": 1, "max": 99, "int": True, "unit": "dB"},
+              {"min": 5, "max": 31, "int": True, "list": True, "of": [5, 10, 15, 20, 31]}]
+          and [p for p in settings.ALL_AUTO_PATHS if ".per_app." in p] == paths[2:]
+          and paths[2] in settings.AUTO_PATHS["best_fit"] and settings.AUTO_NAMES[paths[2]] == "Band counts"
+          and not [p for p in paths[:2] if p in settings.AUTO_NAMES], [settings.LIMITS.get(p) for p in paths])
+
+
+@pytest.mark.parametrize("name, value, want", [
+    ("text", "x", PER_APP), ("nothing", None, PER_APP), ("a list", [], PER_APP), ("a switch", True, PER_APP),
+    ("an app that is a number", {"peace": 3}, PER_APP),
+    ("bands 0 and gain -5", {"peace": {"bands": 0, "gain": -5}}, dict(PER_APP, peace={"bands": 1, "gain": 1})),
+    ("bands 500 and gain 1000", {"peace": {"bands": 500, "gain": 1000}}, dict(PER_APP, peace={"bands": 31, "gain": 99})),
+    ("bands 10.6 and gain 12.5", {"peace": {"bands": 10.6, "gain": 12.5}}, dict(PER_APP, peace={"bands": 11, "gain": 13})),
+    ("bands a switch and gain text", {"peace": {"bands": True, "gain": "12"}}, PER_APP),
+    ("bands a list", {"peace": {"bands": [10], "gain": 12}}, dict(PER_APP, peace={"bands": 31, "gain": 12})),
+    ("band counts text", {"fxsound": {"band_counts": "x"}}, PER_APP),
+    ("band counts a number", {"fxsound": {"band_counts": 31}}, PER_APP),
+    ("band counts 0 and 99", {"fxsound": {"band_counts": [0, 99]}}, PER_APP),
+    ("band counts 12", {"fxsound": {"band_counts": [12]}}, PER_APP),
+    ("band counts empty", {"fxsound": {"band_counts": []}}, PER_APP),
+    ("band counts 31, 12, 5, 5 and text", {"fxsound": {"band_counts": [31, 12, 5, 5.0, "x"]}},
+     dict(PER_APP, fxsound={"band_counts": [5, 31]})),
+    ("valid values", {"peace": {"bands": 10, "gain": 12}, "fxsound": {"band_counts": [5, 10, 15, 20, 31]}},
+     {"peace": {"bands": 10, "gain": 12}, "fxsound": {"band_counts": [5, 10, 15, 20, 31]}}),
+])
+def test_per_app_wrong_values_put_right(name, value, want, check):
+    got = _per(value)
+    check(f"settings: best_fit.per_app with {name} is put right (the default, the limit, or only the counts that "
+          "the app offers)", got == want, got)
+
+
+def test_per_app_keeps_an_unknown_app(check):
+    got = _per({"later_app": {"bands": 7}, "peace": {"bands": 10, "later": 1}})
+    check("settings: an app or a value under best_fit.per_app that this version does not know is kept",
+          got == {"later_app": {"bands": 7}, "peace": {"bands": 10, "gain": 30, "later": 1}, "fxsound": {"band_counts": [10]}}, got)
+
+
+def test_lists_without_of_as_before(check):
+    # (the new limit flag "of" is in the one function every list setting goes through)
+    c = settings.with_auto({"best_fit": {"filter_counts": [40, 3, 3, 0], "q_max": [2, 99], "gain_max": "x"},
+                            "site_sweep": {"filter_rows": [2.4, 50]}})
+    check("settings: lists of numbers without “of” are kept within their limits as before",
+          c["best_fit"]["filter_counts"] == [1, 3, 32] and c["best_fit"]["q_max"] == [2, 27]
+          and c["best_fit"]["gain_max"] == settings.DEFAULTS["best_fit"]["gain_max"]
+          and c["site_sweep"]["filter_rows"] == [2, 20], (c["best_fit"]["filter_counts"], c["best_fit"]["q_max"]))
+
+
+def test_old_preset_of_fxsound_loads(check):
+    import textfile
+    # a preset of before this setting: FxSound as the layout, the automatic settings on, no per_app
+    old = {"mode": "best_fit", "eq_app": "fxsound", "best_fit": {"layout": "app:fxsound", "bands": {"gain_min": -12, "gain_max": 12, "step": 1}},
+           "auto": {"enabled": True, "manual": ["best_fit.q_max", "best_fit.per_app.nope.band_counts"]}}
+    os.makedirs(settings.PRESET_DIR, exist_ok=True)
+    textfile.write_atomic(settings.preset_path("Selftest old fxsound"), json.dumps(old))
+    try:
+        p = settings.read_preset("Selftest old fxsound")
+    finally:
+        settings.delete_preset("Selftest old fxsound")
+    check("presets: a preset of before best_fit.per_app with the layout FxSound loads: 10 bands, automatic, its own "
+          "values kept",
+          p["best_fit"]["layout"] == "app:fxsound" and p["eq_app"] == "fxsound"
+          and p["best_fit"]["per_app"] == PER_APP and p["auto"]["manual"] == ["best_fit.q_max"]
+          and p["best_fit"]["bands"]["step"] == 1, (p["best_fit"]["per_app"], p["auto"]))
+    mine = settings.with_auto({"best_fit": {"per_app": {"fxsound": {"band_counts": [5, 31]}}},
+                               "auto": {"enabled": True, "manual": ["best_fit.per_app.fxsound.band_counts"]}})
+    check("settings: band counts that the user set stay a value of the user (auto.manual keeps the path)",
+          mine["auto"]["manual"] == ["best_fit.per_app.fxsound.band_counts"]
+          and mine["best_fit"]["per_app"]["fxsound"]["band_counts"] == [5, 31], mine["auto"])
+
+
 def test_preset_needs_settings(check):
     # was eq_checks.py:129
     check("settings: a preset needs settings to save", raises(settings.save_preset, "x", "text") is not None)

@@ -44,6 +44,63 @@ def test_more_of_your_filters_than_the_device_holds(sample_curves, check):
     check("devices: more filters of yours than the device holds is said before the run", "but Voicemeeter (Banana, Potato) allows at most" in msg7, msg7)
 
 
+def test_more_of_your_filters_than_peace_is_set_to(sample_curves, check):
+    curves = sample_curves[0]
+    twelve = "\n".join(f"{100 + 50 * i} 1 1" for i in range(12))
+    cfg = lambda bands: settings.with_auto({"mode": "best_fit", "best_fit": {
+        "layout": "app:peace", "start_filters": twelve, "per_app": {"peace": {"bands": bands}}}})
+    msg = raises(pipeline.check_run, "best_fit", cfg(10), curves) or ""
+    check("Peace: 12 filters of yours with Peace bands 10 is said before the run, with the number of the user",
+          msg.startswith("You have 12 filters, but Peace (for Equalizer APO) allows at most 10. "), msg)
+    check("Peace: 12 filters of yours with Peace bands 31 (the default) is a run",
+          raises(pipeline.check_run, "best_fit", cfg(31), curves) is None)
+
+
+def test_best_fit_stays_in_what_peace_is_set_to(sample_curves, check):
+    # (a pool of worker processes: a small run, grown to at most 4 filters and the low shelf)
+    curves, mt, tt = sample_curves
+    cfg = settings.with_auto({"mode": "best_fit", "auto": {"enabled": False}, "scoring": {"pick": "lowest"}, "best_fit": {
+        "layout": "app:peace", "filter_counts": [2, 4, 8], "gain_min": -12, "gain_max": [9], "q_max": [3],
+        "low_shelf": True, "high_shelf": False, "fight_penalty": [0.01],
+        "per_app": {"peace": {"bands": 5, "gain": 3}}}})
+    rs = pipeline.run_mode("best_fit", cfg, curves, mt, tt)["results"]
+    gains = [f["gain"] for r in rs for f in r["filters"]]
+    # (max gain 3: the sample needs a cut of 4.4 dB, so a run that did not obey the number would go past it)
+    check("Peace: a Best fit run with Peace bands 5 and max gain 3 has no result with more than 5 filters or a gain "
+          "outside ±3 dB",
+          rs and gains and max(r["n_filters"] for r in rs) <= 5 and max(len(r["filters"]) for r in rs) <= 5
+          and -3 <= min(gains) and max(gains) <= 3 and all(r["gain_min"] == -3 and r["gain_max"] == 3 for r in rs),
+          ([(r["rows"], r["n_filters"]) for r in rs], min(gains, default=None), max(gains, default=None)))
+    # the same run with the default 31 bands and ±30 dB goes past both (so the check above can fail)
+    wide = settings.with_auto(dict(cfg, best_fit=dict(cfg["best_fit"], per_app={"peace": {"bands": 31, "gain": 30}})))
+    ws = pipeline.run_mode("best_fit", wide, curves, mt, tt)["results"]
+    check("Peace: the same run with 31 bands and ±30 dB has a result with more than 5 filters and a cut below -3 dB",
+          max(r["n_filters"] for r in ws) > 5 and min(f["gain"] for r in ws for f in r["filters"]) < -3,
+          ([(r["rows"], r["n_filters"]) for r in ws], min(f["gain"] for r in ws for f in r["filters"])))
+
+
+@pytest.mark.parametrize("pick", ["audible", "lowest"])
+def test_fxsound_band_counts_one_run(pick, sample_curves, check):
+    curves, mt, tt = sample_curves
+    cfg = settings.with_auto({"mode": "best_fit", "auto": {"enabled": False}, "scoring": {"pick": pick}, "best_fit": {
+        "layout": "app:fxsound", "per_app": {"fxsound": {"band_counts": [5, 10, 15, 20, 31]}}}})
+    said = []
+    out = pipeline.run_mode("best_fit", cfg, curves, mt, tt, progress=lambda d, t, m="": said.append((d, t, m)))
+    rs = out["results"]
+    check(f"FxSound: a run with its 5 band counts gives 5 results in the order of the counts ({pick})",
+          [(r["id"], r["rows"], r["mode"], r["engine"]) for r in rs]
+          == [(i, n, "best_fit", "graphic") for i, n in enumerate((5, 10, 15, 20, 31))], [(r["id"], r["rows"]) for r in rs])
+    chosen, best, case = engines.pick(rs, cfg["scoring"], curves, cfg["scoring"]["band_hz"])
+    check(f"FxSound: the result of the run is the one that Best result selects among the 5, by the rule of every "
+          f"layout ({pick})",
+          out["pick"] is chosen and out["best"] is best and out["pick_case"] == case
+          and best["rms"] == min(r["rms"] for r in rs) and (pick != "lowest" or out["pick"] is best)
+          and (pick != "audible" or case in ("target", "best")), (out["pick"]["rows"], out["best"]["rows"], case))
+    msg = "Best fit: adjusting band gains (FxSound)"
+    check(f"FxSound: the progress counts the band counts, with the message of every graphic EQ ({pick})",
+          said == [(i, 5, msg) for i in range(6)], said)
+
+
 def test_sweep_cached_reads_no_files_again(fresh_studio, eq_cfg, monkeypatch, check):
     # whether a sweep is cached: the texts the curves were loaded from, not every file read again. (The files in use
     # are the studio's as new, the sample target and device: sweep_cached asks inputs.selected for them, as the old

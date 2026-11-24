@@ -5,7 +5,8 @@ site_single / site_sweep - squiglink's own equalizer.js (vendor/squiglink) in an
 bestfit                  - filters fitted directly to the scoring band with scipy least squares: grown one filter
                            at a time (_grow_run), or each count from random starts and AutoEq's optimizer when your
                            own filters are adjusted (_bf_worker_run).
-graphic_run              - Best fit for fixed bands (a graphic EQ): only the gains, in the sliders' steps.
+graphic_run              - Best fit for fixed bands (a graphic EQ): only the gains, in the sliders' steps. One
+                           result; for an EQ app with several band counts (FxSound), one for each count to try.
 """
 import json
 import multiprocessing.queues
@@ -849,15 +850,37 @@ def _bestfit_grown(pool, cfg, curves, mine, shelves, progress, cancel, shared):
 
 
 # ---------------------------------------------------------------- fixed bands (a graphic EQ)
-def graphic_run(cfg, curves):
-    """Best fit for a fixed-band layout (layouts.py): the bands stay where they are and only the gains are fitted,
-    within the sliders' range and each a multiple of their step. The fit is continuous first, then every gain is set
-    to the nearest step and moved a step up or down while that lowers the error, so what you set on the sliders is
-    exactly what was scored."""
+def graphic_run(cfg, curves, progress=None, cancel=None):
+    """Best fit for a fixed-band layout (layouts.py): one result, the gains of its bands (_graphic_fit). A layout
+    with several band counts (an EQ app such as FxSound: layouts.counts_to_try): one result for each count to try,
+    in rising order, each at the frequencies and the Q of its count; the pick among them is the caller's
+    (pipeline.run_mode, engines.pick: the rule of every layout, n_filters is the band count).
+    The fits run here, one after the other, in the caller's process: FxSound's 5 counts take 0.15 to 0.31 s together
+    (measured 2026-11-24 on the 4 sample pairs of the samples folder, 3 runs each), less than starting a pool of
+    workers. progress(done, total) is called before the
+    first fit and after each; cancel (an Event) stops the run between two fits (Cancelled)."""
+    from . import layouts
+    bf = cfg["best_fit"]
+    sets = [layouts.bands(bf, n) for n in layouts.counts_to_try(bf)] or [layouts.bands(bf)]
+    say = progress or (lambda *a: None)
+    results = []
+    for i, (freqs, q) in enumerate(sets):
+        if cancel is not None and cancel.is_set():
+            raise Cancelled()
+        say(i, len(sets))
+        results.append(_graphic_fit(cfg, curves, freqs, q))
+    say(len(sets), len(sets))
+    return results
+
+
+def _graphic_fit(cfg, curves, freqs, q):
+    """The result of one set of fixed bands (their centre frequencies and the Q of each): the bands stay where they
+    are and only the gains are fitted, within the sliders' range and each a multiple of their step. The fit is
+    continuous first, then every gain is set to the nearest step and moved a step up or down while that lowers the
+    error, so what you set on the sliders is exactly what was scored."""
     from scipy.optimize import least_squares
     from . import layouts
     bf, band, fs = cfg["best_fit"], cfg["scoring"]["band_hz"], cfg["site"]["sample_rate"]
-    freqs, q = layouts.bands(bf)
     freqs = [fc for fc in freqs if fc < 0.49 * fs]  # (a band above what the sample rate holds can't be made)
     lo, hi, step = layouts.sliders(bf)  # (a graphic EQ app's own range and steps kept)
     f = curves["f"]
@@ -897,8 +920,8 @@ def graphic_run(cfg, curves):
             break
     filters = [{"type": "PK", "freq": float(x) if x != int(x) else int(x), "gain": round(float(v), 2) + 0.0, "q": q}
                for x, v in zip(freqs, gains)]
-    return [score_result({"engine": "graphic", "layout": bf["layout"], "rows": len(freqs), "step": step, "gain_min": lo,
-                    "gain_max": hi, "q_min": q, "q_max": q, "filters": filters}, curves, band, fs)]
+    return score_result({"engine": "graphic", "layout": bf["layout"], "rows": len(freqs), "step": step, "gain_min": lo,
+                         "gain_max": hi, "q_min": q, "q_max": q, "filters": filters}, curves, band, fs)
 
 
 # ---------------------------------------------------------------- selection
