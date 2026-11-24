@@ -420,7 +420,7 @@ def test_entry_route_error_said(eq_screen, flow, check):
     _close_bubble()
     started = page.trace_from_website("no-such-entry", over=pk, say=lambda t, ms=10000: pk.footer.say(t, ms))
     check("website flow: an entry that is not in the lists says so in a bubble (its words whole), nothing opens",
-          not started and len(qt.OPENED_URLS) == n and "not there" in _told() and _said(pk) == "", (_told(), _said(pk)))
+          not started and len(qt.OPENED_URLS) == n and "Entry not found in the database lists" in _told() and _said(pk) == "", (_told(), _said(pk)))
 
 
 def test_one_wait_at_a_time(eq_screen, flow, check):

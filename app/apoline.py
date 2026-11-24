@@ -60,7 +60,7 @@ def parse(params):
     p = params.replace(",", ".")
     m = _TYPE.match(p)
     if not m:
-        return "bad", "it does not start with ON or OFF and a filter type"
+        return "bad", "missing ON/OFF or filter type"
     on, word, digits = m[1].upper() == "ON", m[2].upper(), m[3]
     rest = p[m.end():]
     kind = KINDS.get(word)
@@ -74,13 +74,13 @@ def parse(params):
     f = _FREQ.search(rest)
     freq = read_freq(f[1]) if f else None
     if freq is None or freq <= 0:
-        return "bad", "no frequency (Fc … Hz)"
+        return "bad", "missing frequency (Fc … Hz)"
     gain = 0.0
     g = _GAIN.search(rest)
     if kind in ("PK", "LS", "HS", "BP"):
         gain = number(g[1]) if g else None
         if gain is None and kind != "BP":
-            return "bad", "no gain (Gain … dB)"
+            return "bad", "missing gain (Gain … dB)"
         gain = gain or 0.0
     shelf = kind in ("LS", "HS")
     value, by_width = 0.0, False
@@ -96,7 +96,7 @@ def parse(params):
     corner = False
     if value == 0:
         if kind in ("PK", "AP"):
-            return "bad", "no Q or width"
+            return "bad", "missing Q or width"
         if kind in ("LP", "HP", "BP"):
             value = 1 / math.sqrt(2)
         elif shelf:
@@ -108,7 +108,7 @@ def parse(params):
             value /= 12
         corner = not word.endswith("C")
     if value <= 0:
-        return "bad", "no Q or width"
+        return "bad", "missing Q or width"
     return "biquad", {"kind": kind, "on": on, "freq": freq, "gain": gain, "value": value, "by_width": by_width,
                       "corner": corner}
 

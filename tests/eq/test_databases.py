@@ -343,3 +343,43 @@ def test_refresh_after_failed_one(api, db_guard, monkeypatch, check):
         time.sleep(0.05)
     # was eq_checks.py:2214
     check("databases: a refresh after a failed one isn't refused with \"Missing 'url'\"", "url" not in str(r.get("error", "")), r)
+
+
+def test_offline_list_error_has_no_doubled_word(db_guard, monkeypatch, tmp_path, check):
+    # (the text survey, 2026-11-24: Sources shows this error as the tooltip of "did not load". With the name of the
+    # error's type before it, as the other errors have, it started "Offline: Offline.")
+    site = {"name": "Test", "url": "https://example.invalid/", "short": "T"}
+    monkeypatch.setattr(databases, "CACHE_PATH", os.path.join(tmp_path, "db-offline.json"))
+    db_guard.stub_get(db_guard.saved["attrs"]["_get"])  # (the real one: offline, it refuses before any connection)
+    databases.refresh_now([site], force=True)
+    errors = [s.get("error") for s in databases.status()["sites"]]
+    check("databases: offline, the error of a list that did not load is “Offline. Switch to Online to download.” alone",
+          errors == ["Offline. Switch to Online to download."], errors)
+
+
+def test_too_large_file_names_the_limit(monkeypatch, check):
+    class Answer:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self, n):
+            return b"x" * n
+
+        def geturl(self):
+            return "https://example.invalid/"
+
+    import net
+    monkeypatch.setattr(net, "check", lambda what=None: None)  # (no connection is made: urlopen is stood in for)
+    monkeypatch.setattr(databases.urllib.request, "urlopen", lambda req, timeout=0: Answer())
+    said = {}
+    for limit in (20_000_000, 3_000_000):
+        try:
+            databases._get("https://example.invalid/big", limit=limit)
+            said[limit] = None
+        except ValueError as e:
+            said[limit] = str(e)
+    check("databases: a file past the size limit is refused with the limit in MB",
+          said == {20_000_000: "file is too large (over 20 MB)", 3_000_000: "file is too large (over 3 MB)"}, said)

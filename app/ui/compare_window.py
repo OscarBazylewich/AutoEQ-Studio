@@ -68,7 +68,7 @@ class _Row(QFrame):
 
 def _not_loaded(errors):
     """The measurements that did not load, in a fold "Not loaded (n)", one on each line; when they all have one cause
-    (offline: "to download it, change to Online"), it is said once, at the end."""
+    (offline: "Switch to Online (top right) to download it."), it is said once, at the end."""
     fold = Fold(f"Not loaded ({len(errors)})")
     names, causes = [], []
     for e in errors:

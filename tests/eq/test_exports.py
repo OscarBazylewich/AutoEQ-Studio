@@ -77,7 +77,7 @@ def test_rockbox_q_limit_said(check):
     notes = []
     exports.rockbox_cfg([{"type": "PK", "freq": 6000, "gain": 6, "q": 8.44}], -6, notes)
     # was eq_checks.py:182
-    check("formats: Rockbox says how much its Q limit (6.4) changes the EQ", any("Q goes from 0.1 to 6.4" in n for n in notes), notes)
+    check("formats: Rockbox says how much its Q limit (6.4) changes the EQ", any("Q is limited to 0.1–6.4" in n for n in notes), notes)
 
 
 def test_poweramp_gain_limit_said(check):
@@ -167,13 +167,13 @@ def test_convolution_refuses_too_high(check):
 def test_filters_not_numbers_named(check):
     # was eq_checks.py:216
     check("formats: filters that aren't numbers are named", raises(exports.clean_filters, [{"freq": 100, "gain": "x", "q": 1}])
-          == "Filter 1: its gain is not a number.")
+          == "Filter 1: gain must be a number")
 
 
 def test_filters_outside_limits_named(check):
     # was eq_checks.py:218
     check("formats: filters outside the filter table's limits are named (Q 0 would break an EQ app)",
-          raises(exports.clean_filters, [{"freq": 100, "gain": 1, "q": 0}]) == "Filter 1: its Q (0) is not in the range 0.03 to 27.")
+          raises(exports.clean_filters, [{"freq": 100, "gain": 1, "q": 0}]) == "Filter 1: Q (0) must be between 0.03 and 27")
 
 
 def test_long_names_keep_the_method(check):
@@ -198,7 +198,7 @@ def test_uapp_preamp_too_low_said(check):
                      -24.0, "x", notes)
     # was eq_checks.py:2197
     check("files: USB Audio Player PRO's file says when its pre-amp can't go low enough (it can clip)",
-          any("Clipping can occur" in n for n in notes), notes)
+          any("Clipping may occur" in n for n in notes), notes)
 
 
 def test_tiny_q_written_as_smallest_step(check):
@@ -225,7 +225,7 @@ def test_apo_width_and_slopes_read(check):
 def test_other_apo_type_named(check):
     # was eq_checks.py:343
     check("formats: another APO filter type is named as not supported",
-          "the app cannot use “HP” filters" in (raises(exports.parse_filters, "Filter 1: ON HP Fc 30 Hz") or ""))
+          "“HP” filters aren't supported" in (raises(exports.parse_filters, "Filter 1: ON HP Fc 30 Hz") or ""))
 
 
 def test_unknown_format_refused(eq_cfg, check):
@@ -271,3 +271,18 @@ def test_not_asked_about_a_file_it_wont_write(atomic, check):
     asked = exports.files_to_replace(all_on, "Atomic", ["apo", "uapp"], out_dir=out_tmp, filters=shelf)
     # was eq_checks.py:364
     check("formats: saving doesn't ask about an app's file it won't write", asked == ["Atomic - filters.txt"], asked)
+
+
+def test_many_filters_note_names_each_limit(eq_cfg, tmp_path, check):
+    # (the text survey, 2026-11-24: one short note; its second limit shows only for an EQ with more filters than it)
+    said = {}
+    for n in (20, 21, 32, 33):
+        notes = []
+        exports.write(eq_cfg, [{"type": "PK", "freq": 1000, "gain": 0.1, "q": 1}] * n, -0.1, f"Many {n}", ["apo"],
+                      out_dir=str(tmp_path), notes=notes)
+        said[n] = notes
+    check("formats: the Equalizer APO file's note for an EQ with many filters gives the limit of 20 filters from 21 "
+          "filters, and the limit of 32 too from 33 filters; 20 filters give no note",
+          said == {20: [], 21: ["Note: this EQ has 21 filters (some apps limit imports to 20)."],
+                   32: ["Note: this EQ has 32 filters (some apps limit imports to 20)."],
+                   33: ["Note: this EQ has 33 filters (some apps limit imports to 20 or 32)."]}, said)

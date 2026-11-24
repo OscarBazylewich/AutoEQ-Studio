@@ -51,3 +51,19 @@ def test_save_with_no_file_ticked_and_report(eq_screen, chain, check, dialogs):
     # was eq_checks.py:1681
     check("review: Save with no file ticked says so (no “Saved”, nothing in History); Report writes the HTML report",
           nothing == (True, True) and path and os.path.isfile(path) and path.endswith(" - report.html"), (nothing, path))
+
+
+def test_saved_line_keeps_sentences_apart(check):
+    # (the text survey, 2026-11-24: some notes of the files have no period at their end. Joined with a space only,
+    # such a note ran into the next sentence)
+    from ui.eq_page_result import REPORT_KEPT, saved_line
+    skipped = "Skipped convolution file: couldn't generate one from these filters"
+    note = "Note: this EQ has 25 filters (some apps limit imports to 20)."
+    start = "The app saved A - filters.txt in your Saved EQs folder."
+    got = {"none": saved_line(["A - filters.txt"]), "last": saved_line(["A - filters.txt"], [note, skipped]),
+           "first": saved_line(["A - filters.txt"], [skipped, note]),
+           "kept": saved_line(["A - filters.txt"], [skipped], kept=True)}
+    check("ui: the message line after Save filters gives a note with no period one when a sentence follows it (never "
+          "two periods), and leaves the last note as it is",
+          got == {"none": start, "last": f"{start} {note} {skipped}", "first": f"{start} {skipped}. {note}",
+                  "kept": f"{start} {skipped}. {REPORT_KEPT}"}, got)

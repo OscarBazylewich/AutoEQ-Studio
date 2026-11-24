@@ -27,14 +27,14 @@ def clean_filters(filters):
     """Filters as sent by the page, checked: numbers as numbers (text like "100" too), a known type, on or off.
     Raises ValueError naming the filter that can't be used."""
     if not isinstance(filters, list):
-        raise ValueError("The filters are missing.")
+        raise ValueError("Filters are missing")
     out = []
     for i, f in enumerate(filters, 1):
         if not isinstance(f, dict):
-            raise ValueError(f"Filter {i} is not a filter.")
+            raise ValueError(f"Filter {i} is invalid")
         g = {"type": f.get("type") or "PK", "enabled": f.get("enabled", True) is not False}
         if g["type"] not in TYPES:
-            raise ValueError(f"Filter {i}: unknown type “{g['type']}” (PK, LSQ or HSQ).")
+            raise ValueError(f"Filter {i}: unknown type “{g['type']}” (use PK, LSQ, or HSQ)")
         for k, what in (("freq", "frequency"), ("gain", "gain"), ("q", "Q")):
             v = f.get(k)
             if isinstance(v, bool) or not isinstance(v, (int, float)):  # (numbers stay as they are: 105 prints as 105)
@@ -44,11 +44,11 @@ def clean_filters(filters):
                     v = math.nan
             g[k] = v
             if not math.isfinite(g[k]):
-                raise ValueError(f"Filter {i}: its {what} is not a number.")
+                raise ValueError(f"Filter {i}: {what} must be a number")
             lim = settings.UI_LIMITS["edit." + k]  # (the filter table's own limits: Q 0 or 0 Hz would break an EQ app)
             if not lim["min"] <= v <= lim["max"]:
-                raise ValueError(f"Filter {i}: its {what} ({v:g}) is not in the range {lim['min']:g} to {lim['max']:g}"
-                                 f"{' ' + lim['unit'] if lim.get('unit') else ''}.")
+                raise ValueError(f"Filter {i}: {what} ({v:g}) must be between {lim['min']:g} and {lim['max']:g}"
+                                 f"{' ' + lim['unit'] if lim.get('unit') else ''}")
         out.append(g)
     return out
 
@@ -58,6 +58,9 @@ def clean_filters(filters):
 # their centre, a slope or a width in octaves as the Q that draws the same curve)
 _FILTER_LINE = re.compile(r"^\s*filter\s*\d*\s*:\s*(.*)$", re.I)
 _TYPE_WORD = re.compile(r"^\s*(?:on|off)\s+([a-z]+)", re.I)
+# (the end of the message for a line that parse_filters can't read, with or without its cause)
+_FORMATS_HINT = ("Use Equalizer APO format (Filter 1: ON PK Fc 100 Hz Gain 3 dB Q 1) or frequency, gain, Q per line "
+                 "(100 3 1).")
 
 
 def parse_filters(text, fs=eqtext.FS):
@@ -77,19 +80,15 @@ def parse_filters(text, fs=eqtext.FS):
                 continue
             if kind == "other":
                 word = _TYPE_WORD.match(m[1].replace(",", "."))
-                raise ValueError(f"Your filters, line {i}: the app cannot use “{(word[1] if word else value).upper()}” "
-                                 f"filters of Equalizer APO (only peaking, low shelf and high shelf filters).")
+                raise ValueError(f"Your filters, line {i}: “{(word[1] if word else value).upper()}” filters aren't "
+                                 f"supported (only peaking, low-shelf, and high-shelf)")
             if kind == "bad":
-                raise ValueError(f"Your filters, line {i}: the app cannot read “{s[:60]}” ({value}). Write Equalizer APO "
-                                 f"lines (Filter 1: ON PK Fc 100 Hz Gain 3 dB Q 1), or one filter on each line as "
-                                 f"frequency, gain and Q (100 3 1).")
+                raise ValueError(f"Your filters, line {i}: couldn't parse “{s[:60]}” ({value}). {_FORMATS_HINT}")
             out.append({k: value[k] for k in ("type", "freq", "gain", "q")})
             continue
         f = eqtext.plain_line(s)
         if f is None:
-            raise ValueError(f"Your filters, line {i}: the app cannot read “{s[:60]}”. Write Equalizer APO lines (Filter 1: "
-                             f"ON PK Fc 100 Hz Gain 3 dB Q 1), or one filter on each line as frequency, gain and Q "
-                             f"(100 3 1).")
+            raise ValueError(f"Your filters, line {i}: couldn't parse “{s[:60]}”. {_FORMATS_HINT}")
         out.append(f)
     try:
         return clean_filters(out)
@@ -112,7 +111,7 @@ def clean_preamp(preamp):
     except (TypeError, ValueError):
         p = math.nan
     if not math.isfinite(p):
-        raise ValueError("The pre-amp is not a number.")
+        raise ValueError("Pre-amp must be a number")
     return p
 
 
@@ -180,17 +179,16 @@ def note_change(app, filters, applied, past, preamp, notes):
     i = int(np.argmax(d)) if len(d) else 0
     name, rule = APPS[app]["name"], APPS[app]
     if len(d) and d[i] >= 0.1:
-        why = ", ".join(f"its {_WHAT[k][0]} goes from {rule[k][0]:g} to {rule[k][1]:{'+g' if k == 'gain' else 'g'}}"
-                        f"{_WHAT[k][1]}" for k in past) or "the precision of its file"
+        why = ", ".join(f"{_WHAT[k][0]} is limited to {rule[k][0]:g}–{rule[k][1]:{'+g' if k == 'gain' else 'g'}}"
+                        f"{_WHAT[k][1]}" for k in past) or "file format rounds filter values"
         if app == "rockbox" and not past:
-            why = "its Q goes in steps of 0.1"
-        notes.append(f"{name}: {why}. This changes the EQ by a maximum of {d[i]:.1f} dB (at approximately "
-                     f"{_fmt_hz(f[i])}).")
+            why = "Q rounds to 0.1 steps"
+        notes.append(f"{name}: {why}. This changes the EQ by up to {d[i]:.1f} dB (at around {_fmt_hz(f[i])}).")
     # (only what the app's limits add: a pre-amp chosen too small by hand is the filter table's to show)
     clip = float(np.max(new)) + preamp - max(0.0, float(np.max(old)) + preamp) if len(new) else 0.0
     if clip > 0.05:
-        notes.append(f"{name}: its limits cause a maximum of {clip:.1f} dB of clipping in this EQ. Lower the pre-amp "
-                     f"by {clip:.1f} dB.")
+        notes.append(f"{name}: format limits cause up to {clip:.1f} dB of clipping. Lower the pre-amp by "
+                     f"{clip:.1f} dB.")
 
 
 def _fmt_hz(hz):
@@ -246,12 +244,12 @@ def uapp_xml(filters, preamp, name, notes=None):
     phone). Frequency and Q are stored as cube roots of their position in the range, gain as its position in
     +-20 dB. Only peaking filters, at most 10: returns None (and says why in notes) for an EQ it can't hold."""
     on = [f for f in filters if f.get("enabled", True)]
-    why = ("it has only peaking filters, and this EQ has shelves" if any(f.get("type", "PK") != "PK" for f in on)
-           else f"it has a maximum of {UAPP_BANDS} filters, and this EQ has {len(on)}" if len(on) > UAPP_BANDS else "")
+    why = ("only peaking filters are supported, not shelves" if any(f.get("type", "PK") != "PK" for f in on)
+           else f"supports up to {UAPP_BANDS} filters (this EQ has {len(on)})" if len(on) > UAPP_BANDS else "")
     if why:
         if notes is not None:
-            notes.append(f"No USB Audio Player PRO file: {why}. (Use Best fit with no shelves and a maximum of "
-                         f"{UAPP_BANDS} filters.)")
+            notes.append(f"Skipped USB Audio Player PRO: {why}. Use Best fit with no shelves and max {UAPP_BANDS} "
+                         "filters.")
         return None
 
     def num(v):
@@ -264,8 +262,8 @@ def uapp_xml(filters, preamp, name, notes=None):
     pre = max(-UAPP_GAIN, min(UAPP_GAIN, float(preamp)))
     note_change("uapp", on, applied, past, pre, notes)
     if float(preamp) < -UAPP_GAIN:  # (as Rockbox's: said, not silently clipped)
-        notes.append(f"USB Audio Player PRO: its pre-amp goes to {UAPP_GAIN:g} dB, and this EQ must have "
-                     f"{-float(preamp):.1f} dB. Clipping can occur.")
+        notes.append(f"USB Audio Player PRO: pre-amp cut maxes out at {UAPP_GAIN:g} dB (this EQ needs "
+                     f"{-float(preamp):.1f} dB). Clipping may occur.")
     on = applied
     values = []
     for i in range(UAPP_BANDS):
@@ -294,8 +292,8 @@ def soundsource_text(cfg, filters, preamp, notes=None):
     on = [f for f in filters if f.get("enabled", True)]
     if len(on) > SOUNDSOURCE_FILTERS:
         if notes is not None:
-            notes.append(f"No SoundSource file: it has a maximum of {SOUNDSOURCE_FILTERS} filters, and this EQ has "
-                         f"{len(on)}.")
+            notes.append(f"Skipped SoundSource: supports up to {SOUNDSOURCE_FILTERS} filters (this EQ has {len(on)}). "
+                         f"Use Best fit with max {SOUNDSOURCE_FILTERS} filters.")
         return None
     applied, past = for_app("soundsource", on, qd)
     note_change("soundsource", on, applied, past, preamp, notes)
@@ -316,13 +314,13 @@ def voicemeeter_xml(filters, preamp, notes=None):
     on = [f for f in filters if f.get("enabled", True)]
     if len(on) > VOICEMEETER_CELLS:
         if notes is not None:
-            notes.append(f"No Voicemeeter file: its EQ has a maximum of {VOICEMEETER_CELLS} filters, and this EQ has "
-                         f"{len(on)}. (Use Best fit with a maximum of {VOICEMEETER_CELLS} filters.)")
+            notes.append(f"Skipped Voicemeeter: supports up to {VOICEMEETER_CELLS} filters (this EQ has {len(on)}). "
+                         f"Use Best fit with max {VOICEMEETER_CELLS} filters.")
         return None
     applied, past = for_app("voicemeeter", on)
     note_change("voicemeeter", on, applied, past, preamp, notes)
     if notes is not None and preamp < 0:
-        notes.append(f"Voicemeeter: its EQ file has no pre-amp. Lower the gain of the bus by {-preamp:.1f} dB.")
+        notes.append(f"Voicemeeter: EQ files don't include a pre-amp. Lower the bus gain by {-preamp:.1f} dB.")
     lines = ['<?xml version="1.0" encoding="utf-8"?>', "<VBAudioVoicemeeterBUSEQConfig>", "<VoiceMeeterBUSEQ>"]
     for channel in range(1, 9):
         for i in range(VOICEMEETER_CELLS):
@@ -345,19 +343,19 @@ def rockbox_cfg(filters, preamp, notes=None):
     low = [f for f in on if f.get("type", "PK") == "LSQ"]
     high = [f for f in on if f.get("type", "PK") == "HSQ"]
     peaks = [f for f in on if f.get("type", "PK") == "PK"]
-    why = ("it has one low shelf and one high shelf, and this EQ has more" if len(low) > 1 or len(high) > 1
-           else f"it has a maximum of {ROCKBOX_PEAKS} peaking filters (and a shelf at each end), and this EQ has {len(peaks)}"
+    why = ("supports only one low shelf and one high shelf" if len(low) > 1 or len(high) > 1
+           else f"supports up to {ROCKBOX_PEAKS} peaking filters plus two shelves (this EQ has {len(peaks)})"
            if len(peaks) > ROCKBOX_PEAKS else "")
     if why:
         if notes is not None:
-            notes.append(f"No Rockbox file: {why}. (Use Best fit with a maximum of {ROCKBOX_PEAKS} filters.)")
+            notes.append(f"Skipped Rockbox: {why}. Use Best fit with max {ROCKBOX_PEAKS} filters.")
         return None
     applied, past = for_app("rockbox", on)
     precut = min(240, max(0, round(-float(preamp) * 10)))
     note_change("rockbox", on, applied, past, float(preamp), notes)
     if -float(preamp) > 24.05 and notes is not None:
-        notes.append(f"Rockbox: its precut (pre-amp) goes to 24 dB, and this EQ must have {-float(preamp):.1f} dB. "
-                     "Clipping can occur.")
+        notes.append(f"Rockbox: precut maxes out at 24 dB (this EQ needs {-float(preamp):.1f} dB). Clipping may "
+                     "occur.")
     low, high, peaks = ([f for f in applied if f.get("type", "PK") == t] for t in ("LSQ", "HSQ", "PK"))
 
     def band(f):
@@ -387,9 +385,9 @@ def impulse_response(filters, preamp, fs, notes=None):
     too_high = [f for f in on if float(f["freq"]) >= 0.49 * fs]
     if too_high:
         if notes is not None:
-            notes.append(f"No convolution file: a filter at {float(too_high[0]['freq']):g} Hz is too high for "
-                         f"{fs} Hz (select a higher sample rate: on the result card, below “Save filters”, click "
-                         f"“Change”).")
+            notes.append(f"Skipped convolution file: filter at {float(too_high[0]['freq']):g} Hz is too high for "
+                         f"{fs} Hz. Raise the sample rate in More settings › Saved files › Impulse response sample "
+                         "rate.")
         return None
     n = 1 << (16 + (fs > 48000))  # 65,536 samples (1.4 s at 48 kHz); 131,072 at 96 kHz
     h = np.zeros(n)
@@ -399,7 +397,7 @@ def impulse_response(filters, preamp, fs, notes=None):
         h = lfilter([b0, b1, b2], [1.0, a1, a2], h)
     if not np.isfinite(h).all():
         if notes is not None:
-            notes.append("No convolution file: the app cannot make one from the filters.")
+            notes.append("Skipped convolution file: couldn't generate one from these filters")
         return None
     audible = np.nonzero(np.abs(h) >= 1e-6)[0]
     length = min(n, max(4096, 1 << int(audible[-1] if len(audible) else 0).bit_length()))
@@ -411,8 +409,8 @@ def impulse_response(filters, preamp, fs, notes=None):
     if peak > 1:  # (can't happen with the EQ's own pre-amp, but a smaller one could clip)
         h /= peak
         if notes is not None:
-            notes.append(f"Convolution file: the app lowered its level by {20 * math.log10(peak):.1f} dB more, to "
-                         "prevent clipping.")
+            notes.append(f"Convolution file: lowered level by an extra {20 * math.log10(peak):.1f} dB to prevent "
+                         "clipping")
     return h
 
 
@@ -509,10 +507,9 @@ def write(cfg, filters, preamp_raw, base_name, formats=None, out_dir=OUTPUT_DIR,
         written["apo"] = out(ENDINGS["apo"], apo_text(cfg, filters, preamp, notes), encoding="utf-8", newline="")
         n = sum(1 for f in filters if f.get("enabled", True))
         if n > SQUIGLINK_FILTERS and notes is not None:
-            notes.append(f"Equalizer APO file: this EQ has {n} filters. Equalizer APO and Peace use all of them, but "
-                         f"“Import” in squiglink keeps only the first {SQUIGLINK_FILTERS}"
-                         + (f", and EasyEffects keeps only the first {EASYEFFECTS_FILTERS}." if n > EASYEFFECTS_FILTERS
-                            else "."))
+            # (squiglink's Import, and with more filters EasyEffects too: Help's page of this file names them)
+            notes.append(f"Note: this EQ has {n} filters (some apps limit imports to {SQUIGLINK_FILTERS}"
+                         + (f" or {EASYEFFECTS_FILTERS}" if n > EASYEFFECTS_FILTERS else "") + ").")
     if "graphic" in formats:
         written["graphic"] = out(ENDINGS["graphic"], engines.graphic_eq_text(cfg, filters), encoding="utf-8")
     if "poweramp" in formats:

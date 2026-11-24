@@ -562,7 +562,7 @@ def test_db_entry(api, db_guard, eq_cfg, check):
           and set(e) == {"id", "kind", "name", "sub", "tag", "site", "site_url", "link", "site_page"}, r)
     bad = api.call("/api/db/entry", {"id": "no-such-entry"})
     check("service: /api/db/entry with an id that is not there gives a plain error",
-          "not there" in bad.get("error", "") and "Traceback" not in json.dumps(bad), bad)
+          "Entry not found in the database lists" in bad.get("error", "") and "Traceback" not in json.dumps(bad), bad)
 
 
 def test_files_add_source(fresh_studio, eq_cfg, check):

@@ -96,7 +96,7 @@ def test_lines_an_eq_here_cant_have(check):
     check("eqtext: other filter types are named in plain words (REW's first-order ones as such), REW's empty slots "
           "and switched-off filters of other types are nothing, a peak without Q can't be read",
           [got[k] for k in got] == [("other", "low-pass"), ("other", "first-order high-pass"), ("other", "notch"),
-                                    ("other", "all-pass"), ("none", None), ("none", None), ("bad", "no Q or width"),
+                                    ("other", "all-pass"), ("none", None), ("none", None), ("bad", "missing Q or width"),
                                     ("other", "IIR")], got)
 
 
@@ -172,7 +172,7 @@ def test_peace_preset(check):
           "Peace writes as LSC and HSC), its pre-amp; a type it doesn't know and its other speakers' filters named",
           r["format"] == "Peace" and got == [("LSQ", 80, 5, 0.7), ("PK", 3000, -2.5, 2), ("HSQ", 9000, -3, 0.7)]
           and r["preamp"] == -6.2
-          and r["left_out"] == ["a filter of Peace's type 7", "filters for some speakers only (Peace's speakers)"], r)
+          and r["left_out"] == ["Peace filter type 7", "per-speaker filters (Peace)"], r)
 
 
 APO = """Preamp: -4 dB
@@ -198,9 +198,9 @@ def test_apo_lines(check):
           r["format"] == "Equalizer APO" and got == [("PK", 200, 2, 1, True), ("PK", 1000, -1, 2, False),
                                                      ("PK", 1000, -2, 3, True)]
           and r["preamp"] == -4.5
-          and r["left_out"] == ["filters for some channels or devices only (Channel:, Device:)",
-                                "a graphic EQ (GraphicEQ)", "a different file that it includes (Include)",
-                                "a filter: its frequency (45000) is not in the range 20 to 20000 Hz"], r)
+          and r["left_out"] == ["per-channel or per-device filters (Channel:, Device:)",
+                                "a graphic EQ (GraphicEQ)", "an included file (Include)",
+                                "a filter with frequency (45000) outside 20–20000 Hz"], r)
 
 
 def test_nothing_readable(check):
@@ -218,4 +218,4 @@ def test_pasted_filters_read_the_same_way(check):
           [(f["type"], round(f["freq"], 2)) for f in got] == [("PK", 92), ("LSQ", round(apo["freq"], 2))]
           and apo["freq"] > 200, got)
     check("eqtext: the strict reader still refuses a filter type an EQ here can't have, by its name",
-          "the app cannot use “HP” filters" in (raises(exports.parse_filters, "Filter 1: ON HP Fc 30 Hz") or ""))
+          "“HP” filters aren't supported" in (raises(exports.parse_filters, "Filter 1: ON HP Fc 30 Hz") or ""))

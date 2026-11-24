@@ -56,10 +56,10 @@ def get(device):
 
 def _clean(e, i):
     if not isinstance(e, dict):
-        raise ValueError(f"EQ {i + 1} in the list is not an EQ.")
+        raise ValueError(f"EQ {i + 1} in the list is invalid")
     filters = exports.clean_filters(e.get("filters"))
     if not filters:
-        raise ValueError(f"“{str(e.get('name') or '')[:60]}” has no filters.")
+        raise ValueError(f"“{str(e.get('name') or '')[:60]}” has no filters")
     color = e.get("color")
     return {"key": str(e.get("key") or f"eq{i}")[:40], "name": " ".join(str(e.get("name") or f"EQ {i + 1}").split())[:80] or f"EQ {i + 1}",
             "note": str(e.get("note") or "")[:200], "filters": filters, "shown": e.get("shown") is not False,
@@ -71,9 +71,9 @@ def put(device, eqs):
     """Replace this IEM's list (checked and cleaned). Returns it as kept."""
     device = _clean_device_name(device)
     if not isinstance(eqs, list):
-        raise ValueError("The list of EQs is missing.")
+        raise ValueError("EQ list is missing")
     if len(eqs) > MAX_EQS:
-        raise ValueError(f"The maximum is {MAX_EQS} EQs for each IEM or headphone: first, remove one.")
+        raise ValueError(f"Limit of {MAX_EQS} EQs per headphone or IEM reached. Remove one first.")
     eqs = [_clean(e, i) for i, e in enumerate(eqs)]
     with _LOCK:
         return _put(device, eqs)

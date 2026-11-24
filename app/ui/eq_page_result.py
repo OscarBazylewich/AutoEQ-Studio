@@ -38,6 +38,18 @@ NO_PROFILES = "No device profiles yet. Add one in Devices first, then select it 
 # (Calculate with no curves: no files, or files that gave no curves, whose cause is in the line below the EQ graph)
 NO_FILES = "Add a target and at least one measurement first"
 NO_CURVES = "Couldn't calculate curves for these files. See the line below the EQ graph."
+# (after Save filters, when the report of that name was kept as it was)
+REPORT_KEPT = ("The report with that name did not change: change the File name to save a different report in the same "
+               "folder.")
+
+
+def saved_line(written, notes=(), kept=False):
+    """The message line after Save filters: the files' names, then each note of the files (eq\\exports.py), then the
+    sentence about a report that was kept. Some notes have no period at their end (the text survey's words): such a
+    note gets one here when another sentence comes after it, so that two sentences never run together."""
+    parts = [f"The app saved {', '.join(written)} in your Saved EQs folder.", *notes] + ([REPORT_KEPT] if kept else [])
+    return " ".join(p if i == len(parts) - 1 or p.endswith((".", "!", "?")) else p + "."
+                    for i, p in enumerate(parts))
 
 
 class EqResult:
@@ -467,7 +479,7 @@ class EqResult:
                         "› Saved files.", near=self.save_btn)
             return
         name = self.name_edit.text().strip() or self.auto_name()
-        written, notes, kept = [], "", False
+        written, notes, kept = [], [], False
         if files:
             # (switched-off filters go too: an Equalizer APO file keeps them as OFF lines, as AutoEQ Local's did)
             body = {"settings": self.S, "filters": [dict(f) for f in self.EDIT if f.get("freq") and f.get("q")],
@@ -481,7 +493,7 @@ class EqResult:
                 QMessageBox.warning(self, "Save filters", res["error"])
                 return
             written = [os.path.basename(p) for p in (res.get("written") or {}).values()]
-            notes = " ".join(res.get("notes") or [])
+            notes = res.get("notes") or []
         if self.S["export"].get("report") and self.curves:  # (by hand, with no measurement: no report to make)
             path = self.report(open_it=False)
             if path:
@@ -491,10 +503,7 @@ class EqResult:
         if not written:
             return
         self.add_to_history(True)
-        self.status(f"The app saved {', '.join(written)} in your Saved EQs folder." + (f" {notes}" if notes else "")
-                    + (" The report with that name did not change: change the File name to save a different report "
-                       "in the same folder." if kept else ""),
-                    10000)
+        self.status(saved_line(written, notes, kept), 10000)
 
     def _replace_ok(self, names, command):
         """Replace files already in Saved EQs? Titled by the command asking (Save filters, Report); No the default, as a

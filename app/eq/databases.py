@@ -75,10 +75,8 @@ RETRY_AFTER = 600  # seconds before squig.link's list is asked for again after a
 _dir_failed = {"at": 0.0}
 _TYPE_GROUP = {"IEMs": "iem", "5128": "5128", "Headphones": "hp", "Earbuds": "earbuds"}
 # (the app opens the website: the entry itself with a share link, or only the page of the database, entry_link)
-BROWSE_NOTE = ("{site} does not let other programs download its files. To use this entry, click Use in Find…. The app "
-               "opens the website and traces a picture of the graph of the entry.")
-REFUSED_NOTE = ("{site} does not let other programs download its files. Thus, the app opens the website and traces a "
-                "picture of the graph of the entry.")
+BROWSE_NOTE = "{site} blocks direct downloads. Click Use to open the page and trace the graph."
+REFUSED_NOTE = "{site} blocks direct downloads. Opening the page to trace the graph instead."
 # A database is list only when SITES marks it ("browse"), or when its server refused each address of an entry with
 # HTTP 401 or 403 (a 404, a time-out or a network error is not a refusal). The app keeps such a refusal with its
 # time in LIST_ONLY_PATH; RETRY_AFTER_DAYS later the lists are made without the mark, and the next Use tries the
@@ -107,12 +105,12 @@ class ListOnly(ValueError):
 
 # ---------------------------------------------------------------- helpers
 def _get(url, timeout=20, limit=20_000_000):
-    net.check("Files from the online databases")  # (offline: nothing goes out; net.Offline is an OSError)
+    net.check()  # (offline: nothing goes out; net.Offline is an OSError)
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         data = r.read(limit + 1)
         if len(data) > limit:
-            raise ValueError("the file is too large")
+            raise ValueError(f"file is too large (over {limit // 1_000_000} MB)")
         return data.decode("utf-8", "ignore"), r.geturl()
 
 
@@ -204,7 +202,7 @@ def _bracketed(src, i):
             if depth == 0:
                 return src[i:j + 1]
         j += 1
-    raise ValueError("a bracket is missing")
+    raise ValueError("missing bracket")
 
 
 def site_on(s, cfg):
@@ -548,7 +546,7 @@ def _squig_config(site):
     scripts = re.findall(r'<script[^>]+src=["\']([^"\']+)["\']', html)
     cfgs = [s for s in scripts if re.search(r"config[^/]*\.js", s)]
     if not cfgs:
-        raise ValueError("the app found no graph-tool config on that page")
+        raise ValueError("no squiglink graph found on that page")
     cfg_text = _strip_comments(_get(urllib.parse.urljoin(final, cfgs[0]))[0])
     if re.search(r"\bCONFIG\s*=\s*\{", cfg_text) and not re.search(r"\bDIR\s*=", cfg_text):
         return _modern_config(cfg_text, final)
@@ -682,7 +680,7 @@ def _sites_one_at_a_time(text):
     dec, out = json.JSONDecoder(), {}
     i = _skip_space(text, 0)
     if text[i] != "{":
-        raise ValueError("the text is not a JSON object")
+        raise ValueError("invalid JSON object")
     i = _skip_space(text, i + 1)
     if text[i] == "}":
         return out
@@ -690,14 +688,14 @@ def _sites_one_at_a_time(text):
         key, i = dec.raw_decode(text, i)
         i = _skip_space(text, i)
         if not isinstance(key, str) or text[i] != ":":
-            raise ValueError("the text is not the name of a website")
+            raise ValueError("invalid website name")
         out[key], i = dec.raw_decode(text, _skip_space(text, i + 1))
         time.sleep(0)
         i = _skip_space(text, i)
         if text[i] == "}":
             return out
         if text[i] != ",":
-            raise ValueError("a comma is missing")
+            raise ValueError("missing comma")
         i = _skip_space(text, i + 1)
 
 
@@ -734,6 +732,8 @@ def refresh_now(sites, force=False):
         try:
             found, conf = (_index_autoeq if site.get("type") == "autoeq" else _index_squig)(site)
             return site, {"time": time.time(), "items": found, "conf": conf, "v": LIST_VERSION}, None
+        except net.Offline as e:  # (its words alone: with its type's name before them they started "Offline: Offline.")
+            return site, c, str(e)
         except Exception as e:  # noqa: BLE001 - a site that's down: an older list is kept if there is one
             return site, c, f"{type(e).__name__}: {e}"
 
@@ -910,7 +910,8 @@ def item(item_id):
     with _lock:
         it = _by_id.get(str(item_id))
     if not it:
-        raise ValueError("That database entry is not there. Update the database lists. Then try again.")
+        raise ValueError("Entry not found in the database lists. Click Update the lists in Find… › Sources…, then try "
+                         "again.")
     return it
 
 
@@ -918,7 +919,7 @@ def item(item_id):
 def _conf_for(it):
     conf = _confs.get(it["site_url"])
     if not conf:
-        raise ValueError("The data of the database is missing. Update the database lists.")
+        raise ValueError("Database data is missing. Click Update the lists in Find… › Sources….")
     return conf
 
 
@@ -960,8 +961,7 @@ def download(item_id, count_points):
         subs = sorted(("", "measurements/"), key=lambda sub: sub != _found_in.get(it["site_url"], ""))
         tries = [(sub, mk(sub, smp)) for sub in subs for smp in ([samples, [""]] if samples != [""] else [[""]])]
     if not all(textfile.inside(path, folder) for _, jobs in tries for _, path in jobs):
-        raise ValueError(f"The settings of {it['site']} have file names that are not in its download folder: the app "
-                         "did not download them.")
+        raise ValueError(f"{it['site']} referenced files outside its download folder, so they were skipped for safety")
     # (answers: for each address tried, its HTTP error code, "ok" for an answer, or None for a different error)
     missing, answers = [], []
 
@@ -995,16 +995,16 @@ def download(item_id, count_points):
                 break
     if not got:
         if net.offline():  # (no copy from before on this PC, and the app may not go online for it)
-            raise net.Offline(f"There is no downloaded copy of {it['name']} from {it['site']}, and AutoEQ Studio "
-                              "is offline. To download it, change to Online (top right).")
+            raise net.Offline(f"No local copy of {it['name']} from {it['site']}, and you're offline. Switch to Online "
+                              "(top right) to download it.")
         # (a graph page that refused each address: list only from now on, and this Use goes on with the trace)
         if "url" not in it["ref"] and answers and all(a in REFUSED for a in answers):
             _learn_refusal(it["site_url"])
             raise ListOnly(REFUSED_NOTE.format(site=it["site"]), it["id"])
         if missing and all(missing):
-            raise ValueError(f"{it['name']} is in the list of {it['site']}, but its file is not on the website (the "
-                             "graph of the website also cannot show it). Use a measurement from a different database.")
-        raise ValueError(f"The app cannot download {it['name']} from {it['site']}.")
+            raise ValueError(f"{it['name']} is listed on {it['site']}, but its file is missing there. Try an entry "
+                             "from another database.")
+        raise ValueError(f"Couldn't download {it['name']} from {it['site']}")
     # (a new try after RETRY_AFTER_DAYS: the website answered, so the database downloads again)
     if "ok" in answers and norm_url(it["site_url"]) in refusals():
         _keep_refusal(it["site_url"], False)
