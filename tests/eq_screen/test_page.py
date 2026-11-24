@@ -260,7 +260,7 @@ def test_theme_changed_while_opening(eq_screen, check):
     # colours, the symbols, weren't drawn again. Found and fixed with the restyle, 2026-10-23)
     from ui.eq_page import EqPage
     qapp = eq_screen.qapp
-    opening = EqPage(eq_screen.sw, lambda *a, **k: None)  # (made, not started: still "Opening the EQ part…")
+    opening = EqPage(eq_screen.sw, lambda *a, **k: None)  # (made, not started: still "Opening Make an EQ…")
     error = None
     try:
         qt.dark(qapp)
@@ -421,39 +421,53 @@ def test_start_from_with_no_profile(eq_screen, dialogs, check):
 
 
 def test_your_eq_app_shows_one_line_of_limits(eq_screen, check):
-    # (the text survey, 2026-11-23: the ⓘ of Your EQ app shows the app's one line of limits only. The steps to load
-    # the EQ and the sentence about band shapes that are not published went, also for an app with "approx")
+    # (the text survey, 2026-11-23: the ⓘ of Your EQ app shows the app's one line of limits, with no steps to load
+    # the EQ. For an app with "approx" the sentence about band shapes that are not published follows the line. The
+    # line and the sentence have no period of their own: each gets one only when more words follow it)
     import html
     from types import SimpleNamespace
     from eq import eq_apps
     words = type(eq_screen.page).app_note_text
+    shapes = "Band shapes for this app aren't published, so the actual EQ may differ slightly from the preview"
 
     def note(app, layout):
         page = SimpleNamespace(eq_app=lambda key: dict(app, layout="its own"),
                                S={"eq_app": "k", "best_fit": {"layout": layout}})
         return html.unescape(words(page, "k"))
-    found = {"alone": note({"note": "10 fixed bands", "approx": True}, "its own"),
+    found = {"alone": note({"note": "10 fixed bands"}, "its own"),
+             "shapes": note({"note": "10 fixed bands", "approx": True}, "its own"),
              "no steps": note({"note": "10 fixed bands", "approx": True, "how": "Set its sliders."}, "its own"),
-             "then the layout": note({"note": "10 fixed bands", "approx": True}, "yours"),
+             "then the layout": note({"note": "10 fixed bands"}, "yours"),
+             "shapes, then the layout": note({"note": "10 fixed bands", "approx": True}, "yours"),
              "no app": words(eq_screen.page, ""), "not in the list": words(eq_screen.page, "other")}
-    check("make the EQ: the ⓘ of Your EQ app shows the one line of limits of the app, with no sentence about band "
-          "shapes and no steps to load the EQ, and the note about a custom layout after it",
-          found == {"alone": "10 fixed bands", "no steps": "10 fixed bands",
+    check("make the EQ: the ⓘ of Your EQ app shows the one line of limits of the app and no steps to load the EQ; "
+          "the sentence about band shapes that are not published follows it for an app with “approx” only, with a "
+          "period only before the note about a custom layout",
+          found == {"alone": "10 fixed bands", "shapes": f"10 fixed bands. {shapes}",
+                    "no steps": f"10 fixed bands. {shapes}",
                     "then the layout": "10 fixed bands (Custom Best fit layout overrides this EQ app's limits.)",
+                    "shapes, then the layout": f"10 fixed bands. {shapes}. (Custom Best fit layout overrides this EQ "
+                                               "app's limits.)",
                     "no app": "Choose your playback EQ app or device to match its band, gain, and Q limits and "
                               "export format",
                     "not in the list": "No filter limits. Exports in Equalizer APO format, supported by most EQ "
                                        "apps."}, found)
-    # each app of the list, as the page shows it: its line, then the link to the source, and nothing else
+    # each app of the list, as the page shows it: its line, the sentence about band shapes for the apps whose maker
+    # does not publish them, then the link to the source, and nothing else
     page = eq_screen.page
     shown = {a["key"]: words(page, a["key"]) for a in page.meta["eq_apps"] if a["key"] != (page.S.get("eq_app") or "")}
     wrong = {k: t for k, t in shown.items()
-             if t != html.escape(eq_apps.APPS[k]["note"])
+             if t != html.escape(eq_apps.APPS[k]["note"] + (f". {shapes}" if eq_apps.APPS[k].get("approx") else ""))
              + f' <a href="{html.escape(eq_apps.APPS[k]["source"])}">Source</a>'}
     line = {k: html.unescape(shown[k].split(" <a ")[0]) for k in ("fxsound", "poweramp", "apo", "rockbox")}
-    check("make the EQ: the ⓘ of Your EQ app, each app of the list: its one line of limits and the link Source only",
+    with_shapes = sorted(k for k, t in shown.items() if html.escape(shapes) in t)
+    check("make the EQ: the ⓘ of Your EQ app, each app of the list: its one line of limits and the link Source; the "
+          "sentence about band shapes only for the 6 apps whose maker does not publish them",
           len(shown) >= len(eq_apps.APPS) - 1 and not wrong
-          and line == {"fxsound": "10 fixed bands (5–31 configurable) · ±12 dB (1 dB steps) · shared Q",
+          and set(with_shapes) | {page.S.get("eq_app")} >= {"apple_music", "boom3d", "foobar2000", "fxsound",
+                                                             "soundcore", "spotify"}
+          and len(with_shapes) <= 6
+          and line == {"fxsound": "10 fixed bands (5–31 configurable) · ±12 dB (1 dB steps) · shared Q. " + shapes,
                        "poweramp": "5–32 bands · ±15 dB · Q 0.1–12", "apo": "No limits",
                        "rockbox": "Up to 8 peaking + low/high shelf · 20 Hz–22.04 kHz · ±24 dB · Q 0.1–6.4"},
           (wrong, line))

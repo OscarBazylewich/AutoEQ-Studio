@@ -1,7 +1,7 @@
 """Make an EQ made in steps (ui\\eq_page.py, ui\\eq_page_cards.py, 2026-10-24: made in one go, the page froze the
 window for ~0.45 s; now one step per turn of the window's event loop, each a few ms). What's checked, not how long
 anything takes (timing checks come and go on a busy PC; the measurements are in the work's report):
-- the page grows over many turns, ready only once it's whole, "Opening the EQ part…" until then and the page shown
+- the page grows over many turns, ready only once it's whole, "Opening Make an EQ…" until then and the page shown
   whole at once;
 - each part goes into its final place in the step that makes it (the page's frame in the page before any card is
   made, nothing made in one step and placed in a later one), and the finished page's parts are where they were;
@@ -188,12 +188,12 @@ def test_made_in_steps_and_ready_only_when_whole(ahead, check):
     turns = ahead.turns
     making = [t for t in turns if not t["ready"]]
     first_ready = next((t for t in turns if t["ready"]), {})
-    grew = sorted({t["widgets"] for t in making if t["widgets"] > 1})  # (1: "Opening the EQ part…" alone)
+    grew = sorted({t["widgets"] for t in making if t["widgets"] > 1})  # (1: "Opening Make an EQ…" alone)
     check("eq page: Make an EQ is made in steps, one per turn of the window's event loop (it grew in at least 8 of "
           "them: made in one go, it froze the window for ~0.45 s), ready only once it's whole",
           ahead.before["opened"] and len(grew) >= 8 and first_ready.get("widgets", 0) >= max(grew, default=1),
           (len(grew), grew[:12], first_ready.get("widgets")))
-    check("eq page: while it's made, only “Opening the EQ part…” shows, and the page is shown whole in the turn it's "
+    check("eq page: while it's made, only “Opening Make an EQ…” shows, and the page is shown whole in the turn it's "
           "ready (never seen half-made, nor used before it's ready)",
           bool(making) and all(t["opening shown"] and not t["page shown"] for t in making)
           and first_ready.get("page shown") is True and first_ready.get("opening shown") is False,

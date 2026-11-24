@@ -8,7 +8,7 @@ window drawn off-screen, message boxes recorded and never shown, and a record of
 thread while it's watched:
 - made ahead on Devices (the tab pointed at, which starts it at once): no message box, no status line, no window of
   its own, Devices still shown; then the click shows it ready, importing nothing;
-- clicked before its code is in: "Opening the EQ part…" at once, nothing imported; Presets and the Guide wait until
+- clicked before its code is in: "Opening Make an EQ…" at once, nothing imported; Presets and the Guide wait until
   it's ready (also while a page built halfway isn't); a device change meanwhile raises nothing;
 - the window opening straight onto Make an EQ: the same at once, nothing imported as it shows;
 - the app only in the tray: nothing of the EQ part loaded with its event loop turning; made ahead once the window
@@ -459,7 +459,7 @@ def test_a_device_change_while_it_opens(ahead, clicked, check):
 @pytest.mark.slow
 def test_opening_straight_onto_make_an_eq(check, tmp_path):
     d, err = _run(STRAIGHT, str(tmp_path), _studio(str(tmp_path)))
-    check("window: shown straight onto Make an EQ (the app started on it), “Opening the EQ part…” at once, nothing "
+    check("window: shown straight onto Make an EQ (the app started on it), “Opening Make an EQ…” at once, nothing "
           "imported on the window's thread as it shows; then the page",
           d.get("hidden") == [True, False] and d.get("shown") == ["eq", True, ["Opening Make an EQ…"], []]
           and d.get("opened") == [True, "eq", True], d or err)

@@ -192,10 +192,10 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
             state, history = service.call("/api/state"), service.call("/api/history")
             # (as AutoEQ Local did at launch: the saved lists, which also say which rig a target was made for; online
             # new ones every few days. Offline nothing is fetched: net.check in databases. Here, while the window
-            # shows "Opening the EQ part…", and waited for (up to a second) before the page is made: loading their
+            # shows "Opening Make an EQ…", and waited for (up to a second) before the page is made: loading their
             # 55,000 entries holds Python's lock most of its ~0.3 s, and the window's drawing of the page or the graph
             # took ~0.35 s instead of ~0.03 s meanwhile, 2026-10-24. The curves need them too: a target's rig. After
-            # the state: by then the window has drawn "Opening the EQ part…")
+            # the state: by then the window has drawn "Opening Make an EQ…")
             if "settings" in state:
                 import copy
                 databases.start_refresh(copy.deepcopy(state["settings"]))  # (a copy: the page changes its own)
@@ -335,15 +335,21 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
             self.settings.refresh()
 
     def app_note_text(self, key):
-        """The words of the ⓘ after Your EQ app for an app (its limits in one line, its source), as rich text."""
+        """The words of the ⓘ after Your EQ app for an app (its limits in one line, the sentence about band shapes
+        that are not published, its source), as rich text."""
         a = self.eq_app(key) if key not in ("", "other") else None
         if a:
             import html
             own = self.S["best_fit"].get("layout") == a.get("layout") or a.get("kind") == "site" \
                 or key != (self.S.get("eq_app") or "")  # (another app, as the Guide shows it: its own limits)
-            # (the text survey, 2026-11-23: only the app's one line of limits, eq_apps "note". The steps to load the
-            # EQ and the sentence about band shapes that are not published went: the user wants a short line)
+            # (the text survey, 2026-11-23: the app's one line of limits, eq_apps "note", with no steps to load the
+            # EQ. For an app with "approx" the sentence about band shapes follows, in the user's words of area 2 of
+            # the survey. The line and that sentence have no period of their own: each gets one only when more
+            # words follow it)
+            shapes = ("Band shapes for this app aren't published, so the actual EQ may differ slightly from the "
+                      "preview") if a.get("approx") else ""
             text = html.escape(f"{a.get('note') or a.get('summary')}"
+                               + (f". {shapes}" + ("" if own else ".") if shapes else "")
                                + ("" if own else " (Custom Best fit layout overrides this EQ app's limits.)")).strip()
             return text + (f' <a href="{html.escape(a["source"])}">Source</a>' if a.get("source") else "")
         return ("No filter limits. Exports in Equalizer APO format, supported by most EQ apps."

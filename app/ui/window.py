@@ -1,6 +1,6 @@
 """AutoEQ Studio's window: a top bar (the app's name, its screens, Online / Offline) over one screen at a time.
 - Make an EQ (ui\\eq_page.py): AutoEQ Local's part. Its code is loaded in a thread of its own (ui\\preload.py), never
-  on the window's: the first time it's opened ("Opening the EQ part…" shows at once meanwhile), or, once you've used
+  on the window's: the first time it's opened ("Opening Make an EQ…" shows at once meanwhile), or, once you've used
   it, ahead of the click while the window is open (made at the first quiet moment a second or more after the window
   shows, or as soon as its tab is pointed at, hidden behind the screen you're on, so the click shows it at once).
   Never while the app is only in the tray, which stays light.
@@ -380,7 +380,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
 
     def show_page(self, key, remember=True):
         """Show one screen. Make an EQ's page is made once its code is in (ui\\preload.py loads it in a thread of its
-        own; until then "Opening the EQ part…" shows): at once when it's in already, as after it was loaded ahead;
+        own; until then "Opening Make an EQ…" shows): at once when it's in already, as after it was loaded ahead;
         never while the app is hidden in the tray, which stays light (made when the window shows)."""
         if key != "eq":  # (another screen asked for since Make an EQ was, hidden: the tray's Add a profile… shows it)
             self._eq_pending = False
@@ -392,7 +392,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
             else:
                 self._eq_when_code_in()
         if key == "eq" and self.isVisible() and not getattr(self.eq_page, "ready", False):
-            # (while "Opening the EQ part…" shows, you're waiting anyway: the symbols' font looked up then, not halfway
+            # (while "Opening Make an EQ…" shows, you're waiting anyway: the symbols' font looked up then, not halfway
             # through the build: ~0.2 s, once per run, theme.warm_symbols)
             QTimer.singleShot(50, self, self._warm_while_opening)
         self.stack.setCurrentWidget(self.pages[key])

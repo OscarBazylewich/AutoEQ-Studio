@@ -11,13 +11,14 @@ and says which of the app's files it takes (exports.FORMATS; None: typed in by h
 Limits are only what the app's maker (its source code, manual, help pages or store listing) states, with the source
 in "source". A limit nobody states is left out, so the app's own measured limits (settings.LIMITS) apply there.
 Checked September 2026. "approx": the band shapes (Q) aren't stated, so the fit uses the usual ones for that spacing
-and the result can differ a little in the app (the page no longer says so: see "note").
+and the result can differ a little in the app (the ⓘ after Your EQ app says so, after "note": ui/eq_page.py).
 
 "note" is the whole text of the ⓘ after Your EQ app for that app: one line of limits, in the user's own words (the
 text survey, 2026-11-23): "Up to N" for a parametric EQ, "N fixed bands" for a graphic EQ, or "No limits". By the
 user's decision it has no steps to load the EQ, no words about what the maker does not state and no end period, so
-do not add them back. A number in a note that differs from the limit the fit uses (Poweramp "5–32 bands", Peace
-"±60 dB max") is what the app can be set to, not what Best fit does.
+do not add them back (the sentence about band shapes of "approx" is not part of it: the page adds that one). A
+number in a note that differs from the limit the fit uses (Poweramp "5–32 bands", Peace "±60 dB max") is what the
+app can be set to, not what Best fit does.
 """
 
 PLATFORMS = ("Web", "Windows", "macOS", "Linux", "Android", "iOS", "Devices")

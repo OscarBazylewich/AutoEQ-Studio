@@ -91,6 +91,38 @@ def test_long_auto_message_keeps_the_page_width(eq_screen, monkeypatch, check):
           and found["back"], found)
 
 
+def test_settings_to_try_tooltip_keeps_the_name_of_an_app(eq_screen, monkeypatch, check):
+    # (the text survey, 2026-11-23: the text of a graphic EQ starts with the name of its layout. The tooltip made
+    # the first letter a capital, so "foobar2000" showed as "Foobar2000" and "eqMac" as "EqMac")
+    import copy
+    from eq import autoset, settings
+    from helpers import qt
+    page = eq_screen.page
+    page.refresh_auto()
+    qt.pump(100)
+    before = (page.estimate.text(), page.estimate.toolTip())
+    cfg = settings.with_auto({"mode": "best_fit"})
+    cfg["best_fit"]["layout"] = "app:foobar2000"
+    text = autoset.describe(cfg)
+    real_call = page.svc.call
+
+    def call(path, body=None):
+        out = real_call(path, body)
+        return dict(copy.deepcopy(out), search=text, time="~1 s") if path == "/api/auto" else out
+    with monkeypatch.context() as m:
+        m.setattr(page.svc, "call", call)
+        page.refresh_auto()
+        qt.pump(100)
+        tip = page.estimate.toolTip()
+    page.refresh_auto()  # (the real line back)
+    qt.pump(100)
+    back = (page.estimate.text(), page.estimate.toolTip()) == before
+    check("make an EQ: the tooltip of Settings to try shows the text of a run as it is: for foobar2000 it starts "
+          "with “foobar2000 (its equalizer): 18 band gains”, with no capital letter put in",
+          text.startswith("foobar2000 (its equalizer): 18 band gains")
+          and tip == f"{text} · Est. time: ~1 s" and back, (text, tip, back))
+
+
 def test_empty_eq_graph_words_clear_of_the_0_db_line(eq_screen, check):
     # (a code review, 2026-11-10: the words of the empty EQ graph were drawn on its 0 dB line, so the line went
     # through them; now they are only as wide as they are, on the graph's colour, and the line stops at their edges)

@@ -15,7 +15,7 @@ The page is made in steps (_build_steps, 2026-10-24: made in one go it froze the
 the window's event loop, so the window answers in between (each step a few ms; EqPage runs them): the page's frame
 first (its scroll area and column, in the page, hidden), then the graph, Target and Measurement, Make
 the EQ, the settings in four parts (ui/eq_settings.py), the result, Listen, the files in their lists, and last the
-whole page shown at once ("Opening the EQ part…" until then: never seen half-made). The rule for every step: each part
+whole page shown at once ("Opening Make an EQ…" until then: never seen half-made). The rule for every step: each part
 goes into its final place in the step that makes it, never in a later one. Qt styles what it made between steps, and
 a part moved once styled is styled again, all of it (the settings' folds moved a step later cost 42 ms; the whole page
 moved into place at the end, as before, 149 ms).
@@ -58,7 +58,7 @@ class EqCards:
         from ui.window_parts import scroll_bar_in_margin
         scroll_bar_in_margin(scroll, col)  # (the cards' right edge where the other screens' is: the bar in the space)
         self.page_area = scroll  # (the page's own scroll area: what floats over the page goes on its view, eq_page_live)
-        scroll.hide()  # ("Opening the EQ part…" until the page is whole)
+        scroll.hide()  # ("Opening Make an EQ…" until the page is whole)
         self.layout().addWidget(scroll)  # (in its place first: the cards then go straight into it, never moved)
         yield "the page's frame"
         # (Target and Measurement first, above the graph: the first screen has the lists, and the graph is directly

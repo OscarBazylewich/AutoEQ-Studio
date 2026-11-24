@@ -112,7 +112,8 @@ class EqGraph:
         # (one short line, its whole text in the tooltip: the UI audit, 2026-11-08)
         search, short = a.get("search") or "", a.get("short") or ""
         self.estimate.setText(" · ".join(x for x in (short, a.get("time") or "") if x))
-        self.estimate.setToolTip(" · ".join(x for x in (search[:1].upper() + search[1:],
+        self.estimate.setToolTip(" · ".join(x for x in (search,  # (as autoset.describe gives it: it can start with
+                                                        # the name of an app, "foobar2000", which keeps its letters)
                                                         f"Est. time: {a['time']}" if a.get("time") else "") if x))
         if hasattr(self, "settings"):
             self.settings.refresh()  # (the values filled in, "Why these settings")

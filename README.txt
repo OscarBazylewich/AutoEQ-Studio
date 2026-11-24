@@ -156,9 +156,9 @@ One column, from the top to the bottom:
   change.
   History… (near the title of the graph) has the EQs that you saved or copied. Show opens one, and its ⋯ has Copy,
   Keep to compare and Remove from the history.
-- Make the EQ: first Your EQ app, for the two tabs. The EQ stays in its limits (the ⓘ after its label
-  shows them), and Save writes its file. Then select how to make the EQ, on two tabs: Automatically or Manually (it opens on
-  the tab that you selected last). Below the tabs: Settings and More settings (click to open or close them), then
+- Make the EQ: first Your EQ app, for the two tabs. The EQ stays in its limits (the ⓘ after its label shows them),
+  and Save writes its file. Then select how to make the EQ, on two tabs: Automatically or Manually (it opens on the
+  tab that you selected last). Below the tabs: Settings and More settings (click to open or close them), then
   Calculate or Start.
   Automatically: the method, Settings to try and Calculate. The methods are Best fit for EQ apps, and the Website
   methods for the AutoEQ of squig.link. Settings to try shows the number of EQs that the app tries, and the time that
