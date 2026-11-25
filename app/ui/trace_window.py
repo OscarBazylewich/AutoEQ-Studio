@@ -125,8 +125,8 @@ SHOWS = (("measurement", "A measurement"), ("difference", "A measurement as the 
 DIFFERENCES = ("difference", "target_difference")  # (the types with "Target of the graph": the app adds that target)
 AS_TARGET = ("target", "target_difference")  # (the types whose add button is Add as target)
 # (a difference from a target with no target to add: the gray line of 3 Save, and the box of the add and of Save .txt…)
-SELECT_TARGET = "Select the target in “Target of the graph”. The app adds this target to the curve."
-NO_TARGETS = "The app has no target. First, add the target of the graph on Make an EQ."
+SELECT_TARGET = "Choose a target under “Target of the graph” to add it to the curve"
+NO_TARGETS = "No targets available. Add one on Make an EQ via Find… or Add… next to Target."
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".jfif", ".webp", ".bmp", ".gif", ".tif", ".tiff")
 IMAGES = "Images (*.png *.jpg *.jpeg *.jfif *.webp *.bmp *.gif *.tif *.tiff)"
 
@@ -425,7 +425,7 @@ class Stage(QWidget):
         ev.addWidget(head)
         row = placed(ev, QHBoxLayout())
         row.addStretch(1)
-        row.addWidget(QLabel("or paste it with Ctrl+V, or"))
+        row.addWidget(QLabel("or paste (Ctrl+V), or"))
         self.choose_btn = choose = QPushButton("Open image…")  # (the header's words for it: one act, one name)
         theme.mark(choose, primary=True)  # (the one thing to do here)
         icons.put(choose, "open")
@@ -1042,14 +1042,14 @@ class TraceWindow(QWidget):
         row = placed(v, QHBoxLayout())
         self.auto_btn = QPushButton("Trace automatically")
         theme.mark(self.auto_btn, primary=True)
-        self.auto_btn.setToolTip("The app finds and follows a curve. Click again for the next curve (A)")
+        self.auto_btn.setToolTip("Auto-detect and trace a curve; click again for the next one (A)")
         self.auto_btn.clicked.connect(self.auto_trace)
         icons.put(self.auto_btn, "run")
         row.addWidget(self.auto_btn)
         self.swatch = QLabel()
         self.swatch.setObjectName("trSwatch")  # (its frame: theme_sheet's tracer part; its colour: the traced one)
         self.swatch.setFixedSize(18, 18)
-        self.swatch.setToolTip("Color that you trace")
+        self.swatch.setToolTip("Curve color to trace")
         row.addWidget(self.swatch)
         row.addStretch(1)
         row = placed(v, QHBoxLayout())
@@ -1075,7 +1075,7 @@ class TraceWindow(QWidget):
         v.addWidget(self.curves_box)
         row = placed(v, QHBoxLayout())
         self.add_btn = QPushButton("Add a curve")  # (verb first, UI-RULES 15: it was "Another curve"; Windows 11's +)
-        self.add_btn.setToolTip("Trace one more curve on the same graph (for example, the other channel)")
+        self.add_btn.setToolTip("Trace another curve on this graph (e.g. L/R channel)")
         self.add_btn.clicked.connect(self.add_curve)
         icons.put(self.add_btn, "add")
         row.addWidget(self.add_btn)
@@ -1103,7 +1103,7 @@ class TraceWindow(QWidget):
         tools.addStretch(1)
         row = placed(v, QHBoxLayout())
         self.edit_btns = {}
-        for key, text, tip, fn in (("smooth", "Make smooth", "Make the pixel steps smooth (S)", self.smooth),
+        for key, text, tip, fn in (("smooth", "Make smooth", "Smooth jagged steps on the selected curve (S)", self.smooth),
                                    ("undo", "Undo", "Undo (Ctrl+Z)", self.undo), ("redo", "Redo", "Redo (Ctrl+Shift+Z)", self.redo),
                                    ("clear", "Clear", "Clear the selected curve (Delete)", self.clear)):
             if key == "clear":
@@ -1187,7 +1187,7 @@ class TraceWindow(QWidget):
         # buttons, shown only with such a line)
         line_row = placed(g, QHBoxLayout(), 7, 0, 1, 4)
         self.save_line = QPushButton("Add the target line as target…")
-        self.save_line.setToolTip("Adds the target line of the picture as a target. You give its name first.")
+        self.save_line.setToolTip(help_of("#tr-target-line"))  # (its Help line: one text for both)
         self.save_line.clicked.connect(self.add_target_line)
         icons.put(self.save_line, "add")
         help_window.tag(self.save_line, "#tr-target-line")
@@ -1267,8 +1267,8 @@ class TraceWindow(QWidget):
         for b in (self.add_btn, self.auto_btn, self.save_btn, self.save_line, self.download_btn, self.ocr_btn):
             b.setEnabled(img and (b is not self.ocr_btn or not getattr(self, "reading", False)))
         self.remove_btn.setVisible(img)
-        need = "" if not img else "Type the dB values of the red lines (and examine the blue Hz values) to save the curve." \
-            if not t.calib() else "Trace a curve to save it." if not anything else None
+        need = "" if not img else f"To save, enter the red dB line values on 1{NBSP}Axes and check the blue Hz values" \
+            if not t.calib() else "Trace a curve to save it" if not anything else None
         # (the target line of a picture from a website: its button while a curve has the "target" mark; a line that
         # the user changed lost the mark, trace_core.user_edit, and is a measurement curve: said, not silent)
         # (not for a target line alone: Add as target adds it, and a second button for it would be the same)
@@ -1280,9 +1280,9 @@ class TraceWindow(QWidget):
         if need or not getattr(self, "saved_note", False):  # ("Saved as …" stays until something is needed)
             self.saved_note = False
             self.save_note.setText(need or (
-                f"You changed the curve “{changed_line['label']}”. Thus, it is a measurement curve: Add as measurement "
-                "also adds it. To add it as a target, select it. Select “A target line” in “The graph shows”. Then "
-                f"click Add as target. To remove it from the measurement, click its ✕ (Remove curve) on 2{NBSP}Trace."
+                f"Edited curve “{changed_line['label']}” will be included in Add as measurement. To save it as a target "
+                "instead, select it, choose “A target line” under “The graph shows”, and click Add as target. To "
+                f"exclude it, click ✕ on 2{NBSP}Trace."
                 if changed_line else self.auto_words()))  # (NBSP: a tab's name whole)
         colour = cur and cur["colour"]
         self.swatch.setVisible(bool(colour))
@@ -1345,19 +1345,16 @@ class TraceWindow(QWidget):
         if kind in AS_TARGET:
             one = sum(map(t.has_data, t.curves)) <= 1
             if kind == "target_difference":
-                return ("The app adds the selected target to the curve. Then it saves the result as a target."
-                        if one else
-                        "The app adds the selected target to the selected curve. Then it saves only this curve as a "
-                        "target.")
-            return ("The app saves the curve as a target. It does not change the curve." if one else
-                    "The app saves only the selected curve as a target. It does not change the curve.")
+                return ("Adds the graph's target to the curve and saves the result as a new target" if one else
+                        f"Adds the graph's target to the curve selected in 2{NBSP}Trace and saves it as a new target")
+            return ("Saves the curve as a target without altering it" if one else
+                    f"Saves only the curve selected in 2{NBSP}Trace as a target, without altering it")
         many = sum(1 for c in t.curves if t.has_data(c) and not c.get("target")) > 1
         if kind == "difference":
-            return ("The app adds the selected target to each curve. Then it saves the result as one measurement."
-                    if many else
-                    "The app adds the selected target to the curve. Then it saves the result as a measurement.")
-        return ("The app saves the curves as one measurement. It does not change the curves." if many else
-                "The app saves the curve as a measurement. It does not change the curve.")
+            return ("Adds the selected target to each curve and saves them as one measurement" if many else
+                    "Adds the selected target to the curve and saves it as a measurement")
+        return ("Saves all curves as one measurement without altering them" if many else
+                "Saves the curve as a measurement without altering it")
 
     def auto_words(self):
         """3 Save's note after an automatic read that passed: auto_note, then the name of the add button at this
@@ -1369,9 +1366,9 @@ class TraceWindow(QWidget):
         as_target = self.add_kind() == "target"
         return (self.auto_note + ("Add as target." if as_target else "Add as measurement.")
                 + ("" if not self.auto_line else
-                   " The picture also has a target line. Add the target line as target… adds that line as a target, "
-                   "not the Average curve." if as_target else
-                   " The picture also has a target line. Add the target line as target… adds it as a target."))
+                   " A target line was also detected: use “Add the target line as target…” to save it instead of the "
+                   "Average curve." if as_target else
+                   " A target line was also detected; use “Add the target line as target…” to save it."))
 
     def render_curves(self):
         lay, t = self.curves_lay, self.t
@@ -1393,20 +1390,20 @@ class TraceWindow(QWidget):
             pick.setIcon(_dot(STROKES[i % len(STROKES)]))
             pick.setIconSize(QSize(16, 16))
             theme.mark(pick, quiet=True, trCompact=True)
-            pick.setToolTip("Trace into this curve")
+            pick.setToolTip("Select this curve for tracing")
             pick.clicked.connect(lambda _=False, i=i: self.select_curve(i))
             h.addWidget(pick)
             name = QLineEdit(c["label"])
             name.setAccessibleName(f"Curve {i + 1}'s name")
             name.setMaxLength(12)
-            name.setToolTip("Curve name (the app uses it in the file names, for example, L and R)")
+            name.setToolTip("Curve name (used in filenames, e.g. L, R)")
             name.installEventFilter(self)
             name.setProperty("curve", i)
             h.addWidget(name, 1)
             n = int(np.isfinite(c["ys"]).sum())
             h.addWidget(_label(f"{n} px" if n else "empty", "muted", wrap=False))
             x = QPushButton("✕")
-            x.setToolTip("Remove this curve (you can undo this)")
+            x.setToolTip("Remove curve")
             theme.mark(x, quiet=True, trCompact=True)
             x.clicked.connect(lambda _=False, i=i: self.remove_curve(i))
             h.addWidget(x)
@@ -1429,8 +1426,7 @@ class TraceWindow(QWidget):
         """2 Trace's note for more than one curve that Add as measurement saves (not the marked target line of a
         picture from a website: that one is not saved with them)."""
         t = self.t
-        self.curves_note.setText("The app saves the curves as one device: one file for each curve, with its label in the name "
-                                 "(for example, L and R)."
+        self.curves_note.setText("Saved as one measurement: one file per curve, named after each curve (e.g. L, R)"
                                  if sum(1 for c in t.curves if t.has_data(c) and not c.get("target")) > 1 else "")
 
     def eventFilter(self, obj, e):
@@ -1847,11 +1843,11 @@ class TraceWindow(QWidget):
             # sentences, and the new line keeps the instruction easy to find)
             out = getattr(r, "out_words", "")
             # (the name of the add button and the words about a target line follow "The graph shows": auto_words)
-            self.auto_note = (f"The app traced the {'target' if only else 'graph of'} "
+            self.auto_note = (f"Traced {'target' if only else 'graph for'} "
                               f"“{self.note_name(e.get('name', ''))}”"
                               + (f" from “{self.note_name(site)}”." if site else ".")
                               + (f" {out}\n" if out else " ")
-                              + "Compare the curve with the picture. If they agree, click ")
+                              + "Verify it against the image, then click ")
             self.auto_line = r.target is not None
             self.status.setText(IDLE)
             self.show_tab(2)
@@ -2083,7 +2079,7 @@ class TraceWindow(QWidget):
             return
         from ui import ocr
         before = getattr(t, "detect_note", t.axis_note)  # (not the last reading's note: it added up)
-        self.axis_note.setText(before + " The app reads the axis labels…")
+        self.axis_note.setText(before + " Reading axis labels…")
         t.moved = {"d": False, "f": False}
         t.label_token += 1
         self.reading = True
@@ -2094,7 +2090,8 @@ class TraceWindow(QWidget):
                 return
             self.reading = False
             if err is not None:
-                t.axis_note = before + f" (The app cannot read the labels: {err}. Type the values.)"
+                # (ocr.Unavailable's words end with a period: it goes, as the sentence has its own)
+                t.axis_note = before + f" Couldn't read axis labels: {str(err).rstrip('.')}. Enter the values manually."
             else:
                 t.use_labels(res, before)
             self.show_values()
@@ -2191,7 +2188,7 @@ class TraceWindow(QWidget):
         was = self.comp.currentData()
         targets = (getattr(self.page, "inputs", None) or {}).get("targets", [])
         self.comp.clear()
-        self.comp.addItem("Select the target" if targets else "No target in the app", "")
+        self.comp.addItem("Select target…" if targets else "No targets available", "")
         for n in targets:
             self.comp.addItem(os.path.splitext(n)[0], n)
         self.comp.sort_items(pinned=1)  # (the row with no target on top: 22)
@@ -2277,12 +2274,11 @@ class TraceWindow(QWidget):
             page.show_inputs(st["inputs"])
             page.show_settings()
             page.load_curves()
-        what = "the target" if kind == "target" else f"{len(names)} files of one measurement" if len(names) > 1 else "the measurement"
+        what = "target" if kind == "target" else f"{len(names)}-curve measurement" if len(names) > 1 else "measurement"
         shown = "”, “".join(self.note_name(os.path.splitext(n)[0]) for n in names)
         self.saved_note = True
-        self.save_note.setText(f"The app saved {what} “{shown}”. To see it on the graph, close this window. "
-                               "You can also trace more curves."
-                               + (" (The app saved only the selected curve, because a target is one curve.)"
+        self.save_note.setText(f"Added {what} “{shown}”. Close this window to view it on the graph, or keep tracing."
+                               + (" (Only the selected curve was added: targets hold one curve.)"
                                   if kind == "target" and title == "Add as target"
                                   and sum(map(self.t.has_data, self.t.curves)) > 1 else ""))
         gaps = self.t.gaps_text(outs)
@@ -2330,7 +2326,7 @@ class TraceWindow(QWidget):
             folder = QFileDialog.getExistingDirectory(self, "A folder for the traced curves", start)
             paths = [os.path.join(folder, o["file"]) for o in outs] if folder else []
             there = [os.path.basename(p) for p in paths if os.path.exists(p)]
-            if there and self.box("question", "Save .txt", "These files are in that folder:\n\n" + "\n".join(there)
+            if there and self.box("question", "Save .txt", "These files already exist in this folder:\n\n" + "\n".join(there)
                                   + "\n\nReplace them?", QMessageBox.Yes | QMessageBox.No,
                                   QMessageBox.No) != QMessageBox.Yes:
                 return
@@ -2338,11 +2334,13 @@ class TraceWindow(QWidget):
             try:
                 textfile.write_atomic(path, o["text"])
             except OSError as e:  # (a folder you can't write to, a file another program holds: said, not silent)
-                self.box("warning", "Trace", f"The app cannot save {os.path.basename(path)}: {e}")
+                # (an error that ends with a period loses it: no ".." before the instruction)
+                self.box("warning", "Trace", f"Couldn't save {os.path.basename(path)}: {str(e).rstrip('.')}. Try another "
+                         "folder.")
                 return
         if paths:  # (said here, under the buttons, as Add as measurement's: never in the window behind, UI-RULES 7)
             files = ", ".join(self.note_name(os.path.basename(p)) for p in paths)
-            self.save_note.setText(f"The app saved {files}.")
+            self.save_note.setText(f"Saved {files}")
             self.saved_note = True  # (kept until something changes, as "Saved as …": the next redraw wiped it at once)
             gaps = self.t.gaps_text(outs)
             if gaps:

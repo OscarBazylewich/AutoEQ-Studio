@@ -16,8 +16,8 @@ from ui import trace_auto
 COVERS = ("ui.trace_core", "ui.trace_auto", "ui.ocr", "ui.eq_page", "eq.service", "eq.inputs")
 ENTRY = {"name": "Sample Target", "tag": "Site 1", "site": "Sample.Site", "link": "https://example.invalid/t",
          "kind": "target"}
-HEAD = "The app traced the target “Sample Target” from “Sample.Site”."
-END = "Compare the curve with the picture. If they agree, click Add as target."
+HEAD = "Traced target “Sample Target” from “Sample.Site”."
+END = "Verify it against the image, then click Add as target."
 # (the first and the last traced frequency, in 3 Save's note: the line has no points under a label and where the
 # website fades it, 2026-11-13)
 NOTE = re.compile(re.escape(HEAD) + r" The app traced the target line from \d+(\.\d)? Hz to \d+(\.\d)? kHz\.\n"

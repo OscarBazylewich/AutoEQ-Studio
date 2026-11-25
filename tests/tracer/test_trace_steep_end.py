@@ -661,7 +661,7 @@ def test_status_line_of_a_failed_read(eq_screen, monkeypatch, tmp_path, check):
 # ---------------------------------------------------------------- 3 Save's note in the tracer's window
 def test_save_note_tells_the_end(eq_screen, monkeypatch, tmp_path, check):
     """After an automatic read that passed, 3 Save's note says where the curve goes out of the grid and to where the
-    app traced it (AutoRead.out_words, the words of trace_curve), before "Compare the curve with the picture.". The
+    app traced it (AutoRead.out_words, the words of trace_curve), before "Verify it against the image, …". The
     note shows all of its words at the usual and the smallest size of the window (pictures in light and dark)."""
     from helpers import qt
     from ui.trace_window import rgb_of
@@ -675,8 +675,8 @@ def test_save_note_tells_the_end(eq_screen, monkeypatch, tmp_path, check):
                               "link": "https://example.invalid/x"})
     qt.wait_for(lambda: not tw.loading and not tw.reading_graph and tw.read_ok is not None, 60)
     tw.show_tab(2)
-    want = (f"The app traced the graph of “Sample IEM” from “Sample.Audio”. {r.out_words}\nCompare the curve with the "
-            "picture. If they agree, click Add as measurement.")
+    want = (f"Traced graph for “Sample IEM” from “Sample.Audio”. {r.out_words}\nVerify it against the image, then "
+            "click Add as measurement.")
     seen = {"text": tw.save_note.text()}
     usual = tw.size()
     for which, size in (("usual", usual), ("smallest", tw.minimumSize().expandedTo(tw.minimumSizeHint()))):
@@ -693,7 +693,7 @@ def test_save_note_tells_the_end(eq_screen, monkeypatch, tmp_path, check):
     tw.remove_image()
     tw.close()
     check("tracer: after a read of a curve that goes out of the grid, 3 Save's note says where and to where the app "
-          "traced it, before 'Compare the curve with the picture.'", r.ok and r.out_words.startswith("At 18.")
+          "traced it, before 'Verify it against the image'", r.ok and r.out_words.startswith("At 18.")
           and seen["text"] == want, (seen["text"], want))
     check("tracer: the note shows all of its words at the usual and the smallest size of the window (its height is "
           "the height that its words need)", all(seen[k][2] >= seen[k][3] for k in ("usual", "smallest")), seen)

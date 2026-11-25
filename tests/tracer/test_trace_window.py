@@ -102,8 +102,8 @@ def test_saving_without_db_value(eq_screen, check):
     except ValueError as e:
         missing = str(e)
     # was eq_checks.py:2839
-    check("trace: saving without a dB value says to type it", "Type the values" in missing
-          and "Type the dB values" in tw.save_note.text(), (missing, tw.save_note.text()))
+    check("trace: saving without a dB value says to type it", "Enter all 4 axis line values first" in missing
+          and "enter the red dB line values" in tw.save_note.text(), (missing, tw.save_note.text()))
     tw.close()
 
 
@@ -127,7 +127,7 @@ def test_add_as_measurement(eq_screen, fresh_studio, monkeypatch, check):
     loaded = eq_screen.wait_for(lambda: page.curves is not None and page.curves.get("name") == "Sample IEM", 60)
     # was eq_checks.py:2877
     check("trace: Add as measurement puts the curves in the app as one device, in use (on the graph)",
-          loaded and "2 files of one measurement" in tw.save_note.text()
+          loaded and "Added 2-curve measurement" in tw.save_note.text()
           and [m["name"] for m in page.inputs["measurements"] if m["included"]] == ["Sample IEM L.txt", "Sample IEM R.txt"],
           (tw.save_note.text(), page.graph_title.text()))
     tw.close()

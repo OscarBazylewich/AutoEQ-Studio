@@ -185,6 +185,6 @@ def test_each_curve_its_own_file(sample, check):
     outs = t.outputs()
     # was eq_checks.py:2866
     check("trace: each curve its own file (“Sample IEM L.txt”, “… R.txt”, 48 points per octave); two named alike refused",
-          [o["file"] for o in outs] == ["Sample IEM L.txt", "Sample IEM R.txt"] and "named “R”" in same
+          [o["file"] for o in outs] == ["Sample IEM L.txt", "Sample IEM R.txt"] and "Duplicate curve name “R”" in same
           and outs[0]["text"].startswith("* Traced from Sample IEM") and 470 < len(outs[0]["text"].splitlines()) < 480,
           ([o["file"] for o in outs], same, len(outs[0]["text"].splitlines())))

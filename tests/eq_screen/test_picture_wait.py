@@ -1175,9 +1175,9 @@ def test_add_as_measurement(eq_screen, fresh_studio, flow, monkeypatch, check):
           (second, rig2, rigs.file_rig("My own name.txt")))
 
 
-CHANGED_LINE = ("You changed the curve “Target”. Thus, it is a measurement curve: Add as measurement also adds it. To "
-                "add it as a target, select it. Select “A target line” in “The graph shows”. Then click Add as target. "
-                f"To remove it from the measurement, click its ✕ (Remove curve) on 2{NB}Trace.")
+CHANGED_LINE = ("Edited curve “Target” will be included in Add as measurement. To save it as a target instead, select "
+                "it, choose “A target line” under “The graph shows”, and click Add as target. To exclude it, click ✕ "
+                f"on 2{NB}Trace.")
 
 
 def _values(path):
@@ -1218,7 +1218,7 @@ def test_target_line(eq_screen, fresh_studio, flow, monkeypatch, check):
     note = tw.save_note.text()
     shown = tw.save_line.isVisible()
     check("website flow: a target line shows Add the target line as target…, and the note says so",
-          came and shown and "also has a target line" in note
+          came and shown and "A target line was also detected" in note
           and tw.save_line.property("help_key") == "#tr-target-line", (shown, note))
     outs = tw.outputs()
     check("website flow: Add as measurement leaves the target line out (one file)",
@@ -1560,7 +1560,7 @@ def test_long_name_on_3_save(eq_screen, fresh_studio, flow, monkeypatch, tmp_pat
     check("website flow: the same after Save .txt… and after Add as measurement (the note has the file's name): the "
           "file is made, the side is as wide as with a usual name, no control goes past its right edge",
           len(saved) == 8 and all(v[3] and v[0] == usual_side["usual"] and not v[1] for v in saved.values())
-          and all(v[2].startswith("The app saved ") for v in saved.values())
+          and all(v[2].startswith("Added " if how == "add" else "Saved ") for (_k, how), v in saved.items())
           and f"“{NAME}”" in saved[(ENTRY[:5], "add")][2] and f"{ENTRY} file.txt" in saved[(ENTRY[:5], "txt")][2],
           {k: (v[0], v[1], v[3], v[2][:60]) for k, v in saved.items()})
     check("website flow: the room for a name in 3 Save's note is the note's width at the smallest size of the window",
@@ -1725,10 +1725,10 @@ def test_long_site_name(eq_screen, flow, monkeypatch, tmp_path, check):
         tw.load_image(_graph().copy(0, 0, 1199, 719), entry=dict(entry, site=site))
         qt.wait_for(lambda tw=tw: not tw.loading and not tw.reading_graph and tw.read_ok is not None, 20)
         note = tw.save_note.text()
-        part = note[note.find(" from “") + 7:note.find("”. Compare")]
+        part = note[note.find(" from “") + 7:note.find("”. Verify")]
         seen[key + ", 3 Save"] = (len(part) <= NAME_MAX + 1 and part.endswith("…"), "…." not in note
-                                  and note.startswith(f"The app traced the graph of “{ENTRY}” from “{part}”. Compare "
-                                                      "the curve with the picture."), note[:60])
+                                  and note.startswith(f"Traced graph for “{ENTRY}” from “{part}”. Verify it against "
+                                                      "the image,"), note[:60])
         tw.remove_image()
     # (a small screen stood in: 450 px of room, the window low on it; it moves up into the room)
     monkeypatch.setattr(QScreen, "availableGeometry", lambda self: QRect(0, 0, 1097, 450))
@@ -2159,7 +2159,7 @@ def test_users_picture_after_read_drops_its_note(eq_screen, flow, monkeypatch, c
     tw.changed()
     tw.show_tab(2)
     check("website flow: a picture of yours after a traced one: 3 Save's note no longer names the website's graph",
-          came and tw.auto_note == "" and "The app traced the graph" not in tw.save_note.text(), tw.save_note.text())
+          came and tw.auto_note == "" and "Traced graph for" not in tw.save_note.text(), tw.save_note.text())
 
 
 def test_wait_window_light_and_dark(eq_screen, flow, tmp_path, check):
@@ -2407,9 +2407,9 @@ def test_find_a_target_says_add_as_target(eq_screen, fresh_studio, flow, monkeyp
         pk.deleteLater()
     check("website flow: Find a target, a website entry of the other group: the note of 3 Save tells the user to click "
           "Add as target, and says that the target line is a second target", row is not None and row.get("other")
-          and came and "If they agree, click Add as target." in note and "Add as measurement" not in note
+          and came and "then click Add as target." in note and "Add as measurement" not in note
           and button == ("Add as target", "target")
-          and "Add the target line as target… adds that line as a target, not the Average curve." in note, note)
+          and "use “Add the target line as target…” to save it instead of the Average curve." in note, note)
     check("website flow: Find a target, Add as target makes the traced curve the target in use and does not "
           "change the measurements in use; the source record has no mark of the wanted add",
           after[0] == NAME + ".txt" and meas and after[1] == meas  # (the measurements in use do not change)
@@ -2430,7 +2430,7 @@ def test_one_measurement_curve_and_a_target_line_have_no_note(eq_screen, flow, m
     tw.t.smooth()  # (the target line becomes a measurement curve: two files)
     tw.changed()
     check("website flow: with two measurement curves the note of 2 Trace shows",
-          tw.curves_note.text().startswith("The app saves the curves as one device") and len(tw.outputs()) == 2,
+          tw.curves_note.text().startswith("Saved as one measurement") and len(tw.outputs()) == 2,
           tw.curves_note.text())
 
 
@@ -2443,7 +2443,7 @@ def test_renamed_target_line_shows_the_note(eq_screen, flow, monkeypatch, check)
     box.setText("R")
     box.textEdited.emit("R")
     check("website flow: a renamed target line is a measurement curve: the note about one file for each curve shows "
-          "at once", came and before == "" and tw.curves_note.text().startswith("The app saves the curves")
+          "at once", came and before == "" and tw.curves_note.text().startswith("Saved as one measurement")
           and len(tw.outputs()) == 2, (before, tw.curves_note.text()))
 
 
@@ -2725,9 +2725,9 @@ def test_note_of_an_entry_with_no_site(eq_screen, flow, check):
     qt.wait_for(lambda: not tw.loading and not tw.reading_graph and tw.read_ok is not None, 20)
     note = tw.save_note.text()
     tw.remove_image()
-    # (only the start of the note: more words can come before "Compare the curve")
+    # (only the start of the note: more words can come before "Verify it")
     check("website flow: 3 Save's note for an entry with no site names the entry only, with no “from”",
-          note.startswith(f"The app traced the graph of “{ENTRY}”. ") and " from “" not in note, note[:80])
+          note.startswith(f"Traced graph for “{ENTRY}”. ") and " from “" not in note, note[:80])
 
 
 def test_the_focus_on_the_picture_after_the_read(eq_screen, flow, monkeypatch, check):
@@ -3614,7 +3614,7 @@ def test_remove_image_no_during_a_large_load_does_not_write_a_message_about_a_st
         return real_warning(*a, **k)
 
     def words(text):
-        if text.startswith("New curve “"):
+        if text.startswith("Added curve “"):
             return "New curve"
         return "empty" if text == trace_window.IDLE else text
     monkeypatch.setattr(QMessageBox, "warning", warning)

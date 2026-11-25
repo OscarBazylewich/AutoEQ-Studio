@@ -20,7 +20,7 @@ HELP_TRACE = {'#tr-auto-on': ["The app adjusts the tracer's settings for the ima
                'difference from a target.', 'compensated'],
  '#tr-comp': ['The target of a graph that shows the difference from a target. The app adds this target to the '
               'curve.', 'compensated'],
- '#tr-target-line': ['Adds the target line of the picture as a target. You give its name first.', 'tracer',
+ '#tr-target-line': ["Save the graph's target line as a new target", 'tracer',
                      'databases']}
 
 SETTINGS_TRACE = [{'title': 'Trace a graph image',
@@ -107,7 +107,7 @@ SETTINGS_TRACE = [{'title': 'Trace a graph image',
                                        'you save it. The target must be in the app.']},
                              {'key': '#tr-target-line',
                               'title': 'Add the target line as target…',
-                              'body': ['Adds the target line of the picture as a target. You give its name first. It '
+                              'body': ["Save the graph's target line as a new target. You give its name first. It "
                                        'shows only when the app found a target line next to a measurement in a '
                                        'picture from a website.',
                                        'If the picture has only a target line, the app traces that line as the curve '
