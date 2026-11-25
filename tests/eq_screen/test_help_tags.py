@@ -22,7 +22,11 @@ NO_TOOLTIP = {"#opt-view", "#target-save", "#compare-results", "#make-way", "#by
               "site_sweep.q_max", "res.error", "res.preamp", "res.maxq", "res.boost", "fcounts", "f_retry",
               "export.apo", "export.graphic", "export.poweramp", "export.uapp", "export.soundsource",
               "export.voicemeeter", "export.rockbox", "export.convolution", "site.sample_rate", "site.smooth_level",
-              "performance.cores"}
+              "performance.cores",
+              # (area 15: Listen's Sound, Tone from … to, Volume, Same level, Hide the names, Ears, Left, Right and
+              # Your EQs to compare)
+              "#snd-src", "#tone-from", "#snd-vol", "#snd-lm", "#snd-blind", "#snd-ears", "#snd-left", "#snd-right",
+              "snd_list"}
 
 
 @pytest.mark.timeout(600)  # (the tracer's labels read and three Auto traces first)
@@ -367,6 +371,36 @@ def test_help_search_finds_an_eq_app_by_its_name(eq_screen, check):
     check("help: the search finds the entry “Load the EQ in your EQ app” by the name of each app of the Your EQ app "
           "list, and a name that only this entry has shows the entry on the page",
           not missed and shown == (1, "load-eq", True), (missed, shown))
+
+
+def test_listen_without_help_lines(eq_screen, check):
+    # (2026-11-24, the text survey, area 15: the Help lines of 9 controls of Listen removed, and the line of the ABX
+    # test changed. A list, a slider, the two Hz boxes and the title Your EQs to compare show no tooltip; Same level
+    # and Hide the names keep the tooltip that Listen gives them; a screen reader reads their name only. The row of
+    # the ABX test, its lists and the panel of the test show the new line)
+    from PySide6.QtWidgets import QLabel
+    from ui import help_window
+    lis = eq_screen.page.listen
+    head = next(w for w in lis.findChildren(QLabel) if w.text() == "Your EQs to compare")
+    bare = {"Sound": lis.src, "Volume": lis.vol, "from": lis.tone_from, "to": lis.tone_to, "Ears": lis.ears,
+            "Left": lis.left, "Right": lis.right, "Your EQs to compare": head}
+    got = {n: (w.toolTip(), w.accessibleName(), w.accessibleDescription(), bool(help_window.entry_of_widget(w)))
+           for n, w in bare.items()}
+    check("help: Sound, Volume, Tone from … to, Ears, Left, Right and Your EQs to compare of Listen show no tooltip, "
+          "and keep their name for a screen reader and their entry in Help",
+          got == {"Sound": ("", "Sound", "", True), "Volume": ("", "Volume", "", True),
+                  "from": ("", "Tone: from … to", "", True), "to": ("", "Tone: from … to", "", True),
+                  "Ears": ("", "Ears", "", True), "Left": ("", "Left", "", True), "Right": ("", "Right", "", True),
+                  "Your EQs to compare": ("", "Your EQs to compare", "", True)}, got)
+    got = {n: (w.toolTip(), w.accessibleDescription()) for n, w in (("Same level", lis.lm), ("Hide the names", lis.blind))}
+    check("help: Same level and Hide the names keep the tooltip of their own, and a screen reader reads no line of Help",
+          got == {"Same level": ("Matches loudness across all versions so volume doesn't skew comparisons", ""),
+                  "Hide the names": ("Labels versions A, B, C… in random order until you click “Show the names”", "")},
+          got)
+    line = "Blind test to see if you can tell two versions apart"
+    got = [(w.toolTip(), w.accessibleDescription()) for w in (lis.abx_row, lis.abx_a, lis.abx_b, lis.abx_n, lis.abx_box)]
+    check("help: the row of the ABX test, its 3 lists and the panel of the test show the new line, which a screen "
+          "reader reads too", got == [(line, line)] * 5, got)
 
 
 def test_numbers_of_your_result_without_a_help_line(eq_screen, check):
