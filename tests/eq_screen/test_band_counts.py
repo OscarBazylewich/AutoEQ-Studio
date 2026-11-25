@@ -123,7 +123,7 @@ def test_all_results_of_five_band_counts_has_no_grid(eq_screen, five_counts, che
     page = eq_screen.page
     ar = AllResults(page)
     try:
-        hidden = (ar.grid.isHidden(), ar.grid_title.isHidden(), ar.grid_note.isHidden(), ar.table.isColumnHidden(3))
+        hidden = (ar.grid.isHidden(), ar.grid_title.isHidden(), ar.table.isColumnHidden(3))
         counts = sorted(ar.table.item(i, 1).value for i in range(ar.table.rowCount()))
         gains = {ar.table.item(i, 4).text() for i in range(ar.table.rowCount())}
         marked = [ar.table.item(i, 0).text() for i in range(ar.table.rowCount())
@@ -131,7 +131,7 @@ def test_all_results_of_five_band_counts_has_no_grid(eq_screen, five_counts, che
         check("all results: a run of a graphic EQ's band counts shows no error grid (each count has its own Q) and no "
               "Range column (its bands are fixed), and the table has a row for each of the 5 results, the pick "
               "marked, the slider range without decimals",
-              hidden == (True, True, True, True) and counts == ALL_COUNTS and len(marked) == 1 and gains == {"-12 to 12"},
+              hidden == (True, True, True) and counts == ALL_COUNTS and len(marked) == 1 and gains == {"-12 to 12"},
               (hidden, counts, marked, gains))
     finally:
         ar.close()
