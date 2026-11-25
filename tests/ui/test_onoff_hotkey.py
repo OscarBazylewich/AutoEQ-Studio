@@ -101,7 +101,7 @@ def test_devices_while_off_for_now(on_device, qapp, check):
           words.startswith("EQ off, to compare: Headset (EarPods): ")
           and words.endswith(". Press Ctrl+Alt+Space to turn EQ back on.") and back is not None
           and no_key and words == f"EQ off, to compare: {no_key} Press Ctrl+Alt+Space to turn EQ back on."
-          and line == "EQ off, to compare"
+          and line == "Compare: EQ off"
           and no_check and card_gone and w.sw.compare is None and not win.compare_holder.isVisibleTo(win),
           (line, words[:300], no_key, no_check, card_gone))
 
@@ -116,16 +116,26 @@ def test_the_apps_notices(check):
     plain = App.compare_text(fake, ("off", {"matched": False, "db": None, "louder": False, "complete": True}))
     louder = App.compare_text(fake, ("off", {"matched": True, "db": 0.0, "louder": True, "complete": False}))
     on = App.compare_text(fake, ("on", "Daily"))
+    on_none = App.compare_text(fake, ("on", None))
+    sw.s["onoff_hotkey"] = ""
+    no_key = App.compare_text(fake, ("off", {"matched": False, "db": None, "louder": False, "complete": True}))
+    sw.s["onoff_hotkey"] = "Ctrl+Alt+Space"
     rec = {"label": "Headset", "profiles": [], "active": None}
     sw.playing = lambda: (KEY, rec)
     sw.compare_toggle = lambda key: None
     App.on_onoff(fake)
+    App.on_hotkey(fake)  # (the other hotkey on the same device: the same words)
     check("onoff: the notices say what happened: off for now level-matched (by how much), truly off, an EQ louder than "
           "none (it can't be matched) and one that can't be fully measured, back on (its name); a device with nothing "
           "to switch says how to give it one",
-          "4.2 dB lower" in off and "Ctrl+Alt+Space enables it again" in off and plain.startswith("EQ off, to compare.")
-          and "cannot have the same level" in louder and "cannot measure some parts" in louder and on == "EQ on again: Daily"
-          and said and "Add a profile" in said[-1][1], (off, plain, louder, on, said))
+          off == "EQ off to compare (4.2 dB lower). Press Ctrl+Alt+Space to turn back on."
+          and plain == "EQ off to compare. Press Ctrl+Alt+Space to turn back on."
+          and louder == ("EQ off to compare (0.0 dB lower). Press Ctrl+Alt+Space to turn back on. Level match skipped "
+                         "to avoid clipping. (Approximate level match: some filters couldn't be measured.)")
+          and no_key == "EQ off to compare. Press the on/off hotkey to turn back on."
+          and on == "EQ on: Daily" and on_none == "EQ on"
+          and [text for _, text in said] == ["No profiles for this device. Open Devices to add one."] * 2,
+          (off, plain, louder, no_key, on, on_none, said))
 
 
 def test_the_tray_menu_item(on_device, qapp, check):

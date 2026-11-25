@@ -177,9 +177,9 @@ class DevicesScreen:
         d, rec = self.sw.device(key), self.sw.record(key)
         where = "Active" if key == self.sw.playing_key else "Connected" if d and d.connected else "Not connected"
         if self.sw.compare and self.sw.compare["key"] == key:
-            return where, "EQ off, to compare"
+            return where, "Compare: EQ off"
         if self.sw.trial and self.sw.trial["key"] == key:
-            return where, f"For 5 minutes: {self.sw.trial['name']}"
+            return where, f"5-min preview: {self.sw.trial['name']}"
         name = self.sw.profile_name(rec["active"]) if rec else None
         return where, f"EQ: {name}" if name else "EQ off"
 

@@ -26,16 +26,18 @@ from switcher.core import shown
 from ui import icons, theme, winsys
 
 POLL_MS = 1500
+# (the notice of either hotkey on a device with no profiles: one text for both, the text survey, 2026-11-24)
+NO_PROFILES = "No profiles for this device. Open Devices to add one."
 
 
 
 def trial_words(sw, key):
-    """The tray menu's line for a 5-minute EQ: short, its time first (the UI audit, 2026-11-08: it was 740 px wide);
-    the device's name when it isn't the active one (key), whose EQs the menu lists."""
+    """The tray menu's line for a 5-minute EQ: short (the UI audit, 2026-11-08: it was 740 px wide; the words of the
+    text survey, 2026-11-24); the device's name when it isn't the active one (key), whose EQs the menu lists."""
     t = sw.trial
     left = max(0, int(t["until"] - time.time()))
     where = "" if t["key"] == key else f" on {shown(sw.record(t['key']))}"
-    return f"EQ for 5 minutes{where}: {left // 60}:{left % 60:02d} until the end"
+    return f"5-min preview{where}: {left // 60}:{left % 60:02d} left"
 
 class App:
     def __init__(self, qapp, show):
@@ -136,10 +138,10 @@ class App:
     def eq_text(self, rec):
         c = self.sw.compare
         if c and self.sw.record(c["key"]) is rec:
-            return "EQ off, to compare" + (" (same level)" if c["matched"] else "")
+            return "Compare: EQ off" + (" (same level)" if c["matched"] else "")
         t = self.sw.trial
         if t and self.sw.record(t["key"]) is rec:
-            return f"For 5 minutes: {t['name']}"
+            return f"5-min preview: {t['name']}"
         name = self.sw.profile_name(rec["active"])
         return f"EQ: {name}" if name else "EQ off"
 
@@ -151,13 +153,13 @@ class App:
         try:
             self.sw.end_trial(keep)
         except (OSError, ValueError) as e:
-            QMessageBox.warning(self.win, "Use for 5 minutes", f"AutoEQ Studio did not keep it: {e}")
+            QMessageBox.warning(self.win, "Use for 5 minutes", f"Couldn't save preview as a profile: {e}")
             self.sw.end_trial(False)
             return
         rec = self.sw.record(t["key"])
         if rec:
-            self.tray_message(shown(rec), f"AutoEQ Studio kept “{t['name']}” as its EQ." if keep else
-                              f"EQ for 5 minutes: “{t['name']}” stopped. {self.eq_text(rec)}.")
+            self.tray_message(shown(rec), f"Saved “{t['name']}” as a profile" if keep else
+                              f"5-min preview “{t['name']}” ended. {self.eq_text(rec)}.")
 
     def update_tray_icon(self):
         """The tray icon and its tooltip: the device playing and its EQ (blue: an EQ on; grey: off)."""
@@ -166,7 +168,7 @@ class App:
         trying = bool(rec and self.sw.trial and self.sw.trial["key"] == key)  # (a trial plays: blue too)
         off = bool(rec and self.sw.compare and self.sw.compare["key"] == key)  # (off for now: grey)
         self.tray.setIcon(icons.app_icon(on=(bool(name) or trying) and not off))
-        self.tray.setToolTip("AutoEQ Studio\n" + (f"{shown(rec)}: {self.eq_text(rec)}" if rec else "No active device"))
+        self.tray.setToolTip("AutoEQ Studio\n" + (f"{shown(rec)}\n{self.eq_text(rec)}" if rec else "No active device"))
 
     def tray_message(self, title, text):
         self.tray.showMessage(title, text, icons.app_icon(), 4000)
@@ -209,8 +211,7 @@ class App:
                 a = QAction(f"For 5 minutes: {t['name']}", m)
                 a.setCheckable(True)
                 a.setActionGroup(group)
-                a.setChecked(True)
-                a.setToolTip("The EQ for 5 minutes. Keep it makes it a profile of the device.")
+                a.setChecked(True)  # (no tooltip of its own: a QMenu does not show one; the text survey, 2026-11-24)
                 m.addAction(a)
             if not rec["profiles"]:
                 a = m.addAction("Add a profile…")
@@ -247,7 +248,7 @@ class App:
         if not rec:
             return
         if not rec["profiles"]:
-            self.tray_message(shown(rec), "This device has no profiles. Add a profile in AutoEQ Studio.")
+            self.tray_message(shown(rec), NO_PROFILES)
             return
         self.sw.cycle(key)
         if self.sw.s["notify"]:
@@ -262,25 +263,26 @@ class App:
         try:
             got = self.sw.compare_toggle(key)
         except OSError as e:
-            self.tray_message(shown(rec), f"The EQ did not change: {e}")
+            self.tray_message(shown(rec), f"Couldn't change EQ: {e}")
             return
         if got is None:
-            self.tray_message(shown(rec), "This device has no EQ to disable and enable. Add a profile in AutoEQ Studio.")
+            self.tray_message(shown(rec), NO_PROFILES)
         elif self.sw.s["notify"]:
             self.tray_message(shown(rec), self.compare_text(got))
 
     def compare_text(self, got):
         """The on/off hotkey's notice."""
         if got[0] == "on":
-            return f"EQ on again: {got[1]}" if got[1] else "EQ on again"
+            return f"EQ on: {got[1]}" if got[1] else "EQ on"
         c, hk = got[1], self.sw.s.get("onoff_hotkey") or "the on/off hotkey"
+        back = f"Press {hk} to turn back on."
         if not c["matched"]:
-            return f"EQ off, to compare. {hk} enables it again."
-        how = f"{abs(c['db']):.1f} dB lower, for the same loudness as the EQ" if c["db"] else "the same loudness as the EQ"
-        extra = (" The EQ has more loudness than no EQ: “off” cannot have the same level without clipping."
-                 if c["louder"] else "") \
-            + (" (Approximate: AutoEQ Studio cannot measure some parts of this EQ.)" if not c["complete"] else "")
-        return f"EQ off, to compare, same level ({how}). {hk} enables it again.{extra}"
+            return f"EQ off to compare. {back}"
+        # (level-matched: how much lower "off" plays, also "0.0 dB lower" for an EQ as loud as none or louder: the
+        # owner's words have the number in all cases; the sentence about clipping then says why)
+        extra = (" Level match skipped to avoid clipping." if c["louder"] else "") \
+            + (" (Approximate level match: some filters couldn't be measured.)" if not c["complete"] else "")
+        return f"EQ off to compare ({abs(c['db'] or 0):.1f} dB lower). {back}{extra}"
 
     def set_hotkey(self, text, save=True):
         self._set_key("hotkey", self.hotkey, text, save)
@@ -311,7 +313,7 @@ class App:
         try:
             winsys.set_autostart(on)
         except OSError as e:
-            QMessageBox.warning(self.win, "Start with Windows", f"The setting did not change: {e}")
+            QMessageBox.warning(self.win, "Start with Windows", f"Couldn't update setting: {e}")
         self.sw.set("autostart", winsys.autostart_on())
 
     def set_offline(self, on):

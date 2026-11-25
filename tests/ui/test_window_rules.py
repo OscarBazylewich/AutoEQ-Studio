@@ -44,6 +44,60 @@ def test_the_tray_menu_open_first_quit_last(devices_window, check):
           and "Keep it" in trial and "Do not keep it" in trial and "Stop trying" not in trial, (items, default, trial))
 
 
+def test_the_tray_texts(devices_window, check):
+    """The words of the tray (the text survey, 2026-11-24): the 5-minute line of the menu (the time left; the device's
+    name when it isn't the active one), the 5-minute item with no tooltip of its own, the icon's tooltip on 3 lines,
+    and the notices after Keep it and after the 5 minutes."""
+    import re
+
+    from PySide6.QtCore import QCoreApplication, QEvent
+    from PySide6.QtWidgets import QMenu
+    from ui.app import App, trial_words
+    w = devices_window
+    sw = w.sw
+    tips = []
+    fake = types.SimpleNamespace(sw=sw, menu=QMenu(), win=w.win, on_onoff=lambda: None,
+                                 end_trial=lambda keep=False: None, switch=lambda key, pid: None, quit=lambda: None,
+                                 tray=types.SimpleNamespace(setIcon=lambda icon: None, setToolTip=tips.append))
+    fake.eq_text = lambda rec: App.eq_text(fake, rec)
+    try:
+        sw.trial = {"key": KEY, "name": "Bright", "until": time.time() + 200}
+        App.build_menu(fake)
+        item = next(a for a in fake.menu.actions() if a.text() == "For 5 minutes: Bright")
+        own_tip = item.toolTip() != item.text()  # (Qt gives an action with no tooltip of its own its text)
+        line, elsewhere = trial_words(sw, KEY), trial_words(sw, "Other|Device")
+        App.update_tray_icon(fake)
+        sw.trial = None
+        sw.compare = {"key": KEY, "matched": True, "db": -2.0, "louder": False, "complete": True}
+        App.update_tray_icon(fake)
+        sw.compare["matched"] = False
+        plain = App.eq_text(fake, sw.record(KEY))
+    finally:
+        sw.trial = sw.compare = None
+        fake.menu.deleteLater()  # (now: its actions' call-backs hold the stand-in, a loop the collector would find)
+        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+    # (Keep it and the time up, on a stand-in switcher: the real one needs APO on the device)
+    said, rec = [], {"label": "Headset", "profiles": ["p"], "active": "p"}
+    stand_in = types.SimpleNamespace(compare=None, record=lambda key: rec, profile_name=lambda pid: "Daily" if pid else None)
+    stand_in.end_trial = lambda keep: setattr(stand_in, "trial", None)
+    notices = types.SimpleNamespace(sw=stand_in, tray_message=lambda title, text: said.append(text))
+    notices.eq_text = lambda r: App.eq_text(notices, r)
+    for keep in (True, False):
+        stand_in.trial = {"key": KEY, "name": "Bright"}
+        App.end_trial(notices, keep)
+    check("tray: the 5-minute line says the time left (and the device when it isn't the active one), the 5-minute "
+          "item has no tooltip of its own, the icon's tooltip has the device and its EQ on lines of their own, and "
+          "the notices after Keep it and after the 5 minutes use the survey's words",
+          re.fullmatch(r"5-min preview: [0-3]:[0-5]\d left", line) is not None
+          and re.fullmatch(r"5-min preview on Headset \(EarPods\): [0-3]:[0-5]\d left", elsewhere) is not None
+          and not own_tip
+          and tips == ["AutoEQ Studio\nHeadset (EarPods)\n5-min preview: Bright",
+                       "AutoEQ Studio\nHeadset (EarPods)\nCompare: EQ off (same level)"]
+          and plain == "Compare: EQ off"
+          and said == ["Saved “Bright” as a profile", "5-min preview “Bright” ended. EQ: Daily."],
+          (line, elsewhere, own_tip, tips, plain, said))
+
+
 def test_a_profile_taken_off_a_device_comes_back_with_undo(devices_window, qapp, check):
     from PySide6.QtWidgets import QToolButton
     w = devices_window

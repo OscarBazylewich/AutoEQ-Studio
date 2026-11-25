@@ -344,7 +344,7 @@ def test_trying_an_eq_for_5_minutes(set_up_window, check, qapp):
         check("devices: Try for 5 minutes plays the EQ on that device only (APO's file, the bar, the status), Keep it "
               "makes it a profile switched on; a hand switch or the time up ends it; one left by a crash is gone at the "
               "next start",
-              trying == (1, True, True, "For 5 minutes: Trial EQ") and after_crash == (False, False) and leftover.trial is None
+              trying == (1, True, True, "5-min preview: Trial EQ") and after_crash == (False, False) and leftover.trial is None
               and kept_it == ("Trial EQ", True, None, False) and by_hand == (None, False, True) and sw.trial is None
               and "_trying" not in _read(swt), (trying, after_crash, kept_it, by_hand, sw.trial))
     finally:  # (as the old check left it, line 567: the profile it kept removed)

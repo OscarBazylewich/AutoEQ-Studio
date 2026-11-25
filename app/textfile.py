@@ -163,7 +163,7 @@ def read_json_kept(path, kind):
     return kind()
 
 
-_SET_ASIDE = []  # what set_aside() said, until the page is told (api.handle adds it to the next answer)
+_SET_ASIDE = []  # (file, copy) of each set_aside(), until the page is told (api.handle adds it to the next answer)
 
 
 def set_aside(path):
@@ -174,16 +174,25 @@ def set_aside(path):
         bad, n = f"{path}.{n}.bad", n + 1
     os.replace(path, bad)
     print(f"{path} couldn't be read: it is kept as {bad} and a new one is started.")
-    _SET_ASIDE.append(f"Couldn't read {os.path.basename(path)}. Backed up as {os.path.basename(bad)} and created a "
-                      "new file.")
+    _SET_ASIDE.append((path, bad))
     return bad
+
+
+def set_aside_words(path, bad):
+    """The words of one set_aside() for the person (the EQ part's files; the switcher's settings have their own)."""
+    return f"Couldn't read {os.path.basename(path)}. Backed up as {os.path.basename(bad)} and created a new file."
+
+
+def take_set_aside_files():
+    """The (file, copy) pairs of set_aside() since it was last asked (for a caller with words of its own)."""
+    pairs = list(_SET_ASIDE)
+    _SET_ASIDE.clear()
+    return pairs
 
 
 def take_set_aside():
     """What set_aside() said since it was last asked ("" when nothing)."""
-    said = " ".join(_SET_ASIDE)
-    _SET_ASIDE.clear()
-    return said
+    return " ".join(set_aside_words(p, b) for p, b in take_set_aside_files())
 
 
 def write_json(path, data, indent=None, quiet=True):

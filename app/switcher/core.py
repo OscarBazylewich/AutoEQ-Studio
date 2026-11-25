@@ -87,15 +87,19 @@ class Switcher:
             s = textfile.read_json_kept(self.path, dict)
         except OSError as e:
             s, self.read_only = {}, True
-            self.problem = (f"AutoEQ Studio cannot read its settings ({e}). Thus, it makes no changes, and the EQs of "
-                            "your devices stay the same. Close the program that has the file open. Then start AutoEQ "
-                            "Studio again.")
-        aside = textfile.take_set_aside()
+            self.problem = (f"Couldn't read the settings file ({e}). Your device EQs are unchanged. Close any app using "
+                            "this file and restart AutoEQ Studio.")
+        aside = textfile.take_set_aside_files()
         if aside:  # (APO's file not written until you change a device's EQ: from empty settings every EQ would go off)
             self.hold = True
-            self.problem = (aside + " AutoEQ Studio did not change the EQs of your devices. The EQ files of the "
-                            "profiles are in the \"AutoEQ Studio\" folder of Equalizer APO (import them again in "
-                            "Profiles).")
+            # (the settings' own words, the text survey 2026-11-24; a file of another part, set aside before, keeps
+            # the shared words)
+            own = os.path.normcase(os.path.abspath(self.path))
+            self.problem = " ".join(
+                f"Couldn't read {os.path.basename(p)}. Backed it up as {os.path.basename(b)} in the data folder and "
+                "created a new settings file. Your device EQs are unchanged, but profiles were reset: re-import them "
+                "in Profiles from Equalizer APO's “AutoEQ Studio” folder."
+                if os.path.normcase(os.path.abspath(p)) == own else textfile.set_aside_words(p, b) for p, b in aside)
         # (keys of other parts, e.g. Listen's and the tracer's choices, kept as they are)
         out = {k: v for k, v in s.items() if k not in DEFAULTS}
         out.update({k: s.get(k, v) if isinstance(s.get(k, v), type(v)) else v for k, v in DEFAULTS.items()})
@@ -670,7 +674,7 @@ class Switcher:
         """Read-only (the settings file held by another program): nothing of APO's is changed either (review 2: set-up
         and imports still wrote while the settings couldn't be)."""
         if self.read_only:
-            raise OSError(self.problem or "AutoEQ Studio cannot read its settings. Thus, it makes no changes.")
+            raise OSError(self.problem or "Couldn't read settings")
 
     def add_to_apo(self, turn_off=True):
         self._require_writable()
