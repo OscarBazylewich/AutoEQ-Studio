@@ -95,7 +95,44 @@ def test_sources(eq_screen, monkeypatch, check):
     check("sources: a database switched off and on, one added by its address (a wrong or repeated address said), "
           "removed again, the folders one per line; offline, squig.link's list isn't fetched",
           off and on and added and removed and folders == ["C:\\Music", "D:\\Curves"] and offline_note
-          and len(said) == 2 and "https://" in said[0] and "is in the list" in said[1], (off, on, added, removed, folders, said))
+          and len(said) == 2 and "https://" in said[0] and said[1] == "Database already added",
+          (off, on, added, removed, folders, said))
+
+
+def test_squiglink_note_hidden_while_loading(eq_screen, monkeypatch, check):
+    # (the text survey, 2026-11-24: the gray line above squig.link's list said "From squig.link's list (in progress…),
+    # or with the URL of a page." while the list loaded; that text went, and the line is hidden then: the list's own
+    # line says that it loads. Online is stood in for net.offline() only; the answer of the background call is given
+    # by the test, so nothing connects)
+    import net
+    from ui import sources_window
+    from ui.sources_window import Sources
+    answers = []
+    monkeypatch.setattr(net, "offline", lambda: False)
+    monkeypatch.setattr(sources_window.tasks, "background", lambda work, done, owner=None: answers.append(done))
+    src = Sources(eq_screen.page)
+    try:
+        src._refresh_soon.stop()
+        src.show()
+        src.show_tab(2)  # (its tab: Add a database)
+        qt.pump(100)
+        loading = (src.dir_note.isVisible(), src.dir_note.text(), src.dir_empty.label.text())
+        answers[-1](None, "no connection")
+        qt.pump(50)
+        failed = (src.dir_note.isVisible(), src.dir_note.text())
+        answers[-1]({"items": [{"name": n, "type": "IEMs", "url": f"https://{n.lower()}.squig.link/"}
+                               for n in ("Example", "Sample")]}, None)
+        qt.pump(50)
+        loaded = (src.dir_note.isVisible(), src.dir_note.text())
+    finally:
+        src._refresh_soon.stop()
+        qt.close(src)
+    seen = {"loading": loading, "failed": failed, "loaded": loaded}
+    check("sources: the gray line above squig.link's list is hidden while the list loads, and shows when the list did "
+          "not load and with the number of databases",
+          loading[:2] == (False, "") and loading[2] == "Loading squig.link's list…"
+          and failed == (True, "You can still add a database by URL below")
+          and loaded == (True, "2 squig.link databases"), seen)
 
 
 def test_smallest_size_fits(eq_screen, check):
@@ -270,5 +307,5 @@ def test_browse_database_from_a_picture(eq_screen, check):
     finally:
         qt.close(src)
     hangout = counts.get("Hangout.Audio IEMs (Crinacle, 5128)", "")
-    check("sources: a database that the app traces from a picture says “· from a picture” after its count",
-          hangout.endswith(" · from a picture") and not any("only in the list" in c for c in counts.values()), hangout)
+    check("sources: a database that the app traces from a picture says “· from image” after its count",
+          hangout.endswith(" · from image") and not any("only in the list" in c for c in counts.values()), hangout)

@@ -3,7 +3,7 @@ ui\\picker.py, ui\\eq_page_files.py, ui\\picture_wait.py, ui\\sources_window.py)
 Hangout.Audio 5128 list shows "trace from website ↗", and Use opens its share link and waits, with the entry
 marked as a target for the tracer and the words about the settings of the website; a Use whose download is refused
 (a made HTTP 403: nothing connects) says so in Find…'s line and goes on with the trace in the same Use; Sources
-then says "· from a picture" for that database. Pictures in light and dark are read back (each saved in the test's
+then says "· from image" for that database. Pictures in light and dark are read back (each saved in the test's
 own folder, its path printed).
 
 Online is stood in for net.offline() only (net.check() stays offline); databases._get is stood in for (db_guard);
@@ -367,7 +367,7 @@ def test_refused_download_goes_on_with_the_trace(eq_screen, online, monkeypatch,
                   for i in range(src.tree.topLevelItemCount()) for j in range(src.tree.topLevelItem(i).childCount())}
     finally:
         qt.close(src)
-    check("website lists: Sources says “· from a picture” for the database that refused the download",
-          counts.get(SUPER, "").endswith(" · from a picture"), counts.get(SUPER))
+    check("website lists: Sources says “· from image” for the database that refused the download",
+          counts.get(SUPER, "").endswith(" · from image"), counts.get(SUPER))
     check("website lists: the refusal is kept in the saved data", os.path.isfile(databases.LIST_ONLY_PATH)
           and databases.norm_url("https://squig.link/") in databases.refusals(), databases.refusals())
