@@ -22,7 +22,9 @@ NO_TOOLTIP = {"#opt-view", "#target-save", "#compare-results", "#make-way", "#by
               "site_sweep.q_max", "res.error", "res.preamp", "res.maxq", "res.boost", "fcounts", "f_retry",
               "export.apo", "export.graphic", "export.poweramp", "export.uapp", "export.soundsource",
               "export.voicemeeter", "export.rockbox", "export.convolution", "site.sample_rate", "site.smooth_level",
-              "performance.cores"}
+              "performance.cores",
+              # (area 30: the line about Equalizer APO and Examine again, Rename… and Edit in Make an EQ)
+              "#dev-check", "#dev-rename", "#prof-edit"}
 
 
 @pytest.mark.timeout(600)  # (the tracer's labels read and three Auto traces first)

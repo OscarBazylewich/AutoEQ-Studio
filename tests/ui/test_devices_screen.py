@@ -910,8 +910,35 @@ def test_the_help_of_remove_says_from_devices(check):
     check("devices: the source lines of the Help of Remove have 120 characters or fewer; the words say \"from "
           "Devices\" (one name), not \"from the list\"",
           not wide and "from the list" not in " ".join(texts)
-          and H.HELP_DEVICES["#dev-remove"] == "Removes a device that is not connected from Devices. Its profiles stay "
-                                               "in Profiles.", (wide, texts))
+          and H.HELP_DEVICES["#dev-remove"] == "Removes this device from Devices without deleting its profiles",
+          (wide, texts))
+
+
+def test_rename_and_examine_again_without_a_help_line(set_up_window, check, monkeypatch):
+    # (2026-11-24, the text survey, area 30: the Help lines of "#dev-rename" and "#dev-check" removed. Rename… and the
+    # two Examine again buttons keep the tooltips that their own code gives them; a screen reader reads their name
+    # (the title of their Help entry) and no line of Help after it; the line about Equalizer APO keeps its tag for F1)
+    from PySide6.QtWidgets import QPushButton
+    from switcher import check as apo_check
+    win = set_up_window.win
+    monkeypatch.setattr(apo_check, "run", lambda apo, guid, timeout=60: {"loaded": [], "matched": []})
+    win.render_device_panel()
+    buttons = win.dev_panel.findChildren(QPushButton)
+    ren = next(b for b in buttons if b.text() == "Rename…")
+    again = [b for b in buttons if b.text() == "Examine again"]
+    got = {"Rename…": (ren.toolTip(), ren.accessibleName(), ren.accessibleDescription(), ren.property("help_key"))}
+    got.update({f"Examine again {i}": (b.toolTip(), b.accessibleName(), b.accessibleDescription(),
+                                       b.property("help_key")) for i, b in enumerate(again)})
+    lab = win.check_label
+    got["line"] = (lab.accessibleName(), lab.accessibleDescription(), lab.property("help_key"))
+    exam = ("Re-check with Equalizer APO's read-only Benchmark tool and show full results",
+            "Does Equalizer APO use the EQ? (Examine again)", "", "#dev-check")
+    check("devices: Rename… and Examine again keep their own tooltips, with no line of Help for a screen reader; the "
+          "line about Equalizer APO keeps its name and its tag for F1",
+          got == {"Rename…": ("Set a custom name for this device (e.g., your headphone or IEM)", "Rename… (a device)",
+                              "", "#dev-rename"),
+                  "Examine again 0": exam, "Examine again 1": exam,
+                  "line": ("Does Equalizer APO use the EQ? (Examine again)", "", "#dev-check")}, got)
 
 
 def test_a_connected_device_stays_and_a_bubble_tells_why(devices_window, qapp, check):

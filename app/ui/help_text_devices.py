@@ -5,22 +5,16 @@ screens'. Words only: nothing is imported here.
 """
 # flake8: noqa
 
-HELP_DEVICES = {'#dev-check': ['Does Equalizer APO use the EQ of this device? AutoEQ Studio examines this automatically, '
-                               'with APO.', 'q-applies'],
- '#presets': 'A preset keeps all the settings of Make an EQ (not your files), with a name. You can load all these '
-             'settings again in one step.',
- '#backup': 'Save a backup… saves all your data in one .zip file. Load a backup… loads your data from this .zip file.',
- '#files-folder': ['The folder for your targets, measurements, saved EQs and presets: Documents\\AutoEQ Studio, unless '
-                   'you selected a different folder (Change…).', 'q-files'],
- '#dev-rename': 'Your name for this device. AutoEQ Studio shows this name, not the Windows name.',
- '#dev-remove': 'Removes a device that is not connected from Devices. Its profiles stay in Profiles.',
- '#prof-edit': ['Make an EQ opens the filters of the selected profile, and you change them manually. Update saves them '
-                'in the profile.', 'by-hand', 'set-use-update'],
- '#hotkey': 'This hotkey changes the EQ of the active device: each EQ in sequence, then Off. It operates in all apps.',
- '#onoff-hotkey': ['This hotkey disables the EQ of the active device and enables it again, to compare. It operates in '
-                   'all apps.', 'match-loudness'],
- '#onoff-matched': ['“Off” has the same loudness as the EQ. Thus, you compare the sound, not the volume.',
-                    'match-loudness']}
+HELP_DEVICES = {'#dev-check': ['', 'q-applies'],
+ '#presets': 'Save and reload Make an EQ settings by name (files aren\'t included)',
+ '#backup': 'Export all data to a .zip backup, or restore any backup file (restarts AutoEQ Studio)',
+ '#files-folder': ['Stores your targets, measurements, saved EQs, and presets', 'q-files'],
+ '#dev-rename': '',
+ '#dev-remove': 'Removes this device from Devices without deleting its profiles',
+ '#prof-edit': ['', 'by-hand', 'set-use-update'],
+ '#hotkey': 'Cycles through the active device\'s EQs, then Off (works in all apps)',
+ '#onoff-hotkey': ['Toggles EQ on or off for the active device (works in all apps)', 'match-loudness'],
+ '#onoff-matched': ['Matches loudness when EQ is off so you compare sound, not volume', 'match-loudness']}
 
 SETTINGS_DEVICES = [{'title': 'Devices',
                      'items': [{'key': '#dev-check',
