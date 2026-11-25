@@ -208,7 +208,7 @@ class App:
                 a.triggered.connect(lambda _=False, pid=pid, key=key: self.set_active_profile(key, pid))
                 m.addAction(a)
             if trying:
-                a = QAction(f"For 5 minutes: {t['name']}", m)
+                a = QAction(f"5-min preview: {t['name']}", m)
                 a.setCheckable(True)
                 a.setActionGroup(group)
                 a.setChecked(True)  # (no tooltip of its own: a QMenu does not show one; the text survey, 2026-11-24)

@@ -32,7 +32,7 @@ def test_value_of_your_own_and_a_wrong_one(eq_screen, fold, check):
     wrong = (f.box.property("bad"), page.S["best_fit"]["filter_counts"])
     # was eq_checks.py:1503
     check("ui: settings: a value of your own is used and marked yours; a wrong one is red and not used",
-          yours == ([4, 5, 6, 7, 8], True, "your value ↺") and wrong == (True, [4, 5, 6, 7, 8]), (yours, wrong))
+          yours == ([4, 5, 6, 7, 8], True, "custom ↺") and wrong == (True, [4, 5, 6, 7, 8]), (yours, wrong))
 
 
 def test_past_a_limit_and_to_below_from(eq_screen, fold, check):

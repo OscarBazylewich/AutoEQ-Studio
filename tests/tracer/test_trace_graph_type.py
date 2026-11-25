@@ -198,9 +198,9 @@ def test_four_types_one_add_button(eq_screen, tmp_path, check):
           "and more than one curve); it is also the description of the add button for a screen reader",
           all(v["line in sight"] and v["line"] == (WHAT if n == 1 else WHAT_2)[kind] and v["described"] == v["line"]
               for (n, kind), v in seen.items()), {k: (v["line"], v["described"]) for k, v in seen.items()})
-    order = ["Name", "Points in each octave", "The graph shows", "Target of the graph", "Save from … to (Hz)",
+    order = ["Name", "Points per octave", "The graph shows", "Target of the graph", "Save from … to (Hz)",
              "Save from … to (Hz)"]
-    check("tracer: Tab goes through 3 Save from its top to its end (Name, Points in each octave, The graph shows, "
+    check("tracer: Tab goes through 3 Save from its top to its end (Name, Points per octave, The graph shows, "
           "Target of the graph when it shows, the two boxes of Save from), each control has a name for a screen "
           "reader, and F1 has an entry for each of the two lists",
           all(v["tab"] == [n for n in order if kind in DIFFERENCES or n != "Target of the graph"]
@@ -399,7 +399,7 @@ def _stand_in_read(target_line=False, only=False):
             ys[100:200] = 350.0
             line = {"label": "Target", "colour": (136, 136, 136), "ys": ys, "target": True}
             t.curves.append(line)
-        return AutoRead(True, t, [Check("axes_plot", True, "The app found the graph in the picture.")], t.curves[0],
+        return AutoRead(True, t, [Check("axes_plot", True, "The app found the graph in the image.")], t.curves[0],
                         line, None, None, None, 0.01, "", only)
     return read
 

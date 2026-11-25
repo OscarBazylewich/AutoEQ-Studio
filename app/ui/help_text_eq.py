@@ -186,7 +186,7 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'title': 'Automatic settings',
                            'body': ['Adjusts the settings of the method for your measurement and target. These are the '
                                     'error range, the filter counts, the minimum and maximum gain, the Q limits and '
-                                    'the shelves. A setting that you change shows “your value”, and the app keeps it. '
+                                    'the shelves. A setting that you change shows “custom”, and the app keeps it. '
                                     'Off: the app uses each setting as it is.',
                                     'More settings has the other settings, and the app sets them for you too.']},
                           {'key': 'rig_convert.enabled',
@@ -828,6 +828,6 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'Save as a preset… opens a box for a name (the new preset replaces a preset with '
                                     'the same name). Click a preset to load all its settings. Undo, adjacent to the '
                                     'message at the bottom, loads the previous settings again.',
-                                    'Delete a preset removes a preset. Use the initial settings… sets all settings to '
+                                    'Delete a preset removes a preset. Reset all settings… sets all settings to '
                                     'their initial values (the app keeps your files and presets). Presets are files in '
                                     'your Presets folder (Settings › Your files).']}]}]

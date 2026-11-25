@@ -678,11 +678,11 @@ class EqSettings:
         items = []
         for n in notes:
             text = n["text"].replace("&", "&amp;").replace("<", "&lt;")
-            if n.get("path") in mine:  # ("yours" in the accent as text: 4.5:1 on the card, light or dark)
+            if n.get("path") in mine:  # ("custom" in the accent as text: 4.5:1 on the card, light or dark)
                 # (a note that is a sentence, as the limits of an EQ app, loses its last period here: "(overridden)"
                 # follows it as the last word of the line)
                 text = text[:-1] if text.endswith(".") and not text.endswith("..") else text
-                items.append(f"<li><span style='color:{t['accent_text']}'>your value</span> · Automatic: {text} "
+                items.append(f"<li><span style='color:{t['accent_text']}'>custom</span> · Automatic: {text} "
                              "(overridden)</li>")
             else:
                 items.append(f"<li>{text}</li>")
@@ -694,7 +694,7 @@ class EqSettings:
         self.mine_box.setVisible(on and bool(mine))
         # (eq.settings' names for these settings: the automatic notes that name a setting use them too)
         self.mine_text.setText("Custom values: " + ", ".join(self.eq_settings.AUTO_NAMES.get(p, p) for p in mine)
-                               + " (click “your value ↺” to reset)")
+                               + " (click “custom ↺” to reset)")
         tags = {p: ("yours" if p in mine else "auto") for p in self.auto_paths} if on else {}
         self.form.refresh(tags)
         self.adv_form.refresh(tags)

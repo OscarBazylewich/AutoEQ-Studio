@@ -308,7 +308,7 @@ class DevicesScreen:
             note.setContentsMargins(26, 0, 0, 2)  # (under the name, not under the round button)
             col.addWidget(note)
         if trying:  # (selecting a profile ends the 5 minutes, as in the tray menu: switcher's set_active)
-            rb = ElidedRadio(f"For 5 minutes: {trying['name']}")
+            rb = ElidedRadio(f"5-min preview: {trying['name']}")
             rb.setChecked(True)
             rb.setProperty("card_place", "trial")
             group.addButton(rb)

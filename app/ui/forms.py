@@ -7,7 +7,7 @@ per line), check, choice ([(value, label)]), text. A value is checked as it's ty
 isn't used); leaving a box with a value past a limit moves it to the limit and says so. Every box has its tooltip
 (help_texts.HELP; a "to" box shares its "from" box's).
 
-The automatic settings: a box they fill in has a tag beside it, "automatic", or "your value ↺" once you've changed it
+The automatic settings: a box they fill in has a tag beside it, "automatic", or "custom ↺" once you've changed it
 (the tag hands it back). A Form is a list of rows in sections; show(predicate) hides a row when it doesn't apply.
 
 The layout (the UI audit, 2026-11-08, the user's selections): each setting is a cell with its label above its box
@@ -160,7 +160,7 @@ def help_of(path):
 class Field(QWidget):
     """One setting's box (and, when the automatic settings fill it, its tag)."""
     committed = Signal(str, object)   # (path, value): a valid value the user set
-    make_auto_clicked = Signal(str)         # (path): "yours ↺" clicked
+    make_auto_clicked = Signal(str)         # (path): "custom ↺" clicked
 
     def __init__(self, form, path, kind, options=None, placeholder="", pair=False):
         super().__init__()
@@ -347,7 +347,7 @@ class Field(QWidget):
 
     def set_tag(self, state):
         """None (no tag), "auto" or "yours"."""
-        # (the tag with the focus (Tab, then Space on "your value ↺") goes off or hides: the box beside it gets the
+        # (the tag with the focus (Tab, then Space on "custom ↺") goes off or hides: the box beside it gets the
         # focus first. Qt gave it to the next setting in the page's order, and the page scrolled to it: 670 px to 791
         # px, 2026-11-15. The box still shows each new value until you type in it: the automatic value comes later)
         if state != "yours" and self.tag.window().focusWidget() is self.tag and self.box.isEnabled() \
@@ -356,7 +356,7 @@ class Field(QWidget):
             self.box.setFocus(Qt.OtherFocusReason)
         self.tag.setVisible(bool(state))
         if state:
-            self.tag.setText("your value ↺" if state == "yours" else "automatic")
+            self.tag.setText("custom ↺" if state == "yours" else "automatic")
             self.tag.setToolTip("Custom value. Click to reset to automatic." if state == "yours"
                                 else "Set automatically. Edit to override.")
             self.tag.setEnabled(state == "yours")
@@ -485,7 +485,7 @@ class TabPages(QWidget):
 class Form(QWidget):
     """Rows of settings in sections. Each row: (label, [Field spec…], show) where a spec is (path, kind, options);
     two specs in a row are a "from … to …" pair. changed(path, value) is called with each valid value set;
-    make_auto(path) for "your value ↺"; steps {path: step} gives a number box − and + (and ↑ ↓). Each row is a cell,
+    make_auto(path) for "custom ↺"; steps {path: step} gives a number box − and + (and ↑ ↓). Each row is a cell,
     its label above its box, the cells in columns (FlowLayout); a widget as the label is a note across the form; a
     (None, widget) row goes under the box above it (a button that fills it: UI-RULES 27). tabs: a tab for each
     section (More settings), else a title above each section. add_sections(sections) adds more sections under them

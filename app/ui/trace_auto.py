@@ -1923,11 +1923,11 @@ def axes_words(checks, db_axis):
 
 
 # trace_kind: the kind of curve in the picture against the kind of the website's entry (auto_read's want)
-KIND_TARGET = "The picture has a target line and no measurement curve."
-KIND_TARGET_BESIDE = "The picture has a target line and a measurement curve. The app traced only the target line."
+KIND_TARGET = "The image has a target line and no measurement curve."
+KIND_TARGET_BESIDE = "The image has a target line and a measurement curve. The app traced only the target line."
 KIND_NOT_TARGET = "Hide the measurement curve on the graph to trace the target alone"
 # trace_single of a target line alone (find_target's "second")
-ONE_TARGET = "The picture has one target line."
+ONE_TARGET = "The image has one target line."
 MORE_TARGETS = "Multiple target curves found. Show only one target on the graph."
 # trace_curve when the picture has no measurement in a strong color: for no entry or an entry of a measurement (one
 # more sentence when the app found a gray line), and for an entry of a target
@@ -2004,7 +2004,7 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None):
     cx0, cy0 = max(0, int(plot["x0"] - mx)), max(0, int(plot["y0"] - 0.04 * pw))
     cx1, cy1 = min(W, int(math.ceil(plot["x1"] + mx)) + 1), min(H, int(math.ceil(plot["y1"] + below)) + 1)
     crop_box = {"x0": cx0, "y0": cy0, "x1": cx1, "y1": cy1}
-    add("axes_plot", True, f"The app found the graph in the picture. Its grid is {round(pw)} pixels wide.")
+    add("axes_plot", True, f"The app found the graph in the image. Its grid is {round(pw)} pixels wide.")
     lim = max(1.0, 0.002 * pw)
     good_lines = sum(1 for e in fit["resid"] if e <= lim)
     grid_ok = fit["hits"] >= 22 and fit["err"] <= lim
@@ -2250,7 +2250,7 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None):
             target["ys"][gx] = gy
         t.curves.append(target)
     single = mc["second"] < 0.5 and not (tg and tg["strong"]) and b["apart"] < 0.2
-    add("trace_single", single, "The picture has one measurement." if single else
+    add("trace_single", single, "The image has one measurement." if single else
         "Multiple measurements detected; traced the most prominent one")
     points = target_points = None
     if t.calib():

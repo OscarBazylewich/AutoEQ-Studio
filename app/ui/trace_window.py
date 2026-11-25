@@ -89,7 +89,8 @@ TOOLS = [("trace", "Click curve", ""),
          ("pan", "Move", "Pan image: drag, Space+drag, or right-drag (H)")]
 TOOL_SYMBOLS = {"trace": "trace", "draw": "pen", "erase": "erase", "pan": "move"}  # (icons.GLYPHS' names)
 # (the settings' width: room for 10.5 pt text and symbols. 528, not 500: 3 Save's row "Save from (Hz)" with two boxes
-# as wide as "20000" and two "your value ↺" tags needs 513 px, also with the side's scroll bar, 2026-11-11. 544, not
+# as wide as "20000" and two tags "your value ↺" (now "custom ↺", which is narrower) needs 513 px, also with the side's
+# scroll bar, 2026-11-11. 544, not
 # 528: the longest choice of "The graph shows", "A measurement as the difference from a target", needs 286 px and had
 # 280 px with the side's scroll bar, so it ended in "…" at the smallest size of the window; now 296 px, 2026-11-16.
 # 534 is enough at a display scale of 100 % (the fourth choice, "A target line as the difference from a target",
@@ -1141,7 +1142,7 @@ class TraceWindow(QWidget):
         self.name.setToolTip(help_of("#tr-name"))
         self.name.textEdited.connect(self.name_typed)
         g.addWidget(self.name, 0, 1, 1, 3)
-        g.addWidget(_label("Points in each octave", wrap=False), 1, 0)
+        g.addWidget(_label("Points per octave", wrap=False), 1, 0)
         self.ppo = SearchCombo()
         for n in (12, 24, 48, 96):
             self.ppo.addItem(str(n), n)
@@ -1269,7 +1270,7 @@ class TraceWindow(QWidget):
             yours = t.is_your_value(k)
             b.setVisible(on)
             b.setEnabled(yours)
-            b.setText("your value ↺" if yours else "automatic")
+            b.setText("custom ↺" if yours else "automatic")
             b.setToolTip("Custom value. Click to reset to automatic." if yours else
                          "Set automatically. Edit to override.")
 
@@ -1530,7 +1531,7 @@ class TraceWindow(QWidget):
     def users_work(self):
         """The user changed the picture's curves, axes or 3 Save's values since it came: an undo or redo step (a curve
         traced or changed), a curve renamed, a value typed on 1 Axes, a red or blue line moved, or (`edited`) the Name
-        box, "The graph shows" (with "Target of the graph"), "Points in each octave" or the range to save changed: its
+        box, "The graph shows" (with "Target of the graph"), "Points per octave" or the range to save changed: its
         value is not the value before the user's first change of it (a row selected again, or a name typed back, is
         no change, 2026-11-12).
         (Each new picture, the automatic read's take() and a label read set the typed and moved flags back, so they

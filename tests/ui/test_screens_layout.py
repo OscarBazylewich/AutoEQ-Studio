@@ -54,7 +54,7 @@ def test_the_device_card_and_its_rows(devices_window, check):
           "gray text; Add a profile's menu ends with Import EQ files… and Make an EQ; during a 5-minute EQ the card "
           "selects it, not the usual profile",
           same_card and below and small and items[-2:] == ["Import EQ files…", "Make an EQ"]
-          and radios.get("For 5 minutes: Bright") is True and radios.get("Layout check") is False
+          and radios.get("5-min preview: Bright") is True and radios.get("Layout check") is False
           and radios.get("Off") is False, (same_card, below, small, items, radios))
 
 

@@ -34,7 +34,7 @@ MIN_POINTS = 32  # (the fewest points a saved curve has: points() refuses fewer,
 NBSP = "\N{NO-BREAK SPACE}"  # (between a tab's number and its name in a message: "2 Trace" stays on one line)
 NICE = [math.log10(v) for v in (1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 7, 8, 9, 10)]
 LOG_DIGITS = np.log10(np.arange(1, 11))
-NAMES = {"tol": "Color tolerance", "ppo": "Points in each octave", "fmin": "Save from", "fmax": "Save to",
+NAMES = {"tol": "Color tolerance", "ppo": "Points per octave", "fmin": "Save from", "fmax": "Save to",
          "dashed": "Dashed line"}
 # What Tracer.take() does with each part of a tracer's state ("ta.<key>" and "v.<key>": a key of those dicts; the
 # others are attributes). A new key or attribute goes into one of the three (tests\tracer\test_trace_website.py).

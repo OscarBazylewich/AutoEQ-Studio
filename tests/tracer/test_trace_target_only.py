@@ -85,10 +85,24 @@ def test_target_line_alone_checks(qapp, monkeypatch, check):
                     "trace_kind", "trace_single", "trace_curve", "trace_gaps"], names)
     reasons = {c.name: c.reason for c in r.checks}
     check("a target line alone: the words of its checks are for a target line",
-          reasons["trace_kind"] == "The picture has a target line and no measurement curve."
-          and reasons["trace_single"] == "The picture has one target line."
+          reasons["trace_kind"] == "The image has a target line and no measurement curve."
+          and reasons["trace_single"] == "The image has one target line."
           and reasons["trace_curve"].startswith("The target line is on ")
           and reasons["trace_gaps"] == "All of the target line is traced.", reasons)
+
+
+def test_checks_say_image(qapp, monkeypatch, check):
+    # (the owner, 2026-11-25: the texts that the tracer shows say "image", not "picture")
+    seen = {}
+    for kind, kw in (("a target line alone", {"target": "dashed", "curves": False}), ("a measurement", {})):
+        _truth, r = read(monkeypatch, 1000, **kw)
+        seen[kind] = {c.name: c.reason for c in r.checks}
+    words = [w for reasons in seen.values() for w in reasons.values()]
+    check("the checks of the automatic read say “image”, never “picture”: “The app found the graph in the image.”, "
+          "“The image has one measurement.”",
+          not any("picture" in w.lower() for w in words)
+          and all(r["axes_plot"].startswith("The app found the graph in the image. ") for r in seen.values())
+          and seen["a measurement"].get("trace_single") == "The image has one measurement.", seen)
 
 
 @pytest.mark.parametrize("form", ["dB axis 35 to 85, JPEG 60", "dB axis 45 to 75, dark, JPEG 85",
@@ -189,7 +203,7 @@ def test_words_for_an_entry_of_a_target(qapp, monkeypatch, check):
     kind = next(c for c in r.checks if c.name == "trace_kind")
     check("an entry of a target, a measurement and a target line apart from it: trace_kind tells that the picture "
           "has a measurement curve too, and that the app traced only the target line",
-          r.ok and kind.reason == "The picture has a target line and a measurement curve. The app traced only the "
+          r.ok and kind.reason == "The image has a target line and a measurement curve. The app traced only the "
           "target line.", kind)
 
 

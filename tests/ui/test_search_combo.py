@@ -175,7 +175,7 @@ print(json.dumps(out))
 
 
 def test_choice_whole_at_the_drop_downs_own_size(check):
-    # (2026-11-11, seen in a picture of the tracer: Points in each octave showed "…", not "48". At its own size a
+    # (2026-11-11, seen in a picture of the tracer: Points per octave showed "…", not "48". At its own size a
     # drop-down's room is just its widest choice's width, and the "…" rule kept 4 pixels free)
     out = subproc.run_python(OWN_SIZE, session.SESSION.app)
     d = out.data or {}

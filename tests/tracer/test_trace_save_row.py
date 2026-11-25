@@ -53,7 +53,7 @@ def test_save_range_boxes_show_their_values(eq_screen, tmp_path, check):
                 seen[(which, key, value)] = text_room(box)
         seen[(which, "size")] = (tw.width(), tw.height(), tw.side_scroll.verticalScrollBar().isVisible())
         seen[(which, "past")] = past_the_side(tw)
-    for key in ("fmin", "fmax"):  # (your values: each tag says "your value ↺")
+    for key in ("fmin", "fmax"):  # (your values: each tag says "custom ↺")
         tw.boxes[key].setText("20000" if key == "fmax" else "30")
         tw.value_typed(key, "trace.save")
     qt.pump(150)
@@ -75,7 +75,7 @@ def test_save_range_boxes_show_their_values(eq_screen, tmp_path, check):
           and all(v[1] <= v[0] for k, v in seen.items() if len(k) == 3), seen)
     check("tracer: no control of 3 Save goes past the side's right edge, at the usual and the smallest size",
           seen[("usual", "past")] == [] and seen[("smallest", "past")] == []
-          and seen[("smallest", "past with your values")] == ([], "your value ↺"), seen)
+          and seen[("smallest", "past with your values")] == ([], "custom ↺"), seen)
 
 
 def _stand_in_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
@@ -88,7 +88,7 @@ def _stand_in_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
     t.load(np.array(rgb, np.uint8, copy=True), name, jpeg)
     t.v.update(d1="90", d2="40")
     t.curves[0]["ys"][100:200] = 300.0  # (a traced curve)
-    return AutoRead(True, t, [Check("axes_plot", True, "The app found the graph in the picture.")], t.curves[0],
+    return AutoRead(True, t, [Check("axes_plot", True, "The app found the graph in the image.")], t.curves[0],
                     None, None, None, None, 0.01)
 
 

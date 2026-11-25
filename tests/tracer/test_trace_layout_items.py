@@ -28,7 +28,7 @@ def _stand_in_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
     t.load(np.array(rgb, np.uint8, copy=True), name, jpeg)
     t.v.update(d1="90", d2="40")
     t.curves[0]["ys"][100:200] = 300.0  # (a traced curve)
-    return AutoRead(True, t, [Check("axes_plot", True, "The app found the graph in the picture.")], t.curves[0],
+    return AutoRead(True, t, [Check("axes_plot", True, "The app found the graph in the image.")], t.curves[0],
                     None, None, None, None, 0.01)
 
 
