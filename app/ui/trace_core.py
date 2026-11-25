@@ -459,16 +459,16 @@ class Tracer:
             self.v["f1"], self.v["f2"] = f"{a['v']:g}", f"{b['v']:g}"
             even = all(abs(math.log10(g["v"]) - (math.log10(a["v"]) + (g["p"] - a["p"]) / (b["p"] - a["p"])
                                                   * math.log10(b["v"] / a["v"]))) < 0.01 for g in gx)
-            note = (f"The app read {len(gx)} frequency grid lines: {fmt_hz(a['v'])} to {fmt_hz(b['v'])}"
-                    + ("." if even else ". The app uses all grid lines, because the grid lines on this axis are "
-                       "irregular (keep “Follow all grid lines” selected).") + " Compare them with the labels on the picture.")
+            note = (f"Detected {len(gx)} frequency grid lines ({fmt_hz(a['v'])}–{fmt_hz(b['v'])})"
+                    + ("." if even else ". Irregular spacing: using all grid lines (keep “Follow all grid lines” "
+                       "checked).") + " Verify against the image labels.")
         else:
             self.cal["x1"] = vl[0]["pos"] if len(vl) >= 2 else W * 0.1
             self.cal["x2"] = vl[-1]["pos"] if len(vl) >= 2 else W * 0.9
             self.v["f1"] = self.v["f1"] or "20"
             self.v["f2"] = self.v["f2"] or "20000"
-            note = ("The app cannot read the frequency axis. Drag the blue lines to two grid lines with labels. Then "
-                    "type their values in Hz.")
+            note = ("Couldn't read the frequency axis. Align the blue lines to two labeled grid lines and enter their Hz "
+                    "values.")
         self.v["d1"] = self.v["d2"] = ""
         self.label_words = []
         self.axis_note = self.detect_note = note  # (detect_note: each label reading's note starts from it, not the last)
@@ -776,12 +776,11 @@ class Tracer:
                     if o["dashed"] and not dashed_now:
                         self.v["dashed"] = True
                         ta["dashed_found"] = True
-                        ta["notes"]["dashed"] = ("Dashed line: the app continues across the spaces in the line, because "
-                                                 "the traced line stopped at them.")
+                        ta["notes"]["dashed"] = "Dashed line: bridges gaps where tracing stopped"
                     if o.get("tol"):
                         self.v["tol"] = o["tol"]
-                        ta["notes"]["tol"] = (f"Color tolerance {o['tol']}: the app increased the tolerance, because the "
-                                              "curve's color changes more than the noise of the picture showed.")
+                        ta["notes"]["tol"] = (f"Color tolerance {o['tol']}: increased because the curve's color varies "
+                                              "more than expected")
                     if span(got) >= full:
                         break
         ta["last_trace"] = time.perf_counter() - t0
@@ -1262,26 +1261,23 @@ class Tracer:
             return
         ta = self.ta
         tol = max(40, min(110, _js_round((45 + 3 * ta["noise"] + (10 if ta["jpeg"] else 0)) / 5) * 5))
-        self.set_auto_value("tol", tol, f"Color tolerance {tol}: pixels with that difference (or less) from the curve's color "
-                     "are part of the curve, because " + (
-                         "the colors of the picture are clean." if ta["noise"] < 3 else
-                         f"the picture has some color noise (average {ta['noise']:.1f}{', a JPEG' if ta['jpeg'] else ''})."))
+        self.set_auto_value("tol", tol, f"Color tolerance {tol}: matches pixels within this color distance (" + (
+                         "clean colors" if ta["noise"] < 3 else
+                         f"color noise, avg {ta['noise']:.1f}{', JPEG' if ta['jpeg'] else ''}") + ")")
         k = self.calib()
         if k:
             ta["px_oct"] = abs(k.x_at(2000) - k.x_at(1000))
             po = ta["px_oct"]
             ppo = 48 if po >= 48 else 24 if po >= 24 else 12
-            self.set_auto_value("ppo", ppo, f"{ppo} points in each octave: the graph has {_js_round(po)} pixels in each octave"
-                         + (", which is sufficient for squiglink." if ppo == 48 else
-                            ". More points do not give more data."))
+            self.set_auto_value("ppo", ppo, f"{ppo} pts/octave: graph is {_js_round(po)} px/octave"
+                         + (" (sufficient detail)" if ppo == 48 else "; more points add no detail"))
             fa, fb = k.hz_at(self.box["x0"]), k.hz_at(self.box["x1"])
             lo, hi = min(fa, fb), max(fa, fb)
             # (a frame drawn a hair inside 20 Hz or 20 kHz still means the whole range)
             fmin = 20 if lo < 21.5 else _js_round(min(lo, 19000))
             fmax = 20000 if hi > 18500 else _js_round(max(hi, fmin + 100))
-            self.set_auto_value("fmin", fmin, f"Save from {fmt_hz(fmin)} to {fmt_hz(fmax)}: " + (
-                "the part of the axis that the graph shows." if lo > 21 or hi < 19900 else
-                "the range that you can hear (the graph shows all of it)."))
+            self.set_auto_value("fmin", fmin, f"Save {fmt_hz(fmin)}–{fmt_hz(fmax)}: " + (
+                "visible graph range" if lo > 21 or hi < 19900 else "audible range (covered by graph)"))
             self.set_auto_value("fmax", fmax, None)
 
     def mark_your_value(self, k):

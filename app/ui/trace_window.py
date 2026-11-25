@@ -15,9 +15,9 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   arrows move a selected line (Shift: 10 px), Ctrl+V pastes a picture; a key of a tab's control shows that tab first
   (the tools, A, S, Delete, Undo and Redo: 2 Trace; the arrows: 1 Axes). While the automatic read runs, no key
   changes the tracer (only Ctrl+V: a new picture), and the picture and the side take no input.
-- the message line (what the tracer did, the tool's words) under the side, in sight on every tab; a message about a
+- the message line (what the tracer did; empty otherwise) under the side, in sight on every tab; a message about a
   step that ended (say) while a picture loads or the automatic read runs ends with the words of that wait; behind a
-  message box (box), the tool's words or the wait's show in place of such a message
+  message box (box), nothing or the wait's words show in place of such a message
 - the load of a picture (load_image): one of SYNC_PIXELS or less at once; a larger one in a thread (prepared: the
   scale, picture_mark, the stage's QImage and Tracer.load in a new Tracer, which Tracer.take then takes), while
   `loading` is True: the status line says so, and the picture, the side and Guide take no input. A load that Remove
@@ -80,10 +80,12 @@ from ui.window_parts import fit_to_screen
 
 RED, BLUE, GREEN = "#d93025", "#1a73e8", "#16a34a"
 STROKES = ["#ff00d4", "#00a8e8", "#ff8a00", "#8e44ff", "#00b35f", "#e6b800"]
-TOOLS = [("trace", "Click curve", "Click a curve to follow it (T)"),
-         ("draw", "Make a line", "Drag along the curve to make a line (D)"),
-         ("erase", "Erase", "Drag a box around the traced line to remove it (E)"),
-         ("pan", "Move", "Drag to move the picture, or hold Space, or drag with the right mouse button (H)")]
+# (the tools: key, name, tooltip. Click curve, Make a line and Erase have no tooltip: the text survey, 2026-11-24, the
+# Guide step Trace manually gives their keys T, D and E)
+TOOLS = [("trace", "Click curve", ""),
+         ("draw", "Make a line", ""),
+         ("erase", "Erase", ""),
+         ("pan", "Move", "Pan image: drag, Space+drag, or right-drag (H)")]
 TOOL_SYMBOLS = {"trace": "trace", "draw": "pen", "erase": "erase", "pan": "move"}  # (icons.GLYPHS' names)
 # (the settings' width: room for 10.5 pt text and symbols. 528, not 500: 3 Save's row "Save from (Hz)" with two boxes
 # as wide as "20000" and two "your value ↺" tags needs 513 px, also with the side's scroll bar, 2026-11-11. 544, not
@@ -95,8 +97,9 @@ TOOL_SYMBOLS = {"trace": "trace", "draw": "pen", "erase": "erase", "pan": "move"
 # app at those scales)
 SIDE = 544
 RADIUS = 8  # (the picture's card: a card's corners, as theme_sheet's)
-HINTS = {"trace": "Click a curve to follow it.", "draw": "Drag along the curve to make a line manually.",
-         "erase": "Drag a box around a part of the traced line to remove it.", "pan": "Drag to move the picture."}
+# (the message line has no words of the selected tool: the text survey, 2026-11-24. Where the tool's words showed, the
+# message line is empty now, IDLE)
+IDLE = ""
 # (the automatic read of a picture from a website: the picture is not a graph; the read stopped with an error)
 NOT_GRAPH = "Copy a new picture of the graph. Then paste it in the tracer (Ctrl+V)."
 NBSP = "\N{NO-BREAK SPACE}"  # (between a tab's number and its name: the name stays on one line)
@@ -109,9 +112,10 @@ SYNC_PIXELS = 1_000_000
 # (rgb_of draws the scaled picture in strips of this many rows: each draw keeps Python's lock for 10 ms or less, at
 # 8000 x 6000 too; 256 rows took 42 ms in all at 6000 x 4000, one draw 40 ms, 2026-11-12)
 STRIP_ROWS = 256
-LOADING = "The app opens the picture…"  # (the status line while a large picture loads)
-READING = "The app reads the graph…"  # (the status line while the automatic read operates)
-HAS_PICTURE = "The tracer has this picture."  # (the same picture of a website again: take_picture)
+LOADING = "Opening image…"  # (the status line while a large picture loads)
+READING = "Analyzing graph…"  # (the status line while the automatic read operates)
+HAS_PICTURE = "Image loaded"  # (the same picture of a website again: take_picture)
+NO_CLIPBOARD = "No image on clipboard. Copy a graph image first."  # (Ctrl+V with no picture: here and the wait window)
 # ("The graph shows": the types of graph, in the order of the list (also A to Z). One question in place of the list
 # "Frequency response (not compensated)" / "Difference from <target>" and the two buttons Add as measurement and Add
 # as target: the user did not know what the list was for, 2026-11-16. The fourth type is the list's "Difference from
@@ -428,7 +432,7 @@ class Stage(QWidget):
         choose.clicked.connect(win.choose_image)
         row.addWidget(choose)
         row.addStretch(1)
-        sub = _label("You can use screenshots of graphs from data sheets or websites (PNG, JPG, WebP).", "muted")
+        sub = _label("Supports graph screenshots from datasheets or websites (PNG, JPG, WebP)", "muted")
         sub.setAlignment(Qt.AlignCenter)
         ev.addWidget(sub)
         self._zoom_bar()
@@ -442,11 +446,14 @@ class Stage(QWidget):
         zl.setContentsMargins(3, 3, 3, 3)
         zl.setSpacing(2)
         self.zoom_btns = {}
-        for key, text, tip, fn in (("out", "", "Zoom out (-)", lambda: self.zoom(0.8)),
-                                   ("fit", "Show all", "Show all the picture (F)", self.fit_now),
-                                   ("in", "", "Zoom in (+)", lambda: self.zoom(1.25))):
+        # (no tooltips: the text survey, 2026-11-24. The two symbol-only buttons keep their names for a screen reader,
+        # which theme's _reader_name took from their tooltips before)
+        for key, text, name, fn in (("out", "", "Zoom out (-)", lambda: self.zoom(0.8)),
+                                    ("fit", "Show all", "", self.fit_now),
+                                    ("in", "", "Zoom in (+)", lambda: self.zoom(1.25))):
             b = QPushButton(text)
-            b.setToolTip(tip)
+            if name:
+                b.setAccessibleName(name)
             b.setFocusPolicy(Qt.NoFocus)
             b.clicked.connect(fn)
             theme.mark(b, quiet=True, trCompact=True)
@@ -824,7 +831,7 @@ class TraceWindow(QWidget):
         head = placed(v, QHBoxLayout())
         head.setSpacing(8)
         # (no large title: the title bar says "Trace a graph image", as Help's says its name. The picture's name in bold
-        # where the title was, its size in gray beside it, or "No picture". The UI audit, 2026-11-08)
+        # where the title was, its size in gray beside it, or "No image". The UI audit, 2026-11-08)
         self.file_lab = _Elided()  # (a long name cut in its middle, the whole name in its tooltip)
         theme.mark(self.file_lab, role="heading")  # (bold, a card title's size)
         head.addWidget(self.file_lab)
@@ -834,13 +841,11 @@ class TraceWindow(QWidget):
         # (the picture's own actions together, Remove last; then Guide apart at the right end, as the top bar's: it sat
         # between them, UI-RULES 14 and 28)
         self.open_btn = opn = QPushButton("Open image…")
-        opn.setToolTip("Open a different picture (or drag or paste it here)")
         opn.clicked.connect(self.choose_image)
         icons.put(opn, "open")
         head.addWidget(opn)
         head.addSpacing(12)  # (Remove set apart, as every row's: UI-RULES 14)
         self.remove_btn = QPushButton("Remove image")
-        self.remove_btn.setToolTip("Remove this picture (for example, an incorrect picture) and its traced curves")
         self.remove_btn.clicked.connect(self.remove_image)
         icons.put(self.remove_btn, "remove")
         head.addWidget(self.remove_btn)
@@ -848,7 +853,7 @@ class TraceWindow(QWidget):
             b.installEventFilter(self)  # them then stays, eventFilter)
         head.addSpacing(16)
         self.guide_btn = QPushButton("Guide")  # (Windows 11's symbol where "? " was, as the top bar's Guide)
-        self.guide_btn.setToolTip("The Guide of the tracer (on a sample graph if no picture is open)")
+        self.guide_btn.setToolTip("Tracer walkthrough (uses a sample graph if none is open)")
         self.guide_btn.clicked.connect(self.start_guide)
         icons.put(self.guide_btn, "guide")
         head.addWidget(self.guide_btn)
@@ -898,7 +903,7 @@ class TraceWindow(QWidget):
         col = placed(body, QVBoxLayout())
         col.setSpacing(6)
         col.addWidget(side_scroll, 1)
-        self.status = _label("", "muted")  # (the tool's words, and what the tracer did)
+        self.status = _label("", "muted")  # (what the tracer did, and the words of a wait)
         self.status.setFixedWidth(SIDE)
         col.addWidget(self.status)
         for w, key in ((self.auto_on, "#tr-auto-on"), (self.snap, "#tr-snap"), (self.every, "#tr-every"),
@@ -920,8 +925,8 @@ class TraceWindow(QWidget):
             b.setChecked(k == i)
 
     def show_name(self, name="", size=None):
-        """The picture's name in bold at the top and its size (w, h) in gray beside it; "No picture" without one."""
-        self.file_lab.setText(name or ("Picture" if size else "No picture"))
+        """The picture's name in bold at the top and its size (w, h) in gray beside it; "No image" without one."""
+        self.file_lab.setText(name or ("Image" if size else "No image"))
         self.size_lab.setText(f"{size[0]}×{size[1]}" if size else "")
 
     # ---------------------------------------------------------------- the side
@@ -963,8 +968,8 @@ class TraceWindow(QWidget):
         self.auto_manual.setTextFormat(Qt.RichText)
         self.auto_manual.linkActivated.connect(lambda k: self.make_auto(None if k == "*" else k))
         why.body_lay.addWidget(self.auto_manual)
-        why.body_lay.addWidget(_label("The settings follow the picture. If you change a setting, it shows “your value” and the "
-                                       "app keeps it.", "muted"))
+        why.body_lay.addWidget(_label("Settings auto-adjust per image. Edited values are marked “Custom” and kept.",
+                                      "muted"))
         v.addWidget(why)
         return box
 
@@ -979,8 +984,8 @@ class TraceWindow(QWidget):
 
     def _axes_box(self):
         box, v = self._card()
-        v.addWidget(_label("Drag the red lines to two dB grid lines. Drag the blue lines to two frequency grid lines. "
-                           "Type their values.", "muted"))
+        v.addWidget(_label("Align red lines to two dB grid lines and blue lines to two frequency grid lines, then enter "
+                           "their values", "muted"))
         # (two rows with their labels in a column at the left, as 3 Save's form; Top, Bottom, Left and Right small and
         # gray in the row, the boxes' full names for a screen reader. The UI audit, 2026-11-08)
         g = placed(v, QGridLayout())
@@ -1016,10 +1021,10 @@ class TraceWindow(QWidget):
         checks.addStretch(1)
         btns = placed(v, QHBoxLayout())
         self.detect_btn = detect = QPushButton("Find axes again")
-        detect.setToolTip("Find the grid lines and put the lines on them again")
+        detect.setToolTip("Re-detect grid lines and align the red/blue guides")
         detect.clicked.connect(self.detect_again)
         self.ocr_btn = QPushButton("Read labels")
-        self.ocr_btn.setToolTip("Read the numbers on the axes again and write the values in the boxes")
+        self.ocr_btn.setToolTip("Re-read axis labels and fill in the values")
         self.ocr_btn.clicked.connect(self.read_again)
         btns.addWidget(detect)
         btns.addWidget(self.ocr_btn)
@@ -1087,7 +1092,8 @@ class TraceWindow(QWidget):
         for n, (key, text, tip) in enumerate(TOOLS):
             b = QPushButton(text)
             b.setCheckable(True)
-            b.setToolTip(tip)
+            if tip:
+                b.setToolTip(tip)
             b.clicked.connect(lambda _=False, k=key: self.set_tool(k))
             theme.mark(b, trTool="first" if n == 0 else "last" if n == len(TOOLS) - 1 else "mid")
             icons.put(b, TOOL_SYMBOLS[key])
@@ -1220,25 +1226,26 @@ class TraceWindow(QWidget):
         self.auto_on.blockSignals(True)
         self.auto_on.setChecked(on)
         self.auto_on.blockSignals(False)
-        self.auto_state.setText("off" if not on else "adjusted for this picture" if t.has_image else "no picture")
+        self.auto_state.setText("Off" if not on else "Auto-adjusted" if t.has_image else "No image")
         esc = lambda s: s.replace("&", "&amp;").replace("<", "&lt;")
         notes = [(k, x) for k, x in ta["notes"].items() if x]
         if on:
-            items = "".join(f"<li><i>your value</i> Automatic: {esc(x)} The app uses your value.</li>" if t.is_your_value(k)
-                            else f"<li>{esc(x)}</li>" for k, x in notes) or "<li>Open a picture to adjust the settings for it.</li>"
+            items = "".join(f"<li><i>Custom</i> · Auto: {esc(x)}</li>" if t.is_your_value(k)
+                            else f"<li>{esc(x)}</li>" for k, x in notes) or "<li>Open an image to auto-adjust settings</li>"
         else:
-            items = "<li>The automatic settings are off.</li>"
+            items = "<li>Auto settings are off</li>"
         self.auto_notes.setText(f"<ul style='margin-left: -24px'>{items}</ul>")
         tv = t.v
-        eff = [("Color tolerance", tv["tol"], "tol"), ("Points in each octave", tv["ppo"], "ppo"),
-               ("Save", f"{tv['fmin']}–{tv['fmax']} Hz", "fmin"), ("Dashed line", "yes" if tv["dashed"] else "no", "dashed")]
+        eff = [("Color tolerance", tv["tol"], "tol"), ("Points per octave", tv["ppo"], "ppo"),
+               ("Save range", f"{tv['fmin']}–{tv['fmax']} Hz", "fmin"),
+               ("Dashed line", "yes" if tv["dashed"] else "no", "dashed")]
         def whose(k):
-            return f" <i>{'your value' if t.is_your_value(k) else 'automatic'}</i>" if on and k else ""
+            return f" <i>{'custom' if t.is_your_value(k) else 'auto'}</i>" if on and k else ""
         self.auto_eff.setText("<br>".join(f"{a}: <b>{esc(str(b))}</b>" + whose(k) for a, b, k in eff))
         mine = sorted(ta["manual"])
         self.auto_manual.setVisible(on and bool(mine))
-        self.auto_manual.setText("Your values (not changed): " + ", ".join(
-            f"{tc.NAMES[k]} <a href='{k}'>↺</a>" for k in mine) + " · <a href='*'>Make all automatic</a>")
+        self.auto_manual.setText("Custom values: " + ", ".join(
+            f"{tc.NAMES[k]} <a href='{k}'>↺</a>" for k in mine) + " · <a href='*'>Reset all to auto</a>")
         for k, b in self.tags.items():
             yours = t.is_your_value(k)
             b.setVisible(on)
@@ -1282,7 +1289,7 @@ class TraceWindow(QWidget):
         if colour:  # (the colour traced: the picture's own, set here; its frame follows the theme, from the sheet)
             self.swatch.setStyleSheet(f"background: rgb{tuple(int(c) for c in colour)};")
         for k in ("d1", "d2"):
-            self.boxes[k].setPlaceholderText("type it" if img else "")
+            self.boxes[k].setPlaceholderText("Enter dB" if img else "")
         self.stage.update()
 
     def select_shows(self):
@@ -1461,20 +1468,22 @@ class TraceWindow(QWidget):
         Trace automatically, Clear, a click on a curve. A load that starts does not keep it (load_image), and a message
         box does not show next to it (box). While a picture loads, LOADING follows it; while the automatic read
         operates (and no picture loads), READING. Ctrl+V with an empty clipboard then wrote only its message, and the
-        status line did not tell that the load or the read continues (2026-11-15)."""
+        status line did not tell that the load or the read continues (2026-11-15). A message with no end period is
+        joined to them with " · " ("Image loaded · Analyzing graph…"), one with a period with a space: the owner's
+        words of the text survey, 2026-11-24 (no period before " · ")."""
         if text:
             wait = LOADING if self.loading else READING if self.reading_graph else ""
-            self.said = f"{text} {wait}" if wait else text
+            self.said = f"{text}{' ' if text.endswith('.') else ' · '}{wait}" if wait else text
             self.status.setText(self.said)
 
     def box(self, kind, title, text, *buttons):
         """Each message box of the tracer (kind: "warning", "information" or "question"; buttons: the buttons of a
         question and its default). Behind the box, the status line does not show a message of say() about a step that
-        ended: it shows the words of the tool, or the words of the load or of the read while one operates. "The tracer
-        has this picture." showed next to "The app cannot read this file as a picture (…).", and a person can think
-        that "this picture" is the file (the verifier of round 8, 2026-11-16)."""
+        ended: it is empty, or it shows the words of the load or of the read while one operates. "The tracer has this
+        picture." showed next to "The app cannot read this file as a picture (…).", and a person can think that "this
+        picture" is the file (the verifier of round 8, 2026-11-16)."""
         if self.status.text() == self.said:
-            self.status.setText(LOADING if self.loading else READING if self.reading_graph else HINTS[self.tool])
+            self.status.setText(LOADING if self.loading else READING if self.reading_graph else IDLE)
         return getattr(QMessageBox, kind)(self, title, text, *buttons)
 
     def start_guide(self):
@@ -1491,7 +1500,7 @@ class TraceWindow(QWidget):
         img = QImage(path)
         if img.isNull():
             self.box("warning", "Trace",
-                     "The app cannot read this file as a picture (PNG, JPG, WebP, BMP, GIF, TIFF).")
+                     "Can't read this image file. Supported formats: PNG, JPG, WebP, BMP, GIF, TIFF.")
             return
         name = os.path.splitext(os.path.basename(path))[0]
         self.load_image(img, name, os.path.splitext(path)[1].lower() in (".jpg", ".jpeg", ".jfif"), entry)
@@ -1585,11 +1594,11 @@ class TraceWindow(QWidget):
         t = self.t
         v, ta = dict(t.v), dict(t.ta, manual=set(t.ta["manual"]), notes=dict(t.ta["notes"]))
         if not self.loading:  # (a load that starts during a load: the status line says LOADING)
-            # (a message of say() about a step that ended does not come back after the load: the words of the tool.
+            # (a message of say() about a step that ended does not come back after the load: IDLE.
             # "The tracer has this picture." showed next to the box "The app cannot open this picture (…).",
             # 2026-11-15)
             now = self.status.text()
-            self.status_kept = HINTS[self.tool] if now == self.said else now
+            self.status_kept = IDLE if now == self.said else now
             self.focus_kept = self.focusWidget()  # (before the load turns the picture and the side off)
         if qimg.width() * qimg.height() <= SYNC_PIXELS:
             # (take_picture turns the inputs on: a load in a thread that this picture drops is a wait too, and the
@@ -1627,8 +1636,8 @@ class TraceWindow(QWidget):
         """picture_loaded's work: the picture (or the error) into the window."""
         self._set_loading(False)
         if err is not None:  # (its traceback is in the app's log: tasks.background or load_image wrote it)
-            self.status.setText(HINTS[self.tool])  # (the picture before stays)
-            self.box("warning", "Trace", f"The app cannot open this picture ({err}).")
+            self.status.setText(IDLE)  # (the picture before stays)
+            self.box("warning", "Trace", f"Couldn't open image ({err})")
             return
         rgb, mark = res["rgb"], res["mark"]
         if ((entry is None or entry is self.entry) and self.entry and self.t.has_image and mark == self.picture_mark
@@ -1669,17 +1678,17 @@ class TraceWindow(QWidget):
             self.stage.clear_image()
             self.show_name()
             self.changed()
-            self.status.setText(HINTS[self.tool])  # (not "The app opens the picture…" of a large picture)
-            self.box("warning", "Trace", f"The app cannot read the axes of this picture ({e}). Send the picture "
-                     "and data\\app.log. Then we can correct the problem.")
+            self.status.setText(IDLE)  # (not LOADING of a large picture)
+            self.box("warning", "Trace", f"Couldn't detect graph axes ({e}). Send the image and data\\app.log to "
+                     "report this issue.")
             self.focus_open_image(had)
             return
         h, w = rgb.shape[:2]
-        self.show_name(name if name != "Traced graph" else "Pasted picture", (w, h))
+        self.show_name(name if name != "Traced graph" else "Pasted image", (w, h))
         self.show_tab(0)  # (a new picture: its axes first)
         self.stage.set_image(rgb, res["qimg"])
         self.saved_note = False
-        self.status.setText(HINTS[self.tool])
+        self.status.setText(IDLE)
         self.fill_comp()
         self.show_values()
         self.changed()
@@ -1809,7 +1818,7 @@ class TraceWindow(QWidget):
         automatic read operates, the words of the read (a read that ended during the load writes its own words next:
         late_read). Else the words of the status line when the load started (status_kept:
         for example, the instruction of a read that was not OK). The words of the tool replaced them, 2026-11-15. But
-        a message of say() about a step that ended does not come back: the words of the tool (load_image)."""
+        a message of say() about a step that ended does not come back: IDLE (load_image)."""
         self.status.setText(READING if self.reading_graph else self.status_kept)
 
     def take_read(self, r, entry):
@@ -1844,7 +1853,7 @@ class TraceWindow(QWidget):
                               + (f" {out}\n" if out else " ")
                               + "Compare the curve with the picture. If they agree, click ")
             self.auto_line = r.target is not None
-            self.status.setText(HINTS[self.tool])
+            self.status.setText(IDLE)
             self.show_tab(2)
         else:
             first = next(c for c in r.checks if not c.ok)
@@ -1913,11 +1922,11 @@ class TraceWindow(QWidget):
             self.load_token += 1
             late, self.late_read = self.late_read, None
             self._set_loading(False)
-            self.status_after_load()  # (not "The app opens the picture…")
+            self.status_after_load()  # (not LOADING)
         if not t.has_image:
             return
         if any(map(t.has_data, t.curves)) and self.box(  # (No the default: the curves can't be had back)
-                "question", "Remove image", "Remove this picture and its traced curves?",
+                "question", "Remove image", "Remove this image and its traced curves?",
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
             if late is not None:
                 late()
@@ -1953,7 +1962,7 @@ class TraceWindow(QWidget):
         self.save_note.setText("")
         self.show_values()
         self.changed()
-        self.status.setText("The app removed the picture. Open, drag or paste a different picture.")
+        self.status.setText("Image removed")
         self.focus_open_image(had)
 
     def focus_open_image(self, had):
@@ -1987,7 +1996,7 @@ class TraceWindow(QWidget):
     def paste(self):
         img = QApplication.clipboard().image()
         if img.isNull():
-            self.say("There is no picture on the clipboard. First, copy a picture of a graph.")
+            self.say(NO_CLIPBOARD)
             return
         self.load_image(img, entry=self.kept_entry())
 
@@ -2038,7 +2047,7 @@ class TraceWindow(QWidget):
         if y != x:
             b.setText(f"{y:g}")
             self.value_typed(key, lim)
-            self.say(f"The app changed the value to {y:g} (permitted: {self.limits.text(lim)}).")
+            self.say(f"Adjusted to {y:g} (allowed: {self.limits.text(lim)})")
 
     def lines_moved(self):
         self.show_values()
@@ -2057,7 +2066,7 @@ class TraceWindow(QWidget):
         except Exception as e:  # noqa: BLE001 - (as on loading)
             import traceback
             traceback.print_exc()
-            self.box("warning", "Trace", f"The app cannot find the axes again ({e}).")
+            self.box("warning", "Trace", f"Couldn't detect axes ({e})")
             return
         t.typed = {"d": False, "f": False}
         self.fit_and_show()
@@ -2099,7 +2108,7 @@ class TraceWindow(QWidget):
         self.tool = key
         for k, b in self.tool_btns.items():
             b.setChecked(k == key)
-        self.status.setText(HINTS[key])
+        self.status.setText(IDLE)
 
     def select_curve(self, i):
         self.t.cur = i

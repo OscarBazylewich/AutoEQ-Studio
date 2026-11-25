@@ -163,7 +163,7 @@ def test_remove_image_during_a_load(eq_screen, monkeypatch, check):
     tw.close()
     check("tracer: Remove image while a large picture loads: the picture before goes, the load's late answer is not "
           "taken, and the tracer takes input", loading and removed == (False, False, True, True)
-          and after == (False, "No picture", None), (loading, removed, after))
+          and after == (False, "No image", None), (loading, removed, after))
 
 
 def test_close_during_a_load(eq_screen, monkeypatch, check):
@@ -209,10 +209,10 @@ def test_picture_that_cannot_be_read(eq_screen, monkeypatch, tmp_path, check):
     tw.close()
     check("tracer: a large picture whose load fails (in its thread): the message says so, the tracer is empty and "
           "takes input, and the status line no longer says that it opens the picture", len(said) == 1
-          and "cannot read the axes of this picture (no axes)" in said[0][1]
-          and failed == (False, False, "No picture", True, True, False), (said, failed))
+          and "Couldn't detect graph axes (no axes)" in said[0][1]
+          and failed == (False, False, "No image", True, True, False), (said, failed))
     check("tracer: a file that is not a picture: the message says so", len(not_picture) == 1
-          and "cannot read this file as a picture" in not_picture[0][1], not_picture)
+          and "Can't read this image file" in not_picture[0][1], not_picture)
 
 
 def test_same_picture_again_during_and_after_a_load(eq_screen, monkeypatch, check):
@@ -241,7 +241,7 @@ def test_same_picture_again_during_and_after_a_load(eq_screen, monkeypatch, chec
     tw.remove_image()
     tw.close()
     check("tracer: the same large picture from a website again: the tracer keeps its result and says so",
-          first == (False, "Gate (Site 1)", 1) and again == ("The tracer has this picture.", True, 1, "Gate"),
+          first == (False, "Gate (Site 1)", 1) and again == ("Image loaded", True, 1, "Gate"),
           (first, again))
 
 
@@ -436,7 +436,7 @@ def test_read_that_ends_during_a_load(eq_screen, monkeypatch, check):
           seen[False][1] == ("Large graph", None, None, False, True, True), seen[False][1])
     check("tracer: when the load fails, the picture before stays and its read goes in after the load",
           seen[True][1] == ("Gate (Site 1)", "Gate", True, False, True, True)
-          and any("cannot open this picture" in s for s in seen[True][2]), seen[True][1:])
+          and any("Couldn't open image" in s for s in seen[True][2]), seen[True][1:])
 
 
 def test_remove_image_no_during_a_load_takes_the_read(eq_screen, monkeypatch, dialogs, check):
@@ -472,5 +472,5 @@ def test_remove_image_no_during_a_load_takes_the_read(eq_screen, monkeypatch, di
     tw.close()
     check("tracer: Remove image with No during a load: the load is dropped, the picture from the website stays, and "
           "its read that ended during the load goes in (3 Save)",
-          during == (True, None, True) and question == ["Remove this picture and its traced curves?"]
+          during == (True, None, True) and question == ["Remove this image and its traced curves?"]
           and after == (False, True, "Gate (Site 1)", "Gate", True, True, 2), (during, question, after))

@@ -185,8 +185,34 @@ def test_messages_in_sight_on_every_tab(eq_screen, monkeypatch, check):
     inside = tw.rect().contains(QRect(tw.status.mapTo(tw, QPoint(0, 0)), tw.status.size()))
     tw.close()
     check("trace: the tracer's messages show on every tab (1 Axes, 2 Trace, 3 Save), inside the window",
-          all(shown and text for _w, shown, text in seen) and "changed the value" in seen[0][2]
-          and "clipboard" in seen[1][2] and "removed the picture" in seen[3][2] and inside, (seen, inside))
+          all(shown and text for _w, shown, text in seen) and "Adjusted to" in seen[0][2]
+          and "clipboard" in seen[1][2] and "Image removed" in seen[3][2] and inside, (seen, inside))
+
+
+def test_message_line_words_of_the_tools_and_of_a_wait(eq_screen, check):
+    # (the text survey, 2026-11-24: the message line no longer shows the words of the selected tool ("Click a curve to
+    # follow it." and the 3 others). A message with no end period is joined to the words of a wait with " · ", one
+    # with a period with a space: no period before " · ")
+    tw = _sample_open(eq_screen)
+    tools = {}
+    for key in ("draw", "erase", "pan", "trace"):
+        tw.say("A message.")
+        tw.set_tool(key)
+        tools[key] = tw.status.text()
+    joined = []
+    tw.reading_graph = True  # (as while the automatic read operates: say() adds its words)
+    try:
+        for text in ("Image loaded", "No image on clipboard. Copy a graph image first."):
+            tw.say(text)
+            joined.append(tw.status.text())
+    finally:
+        tw.reading_graph = False
+    tw.close()
+    check("trace: a tool selected leaves the message line empty; a message during the automatic read ends with "
+          "“Analyzing graph…”, after “ · ” or after the message's period",
+          tools == dict.fromkeys(tools, "") and joined == [
+              "Image loaded · Analyzing graph…",
+              "No image on clipboard. Copy a graph image first. Analyzing graph…"], (tools, joined))
 
 
 def test_keys_show_their_tab(eq_screen, check):

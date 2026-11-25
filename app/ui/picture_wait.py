@@ -496,7 +496,7 @@ class PictureWait(QDialog):
         img, jpeg = clipboard_picture()
         if img is None:
             # (the tracer's words)
-            self.note.setText("There is no picture on the clipboard. First, copy a picture of a graph.")
+            self.note.setText("No image on clipboard. Copy a graph image first.")
             self.note.show()
             self.fit_height()  # (its room for the note)
             return

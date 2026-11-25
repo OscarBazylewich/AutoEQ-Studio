@@ -267,7 +267,7 @@ def test_paste_with_nothing(eq_screen, flow, check):
     wait.paste()
     qt.pump(100)
     check("website flow: Paste the picture with no picture says so, and the wait continues",
-          wait.isVisible() and "no picture on the clipboard" in wait.note.text() and wait.note.isVisible(),
+          wait.isVisible() and "No image on clipboard" in wait.note.text() and wait.note.isVisible(),
           wait.note.text())
 
 
@@ -861,7 +861,7 @@ def test_reading_takes_no_input(eq_screen, flow, monkeypatch, check):
     during = (tw.reading_graph, tw.status.text(), tw.stage.isEnabled(), tw.side_scroll.isEnabled())
     came = _picture_came(page)
     check("website flow: while the automatic read runs, the status line says so, and the stage and the side panel "
-          "do not accept input", during[0] and during[1] == "The app reads the graph…" and not during[2]
+          "do not accept input", during[0] and during[1] == "Analyzing graph…" and not during[2]
           and not during[3], during)
     check("website flow: after the automatic read, the stage and the side panel accept input again",
           came and tw.stage.isEnabled() and tw.side_scroll.isEnabled())
@@ -2270,7 +2270,7 @@ def test_same_picture_again_keeps_the_result(eq_screen, flow, monkeypatch, check
           "entry and the name, and the status line says so", came and tw.entry and tw.entry["name"] == ENTRY
           and tw.t.src_name == NAME and tw.pages.currentIndex() == 2 and len(tw.t.curves) == 2
           and all(map(tw.t.has_data, tw.t.curves)) and not DIALOGS.asked[asked:]
-          and tw.status.text() == "The tracer has this picture.", after)
+          and tw.status.text() == "Image loaded", after)
     since = tw.graph_token
     _copy(_one_pixel_changed())
     _ctrl_v(tw)
@@ -2291,7 +2291,7 @@ def test_same_picture_after_a_close_keeps_the_result(eq_screen, flow, monkeypatc
     qt.wait_for(lambda: not tw.reading_graph and not tw.reading, 30)
     after = (tw.entry and tw.entry.get("name"), tw.t.src_name, tw.graph_token - since, tw.status.text())
     check("website flow: after a close of the tracer, the same picture again keeps the automatic result, the entry "
-          "and the name", came and after == (ENTRY, NAME, 0, "The tracer has this picture.")
+          "and the name", came and after == (ENTRY, NAME, 0, "Image loaded")
           and all(map(tw.t.has_data, tw.t.curves)), after)
 
 
@@ -2321,7 +2321,7 @@ def test_same_picture_after_a_poor_read_keeps_the_users_change(eq_screen, flow, 
     after = (tw.graph_token, len(tw.t.undo_stack))
     check("website flow: after a read that was not OK and a change of the user, the same picture again is not read "
           "again and the change stays", came and before[1] == 1 and after == before and tw.entry
-          and tw.entry["name"] == ENTRY and tw.status.text() == "The tracer has this picture.",
+          and tw.entry["name"] == ENTRY and tw.status.text() == "Image loaded",
           (before, after, tw.status.text()))
 
 
@@ -2958,7 +2958,7 @@ def test_the_same_picture_again_keeps_the_control_selected_during_the_read(eq_sc
     seen = (said, reading, f.text() if f is not None and hasattr(f, "text") else repr(f))
     check("tracer: Ctrl+V with the same picture during the read changes nothing, and Open image…, selected during the "
           "read, keeps the focus after the read (it went to the picture)",
-          came and seen == ("The tracer has this picture. The app reads the graph…", True, "Open image…"), seen)
+          came and seen == ("Image loaded · Analyzing graph…", True, "Open image…"), seen)
 
 
 def test_a_mouse_press_during_the_read_keeps_the_focus(eq_screen, flow, monkeypatch, dialogs, check):
@@ -3318,7 +3318,7 @@ def test_the_same_large_picture_again_gives_the_focus_to_the_picture(eq_screen, 
         qt.pump(100)
         seen[case] = (loading, tw.status.text(), QApplication.focusWidget() is (chosen or tw.stage))
     monkeypatch.setattr(trace_window, "prepared", real)
-    same = "The tracer has this picture."
+    same = "Image loaded"
     check("website flow: after the same large picture again, the picture has the focus (no control had it), a control "
           "selected during the load keeps it, and the same small picture leaves the focus in the box of the user",
           came and seen == {"the same small picture, a box with the focus": (same, True),
@@ -3407,14 +3407,14 @@ def test_remove_image_no_keeps_the_focus_on_remove_image_and_the_words_of_the_to
             qt.pump(100)
             want = tw.stage if how.startswith("Guide") else tw.remove_btn
             seen[how] = (loading, during, len(dialogs.asked) - asked, tw.loading, tw.t.has_image,
-                         QApplication.focusWidget() is want, tw.status.text() == trace_window.HINTS[tw.tool])
+                         QApplication.focusWidget() is want, tw.status.text() == trace_window.IDLE)
             monkeypatch.setattr(trace_window, "prepared", real)
             qt.wait_for(lambda: False, 1.5)  # (the dropped load ends: its answer is not taken)
     finally:
         monkeypatch.setattr(trace_window, "prepared", real)
     check("tracer: Remove image, then No: Remove image keeps the focus that it had, also during the load of a large "
-          "picture; a focus that Qt moved gives way to the picture; and the status line shows the words of the tool "
-          "(not \"The app opens the picture…\")",
+          "picture; a focus that Qt moved gives way to the picture; and the status line is empty (not "
+          "\"Opening image…\")",
           came and curves and seen == {
               "Space on Remove image, which had the focus before the load": (True, True, 1, False, True, True, True),
               "Guide had the focus before the load, Remove image pushed with no move of the focus":
@@ -3475,7 +3475,7 @@ def test_remove_image_no_keeps_no_record_of_the_dropped_load(eq_screen, flow, mo
                 if then.startswith("a click"):
                     tw.remove_btn.setFocus(Qt.OtherFocusReason)  # (a screen reader moves it so: not a selection)
                 qt.wait_for(lambda: not tw.loading, 20)
-                again = again and tw.status.text() == "The tracer has this picture."
+                again = again and tw.status.text() == "Image loaded"
             else:
                 tw.close()
                 qt.pump(30)
@@ -3538,13 +3538,13 @@ def test_the_same_picture_during_its_read_says_that_the_read_continues(eq_screen
         seen["the same picture with no read"] = (tw.reading_graph, tw.status.text())
     finally:
         monkeypatch.setattr(trace_window, "prepared", real)
-    reads, tool = "The tracer has this picture. The app reads the graph…", "Click a curve to follow it."
+    reads, tool = "Image loaded · Analyzing graph…", ""
     check("website flow: the same picture again while its automatic read operates says that the tracer has it and "
           "that the read continues, and with no read, only that the tracer has it (\"The tracer has this picture.\" "
           "showed until the end of the read)",
           came and seen == {"a small picture during its read": (True, (True, reads), tool),
                             "a large picture during its read": (True, (True, reads), tool),
-                            "the same picture with no read": (False, "The tracer has this picture.")}, seen)
+                            "the same picture with no read": (False, "Image loaded")}, seen)
 
 
 def test_remove_image_no_during_a_large_load_writes_the_words_of_before_it_again(eq_screen, flow, monkeypatch,
@@ -3616,7 +3616,7 @@ def test_remove_image_no_during_a_large_load_does_not_write_a_message_about_a_st
     def words(text):
         if text.startswith("New curve “"):
             return "New curve"
-        return "Make a line" if text == trace_window.HINTS["draw"] else text
+        return "empty" if text == trace_window.IDLE else text
     monkeypatch.setattr(QMessageBox, "warning", warning)
     try:
         tw.set_tool("draw")  # (Make a line: the words of a different tool)
@@ -3638,9 +3638,9 @@ def test_remove_image_no_during_a_large_load_does_not_write_a_message_about_a_st
         monkeypatch.setattr(trace_window, "prepared", real)
         tw.set_tool("trace")
         dialogs.answer("question", QMessageBox.Yes)  # (the picture with its curve goes after the test)
-    check("tracer: Remove image and No during the load of a large picture writes the words of the tool, not a message "
-          "about a step before the load (\"New curve …\" came back)",
-          came and seen == ("New curve", True, 1, True, [], "Make a line"), seen)
+    check("tracer: Remove image and No during the load of a large picture leaves the status line empty, not a "
+          "message about a step before the load (\"New curve …\" came back)",
+          came and seen == ("New curve", True, 1, True, [], "empty"), seen)
 
 
 def test_a_message_during_a_load_or_a_read_says_that_it_continues(eq_screen, flow, monkeypatch, check):
@@ -3658,7 +3658,7 @@ def test_a_message_during_a_load_or_a_read_says_that_it_continues(eq_screen, flo
     qt.pump(100)
     entry = tw.entry
     real = trace_window.prepared
-    none = "There is no picture on the clipboard. First, copy a picture of a graph."
+    none = "No image on clipboard. Copy a graph image first."
     names = {none: "no picture", f"{none} {trace_window.LOADING}": "no picture, then opens the picture",
              f"{none} {trace_window.READING}": "no picture, then reads the graph"}
     seen = {}
@@ -3854,9 +3854,8 @@ def test_a_message_box_shows_the_words_of_the_tool_in_place_of_a_message(eq_scre
     folder.mkdir()
     (folder / "a.txt").write_text("1", encoding="utf-8")
     real_call = page.svc.call
-    none = "There is no picture on the clipboard. First, copy a picture of a graph."
-    names = {trace_window.HINTS["trace"]: "Click curve", none: "no picture",
-             "The app removed the picture. Open, drag or paste a different picture.": "removed"}
+    none = "No image on clipboard. Copy a graph image first."
+    names = {trace_window.IDLE: "empty", none: "no picture", "Image removed": "removed"}
 
     def outputs_error(*a, **k):
         raise ValueError("made-up error of the curves")
@@ -3910,10 +3909,10 @@ def test_a_message_box_shows_the_words_of_the_tool_in_place_of_a_message(eq_scre
         qt.pump(50)
         seen[case] = (names.get(before, before), [names.get(t, t) for t in behind],
                       names.get(tw.status.text(), tw.status.text()))
-    tool = ("no picture", ["Click curve"], "Click curve")
+    tool = ("no picture", ["empty"], "empty")
     want = dict.fromkeys(seen, tool)
     want["no message: a file that is not a picture after Remove image"] = ("no picture", ["removed"], "removed")
-    check("tracer: behind each message box, the status line shows the words of the tool, not a message about a step "
+    check("tracer: behind each message box, the status line is empty, not a message about a step "
           "that ended; other words stay (\"There is no picture on the clipboard. …\" showed behind \"The app cannot "
           "read this file as a picture (…).\")",
           came and len(seen) == 11 and seen == want, {k[:45]: seen.get(k) for k in want if seen.get(k) != want[k]})
