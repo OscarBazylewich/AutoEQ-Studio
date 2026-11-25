@@ -6,11 +6,11 @@ screens'. Words only: nothing is imported here.
 # flake8: noqa
 
 HELP_DEVICES = {'#dev-check': ['', 'q-applies'],
- '#presets': 'Save and reload Make an EQ settings by name (files aren\'t included)',
+ '#presets': '',
  '#backup': 'Export all data to a .zip backup, or restore any backup file (restarts AutoEQ Studio)',
  '#files-folder': ['Stores your targets, measurements, saved EQs, and presets', 'q-files'],
  '#dev-rename': '',
- '#dev-remove': 'Removes this device from Devices without deleting its profiles',
+ '#dev-remove': '',
  '#prof-edit': ['', 'by-hand', 'set-use-update'],
  '#hotkey': 'Cycles through the active device\'s EQs, then Off (works in all apps)',
  '#onoff-hotkey': ['Toggles EQ on or off for the active device (works in all apps)', 'match-loudness'],

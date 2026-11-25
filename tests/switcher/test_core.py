@@ -263,3 +263,34 @@ def test_without_apo(start, check):
         said = str(e)
     # was selftest.py:239
     check("core: without APO, importing says so and nothing is written", "Equalizer APO isn't installed" in said and not gone.apply(), said)
+
+
+def test_another_parts_set_aside_file_does_not_hold_apo_file(tmp_path, check):
+    # (2026-11-24, the text survey's older faults: any file set aside before the start, also one of another part such
+    # as history.json, set hold, so APO's file was not written although the switcher's own settings loaded; and a
+    # set-aside file's words replaced the words of a locked settings file)
+    top = str(tmp_path)
+    conf = stand_in.fake_apo(top)
+    data = os.path.join(top, "settings.json")
+    other = os.path.join(top, "history.json")
+    eps = [D.Endpoint("{5}", "Headset", "EarPods", D.ACTIVE, True)]
+    textfile.take_set_aside()  # (nothing another test set aside)
+    got = {}
+    try:
+        for case in ("fine", "locked"):
+            with open(other, "w", encoding="utf-8") as fh:
+                fh.write("{ damaged")
+            textfile.read_json_kept(other, list)  # (set aside as history.json.bad, then .2.bad)
+            with pytest.MonkeyPatch.context() as mp:
+                if case == "locked":
+                    mp.setattr(textfile, "read_json_kept", _in_use)
+                sw = core.Switcher(data, Apo(conf), endpoints=lambda: list(eps), playing=lambda: "{5}")
+            got[case] = (sw.hold, sw.problem)
+    finally:
+        textfile.take_set_aside()
+    words = lambda bad: textfile.set_aside_words(other, other + bad)  # noqa: E731
+    check("core: a file of another part set aside before the start does not hold APO's file (only the switcher's own "
+          "settings do); its words join the words of a locked settings file instead of replacing them",
+          got["fine"] == (False, words(".bad")) and got["locked"][0] is False
+          and got["locked"][1].startswith("Couldn't read the settings file (")
+          and got["locked"][1].endswith(" " + words(".2.bad")), got)

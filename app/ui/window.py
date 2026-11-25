@@ -289,8 +289,8 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         theme.mark(self.presets_btn, nav=True)
         icons.put(self.presets_btn, "presets")
         self.presets_btn.setToolTip("Save or load Make an EQ settings as a preset (settings only)")
-        # (the line for a screen reader is the tooltip, the owner's rule of 2026-11-24: without this, tag() gave it the
-        # different first line of "#presets" in HELP)
+        # (the line for a screen reader is the tooltip, the owner's rule of 2026-11-24. The line of "#presets" in HELP
+        # is empty, so tag() gives no description: this one gives it)
         self.presets_btn.setAccessibleDescription(self.presets_btn.toolTip())
         from ui import help_window
         help_window.tag(self.presets_btn, "#presets")

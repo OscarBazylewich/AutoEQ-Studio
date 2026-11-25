@@ -17,6 +17,12 @@ from ui.setup_dialog import SetUpDialog
 from ui.window_parts import glyph_label, muted
 
 
+def _count(n, word):
+    """"1 file", "2 files", "0 profiles": the backup messages' counts. The owner's words (the text survey,
+    2026-11-24) are "{n} files" and "{n} profiles"; a count of 1 takes the word without its "s"."""
+    return f"{n} {word}" if n == 1 else f"{n} {word}s"
+
+
 class _KeyWatch(QObject):
     """A hotkey box's watch: typing is True from a key press until the key is complete (Qt empties the box at the
     first key press); cleared is True when the box was emptied on purpose."""
@@ -274,7 +280,7 @@ class SettingsScreen:
         except OSError as e:
             QMessageBox.warning(self, "Backup", f"Couldn't save backup: {e}")
             return
-        self.status(f"Saved {info['files']} files ({info['profiles']} profiles) to {dest}", 10000)
+        self.status(f"Saved {_count(info['files'], 'file')} ({_count(info['profiles'], 'profile')}) to {dest}", 10000)
 
     def load_backup(self):
         import backup
@@ -288,8 +294,8 @@ class SettingsScreen:
             QMessageBox.warning(self, "Load a backup", str(e))
             return
         if QMessageBox.question(
-                self, "Load a backup", f"Restore backup from {info['made']} ({info['files']} files, "
-                f"{info['profiles']} profiles)?\n\nThis replaces your current settings, History, profiles, and "
+                self, "Load a backup", f"Restore backup from {info['made']} ({_count(info['files'], 'file')}, "
+                f"{_count(info['profiles'], 'profile')})?\n\nThis replaces your current settings, History, profiles, and "
                 "matching files (other files are kept). Your current data is backed up first, then the app "
                 "restarts.") != QMessageBox.Yes:
             return
@@ -306,7 +312,7 @@ class SettingsScreen:
         self.app.timer.stop()
         extra = ("\n\nProfile EQ files weren't restored because Equalizer APO isn't installed. Install Equalizer APO, "
                  "then restore the backup again." if got["skipped"] else "")
-        QMessageBox.information(self, "Load a backup", f"Restored {got['files']} files. Your previous data was backed "
+        QMessageBox.information(self, "Load a backup", f"Restored {_count(got['files'], 'file')}. Your previous data was backed "
                                 f"up to {got['kept']}.{extra}\n\nAutoEQ Studio will now restart.")
         self.app.restart()
 

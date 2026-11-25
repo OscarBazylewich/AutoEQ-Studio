@@ -266,8 +266,8 @@ class DevicesScreen:
         rem.setAccessibleName(f"Remove {shown(rec)} from Devices")
         # (on for a connected device too: a click tells why in a bubble, UI-RULES 25)
         rem.setToolTip("Remove from Devices. Its profiles stay in Profiles.")
-        # (the line for a screen reader is the tooltip, the owner's rule of 2026-11-24: without this, tag() gave it the
-        # different first line of "#dev-remove" in HELP)
+        # (the line for a screen reader is the tooltip, the owner's rule of 2026-11-24. The line of "#dev-remove" in
+        # HELP is empty, so tag() gives no description: this one gives it)
         rem.setAccessibleDescription(rem.toolTip())
         rem.clicked.connect(lambda: self.remove_device(key))
         rem.setProperty("card_place", "remove device")

@@ -33,8 +33,9 @@ NO_TOOLTIP = {"#opt-view", "#target-save", "#compare-results", "#make-way", "#by
               # (area 26: the tracer's Automatic settings, Top, Bottom, Left, Right, Points in each octave, Save
               # from … to and Name)
               "#tr-auto-on", "#tr-d1", "#tr-d2", "#tr-f1", "#tr-f2", "#tr-ppo", "#tr-fmin", "#tr-name",
-              # (area 30: the line about Equalizer APO and Examine again, Rename… and Edit in Make an EQ)
-              "#dev-check", "#dev-rename", "#prof-edit"}
+              # (area 30: the line about Equalizer APO and Examine again, Rename… and Edit in Make an EQ; and the lines
+              # of Remove (a device) and Presets, which have own tooltips of the survey that stay)
+              "#dev-check", "#dev-rename", "#prof-edit", "#dev-remove", "#presets"}
 
 
 @pytest.mark.timeout(600)  # (the tracer's labels read and three Auto traces first)

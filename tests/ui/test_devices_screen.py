@@ -915,7 +915,8 @@ def test_the_help_of_remove_says_from_devices(check):
     check("devices: the source lines of the Help of Remove have 120 characters or fewer; the words say \"from "
           "Devices\" (one name), not \"from the list\"",
           not wide and "from the list" not in " ".join(texts)
-          and H.HELP_DEVICES["#dev-remove"] == "Removes this device from Devices without deleting its profiles",
+          # (2026-11-24: its line is empty, as Remove shows its own tooltip of the survey's area 27)
+          and H.HELP_DEVICES["#dev-remove"] == "",
           (wide, texts))
 
 
