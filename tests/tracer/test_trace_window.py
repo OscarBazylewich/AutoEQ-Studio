@@ -102,8 +102,8 @@ def test_saving_without_db_value(eq_screen, check):
     except ValueError as e:
         missing = str(e)
     # was eq_checks.py:2839
-    check("trace: saving without a dB value says to type it", "Type the values" in missing
-          and "Type the dB values" in tw.save_note.text(), (missing, tw.save_note.text()))
+    check("trace: saving without a dB value says to type it", "Enter all 4 axis line values first" in missing
+          and "enter the red dB line values" in tw.save_note.text(), (missing, tw.save_note.text()))
     tw.close()
 
 
@@ -127,7 +127,7 @@ def test_add_as_measurement(eq_screen, fresh_studio, monkeypatch, check):
     loaded = eq_screen.wait_for(lambda: page.curves is not None and page.curves.get("name") == "Sample IEM", 60)
     # was eq_checks.py:2877
     check("trace: Add as measurement puts the curves in the app as one device, in use (on the graph)",
-          loaded and "2 files of one measurement" in tw.save_note.text()
+          loaded and "Added 2-curve measurement" in tw.save_note.text()
           and [m["name"] for m in page.inputs["measurements"] if m["included"]] == ["Sample IEM L.txt", "Sample IEM R.txt"],
           (tw.save_note.text(), page.graph_title.text()))
     tw.close()
@@ -185,8 +185,34 @@ def test_messages_in_sight_on_every_tab(eq_screen, monkeypatch, check):
     inside = tw.rect().contains(QRect(tw.status.mapTo(tw, QPoint(0, 0)), tw.status.size()))
     tw.close()
     check("trace: the tracer's messages show on every tab (1 Axes, 2 Trace, 3 Save), inside the window",
-          all(shown and text for _w, shown, text in seen) and "changed the value" in seen[0][2]
-          and "clipboard" in seen[1][2] and "removed the picture" in seen[3][2] and inside, (seen, inside))
+          all(shown and text for _w, shown, text in seen) and "Adjusted to" in seen[0][2]
+          and "clipboard" in seen[1][2] and "Image removed" in seen[3][2] and inside, (seen, inside))
+
+
+def test_message_line_words_of_the_tools_and_of_a_wait(eq_screen, check):
+    # (the text survey, 2026-11-24: the message line no longer shows the words of the selected tool ("Click a curve to
+    # follow it." and the 3 others). A message with no end period is joined to the words of a wait with " · ", one
+    # with a period with a space: no period before " · ")
+    tw = _sample_open(eq_screen)
+    tools = {}
+    for key in ("draw", "erase", "pan", "trace"):
+        tw.say("A message.")
+        tw.set_tool(key)
+        tools[key] = tw.status.text()
+    joined = []
+    tw.reading_graph = True  # (as while the automatic read operates: say() adds its words)
+    try:
+        for text in ("Image loaded", "No image on clipboard. Copy a graph image first."):
+            tw.say(text)
+            joined.append(tw.status.text())
+    finally:
+        tw.reading_graph = False
+    tw.close()
+    check("trace: a tool selected leaves the message line empty; a message during the automatic read ends with "
+          "“Analyzing graph…”, after “ · ” or after the message's period",
+          tools == dict.fromkeys(tools, "") and joined == [
+              "Image loaded · Analyzing graph…",
+              "No image on clipboard. Copy a graph image first. Analyzing graph…"], (tools, joined))
 
 
 def test_keys_show_their_tab(eq_screen, check):

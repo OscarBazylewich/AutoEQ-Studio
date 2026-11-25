@@ -120,7 +120,7 @@ def test_locked_file_said_and_kept(tmp_path, monkeypatch, check):
             msg = str(err)
     # was eq_checks.py:761
     check("settings: a locked settings.json says so and stays (not moved to .bad for the defaults)",
-          "a different program has it open" in msg and os.path.exists(sp) and not os.path.exists(sp + ".bad")
+          "because another program is using it" in msg and os.path.exists(sp) and not os.path.exists(sp + ".bad")
           and settings.load(sp)["scoring"]["ear_db"] == 0.3, msg)
 
 
@@ -141,7 +141,7 @@ def test_presets_written_in_one_step(monkeypatch, check):
 def test_preset_name_that_cleans_to_nothing(check):
     # was eq_checks.py:774
     check("presets: a name that cleans down to nothing is refused (was saved over \"preset\")",
-          raises(settings.preset_path, "..") == "Give the preset a name." and raises(settings.preset_path, " . ") is not None)
+          raises(settings.preset_path, "..") == "Enter a preset name" and raises(settings.preset_path, " . ") is not None)
 
 
 def test_removed_settings_leave_older_copies(check):

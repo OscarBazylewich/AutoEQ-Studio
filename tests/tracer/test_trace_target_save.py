@@ -16,11 +16,11 @@ from ui import trace_auto
 COVERS = ("ui.trace_core", "ui.trace_auto", "ui.ocr", "ui.eq_page", "eq.service", "eq.inputs")
 ENTRY = {"name": "Sample Target", "tag": "Site 1", "site": "Sample.Site", "link": "https://example.invalid/t",
          "kind": "target"}
-HEAD = "The app traced the target “Sample Target” from “Sample.Site”."
-END = "Compare the curve with the picture. If they agree, click Add as target."
+HEAD = "Traced target “Sample Target” from “Sample.Site”."
+END = "Verify it against the image, then click Add as target."
 # (the first and the last traced frequency, in 3 Save's note: the line has no points under a label and where the
 # website fades it, 2026-11-13)
-NOTE = re.compile(re.escape(HEAD) + r" The app traced the target line from \d+(\.\d)? Hz to \d+(\.\d)? kHz\.\n"
+NOTE = re.compile(re.escape(HEAD) + r" Target traced from \d+(\.\d)? Hz to \d+(\.\d)? kHz\n"
                   + re.escape(END) + "$")
 
 
@@ -159,18 +159,19 @@ def test_kind_of_entry_and_picture_disagree(eq_screen, monkeypatch, tmp_path, ch
     _pictures(eq_screen, tw, tmp_path, "two-targets")
     tw.remove_image()
     tw.close()
-    head = "The app cannot trace this picture automatically. "
+    head = "Couldn't auto-trace this image. "
     # (2026-11-13, the verifier's M3: the words of a measurement and the step to correct, no curve "Target")
     check("tracer: an entry of a measurement, a picture with only a target line: the read is not OK, 2 Trace is in "
           "sight, the status line has the reason of a measurement, the sentence about the gray line and the step to "
           "correct, and the tracer has no curve",
-          seen["measurement"] == (False, False, 1, head + trace_auto.NO_STRONG_CURVE + " " + trace_auto.ONLY_GREY_LINE
-                                  + "\n" + CORRECT_STEP, ("Add as measurement", True), False), seen["measurement"])
+          seen["measurement"] == (False, False, 1, head + "No colored measurement curve found. If only a target is "
+                                  "shown, enable the measurement on the graph\n" + CORRECT_STEP,
+                                  ("Add as measurement", True), False), seen["measurement"])
     check("tracer: an entry of a measurement, the website's graph of a target (-20 dB to 20 dB): 1 Axes is in sight, "
           "and the status line has the reason of the dB axis, the sentence about the gray line and the step to correct",
-          seen["graph of a target"] == (False, 0, head + "The dB axis is -20 dB to 20 dB. This range is not usual for "
-                                        "a graph of an IEM or headphone. " + trace_auto.ONLY_GREY_LINE + "\n"
-                                        + CORRECT_STEP), seen["graph of a target"])
+          seen["graph of a target"] == (False, 0, head + "Detected dB range is -20 to 20 dB. Unusual range for a "
+                                        "headphone/IEM graph. If only a target is shown, enable the measurement on "
+                                        "the graph\n" + CORRECT_STEP), seen["graph of a target"])
     check("tracer: an entry of a target, a picture with a measurement across the target line: the read is not OK, and "
           "the status line tells to remove the measurement and to copy a new picture",
           seen["target"] == (False, False, 1, head + trace_auto.KIND_NOT_TARGET + "\n" + NOT_GRAPH,

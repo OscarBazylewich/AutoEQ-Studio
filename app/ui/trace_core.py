@@ -30,6 +30,8 @@ GREY = 20  # a pixel whose channels differ by less than this is grey (measured o
 # picked from a JPEG may be tinted more: under GREY + 25 it's a grey curve, matched as plain grey
 LABELS = ["L", "R", "L2", "R2", "L3", "R3"]
 MAX_CURVES = len(LABELS)
+MIN_POINTS = 32  # (the fewest points a saved curve has: points() refuses fewer, and its message names the number)
+NBSP = "\N{NO-BREAK SPACE}"  # (between a tab's number and its name in a message: "2 Trace" stays on one line)
 NICE = [math.log10(v) for v in (1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 7, 8, 9, 10)]
 LOG_DIGITS = np.log10(np.arange(1, 11))
 NAMES = {"tol": "Color tolerance", "ppo": "Points in each octave", "fmin": "Save from", "fmax": "Save to",
@@ -249,6 +251,17 @@ def _num(v):
     return x if math.isfinite(x) else None
 
 
+def sentences(parts):
+    """The tracer's messages joined with one space, by the rule of eq_page_result.sentences (not imported from there:
+    that module is a part of Make an EQ, and the tracer must not load it). Many of the text survey's words have no
+    period at their end (the owner's words, kept as typed): such a part gets one here when another sentence comes
+    after it ("No graph grid found. Copy a new graph image …"); the last part stays as it is. Empty parts (a check
+    whose text the survey removed) are left out."""
+    parts = [p for p in parts if p]
+    return " ".join(p if i == len(parts) - 1 or p.endswith((".", "!", "?", "…")) else p + "."
+                    for i, p in enumerate(parts))
+
+
 # ---------------------------------------------------------------- reading the labels
 def join_words(ws):
     """Pieces of one label ("-" "10") that sit side by side, joined."""
@@ -459,16 +472,16 @@ class Tracer:
             self.v["f1"], self.v["f2"] = f"{a['v']:g}", f"{b['v']:g}"
             even = all(abs(math.log10(g["v"]) - (math.log10(a["v"]) + (g["p"] - a["p"]) / (b["p"] - a["p"])
                                                   * math.log10(b["v"] / a["v"]))) < 0.01 for g in gx)
-            note = (f"The app read {len(gx)} frequency grid lines: {fmt_hz(a['v'])} to {fmt_hz(b['v'])}"
-                    + ("." if even else ". The app uses all grid lines, because the grid lines on this axis are "
-                       "irregular (keep “Follow all grid lines” selected).") + " Compare them with the labels on the picture.")
+            note = (f"Detected {len(gx)} frequency grid lines ({fmt_hz(a['v'])}–{fmt_hz(b['v'])})"
+                    + ("." if even else ". Irregular spacing: using all grid lines (keep “Follow all grid lines” "
+                       "checked).") + " Verify against the image labels.")
         else:
             self.cal["x1"] = vl[0]["pos"] if len(vl) >= 2 else W * 0.1
             self.cal["x2"] = vl[-1]["pos"] if len(vl) >= 2 else W * 0.9
             self.v["f1"] = self.v["f1"] or "20"
             self.v["f2"] = self.v["f2"] or "20000"
-            note = ("The app cannot read the frequency axis. Drag the blue lines to two grid lines with labels. Then "
-                    "type their values in Hz.")
+            note = ("Couldn't read the frequency axis. Align the blue lines to two labeled grid lines and enter their Hz "
+                    "values.")
         self.v["d1"] = self.v["d2"] = ""
         self.label_words = []
         self.axis_note = self.detect_note = note  # (detect_note: each label reading's note starts from it, not the last)
@@ -735,11 +748,10 @@ class Tracer:
         x, y = _js_round(x), _js_round(y)
         box = self.box
         if not self.has_image or x < box["x0"] or x > box["x1"] or y < box["y0"] - 6 or y > box["y1"] + 6:
-            return "Click a curve in the graph."
+            return "Click a curve in the graph"
         c = self.pick_colour(x, y, hue)
         if not c:
-            return ("There is no curve at that position. If the line is thin, zoom in with the mouse wheel. Then click "
-                    "directly on the line.")
+            return "No curve found there. Scroll to zoom in on thin lines, then click directly on the curve."
         # start from the nearest pixel of that colour: a click on a dash's pale end or in a gap between dashes has none
         # in its own column
         tol2 = self.v["tol"] ** 2
@@ -776,18 +788,17 @@ class Tracer:
                     if o["dashed"] and not dashed_now:
                         self.v["dashed"] = True
                         ta["dashed_found"] = True
-                        ta["notes"]["dashed"] = ("Dashed line: the app continues across the spaces in the line, because "
-                                                 "the traced line stopped at them.")
+                        ta["notes"]["dashed"] = "Dashed line: bridges gaps where tracing stopped"
                     if o.get("tol"):
                         self.v["tol"] = o["tol"]
-                        ta["notes"]["tol"] = (f"Color tolerance {o['tol']}: the app increased the tolerance, because the "
-                                              "curve's color changes more than the noise of the picture showed.")
+                        ta["notes"]["tol"] = (f"Color tolerance {o['tol']}: increased because the curve's color varies "
+                                              "more than expected")
                     if span(got) >= full:
                         break
         ta["last_trace"] = time.perf_counter() - t0
         if not got or len(got) < 3:
-            return ("The app cannot follow a line from that position. Click the middle of the curve, or increase the "
-                    "color tolerance.")
+            return ("Couldn't follow the curve from there. Try clicking another spot on it, or increase Color "
+                    "tolerance.")
         self.push_undo()
         self.user_edit()
         ys = self.ys
@@ -795,13 +806,11 @@ class Tracer:
             ys[gx] = gy
         self.curves[self.cur]["colour"] = c
         short = span(got) < (box["x1"] - box["x0"]) * 0.6 and not self.v["dashed"]
-        return (f"The app traced {len(got)} px of the curve"
-                + ((" (as a dashed line)" if retried == "dashed" else " (with more color tolerance)") if retried else "")
-                + "." + (" It stopped before the end of the curve. If the line is dashed or dotted, select “Dashed or "
-                         "dotted line”. Then click the line again. If the line is not dashed, click the remaining part "
-                         "of it." if short else
-                         " To add to the traced line, click a different part. To correct small areas, use Make a line "
-                         "or Erase."))
+        return (f"Traced {len(got)} px"
+                + ((" (dashed line)" if retried == "dashed" else " (higher color tolerance)") if retried else "")
+                + "." + (" Stopped early: for dashed or dotted lines, enable “Dashed or dotted line” and click again; "
+                         "otherwise click the untraced section." if short else
+                         " Click another section to extend, or use Make a line / Erase for touch-ups."))
 
     @staticmethod
     def hue_bin(r, g, b):
@@ -898,11 +907,11 @@ class Tracer:
             return ""
         more = self.has_data(self.curves[self.cur])
         if more and len(self.curves) >= MAX_CURVES:
-            return "This is the maximum number of curves."
+            return f"Auto-trace limit reached ({MAX_CURVES} curves). Use Add a curve to trace more."
         s = self.auto_seed(-1 if more else self.cur)
         if not s:
-            return ("The app did not find a different curve. Click a curve to trace it." if any(map(self.has_data, self.curves))
-                    else "The app did not find a curve automatically. Click a curve to trace it.")
+            return ("No other curve found. Click a curve to trace it manually." if any(map(self.has_data, self.curves))
+                    else "No curve detected automatically. Click a curve to trace it manually.")
         if more:
             self.add_curve()
         return self.trace_at(s[0], s[1], hue=s[2])
@@ -922,7 +931,7 @@ class Tracer:
         c["label"] = next((l for l in LABELS if l not in used), str(len(self.curves) + 1))
         self.curves.append(c)
         self.cur = len(self.curves) - 1
-        return f"New curve “{c['label']}”: click the curve on the picture, or click Trace automatically."
+        return f"Added curve “{c['label']}”. Click it on the image or use Trace automatically."
 
     def user_edit(self, i=None):
         """The user changes a curve's data (trace, make a line, erase, smooth, clear): it is a measurement curve from
@@ -1053,16 +1062,16 @@ class Tracer:
             a, b = db[0], db[-1]
             self.cal["y1"], self.cal["y2"] = a["p"], b["p"]
             self.v["d1"], self.v["d2"] = f"{a['v']:g}", f"{b['v']:g}"
-            parts.append(f"dB labels {fmt_db(a['v'])} to {fmt_db(b['v'])}")
+            parts.append(f"dB {fmt_db(a['v'])} to {fmt_db(b['v'])}")
         if hz and not self.typed["f"] and not self.moved["f"]:
             parts.append(self.use_hz_labels(hz))
         self.fit_settings()
         if parts:
-            self.axis_note = (f"The app read the labels: {' and '.join(parts)}. The green boxes show the labels that the "
-                              "app used. Compare them with the picture.")
+            self.axis_note = f"Detected labels: {'; '.join(parts)}. Verify the green boxes against the image."
         else:
-            self.axis_note = before + ("" if db or hz else " The app cannot read the axis labels. Type the values of the red "
-                                       "and blue lines.")
+            # (sentences: before can be the automatic read's note, which has no end period)
+            self.axis_note = sentences([before, "" if db or hz else "Couldn't read axis labels. Enter the red and blue "
+                                        "line values manually."])
         return self.axis_note
 
     def use_hz_labels(self, hz):
@@ -1084,12 +1093,12 @@ class Tracer:
                     self.v["f1"] = f"{a['v']:g}"
                 if b:
                     self.v["f2"] = f"{b['v']:g}"
-                return f"{agree} frequency labels agree with the grid lines"
+                return f"{agree} frequency labels match the grid"
         self.grid_x = [{"p": pr["p"], "v": pr["v"]} for pr in hz]
         a, b = self.grid_x[0], self.grid_x[-1]
         self.cal.update(x1=a["p"], x2=b["p"])
         self.v["f1"], self.v["f2"] = f"{a['v']:g}", f"{b['v']:g}"
-        return f"frequency labels {fmt_hz(a['v'])} to {fmt_hz(b['v'])}"
+        return f"frequency {fmt_hz(a['v'])} to {fmt_hz(b['v'])}"
 
     # ---------------------------------------------------------------- editing
     def snapshot(self):
@@ -1121,7 +1130,7 @@ class Tracer:
         self.push_undo()
         self.user_edit()
         self.ys[:] = np.nan
-        return "The app cleared this curve (you can undo this)."
+        return "Curve cleared"
 
     def smooth(self):
         """Pixel steps smoothed out (a small Gaussian over the traced columns)."""
@@ -1166,16 +1175,16 @@ class Tracer:
         """The trace as [(Hz, dB)] at the points per octave, within the range to save; .gaps: parts over 40 px untraced."""
         k = self.calib()
         if not k:
-            raise ValueError("Type the values of the 4 lines first (2 dB values and 2 frequencies).")
+            raise ValueError("Enter all 4 axis line values first (2 dB and 2 Hz)")
         valid = np.flatnonzero(np.isfinite(ys))
         if len(valid) < 20:
-            raise ValueError("Trace a curve first.")
+            raise ValueError("Trace a curve first")
         ppo = int(self.v["ppo"])
         fa, fb = k.hz_at(valid[0]), k.hz_at(valid[-1])
         lo = max(_num(self.v["fmin"]) or 20, min(fa, fb))
         hi = min(_num(self.v["fmax"]) or 20000, max(fa, fb))
         if not hi > lo:
-            raise ValueError("The traced part is not in the frequency range to save.")
+            raise ValueError("Traced curve is outside the export frequency range. Adjust “Save from (Hz)”.")
         vx, vy = valid.astype(float), ys[valid]
         out = []
         n = math.ceil(ppo * math.log2(lo / 1000) - 1e-9)
@@ -1187,8 +1196,9 @@ class Tracer:
             y = float(np.interp(x, vx, vy))  # (a straight line between the nearest traced columns)
             out.append((f, k.db_at(y) + (comp(f) if comp else 0)))
             n += 1
-        if len(out) < 32:
-            raise ValueError(f"Only {len(out)} points: trace more of the curve, or increase the points in each octave.")
+        if len(out) < MIN_POINTS:
+            raise ValueError(f"Only {len(out)} points ({MIN_POINTS} min). Trace more of the curve or increase points "
+                             "per octave.")
         gaps = []  # (the drawing shows a break there; the file can only bridge it with a straight line)
         for i in np.flatnonzero(np.diff(valid) > 40):
             f1, f2 = k.hz_at(valid[i]), k.hz_at(valid[i + 1])
@@ -1211,7 +1221,7 @@ class Tracer:
         lst = [self.curves[self.cur]] if only_current else \
             [c for c in self.curves if self.has_data(c) and not c.get("target")]
         if not lst or not any(map(self.has_data, lst)):
-            raise ValueError("Trace a curve first.")
+            raise ValueError("Trace a curve first")
         outs = []
         for i, c in enumerate(lst):
             try:
@@ -1219,14 +1229,15 @@ class Tracer:
             except ValueError as e:  # (which of several curves: a stray bit on a third one stopped L and R)
                 if len(lst) == 1:
                     raise
-                raise ValueError(f"Curve “{c['label'] or i + 1}”: {e} (or remove that curve)") from None
+                # (the error's end period goes: "… per octave (or remove it …)", not "… per octave. (or remove …")
+                raise ValueError(f"Curve “{c['label'] or i + 1}”: {str(e).rstrip('.')} (or remove it on 2{NBSP}Trace)") \
+                    from None
             outs.append({"file": f"{name} {safe(c['label']) or i + 1}.txt" if len(lst) > 1 else f"{name}.txt",
                          "text": self.file_text(pts, comp_note), "label": c["label"], "gaps": gaps})
         seen = set()  # (each curve its own file name: the same name twice was saved as another device)
         for o in outs:
             if o["file"].lower() in seen:
-                raise ValueError(f"There are two curves named “{o['label']}”. Give each curve a different name (for "
-                                 "example, L and R).")
+                raise ValueError(f"Duplicate curve name “{o['label']}”. Give each curve a unique name (e.g. L, R).")
             seen.add(o["file"].lower())
         return outs
 
@@ -1235,9 +1246,9 @@ class Tracer:
         g = [x for o in outs for x in o["gaps"]]
         if not g:
             return ""
-        return (f"The app saved a straight line across the part{'s' if len(g) > 1 else ''} with no traced line at "
-                + ", ".join(f"{fmt_hz(a)}–{fmt_hz(b)}" for a, b in g) + ". For the correct shape, trace the curve there "
-                "or make a line.")
+        return (f"Saved a straight line across untraced gap{'s' if len(g) > 1 else ''} at "
+                + ", ".join(f"{fmt_hz(a)}–{fmt_hz(b)}" for a, b in g) + ". Trace or draw across those gaps for an "
+                "accurate curve.")
 
     # ---------------------------------------------------------------- automatic settings
     def is_your_value(self, k):
@@ -1262,26 +1273,23 @@ class Tracer:
             return
         ta = self.ta
         tol = max(40, min(110, _js_round((45 + 3 * ta["noise"] + (10 if ta["jpeg"] else 0)) / 5) * 5))
-        self.set_auto_value("tol", tol, f"Color tolerance {tol}: pixels with that difference (or less) from the curve's color "
-                     "are part of the curve, because " + (
-                         "the colors of the picture are clean." if ta["noise"] < 3 else
-                         f"the picture has some color noise (average {ta['noise']:.1f}{', a JPEG' if ta['jpeg'] else ''})."))
+        self.set_auto_value("tol", tol, f"Color tolerance {tol}: matches pixels within this color distance (" + (
+                         "clean colors" if ta["noise"] < 3 else
+                         f"color noise, avg {ta['noise']:.1f}{', JPEG' if ta['jpeg'] else ''}") + ")")
         k = self.calib()
         if k:
             ta["px_oct"] = abs(k.x_at(2000) - k.x_at(1000))
             po = ta["px_oct"]
             ppo = 48 if po >= 48 else 24 if po >= 24 else 12
-            self.set_auto_value("ppo", ppo, f"{ppo} points in each octave: the graph has {_js_round(po)} pixels in each octave"
-                         + (", which is sufficient for squiglink." if ppo == 48 else
-                            ". More points do not give more data."))
+            self.set_auto_value("ppo", ppo, f"{ppo} pts/octave: graph is {_js_round(po)} px/octave"
+                         + (" (sufficient detail)" if ppo == 48 else "; more points add no detail"))
             fa, fb = k.hz_at(self.box["x0"]), k.hz_at(self.box["x1"])
             lo, hi = min(fa, fb), max(fa, fb)
             # (a frame drawn a hair inside 20 Hz or 20 kHz still means the whole range)
             fmin = 20 if lo < 21.5 else _js_round(min(lo, 19000))
             fmax = 20000 if hi > 18500 else _js_round(max(hi, fmin + 100))
-            self.set_auto_value("fmin", fmin, f"Save from {fmt_hz(fmin)} to {fmt_hz(fmax)}: " + (
-                "the part of the axis that the graph shows." if lo > 21 or hi < 19900 else
-                "the range that you can hear (the graph shows all of it)."))
+            self.set_auto_value("fmin", fmin, f"Save {fmt_hz(fmin)}–{fmt_hz(fmax)}: " + (
+                "visible graph range" if lo > 21 or hi < 19900 else "audible range (covered by graph)"))
             self.set_auto_value("fmax", fmax, None)
 
     def mark_your_value(self, k):

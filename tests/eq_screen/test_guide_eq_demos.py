@@ -312,7 +312,7 @@ def test_use_on_device_demo_rows_as_the_real_menu(eq_screen, check, monkeypatch,
     made = []
     try:
         # (made in the opposite sequence: the profiles' own sequence is not the menu's)
-        # (the long name on for Speakers and Zone: its on words, "on for Speakers (Realtek(R) … and 1 more device",
+        # (the long name on for Speakers and Zone: its on words, "active on Speakers (Realtek(R) … and 1 more device",
         # are cut too, 2026-11-11: a Guide that did not cut them passed)
         for name, ons in (("Zeta", ["TV|NVIDIA"]), (long_name, [speakers, "Zone|Dell"]), ("Night", [key])):
             path = os.path.join(str(tmp_path), f"{len(made)}.txt")
@@ -343,7 +343,7 @@ def test_use_on_device_demo_rows_as_the_real_menu(eq_screen, check, monkeypatch,
         s["same"] = (ups(s["mock"]) == ups(s["real"])[:2] and len(ups(s["mock"])) == 2
                      and devices(s["mock"]) == devices(s["real"]))
         s["cut"] = any(r.startswith("Update “Daily, a") and "…" in r.split("  ·  ")[0]
-                       and r.split("  ·  ")[-1].startswith("on for Speakers (Realtek")
+                       and r.split("  ·  ")[-1].startswith("active on Speakers (Realtek")
                        and r.endswith("… and 1 more device") for r in ups(s["mock"]))
         ok = ok and s["same"]
     ok = ok and seen[0]["cut"]  # (the long name: on the second device, an Update row of the first play)

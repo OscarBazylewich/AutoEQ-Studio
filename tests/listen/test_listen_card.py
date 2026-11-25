@@ -165,7 +165,7 @@ def test_history_listen_for_another_iem(card, check):
     # was eq_checks.py:2971
     check("listen: History's Keep to compare adds an EQ made for another IEM, and says in History's own line that it "
           "won't sound as intended", len(lis.pins) == n + 2 and "made for Another IEM" in lis.pins[-1]["note"]
-          and "is not correct" in told, told)
+          and "won’t sound accurate on" in told, told)
 
 
 def test_history_says_already_in_its_own_line(card, check):
@@ -550,7 +550,9 @@ def test_eq_file_read_as_by_hand_reads_it(card, dialogs, check):
           and not refused[0].endswith(".") and refused[1] == "No filters found in this text", refused)
     check("listen: an EQ file or pasted text is read as By hand reads it (a Room EQ Wizard export: its peak and its "
           "shelf), and what an EQ here can't have (its low-pass) is said",
-          added.get("name") == "REW check" and len(added.get("filters", [])) == 2 and told and "These items are not in" in told[-1],
+          added.get("name") == "REW check" and len(added.get("filters", [])) == 2 and told
+          and told[-1] == "Skipped unsupported items in “REW check” (only peaking and shelf filters are supported): "
+                          "a low-pass filter",
           (added.get("filters"), told[-1:]))
 
 

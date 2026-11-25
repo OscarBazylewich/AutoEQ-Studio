@@ -35,7 +35,7 @@ def test_error_outside_tracer_load(eq_screen, monkeypatch, check):
     after = (tw.loading, tw.t.src_name, tw.stage.isEnabled(), tw.status.text() == trace_window.LOADING)
     tw.close()
     check("tracer: an error outside Tracer.load in the thread of a load: one message, the picture before stays, the "
-          "tracer takes input", len(said) == 1 and "cannot open this picture" in said[0][1]
+          "tracer takes input", len(said) == 1 and "Couldn't open image" in said[0][1]
           and after == (False, "Sample IEM", True, False), (said, after))
 
 

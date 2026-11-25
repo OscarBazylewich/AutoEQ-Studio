@@ -1,9 +1,9 @@
 """The targets of a list-only database in Find a target, and a download that a website refuses in Find… (2026-11-12,
 ui\\picker.py, ui\\eq_page_files.py, ui\\picture_wait.py, ui\\sources_window.py): a target of the fixture's
-Hangout.Audio 5128 list shows "trace from the website ↗", and Use opens its share link and waits, with the entry
+Hangout.Audio 5128 list shows "trace from website ↗", and Use opens its share link and waits, with the entry
 marked as a target for the tracer and the words about the settings of the website; a Use whose download is refused
 (a made HTTP 403: nothing connects) says so in Find…'s line and goes on with the trace in the same Use; Sources
-then says "· from a picture" for that database. Pictures in light and dark are read back (each saved in the test's
+then says "· from image" for that database. Pictures in light and dark are read back (each saved in the test's
 own folder, its path printed).
 
 Online is stood in for net.offline() only (net.check() stays offline); databases._get is stood in for (db_guard);
@@ -101,9 +101,9 @@ def test_target_of_a_website_in_find_a_target(eq_screen, online, tmp_path, check
         w = pk.list.itemWidget(item) if item is not None else None
         marks = [lab.text() for lab in w.findChildren(QLabel)] if w is not None else []
         check("website targets: Find a target shows a target of a database that does not let other programs "
-              "download its files, with trace from the website ↗ (not of the other group)",
+              "download its files, with trace from website ↗ (not of the other group)",
               row is not None and row["is_target"] and not row.get("other") and row.get("link")
-              and "trace from the website ↗" in marks, (row, marks))
+              and "trace from website ↗" in marks, (row, marks))
         pics = _pictures(w, tmp_path, "find-target-row", eq_screen) if w is not None else {}
         check("website targets: the row of the target in light and dark (read back)",
               pics and _dark_and_light(pics) and pics["light"][2] > 400, pics)
@@ -165,7 +165,7 @@ def test_page_link_tells_to_select_the_entry(eq_screen, online, check):
     try:
         words = [lab.text() for lab in wait.findChildren(QLabel)]
         check("website lists: for a link to the page of the database, the wait window tells the user to select the "
-              "entry", "Your browser shows “A website”. Give the app a picture of the graph of this entry:" in words
+              "entry", "Opened “A website”. Capture this entry's graph:" in words
               and picture_wait.SELECT in wait.steps()[0] and picture_wait.NOT_SHOWN not in wait.steps()[0], words)
     finally:
         wait.deleteLater()
@@ -210,7 +210,7 @@ def test_entry_with_no_link_opens_nothing(eq_screen, online, check):
     started = page.trace_from_website(entry["id"], over=page, say=lambda t, ms=10000: said.append(t))
     check("website lists: an entry with no link opens nothing, starts no wait and says so",
           started is False and qt.OPENED_URLS[n:] == [] and _wait_shown(page) is None
-          and said == ["The app has no link to the website of this entry. Select the entry again."],
+          and said == ["No website link found for this entry"],
           (started, qt.OPENED_URLS[n:], said))
 
 
@@ -367,7 +367,7 @@ def test_refused_download_goes_on_with_the_trace(eq_screen, online, monkeypatch,
                   for i in range(src.tree.topLevelItemCount()) for j in range(src.tree.topLevelItem(i).childCount())}
     finally:
         qt.close(src)
-    check("website lists: Sources says “· from a picture” for the database that refused the download",
-          counts.get(SUPER, "").endswith(" · from a picture"), counts.get(SUPER))
+    check("website lists: Sources says “· from image” for the database that refused the download",
+          counts.get(SUPER, "").endswith(" · from image"), counts.get(SUPER))
     check("website lists: the refusal is kept in the saved data", os.path.isfile(databases.LIST_ONLY_PATH)
           and databases.norm_url("https://squig.link/") in databases.refusals(), databases.refusals())

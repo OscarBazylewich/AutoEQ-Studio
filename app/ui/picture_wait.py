@@ -60,14 +60,17 @@ MIN_SIZE = (300, 200)  # a smaller picture is not a graph (a copied icon)
 JPEG_SUFFIXES = (".jpg", ".jpeg", ".jfif")
 NAME_MAX = 80  # (the characters of an entry's name in the heading: then "…", the whole name in its tooltip)
 WIDTH, PAD = 520, 24  # (the words' width at least, and the dialog's padding: Windows 11's)
-FRONT_WINDOW = "If the website shows a window in front of the graph, close that window."  # (step 1: steps())
-# (step 1 too: the share link of an entry is not verified on each website, and a page link shows no entry)
-NOT_SHOWN = "If the graph does not show this entry, select the entry in the list of the website."
-SELECT = "Select this entry in the list of the website."
+# (the first sentence of step 1, steps(): a large browser window, and no window of the website in front of the
+# graph. The owner's words for the whole step 1 (the text survey, 2026-11-24); the survey also gave "Close any popups
+# covering the graph" for this part alone, but the step is one text, so the words of the whole step are used)
+FRONT_WINDOW = "Maximize your browser for better accuracy, and close any popups over the graph."
+# (step 1 too: the share link of an entry is not verified on each website, and a page link shows no entry. The
+# period ends the step, as in the owner's words for the whole step 1)
+NOT_SHOWN = "If this entry isn't shown, select it from the site's list."
+SELECT = "Select this entry from the site's list."
 # (a target entry: the website changes a target with its settings, "(Tilt: -0.4dB/Oct, Bass: 8dB)" in its legend,
 # seen by the owner on graph.hangout.audio, 2026-11-12; the app does not read or change them)
-TARGET_SETTINGS = ("The website can change a target with its settings (for example, tilt and bass). The picture "
-                   "shows the target with these settings.")
+TARGET_SETTINGS = "Site target adjustments (like tilt or bass) are captured in the screenshot"
 # (line ends, tabs and the other control characters: each run becomes one space)
 _CONTROL = re.compile(r"[\s\x00-\x1f\x7f-\x9f]+")
 
@@ -115,6 +118,13 @@ def plain_tip(text):
 def clean_entry(entry):
     """A copy of a database entry with its words on one line each (one_line), or None."""
     return {k: one_line(v) for k, v in entry.items()} if entry else None
+
+
+def spoken(text):
+    """The words of a label for the window's description (a screen reader reads it as one text): its lines joined
+    with a space, each ending with a period when it has no end mark (".", ":", "…", "!" or "?")."""
+    lines = [s.strip() for s in text.split("\n") if s.strip()]
+    return " ".join(s if s[-1] in ".:…!?" else s + "." for s in lines)
 
 
 def big_enough(img):
@@ -317,7 +327,7 @@ class PictureWait(QDialog):
         head.ensurePolished()  # (the heading's font, from the style sheet: its width decides the name's length)
         name = entry.get("name", "")
         shown = heading_name(name, head.fontMetrics(), WIDTH - 2 * PAD)
-        head.setText(f"The app waits for a picture of “{shown}”…")
+        head.setText(f"Waiting for a graph screenshot of “{shown}”…")
         if shown != name:
             head.setToolTip(plain_tip(name))
         # (the site by the same rule: a site of 600 words made the window higher than the screen, 2026-11-11)
@@ -325,26 +335,29 @@ class PictureWait(QDialog):
         self.intro.ensurePolished()
         # (the site in quotation marks: a cut site ended in "…" and then the period of the sentence, 2026-11-12)
         shown_site = (f"“{heading_name(site, self.intro.fontMetrics(), WIDTH - 2 * PAD)}”" if site
-                      else "its website")
-        # (a link to the page of the database, not to the entry: eq.service's site_page)
-        intro = (f"Your browser shows {shown_site}. Give the app a picture of the graph of this entry:"
+                      else "the website")
+        # (a link to the page of the database, not to the entry: eq.service's site_page. The steps follow the ":")
+        intro = (f"Opened {shown_site}. Capture this entry's graph:"
                  if entry.get("site_page") else
-                 f"Your browser shows this entry on {shown_site}. Give the app a picture of its graph:")
+                 f"Opened on {shown_site}. Capture its graph:")
         self.intro.setText(intro)
         if site and shown_site != f"“{site}”":
             self.intro.setToolTip(plain_tip(site))
         band, self.paste_btn = dialog_band(self, "Paste the picture", self.paste)
-        # (set before tag(): tag() keeps a tooltip that is there. F1 opens Help in a window that blocks the others,
-        # as this one does, since such a window gets an F1 shortcut of its own (ui\window.py's F1Anywhere), 2026-11-12)
-        self.paste_btn.setToolTip("Uses the picture that is on the clipboard at this time (also Ctrl+V).")
+        # (no tooltip: the owner removed the button's own tooltip and the first line of its Help entry, the text
+        # survey, 2026-11-24; the tag stays for F1 and the button's name for a screen reader. F1 opens Help in a window that blocks the others, as this one does, since such
+        # a window gets an F1 shortcut of its own (ui\window.py's F1Anywhere), 2026-11-12)
         help_window.tag(self.paste_btn, "#pw-paste")
         outer.addWidget(band)
         # (a screen reader: the focus is on Paste the picture when the window opens, and the words are labels only)
         self.setAccessibleName(self.windowTitle())
+        # (the owner's words of the text survey, 2026-11-24, have no period at the end of some lines (step 2, the
+        # target note): on the screen each is a line of its own, but in one description they ran together, "drag
+        # over the graph Or click …", so each line ends with a period there. The path gets none: it is a file name)
         self.setAccessibleDescription(" ".join(
-            [head.text(), intro] + [f"{n + 1}. {s}" for n, s in enumerate(self.steps())]
-            + ([TARGET_SETTINGS] if self.target_note is not None else []) + [self.where.text()]
-            + ([self.path.text()] if self.path is not None else [])).replace("\n", " "))
+            [spoken(head.text()), spoken(intro)] + [f"{n + 1}. {spoken(s)}" for n, s in enumerate(self.steps())]
+            + ([spoken(TARGET_SETTINGS)] if self.target_note is not None else []) + [spoken(self.where.text())]
+            + ([self.path.text()] if self.path is not None else [])))
         QShortcut(QKeySequence.Paste, self, self.paste)
         self._settle = QTimer(self, singleShot=True, timeout=self._read_clipboard)
         self._limit = QTimer(self, singleShot=True, timeout=self._time_up)
@@ -359,21 +372,17 @@ class PictureWait(QDialog):
 
     def steps(self):
         """The procedure, one step for each line."""
-        copy = ("Press Windows + Shift + S. Then select the area of the graph. Windows copies the picture to the "
-                "clipboard.")
+        copy = "Press Win+Shift+S and drag over the graph"
         # (a website can show a window in front of its graph at the first visit, "Welcome to Squiglink": the screen
         # copy then had no graph, 2026-11-11)
         find = SELECT if (self.entry or {}).get("site_page") else NOT_SHOWN
-        return ["Maximize the window of your browser. Larger pictures give better results. " + FRONT_WINDOW + " "
-                + find,
-                copy + "\nOr click Screenshot on the website. Your browser saves the picture in the Downloads folder."
-                if self.folder else copy]
+        return [" ".join(s for s in (FRONT_WINDOW, find) if s),
+                copy + "\nOr click Screenshot on the site to save it to Downloads" if self.folder else copy]
 
     def where_text(self):
         if not self.folder:
-            return "The app uses the first new picture on the clipboard."
-        return ("The app uses the first new picture on the clipboard or in the Downloads folder. "
-                "It only reads the files of this folder:")
+            return "Auto-imports the next image copied to your clipboard"
+        return "Auto-imports the next image from your clipboard or Downloads (watches only this folder):"
 
     # ---------------------------------------------------------------- the wait
     def showEvent(self, e):
@@ -487,7 +496,7 @@ class PictureWait(QDialog):
         img, jpeg = clipboard_picture()
         if img is None:
             # (the tracer's words)
-            self.note.setText("There is no picture on the clipboard. First, copy a picture of a graph.")
+            self.note.setText("No image on clipboard. Copy a graph image first.")
             self.note.show()
             self.fit_height()  # (its room for the note)
             return

@@ -15,6 +15,7 @@ faded ends; text in the curve's color; the target line where the band hides it; 
 import ast
 import inspect
 import math
+import re
 
 import numpy as np
 import pytest
@@ -115,9 +116,10 @@ def test_all_checks_pass(read, check):
     check("website graph: the curve has the color of the drawn channels (within 30)",
           min(math.dist(colour, d) for d in drawn) <= 30, colour)
     check("website graph: a PNG is not loaded as a JPEG", t.ta["jpeg"] is False, t.ta["jpeg"])
-    want = f"{reason(r, 'axes_hz_range')} {reason(r, 'axes_db_range')}"
-    check("website graph: the axis note is the reasons of the two range checks", t.axis_note == want == t.detect_note,
-          (t.axis_note, want))
+    # (both range checks pass: 1 Axes' note is the short form of the two axes, the owner's words of the text survey)
+    want = "Axes: 20 Hz to 20 kHz, 40 to 80 dB"
+    check("website graph: the axis note gives the two axes in one line", t.axis_note == want == t.detect_note,
+          (t.axis_note, t.detect_note, want))
 
 
 @pytest.mark.parametrize("w", [600, 1000, 1400])
@@ -356,8 +358,9 @@ def test_no_labels(read, check):
           and r.curve is not None and np.isfinite(r.curve["ys"]).sum() > 900 and r.points is None
           and r.tracer.v["d1"] == "" and (r.tracer.v["f1"], r.tracer.v["f2"]) == ("20", "20000"),
           failed(r))
-    check("no labels in the picture: the reasons say that a larger picture can help",
-          "A larger picture can help" in reason(r, "axes_hz_labels") and "A larger picture can help" in reason(r, "axes_db_labels"),
+    check("no labels in the picture: the reasons say that a larger image can help",
+          reason(r, "axes_hz_labels") == "Couldn't read frequency labels. Try a larger image."
+          and reason(r, "axes_db_labels") == "Couldn't read dB labels. Try a larger image.",
           (reason(r, "axes_hz_labels"), reason(r, "axes_db_labels")))
 
 
@@ -371,21 +374,29 @@ def test_no_text_reader(qapp, monkeypatch, check):
     r = trace_core.auto_read(rgb, no_reader, False, "Sample IEM")
     hz, db = reason(r, "axes_hz_labels"), reason(r, "axes_db_labels")
     check("no text reader: the label checks give the cause of ocr.Unavailable in a sentence of its own, no error",
-          hz == "The app did not read the frequency labels. No text reader for this language (a stand-in for the test)."
-          and db == "The app did not read the dB labels. No text reader for this language (a stand-in for the test)."
+          hz == "Couldn't read frequency labels. No text reader for this language (a stand-in for the test)."
+          and db == "Couldn't read dB labels. No text reader for this language (a stand-in for the test)."
           and r.curve is not None and not r.ok, (hz, db))
     r2 = trace_core.auto_read(rgb, None, False, "Sample IEM")
     check("no text reader: with no ocr_words, the label checks say that the app did not read the labels",
-          reason(r2, "axes_hz_labels") == "The app did not read the frequency labels."
-          and reason(r2, "axes_db_labels") == "The app did not read the dB labels." and r2.curve is not None,
+          reason(r2, "axes_hz_labels") == "Couldn't read frequency labels."
+          and reason(r2, "axes_db_labels") == "Couldn't read dB labels." and r2.curve is not None,
           (reason(r2, "axes_hz_labels"), reason(r2, "axes_db_labels")))
+    # (the text survey removed the words of the checks that fail only after a label check: the frequency axis set
+    # from the grid lines, the unknown dB axis and the difference of the channels with no dB axis. They still fail,
+    # with no words, and the window shows the label check's words, as it is the first one that fails)
+    later = {c.name: (c.ok, c.reason) for c in r2.checks if c.name in ("axes_hz_range", "axes_db_range", "trace_band")}
+    check("no labels read: the frequency range, the dB range and the band checks fail with no words, and the first "
+          "check that fails is the frequency label check",
+          later == {"axes_hz_range": (False, ""), "axes_db_range": (False, ""), "trace_band": (False, "")}
+          and failed(r2)[:1] == ["axes_hz_labels"], (later, failed(r2)))
 
     def broken(_rgb):
         raise OSError("[WinError 5] Access is denied")
     r3 = trace_core.auto_read(rgb, broken, False, "Sample IEM")
     check("a text reader that gives an other error: a fixed sentence, without the error's own text",
-          reason(r3, "axes_hz_labels") == "The app did not read the frequency labels. The text reader of Windows gave "
-          "an error." and "WinError" not in reason(r3, "axes_db_labels"), (reason(r3, "axes_hz_labels"),))
+          reason(r3, "axes_hz_labels") == "Couldn't read frequency labels. Windows OCR returned an error"
+          and "WinError" not in reason(r3, "axes_db_labels"), (reason(r3, "axes_hz_labels"),))
     # an error at the dB labels only: the frequency labels that were read stay, and the two frequency checks agree
     monkeypatch.setattr(trace_auto, "read_strip", truth_reader(truth))
 
@@ -396,14 +407,15 @@ def test_no_text_reader(qapp, monkeypatch, check):
     check("an error at the dB labels only: the frequency label check and the frequency range check both pass, the dB "
           "label check gives the fixed sentence",
           [c.ok for c in r4.checks[2:4]] == [True, True]
-          and reason(r4, "axes_db_labels") == "The app did not read the dB labels. The text reader of Windows gave an "
-          "error.", [tuple(c) for c in r4.checks[2:6]])
+          and reason(r4, "axes_db_labels") == "Couldn't read dB labels. Windows OCR returned an error",
+          [tuple(c) for c in r4.checks[2:6]])
 
 
 def test_channels_apart(read, check):
     _truth, _rgb, r = read(1000, None, offset_db=10)
     check("channels 10 dB apart: the band check fails", "trace_band" in failed(r) and not r.ok
-          and "The picture can contain more than one measurement" in reason(r, "trace_band"),
+          and reason(r, "trace_band").startswith("Left/right difference is ")
+          and reason(r, "trace_band").endswith(" dB. The image may contain multiple measurements."),
           (failed(r), reason(r, "trace_band")))
 
 
@@ -487,13 +499,15 @@ def test_trace_curve_and_gaps_fail(qapp, monkeypatch, check):
     words = (reason(r, "trace_gaps") or "").split()
     check("1.2 % of the curve not in the picture: the traced-parts check fails with the width of the part (11 to 15 "
           "pixels), the curve check passes", "trace_gaps" in failed(r) and "trace_curve" not in failed(r)
-          and " ".join(words[:7]) == "A part of the curve that is" and words[7].isdigit() and 11 <= int(words[7]) <= 15
-          and " ".join(words[8:]) == "pixels wide is not traced.", (failed(r), reason(r, "trace_gaps")))
+          and " ".join(words[:2]) == "Missed a" and words[2].endswith("-pixel") and words[2][:-6].isdigit()
+          and 11 <= int(words[2][:-6]) <= 15 and " ".join(words[3:]) == "gap in the curve",
+          (failed(r), reason(r, "trace_gaps")))
     _t, _rgb, r = fresh(monkeypatch, edit=_erase_curve(at(700, 50)))
     words = (reason(r, "trace_curve") or "").split()
     check("5 % of the curve not in the picture: the curve check fails (only 92 to 95 %)",
-          "trace_curve" in failed(r) and " ".join(words[:5]) == "The curve is on only" and words[5].isdigit()
-          and 92 <= int(words[5]) <= 95 and " ".join(words[6:]) == "% of the width of the grid.", reason(r, "trace_curve"))
+          "trace_curve" in failed(r) and " ".join(words[:3]) == "Curve covers only" and words[3].endswith("%")
+          and words[3][:-1].isdigit() and 92 <= int(words[3][:-1]) <= 95 and " ".join(words[4:]) == "of the grid width",
+          reason(r, "trace_curve"))
 
 
 def test_grid_check_fails(qapp, monkeypatch, check):
@@ -504,8 +518,8 @@ def test_grid_check_fails(qapp, monkeypatch, check):
             rgb[y0:y1, x - 2:x + 3] = CREAM
     _t, _rgb, r = fresh(monkeypatch, edit=edit)
     check("4 of the 25 frequency grid lines not in the picture: the grid check fails (only 21 of the 25)",
-          "axes_grid" in failed(r) and reason(r, "axes_grid") == "The app found only 21 of the 25 frequency grid lines "
-          "of a graph from the website.", (failed(r), reason(r, "axes_grid")))
+          "axes_grid" in failed(r) and reason(r, "axes_grid") == "Found only 21 of 25 expected frequency grid lines",
+          (failed(r), reason(r, "axes_grid")))
 
     def moved(rgb, truth):
         y0, y1 = int(truth["plot"]["y0"]) - 2, int(truth["plot"]["y1"]) + 3
@@ -515,8 +529,8 @@ def test_grid_check_fails(qapp, monkeypatch, check):
         rgb[y0:y1, x + 1:x + 6] = part
     _t, _rgb, r = fresh(monkeypatch, edit=moved)
     check("the grid line of 3 kHz 3 pixels from its place (all 25 lines found, but one is too far): the grid check fails "
-          "(only 24 of the 25 in their positions)", "axes_grid" in failed(r) and reason(r, "axes_grid") == "The app found "
-          "only 24 of the 25 frequency grid lines of a graph from the website.", (failed(r), reason(r, "axes_grid")))
+          "(only 24 of the 25 in their positions)", "axes_grid" in failed(r) and reason(r, "axes_grid") == "Found only "
+          "24 of 25 expected frequency grid lines", (failed(r), reason(r, "axes_grid")))
 
 
 def test_hz_labels_fail(qapp, monkeypatch, check):
@@ -525,15 +539,13 @@ def test_hz_labels_fail(qapp, monkeypatch, check):
             hz = [w for w in truth["words"] if is_hz(truth, w)]
             return [w for w in truth["words"] if not is_hz(truth, w)] + hz[5:5 + n]
         return words
-    for n, text in ((2, "Only 2 frequency labels agree with the grid lines. The app must have 3 or more labels that "
-                        "agree."),
-                    (1, "Only 1 frequency label agrees with the grid lines. The app must have 3 or more labels that "
-                        "agree.")):
+    for n, text in ((2, "Only 2 frequency labels match the grid. Need at least 3 matching labels."),
+                    (1, "Only 1 frequency label matches the grid. Need at least 3 matching labels.")):
         _t, _rgb, r = fresh(monkeypatch, words=only(n))
         check(f"{n} frequency label(s) read: the frequency label check fails with its own sentence, and the range "
-              f"check cannot make sure ({n})",
-              reason(r, "axes_hz_labels") == text and "axes_hz_labels" in failed(r) and "axes_hz_range" in failed(r),
-              (reason(r, "axes_hz_labels"), failed(r)))
+              f"check fails with no words (the text survey removed them) ({n})",
+              reason(r, "axes_hz_labels") == text and "axes_hz_labels" in failed(r) and "axes_hz_range" in failed(r)
+              and reason(r, "axes_hz_range") == "", (reason(r, "axes_hz_labels"), failed(r)))
 
     def against(truth):
         hz = [dict(w) for w in truth["words"] if is_hz(truth, w)][5:11]
@@ -543,8 +555,8 @@ def test_hz_labels_fail(qapp, monkeypatch, check):
         return [w for w in truth["words"] if not is_hz(truth, w)] + hz
     _t, _rgb, r = fresh(monkeypatch, words=against)
     check("6 frequency labels read, 2 of them 10 times too high: too many labels do not agree, the check fails",
-          reason(r, "axes_hz_labels") == "4 frequency labels agree with the grid lines, and 2 do not. Too many labels "
-          "do not agree." and "axes_hz_labels" in failed(r), reason(r, "axes_hz_labels"))
+          reason(r, "axes_hz_labels") == "4 frequency labels match the grid, and 2 don't. Too many mismatched labels."
+          and "axes_hz_labels" in failed(r), reason(r, "axes_hz_labels"))
 
 
 def _db(truth, keep):
@@ -559,17 +571,17 @@ def _db(truth, keep):
 
 
 def test_db_labels(qapp, monkeypatch, check):
-    cases = (({60: "60"}, False, "The app read only one dB label. It set 5 dB between grid lines.", ("80", "40")),
-             ({70: "10", 75: "15"}, False, "Only 2 dB labels agree with the grid lines (5 dB between grid lines). The "
-              "app must have 3 or more labels that agree.", None),
+    cases = (({60: "60"}, False, "Only one dB label read; assumed 5 dB per grid line", ("80", "40")),
+             ({70: "10", 75: "15"}, False, "Only 2 dB labels match the grid (5 dB per grid line). Need at least 3 "
+              "matching labels.", None),
              ({60: "80", 65: "85"}, False, None, None),
              ({70: "10", 75: "15", 60: "60"}, False, None, None),
-             ({60: "60", 65: "65", 70: "70"}, True, "3 dB labels agree with the grid lines (5 dB between grid lines).",
+             ({60: "60", 65: "65", 70: "70"}, True, "3 dB labels match the grid (5 dB per grid line).",
               ("80", "40")),
-             ({60: "60", 65: "65", 70: "70", 45: "15"}, True, "3 dB labels agree with the grid lines (5 dB between grid "
-              "lines), and 1 does not.", ("80", "40")),
-             ({60: "60", 65: "65", 70: "70", 45: "15", 50: "20"}, False, "3 dB labels agree with the grid lines (5 dB "
-              "between grid lines), and 2 do not. Too many labels do not agree.", None))
+             ({60: "60", 65: "65", 70: "70", 45: "15"}, True, "3 dB labels match the grid (5 dB per grid line), and 1 "
+              "doesn't.", ("80", "40")),
+             ({60: "60", 65: "65", 70: "70", 45: "15", 50: "20"}, False, "3 dB labels match the grid (5 dB per grid "
+              "line), and 2 don't. Too many mismatched labels.", None))
     for keep, ok, text, axis in cases:
         _t, _rgb, r = fresh(monkeypatch, words=lambda truth, keep=keep: _db(truth, keep))
         got = reason(r, "axes_db_labels")
@@ -603,42 +615,52 @@ def test_db_range(qapp, monkeypatch, check):
           trace_auto.DB_MIN_SPAN == 15 and (trace_auto.DB_LOWEST, trace_auto.DB_HIGHEST) == (10, 130))
     _t, _rgb, r = fresh(monkeypatch, words=lambda truth: _db(truth, {v: f"{v + 60}" for v in range(40, 81, 5)}))
     check("all dB labels read 60 dB too high (they agree): the dB range check fails, its highest value is not usual",
-          reason(r, "axes_db_range") == "The dB axis is 100 dB to 140 dB. This range is not usual for a graph of an IEM "
-          "or headphone." and "axes_db_labels" not in failed(r), (reason(r, "axes_db_range"), failed(r)))
+          reason(r, "axes_db_range") == "Detected dB range is 100 to 140 dB. Unusual range for a headphone/IEM graph."
+          and "axes_db_labels" not in failed(r), (reason(r, "axes_db_range"), failed(r)))
     _t, _rgb, r = fresh(monkeypatch, words=lambda truth: _db(truth, {v: f"{120 - v}" for v in range(40, 81, 5)}))
     check("dB labels that rise downwards (a dB axis always falls downwards): they do not agree, the label check fails",
-          reason(r, "axes_db_labels") == "The dB labels that the app read do not agree with each other." and not r.ok,
+          reason(r, "axes_db_labels") == "Detected dB labels don't match each other" and not r.ok,
           (reason(r, "axes_db_labels"), failed(r)))
     half = {60: "60", 65: "65", 70: "70", 45: "47.5", 50: "52.5", 75: "77.5"}
     _t, _rgb, r = fresh(monkeypatch, words=lambda truth: _db(truth, half))
     check("3 dB labels at their grid lines and 3 half-way between two grid lines: the 3 do not agree, too many "
-          "against", reason(r, "axes_db_labels") == "3 dB labels agree with the grid lines (5 dB between grid lines), "
-          "and 3 do not. Too many labels do not agree." and not r.ok, reason(r, "axes_db_labels"))
+          "against", reason(r, "axes_db_labels") == "3 dB labels match the grid (5 dB per grid line), and 3 don't. "
+          "Too many mismatched labels." and not r.ok, reason(r, "axes_db_labels"))
     _t, _rgb, r = fresh(monkeypatch, words=lambda truth: _db(truth, {v: f"{v - 60}" for v in range(40, 81, 5)}))
     check("all dB labels read 60 dB too low (they agree): the dB range check fails, its values are not usual",
-          reason(r, "axes_db_range") == "The dB axis is -20 dB to 20 dB. This range is not usual for a graph of an IEM "
-          "or headphone." and "axes_db_labels" not in failed(r) and "axes_db_range" in failed(r),
+          reason(r, "axes_db_range") == "Detected dB range is -20 to 20 dB. Unusual range for a headphone/IEM graph."
+          and "axes_db_labels" not in failed(r) and "axes_db_range" in failed(r),
           (reason(r, "axes_db_range"), failed(r)))
     _t, _rgb, r = fresh(monkeypatch, db_range=(60, 72), db_step=2)
     check("an axis of 12 dB: the dB range check fails, its span is not usual",
-          reason(r, "axes_db_range") == "The dB axis is 60 dB to 72 dB. This range is not usual for a graph of an IEM "
-          "or headphone." and "axes_db_range" in failed(r), reason(r, "axes_db_range"))
+          reason(r, "axes_db_range") == "Detected dB range is 60 to 72 dB. Unusual range for a headphone/IEM graph."
+          and "axes_db_range" in failed(r), reason(r, "axes_db_range"))
     _t, _rgb, r = fresh(monkeypatch, db_range=(55, 95))
-    check("an axis of 55 dB to 95 dB: the dB range check passes", reason(r, "axes_db_range") == "The dB axis is 55 dB "
-          "to 95 dB." and "axes_db_range" not in failed(r), reason(r, "axes_db_range"))
+    check("an axis of 55 dB to 95 dB: the dB range check passes, and 1 Axes' note gives the two axes",
+          reason(r, "axes_db_range") == "Detected dB range is 55 to 95 dB." and "axes_db_range" not in failed(r)
+          and r.tracer.axis_note == "Axes: 20 Hz to 20 kHz, 55 to 95 dB", (reason(r, "axes_db_range"),
+                                                                          r.tracer.axis_note))
+
+
+def band_db(text):
+    """The dB number of the band check's reason, in its passing form ("... is 0.4 dB or less ...") and in its failing
+    form ("Left/right difference is 6.8 dB. ..."): found by its words, not by its word position, as the two forms
+    differ."""
+    found = re.search(r"\bis (\d+(?:\.\d+)?) dB\b", text)
+    assert found, f"no dB number in the band check's reason: {text!r}"
+    return float(found.group(1))
 
 
 def test_band_check(qapp, monkeypatch, check):
     _t, _rgb, r = fresh(monkeypatch, offset_db=-6.5)
-    x = float(reason(r, "trace_band").split()[9])
+    x = band_db(reason(r, "trace_band"))
     check("channels about 7 dB apart (6 to 9): the band check fails and gives the width",
           "trace_band" in failed(r) and 6 < x < 9, reason(r, "trace_band"))
     for off in (5, -5):
         truth, _rgb, r = fresh(monkeypatch, offset_db=off)
         fs = [20 * 1000 ** (i / 999) for i in range(1000)]
         true = float(np.percentile([abs(truth["chans"][0](f) - truth["chans"][1](f)) for f in fs], 90))
-        words = reason(r, "trace_band").split()
-        x = float(words[9])
+        x = band_db(reason(r, "trace_band"))
         check(f"the band check gives the true difference of the channels within 0.3 dB, the same for the higher one "
               f"left or right (offset {off:+} dB)", abs(x - true) <= 0.3, (x, round(true, 2), reason(r, "trace_band")))
 
@@ -1267,8 +1289,8 @@ def test_steps_check(qapp, monkeypatch, check):
     r = trace_core.auto_read(as_rgb(img), NO_WORDS, False, "Sample IEM")
     check("a band with a short step: the steps check fails, with the frequency of the step",
           failed(r) == ["trace_steps"]
-          and reason(r, "trace_steps").startswith("The difference between the left and right curves changes "
-                                                  "suddenly at "),
+          and reason(r, "trace_steps").startswith("Sudden left/right jump at ")
+          and reason(r, "trace_steps").endswith(" Colored text or a missed channel curve may cause this."),
           (failed(r), reason(r, "trace_steps")))
 
 
@@ -1280,8 +1302,8 @@ def test_two_measurements(qapp, monkeypatch, check):
                            lambda f: wg._iem(f) + 5, "#8e44ad")):
         _truth, _rgb, r = fresh(monkeypatch, one_curve=True, extra=[(fn, col)])
         check(f"a second measurement in another color: the one-measurement check fails ({what})",
-              "trace_single" in failed(r) and reason(r, "trace_single").startswith("The picture has more than one "
-                                                                                   "measurement."), failed(r))
+              "trace_single" in failed(r) and reason(r, "trace_single") == "Multiple measurements detected; traced the "
+                                                                              "most prominent one", failed(r))
     # a second measurement in a near color, 3 dB from the first and crossing it, JPEG 60 (the second review, S1): its
     # pieces near the band are not the band's other channel (the band has its two channels there)
     near = lambda f: wg._iem(f) + 3 * math.sin(math.log2(f) * 0.5)  # noqa: E731

@@ -92,7 +92,7 @@ def test_says_when_nothing_could_be_loaded(eq_screen, monkeypatch, check):
         note = cw.note.text()
         # (said in the list, where they'd be: UI-RULES 21, 2026-10-27; it was the line over the chart)
         listed = [w.text() for w in cw.scroll.widget().findChildren(type(cw.status))]
-        status = " ".join(t for t in listed if "cannot load" in t or "No results" in t)
+        status = " ".join(t for t in listed if "load measurements" in t or "No downloadable results" in t)
         # (in the fold "Not loaded (n)", one on each line: the UI audit, 2026-11-08)
         from ui.forms import Fold
         folds = [f for f in cw.scroll.widget().findChildren(Fold) if f.btn.text().startswith("Not loaded")]
@@ -101,8 +101,10 @@ def test_says_when_nothing_could_be_loaded(eq_screen, monkeypatch, check):
     finally:
         qt.close(cw)
     check("ui: Which measurement says, in its list, none of the model's measurements could be loaded, and why (not "
-          "that nothing was found)", "cannot load" in status and "No results" not in status
-          and "cannot load" in note and reasons and "no internet in the tests" in reasons[0], (status, note, reasons))
+          "that nothing was found)",
+          status == "Couldn’t load measurements for “Truthear GATe”. Check “Not loaded” below for details."
+          and note.startswith("Couldn't download measurements.") and reasons and "no internet in the tests" in reasons[0],
+          (status, note, reasons))
 
 
 @pytest.mark.timeout(900)  # (as above, when it runs first: the fixture waits for the answer)
@@ -307,6 +309,31 @@ def test_no_average_of_copies(eq_screen, monkeypatch, check):
                    "two different ones": {"averages": 1, "accent on": ["Use the average of 2"]}}, seen)
 
 
+def test_texts_of_the_cards_and_the_average(eq_screen, monkeypatch, check):
+    # (the text survey, 2026-11-24: the score bar has no tooltip ("57 / 100" under it says it), the average's box has
+    # its title and no gray line under it, and the notes under its ticks have no end periods, each on a line of its own)
+    from PySide6.QtWidgets import QFrame, QLabel, QProgressBar
+    cw = _shown_with(eq_screen.page, monkeypatch)
+    try:
+        bars = [b.toolTip() for b in cw.scroll.widget().findChildren(QProgressBar)]
+        box = next(b for b in cw.scroll.widget().findChildren(QFrame) if b.objectName() == "whichAverage")
+        words = [lab.text() for lab in box.findChildren(QLabel) if lab.text()]
+        cw.data["items"][1]["dev"] = 2.5  # (the second far from the first: not ticked at the start)
+        cw.picked.clear()
+        cw.render()
+        qt.pump(50)
+        box = next(b for b in cw.scroll.widget().findChildren(QFrame) if b.objectName() == "whichAverage")
+        far = [lab.text() for lab in box.findChildren(QLabel) if lab.text()]
+    finally:
+        qt.close(cw)
+    names = "Measurement names differ: verify they're the same model before averaging"
+    check("Which measurement: the score bars have no tooltip; the average's box has the title “Average (2 available on "
+          "B&K 5128)” and no gray line; its notes are each on a line of their own",
+          bars == ["", ""] and words == ["Average (2 available on B&K 5128)", names]
+          and far == ["Average (2 available on B&K 5128)",
+                      names + "\nUnchecked by default: Site 2 (>2 dB from others on this rig)"], (bars, words, far))
+
+
 def _with_other_rig(cw):
     """A third measurement, on another rig (the 711), into the window shown by _shown_with: a dotted line."""
     c = dict(cw.data["items"][-1], name="Model on 711", hash="h711", rig="711", rig_name="711", score=40.0)
@@ -441,8 +468,8 @@ def test_website_link_starts_the_wait(eq_screen, monkeypatch, check):
         if getattr(page, "tracer", None) is not None:
             page.tracer.close()
         QApplication.clipboard().clear()
-    check("Which measurement: the links line says that the app waits for a picture of the graph",
-          words and "waits for a picture of its graph" in words[0], words)
+    check("Which measurement: the links line says that a click opens the website to trace a screenshot",
+          words and words[0].startswith("No direct download (click to open and trace a screenshot): "), words)
     check("Which measurement: a link of a website entry starts the wait (the browser, then the wait window on top)",
           started == ([entry["link"]], True), started)
     check("Which measurement: the window closes when the picture comes, and the tracer gets it with the entry",
@@ -484,10 +511,10 @@ def test_website_link_messages_in_the_window_line(eq_screen, monkeypatch, check)
         qt.close(cw)
         QApplication.clipboard().clear()
     check("Which measurement: offline, a link of a website entry opens nothing and the window's line says how to go "
-          "online", said["offline"] == ("Offline: to open this entry, change to Online (top right).", [], None),
+          "online", said["offline"] == ("Offline: switch to Online to open this entry", [], None),
           said["offline"])
     check("Which measurement: after the time limit of the wait, the window's line says so and the window stays",
-          said["time limit"] == ("No new picture came in 10 minutes. Select the entry again.", True),
+          said["time limit"] == ("Timed out after 10 minutes without a screenshot. Select the entry again.", True),
           said["time limit"])
 
 

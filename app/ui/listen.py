@@ -958,8 +958,8 @@ class Listen(QGroupBox):
         asked (History), where a refusal's bubble goes (said at this card, it was behind History, 2026-11-10)."""
         near = near or self
         if not self.pins_for:
-            bubble.tell(None, "Select a measurement first. Each IEM or headphone has a different list of EQs to "
-                        "compare.", near=near)
+            bubble.tell(None, "Select a measurement first. Comparison lists are stored per IEM or headphone.",
+                        near=near)
             return False
         filters = [dict(f) for f in filters if f.get("enabled", True) is not False and f.get("freq") and f.get("q")]
         if not filters:
@@ -1011,9 +1011,8 @@ class Listen(QGroupBox):
         self._add_text(text, os.path.splitext(os.path.basename(f))[0], f"from {os.path.basename(f)}")
 
     def add_paste(self):
-        from ui.eq_page_parts import paste_dialog
-        got = paste_dialog(self, "Paste filters", "e.g., Crinacle's EQ", "Equalizer APO lines, Room EQ Wizard "
-                           "filters, or one filter on each line as “frequency gain Q”", "Add")
+        from ui.eq_page_parts import PASTE_HINT, paste_dialog
+        got = paste_dialog(self, "Paste filters", "e.g., Crinacle's EQ", PASTE_HINT, "Add")
         if got:
             self._add_text(got[1], got[0] or "Pasted EQ", "pasted")
 
@@ -1029,8 +1028,8 @@ class Listen(QGroupBox):
             return
         added = self.add(name, [dict(f, enabled=f.get("enabled", True) is not False) for f in r["filters"]], note)
         if added and left:  # (refused, there or full: what was left out of an EQ never added isn't said)
-            QMessageBox.information(self, "EQs to compare", f"These items are not in “{name}” (an EQ here has only "
-                                    f"peaking and shelf filters): {' · '.join(left)}.")
+            from ui.eq_page_parts import skipped_words
+            QMessageBox.information(self, "EQs to compare", skipped_words(name, left))
 
     def render_pins(self):
         """Your EQs to compare as a table, a row each, in columns: its colour (its curve's on the graph), its name

@@ -30,17 +30,20 @@ CHOICES = [("measurement", "A measurement"), ("difference", "A measurement as th
            ("target", "A target line"), ("target_difference", "A target line as the difference from a target")]
 DIFFERENCES = ("difference", "target_difference")  # (the types with "Target of the graph")
 AS_TARGET = ("target", "target_difference")  # (the types whose add button is Add as target)
-WHAT = {"measurement": "The app saves the curve as a measurement. It does not change the curve.",
-        "difference": "The app adds the selected target to the curve. Then it saves the result as a measurement.",
-        "target": "The app saves the curve as a target. It does not change the curve.",
-        "target_difference": "The app adds the selected target to the curve. Then it saves the result as a target."}
-WHAT_2 = {"measurement": "The app saves the curves as one measurement. It does not change the curves.",
-          "difference": "The app adds the selected target to each curve. Then it saves the result as one measurement.",
-          "target": "The app saves only the selected curve as a target. It does not change the curve.",
-          "target_difference": "The app adds the selected target to the selected curve. Then it saves only this curve "
-                               "as a target."}
-SELECT = "Select the target in “Target of the graph”. The app adds this target to the curve."
-NO_TARGETS = "The app has no target. First, add the target of the graph on Make an EQ."
+NB = "\N{NO-BREAK SPACE}"  # (between a tab's number and its name in the tracer's words)
+WHAT = {"measurement": "Saves the curve as a measurement without altering it",
+        "difference": "Adds the selected target to the curve and saves it as a measurement",
+        "target": "Saves the curve as a target without altering it",
+        "target_difference": "Adds the graph's target to the curve and saves the result as a new target"}
+WHAT_2 = {"measurement": "Saves all curves as one measurement without altering them",
+          "difference": "Adds the selected target to each curve and saves them as one measurement",
+          "target": f"Saves only the curve selected in 2{NB}Trace as a target, without altering it",
+          "target_difference": f"Adds the graph's target to the curve selected in 2{NB}Trace and saves it as a new "
+                               "target"}
+SELECT = "Choose a target under “Target of the graph” to add it to the curve"
+NO_TARGETS = "No targets available. Add one on Make an EQ via Find… or Add… next to Target."
+FIRST_ROW = "Select target…"  # ("Target of the graph": its first row, with targets in the app)
+NO_TARGET_ROW = "No targets available"  # (its first row with no target in the app)
 
 
 def _select(box, value):
@@ -295,7 +298,7 @@ def test_each_type_sends_its_files(eq_screen, monkeypatch, tmp_path, check):
           and txt["difference"] == {f["name"]: f["content"] for f in got["difference"]["files"]}
           and txt.get("target_difference") == txt["difference"]
           # (the only box: the sample's curves cross, and a part of one curve has no traced line)
-          and all(kind == "information" and text.startswith("The app saved a straight line across the part")
+          and all(kind == "information" and text.startswith("Saved a straight line across untraced gap")
                   for kind, text in txt_boxes),
           ({k: sorted(v) for k, v in txt.items()}, txt_boxes))
 
@@ -351,29 +354,29 @@ def test_difference_with_no_target(eq_screen, monkeypatch, check):
     tw.comp.setCurrentIndex(0)
     tw.remove_image()
     tw.close()
-    check("tracer: a difference from a target with no target selected: “Target of the graph” has “Select the target” "
+    check("tracer: a difference from a target with no target selected: “Target of the graph” has “Select target…” "
           "first, the gray line tells to select the target, and the add and Save .txt… tell the same in a box (the "
           "app adds no file)",
-          none["list"] == ("Select the target", "", True, True) and none["line"] == SELECT
+          none["list"] == (FIRST_ROW, "", True, True) and none["line"] == SELECT
           and none["button"] == ("Add as measurement", True) and none["boxes"] == [("warning", SELECT)] * 2
           and none["sent"] == 0 and none["asked"] == 0, none)
-    check("tracer: “Target of the graph” has the targets of the app from A to Z after “Select the target”; with a "
+    check("tracer: “Target of the graph” has the targets of the app from A to Z after “Select target…”; with a "
           "target selected, the gray line tells that the app adds it (the user's work)",
-          rows[0] == "Select the target" and os.path.splitext(TARGET)[0] in rows
+          rows[0] == FIRST_ROW and os.path.splitext(TARGET)[0] in rows
           and rows[1:] == sorted(rows[1:], key=str.casefold) and with_target == (WHAT["difference"], True),
           (rows, with_target))
-    check("tracer: a difference from a target when the app has no target: the list is off with “No target in the "
-          "app”, the gray line tells to add the target first, and the add tells the same in a box; with a target "
+    check("tracer: a difference from a target when the app has no target: the list is off with “No targets "
+          "available”, the gray line tells to add the target first, and the add tells the same in a box; with a target "
           "in the app again, the list is on",
-          empty["list"] == ("No target in the app", "", False, 1) and empty["in sight"]
+          empty["list"] == (NO_TARGET_ROW, "", False, 1) and empty["in sight"]
           and empty["line"] == NO_TARGETS and empty["boxes"] == [("warning", NO_TARGETS)] and empty["sent"] == 0
           and back, (empty, back))
     check("tracer: a target line as the difference from a target with no target selected, and when the app has no "
           "target: “Target of the graph” shows, the gray line tells the step to do first, and Add as target and "
           "Save .txt… tell the same in a box (the app adds no file)",
-          none_line == {"list": (True, "Select the target"), "line": SELECT, "button": ("Add as target", True),
+          none_line == {"list": (True, FIRST_ROW), "line": SELECT, "button": ("Add as target", True),
                         "boxes": [("warning", SELECT)] * 2, "sent": 0, "asked": 0}
-          and empty_line == {"list": (True, "No target in the app", False), "line": NO_TARGETS,
+          and empty_line == {"list": (True, NO_TARGET_ROW, False), "line": NO_TARGETS,
                              "button": "Add as target", "boxes": [("warning", NO_TARGETS)], "sent": 0},
           (none_line, empty_line))
 
@@ -427,7 +430,7 @@ def test_the_app_selects_the_type(eq_screen, monkeypatch, check):
 
     seen = {}
     at_once = read(dict(ENTRY, **{"as": "target"}))
-    seen["Find a target"] = (at_once, state(), tw.save_note.text().endswith("If they agree, click Add as target."))
+    seen["Find a target"] = (at_once, state(), tw.save_note.text().endswith("then click Add as target."))
     # (the user selects a different type: it stays, and the note names the button)
     _select(tw.shows, "measurement")
     tw.update_ui()
@@ -484,7 +487,7 @@ def test_the_app_selects_the_type(eq_screen, monkeypatch, check):
                                                                                tw.comp.currentData())
     tw.remove_image()
     tw.close()
-    head = "The app traced the graph of “Truthear Gate” from “Hangout.Audio”. Compare the curve with the picture. "
+    head = "Traced graph for “Truthear Gate” from “Hangout.Audio”. Verify it against the image, then "
     check("tracer: for an entry from Find a target, the app selects “A target line” when the picture comes: the add "
           "button is Add as target, and the note tells to click it (not the user's work)",
           seen["Find a target"] == ("target", ("target", "Add as target", False, False), True), seen["Find a target"])
@@ -512,16 +515,16 @@ def test_the_app_selects_the_type(eq_screen, monkeypatch, check):
           "and “Target of the graph” has no target (the target of the picture before does not go into the curve)",
           seen["a measurement from a website after a difference"] == (
               "measurement", ("measurement", "Add as measurement", False, False), "", True)
-          and note == head + "If they agree, click Add as measurement. The picture also has a target line. Add the "
-          "target line as target… adds it as a target.", (seen["a measurement from a website after a difference"],
+          and note == head + "click Add as measurement. A target line was also detected; use “Add the target line as "
+          "target…” to save it.", (seen["a measurement from a website after a difference"],
                                                            note))
     check("tracer: the user selects “A target line” on a picture with a measurement and a target line: the gray line "
           "tells that the app saves only the selected curve, and the note names Add as target and the button of the "
           "target line",
           seen["the user's target line on it"] == (
               ("target", "Add as target", False, True), WHAT_2["target"],
-              head + "If they agree, click Add as target. The picture also has a target line. Add the target line as "
-              "target… adds that line as a target, not the Average curve."), seen["the user's target line on it"])
+              head + "click Add as target. A target line was also detected: use “Add the target line as target…” to "
+              "save it instead of the Average curve."), seen["the user's target line on it"])
     line = {k: v for k, v in seen.items() if "target line as a difference" in k}
     check("tracer: “A target line as the difference from a target” is a selection of the user only (the user's work, "
           "Add as target, with “Target of the graph”); the next picture of the user and Remove image have “A "
@@ -645,7 +648,7 @@ def test_save_txt_of_a_target_line_alone(eq_screen, monkeypatch, tmp_path, check
           "curve first.”), and the note names the file",
           curves == [("Target", True)] and not boxes and text.startswith("* Traced from Truthear Gate (Hangout 5128) "
                                                                          "with AutoEQ Studio")
-          and len(text.splitlines()) > 10 and note == "The app saved Target alone.txt.", (curves, boxes, note,
+          and len(text.splitlines()) > 10 and note == "Saved Target alone.txt", (curves, boxes, note,
                                                                                          text[:80]))
 
 
@@ -705,7 +708,7 @@ def test_targets_that_change_while_the_tracer_is_open(eq_screen, monkeypatch, ch
     qt.pump(100)
     kept = (view.window().isVisible(), view.currentIndex().row())
     tw.comp.hidePopup()
-    # (the selected target deleted: "Select the target" again)
+    # (the selected target deleted: "Select target…" again)
     if own:
         _select(tw.comp, own[0])
     selected = look()
@@ -721,12 +724,12 @@ def test_targets_that_change_while_the_tracer_is_open(eq_screen, monkeypatch, ch
     tw.close()
     names = [os.path.splitext(n)[0] for n in had]
     mine = [os.path.splitext(n)[0] for n in own]
-    both = ["Select the target"] + sorted(names + mine, key=str.casefold)
-    check("tracer: with no target in the app, “Target of the graph” is off with “No target in the app”; after Add as "
+    both = [FIRST_ROW] + sorted(names + mine, key=str.casefold)
+    check("tracer: with no target in the app, “Target of the graph” is off with “No targets available”; after Add as "
           "target in the open tracer, the list is on with the new target, and the gray line and the box of the add "
           "button tell to select the target",
-          none == (False, ["No target in the app"], "", NO_TARGETS) and len(own) == 1
-          and after_own == (True, ["Select the target"] + mine, "", SELECT) and own_boxes == [("warning", SELECT)],
+          none == (False, [NO_TARGET_ROW], "", NO_TARGETS) and len(own) == 1
+          and after_own == (True, [FIRST_ROW] + mine, "", SELECT) and own_boxes == [("warning", SELECT)],
           (none, own, after_own, own_boxes))
     check("tracer: a target that Add… on Make an EQ adds while the tracer is open is in “Target of the graph” at "
           "once (the targets from A to Z)", came == (True, both, "", SELECT), came)
@@ -735,5 +738,5 @@ def test_targets_that_change_while_the_tracer_is_open(eq_screen, monkeypatch, ch
     check("tracer: a selected target that is deleted goes from “Target of the graph”, and the gray line tells to "
           "select the target (the app has its targets of before again)",
           len(own) == 1 and selected[2:] == (own[0], WHAT["difference"])
-          and gone == (True, ["Select the target"] + names, "", SELECT) and left == had,
+          and gone == (True, [FIRST_ROW] + names, "", SELECT) and left == had,
           (own, selected, gone, left))

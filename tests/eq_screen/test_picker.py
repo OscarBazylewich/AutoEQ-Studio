@@ -504,7 +504,7 @@ def test_x_buttons_quiet(eq_screen, check):
 def _bins(pk):
     """Find…'s ⋯ buttons shown (their menus: the row's other commands, Delete… last), by their tooltip."""
     from PySide6.QtWidgets import QPushButton
-    return [b for b in pk.list.findChildren(QPushButton) if b.isVisible() and b.toolTip() == "More commands"
+    return [b for b in pk.list.findChildren(QPushButton) if b.isVisible() and b.toolTip() == "More actions"
             and any(a.text() == "Delete…" for a in b.menu().actions())]
 
 
@@ -580,8 +580,9 @@ def test_download_mark_named(eq_screen, monkeypatch, check):
         read = sorted({QAccessible.queryAccessibleInterface(w).text(QAccessible.Name) for w in marks})
     finally:
         _close(pk)
-    check("access: Find…'s download mark (beside an online entry) is read as “Downloads when used” by a screen reader",
-          len(marks) == 3 and read == ["Downloads when you use it"], (len(marks), read))
+    check("access: Find…'s download mark (beside an online entry) is read as “Downloads when you click Use or "
+          "Preview” by a screen reader",
+          len(marks) == 3 and read == ["Downloads when you click Use or Preview"], (len(marks), read))
 
 
 def test_fits_a_small_screen(eq_screen, monkeypatch, check):
@@ -790,7 +791,7 @@ def test_more_menus_made_when_needed(eq_screen, check):
     try:
         app_rows = sum(1 for r in _rows(pk) if r["src"] == "app")
         rows = [pk.list.itemWidget(pk.list.item(i)) for i in range(pk.list.count())]
-        xs = [b for w in rows if w is not None for b in w.findChildren(QPushButton) if b.toolTip() == "More commands"]
+        xs = [b for w in rows if w is not None for b in w.findChildren(QPushButton) if b.toolTip() == "More actions"]
         seen["⋯ (rows in the app)"] = (len(xs), app_rows)
         seen["menus made at the start"] = sum(QPushButton.menu(b) is not None for b in xs)
         uses = {b.mapTo(pk.list, b.rect().topLeft()).x() + b.width()
@@ -852,11 +853,66 @@ def test_website_entry_row(eq_screen, check):
             r = pk.list.item(i).data(Qt.UserRole)
             if r and r.get("link") and r["name"] == "Truthear Gate":
                 w = pk.list.itemWidget(pk.list.item(i))
-                marks = [lab for lab in w.findChildren(QLabel) if lab.text() == "trace from the website ↗"]
+                marks = [lab for lab in w.findChildren(QLabel) if lab.text() == "trace from website ↗"]
                 preview = [b for b in w.findChildren(QPushButton) if b.text() in ("Preview", "Hide")]
                 seen = {"mark": bool(marks), "tooltip": marks[0].toolTip() if marks else "",
                         "preview hidden": bool(preview) and all(b.isHidden() for b in preview)}
     finally:
         _close(pk)
-    check("Find…: the row of a website entry says trace from the website ↗ and has no Preview", seen is not None
-          and seen["mark"] and "waits for a picture of the graph" in seen["tooltip"] and seen["preview hidden"], seen)
+    check("Find…: the row of a website entry says trace from website ↗ and has no Preview", seen is not None
+          and seen["mark"] and "trace a graph screenshot" in seen["tooltip"] and seen["preview hidden"], seen)
+
+
+def test_survey_texts(eq_screen, monkeypatch, check):
+    # (the text survey, 2026-11-24: while the online lists load, an empty list says "No results · Still loading online
+    # lists…" and has no row "The database lists load…" of its own (the gray line above the list says it); Available
+    # to download shows the first line of its Help entry; Hide, Trace a graph image… and Show files have no tooltip;
+    # (a menu item with no tooltip of its own gives Qt's default, its words); a rig tag puts how the app knows the rig on a line of its own)
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QPushButton
+    from ui.help_texts import HELP
+    pk = _shown_picker(eq_screen.page, "")
+    seen = {}
+    try:
+        app_row = next((pk.list.item(i).data(Qt.UserRole) for i in range(pk.list.count())
+                        if (pk.list.item(i).data(Qt.UserRole) or {}).get("device")), None)
+        if app_row:
+            name = app_row["device"]["name"]
+            more = next(b for b in pk.list.findChildren(QPushButton) if b.isVisible()
+                        and b.accessibleName() == f"More commands for {name}")
+            seen["Show files tooltip"] = [a.toolTip() for a in more.menu().actions() if a.text() == "Show files"]
+        seen["Available to download"] = pk.f_dl.toolTip()
+        seen["Trace a graph image…"] = [b.toolTip() for b in pk.findChildren(QPushButton)
+                                        if b.text() == "Trace a graph image…"]
+        monkeypatch.setattr(pk.page, "has_preview", lambda _key: True)
+        pk.render()
+        pk.finish_list()
+        seen["Hide"] = sorted({b.toolTip() for b in pk.list.findChildren(QPushButton) if b.text() == "Hide"})
+        monkeypatch.setattr(pk, "db", {"items": [], "loading": True})
+        pk.q.setText("zzzz")
+        pk._later.stop()
+        pk.render()
+        pk.finish_list()
+        seen["notes"] = [pk.list.item(i).text() for i in range(pk.list.count())]
+        seen["status"] = pk.status.text()
+        rigs = pk.meta.get("rigs") or {}
+        key = next(iter(rigs), "")
+        seen["rig tags"] = [pk._rig_tag({"rig": key + "?", "src": "db", "how": "From its name"}),
+                            pk._rig_tag({"rig": "zz-none", "src": "db", "is_target": True, "how": "From its name"}),
+                            pk._rig_tag({"rig": key, "src": "db"})]
+    finally:
+        _close(pk)
+    check("ui: Find… while the online lists load: “No results · Still loading online lists…”, no row of its own for "
+          "the lists, “Loading online lists…” above the list",
+          seen["notes"] == ["No results · Still loading online lists…"]
+          and seen["status"].startswith("Loading online lists…"), (seen["notes"], seen["status"]))
+    check("ui: Find…'s Available to download shows the first line of its Help entry; Hide, Trace a graph image… and "
+          "Show files have no tooltip",
+          seen["Available to download"] == HELP["#pk-f-dl"] and seen["Hide"] == [""]
+          and seen["Trace a graph image…"] == [""] and seen.get("Show files tooltip") == ["Show files"],
+          seen)
+    made, unknown, plain = seen["rig tags"]
+    check("ui: a rig tag of Find… says (likely) for a “?” rig and how the app knows the rig on a line of its own",
+          bool(key) and made[1] == f"Measured on: {rigs[key]} (likely)\nFrom its name"
+          and unknown == ("rig ?", "Target rig unknown\nFrom its name") and plain[1] == f"Measured on: {rigs[key]}",
+          seen["rig tags"])

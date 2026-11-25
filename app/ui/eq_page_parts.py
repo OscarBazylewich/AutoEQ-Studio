@@ -2,6 +2,7 @@
 MODE_HINT, TICKS and file_base_name still import from ui/eq_page.py too.
 - FORMAT_NAMES: the files Save filters can write, by key; MODE_SHORT: each method's short name; MODE_HINT: the line
   beside Method; TICKS: the graph's frequencies
+- PASTE_HINT, skipped_words(name, items): Paste filters' gray words, and the message for the items an EQ can't have
 - and_list(names): "A, B, and C" in a sentence; first_names(names, shown): "A and 2 more devices" (the on words),
   "A, B, C, and 9 more devices" (Update's message); on_words(names): where a profile is on, for a menu's keys'
   column; row_name(fm, name): a device's or a profile's name cut to a row's room; update_row_words(fm, name,
@@ -36,6 +37,15 @@ MODE_HINT = {"best_fit": "Closest match to the target for your EQ app or device"
              "site_sweep": "Matches the squig.link or listener800 web AutoEQ",
              "site_single": "Uses a single fixed set of web AutoEQ parameters"}
 TICKS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
+# (the gray words in the box of Paste filters, and the message for the items an EQ here can't have: one text for By
+# hand and for Listen's EQs to compare, which read pasted text the same way)
+PASTE_HINT = "Paste Equalizer APO lines, REW filters, or “frequency gain Q” (one per line)"
+
+
+def skipped_words(name, items):
+    """The message after an EQ was read with items that an EQ here can't have (a graphic EQ, other filter types)."""
+    return (f"Skipped unsupported items in “{name}” (only peaking and shelf filters are supported): "
+            f"{' · '.join(items)}")
 
 
 def label(text="", role=None, wrap=True):
@@ -80,11 +90,14 @@ def first_names(names, shown=NAMES_SHOWN):
     return and_list(names[:shown] + [f"{more} more device{'' if more == 1 else 's'}"])
 
 
+ON_START = "active on "
+
+
 def on_words(names):
-    """Where a profile is switched on, for a menu's keys' column (names: its devices, in Devices' order): "not on",
-    "on for A", "on for A and 2 more devices" (first_names: one name only, so two long Windows names don't make the
-    menu wide)."""
-    return f"on for {first_names(names)}" if names else "not on"
+    """Where a profile is switched on, for a menu's keys' column (names: its devices, in Devices' order): "off",
+    "active on A", "active on A and 2 more devices" (first_names: one name only, so two long Windows names don't make
+    the menu wide). ON_START: the words before the first name (update_row_words cuts that name only)."""
+    return f"{ON_START}{first_names(names)}" if names else "off"
 
 
 UPDATE_ROOM = 38  # (average characters for each of the two texts of an update row: about 600 px for the menu)
@@ -111,7 +124,7 @@ def update_row_words(fm, name, names, quoted=True):
     text, cut = row_name(fm, name, "Update “{}”" if quoted else "{}")
     on = on_words(names)
     if names and fm.horizontalAdvance(on) > room:
-        start, more = "on for ", on[len("on for ") + len(names[0]):]  # (more: " and N more devices", or "")
+        start, more = ON_START, on[len(ON_START) + len(names[0]):]  # (more: " and N more devices", or "")
         first = fm.elidedText(names[0], Qt.ElideRight, max(0, room - fm.horizontalAdvance(start + more)))
         on = start + first + more
     return text, on, cut

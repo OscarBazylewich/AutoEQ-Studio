@@ -1,12 +1,12 @@
 """Sources (AutoEQ Local's Settings › Sources, natively; sources.js): where Find… looks.
 - This PC: the folders searched for curve files (one per line; empty: Downloads, Documents, Desktop, Music), and
-  "Search again now"
+  "Search again"
 - Online databases: every database by kind of rig, each on or off (a group at once too), how many curves each list
   has, a search and All / On / Off; ones you added taken off with their row's ✕ (Undo in the window's line)
 - Add a database: from squig.link's list (searched; one clicked fills the address box, double-clicked is added), or
   any squig.link-style page by its address; one Add, beside the box (Enter there too)
 Changes are saved at once and the lists load again a moment later (offline: the saved ones). The footer is every
-window's (window_parts.Footer): Refresh the lists now (online only) and Open the downloads folder at the left, its own
+window's (window_parts.Footer): Update the lists (online only) and Open the downloads folder at the left, its own
 message line, Close; a list with nothing to show says so.
 The look: Windows 11's; the databases' tree is styled as the lists by theme_sheet's find_windows (sourcesTree); the
 folders' box as tall as four lines of its text (the four usual folders whole). Its size kept within the screen's free
@@ -102,10 +102,11 @@ class Sources(QDialog):
         row.addWidget(self.lib_status, 1)
         v.addStretch(1)
         v = page_of()
-        v.addWidget(_muted("The app updates the lists after some days. It downloads a curve for Use or Preview."))
+        # ("3 days": databases.MAX_AGE, the age at which a saved list is downloaded again)
+        v.addWidget(_muted("Lists update every 3 days. Curves download when you click Use or Preview."))
         bar = placed(v, QHBoxLayout())
         self.filter = QLineEdit()
-        self.filter.setPlaceholderText("Search the databases…")
+        self.filter.setPlaceholderText("Search databases…")
         self.filter.setClearButtonEnabled(True)
         self.filter.textChanged.connect(self.render)
         bar.addWidget(self.filter, 1)
@@ -134,10 +135,12 @@ class Sources(QDialog):
         help_window.tag(self.tree, "databases")
         v.addWidget(self.tree, 1)
         v = page_of()
-        self.dir_note = _muted("From squig.link's list, or with the URL of a page.")
+        # (the gray line above the list: only offline, when squig.link's list did not load, and with its count; while
+        # the list loads it is hidden, as the list's own line tells it: the text survey, 2026-11-24)
+        self.dir_note = _muted()
         v.addWidget(self.dir_note)
         self.dir_q = QLineEdit()
-        self.dir_q.setPlaceholderText("Search by person or type (IEMs, 5128, headphones)…")
+        self.dir_q.setPlaceholderText("Search by name or type (IEMs, 5128, headphones)…")
         self.dir_q.setClearButtonEnabled(True)
         self.dir_q.textChanged.connect(self.render_squiglink_list)
         v.addWidget(self.dir_q)
@@ -163,7 +166,7 @@ class Sources(QDialog):
         self.pages.setCurrentIndex(1)
         refresh = QPushButton("Update the lists")
         icons.put(refresh, "refresh")
-        refresh.setToolTip("Download all the lists again (only when online)")
+        refresh.setToolTip("Refresh all database lists (requires Online mode)")
         refresh.clicked.connect(lambda: self.refresh(force=True))
         folder = QPushButton("Open the downloads folder")
         icons.put(folder, "folder")
@@ -199,18 +202,18 @@ class Sources(QDialog):
     def poll_lib(self):
         st = self.svc.call("/api/library")
         if st.get("error") and not st.get("folders"):
-            self.lib_status.setText(f"The app cannot search: {st['error']}")
+            self.lib_status.setText(f"Search failed: {st['error']}")
             return
         if st.get("scanning"):
-            self.lib_status.setText(f"In progress… {st.get('found', 0)} curve files")
+            self.lib_status.setText(f"Searching… {st.get('found', 0)} curve files")
             self._lib_poll.start()
             return
         self._lib_poll.stop()
         where = ", ".join(f.replace("\\", "/").rstrip("/").split("/")[-1] for f in st.get("folders") or [])
-        self.lib_status.setText(f"The app cannot continue to search: {st['error']}" if st.get("error") else
+        self.lib_status.setText(f"Search interrupted: {st['error']}" if st.get("error") else
                                 f"{st.get('found', 0)} curve files in {where}"
-                                + (f" (the app did not read {st['cloud']} files that are only online in OneDrive: to "
-                                   "read them, the app must download them)" if st.get("cloud") else ""))
+                                + (f" ({st['cloud']} cloud-only OneDrive files skipped; download to include)"
+                                   if st.get("cloud") else ""))
 
     # ---------------------------------------------------------------- the online databases
     def rows(self):
@@ -272,12 +275,12 @@ class Sources(QDialog):
             shown += 1
             for d in vis:
                 s = by_url.get(d["url"])
-                count = ("off" if not d["on"] else "" if not s else "did not load" if s.get("error")
+                count = ("off" if not d["on"] else "" if not s else "failed to load" if s.get("error")
                          # (list only: marked by the app, or it refused a download, as its lists say)
-                         else f"{s.get('count', 0):,}" + (" · from a picture" if d.get("browse") or s.get("list_only")
+                         else f"{s.get('count', 0):,}" + (" · from image" if d.get("browse") or s.get("list_only")
                                                           else ""))
                 if d["on"] and not s and self.st.get("loading"):
-                    count = "in progress…"
+                    count = "loading…"
                 it = QTreeWidgetItem([d["name"], count, "" if d["extra"] else "↗ website"])
                 it.setFlags(it.flags() | Qt.ItemIsUserCheckable)
                 it.setCheckState(0, Qt.Checked if d["on"] else Qt.Unchecked)
@@ -288,7 +291,7 @@ class Sources(QDialog):
                 if d["extra"]:  # (one you added: its row's ✕, as every list's, UI-RULES 18; it was the word Remove)
                     x = QPushButton("✕")
                     theme.mark(x, quiet=True)
-                    x.setToolTip("Remove it from the list")
+                    x.setToolTip("Remove database")
                     x.setAccessibleName(f"Remove {d['name']} from the list")
                     x.setAutoDefault(False)
                     x.clicked.connect(lambda _=False, d=d: self.remove_added(d))
@@ -297,8 +300,8 @@ class Sources(QDialog):
             top.setCheckState(0, Qt.Checked if n_on == len(vis) else Qt.Unchecked if not n_on else Qt.PartiallyChecked)
             top.setExpanded(True)
         if not shown:  # (a list with nothing to show says so, UI-RULES 21)
-            none = QTreeWidgetItem(["No results: type different text, or select All." if f or show != "all" else
-                                    "No databases.", "", ""])
+            none = QTreeWidgetItem(["No matches. Try a different search or select All." if f or show != "all" else
+                                    "No databases yet. Click Add a database.", "", ""])
             none.setFlags(Qt.NoItemFlags)
             none.setData(0, Qt.UserRole, ("none", None))
             self.tree.addTopLevelItem(none)
@@ -318,8 +321,7 @@ class Sources(QDialog):
             rows = [it.child(i).data(0, Qt.UserRole)[1] for i in range(it.childCount())]
             # (titled by what's being done, No the default: the ones you added can't be had back here, UI-RULES 17)
             if not on and any(r["extra"] for r in rows) and QMessageBox.question(
-                    self, "Disable them", "If you disable them, the app removes the databases that you added from the "
-                    "list. Continue?",
+                    self, "Disable them", "Disabling removes your added databases. Continue?",
                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
                 # (not inside the item's own signal: render deletes it; the window its owner, so a window closed
                 # and deleted meanwhile drops it instead of reaching for its deleted tree)
@@ -346,7 +348,7 @@ class Sources(QDialog):
         self.set_on(d, False)
         self.changed()
         QTimer.singleShot(0, self, self.render)  # (not inside its own button's click: render deletes the button)
-        self.footer.say(f"The app removed “{d['name']}” from the list.", undo=lambda: self.add_database(d["url"]))
+        self.footer.say(f"Removed “{d['name']}”", undo=lambda: self.add_database(d["url"]))
 
     def refresh(self, force=False):
         self.svc.call("/api/db/refresh", {"settings": self.page.S, "force": force})
@@ -362,26 +364,29 @@ class Sources(QDialog):
         self.render()
 
     # ---------------------------------------------------------------- adding one
+    def say_dir_note(self, text):
+        """The gray line above squig.link's list: hidden with no text (an empty line kept its room)."""
+        self.dir_note.setText(text)
+        self.dir_note.setVisible(bool(text))
+
     def load_squiglink_list(self):
         if net.offline():
-            self.dir_note.setText("Offline: for squig.link's list, change to Online (top right). You can add the URL of "
-                                  "a page.")
-            self.dir_empty.set_text("Offline: squig.link's list shows when you change to Online (top right).")
+            self.say_dir_note("Offline: you can still add a database by URL")
+            self.dir_empty.set_text("Offline: go online to browse squig.link's list")
             return
-        self.dir_note.setText("From squig.link's list (in progress…), or with the URL of a page.")
-        self.dir_empty.set_text("squig.link's list loads…")
+        self.say_dir_note("")
+        self.dir_empty.set_text("Loading squig.link's list…")
 
         def done(res, err):
             items = (res or {}).get("items") or []
             if err or not items:
-                self.dir_note.setText("The app cannot load squig.link's list (is there no connection?). Load it again "
-                                      "at a different time, or add a database with the URL of its page (the box below "
-                                      "the list).")
-                self.dir_empty.set_text("No list: the app cannot load it.")
+                self.say_dir_note("You can still add a database by URL below")
+                # ("10 minutes": databases.RETRY_AFTER, the time before a failed try asks squig.link again)
+                self.dir_empty.set_text("Couldn't load squig.link's list. Check your connection and reopen Sources in "
+                                        "10 minutes.")
                 return
             self.dir = items
-            self.dir_note.setText(f"From squig.link's list ({len(items)} databases: click one, then click Add), or "
-                                  "with the URL of a page.")
+            self.say_dir_note(f"{len(items)} squig.link databases")
             self.render_squiglink_list()
         tasks.background(lambda: self.svc.call("/api/db/directory"), done, owner=self)
 
@@ -398,14 +403,14 @@ class Sources(QDialog):
         hits = [d for d in self.dir if all(w in (d["name"] + " " + d.get("type", "")).lower() for w in ws)]
         for d in hits[:60]:
             added = url_key(d["url"]) in have
-            it = QListWidgetItem(f"{d['name']}  ·  {d.get('type', '')}" + ("   ✓ in the list" if added else ""))
+            it = QListWidgetItem(f"{d['name']}  ·  {d.get('type', '')}" + ("   ✓ Added" if added else ""))
             if not added:
                 it.setData(Qt.UserRole, d["url"])
             self.dir_list.addItem(it)
         if not hits:  # (a list with nothing to show says so, UI-RULES 21)
-            self.dir_list.addItem("No results: type different text.")
+            self.dir_list.addItem("No matches. Try a different search.")
         if len(hits) > 60:
-            self.dir_list.addItem(f"{len(hits) - 60} more: type more text for a shorter list")
+            self.dir_list.addItem(f"{len(hits) - 60} more: keep typing to filter")
 
     def _add_typed(self):
         if self.add_database(self.url.text()):  # (refused: kept in the box to correct)
@@ -421,14 +426,14 @@ class Sources(QDialog):
     def add_database(self, u):
         u = (u or "").strip()
         if not u.startswith(("http://", "https://")):
-            bubble.tell(None, "Enter the URL of the page. It must start with https://", near=self)
+            bubble.tell(None, "Enter a database URL starting with https:// or http://", near=self)
             return False
         if url_key(u) in self.listed():
-            bubble.tell(None, "That database is in the list.", near=self)
+            bubble.tell(None, "Database already added", near=self)
             return False
         self.page.S["databases"]["extra"].append(u)
         self.changed()
-        self.footer.say("The app added the database. Its list loads…")
+        self.footer.say("Database added. Loading list…")
         self.render()
         self.render_squiglink_list()
         return True

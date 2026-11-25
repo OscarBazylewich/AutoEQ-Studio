@@ -268,7 +268,7 @@ that you change is your value (↺ makes it automatic again).
 Keys: T D E H the tools, A Trace automatically, S Make smooth, F Show all, + and - zoom, Delete clears the curve,
 Ctrl+Z undo. The mouse wheel zooms, and the right button (or Space) moves the picture. On a touch screen, two fingers
 zoom and move the picture. With one finger, a tap traces and a finger that moves drags.
-A graph from a website: some databases do not let other programs download their files. Find… shows "trace from the
+A graph from a website: some databases do not let other programs download their files. Find… shows "trace from
 website ↗" for their entries (measurements and targets). For such an entry, Use opens the website in your browser,
 and the app waits for a picture of the graph. If a website does not let the app download an entry, the app also
 uses pictures for the other entries of that database. After 7 days, the app tries to download again.

@@ -67,12 +67,12 @@ def test_db_range_of_a_target(check):
     low = trace_auto.db_range_check(-50, -10, True)
     meas = trace_auto.db_range_check(-20, 20, False)
     check("db_range_check: -40 dB to 0 dB is usual for a target (DB_TARGET_LOWEST -40)",
-          usual.ok and usual.reason == "The dB axis is -40 dB to 0 dB.", usual)
+          usual.ok and usual.reason == "Detected dB range is -40 to 0 dB.", usual)
     check("db_range_check: -50 dB to -10 dB is not usual for a target, with the words of a target",
-          not low.ok and low.reason == "The dB axis is -50 dB to -10 dB. This range is not usual for a graph of a "
-          "target.", low)
+          not low.ok and low.reason == "Detected dB range is -50 to -10 dB. Unusual range for a target graph.", low)
     check("db_range_check: -20 dB to 20 dB is not usual for a measurement, with the words of a measurement",
-          not meas.ok and meas.reason.endswith("This range is not usual for a graph of an IEM or headphone."), meas)
+          not meas.ok and meas.reason == "Detected dB range is -20 to 20 dB. Unusual range for a headphone/IEM graph.",
+          meas)
 
 
 def test_traced_range_words(check):
@@ -84,9 +84,9 @@ def test_traced_range_words(check):
         ("no points", []))}
     check("traced_range_words: 3 Save's sentence gives the first and the last traced frequency when one of them, or "
           "the two, are not at an end of the frequency axis; none when the line reaches the two ends",
-          words == {"neither end": "The app traced the target line from 24.1 Hz to 18.5 kHz.",
-                    "only the low end": "The app traced the target line from 20 Hz to 18.5 kHz.",
-                    "only the high end": "The app traced the target line from 24.1 Hz to 20 kHz.",
+          words == {"neither end": "Target traced from 24.1 Hz to 18.5 kHz",
+                    "only the low end": "Target traced from 20 Hz to 18.5 kHz",
+                    "only the high end": "Target traced from 24.1 Hz to 20 kHz",
                     "both ends": "", "no points": ""}, words)
 
 
@@ -176,7 +176,7 @@ def alone(ys, line=None, fade=15):
     of 1000 columns, a line width of 2."""
     tg = {"ys": dict(ys), "line": dict(line if line is not None else ys), "fade": fade}
     return trace_auto.line_alone(tg, 2.0, _Grid(), 0, 1000, 1000, lambda c: f"column {c}",
-                                 lambda side: "above the top" if side < 0 else "below the bottom", 20.0)
+                                 lambda side: "above" if side < 0 else "below", 20.0)  # (auto_read's out_of)
 
 
 def checks_of(got):
@@ -192,7 +192,7 @@ def test_line_alone_gaps(check):
     gap = {x: 300.0 for x in range(1000) if not 400 <= x < 425}
     got = checks_of(alone(gap))
     check("line_alone: a gap of 25 columns (2.5 % of the width) fails trace_gaps, with its width",
-          got["trace_gaps"] == (False, "A part of the target line that is 25 pixels wide is not traced."), got)
+          got["trace_gaps"] == (False, "Missed a 25-pixel gap in the target curve"), got)
 
 
 def test_line_alone_ends(check):
@@ -209,10 +209,10 @@ def test_line_alone_ends(check):
           "(EXIT_CUT, 1 % of the width) have no points", got["drop"] == cut, sorted(got["drop"]))
     reason = checks_of(got)["trace_curve"]
     check("line_alone: a line out of the grid from 89 % of the width fails trace_curve (MIN_IN_GRID, 90 %), with "
-          "the words of the end", not reason[0] and reason[1].startswith("The target line is on only 89 % of the "
-                                                                          "width of the grid. At column 895, the "
-                                                                          "target line goes below the bottom of the "
-                                                                          "grid."), reason)
+          "the words of the end", not reason[0] and reason[1].startswith("Target curve covers only 89% of the grid "
+                                                                          "width. At column 895, the target curve "
+                                                                          "goes below the grid. Traced to column "),
+          reason)
 
 
 def test_line_alone_out_of_the_grid_in_the_middle(check):
@@ -221,8 +221,8 @@ def test_line_alone_out_of_the_grid_in_the_middle(check):
     ys = {x: y for x, y in line.items() if not 450 <= x < 511}
     got = checks_of(alone(ys, line))
     check("line_alone: a part of the line above the grid in the middle fails trace_gaps, with where",
-          got["trace_gaps"] == (False, "Between column 449 and column 511, the target line goes above the top of the "
-                                       "grid. The app cannot trace that part."), got)
+          got["trace_gaps"] == (False, "Between column 449 and column 511, the target curve goes above the grid and "
+                                       "can't be traced"), got)
 
 
 # ---------------------------------------------------------------- reads of look-alikes
@@ -353,8 +353,8 @@ def test_two_target_lines(qapp, monkeypatch, check, form):
     _truth, r = read_rgb(monkeypatch, 1396, curves=False, target=kind, target_fn=harman(-20, 20), db_range=(-20, 20),
                          extra=[(other, "#b0b0b0")])
     check(f"two target lines (a second line {name}, 1396 px, PNG): trace_single fails first, with its words",
-          not r.ok and failed(r)[:1] == [("trace_single", "The picture has more than one target line. Show only one "
-                                                          "target on the graph of the website.")], failed(r))
+          not r.ok and failed(r)[:1] == [("trace_single", "Multiple target curves found. Show only one target on the "
+                                                          "graph.")], failed(r))
 
 
 def test_one_thin_line_is_one_target_line(qapp, monkeypatch, check):

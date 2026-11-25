@@ -123,11 +123,8 @@ class CompareResults(QDialog):
         outer.addWidget(scroll, 1)
         self.scroll = scroll
         scroll.viewport().installEventFilter(self)  # (the graph's height follows the room in sight: fit_plot)
-        lead = QLabel("Two of these: the result on the result card, the EQs that you made, and the History of this "
-                      "IEM. The graph shows them with your measurement and target.")
-        lead.setWordWrap(True)
-        theme.mark(lead, role="muted")
-        v.addWidget(lead)
+        # (no line above A and B: the owner removed it in the text survey, 2026-11-24; the items of the lists tell
+        # what A and B can be)
         pick = placed(v, QGridLayout())
         self.combos = []
         # (A to Z, as every list, the result shown now on top: UI-RULES 22; A and B start as the first two options
@@ -155,8 +152,7 @@ class CompareResults(QDialog):
             c.setCurrentIndex(self.opts.index(first[min(i, len(first) - 1)]) if first else -1)
             c.currentIndexChanged.connect(self.render)
             pick.addWidget(c, i, 1)
-            b = QPushButton(f"Show {side}")
-            b.setToolTip("Put it on the result card")
+            b = QPushButton(f"Show {side}")  # (no tooltip: the owner removed it in the text survey, 2026-11-24)
             b.clicked.connect(lambda _=False, i=i: self.show_on_card(i))
             pick.addWidget(b, i, 2)
             self.combos.append(c)
@@ -303,7 +299,7 @@ class CompareResults(QDialog):
                 it = QTableWidgetItem(fn(n))
                 it.setTextAlignment(LEFT)
                 self.numbers.setItem(i, j + 1, it)
-        self.apart.setText(f"Maximum difference between A and B (in the error range): {apart:.1f} dB")
+        self.apart.setText(f"Max difference (A vs. B): {apart:.1f} dB")
         self.numbers.setFixedHeight(self.numbers.horizontalHeader().height()
                                     + sum(self.numbers.rowHeight(i) for i in range(len(rows))) + 4)
         for tbl, o in zip(self.tables, self.chosen()):
@@ -325,10 +321,10 @@ class CompareResults(QDialog):
         """A result of this session back on the result card (a History entry: History's Show does that)."""
         o = self.chosen()[i]
         if o["label"].startswith("Shown: "):
-            self.footer.say("That EQ is on the result card.")
+            self.footer.say("Already on the result card")
             return
         if o["run"] is None:
-            self.footer.say("That EQ is from History: in the History window, click Show.")
+            self.footer.say("History EQ: open History… and click Show")
             return
         if o["run"] is not self.page.run_result:
             self.page.run_result = o["run"]

@@ -70,7 +70,7 @@ class EqHistory:
             return
         res = self.svc.call("/api/history/add", {"entry": self.entry_now(saved)})
         if res.get("error"):
-            self.status(f"The app cannot add this EQ to History: {res['error']}", 8000)
+            self.status(f"Couldn’t add EQ to History: {res['error']}", 8000)
             return
         by_key = {e["key"]: e for e in self.history}
         by_key[res["entry"]["key"]] = res["entry"]
@@ -106,7 +106,7 @@ class EqHistory:
             QMessageBox.warning(self, "Copy", res["error"])
             return
         QGuiApplication.clipboard().setText(res["apo"])
-        (say or self.status)("The app copied the filters (Equalizer APO / squiglink format).")
+        (say or self.status)("Copied filters")
         if record:
             self.add_to_history(True)
 
@@ -136,17 +136,16 @@ class EqHistory:
             self.curves_loaded(self.svc.call("/api/curves", {"settings": S}))
             self.show_settings()
         elif self.curves:
-            self.status(f"{'Its target is not' if have_m else 'Its measurement files are not'} in the app. Thus, the "
-                        "graph shows its filters with your measurement and target.", 10000)
+            self.status(f"{'Original target' if have_m else 'Original measurement files'} not found. Showing EQ "
+                        "filters on your current measurement and target.", 10000)
         if not self.curves:  # (nothing to show its filters on: what's needed first, in a box: UI-RULES 25)
-            QMessageBox.information(self, "Show", f"{'Its target is not' if have_m else 'Its measurement files are not'} "
-                                    "in the app: select a measurement and a target first. Then click Show again.")
+            QMessageBox.information(self, "Show", f"{'Original target' if have_m else 'Original measurement files'} "
+                                    "not found. Select a measurement and target, then try Show again.")
             return
         band = e.get("band")
         if band and list(band) != list(S["scoring"]["band_hz"]):
-            self.status(f"Its error range was {band[0]}–{band[1]} Hz and is {S['scoring']['band_hz'][0]}–"
-                        f"{S['scoring']['band_hz'][1]} Hz at this time. Thus, its error here is different from the "
-                        "error in History.", 10000)
+            self.status(f"Frequency range changed from {band[0]}–{band[1]} Hz to {S['scoring']['band_hz'][0]}–"
+                        f"{S['scoring']['band_hz'][1]} Hz, so the displayed error differs from History", 10000)
         res = dict(e.get("result") or {}, id=1, filters=[dict(f) for f in e["filters"]])
         res.setdefault("n_filters", e.get("n_filters", len(e["filters"])))
         res.setdefault("rms", e.get("rms") or 0)
@@ -162,7 +161,7 @@ class EqHistory:
         self.show_result(1)
         self.history_note()
         self.status(f"From History: {e.get('device')} → {e.get('target')}, {day_of(e['when'])} "
-                    f"{time_of(e['when'])}.", 8000)
+                    f"{time_of(e['when'])}", 8000)
 
     # ---------------------------------------------------------------- presets (AutoEQ Local's Presets menu)
     def preset_names(self):
@@ -178,7 +177,7 @@ class EqHistory:
         menu.clear()
         names = self.preset_names()
         if not names:
-            a = menu.addAction("No presets: a preset keeps all your settings (not your files)")
+            a = menu.addAction("No presets yet: presets save all settings, not files")
             a.setEnabled(False)
         for n in names:  # (✓ at the preset with the settings in use: the UI audit, 2026-11-08)
             a = menu.addAction(n, lambda n=n: self.load_preset(n))
@@ -238,8 +237,7 @@ class EqHistory:
         if res.get("error"):
             QMessageBox.warning(self, "Presets", res["error"])
             return
-        self._use_settings(res["settings"], f"The app loaded the preset “{name}”: all its settings (your files do not "
-                                            "change).")
+        self._use_settings(res["settings"], f"Loaded preset “{name}” (files unchanged)")
 
     def save_preset(self):
         from ui.window_parts import ask_text  # (looked up here: the tests answer it)
@@ -249,33 +247,32 @@ class EqHistory:
         if not ok or not name:
             return
         if name in self.preset_names() and QMessageBox.question(  # (No the default: it can't be had back, UI-RULES 17)
-                self, "Save as a preset", f"There is a preset with the name “{name}”. Replace it?",
+                self, "Save as a preset", f"Preset “{name}” already exists. Replace it?",
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
             return
         res = self.svc.call("/api/presets/save", {"name": name, "settings": self.S})
         if res.get("error"):
             QMessageBox.warning(self, "Presets", res["error"])
             return
-        self.notify(f"The app saved the preset “{name}”: all settings, not your files. Presets (in the top bar) loads "
-                    "it again.")
+        self.notify(f"Saved preset “{name}”")
 
     def delete_preset(self, name):
-        if QMessageBox.question(self, "Delete", f"Delete the preset “{name}”?", QMessageBox.Yes | QMessageBox.No,
+        if QMessageBox.question(self, "Delete", f"Delete preset “{name}”?", QMessageBox.Yes | QMessageBox.No,
                                 QMessageBox.No) != QMessageBox.Yes:  # (as every Delete asks: UI-RULES 17)
             return
         res = self.svc.call("/api/presets/delete", {"name": name})
         if res.get("error"):
             QMessageBox.warning(self, "Presets", res["error"])
             return
-        self.notify(f"The app deleted the preset “{name}”.")
+        self.notify(f"Deleted preset “{name}”")
 
     def use_initial_settings(self):
-        if QMessageBox.question(self, "Use the initial settings", "Change all settings to their initial values? Your "
-                                "files and presets do not change. With Undo, you get your settings again.") \
+        if QMessageBox.question(self, "Use the initial settings", "Reset all settings to defaults? Your files and "
+                                "presets won’t change.") \
                 != QMessageBox.Yes:
             return
         res = self.svc.call("/api/reset")
         if res.get("error"):
             QMessageBox.warning(self, "Use the initial settings", res["error"])
             return
-        self._use_settings(res["settings"], "All settings have their initial values (your files do not change).")
+        self._use_settings(res["settings"], "Settings reset to defaults (files unchanged)")

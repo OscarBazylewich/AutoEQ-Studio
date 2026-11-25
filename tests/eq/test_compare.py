@@ -75,8 +75,38 @@ def test_nothing_could_be_loaded(monkeypatch, check):
     check("compare: when none of the model's measurements can be loaded (offline, nothing downloaded before), it says "
           "so, with each one's reason, instead of failing with \"list index out of range\"",
           err is None and res.get("target_rig") and res.get("items") == [] and len(res.get("errors") or []) == 2
-          and "cannot load these measurements" in (res.get("note") or ""), (err, res.get("target_rig"), res.get("note"),
-                                                              res.get("errors")))
+          and res.get("note") == ("Couldn't download measurements. Check that the app is online and try again in a few "
+                                  "minutes."), (err, res.get("target_rig"), res.get("note"), res.get("errors")))
+
+
+def test_nothing_found_has_no_note(monkeypatch, check):
+    # (the text survey, 2026-11-24: "The app found no measurements with that name" went from the warning box; the list
+    # says "No downloadable results …" instead)
+    monkeypatch.setattr(databases, "items", lambda: [])
+    monkeypatch.setattr(library, "status", lambda with_items=False: {"items": []})
+    res = compare.compare({}, "No such model", None)
+    check("compare: a search that finds nothing gives no note (the list says it)",
+          res["items"] == [] and res["note"] == "", res)
+
+
+def test_reasons_without_full_bass_and_seatings(check):
+    # (the text survey, 2026-11-24: the "+" lines "Full bass (good seal)" and "The average of {n} seatings/channels"
+    # went; their points stay in the score)
+    base = {"sure": True, "rig": "5128", "conv": {"how": "same"}, "dev": 0.5, "peers": 2, "fmin": 20, "fmax": 20000,
+            "points": 300, "channels": "LR", "source": "X"}
+    seen = {}
+    for name, extra in (("full bass, 6 files", {"bass": 0.0, "n_files": 6}), ("low bass, 1 file", {"bass": -2.0,
+                                                                                                    "n_files": 1})):
+        c = dict(base, **extra)
+        compare.score(c, "5128")
+        seen[name] = (c["score"], c["reasons"])
+    full, low = seen["full bass, 6 files"], seen["low bass, 1 file"]
+    check("compare: a measurement's reasons have no line for full bass or for an average of many files, and their "
+          "points still count; low bass and one file keep their lines",
+          full[1] == [("+", "Matches target rig (B&K 5128)"), ("+", "Matches the other 2 on this rig (0.5 dB difference)")]
+          and full[0] > low[0]
+          and low[1][2:] == [("−", "Bass 2.0 dB lower than others"), ("·", "Single file (one seating or pre-averaged)")],
+          seen)
 
 
 def test_your_files_rig_as_the_app_gives_it(monkeypatch, check):

@@ -732,7 +732,7 @@ def refresh_now(sites, force=False):
         try:
             found, conf = (_index_autoeq if site.get("type") == "autoeq" else _index_squig)(site)
             return site, {"time": time.time(), "items": found, "conf": conf, "v": LIST_VERSION}, None
-        # (the words of the error alone: Sources shows them as the tooltip of "did not load", and the Python name of
+        # (the words of the error alone: Sources shows them as the tooltip of "failed to load", and the Python name of
         # the error's type before them is not for the user ("ValueError: file is too large (over 20 MB)"; offline
         # they started "Offline: Offline."). An error with no words (a TimeoutError) gives that name: all there is)
         except (OSError, ValueError) as e:  # (the connection, the site's answer, the app's own checks: a sentence)

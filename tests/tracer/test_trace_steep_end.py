@@ -78,10 +78,10 @@ def test_real_form_is_read(qapp, monkeypatch, check):
           and 17000 < r.points[-1][0] < 18600, (r.points[0], r.points[-1]) if r.points else None)
     words = reason(r, "trace_curve")
     check("the look-alike of the real screen copy: the curve check says where a curve goes out of the grid, and to "
-          "where the app traced the curve", "the left or right curve goes below the bottom of the grid. The app "
-          "traced the curve to " in words and words.startswith("The curve is on 9"), words)
-    check("the look-alike of the real screen copy: the frequency in \"traced the curve to\" is the frequency of the "
-          "last traced column", words.endswith(f"The app traced the curve to {last_column_hz(r)}."),
+          "where the app traced the curve", "a channel curve goes below the grid. Traced to " in words
+          and words.startswith("The curve is on 9"), words)
+    check("the look-alike of the real screen copy: the frequency in \"Traced to\" is the frequency of the "
+          "last traced column", words.endswith(f"Traced to {last_column_hz(r)}."),
           (words, last_column_hz(r)))
     check("the look-alike of the real screen copy: the gaps check passes with its usual words",
           reason(r, "trace_gaps") == "All of the curve is traced.", reason(r, "trace_gaps"))
@@ -123,7 +123,7 @@ def test_out_at_the_top(qapp, monkeypatch, check):
         e = errors(truth, r)
         check(f"the curves upside down (a curve goes out of the grid at the top before 20 kHz, {w} px): all checks "
               f"pass, the curve is less than 0.5 dB from the true average at each point, and the curve check says "
-              f"so", r.ok and e and e[1] < 0.5 and "goes above the top of the grid" in reason(r, "trace_curve"),
+              f"so", r.ok and e and e[1] < 0.5 and "goes above the grid" in reason(r, "trace_curve"),
               (failed(r), e, reason(r, "trace_curve")))
 
 
@@ -137,19 +137,17 @@ def test_out_in_the_bass(qapp, monkeypatch, check):
               f"checks pass, the curve is less than 0.5 dB from the true average at each point and starts at 25 to 28 "
               f"Hz, and the curve check says from where it traced the curve",
               r.ok and e and e[1] < 0.5 and 25 < r.points[0][0] < 28 and words.startswith("The curve is on 9")
-              and "From 20 Hz to " in words and "the left or right curve is below the bottom of the grid. The app "
-              "traced the curve from " in words, (failed(r), e, r.points[0] if r.points else None, words))
-        m = re.search(r"traced the curve from ([\d.]+) (k?)Hz\.", words)
+              and "From 20 Hz to " in words and "a channel curve goes below the grid. Traced from " in words, (failed(r), e, r.points[0] if r.points else None, words))
+        m = re.search(r"Traced from ([\d.]+) (k?)Hz\.", words)
         start = float(m.group(1)) * (1000 if m.group(2) else 1) if m else None
-        check(f"a bass roll-off under the grid ({w} px): the frequency in \"traced the curve from\" is the first "
+        check(f"a bass roll-off under the grid ({w} px): the frequency in \"Traced from\" is the first "
               f"point's frequency (2 % or nearer), not 20 Hz",
               start and r.points and abs(start / r.points[0][0] - 1) <= 0.02,
               (start, r.points[0] if r.points else None))
         check(f"a bass roll-off under the grid ({w} px): out_words are the sentences of the two ends, the low end "
               f"first, with one space between them",
-              re.fullmatch(r"From 20 Hz to [\d.]+ Hz, the left or right curve is below the bottom of the grid\. The "
-                           r"app traced the curve from [\d.]+ Hz\. At 1[89][\d.]* kHz, the left or right curve goes "
-                           r"below the bottom of the grid\. The app traced the curve to 1[78][\d.]* kHz\.",
+              re.fullmatch(r"From 20 Hz to [\d.]+ Hz, a channel curve goes below the grid\. Traced from [\d.]+ Hz\. "
+                           r"At 1[89][\d.]* kHz, a channel curve goes below the grid\. Traced to 1[78][\d.]* kHz\.",
                            r.out_words), r.out_words)
 
 
@@ -164,8 +162,7 @@ def test_dip_out_of_the_grid(qapp, monkeypatch, check):
         words = reason(r, "trace_gaps")
         check(f"a dip under the grid at 1 kHz ({w} px): the gaps check fails, and says between which frequencies the "
               f"curve goes out of the grid", not r.ok and "trace_gaps" in failed(r) and words.startswith("Between ")
-              and words.endswith("the left or right curve goes below the bottom of the grid. The app cannot trace "
-                                 "that part."), (failed(r), words))
+              and words.endswith("a channel curve goes below the grid and can't be traced"), (failed(r), words))
         check(f"a dip under the grid at 1 kHz ({w} px): the gaps check is the first check that fails (the curve check "
               f"passes)", failed(r)[:1] == ["trace_gaps"] and reason(r, "trace_curve").startswith("The curve is on 9"),
               (failed(r), reason(r, "trace_curve")))
@@ -184,8 +181,8 @@ def test_one_channel_out_in_the_middle(qapp, monkeypatch, check):
         kind = f"JPEG {jpeg}" if jpeg else "PNG"
         check(f"one channel cut at the bottom edge at 10.5 to 11 kHz ({w} px, {kind}): the gaps check fails first, "
               f"with the frequencies of that part", failed(r)[:1] == ["trace_gaps"]
-              and re.fullmatch(r"Between 10\.\d+ kHz and 11\.\d+ kHz, the left or right curve goes below the bottom of "
-                               r"the grid\. The app cannot trace that part\.", words), (failed(r), words))
+              and re.fullmatch(r"Between 10\.\d+ kHz and 11\.\d+ kHz, a channel curve goes below the grid and can't "
+                               r"be traced", words), (failed(r), words))
     for w in (800, 1396):
         truth, r = read(monkeypatch, w, chan_fns=None, clip_db=False, top_logo=False, colours=("#1a48a0", "#0d357d"),
                         db_range=(48, 88), db_step=5)
@@ -232,7 +229,7 @@ def test_end_and_middle_out_of_the_grid(qapp, monkeypatch, check):
         _truth, r = read(monkeypatch, w, chan_fns=fns, db_range=(lo, lo + 40), db_step=5)
         check(f"an end and a part in the middle out of the grid (dB axis {lo} to {lo + 40} dB, {w} px): the curve "
               f"check fails, and the gaps check fails too", failed(r)[:2] == ["trace_curve", "trace_gaps"]
-              and reason(r, "trace_curve").startswith("The curve is on only 8"),
+              and reason(r, "trace_curve").startswith("Curve covers only 8"),
               (failed(r), reason(r, "trace_curve")))
 
 
@@ -260,14 +257,14 @@ def test_curve_that_ends_early(qapp, monkeypatch, check):
     check("a curve out of the grid at 9.2 kHz (1000 px, 85 % of the width): the curve check fails, and only it",
           not r.ok and failed(r) == ["trace_curve"], failed(r))
     check("the curve check's words: 'only' 85 %, where the curve goes out of the grid, and to where the app traced it",
-          re.fullmatch(r"The curve is on only 85 % of the width of the grid\. At 9\.\d+ kHz, the left or right curve "
-                       r"goes below the bottom of the grid\. The app traced the curve to 7\.\d+ kHz\.", words), words)
+          re.fullmatch(r"Curve covers only 85% of the grid width\. At 9\.\d+ kHz, a channel curve goes below the "
+                       r"grid\. Traced to 7\.\d+ kHz\.", words), words)
     check("AutoRead's out_words: the words of the curve check after its first sentence", r.out_words and
-          words == "The curve is on only 85 % of the width of the grid. " + r.out_words, (words, r.out_words))
+          words == "Curve covers only 85% of the grid width. " + r.out_words, (words, r.out_words))
     check("the points of that curve: correct (0.5 dB or less), to 7.4 to 7.8 kHz", e and e[1] <= 0.5
           and 7400 < r.points[-1][0] < 7800, (e, r.points[-1] if r.points else None))
-    check("the frequency in \"traced the curve to\" is the frequency of the last traced column",
-          words.endswith(f"The app traced the curve to {last_column_hz(r)}."), (words, last_column_hz(r)))
+    check("the frequency in \"Traced to\" is the frequency of the last traced column",
+          words.endswith(f"Traced to {last_column_hz(r)}."), (words, last_column_hz(r)))
     # (between 86 % and 90 %: a curve that falls out of the grid near 9.8 kHz, 88 % of the width)
     fall = lambda fn: lambda f: fn(f) - 40 * max(0.0, math.log2(f / 7500))  # noqa: E731
     truth, r = read(monkeypatch, 1000, chan_fns=(fall(STEEP_END[0]), fall(STEEP_END[1])))
@@ -275,7 +272,7 @@ def test_curve_that_ends_early(qapp, monkeypatch, check):
     e = errors(truth, r)
     check("a curve out of the grid at 9.8 kHz on 88 % of the width (1000 px, a correct curve to there): the curve "
           "check fails, and only it (MIN_IN_GRID is 90 %)", e and e[1] <= 0.5 and failed(r) == ["trace_curve"]
-          and words.startswith("The curve is on only 88 % "), (failed(r), e, words))
+          and words.startswith("Curve covers only 88% "), (failed(r), e, words))
     _truth, r = read(monkeypatch)
     check("the real screen copy's form (97 %): AutoRead's out_words are the end of the curve check's words",
           r.ok and r.out_words.startswith("At 18.") and reason(r, "trace_curve").endswith(" " + r.out_words),
@@ -649,7 +646,7 @@ def test_status_line_of_a_failed_read(eq_screen, monkeypatch, tmp_path, check):
     tw.close()
     check("tracer: a failed read whose curve check has the words of two ends: the status line is the first sentence "
           "and the reason, then the instruction on a new line", ok is False
-          and text.startswith("The app cannot trace this picture automatically. The curve is on only ")
+          and text.startswith("Couldn't auto-trace this image. Curve covers only ")
           and "From 20 Hz to " in paras[0] and " At 1" in paras[0] and paras[1:] == [CORRECT_STEP], text)
     check("tracer: no line of that status line ends with a space", not any(p.endswith(" ") for p in paras),
           [p[-20:] for p in paras])
@@ -661,7 +658,7 @@ def test_status_line_of_a_failed_read(eq_screen, monkeypatch, tmp_path, check):
 # ---------------------------------------------------------------- 3 Save's note in the tracer's window
 def test_save_note_tells_the_end(eq_screen, monkeypatch, tmp_path, check):
     """After an automatic read that passed, 3 Save's note says where the curve goes out of the grid and to where the
-    app traced it (AutoRead.out_words, the words of trace_curve), before "Compare the curve with the picture.". The
+    app traced it (AutoRead.out_words, the words of trace_curve), before "Verify it against the image, …". The
     note shows all of its words at the usual and the smallest size of the window (pictures in light and dark)."""
     from helpers import qt
     from ui.trace_window import rgb_of
@@ -675,8 +672,8 @@ def test_save_note_tells_the_end(eq_screen, monkeypatch, tmp_path, check):
                               "link": "https://example.invalid/x"})
     qt.wait_for(lambda: not tw.loading and not tw.reading_graph and tw.read_ok is not None, 60)
     tw.show_tab(2)
-    want = (f"The app traced the graph of “Sample IEM” from “Sample.Audio”. {r.out_words}\nCompare the curve with the "
-            "picture. If they agree, click Add as measurement.")
+    want = (f"Traced graph for “Sample IEM” from “Sample.Audio”. {r.out_words}\nVerify it against the image, then "
+            "click Add as measurement.")
     seen = {"text": tw.save_note.text()}
     usual = tw.size()
     for which, size in (("usual", usual), ("smallest", tw.minimumSize().expandedTo(tw.minimumSizeHint()))):
@@ -693,7 +690,7 @@ def test_save_note_tells_the_end(eq_screen, monkeypatch, tmp_path, check):
     tw.remove_image()
     tw.close()
     check("tracer: after a read of a curve that goes out of the grid, 3 Save's note says where and to where the app "
-          "traced it, before 'Compare the curve with the picture.'", r.ok and r.out_words.startswith("At 18.")
+          "traced it, before 'Verify it against the image'", r.ok and r.out_words.startswith("At 18.")
           and seen["text"] == want, (seen["text"], want))
     check("tracer: the note shows all of its words at the usual and the smallest size of the window (its height is "
           "the height that its words need)", all(seen[k][2] >= seen[k][3] for k in ("usual", "smallest")), seen)

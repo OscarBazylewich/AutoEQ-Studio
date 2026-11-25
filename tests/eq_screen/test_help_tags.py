@@ -22,7 +22,17 @@ NO_TOOLTIP = {"#opt-view", "#target-save", "#compare-results", "#make-way", "#by
               "site_sweep.q_max", "res.error", "res.preamp", "res.maxq", "res.boost", "fcounts", "f_retry",
               "export.apo", "export.graphic", "export.poweramp", "export.uapp", "export.soundsource",
               "export.voicemeeter", "export.rockbox", "export.convolution", "site.sample_rate", "site.smooth_level",
-              "performance.cores"}
+              "performance.cores",
+              # (area 15: Listen's Sound, Tone from … to, Volume, Same level, Hide the names, Ears, Left, Right and
+              # Your EQs to compare)
+              "#snd-src", "#tone-from", "#snd-vol", "#snd-lm", "#snd-blind", "#snd-ears", "#snd-left", "#snd-right",
+              "snd_list",
+              # (area 22: the source tabs of Find…, Targets and measurements, the Rig, Type and Source lists, Paste
+              # the picture, Rig of your target, Folders to search and Online databases)
+              "#pk-src", "#pk-anykind", "pk_filters", "#pw-paste", "#cmp-rig", "library.folders", "databases",
+              # (area 26: the tracer's Automatic settings, Top, Bottom, Left, Right, Points in each octave, Save
+              # from … to and Name)
+              "#tr-auto-on", "#tr-d1", "#tr-d2", "#tr-f1", "#tr-f2", "#tr-ppo", "#tr-fmin", "#tr-name"}
 
 
 @pytest.mark.timeout(600)  # (the tracer's labels read and three Auto traces first)
@@ -112,6 +122,64 @@ def test_controls_without_a_tooltip(eq_screen, check):
     check("help: Compare… and the tabs Automatically and Manually keep the tooltip of their own, and a screen reader "
           "reads only their name (no line of Help after it)",
           all(v == (True, True, "") for v in got.values()), got)
+
+
+def test_find_which_measurement_history_and_sources_lines(eq_screen, check):
+    # (2026-11-24, the text survey, area 22: the lines of Find…'s filter lists, Rig of your target, Folders to search
+    # and Online databases removed: no tooltip and no line for a screen reader, their name and F1 tag stay. Targets
+    # and measurements keeps the tooltip of its own code; the others show the owner's new words. Known rig: its
+    # tooltip and its line for a screen reader are one text, the Help line (the owner's decision of 2026-11-24: the
+    # screen-reader line of a control is its tooltip; area 16 gave the tooltip other words, area 22's fit the filter))
+    from helpers import qt
+    from ui import help_window
+    from ui.compare_window import CompareWindow
+    from ui.history_window import HistoryWindow
+    from ui.picker import Picker
+    from ui.sources_window import Sources
+    page = eq_screen.page
+    seen = {}
+    pk = Picker(page, "measurement")
+    try:
+        for n, w in (("Rig", pk.f_rig), ("Type", pk.f_form), ("Source", pk.f_site), ("Known rig", pk.f_sure),
+                     ("Available to download", pk.f_dl), ("Targets and measurements", pk.anykind)):
+            seen[n] = (w.toolTip(), w.accessibleDescription(), bool(w.accessibleName()), help_window.entry_of_widget(w))
+    finally:
+        qt.close(pk)
+    cw = CompareWindow(page)
+    try:
+        for n, w in (("Model", cw.q), ("Rig of your target", cw.rig)):
+            seen[n] = (w.toolTip(), w.accessibleDescription(), bool(w.accessibleName()), help_window.entry_of_widget(w))
+    finally:
+        qt.close(cw)
+    hw = HistoryWindow(page)
+    try:
+        seen["This IEM only"] = (hw.only.toolTip(), hw.only.accessibleDescription(), bool(hw.only.accessibleName()),
+                                 help_window.entry_of_widget(hw.only))
+    finally:
+        qt.close(hw)
+    src = Sources(page)
+    try:
+        for n, w in (("Folders to search", src.folders), ("Online databases", src.tree)):
+            seen[n] = (w.toolTip(), w.accessibleDescription(), bool(w.accessibleName()), help_window.entry_of_widget(w))
+    finally:
+        qt.close(src)
+    want = {"Rig": ("", "", True, "set-pk-filters"), "Type": ("", "", True, "set-pk-filters"),
+            "Source": ("", "", True, "set-pk-filters"),
+            "Known rig": ("Hide entries with an unknown, guessed, or mixed rig",
+                          "Hide entries with an unknown, guessed, or mixed rig", True, "set-pk-f-sure"),
+            "Available to download": ("Shows only entries that can be downloaded directly",
+                                      "Shows only entries that can be downloaded directly", True, "set-pk-f-dl"),
+            "Targets and measurements": ("Shows both targets and measurements", "", True, "set-pk-anykind"),
+            "Model": ("All words must match the measurement name", "All words must match the measurement name", True,
+                      "set-cmp-q"),
+            "Rig of your target": ("", "", True, "set-cmp-rig"),
+            "This IEM only": ("Show only EQs for the selected measurement", "Show only EQs for the selected measurement",
+                              True, "set-hist-this"),
+            "Folders to search": ("", "", True, "set-library-folders"),
+            "Online databases": ("", "", True, "set-databases")}
+    check("help: Find…, Which measurement, History and Sources show the lines of the text survey (area 22), and the "
+          "controls whose line went keep their name and their Help entry", seen == want,
+          {n: (seen.get(n), want[n]) for n in want if seen.get(n) != want[n]})
 
 
 def test_settings_boxes_without_a_help_line(eq_screen, check):
@@ -367,6 +435,82 @@ def test_help_search_finds_an_eq_app_by_its_name(eq_screen, check):
     check("help: the search finds the entry “Load the EQ in your EQ app” by the name of each app of the Your EQ app "
           "list, and a name that only this entry has shows the entry on the page",
           not missed and shown == (1, "load-eq", True), (missed, shown))
+
+
+def test_listen_without_help_lines(eq_screen, check):
+    # (2026-11-24, the text survey, area 15: the Help lines of 9 controls of Listen removed, and the line of the ABX
+    # test changed. A list, a slider, the two Hz boxes and the title Your EQs to compare show no tooltip; Same level
+    # and Hide the names keep the tooltip that Listen gives them; a screen reader reads their name only. The row of
+    # the ABX test, its lists and the panel of the test show the new line)
+    from PySide6.QtWidgets import QLabel
+    from ui import help_window
+    lis = eq_screen.page.listen
+    head = next(w for w in lis.findChildren(QLabel) if w.text() == "Your EQs to compare")
+    bare = {"Sound": lis.src, "Volume": lis.vol, "from": lis.tone_from, "to": lis.tone_to, "Ears": lis.ears,
+            "Left": lis.left, "Right": lis.right, "Your EQs to compare": head}
+    got = {n: (w.toolTip(), w.accessibleName(), w.accessibleDescription(), bool(help_window.entry_of_widget(w)))
+           for n, w in bare.items()}
+    check("help: Sound, Volume, Tone from … to, Ears, Left, Right and Your EQs to compare of Listen show no tooltip, "
+          "and keep their name for a screen reader and their entry in Help",
+          got == {"Sound": ("", "Sound", "", True), "Volume": ("", "Volume", "", True),
+                  "from": ("", "Tone: from … to", "", True), "to": ("", "Tone: from … to", "", True),
+                  "Ears": ("", "Ears", "", True), "Left": ("", "Left", "", True), "Right": ("", "Right", "", True),
+                  "Your EQs to compare": ("", "Your EQs to compare", "", True)}, got)
+    got = {n: (w.toolTip(), w.accessibleDescription()) for n, w in (("Same level", lis.lm), ("Hide the names", lis.blind))}
+    check("help: Same level and Hide the names keep the tooltip of their own, and a screen reader reads no line of Help",
+          got == {"Same level": ("Matches loudness across all versions so volume doesn't skew comparisons", ""),
+                  "Hide the names": ("Labels versions A, B, C… in random order until you click “Show the names”", "")},
+          got)
+    line = "Blind test to see if you can tell two versions apart"
+    got = [(w.toolTip(), w.accessibleDescription()) for w in (lis.abx_row, lis.abx_a, lis.abx_b, lis.abx_n, lis.abx_box)]
+    check("help: the row of the ABX test, its 3 lists and the panel of the test show the new line, which a screen "
+          "reader reads too", got == [(line, line)] * 5, got)
+
+
+def test_tracer_help_lines(eq_screen, check):
+    # (2026-11-24, the text survey, area 26: the Help lines of 8 controls of the tracer removed, 6 changed. A value
+    # box's tooltip was its line, then "Allowed: …" on a second line: with no line it is "Allowed: …" alone, with no
+    # empty first line, also after a value is typed)
+    from ui import help_window
+    from ui.trace_window import sample_image
+    page = eq_screen.page
+    page.open_trace()
+    tw = page.tracer
+    img, _s = sample_image()
+    tw.load_image(img, "Sample IEM")
+    eq_screen.wait_for(lambda: not tw.reading and not tw.loading, 60)
+    bare = {"Automatic settings": tw.auto_on, "Points in each octave": tw.ppo, "Name": tw.name}
+    got = {n: (w.toolTip(), bool(w.accessibleName()), w.accessibleDescription(), bool(help_window.entry_of_widget(w)))
+           for n, w in bare.items()}
+    check("help: Automatic settings, Points in each octave and Name of the tracer show no tooltip, and keep their name "
+          "for a screen reader and their entry in Help", all(v == ("", True, "", True) for v in got.values()), got)
+    limits = {"d1": "trace.db", "d2": "trace.db", "f1": "trace.hz", "f2": "trace.hz", "fmin": "trace.save",
+              "fmax": "trace.save"}
+    want = {k: "Allowed: " + tw.limits.text(lim) for k, lim in limits.items()}
+    got = {k: (tw.boxes[k].toolTip(), tw.boxes[k].accessibleDescription(), bool(tw.boxes[k].accessibleName()))
+           for k in limits}
+    check("help: Top, Bottom, Left, Right and Save from … to of the tracer show only the allowed values (no empty "
+          "first line), and keep their name for a screen reader",
+          got == {k: (want[k], "", True) for k in limits}, (got, want))
+    typed = {}
+    for k, value in (("d1", "90"), ("fmin", "x"), ("fmin", "30"), ("fmax", "15000")):
+        tw.boxes[k].setText(value)
+        tw.value_typed(k, limits[k])
+        typed[(k, value)] = tw.boxes[k].toolTip()
+    check("help: after a valid value is typed, a value box of the tracer still shows only the allowed values; after a "
+          "value that is not a number, the error",
+          typed[("d1", "90")] == want["d1"] and typed[("fmin", "30")] == want["fmin"]
+          and typed[("fmax", "15000")] == want["fmax"] and typed[("fmin", "x")] == "Enter a number", typed)
+    words = {"Align with grid lines": (tw.snap, "Snaps lines to the nearest grid line while dragging"),
+             "Follow all grid lines": (tw.every, "Uses all grid lines for irregular axes"),
+             "Color tolerance": (tw.tol, "Max color difference for a pixel to match the curve"),
+             "Dashed or dotted line": (tw.dashed, "Follows dashed or dotted curves across gaps"),
+             "The graph shows": (tw.shows, "Graph type: measurement, target, or either relative to a target"),
+             "Target of the graph": (tw.comp, "Reference target for a relative graph; added back to the traced "
+                                              "curve")}
+    got = {n: (w.toolTip(), w.accessibleDescription()) for n, (w, _line) in words.items()}
+    check("help: the 6 changed lines of the tracer are the tooltips of their controls, which a screen reader reads too",
+          got == {n: (line, line) for n, (_w, line) in words.items()}, got)
 
 
 def test_numbers_of_your_result_without_a_help_line(eq_screen, check):

@@ -270,6 +270,25 @@ def test_symbols_beside_the_words(eq_screen, check):
           (wrong, alone))
 
 
+def test_buttons_without_a_tooltip(eq_screen, check):
+    # (the text survey, 2026-11-24: the owner removed the tooltips of the zoom bar, of Click curve, Make a line and
+    # Erase, of Open image… and of Remove image; Move keeps one, in the owner's words. Zoom out and Zoom in show only a
+    # symbol: they keep their names for a screen reader, which came from their tooltips before)
+    tw = _new(eq_screen)
+    _sample(eq_screen, tw, 0)
+    zoom = tw.stage.zoom_btns
+    tips = {"zoom out": zoom["out"].toolTip(), "show all": zoom["fit"].toolTip(), "zoom in": zoom["in"].toolTip(),
+            **{key: tw.tool_btns[key].toolTip() for key in ("trace", "draw", "erase", "pan")},
+            "Open image…": tw.open_btn.toolTip(), "Remove image": tw.remove_btn.toolTip()}
+    names = (zoom["out"].accessibleName(), zoom["in"].accessibleName())
+    qt.close(tw)
+    want = dict.fromkeys(tips, "")
+    want["pan"] = "Pan image: drag, Space+drag, or right-drag (H)"
+    check("tracer: no tooltip on the zoom bar, Click curve, Make a line, Erase, Open image… and Remove image; Move's "
+          "tooltip in the owner's words; Zoom out and Zoom in keep their names for a screen reader",
+          tips == want and names == ("Zoom out (-)", "Zoom in (+)"), (tips, names))
+
+
 def test_curve_rows_named_for_a_screen_reader(eq_screen, check):
     # (2026-10-23: every curve's dot was read as “Trace into this curve” and every ✕ as “Delete this curve”, so a
     # screen reader couldn't tell the curves apart; the row's buttons now the shared quiet ones, as the zoom bar's)
@@ -339,7 +358,7 @@ def test_one_step_at_a_time(eq_screen, check):
     check("tracer: no large title; the top shows No picture, then the picture's name in bold (a heading) with its "
           "size in gray; the side has the tabs 1 Axes, 2 Trace and 3 Save, one card at a time under the Automatic "
           "settings card; a new picture shows 1 Axes, the key T shows 2 Trace",
-          empty == ("No picture", "", "heading", []) and loaded[0] == "Sample IEM" and loaded[1]
+          empty == ("No image", "", "heading", []) and loaded[0] == "Sample IEM" and loaded[1]
           and loaded[2:] == (0, [True, False, False], ["1  Axes", "2  Trace", "3  Save"])
           and shown == [[True, False, False, True], [False, True, False, True], [False, False, True, True]]
           and after_key == 1, (empty, loaded, shown, after_key))

@@ -31,15 +31,15 @@ def test_axis_labels_read_or_said(eq_screen, check):
           f"(this PC has no text reader, so the tracer says it couldn't read the labels: {said})")
     # was eq_checks.py:2785
     check("trace: the axis labels read (+90 to +40 dB; the Hz labels match the gridlines), or said when Windows has no "
-          "text reader", read and ((t.v["d1"], t.v["d2"]) == ("90", "40") and "frequency labels agree with the grid lines" in t.axis_note
-                                   if has_reader else "The app cannot read" in t.axis_note), t.axis_note)
+          "text reader", read and ((t.v["d1"], t.v["d2"]) == ("90", "40") and "frequency labels match the grid" in t.axis_note
+                                   if has_reader else "Couldn't read axis labels" in t.axis_note), t.axis_note)
 
 
 def test_no_text_reader_said(eq_screen, monkeypatch, check):
     page = eq_screen.page
 
     def no_reader():
-        raise ocr.Unavailable("no text reader for this language (a stand-in for the test)")
+        raise ocr.Unavailable("No text reader for this language (a stand-in for the test).")
     monkeypatch.setattr(ocr, "_get_engine", no_reader)  # (ocr.words asks for it each time: the reader stood in as missing)
     img, _truth = sample_image()
     page.open_trace()
@@ -48,8 +48,9 @@ def test_no_text_reader_said(eq_screen, monkeypatch, check):
     tw.load_image(img, "Sample IEM")
     read = eq_screen.wait_for(lambda: not tw.reading, 60)
     check("trace: with no text reader in Windows, the tracer says it couldn't read the axis labels, and why (the "
-          "values are typed instead)", read and "The app cannot read the labels" in t.axis_note
-          and "no text reader" in t.axis_note and "Type the values" in t.axis_note, t.axis_note)
+          "values are typed instead; the reason's own end period is not doubled)",
+          read and "Couldn't read axis labels: No text reader for this language (a stand-in for the test). "
+          "Enter the values manually." in t.axis_note and ".." not in t.axis_note, t.axis_note)
 
 
 def test_one_read_at_a_time(monkeypatch, check):

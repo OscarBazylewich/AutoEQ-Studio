@@ -98,7 +98,7 @@ def test_from_a_profile_then_update_it(eq_screen, tmp_path, check):
     check("by hand: a device's profile opens as an EQ by hand; Use on device › Update puts the edit back into it (its "
           "name and device kept, still on)",
           "Gain 4.5 dB" in text and p["name"] == "Daily" and rec["active"] == pid
-          and any("updated “Daily”" in t for t in eq_screen.said[-2:]), (text, rec, eq_screen.said[-2:]))
+          and any("Updated “Daily”" in t for t in eq_screen.said[-2:]), (text, rec, eq_screen.said[-2:]))
     graphic = sw.import_profile(_write(os.path.join(str(tmp_path), "Graphic.txt"),
                                        "Filter 1: ON PK Fc 500 Hz Gain 1 dB Q 1\nGraphicEQ: 20 0; 1000 2; 20000 0\n"),
                                 "Graphic one")
@@ -137,7 +137,7 @@ def test_saved_and_kept_as_a_result(eq_screen, check):
     runs = [page.runs_combo.itemText(i) for i in range(page.runs_combo.count())]
     check("by hand: Save filters writes it and keeps it in History (By hand); this session's runs list it",
           entry["mode"] == "manual" and entry["label"] == "from pasted filters · 1 filter" and any("Manually" in t for t in runs)
-          and "saved" in eq_screen.said[-1], (entry.get("label"), runs, eq_screen.said[-1:]))
+          and eq_screen.said[-1].startswith("Saved "), (entry.get("label"), runs, eq_screen.said[-1:]))
 
 
 def test_with_no_measurement(eq_screen, dialogs, check):
@@ -155,7 +155,8 @@ def test_with_no_measurement(eq_screen, dialogs, check):
         page.draw()
     check("by hand: with no measurement chosen, the EQ graph still shows the EQ (the graph above it is empty), and "
           "Report says it needs a measurement and a target",
-          eq_items == 1 and main_items == 0 and report is None and box and "select" in box[-1], (eq_items, main_items, box))
+          eq_items == 1 and main_items == 0 and report is None and box
+          and box[-1] == "Select a Target and Measurement above to generate a report", (eq_items, main_items, box))
 
 
 def test_edits_kept_when_another_run_is_shown(eq_screen, check):

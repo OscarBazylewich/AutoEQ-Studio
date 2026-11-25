@@ -6,6 +6,10 @@ order: Trace automatically first, Trace manually last.
 """
 from ui import tour
 
+# (the demo of the step Trace manually: what each tool does, in the words of the step's text, and its key)
+TOOL_DEMO = {"trace": "Click a curve to follow it (T)", "draw": "Drag along the curve to make a line manually (D)",
+             "erase": "Drag a box around an incorrect part (E)", "pan": "Drag the picture (H)"}
+
 
 # ---------------------------------------------------------------- the tracer's own Guide
 def trace_steps(tw):
@@ -101,7 +105,9 @@ def trace_steps(tw):
          "before": tab(1),
          "text": "Click curve: click a curve to follow it. Make a line: drag along the curve to make a line manually. "
                  "Erase: drag a box around an incorrect part. Move: drag the picture. The keys are T, D, E and H.",
-         "demo": lambda: [{"at": (lambda b=b: b), "say": b.toolTip()} for b in tw.tool_btns.values()]},
+         # (the demo's words for each tool: the step's words and the tool's key. It said each tool's tooltip, and
+         # Click curve, Make a line and Erase have none since the text survey, 2026-11-24)
+         "demo": lambda: [{"at": (lambda b=b: b), "say": TOOL_DEMO[k]} for k, b in tw.tool_btns.items()]},
         {"chapter": "2 · Trace", "title": "Correct the curve", "target": lambda: list(tw.edit_btns.values()),
          "before": tab(1),
          "text": "Make smooth makes the pixel steps smooth. Undo and Redo (Ctrl+Z, Ctrl+Shift+Z) are for all curves. "

@@ -179,7 +179,7 @@ import numpy as np
 from scipy import ndimage
 
 from ui import ocr
-from ui.trace_core import INK, Tracer, db_num, fmt_hz, hz_num, join_words
+from ui.trace_core import INK, Tracer, db_num, fmt_hz, hz_num, join_words, sentences
 
 # The frequency ticks of a CrinGraph graph (its graphtool.js: 2, 3, 4, 5, 6, 8, 10, 15 in each decade, and 20 kHz)
 TICKS = [20, 30, 40, 50, 60, 80, 100, 150, 200, 300, 400, 500, 600, 800, 1000, 1500, 2000, 3000, 4000, 5000, 6000,
@@ -1851,27 +1851,26 @@ def line_alone(tg, lw, t, lo_c, hi_c, pw, hz_at, out_of, f1):
     for a, e, side, e0, e1 in ends:
         if a == 0:
             first = int(cols[cols >= e][0]) if (cols >= e).any() else e
-            words.append(f"From {fmt_hz(f1)} to {hz_at(e1)}, the target line is {out_of(side)} of the grid. The app "
-                         f"traced the target line from {hz_at(first)}.")
+            words.append(f"From {fmt_hz(f1)} to {hz_at(e1)}, the target curve goes {out_of(side)} the grid. Traced "
+                         f"from {hz_at(first)}.")
         else:
             last = int(cols[cols < a][-1]) if (cols < a).any() else a - 1
-            words.append(f"At {hz_at(e0)}, the target line goes {out_of(side)} of the grid. The app traced the target "
-                         f"line to {hz_at(last)}.")
-    words = " ".join(words)
-    checks = [Check("trace_curve", curve_ok, (f"The target line is on {pct} % of the width of the grid." if curve_ok
-                                              else f"The target line is on only {pct} % of the width of the grid.")
-                    + (" " + words if words else ""))]
+            words.append(f"At {hz_at(e0)}, the target curve goes {out_of(side)} the grid. Traced to {hz_at(last)}.")
+    words = sentences(words)
+    checks = [Check("trace_curve", curve_ok, sentences([f"The target line is on {pct} % of the width of the grid."
+                                                        if curve_ok else
+                                                        f"Target curve covers only {pct}% of the grid width", words]))]
     on = np.flatnonzero(inside)
     gap = int(np.diff(on).max()) - 1 if len(on) > 1 else 0
     if middle:
         a, e, side, _t0, _t1 = middle[0]
-        checks.append(Check("trace_gaps", False, f"Between {hz_at(a - 1)} and {hz_at(e)}, the target line goes "
-                            f"{out_of(side)} of the grid. The app cannot trace that part."))
+        checks.append(Check("trace_gaps", False, f"Between {hz_at(a - 1)} and {hz_at(e)}, the target curve goes "
+                            f"{out_of(side)} the grid and can't be traced"))
     else:
         fine = gap <= ALONE_GAP * pw
+        # ("{n}-pixel": an adjective, the same form for one pixel)
         checks.append(Check("trace_gaps", fine, "All of the target line is traced." if fine
-                            else f"A part of the target line that is {_count(gap, 'pixel', 'pixels')} wide is not "
-                            "traced."))
+                            else f"Missed a {gap}-pixel gap in the target curve"))
     return {"checks": checks, "out_words": words, "drop": drop}
 
 
@@ -1881,16 +1880,16 @@ def _count(n, one, more):
 
 
 def _agree_words(n, m, what, more="", ok=True):
-    """'3 frequency labels agree with the grid lines, and 1 does not.' (a count of one in the singular; more: words
-    after "the grid lines"). Not ok (labels_ok): 'Only 2 ... The app must have 3 or more labels that agree.', or
-    with too many against, '... Too many labels do not agree.'"""
-    s = _count(n, f"{what} label agrees", f"{what} labels agree") + " with the grid lines" + more
-    s += f", and {m} {'does' if m == 1 else 'do'} not." if m else "."
+    """'3 frequency labels match the grid, and 1 doesn't.' (a count of one in the singular; more: words after "the
+    grid"). Not ok (labels_ok): 'Only 2 ... Need at least 3 matching labels.', or with too many against, '... Too
+    many mismatched labels.'"""
+    s = _count(n, f"{what} label matches", f"{what} labels match") + " the grid" + more
+    s += f", and {m} {'doesn' if m == 1 else 'don'}'t." if m else "."
     if ok:
         return s
     if n < MIN_LABELS:
-        return f"Only {s} The app must have {MIN_LABELS} or more labels that agree."
-    return s + " Too many labels do not agree."
+        return f"Only {s} Need at least {MIN_LABELS} matching labels."
+    return s + " Too many mismatched labels."
 
 
 def traced_range_words(pts, f1, f2):
@@ -1899,7 +1898,7 @@ def traced_range_words(pts, f1, f2):
     fmt_hz); else "". (The line has no points under a label or where the website fades it, and the app makes no
     values there. The real picture: 24.1 Hz to 18.5 kHz; its line shows from 20 Hz to 20 kHz.)"""
     if pts and (fmt_hz(pts[0][0]) != fmt_hz(f1) or fmt_hz(pts[-1][0]) != fmt_hz(f2)):
-        return f"The app traced the target line from {fmt_hz(pts[0][0])} to {fmt_hz(pts[-1][0])}."
+        return f"Target traced from {fmt_hz(pts[0][0])} to {fmt_hz(pts[-1][0])}"
     return ""
 
 
@@ -1907,29 +1906,39 @@ def db_range_check(lo, hi, target):
     """axes_db_range for the dB axis lo to hi: usual for a graph of an IEM or headphone (DB_LOWEST to DB_HIGHEST), or
     with target, for a graph of a target (from DB_TARGET_LOWEST: a website shows a target around 0 dB)."""
     usual = DB_MIN_SPAN <= hi - lo and (DB_TARGET_LOWEST if target else DB_LOWEST) <= lo and hi <= DB_HIGHEST
-    return Check("axes_db_range", usual, f"The dB axis is {lo:g} dB to {hi:g} dB." + (
-        "" if usual else " This range is not usual for a graph of a target." if target
-        else " This range is not usual for a graph of an IEM or headphone."))
+    return Check("axes_db_range", usual, f"Detected dB range is {lo:g} to {hi:g} dB." + (
+        "" if usual else " Unusual range for a target graph." if target
+        else " Unusual range for a headphone/IEM graph."))
+
+
+def axes_words(checks, db_axis):
+    """1 Axes' note after the automatic read: with both axis checks OK (the frequency axis is then always 20 Hz to
+    20 kHz) and the dB axis db_axis (lo, hi), "Axes: 20 Hz to 20 kHz, -10 to 30 dB"; else the reasons of the two
+    checks (the window shows the first failed check's message there in place of these words: an axis check that
+    fails is always the first failed check, as the axes' checks come first)."""
+    got = [c for c in checks if c.name in ("axes_hz_range", "axes_db_range")]
+    if db_axis and len(got) == 2 and all(c.ok for c in got):
+        return f"Axes: 20 Hz to 20 kHz, {db_axis[0]:g} to {db_axis[1]:g} dB"
+    return sentences([c.reason for c in got])
 
 
 # trace_kind: the kind of curve in the picture against the kind of the website's entry (auto_read's want)
 KIND_TARGET = "The picture has a target line and no measurement curve."
 KIND_TARGET_BESIDE = "The picture has a target line and a measurement curve. The app traced only the target line."
-KIND_NOT_TARGET = ("The picture has a measurement curve. The app cannot trace only the target line. Remove the "
-                   "measurement curve from the graph of the website.")
+KIND_NOT_TARGET = "Hide the measurement curve on the graph to trace the target alone"
 # trace_single of a target line alone (find_target's "second")
 ONE_TARGET = "The picture has one target line."
-MORE_TARGETS = "The picture has more than one target line. Show only one target on the graph of the website."
-# trace_curve when the picture has no measurement in a strong color: for no entry or an entry of a measurement (the
-# words of version 1.6.1, and one more sentence when the app found a gray line), and for an entry of a target
-NO_STRONG_CURVE = "The app did not find a curve in a strong color."
-ONLY_GREY_LINE = "If the graph of the website shows only a target, show the measurement on the graph."
-NO_TARGET_LINE = "The app did not find a target line."
+MORE_TARGETS = "Multiple target curves found. Show only one target on the graph."
+# trace_curve when the picture has no measurement in a strong color: for no entry or an entry of a measurement (one
+# more sentence when the app found a gray line), and for an entry of a target
+NO_STRONG_CURVE = "No colored measurement curve found"
+ONLY_GREY_LINE = "If only a target is shown, enable the measurement on the graph"
+NO_TARGET_LINE = "No target curve found"
 
 
 def _read_labels(fn, rgb, ocr_words, plot):
     """fn(rgb, ocr_words, plot) (read_hz or read_db), with the text reader's errors caught. Returns (result, why_not):
-    why_not None when the labels were read; else the words after "The app did not read the ... labels." ("" with no
+    why_not None when the labels were read; else the words after "Couldn't read ... labels." ("" with no
     text reader; the user text of ocr.Unavailable as a sentence of its own; a fixed sentence for other errors)."""
     if ocr_words is None:
         return None, ""
@@ -1939,7 +1948,7 @@ def _read_labels(fn, rgb, ocr_words, plot):
         why = str(e).strip()
         return None, (" " + why[:1].upper() + why[1:] + ("" if why.endswith((".", "!", "?")) else ".")) if why else ""
     except Exception:  # noqa: BLE001 - any other error of the text reader: a fixed reason, no error
-        return None, " The text reader of Windows gave an error."
+        return None, " Windows OCR returned an error"
 
 
 # ---------------------------------------------------------------- all of it
@@ -1956,8 +1965,8 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None):
     unless it is out of the grid only at its ends and passes trace_curve); points and
     target_points: [(Hz, dB)] or None (the dB axis is not known); plot: the crop's box in the picture {"x0", "y0",
     "x1", "y1"} or None; out_words: the sentences of trace_curve about an end of the curve out of the grid ("At 18.7
-    kHz, the left or right curve goes below the bottom of the grid. The app traced the curve to 17.8 kHz."), or "";
-    for a target line alone with no end out of the grid, "The app traced the target line from 24.1 Hz to 18.5 kHz."
+    kHz, a channel curve goes below the grid. Traced to 17.8 kHz."), or "";
+    for a target line alone with no end out of the grid, "Target traced from 24.1 Hz to 18.5 kHz"
     when the line does not reach an end of the frequency axis. target_only: the curve is the target line alone (item
     7 of the module's docstring): its label is "Target" and it has the mark "target"; target and target_points are
     None.
@@ -1981,8 +1990,8 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None):
 
     plot = find_plot(rgb)
     if not plot["ok"]:
-        add("axes_plot", False, "The app did not find the grid of a graph in this picture." if plot["why"] == "grid"
-            else "The app found grid lines, but their positions are not the positions of a graph from the website.")
+        add("axes_plot", False, "No graph grid found" if plot["why"] == "grid"
+            else "Grid lines don't match the expected graph layout")
         t = Tracer()
         if rgb.ndim == 3 and rgb.shape[2] == 3 and rgb.shape[0] and rgb.shape[1]:
             t.load(rgb.copy(), name, jpeg)
@@ -2001,7 +2010,7 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None):
     grid_ok = fit["hits"] >= 22 and fit["err"] <= lim
     add("axes_grid", grid_ok,
         f"{fit['hits']} of 25 frequency grid lines are in the positions of a graph from the website." if grid_ok
-        else f"The app found only {good_lines} of the 25 frequency grid lines of a graph from the website.")
+        else f"Found only {good_lines} of 25 expected frequency grid lines")
 
     # the labels (on the whole picture: the positions are those of find_plot), each axis in its own try: an error at
     # the dB labels does not lose the frequency labels
@@ -2012,21 +2021,22 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None):
     n_against = hz["against"] if hz and shift is not None else 0
     hz_ok = labels_ok(n_agree, n_against)
     if hz_not is not None:
-        add("axes_hz_labels", False, "The app did not read the frequency labels." + hz_not)
+        add("axes_hz_labels", False, "Couldn't read frequency labels." + hz_not)
     elif not n_agree:
-        add("axes_hz_labels", False, "The app cannot read the frequency labels. A larger picture can help.")
+        add("axes_hz_labels", False, "Couldn't read frequency labels. Try a larger image.")
     else:
         add("axes_hz_labels", hz_ok, _agree_words(n_agree, n_against, "frequency", ok=hz_ok))
     k10 = 10.0 ** shift if hz_ok else 1.0
     f1, f2 = 20 * k10, 20000 * k10
     if not hz_ok:
-        add("axes_hz_range", False, "The app cannot make sure that the frequency axis is correct. It set 20 Hz to "
-            "20 kHz from the grid lines only.")
+        # (no words: the text survey removed them. The check fails only with axes_hz_labels, which fails before it and
+        # gives the cause; 1 Axes shows the values of the blue lines)
+        add("axes_hz_range", False, "")
     elif shift == 0:
         add("axes_hz_range", True, "The frequency axis is 20 Hz to 20 kHz.")
     else:
-        add("axes_hz_range", False, f"The labels give a frequency axis of {fmt_hz(f1)} to {fmt_hz(f2)}. A graph of an "
-            "IEM or headphone has 20 Hz to 20 kHz.")
+        add("axes_hz_range", False, f"Detected frequency range is {fmt_hz(f1)} to {fmt_hz(f2)}; expected 20 Hz to "
+            "20 kHz")
 
     rows = sorted(q[0] for q in plot["hy"])
     d_at, db_slope, db_words = None, None, []
@@ -2037,19 +2047,19 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None):
         db_words = [q["w"] for q in pr]
         db_ok = labels_ok(len(pr), db["against"])
         add("axes_db_labels", db_ok,
-            _agree_words(len(pr), db["against"], "dB", f" ({abs(db['step']):g} dB between grid lines)", db_ok))
+            _agree_words(len(pr), db["against"], "dB", f" ({abs(db['step']):g} dB per grid line)", db_ok))
     elif db and db.get("single") and len(rows) >= 2:
         q, gap = db["single"], float(np.median(np.diff(rows)))
         db_slope = -5 / gap
         d_at = lambda p: q["v"] + db_slope * (p - q["p"])
         db_words = [q["w"]]
-        add("axes_db_labels", False, "The app read only one dB label. It set 5 dB between grid lines.")
+        add("axes_db_labels", False, "Only one dB label read; assumed 5 dB per grid line")
     elif db and db.get("rows", 0) >= 2:
-        add("axes_db_labels", False, "The dB labels that the app read do not agree with each other.")
+        add("axes_db_labels", False, "Detected dB labels don't match each other")
     elif db_not is not None:
-        add("axes_db_labels", False, "The app did not read the dB labels." + db_not)
+        add("axes_db_labels", False, "Couldn't read dB labels." + db_not)
     else:
-        add("axes_db_labels", False, "The app cannot read the dB labels. A larger picture can help.")
+        add("axes_db_labels", False, "Couldn't read dB labels. Try a larger image.")
     db_axis = None  # ((lo, hi): the dB axis, for the target line alone)
     if d_at and len(rows) >= 2:
         lo, hi = round(d_at(rows[-1]), 2) + 0.0, round(d_at(rows[0]), 2) + 0.0  # (+ 0.0: no "-0")
@@ -2058,7 +2068,9 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None):
         checks.append(db_range_check(lo, hi, want == "target"))
     else:
         d_at = None
-        add("axes_db_range", False, "The app does not know the dB axis.")
+        # (no words: the text survey removed them. The check fails only with axes_db_labels, which fails before it
+        # and gives the cause: read_db gives no labels for fewer than 3 dB grid lines)
+        add("axes_db_range", False, "")
 
     # the Tracer's state, on the part of the picture with the graph
     t = Tracer()
@@ -2080,14 +2092,14 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None):
     # (the green boxes of the window: the labels that the app used, in the crop's coordinates)
     used = [q["w"] for q in (hz or {}).get("words", [])] + db_words
     t.label_words = [dict(w, x0=lx(w["x0"]), x1=lx(w["x1"]), y0=ly(w["y0"]), y1=ly(w["y1"])) for w in used]
-    t.axis_note = t.detect_note = " ".join(c.reason for c in checks if c.name in ("axes_hz_range", "axes_db_range"))
+    t.axis_note = t.detect_note = axes_words(checks, db_axis)
     t.fit_settings()
 
     # traced columns between the first and the last tick; and the columns where the curve is out of the grid (out_parts)
     ca, cb = int(math.ceil(tick_px[0])), int(math.floor(tick_px[-1]))
     lo_c, hi_c = max(0, ca), min(t.W, cb + 1)
     hz_at = lambda c: fmt_hz(20 * k10 * 10 ** ((c + lo_c + cx0 - fit["a"]) / fit["b"]))  # noqa: E731
-    out_of = lambda side: "above the top" if side < 0 else "below the bottom"  # noqa: E731
+    out_of = lambda side: "above" if side < 0 else "below"  # noqa: E731
     n_axes = len(checks)  # (the checks of the axes: the same for the target line alone)
 
     def target_alone(tg, lw):
@@ -2121,8 +2133,7 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None):
         checks[n_axes:], (more, pts, words) = [], target_alone(tg, lw)
         if db_axis:  # (the dB axis of a graph of a target: also around 0 dB, DB_TARGET_LOWEST)
             checks[:] = [db_range_check(*db_axis, True) if c.name == "axes_db_range" else c for c in checks]
-            t.axis_note = t.detect_note = " ".join(c.reason for c in checks
-                                                   if c.name in ("axes_hz_range", "axes_db_range"))
+            t.axis_note = t.detect_note = axes_words(checks, db_axis)
         checks.append(Check("trace_kind", True, KIND_TARGET if beside is None else KIND_TARGET_BESIDE))
         one = not tg.get("second")
         checks.append(Check("trace_single", one, ONE_TARGET if one else MORE_TARGETS))
@@ -2145,15 +2156,15 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None):
         # measurement that the app cannot read was traced as "Target", and the words told that it had only a target)
         if grey and want != "measurement":
             return as_target(tg, lw)
-        add("trace_curve", False, NO_TARGET_LINE if want == "target" else NO_STRONG_CURVE + (
-            " " + ONLY_GREY_LINE if grey else ""))
+        add("trace_curve", False, NO_TARGET_LINE if want == "target" else
+            sentences([NO_STRONG_CURVE, ONLY_GREY_LINE if grey else ""]))
         # (an entry of a measurement and a gray line alone: the status line shows only the first failed check. For
         # the website's graph of a target, that was axes_db_range (-20 dB to 20 dB), and the user did not see that the
         # graph showed only a target, 2026-11-13: that check gets the sentence too. The user approved this rule for
         # now, 2026-11-16)
         first = next(i for i, c in enumerate(checks) if not c.ok)
         if grey and checks[first].name != "trace_curve":
-            checks[first] = checks[first]._replace(reason=checks[first].reason + " " + ONLY_GREY_LINE)
+            checks[first] = checks[first]._replace(reason=sentences([checks[first].reason, ONLY_GREY_LINE]))
         return result(t, crop=crop_box)
     xs = np.arange(len(b["mid"])) + b["x0"] - cx0
     keep = (xs >= 0) & (xs < t.W)
@@ -2183,24 +2194,23 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None):
     out_words = []  # (the sentences about the ends out of the grid: trace_curve's reason, and 3 Save's note)
     for a, e, side, e0, e1 in ends:
         if a == 0:
-            out_words.append(f"From {fmt_hz(f1)} to {hz_at(e1)}, the left or right curve is {out_of(side)} of the "
-                             f"grid. The app traced the curve from {hz_at(e)}.")
+            out_words.append(f"From {fmt_hz(f1)} to {hz_at(e1)}, a channel curve goes {out_of(side)} the grid. "
+                             f"Traced from {hz_at(e)}.")
         else:
-            out_words.append(f"At {hz_at(e0)}, the left or right curve goes {out_of(side)} of the grid. The app traced "
-                             f"the curve to {hz_at(a - 1)}.")
-    out_words = " ".join(out_words)
-    add("trace_curve", curve_ok, (f"The curve is on {pct} % of the width of the grid." if curve_ok else
-                                  f"The curve is on only {pct} % of the width of the grid.")
-        + (" " + out_words if out_words else ""))
+            out_words.append(f"At {hz_at(e0)}, a channel curve goes {out_of(side)} the grid. Traced to {hz_at(a - 1)}.")
+    out_words = sentences(out_words)
+    add("trace_curve", curve_ok, sentences([f"The curve is on {pct} % of the width of the grid." if curve_ok else
+                                            f"Curve covers only {pct}% of the grid width", out_words]))
     cols = np.flatnonzero(inside)
     gap = int(np.diff(cols).max()) - 1 if len(cols) > 1 else 0
     if middle:
         a, e, side, _t0, _t1 = middle[0]
-        add("trace_gaps", False, f"Between {hz_at(a - 1)} and {hz_at(e)}, the left or right curve goes {out_of(side)} "
-            "of the grid. The app cannot trace that part.")
+        add("trace_gaps", False, f"Between {hz_at(a - 1)} and {hz_at(e)}, a channel curve goes {out_of(side)} the "
+            "grid and can't be traced")
     else:
+        # ("{n}-pixel": an adjective, the same form for one pixel)
         add("trace_gaps", gap <= MAX_GAP * pw, "All of the curve is traced." if gap <= MAX_GAP * pw else
-            f"A part of the curve that is {_count(gap, 'pixel', 'pixels')} wide is not traced.")
+            f"Missed a {gap}-pixel gap in the curve")
     traced = np.flatnonzero(np.isfinite(top))
     # the difference between the channels at each column: where they are apart (two lines), the distance between the
     # middles of the two lines (the same for either channel the higher one: the edges of a lighter line are thinner);
@@ -2212,16 +2222,16 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None):
         add("trace_band", e90 <= MAX_BAND_DB,
             f"The difference between the left and right curves is {e90:.1f} dB or less on most of the curve."
             if e90 <= MAX_BAND_DB
-            else f"The difference between the left and right curves is {e90:.1f} dB. The picture can contain more "
-            "than one measurement.")
+            else f"Left/right difference is {e90:.1f} dB. The image may contain multiple measurements.")
     else:
-        add("trace_band", False, "The app cannot measure the difference between the left and right curves, because "
-            "it does not know the dB axis.")
+        # (no words: the text survey removed them. With no dB axis, axes_db_labels failed before this check and gives
+        # the cause)
+        add("trace_band", False, "")
     steps = height_steps(b)
     if steps:
         at = fmt_hz(20 * k10 * 10 ** ((steps[0][0] - fit["a"]) / fit["b"]))
-        add("trace_steps", False, f"The difference between the left and right curves changes suddenly at {at}. "
-            "Text in the color of the curves, or a left or right curve that the app did not find, can cause this.")
+        add("trace_steps", False, f"Sudden left/right jump at {at}. Colored text or a missed channel curve may cause "
+            "this.")
     else:
         add("trace_steps", True, "The difference between the left and right curves has no sudden steps.")
     # a second line: the target line (gray), or one more measurement (a strong color: not one device)
@@ -2241,7 +2251,7 @@ def auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None):
         t.curves.append(target)
     single = mc["second"] < 0.5 and not (tg and tg["strong"]) and b["apart"] < 0.2
     add("trace_single", single, "The picture has one measurement." if single else
-        "The picture has more than one measurement. The app used the measurement with the most pixels.")
+        "Multiple measurements detected; traced the most prominent one")
     points = target_points = None
     if t.calib():
         try:
