@@ -160,9 +160,6 @@ One column, from the top to the bottom:
   and Save writes its file. Then select how to make the EQ, on two tabs: Automatically or Manually (it opens on the
   tab that you selected last). Below the tabs: Settings and More settings (click to open or close them), then
   Calculate or Start.
-  For Peace, Settings has the number of sliders and the maximum gain that you set in Peace. For FxSound (1.2.14 or
-  later), Settings has the band counts to try: 5, 10, 15, 20 or 31. With 5 or 10 bands, set each band of FxSound to
-  the frequency in the filter table.
   Automatically: the method, Settings to try and Calculate. The methods are Best fit for EQ apps, and the Website
   methods for the AutoEQ of squig.link. Settings to try shows the number of EQs that the app tries, and the time that
   is necessary on this PC. Its tooltip shows the settings.
@@ -170,6 +167,8 @@ One column, from the top to the bottom:
   same sound is a difference of 0.25 dB or less at all frequencies, as the ear hears it. The line below the numbers
   of the result tells you this. If the limits of your EQ app stop this, the line shows the error and its
   frequencies.
+  For FxSound (1.2.14 or later), Best fit calculates one EQ for each band count (5, 10, 15, 20 and 31): select one
+  in Number of filters. With 5 or 10 bands, set each band of FxSound to the frequency in the filter table.
   "Queue…" makes EQs for more than one IEM or target, one after the other (select them). It saves each EQ and keeps
   it in History.
   Manually: you make the EQ. Start from: an empty EQ, a copy of the selected EQ, an EQ file, pasted filters or a
@@ -198,8 +197,8 @@ One column, from the top to the bottom:
     - "EQs that you made": open a different EQ that you made.
     - "Number of filters": the best result for each number of filters. For FxSound, the list has one result for
       each band count ("10 bands"). "All results…" shows each result that the app tried, with a grid of the error
-      for each filter count and maximum Q. "Compare…" shows this EQ and a second EQ at the same time. The second EQ
-      has a different number of filters, or it is from a different # or from History.
+      for each filter count and maximum Q (not for FxSound). "Compare…" shows this EQ and a second EQ at the same
+      time. The second EQ has a different number of filters, or it is from a different # or from History.
     - The filters, to edit: a table, or Sliders (a graphic EQ). Each slider shows the gain of its filter from 0 dB, on
       a dB scale. It also has Undo all and Calculate from these filters. When the graph is not on the screen, a
       copy of the graph is above the page while you edit. The copy is not on the control that you change. If you

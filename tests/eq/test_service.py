@@ -262,10 +262,9 @@ def test_retry_add(api, chain, check):
 
 def test_retry_of_a_band_count_keeps_that_count(api, chain, check):
     # "Calculate from these filters" on the card of a 10-band FxSound result: only that band count is fitted again
-    # (with FxSound's other counts in the settings the 10-band card became the selected 31-band result)
+    # (with FxSound's other counts the 10-band card became the selected 31-band result)
     S = json.loads(json.dumps(_small(chain["S"])))
     S["best_fit"]["layout"] = "app:fxsound"
-    S["best_fit"].setdefault("per_app", {})["fxsound"] = {"band_counts": [5, 10, 31]}
     # (the card of a result of n bands, as the page sends it: "filters" the active ones, "card" all of them. A
     # frequency as the filter table shows it after an edit, 115.7 for 115.734, is still that band)
     from eq import eq_apps
@@ -274,6 +273,7 @@ def test_retry_of_a_band_count_keeps_that_count(api, chain, check):
     other = lambda n: [{"type": "PK", "freq": 100 + 100 * i, "gain": 1, "q": 1.6} for i in range(n)]
     retry = lambda fl: {"filters": [f for f in fl if f.get("enabled", True)], "card": fl, "add": False}
     off_5 = [dict(f, enabled=i >= 5) for i, f in enumerate(card(10))]
+    every = [5, 10, 15, 20, 31]
     try:
         plain = _run(api, "best_fit", S).get("result") or {}
         ten = _run(api, "best_fit", S, retry(card(10))).get("result") or {}
@@ -285,36 +285,30 @@ def test_retry_of_a_band_count_keeps_that_count(api, chain, check):
         added = _run(api, "best_fit", S, retry([*card(15), *other(5)])).get("result") or {}
         ten_others = _run(api, "best_fit", S, retry(other(10))).get("result") or {}
         eight = _run(api, "best_fit", S, retry(other(8))).get("result") or {}
-        # (the automatic settings on: a run applies them again, and they try every band count)
+        # (the automatic settings on: a run applies them again; they have no value for the band counts)
         auto = json.loads(json.dumps(S))
         auto["auto"].update(enabled=True, manual=[])
         auto_plain = _run(api, "best_fit", auto).get("result") or {}
         auto_ten = _run(api, "best_fit", auto, retry(card(10))).get("result") or {}
         rows = lambda res: [r.get("rows") for r in res.get("results") or []]
-        saved = _ask(api, "/api/state")[1]["settings"]["best_fit"]
-        check("requests: FxSound with 3 band counts: a run gives 3 results",
-              rows(plain) == [5, 10, 31], (rows(plain), plain.get("error")))
-        check("requests: retry from a 10-band FxSound result gives only a 10-band result, at the bands of FxSound",
-              rows(ten) == [10] == rows(off) and ten["results"][0]["engine"] == "graphic"
-              and ten["results"][0]["filters"][0]["freq"] == 62.5, (rows(ten), rows(off)))
-        check("requests: with the automatic settings on, a run of FxSound has its 5 band counts, and the retry from a "
-              "10-band result still gives only a 10-band result",
-              rows(auto_plain) == [5, 10, 15, 20, 31] and rows(auto_ten) == [10], (rows(auto_plain), rows(auto_ten)))
+        saved = _ask(api, "/api/state")[1]["settings"]
+        check("requests: FxSound: a run gives one result for each of its 5 band counts, with Automatic settings off "
+              "and on", rows(plain) == every == rows(auto_plain), (rows(plain), rows(auto_plain), plain.get("error")))
+        check("requests: retry from a 10-band FxSound result gives only a 10-band result, at the bands of FxSound, "
+              "also with Automatic settings on",
+              rows(ten) == [10] == rows(off) == rows(auto_ten) and ten["results"][0]["engine"] == "graphic"
+              and ten["results"][0]["filters"][0]["freq"] == 62.5, (rows(ten), rows(off), rows(auto_ten)))
         # (the band count is that of the card's bands, not the number of active filters: 5 active of 10 bands gave
         # the 5-band EQ, 20 active of 31 the 20-band EQ, and 15 bands with 5 filters added the 20-band EQ)
         check("requests: retry from a 10-band FxSound card with 5 bands switched off gives a 10-band result, and from "
               "a 31-band card with 11 switched off a 31-band result",
               rows(half) == [10] and rows(thirty_one) == [31], (rows(half), rows(thirty_one)))
-        check("requests: retry from a 15-band FxSound card with 5 filters added, and from 10 filters that are not the "
-              "bands of FxSound, uses the band counts of the settings",
-              rows(added) == [5, 10, 31] == rows(ten_others), (rows(added), rows(ten_others)))
-        check("requests: retry from filters whose number is not a band count of FxSound uses the band counts of the settings",
-              rows(eight) == [5, 10, 31], rows(eight))
-        check("requests: the retry of a band count leaves the saved band counts as they are (and no value of the user "
-              "is added to the saved settings)",
-              saved["per_app"]["fxsound"]["band_counts"] == [5, 10, 31]
-              and "best_fit.per_app.fxsound.band_counts" not in _ask(api, "/api/state")[1]["settings"]["auto"]["manual"],
-              saved.get("per_app"))
+        check("requests: retry from a 15-band FxSound card with 5 filters added, from 10 filters that are not the "
+              "bands of FxSound, and from 8 filters, fits every band count",
+              rows(added) == every == rows(ten_others) == rows(eight), (rows(added), rows(ten_others), rows(eight)))
+        # (the count of a retry is a parameter of that run: no setting holds band counts)
+        check("requests: the retry of a band count marks no band setting as the user's value in the saved settings",
+              not [p for p in saved["auto"]["manual"] if "band" in p], saved["auto"])
     finally:
         _no_run_left()
         _ask(api, "/api/settings", {"settings": chain["S"]})  # (the later requests' settings saved again)

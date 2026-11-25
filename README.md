@@ -19,9 +19,8 @@ It is a Windows desktop app (Python and Qt), not a website. It also operates wit
 
 - **Best fit:** this method adds filters one at a time. It keeps the minimum number of filters for the same sound as
   the target. The same sound is a difference of 0.25 dB or less at all frequencies, as the ear hears it. The EQ
-  stays in the limits of your EQ app (number of filters, Q, gain, frequency range). For Peace, Settings has the
-  number of sliders and the maximum gain that you set in Peace. For FxSound (1.2.14 or later), Settings has the band
-  counts to try: 5, 10, 15, 20 or 31. The app also has Website AutoEQ, the AutoEQ method of the squig.link websites.
+  stays in the limits of your EQ app (number of filters, Q, gain, frequency range). The app also has Website AutoEQ,
+  the AutoEQ method of the squig.link websites.
 - **Measurements and targets:** you can use your files. You can also search the online measurement databases
   (squig.link websites, AutoEq) and the files on your PC. The app compares more than one measurement of the same
   model. It changes targets for a different measurement rig (711 coupler, B&K 5128).

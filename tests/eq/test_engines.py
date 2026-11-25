@@ -126,20 +126,18 @@ def test_fixed_bands(lay, sample_curves, check):
                                                   and abs(f["gain"] * 2 - round(f["gain"] * 2)) < 1e-9 for f in fl), fl)
 
 
-def _fx(counts):
-    """Settings for FxSound with these band counts to try (the automatic settings off)."""
-    return settings.with_auto({"mode": "best_fit", "auto": {"enabled": False}, "best_fit": {
-        "layout": "app:fxsound", "per_app": {"fxsound": {"band_counts": counts}}}})
+# (FxSound: every band count is fitted in a run, with no setting for the counts; the user, 2026-11-24)
+FX = settings.with_auto({"mode": "best_fit", "auto": {"enabled": False}, "best_fit": {"layout": "app:fxsound"}})
 
 
 def test_one_result_for_each_band_count(sample_curves, check):
     curves = sample_curves[0]
     calls = []
-    rs = engines.graphic_run(_fx([5, 10, 31]), curves, progress=lambda done, total: calls.append((done, total)))
-    sets = {n: layouts.bands({"layout": "app:fxsound"}, n) for n in (5, 10, 31)}
-    check("methods: Best fit, FxSound with 3 band counts: 3 results with 5, 10 and 31 bands",
+    rs = engines.graphic_run(FX, curves, progress=lambda done, total: calls.append((done, total)))
+    sets = {n: layouts.bands({"layout": "app:fxsound"}, n) for n in (5, 10, 15, 20, 31)}
+    check("methods: Best fit, FxSound: 5 results with 5, 10, 15, 20 and 31 bands",
           [(r["rows"], r["n_filters"], r["engine"], r["layout"]) for r in rs]
-          == [(n, n, "graphic", "app:fxsound") for n in (5, 10, 31)], [(r["rows"], r.get("n_filters")) for r in rs])
+          == [(n, n, "graphic", "app:fxsound") for n in (5, 10, 15, 20, 31)], [(r["rows"], r.get("n_filters")) for r in rs])
     check("methods: Best fit, FxSound: each result at the frequencies and the Q of its band count",
           all([f["freq"] for f in r["filters"]] == sets[r["rows"]][0] and r["q_min"] == r["q_max"] == sets[r["rows"]][1]
               and all(f["q"] == sets[r["rows"]][1] and f["type"] == "PK" for f in r["filters"]) for r in rs),
@@ -148,15 +146,18 @@ def test_one_result_for_each_band_count(sample_curves, check):
           all(-12 <= f["gain"] <= 12 and f["gain"] == round(f["gain"]) for r in rs for f in r["filters"])
           and all(r["rms"] > 0 and "eq" in r and "ear" in r and (r["gain_min"], r["gain_max"], r["step"]) == (-12, 12, 1)
                   for r in rs), [[f["gain"] for f in r["filters"]] for r in rs])
-    check("methods: Best fit, FxSound: the progress counts the band counts", calls == [(0, 3), (1, 3), (2, 3), (3, 3)], calls)
+    check("methods: Best fit, FxSound: the progress counts the band counts", calls == [(i, 5) for i in range(6)], calls)
 
 
-def test_one_band_count_one_result(sample_curves, check):
+def test_only_the_band_counts_asked_for(sample_curves, check):
+    # ("Calculate from these filters" on the card of one band count asks for that count only: service.run)
     curves = sample_curves[0]
-    one, none = engines.graphic_run(_fx([10]), curves), engines.graphic_run(_fx([]), curves)
-    check("methods: Best fit, FxSound with the band count 10, or with none stored: one result of 10 bands",
-          [len(one), one[0]["rows"], len(none), none[0]["rows"]] == [1, 10, 1, 10]
-          and one[0]["filters"] == none[0]["filters"], (len(one), len(none)))
+    every = engines.graphic_run(FX, curves)
+    one, two = engines.graphic_run(FX, curves, counts=[10]), engines.graphic_run(FX, curves, counts=[31, 5])
+    check("methods: Best fit, FxSound with the counts 10, or 31 and 5, asked for: only those results, the same as in "
+          "a run of every count",
+          [r["rows"] for r in one] == [10] and [r["rows"] for r in two] == [5, 31]
+          and one[0]["filters"] == every[1]["filters"], ([r["rows"] for r in one], [r["rows"] for r in two]))
 
 
 def test_band_counts_stop_when_cancelled(sample_curves, check):
@@ -172,7 +173,7 @@ def test_band_counts_stop_when_cancelled(sample_curves, check):
 
     def cancelled(progress, cancel):
         try:
-            engines.graphic_run(_fx([5, 10, 31]), curves, progress, cancel)
+            engines.graphic_run(FX, curves, progress, cancel)
         except engines.Cancelled:
             return True
         return False
@@ -184,11 +185,11 @@ def test_band_counts_stop_when_cancelled(sample_curves, check):
 
 def test_layout_without_counts_is_one_result(sample_curves, check):
     curves = sample_curves[0]
-    cg = settings.with_auto({"mode": "best_fit", "best_fit": {"layout": "graphic_10",
-                                                             "per_app": {"fxsound": {"band_counts": [5, 31]}}}})
+    cg = settings.with_auto({"mode": "best_fit", "best_fit": {"layout": "graphic_10"}})
     calls = []
-    rs = engines.graphic_run(cg, curves, progress=lambda d, t: calls.append((d, t)))
-    check("methods: Best fit, a graphic layout without band counts: one result, as before",
+    rs = engines.graphic_run(cg, curves, progress=lambda d, t: calls.append((d, t)), counts=[5])
+    check("methods: Best fit, a graphic layout without band counts: one result, as before (counts asked for change "
+          "nothing)",
           len(rs) == 1 and rs[0]["rows"] == 10 and [f["freq"] for f in rs[0]["filters"]] == layouts.bands(cg["best_fit"])[0]
           and calls == [(0, 1), (1, 1)], (len(rs), calls))
 

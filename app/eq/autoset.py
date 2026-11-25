@@ -378,17 +378,6 @@ class _Plan:
         lay = self.cfg["best_fit"].get("layout", "any")
         if layouts.is_fixed(lay):  # (only the bands' gains: none of the settings below are used, and the list has
             # no line for it: the gray line below Best fit in Settings says it)
-            offered = layouts.counts(lay)
-            if offered:
-                # An EQ app with several band counts (FxSound): every count is tried, as every filter count is for
-                # a parametric EQ, and Best result selects one (plan() adds its note). No count is left out for
-                # time: the fits of the 5 counts take 0.15 to 0.31 s together (measured 2026-11-24 on the 4 sample
-                # pairs of the samples folder, 3 runs each).
-                path = layouts.counts_path(lay)
-                self.values[path] = list(offered)
-                # (the screen puts "your value · Automatic: " before and " (overridden)" after it: "band counts"
-                # one time only, and its ( ) says whose counts they are)
-                self.note(path, f"Band counts: tries {layouts.listed(offered, 'and')} (all that {layouts.name(lay)} has)")
             return
         from . import engines
         grows = engines.grows(self.cfg["best_fit"])
@@ -426,10 +415,7 @@ class _Plan:
             "best_fit.fight_penalty": fights})
         full, shelf, cap_g, cap_q = False, self.values["best_fit.low_shelf"], "", ""
         if lay in layouts.DEVICES:  # (the notes say what the run uses: the device's limits apply to these values)
-            # (the device with what the user set for the app: a Peace max gain of 12 is the app limit of the note.
-            # The filter note below gets no "(app limit)": the curves never set that number, so no value of the
-            # curves is cut by the app's)
-            d = layouts.device(self.cfg["best_fit"])
+            d = layouts.DEVICES[lay]
             # (the EQ app's own limit below the value the curves ask for: the note says so, or "Max gain +3 dB:
             # largest needed is +8.0 dB" looks like a mistake)
             cap_g = " (app limit)" if "gain" in d and gt > d["gain"][1] else ""
@@ -450,9 +436,7 @@ class _Plan:
             self.note("best_fit.low_shelf", f"Low shelf on: bass is {abs(an['bass_step']):.1f} dB "
                                             f"{'below' if an['bass_step'] > 0 else 'above'} target")
         if lay in layouts.DEVICES:
-            # (the numbers in use, with what the user set for the app. For Peace this line is also the only place
-            # that says the cut in use when Peace max gain is below what Minimum gain shows)
-            self.note("best_fit.layout", layouts.summary(lay, self.cfg["best_fit"]))
+            self.note("best_fit.layout", layouts.summary(lay))
 
     def picking(self, bands=False):
         """The pick (the user's ask, 2026-10-12: as close to the target as possible without an audible difference):
@@ -502,9 +486,9 @@ def describe(cfg, mode=None):
         bf = cfg["best_fit"]
         if layouts.is_fixed(bf["layout"]):
             lo, hi, step = layouts.sliders(bf)  # (a graphic EQ app's own range and steps kept)
-            tried = layouts.counts_to_try(bf)  # (an EQ app with several band counts: one EQ for each)
-            what = (f"{_many(len(tried), 'EQ')} ({layouts.listed(tried, 'and')} bands)" if len(tried) > 1 else
-                    _many(tried[0] if tried else len(layouts.bands(bf)[0]), "band gain"))
+            tried = layouts.counts(bf["layout"])  # (an EQ app with several band counts: one EQ for each)
+            what = (f"{_many(len(tried), 'EQ')} ({layouts.listed(tried, 'and')} bands)" if tried else
+                    _many(len(layouts.bands(bf)[0]), "band gain"))
             return f"{layouts.name(bf['layout'])}: {what}, {lo:g} to +{hi:g} dB ({step:g} dB steps)"
         bf = device_settings(bf)
         nfit = engines.fit_count(bf, _count_mine(bf))  # (with your own filters: theirs too)
@@ -555,13 +539,10 @@ def describe_short(cfg, mode=None):
     if mode == "best_fit":
         bf = cfg["best_fit"]
         if layouts.is_fixed(bf["layout"]):
-            tried = layouts.counts_to_try(bf)  # (an EQ app with several band counts: one EQ for each)
-            if len(tried) > 1:
-                # (two counts: both named. "10 to 31 bands" reads as each count between them, as "1 to 9
-                # filters" is; for three or more the ends, and the tooltip has the list)
-                return (f"2 EQs, {layouts.listed(tried, 'and')} bands" if len(tried) == 2 else
-                        f"{_many(len(tried), 'EQ')}, {tried[0]} to {tried[-1]} bands")
-            return _many(tried[0] if tried else len(layouts.bands(bf)[0]), "band")
+            tried = layouts.counts(bf["layout"])  # (an EQ app with several band counts: one EQ for each)
+            if tried:  # (the ends only: the tooltip, describe(), has the list)
+                return f"{_many(len(tried), 'EQ')}, {tried[0]} to {tried[-1]} bands"
+            return _many(len(layouts.bands(bf)[0]), "band")
         bf = device_settings(bf)
         n_mine = _count_mine(bf)
         if n_mine and bf.get("start_add") is False:
@@ -658,10 +639,10 @@ def _work_of_run(cfg, mode, cached=True):
     if mode == "site_single":
         return 0.6 + site_t(cfg["site_single"]["rows"]), 0.0, 0.0
     if mode == "best_fit" and layouts.is_fixed(cfg["best_fit"]["layout"]):  # (one fit of the gains: well under a second)
-        # (an EQ app with several band counts: 0.05 s more for each count to try. An estimate, from the 5 counts of
+        # (an EQ app with several band counts: 0.05 s more for each count. An estimate, from the 5 counts of
         # FxSound: 0.15 to 0.31 s together, measured 2026-11-24 on the 4 sample pairs of the samples folder, 3 runs
         # each)
-        return 0.6 + 0.05 * len(layouts.counts_to_try(cfg["best_fit"])), 0.0, 0.0
+        return 0.6 + 0.05 * len(layouts.counts(cfg["best_fit"]["layout"])), 0.0, 0.0
     sweep = cfg["site_sweep"]
     if engines.sweep_size(sweep) <= engines.MAX_SITE_RUNS:
         combos = engines.site_combos(sweep)

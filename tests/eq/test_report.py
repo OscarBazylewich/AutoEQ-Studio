@@ -24,8 +24,7 @@ def test_no_error_grid_for_band_counts(tmp_path, sample_curves, check):
     # would be 5 filled cells on a diagonal among 20 empty ones. The report then has no grid; the filter table stays.
     from eq import engines, settings
     curves = sample_curves[0]
-    cfg = settings.with_auto({"mode": "best_fit", "auto": {"enabled": False}, "best_fit": {
-        "layout": "app:fxsound", "per_app": {"fxsound": {"band_counts": [5, 10, 15, 20, 31]}}}})
+    cfg = settings.with_auto({"mode": "best_fit", "auto": {"enabled": False}, "best_fit": {"layout": "app:fxsound"}})
     rs = engines.graphic_run(cfg, curves)
     # (the keys that the result card sends for the grid: ui/eq_page_result.py)
     sent = [{k: r.get(k) for k in ("rows", "q_max", "rms", "freq_high", "n_filters", "max_boost", "ear", "engine")} for r in rs]

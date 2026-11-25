@@ -6,7 +6,7 @@ bestfit                  - filters fitted directly to the scoring band with scip
                            at a time (_grow_run), or each count from random starts and AutoEq's optimizer when your
                            own filters are adjusted (_bf_worker_run).
 graphic_run              - Best fit for fixed bands (a graphic EQ): only the gains, in the sliders' steps. One
-                           result; for an EQ app with several band counts (FxSound), one for each count to try.
+                           result; for an EQ app with several band counts (FxSound), one for each count.
 """
 import json
 import multiprocessing.queues
@@ -850,18 +850,20 @@ def _bestfit_grown(pool, cfg, curves, mine, shelves, progress, cancel, shared):
 
 
 # ---------------------------------------------------------------- fixed bands (a graphic EQ)
-def graphic_run(cfg, curves, progress=None, cancel=None):
+def graphic_run(cfg, curves, progress=None, cancel=None, counts=None):
     """Best fit for a fixed-band layout (layouts.py): one result, the gains of its bands (_graphic_fit). A layout
-    with several band counts (an EQ app such as FxSound: layouts.counts_to_try): one result for each count to try,
-    in rising order, each at the frequencies and the Q of its count; the pick among them is the caller's
-    (pipeline.run_mode, engines.pick: the rule of every layout, n_filters is the band count).
+    with several band counts (an EQ app such as FxSound: layouts.counts): one result for each count, in rising
+    order, each at the frequencies and the Q of its count; the pick among them is the caller's (pipeline.run_mode,
+    engines.pick: the rule of every layout, n_filters is the band count). counts: only these counts of the layout
+    ("Calculate from these filters" on the card of one count: service.run); None: all of them.
     The fits run here, one after the other, in the caller's process: FxSound's 5 counts take 0.15 to 0.31 s together
     (measured 2026-11-24 on the 4 sample pairs of the samples folder, 3 runs each), less than starting a pool of
-    workers. progress(done, total) is called before the
-    first fit and after each; cancel (an Event) stops the run between two fits (Cancelled)."""
+    workers. progress(done, total) is called before the first fit and after each; cancel (an Event) stops the run
+    between two fits (Cancelled)."""
     from . import layouts
     bf = cfg["best_fit"]
-    sets = [layouts.bands(bf, n) for n in layouts.counts_to_try(bf)] or [layouts.bands(bf)]
+    offered = layouts.counts(bf["layout"])
+    sets = [layouts.bands(bf, n) for n in offered if counts is None or n in counts] or [layouts.bands(bf)]
     say = progress or (lambda *a: None)
     results = []
     for i, (freqs, q) in enumerate(sets):

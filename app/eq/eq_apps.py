@@ -19,18 +19,11 @@ user's decision it has no steps to load the EQ, no words about what the maker do
 do not add them back (the sentence about band shapes of "approx" is not part of it: the page adds that one). A
 number in a note that differs from the limit the fit uses (Poweramp "5–32 bands", Neutron "4–130 bands") is what the
 app can be set to, not what Best fit does.
-Peace's note is the exception: it is made from "note_form", a form with the two numbers that the user sets for
-Peace (note()), so the ⓘ never says another number than the two boxes in Settings; its "note" is that form at the
-defaults. {band_word} in a form is "band" for 1 band, else "bands" (band_word(); 1 is a value the user can set).
 
-What the user sets per app (settings best_fit.per_app.<key>; user_items() is the one description, which the
-settings, the layouts, the Settings form, Help and the tests read):
-  "user"       numbers that the user set in that app and enters here: {name: label, min, max, default, unit}. The
-               names are the limits they replace ("bands"; "gain": a ± value). Never automatic: they are facts
-               about the user's own app.
-  "band_sets"  a graphic EQ app with more than one band count: {count: (centre frequencies, each band's Q)}, with
-               "band_default", the count the app starts with. They give the list item "band_counts" (the counts to
-               try: automatic, all of them).
+"band_sets": a graphic EQ app with more than one band count (FxSound): {count: (centre frequencies, each band's Q)},
+and "band_default", the count the app starts with. Best fit fits every count in one run (engines.graphic_run) and
+Best result selects one; the user selects another in Number of filters. There is no setting for the counts (the
+user, 2026-11-24: no new control).
 
 The steps to load the EQ in each app are in Help (ui/help_text_apps.py LOAD_EQ, by the key and the name of the app
 here; the user, 2026-11-24): an app added, renamed or moved to another first platform here changes there too
@@ -64,14 +57,13 @@ APPS = {
         "note": "No limits"},
     "peace": {
         "name": "Peace (for Equalizer APO)", "platforms": ["Windows"], "kind": "parametric", "file": "apo",
-        "bands": 31, "gain": (-30, 30),  # (the defaults of "user" below, where their sources are)
-        "user": {
-            # max and default 31: Peace wiki, Features FAQ, "Maximum number of sliders" ("31 sliders. Use + button or settings window to increase/decrease number of sliders."), https://sourceforge.net/p/peace-equalizer-apo-extension/wiki/Features%20FAQ/, fetched 2026-11-24. min 1: inferred
-            "bands": {"label": "Peace bands", "min": 1, "max": 31, "default": 31},
-            # default 30: ticket 94, answer of Peter Verbeek (the developer), 2021-08-22 (the field "Maximum dB" on the tab "Sizes and Amounts" of the settings of Peace; the sliders go from -30 to +30 dB by default), https://sourceforge.net/p/peace-equalizer-apo-extension/tickets/94/, fetched 2026-11-24. max 99: forum post of Peter Verbeek, 2020-05-26, not the manual ("max -99 to 99 dB"), https://sourceforge.net/p/peace-equalizer-apo-extension/discussion/general/thread/a68c458280/, fetched 2026-11-24. min 1: inferred
-            "gain": {"label": "Peace max gain (± dB)", "min": 1, "max": 99, "default": 30, "unit": "dB"}},
+        # 31 bands: Peace wiki, Features FAQ, "Maximum number of sliders", the source below, fetched 2026-11-24.
+        # ±30 dB: Peace's default "Maximum dB" (tab Sizes and Amounts of its settings), ticket 94, answer of the
+        # developer of 2021-08-22, https://sourceforge.net/p/peace-equalizer-apo-extension/tickets/94/, fetched
+        # 2026-11-24. The note has no "(±60 dB max)": no source of Peace states that number
+        "bands": 31, "gain": (-30, 30),
         "source": "https://sourceforge.net/p/peace-equalizer-apo-extension/wiki/Features%20FAQ/",
-        "note_form": "Up to {bands} {band_word} · ±{gain} dB", "note": "Up to 31 bands · ±30 dB"},
+        "note": "Up to 31 bands · ±30 dB"},
     "fxsound": {
         "name": "FxSound", "platforms": ["Windows"], "kind": "graphic", "file": None, "approx": True,
         # The band counts 5, 10, 15, 20, 31 and the default 10: fxsound-app docs/COMMAND_LINE_OPTIONS.md line 27 (--num_bands), main, fetched 2026-11-24.
@@ -255,67 +247,9 @@ def layout_key(key):
     return "app:" + key
 
 
-# The list item that a graphic EQ app with "band_sets" gets (user_items): its name in the settings, what Settings
-# calls it, and its name in "Custom values" (settings.AUTO_NAMES)
-BAND_COUNTS = "band_counts"
-BAND_COUNTS_LABEL, BAND_COUNTS_AUTO_NAME = "Band counts to try", "Band counts"
-
-
 def band_sets(key):
     """{band count: (centre frequencies, each band's Q)} of a graphic EQ app with more than one band count, else {}."""
     return {n: (list(f), q) for n, (f, q) in (APPS.get(key) or {}).get("band_sets", {}).items()}
-
-
-def user_items(key):
-    """What the user sets for this app ([] for most apps): [{"name", "path" (the setting), "label", "kind" ("num" or
-    "intlist": the box of the form), "limit" (as an entry of settings.LIMITS), "default", "auto" (the automatic
-    settings fill it), "auto_name" (its name in Custom values; None when not automatic), "placeholder"}]. The
-    settings, the layouts, the Settings form, Help and the tests all read this list: a later app adds an item to its
-    entry of APPS and needs no code of its own."""
-    a = APPS.get(key) or {}
-    path = f"best_fit.per_app.{key}."
-    items = [{"name": name, "path": path + name, "label": it["label"], "kind": "num",
-              "limit": {"min": it["min"], "max": it["max"], "int": True, **({"unit": it["unit"]} if "unit" in it else {})},
-              "default": it["default"], "auto": False, "auto_name": None, "placeholder": None}
-             for name, it in a.get("user", {}).items()]
-    counts = sorted(a.get("band_sets", {}))
-    if counts:
-        # ("of": only these values are allowed; the settings and the form drop every other value)
-        items.append({"name": BAND_COUNTS, "path": path + BAND_COUNTS, "label": BAND_COUNTS_LABEL, "kind": "intlist",
-                      "limit": {"min": counts[0], "max": counts[-1], "int": True, "list": True, "of": counts},
-                      "default": [a["band_default"]], "auto": True, "auto_name": BAND_COUNTS_AUTO_NAME,
-                      "placeholder": f"e.g., {a['band_default']} or {a['band_default']}, {counts[-1]}"})
-    return items
-
-
-def user_defaults():
-    """{app key: {item name: default}} for the apps with user items: the default of the setting best_fit.per_app."""
-    out = {}
-    for key in APPS:
-        items = user_items(key)
-        if items:
-            out[key] = {it["name"]: (list(it["default"]) if isinstance(it["default"], list) else it["default"])
-                        for it in items}
-    return out
-
-
-def band_word(values):
-    """{band_word} of a "note_form": "band" when the values have 1 band, else "bands". Public: the page fills the
-    form of the listing with the same word."""
-    return "band" if values.get("bands") == 1 else "bands"
-
-
-def note(key, own=None):
-    """The app's one line of limits (the ⓘ after Your EQ app). An app with a "note_form": the form filled with the
-    defaults of the app's user items and, on top, own: the user's values for the app ({name: value}); else its
-    "note"."""
-    a = APPS[key]
-    form = a.get("note_form")
-    if not form:
-        return a.get("note", "")
-    values = {it["name"]: it["default"] for it in user_items(key)}
-    values.update({k: v for k, v in (own or {}).items() if k in values})
-    return form.format(**values, band_word=band_word(values))
 
 
 def summary(key):
@@ -351,15 +285,9 @@ def summary(key):
 
 
 def listing():
-    """For the page: [{key, name, platforms, kind, layout, file, summary, note, source, approx, …}]. "user": what
-    the user sets for the app (user_items; [] for most); "note_form" and "user_defaults": the form of a note that
-    follows those values, and the values they start with (None and {} for most); "band_counts": the band counts of
-    a graphic EQ app with more than one (None for the others)."""
-    defaults = user_defaults()
+    """For the page: [{key, name, platforms, kind, layout, file, summary, note, source, approx}]."""
     return [{"key": k, "name": a["name"], "platforms": a["platforms"], "kind": a["kind"], "layout": layout_key(k),
              "file": a.get("file"), "summary": summary(k), "note": a.get("note", ""),
              "source": a.get("source", ""), "approx": bool(a.get("approx")),
              "bands_gain": list(a["gain"]) if a["kind"] == "graphic" and "gain" in a else None,
-             "bands_step": a.get("step"), "user": user_items(k), "note_form": a.get("note_form"),
-             "user_defaults": defaults.get(k, {}), "band_counts": sorted(a["band_sets"]) if "band_sets" in a else None}
-            for k, a in APPS.items()]
+             "bands_step": a.get("step")} for k, a in APPS.items()]

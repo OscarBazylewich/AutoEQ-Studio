@@ -308,6 +308,8 @@ class AllResults(QDialog):
         # Best fit's own count of the filters it added said "1" for a 2-filter result and nothing for a Retry's)
         t = self.table
         t.setColumnHidden(2, not str(run.get("mode", "")).startswith("site"))
+        # (and its Range column not for a graphic EQ's results: their bands are fixed, so the column was empty)
+        t.setColumnHidden(3, graphic)
         # (the sort you chose by a click on a heading stays when the table fills again, as it does after each click
         # on a result; the lowest error first only on the first fill, or for a different run)
         h = t.horizontalHeader()

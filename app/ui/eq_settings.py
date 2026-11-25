@@ -6,8 +6,7 @@ Settings (the ones used most):
 - Automatic settings: on or off; "Your values" (each one made automatic again with ↺, or all); About these settings
   (n), a row that opens (closed at the start, kept as you left it): each value and the fact about your files it
   comes from
-- the method's own values: Website AutoEQ's six; the website sweep's summary; Best fit's filter counts and shelves,
-  and what you set for your EQ app (Peace bands and Peace max gain; FxSound's Band counts to try)
+- the method's own values: Website AutoEQ's six; the website sweep's summary; Best fit's filter counts and shelves
 - Error and selection: the range the match is judged over, how a result is picked
 - Target: the rig conversion
 More settings, a tab for each section (less height; a method's tab only with its method): Best fit (its layout,
@@ -125,13 +124,6 @@ class EqSettings:
         multi = mode("site_sweep", "best_fit")
         audible = lambda: multi() and S()["scoring"]["pick"] == "audible"
         get, changed, make_auto, say = self.get, self.changed, self.make_auto, lambda t: page.status(t, 6000)
-        # (what the user sets for an EQ app: one row for each item of its "user" list, eq_apps.user_items. A row is
-        # in sight while the Best fit layout is that app's, selected through Your EQ app or through the Layout list,
-        # because layouts.own(bf) uses the values for that layout. An app that gets such an item later needs no code
-        # here)
-        of_layout = lambda key: lambda: S()["mode"] == "best_fit" and S()["best_fit"]["layout"] == key
-        app_rows = [(it["label"], [(it["path"], it["kind"], None, it.get("placeholder") or "")], of_layout(a["layout"]))
-                    for a in m.get("eq_apps", []) for it in a.get("user") or []]
 
         # ---------------------------------------------------------------- Adjust…, on the Target row: Tab reaches
         # it after the row's Find… and Add… (made after the cards under the row, it came after Queue… in the Tab
@@ -160,7 +152,6 @@ class EqSettings:
             ("Best fit", [
                 ("Filter counts to try", [("best_fit.filter_counts", "intlist", None, "e.g. 1-10")], free),
                 ("Shelf", [("best_fit.low_shelf", "check")], shelves),
-                *app_rows,
                 (self.fixed_note, [], fixed)]),
             ("Error and selection", [
                 ("Fit from (Hz)", [("scoring.band_hz.0", "num"), ("scoring.band_hz.1", "num")]),

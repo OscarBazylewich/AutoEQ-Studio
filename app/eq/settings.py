@@ -60,12 +60,6 @@ DEFAULTS = {
                  # gains are fitted, within its sliders' range and step; "bands": your own frequencies and Q) or a
                  # device (its number of filters and ranges)
                  "layout": "any",
-                 # what the user sets per EQ app, {app key: {item: value}}: Peace's number of bands and its ± gain
-                 # (never automatic: facts about the user's Peace), FxSound's band counts to try. Generated from
-                 # eq_apps.user_items (the values and their sources are in eq_apps.py); layouts.own() reads it. Per
-                 # app, so a value stays when Your EQ app changes and comes back. Settings from before this key get
-                 # these defaults, which are what the app did then (Peace 31 bands and ±30 dB, FxSound 10 bands).
-                 "per_app": eq_apps.user_defaults(),
                  "bands": {"freqs": [31.25, 62.5, 125, 250, 500, 1000, 2000, 4000, 8000, 16000], "q": 1.41,
                            "gain_min": -12, "gain_max": 12, "step": 0.1}},
     "export": {"apo": True, "graphic": False, "preamp_rounding": "safe", "extra_headroom": 0.0, "q_decimals": 3,
@@ -100,9 +94,6 @@ AUTO_PATHS = {
                  "best_fit.q_max", "best_fit.low_shelf", "best_fit.high_shelf", "best_fit.fight_penalty",
                  "scoring.pick", "scoring.ear_db"],
 }
-# (generated: the per-app items that the automatic settings fill, eq_apps.user_items: FxSound's band counts)
-_APP_ITEMS = [it for key in eq_apps.APPS for it in eq_apps.user_items(key)]
-AUTO_PATHS["best_fit"] += [it["path"] for it in _APP_ITEMS if it["auto"]]
 ALL_AUTO_PATHS = list(dict.fromkeys(p for ps in AUTO_PATHS.values() for p in ps))
 
 # listener800: config_5128iem.js + its graphtool.js (its dB mode uses ISO 226:2023 tables). squig.link lab:
@@ -137,8 +128,6 @@ SITE_PROFILES = {"listener800": {"treble_start_from": 15000, "scale_smoothing": 
 #   one at 100 Hz is already halved, so the two limits allow 2 at most (the site profiles use 0.05-0.06).
 # - Saving: extra headroom up to Rockbox's +24 dB, the most any player the app writes for can boost; Q decimals up to
 #   4 (a 4th decimal changes an EQ by at most 0.003 dB, a 5th by nothing measurable).
-# - What the user sets per EQ app (best_fit.per_app.<key>.<item>): generated below from eq_apps.user_items, where
-#   each value has its source. "of" (a list setting): only these values are allowed; the others are dropped.
 _HZ = {"min": 20, "max": 20000, "unit": "Hz"}
 _HZ_INT = {**_HZ, "int": True}
 _SITE_DB = {"min": -20, "max": 20, "unit": "dB", "int": True}
@@ -177,7 +166,6 @@ LIMITS = {
     "export.extra_headroom": {"min": 0, "max": 24, "unit": "dB"},
     "export.q_decimals": {"min": 1, "max": 4, "int": True},
     "performance.cores": {"min": 0, "max": os.cpu_count() or 1, "int": True},  # (0 = all but one)
-    **{it["path"]: dict(it["limit"]) for it in _APP_ITEMS},  # (generated: the sources are in eq_apps.py)
 }
 # Pairs of "from" and "to" settings: (from, to, from must be strictly below to). The site allows equal values.
 LIMIT_PAIRS = [
@@ -206,8 +194,7 @@ AUTO_NAMES = {
     "best_fit.freq_range.1": "Filters up to", "best_fit.gain_min": "Minimum gain", "best_fit.gain_max": "Maximum gain values",
     "best_fit.q_max": "Maximum Q values", "best_fit.low_shelf": "Low shelf", "best_fit.high_shelf": "High shelf",
     "scoring.pick": "Best result", "scoring.ear_db": "Same sound below",
-    "best_fit.fight_penalty": "Penalties for opposite filters",
-    **{it["path"]: it["auto_name"] for it in _APP_ITEMS if it["auto"]}}  # (generated: eq_apps.user_items)
+    "best_fit.fight_penalty": "Penalties for opposite filters"}
 # Settings with a fixed set of values (the page's dropdowns): anything else goes back to the default
 CHOICES = {"mode": list(MODES), "eq_app": ["", eq_apps.OTHER, *eq_apps.APPS], "scoring.pick": ["audible", "lowest"], "site.normalization": ["Hz~", "Hz", "dB"],
            "site.phon_table": ["ISO 226:2023", "ISO 226:2003"], "site.sample_rate": [44100, 48000, 88200, 96000],
@@ -283,14 +270,9 @@ def _conform(cfg, defaults):
 
 
 def _clamped_limit(path, lim, v, default):
-    """A LIMITS setting's value within its floor and ceiling (a list: every value; not a number: the default). A
-    list with "of" (only these values are allowed, e.g. the band counts an EQ app offers): the values that are not
-    offered are dropped, never moved to a neighbour (12 bands is not 10 bands); none left: the default."""
+    """A LIMITS setting's value within its floor and ceiling (a list: every value; not a number: the default)."""
     if not lim.get("list"):
         return _clamp_value(v, lim) if _is_number(v) else copy.deepcopy(default)
-    if lim.get("of"):
-        kept = sorted({_clamp_value(x, lim) for x in v if _is_number(x) and x in lim["of"]}) if isinstance(v, list) else []
-        return kept or copy.deepcopy(default)
     if path == "site_sweep.gain_ranges":  # [[from, to], …]
         ok = isinstance(v, list) and v and all(isinstance(r, list) and len(r) == 2 and all(map(_is_number, r)) for r in v)
         return [sorted(_clamp_value(x, lim) for x in r) for r in v] if ok else copy.deepcopy(default)

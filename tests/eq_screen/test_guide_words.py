@@ -36,18 +36,3 @@ def test_guide_words_of_the_filters_and_the_files(eq_screen, check):
           "(On in the table disables a filter)" in texts
           and "Copy copies the filters to the clipboard, and Open the Saved EQs folder opens that folder." in texts
           and "and the folder opens" not in texts, texts[:0])
-
-
-def test_guide_words_of_the_boxes_of_an_eq_app(eq_screen, check):
-    # (2026-11-24: Peace bands, Peace max gain and Band counts to try show only for their EQ app, so the steps Your
-    # EQ app and Your values tell that they are in Settings, by the names that the app shows)
-    from eq import eq_apps
-    from ui import guide_eq
-    texts = " ".join(_step_texts(inspect.getsourcefile(guide_eq)))
-    labels = [it["label"] for a in eq_apps.listing() for it in a["user"]]
-    check("guide: the step Your EQ app names the boxes of Peace and of FxSound in Settings by their labels, and the "
-          "step Your values tells that they are there",
-          "For Peace, Settings has Peace bands and Peace max gain: enter the values that you set in Peace. For "
-          "FxSound, Settings has Band counts to try." in texts
-          and "With Peace or FxSound, the boxes of that app are also here." in texts
-          and labels == ["Peace bands", "Peace max gain (± dB)", "Band counts to try"], labels)
