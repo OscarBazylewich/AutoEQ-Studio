@@ -370,6 +370,15 @@ def pump(ms=50):
         time.sleep(0.005)
 
 
+def description(widget) -> str:
+    """What a screen reader reads after a control's name: Qt's accessible description, which is the widget's own
+    description, or its tooltip when it has none (QAccessibleWidget). The app sets no description on a control that
+    has a tooltip (the owner's rule of 2026-11-24: the line is the tooltip), so a test reads this, not the widget's
+    accessibleDescription(), which is empty then."""
+    from PySide6.QtGui import QAccessible
+    return QAccessible.queryAccessibleInterface(widget).text(QAccessible.Description)
+
+
 def close(widget):
     """Close a window or widget, delete it, and let Qt work until it's gone."""
     import shiboken6

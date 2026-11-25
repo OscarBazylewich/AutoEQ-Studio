@@ -10,7 +10,7 @@ them already (Make an EQ's tests, a helper): those make their window in a Python
 stand-in APO folder in the test's folder, and the test checks what it prints.
 """
 import net
-from helpers import session, subproc
+from helpers import qt, session, subproc
 
 COVERS = ("ui.window", "switcher.core", "switcher.apo", "switcher.devices", "net")
 
@@ -223,6 +223,23 @@ def test_the_banner_and_the_trial_bar_as_windows_11(devices_window, check):
           (signs(win.banner), signs(win.trial_bar), plain))
 
 
+def test_the_trial_time_for_a_screen_reader(devices_window, check):
+    # (a review of the text survey, 2026-11-24: a screen reader reads the time of the trial bar as "{m:ss} left", the
+    # owner's words of the survey; it read "{m:ss} until the end")
+    import time
+    w = devices_window
+    win, sw = w.win, w.sw
+    try:
+        sw.trial = {"key": "Headset|EarPods", "name": "Bright", "until": time.time() + 200}
+        win.render_trial()
+        got = (win.trial_time.text(), win.trial_time.accessibleName())
+    finally:
+        sw.trial = None
+        win.render_trial()
+    check("window: a screen reader reads the trial bar's time as its text and \"left\"",
+          got[1] == got[0] + " left" and "until the end" not in got[1], got)
+
+
 def test_online_offline(devices_window, online, check):
     # (online first, as the old self-test started: the `online` fixture puts the session's offline back after)
     win = devices_window.win
@@ -325,7 +342,7 @@ def test_presets_reads_its_tooltip_to_a_screen_reader(devices_window, check):
     # (the line for a screen reader is the tooltip, the owner's rule of 2026-11-24: Presets has a tooltip of its own,
     # and tag() gave it the different first line of "#presets" in HELP as its description)
     b = devices_window.win.presets_btn
-    got = (b.property("tip"), b.accessibleDescription(), b.property("help_key"))
+    got = (b.property("tip"), qt.description(b), b.property("help_key"))
     check("window: a screen reader reads the tooltip of Presets as its description; F1 still opens its Help entry",
           got == ("Save or load Make an EQ settings as a preset (settings only)",
                   "Save or load Make an EQ settings as a preset (settings only)", "#presets"), got)

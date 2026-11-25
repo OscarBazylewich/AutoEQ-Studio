@@ -7,6 +7,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QPushButton
 
 from ui import tasks, theme, tour
+from ui.eq_page_history import NO_PRESETS
 from ui.guide_demos import (adjust_demo, button, choose_row, point_at_menu_row, demo_filters, fold_before_after,
                             meas_with_eq, mock_combo, mock_menu, open_picker, picker_rows, plot_value, show_on_graph,
                             stage_manual, stage_result, type_search, wait_for_background, way_before_after)
@@ -551,7 +552,7 @@ def eq_steps(page):
     def preset_demo(api):
         b = win.presets_btn
         names = page.preset_names()
-        items = (names[:5] or [("No presets", False)]) + [None, "Save as a preset…", "Delete a preset ▸",
+        items = (names[:5] or [(NO_PRESETS, False)]) + [None, "Save as a preset…", "Delete a preset ▸",
                                                           None, "Use the initial settings…"]
         api.say("Click Presets")
         yield from api.click(b)
@@ -571,7 +572,7 @@ def eq_steps(page):
         yield from api.note("The preset keeps all settings, not your files. (Demo: the app did not save it.)", b, 1500)
         api.say("Then, click it in Presets to load all its settings")
         yield from api.click(b)
-        m = yield from mock_menu(api, b, ["Equalizer APO"] + [x for x in items if x != ("No presets", False)])
+        m = yield from mock_menu(api, b, ["Equalizer APO"] + [x for x in items if x != (NO_PRESETS, False)])
         yield from point_at_menu_row(api, m, 0)
         api.close(m)
         yield from api.note("The app loads all its settings again.", b, 1300)
@@ -712,7 +713,7 @@ def eq_steps(page):
          "before": auto_on, "after": auto_off,
          "text": "Calculate finds the filters. If the app calculates for a long time, it shows how much is completed, "
                  "and you can cancel it. Queue… makes EQs for more than one IEM or target, one after the other (the app "
-                 "saves each EQ and keeps it in History).",
+                 "keeps each EQ in History, and saves it when a file type is set in More settings › Saved files).",
          "demo": [{"click": lambda: page.run_btn, "say": "Click Calculate", "then": run_demo},
                   {"at": lambda: page.queue_btn, "say": "Queue…: more than one IEM or target, one after the other"}]},
         {"chapter": "3 · Calculate and examine", "title": "Or make it manually",

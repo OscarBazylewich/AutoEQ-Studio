@@ -90,16 +90,20 @@ class Switcher:
             self.problem = (f"Couldn't read the settings file ({e}). Your device EQs are unchanged. Close any app using "
                             "this file and restart AutoEQ Studio.")
         aside = textfile.take_set_aside_files()
-        if aside:  # (APO's file not written until you change a device's EQ: from empty settings every EQ would go off)
-            self.hold = True
-            # (the settings' own words, the text survey 2026-11-24; a file of another part, set aside before, keeps
-            # the shared words)
+        if aside:
             own = os.path.normcase(os.path.abspath(self.path))
-            self.problem = " ".join(
+            mine = [os.path.normcase(os.path.abspath(p)) == own for p, _ in aside]
+            # (APO's file not written until you change a device's EQ, only when the switcher's own settings were set
+            # aside: from those empty settings every EQ would go off. A file of another part, e.g. history.json, set
+            # aside before this start leaves the settings, and so APO's file, as they were)
+            self.hold = any(mine)
+            # (the settings' own words, the text survey 2026-11-24; a file of another part keeps the shared words.
+            # Joined after a problem already said, e.g. a locked settings file, so that one is not lost)
+            self.problem = " ".join([self.problem] * bool(self.problem) + [
                 f"Couldn't read {os.path.basename(p)}. Backed it up as {os.path.basename(b)} in the data folder and "
                 "created a new settings file. Your device EQs are unchanged, but profiles were reset: re-import them "
                 "in Profiles from Equalizer APO's “AutoEQ Studio” folder."
-                if os.path.normcase(os.path.abspath(p)) == own else textfile.set_aside_words(p, b) for p, b in aside)
+                if m else textfile.set_aside_words(p, b) for (p, b), m in zip(aside, mine)])
         # (keys of other parts, e.g. Listen's and the tracer's choices, kept as they are)
         out = {k: v for k, v in s.items() if k not in DEFAULTS}
         out.update({k: s.get(k, v) if isinstance(s.get(k, v), type(v)) else v for k, v in DEFAULTS.items()})

@@ -289,9 +289,6 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         theme.mark(self.presets_btn, nav=True)
         icons.put(self.presets_btn, "presets")
         self.presets_btn.setToolTip("Save or load Make an EQ settings as a preset (settings only)")
-        # (the line for a screen reader is the tooltip, the owner's rule of 2026-11-24: without this, tag() gave it the
-        # different first line of "#presets" in HELP)
-        self.presets_btn.setAccessibleDescription(self.presets_btn.toolTip())
         from ui import help_window
         help_window.tag(self.presets_btn, "#presets")
         # (the menu the button's own, so it shows Windows 11's chevron as every button with a menu does (the theme's
@@ -697,7 +694,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
             return
         left = max(0, int(t["until"] - time.time()))
         self.trial_time.setText(f"{left // 60}:{left % 60:02d}")
-        self.trial_time.setAccessibleName(f"{left // 60}:{left % 60:02d} until the end")
+        self.trial_time.setAccessibleName(f"{left // 60}:{left % 60:02d} left")
         self.trial_text.setText(f"“{t['name']}” on {shown(self.sw.record(t['key']))} (all apps)")
         self.trial_holder.show()
 

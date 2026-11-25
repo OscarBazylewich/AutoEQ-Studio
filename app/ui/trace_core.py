@@ -1246,13 +1246,19 @@ class Tracer:
         g = [x for o in outs for x in o["gaps"]]
         if not g:
             return ""
-        return (f"Saved a straight line across untraced gap{'s' if len(g) > 1 else ''} at "
-                + ", ".join(f"{fmt_hz(a)}–{fmt_hz(b)}" for a, b in g) + ". Trace or draw across those gaps for an "
-                "accurate curve.")
+        many = len(g) > 1
+        return (f"Saved a straight line across untraced gap{'s' if many else ''} at "
+                + ", ".join(f"{fmt_hz(a)}–{fmt_hz(b)}" for a, b in g)
+                + f". Trace or draw across {'those gaps' if many else 'that gap'} for an accurate curve.")
 
     # ---------------------------------------------------------------- automatic settings
     def is_your_value(self, k):
         return k in self.ta["manual"]
+
+    def is_custom(self, k):
+        """Whether a setting of the notes and of Active settings is the user's: there the range to save is one setting,
+        under "fmin" (its note, and its row "Save range"), custom when either box, from or to, is the user's."""
+        return self.is_your_value(k) or (k == "fmin" and self.is_your_value("fmax"))
 
     def set_auto_value(self, k, v, why):
         self.ta["notes"][k] = why
@@ -1288,8 +1294,10 @@ class Tracer:
             # (a frame drawn a hair inside 20 Hz or 20 kHz still means the whole range)
             fmin = 20 if lo < 21.5 else _js_round(min(lo, 19000))
             fmax = 20000 if hi > 18500 else _js_round(max(hi, fmin + 100))
+            # (the note from the range itself: a frame from 20.5 Hz to 19 kHz saves 20 Hz to 20 kHz, and its note said
+            # "visible graph range" when the words and the snap had two different limits)
             self.set_auto_value("fmin", fmin, f"Save {fmt_hz(fmin)}–{fmt_hz(fmax)}: " + (
-                "visible graph range" if lo > 21 or hi < 19900 else "audible range (covered by graph)"))
+                "audible range (covered by graph)" if (fmin, fmax) == (20, 20000) else "visible graph range"))
             self.set_auto_value("fmax", fmax, None)
 
     def mark_your_value(self, k):

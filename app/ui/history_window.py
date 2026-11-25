@@ -267,7 +267,7 @@ class HistoryWindow(QDialog):
                              "from History" + (f" · error {e['rms']:.2f} dB" if e.get("rms") is not None else ""),
                              say=self.footer.say, near=self, engine=(e.get("result") or {}).get("engine"))
         if ok:
-            self.footer.say(f"Added to EQs to compare. Built for {e.get('device')}, so it won’t sound accurate on "
+            self.footer.say(f"Added to EQs to compare. Built for {e.get('device')}, so it won't sound accurate on "
                             f"{page.curves['name']}." if other else "Added to EQs to compare", 10000 if other else None)
 
     def remove(self, keys):

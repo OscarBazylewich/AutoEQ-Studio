@@ -9,6 +9,7 @@ counts."""
 import threading
 
 import numpy as np
+import paths
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QImage, QKeyEvent
 
@@ -207,9 +208,12 @@ def test_picture_that_cannot_be_read(eq_screen, monkeypatch, tmp_path, check):
     tw.open_file(str(path))
     not_picture = DIALOGS.asked[asked:]
     tw.close()
-    check("tracer: a large picture whose load fails (in its thread): the message says so, the tracer is empty and "
-          "takes input, and the status line no longer says that it opens the picture", len(said) == 1
+    # (and it names the app's log where it is: data\app.log was not the place of an installed copy's log, a review
+    # of the text survey, 2026-11-24)
+    check("tracer: a large picture whose load fails (in its thread): the message says so and names the app's log, the "
+          "tracer is empty and takes input, and the status line no longer says that it opens the picture", len(said) == 1
           and "Couldn't detect graph axes (no axes)" in said[0][1]
+          and f"Send the image and {paths.LOG} to report this issue." in said[0][1]
           and failed == (False, False, "No image", True, True, False), (said, failed))
     check("tracer: a file that is not a picture: the message says so", len(not_picture) == 1
           and "Can't read this image file" in not_picture[0][1], not_picture)

@@ -125,7 +125,7 @@ def test_negative_axis_only_for_a_target(qapp, monkeypatch, check):
     reason = next(c.reason for c in r.checks if c.name == "axes_db_range")
     check("a measurement on a dB axis of -20 to 20 dB: axes_db_range fails, as before",
           not r.ok and not getattr(r, "target_only", False)
-          and reason == "Detected dB range is -20 to 20 dB. Unusual range for a headphone/IEM graph.",
+          and reason == "Detected dB range is -20 to 20 dB. Unusual range for an IEM or headphone graph.",
           (reason, failed(r)))
 
 
@@ -256,13 +256,13 @@ def test_entry_of_a_measurement_and_a_graph_of_a_target(qapp, monkeypatch, check
     check("an entry of a measurement, the look of a website's graph of a target: axes_db_range fails first, with the "
           "sentence about the gray line after its own words; trace_curve has its words; no target result, no curve",
           not r.ok and not r.target_only and not has_curve(r) and failed(r)[:1] == [(
-              "axes_db_range", "Detected dB range is -20 to 20 dB. Unusual range for a headphone/IEM graph. "
+              "axes_db_range", "Detected dB range is -20 to 20 dB. Unusual range for an IEM or headphone graph. "
               + trace_auto.ONLY_GREY_LINE)] and failed(r)[-1:] == [("trace_curve", GREY_REASON)],
           failed(r))
     _truth, r = read(monkeypatch, 1200, look=True, want="measurement", target=None)
     check("an entry of a measurement, the look of a website's graph of a target with no line: axes_db_range fails "
           "first with its own words only", failed(r)[:1] == [(
-              "axes_db_range", "Detected dB range is -20 to 20 dB. Unusual range for a headphone/IEM graph.")],
+              "axes_db_range", "Detected dB range is -20 to 20 dB. Unusual range for an IEM or headphone graph.")],
           failed(r))
 
 

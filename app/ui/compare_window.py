@@ -169,7 +169,7 @@ class CompareWindow(QDialog):
         self.scroll.setMinimumHeight(list_min)  # (a measurement's card in sight however small the window)
         v.addWidget(self.scroll, 4)
         how = Fold("How the app sorts them")
-        text = QLabel("<b>Rig (max 40):</b> Matches your target’s rig, or how accurately it can be compensated.<br>"
+        text = QLabel("<b>Rig (max 40):</b> Matches your target's rig, or how accurately it can be compensated.<br>"
                       "<b>Consensus (max 25):</b> How closely it matches other measurements on the same rig.<br>"
                       "<b>Bass (max 15):</b> Lower bass than others may indicate a seal leak.<br>"
                       "<b>Averaging (max 10):</b> Multiple seatings and both channels.<br>"
@@ -299,7 +299,7 @@ class CompareWindow(QDialog):
         for i, c in enumerate(d["items"]):
             lay.addWidget(self._row(i, c, main_action=i == 0 and not averages))
         if not n:  # (said in the list, where they'd be: UI-RULES 21)
-            none = QLabel(f"Couldn’t load measurements for “{d['query']}”. Check “Not loaded” below for details."
+            none = QLabel(f"Couldn't load measurements for “{d['query']}”. Check “Not loaded” below for details."
                           if d.get("errors") else
                           f"No downloadable results for “{d['query']}”. Try a shorter name (e.g., just the model).")
             none.setWordWrap(True)

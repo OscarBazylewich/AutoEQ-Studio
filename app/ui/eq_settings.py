@@ -272,7 +272,7 @@ class EqSettings:
         with its graph it was most of this step's time), hidden, its parent the page."""
         self.adjust_btn = QPushButton("Adjust…")
         icons.put(self.adjust_btn, "eq")  # (every button in the row with its symbol, UI-RULES 9)
-        self.adjust_btn.setToolTip("Fine-tune the target’s tilt, bass, half-tilt, ear gain, treble, and air")
+        self.adjust_btn.setToolTip("Fine-tune the target's tilt, bass, half-tilt, ear gain, treble, and air")
         help_window.tag(self.adjust_btn, "#target-adjust")
         self.adjust_btn.clicked.connect(self.open_adjust)
         target_row.addWidget(self.adjust_btn)
@@ -334,7 +334,7 @@ class EqSettings:
                 hh.setSpacing(4)
                 hh.addWidget(h)
                 hh.addWidget(InfoMark("Tilt: − adds bass, + adds treble. Use ↑/↓ or the scroll wheel in any field. Hz "
-                                      "and Q apply only when value isn’t 0.", "the values"))
+                                      "and Q apply only when value isn't 0.", "the values"))
                 hh.addStretch(1)
                 g.addWidget(head, 0, col)
             else:

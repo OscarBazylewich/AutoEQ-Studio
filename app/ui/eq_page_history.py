@@ -1,15 +1,19 @@
 """Make an EQ's History and presets (a part of EqPage, ui/eq_page.py): what a result is in a line, an EQ kept in
 History (after a run, saved or copied), "You've EQ'd this before", History's window (ui/history_window.py) and an EQ
 from it shown again, Copy (the filters as Equalizer APO text), and the top bar's Presets menu (a preset loaded, saved
-or deleted; Reset all settings…).
+or deleted; Use the initial settings…).
 EqHistory is a plain class (no __init__, no signals); EqPage (ui/eq_page.py) joins it with the other parts.
 """
 import hashlib
 import json
 
+import paths
 from PySide6.QtWidgets import QMessageBox
 
 from ui.eq_page_parts import modal
+
+# (the Presets menu's note with no presets; the Guide's demo menu shows the same words)
+NO_PRESETS = "No presets yet: presets save all settings, not files"
 
 
 class EqHistory:
@@ -73,7 +77,7 @@ class EqHistory:
             return
         res = self.svc.call("/api/history/add", {"entry": self.entry_now(saved)})
         if res.get("error"):
-            self.status(f"Couldn’t add EQ to History: {res['error']}", 8000)
+            self.status(f"Couldn't add EQ to History: {res['error']}", 8000)
             return
         by_key = {e["key"]: e for e in self.history}
         by_key[res["entry"]["key"]] = res["entry"]
@@ -136,19 +140,26 @@ class EqHistory:
             if res.get("inputs"):
                 self.show_inputs(res["inputs"])
             self._curves_seq = getattr(self, "_curves_seq", 0) + 1  # (any load still on its way is dropped)
-            self.curves_loaded(self.svc.call("/api/curves", {"settings": S}))
+            curves = self.svc.call("/api/curves", {"settings": S})
+            self.curves_loaded(curves)
             self.show_settings()
         elif self.curves:
             self.status(f"{'Original target' if have_m else 'Original measurement files'} not found. Showing EQ "
                         "filters on your current measurement and target.", 10000)
         if not self.curves:  # (nothing to show its filters on: what's needed first, in a box: UI-RULES 25)
+            if have_m and have_t:  # (both found, but the curves failed: their error, not "not found")
+                QMessageBox.information(self, "Show", str((curves or {}).get("error")
+                                                          or f"Couldn't calculate curves. Check {paths.LOG} for details."))
+                return
             QMessageBox.information(self, "Show", f"{'Original target' if have_m else 'Original measurement files'} "
                                     "not found. Select a measurement and target, then try Show again.")
             return
         band = e.get("band")
         if band and list(band) != list(S["scoring"]["band_hz"]):
-            self.status(f"Frequency range changed from {band[0]}–{band[1]} Hz to {S['scoring']['band_hz'][0]}–"
-                        f"{S['scoring']['band_hz'][1]} Hz, so the displayed error differs from History", 10000)
+            # (:g: History keeps the range as numbers with decimals, "20.0–20000.0 Hz")
+            now = S["scoring"]["band_hz"]
+            self.status(f"Frequency range changed from {band[0]:g}–{band[1]:g} Hz to {now[0]:g}–{now[1]:g} Hz, so the "
+                        "displayed error differs from History", 10000)
         res = dict(e.get("result") or {}, id=1, filters=[dict(f) for f in e["filters"]])
         res.setdefault("n_filters", e.get("n_filters", len(e["filters"])))
         res.setdefault("rms", e.get("rms") or 0)
@@ -176,11 +187,11 @@ class EqHistory:
 
     def fill_presets(self, menu):
         """The top bar's Presets menu: each preset (click: load it), Save as a preset…, Delete a preset, and
-        Reset all settings…. A preset keeps every setting, not your files."""
+        Use the initial settings… A preset keeps every setting, not your files."""
         menu.clear()
         names = self.preset_names()
         if not names:
-            a = menu.addAction("No presets yet: presets save all settings, not files")
+            a = menu.addAction(NO_PRESETS)
             a.setEnabled(False)
         for n in names:  # (✓ at the preset with the settings in use: the UI audit, 2026-11-08)
             a = menu.addAction(n, lambda n=n: self.load_preset(n))
@@ -271,7 +282,7 @@ class EqHistory:
 
     def use_initial_settings(self):
         if QMessageBox.question(self, "Use the initial settings", "Reset all settings to defaults? Your files and "
-                                "presets won’t change.") \
+                                "presets won't change.") \
                 != QMessageBox.Yes:
             return
         res = self.svc.call("/api/reset")

@@ -25,6 +25,7 @@ A theme that tests of another part left on the application (tests\\eq_screen app
 whole process) is taken off before each file here (no_theme_before_file): with it every control is wider, and the
 window could not be made as narrow as test_window.py asks.
 """
+import contextlib
 import dataclasses
 import os
 
@@ -165,6 +166,26 @@ class DevicesWindow:
     offered: tuple = None  # after Set up: (EQ Switcher's Start with Windows offered ticked, quitting it offered ticked)
     done_es: list = None   # after Set up: what the EQ Switcher stand-ins were asked to do, in order
     warnings: list = None  # after Set up: what it said in a warning box (answered OK)
+
+    @contextlib.contextmanager
+    def apo_on_playing_device(self):
+        """Equalizer APO installed on the playing device (the headset "{5}") while the block runs, then not again:
+        for the tests of the line about Equalizer APO on a device with APO. The window's own question to APO is let
+        finish at both ends."""
+        from helpers import qt
+        ep = next(e for e in self.eps if e.guid == "{5}")
+        was = ep.apo
+
+        def put(on):
+            ep.apo = on
+            self.sw.refresh()
+            self.win.render_all()
+            qt.wait_for(lambda: not self.win._checking, 30)
+        put(True)
+        try:
+            yield
+        finally:
+            put(was)
 
     def switcher(self):
         """Another Switcher on the same settings file and APO folder: as at the app's next start."""

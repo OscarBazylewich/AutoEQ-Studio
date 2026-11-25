@@ -273,7 +273,7 @@ class FilterEditor(QWidget):
         if v is not None and self.limits.check("edit." + key, v, lambda p: None):
             c = self.limits.clamp("edit." + key, v)
             f[key] = c
-            self.say(f"Adjusted to {number_text(c)} (allowed: {self.limits.text('edit.' + key)}).")
+            self.say(f"Adjusted to {number_text(c)} (allowed: {self.limits.text('edit.' + key)})")
             self._edited()
         box.setText(number_text(f[key]))
         self._mark(box, None)

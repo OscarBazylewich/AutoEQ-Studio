@@ -578,7 +578,7 @@ QUESTIONS = [{'id': 'q-which-method',
              {'id': 'q-many',
               'q': 'There are many measurements of your IEM. Which one is best?',
               'body': ['Use “Other measurements of this model…” below Measurement. It sorts them for your target '
-                       'and gives the causes (rig, agrees with others, bass seal, average, data). It can also calculate '
+                       'and gives the causes (rig, consensus, bass, averaging, data). It can also calculate '
                        'the average of more than one measurement from one rig.'],
               'see': ['compare-measurements', 'seal']},
              {'id': 'q-website',

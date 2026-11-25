@@ -26,8 +26,8 @@ SETTINGS_TRACE = [{'title': 'Trace a graph image',
                               'title': 'Automatic settings (tracer)',
                               'body': ["The app adjusts the tracer's settings for the image: color tolerance, points in "
                                        'each octave, the range to save and dashed lines. If you change a setting, it '
-                                       'shows “your value”. The app also keeps your value for the next picture, until you '
-                                       'click ↺.',
+                                       'shows “your value”. The app keeps your value until you click ↺ or open a new '
+                                       'picture.',
                                        'The app always works carefully. It makes the labels larger before it reads them, '
                                        'and tries again if necessary. It puts the traced line between pixels. If a traced '
                                        'line stops before the end of the curve, it tries again as a dashed line and with '

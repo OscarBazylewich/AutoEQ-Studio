@@ -615,7 +615,7 @@ def test_db_range(qapp, monkeypatch, check):
           trace_auto.DB_MIN_SPAN == 15 and (trace_auto.DB_LOWEST, trace_auto.DB_HIGHEST) == (10, 130))
     _t, _rgb, r = fresh(monkeypatch, words=lambda truth: _db(truth, {v: f"{v + 60}" for v in range(40, 81, 5)}))
     check("all dB labels read 60 dB too high (they agree): the dB range check fails, its highest value is not usual",
-          reason(r, "axes_db_range") == "Detected dB range is 100 to 140 dB. Unusual range for a headphone/IEM graph."
+          reason(r, "axes_db_range") == "Detected dB range is 100 to 140 dB. Unusual range for an IEM or headphone graph."
           and "axes_db_labels" not in failed(r), (reason(r, "axes_db_range"), failed(r)))
     _t, _rgb, r = fresh(monkeypatch, words=lambda truth: _db(truth, {v: f"{120 - v}" for v in range(40, 81, 5)}))
     check("dB labels that rise downwards (a dB axis always falls downwards): they do not agree, the label check fails",
@@ -628,12 +628,12 @@ def test_db_range(qapp, monkeypatch, check):
           "Too many mismatched labels." and not r.ok, reason(r, "axes_db_labels"))
     _t, _rgb, r = fresh(monkeypatch, words=lambda truth: _db(truth, {v: f"{v - 60}" for v in range(40, 81, 5)}))
     check("all dB labels read 60 dB too low (they agree): the dB range check fails, its values are not usual",
-          reason(r, "axes_db_range") == "Detected dB range is -20 to 20 dB. Unusual range for a headphone/IEM graph."
+          reason(r, "axes_db_range") == "Detected dB range is -20 to 20 dB. Unusual range for an IEM or headphone graph."
           and "axes_db_labels" not in failed(r) and "axes_db_range" in failed(r),
           (reason(r, "axes_db_range"), failed(r)))
     _t, _rgb, r = fresh(monkeypatch, db_range=(60, 72), db_step=2)
     check("an axis of 12 dB: the dB range check fails, its span is not usual",
-          reason(r, "axes_db_range") == "Detected dB range is 60 to 72 dB. Unusual range for a headphone/IEM graph."
+          reason(r, "axes_db_range") == "Detected dB range is 60 to 72 dB. Unusual range for an IEM or headphone graph."
           and "axes_db_range" in failed(r), reason(r, "axes_db_range"))
     _t, _rgb, r = fresh(monkeypatch, db_range=(55, 95))
     check("an axis of 55 dB to 95 dB: the dB range check passes, and 1 Axes' note gives the two axes",

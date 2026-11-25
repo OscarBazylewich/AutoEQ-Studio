@@ -204,15 +204,17 @@ class Sources(QDialog):
         if st.get("error") and not st.get("folders"):
             self.lib_status.setText(f"Search failed: {st['error']}")
             return
+        # ("1 curve file", not "1 curve files")
+        files = lambda n, what: f"{n} {what} file{'' if n == 1 else 's'}"
         if st.get("scanning"):
-            self.lib_status.setText(f"Searching… {st.get('found', 0)} curve files")
+            self.lib_status.setText(f"Searching… {files(st.get('found', 0), 'curve')}")
             self._lib_poll.start()
             return
         self._lib_poll.stop()
         where = ", ".join(f.replace("\\", "/").rstrip("/").split("/")[-1] for f in st.get("folders") or [])
         self.lib_status.setText(f"Search interrupted: {st['error']}" if st.get("error") else
-                                f"{st.get('found', 0)} curve files in {where}"
-                                + (f" ({st['cloud']} cloud-only OneDrive files skipped; download to include)"
+                                f"{files(st.get('found', 0), 'curve')} in {where}"
+                                + (f" ({files(st['cloud'], 'cloud-only OneDrive')} skipped; download to include)"
                                    if st.get("cloud") else ""))
 
     # ---------------------------------------------------------------- the online databases
@@ -433,7 +435,8 @@ class Sources(QDialog):
             return False
         self.page.S["databases"]["extra"].append(u)
         self.changed()
-        self.footer.say("Database added. Loading list…")
+        # (offline, the app loads no list: only "Database added". The survey's option for this message had the two)
+        self.footer.say("Database added" if net.offline() else "Database added. Loading list…")
         self.render()
         self.render_squiglink_list()
         return True

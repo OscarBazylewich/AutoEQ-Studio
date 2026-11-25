@@ -1908,7 +1908,7 @@ def db_range_check(lo, hi, target):
     usual = DB_MIN_SPAN <= hi - lo and (DB_TARGET_LOWEST if target else DB_LOWEST) <= lo and hi <= DB_HIGHEST
     return Check("axes_db_range", usual, f"Detected dB range is {lo:g} to {hi:g} dB." + (
         "" if usual else " Unusual range for a target graph." if target
-        else " Unusual range for a headphone/IEM graph."))
+        else " Unusual range for an IEM or headphone graph."))
 
 
 def axes_words(checks, db_axis):

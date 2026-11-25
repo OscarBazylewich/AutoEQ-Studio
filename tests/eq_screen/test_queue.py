@@ -258,3 +258,38 @@ def test_run_several_from_a_list_gives_the_focus_back_to_that_list(eq_screen, ch
           "has it again when the queue is done (the focus went to Start)",
           d == {"while it runs": "QPushButton 'Cancel'", "running": True, "stopped": True,
                 "at the end": "QListWidget 'Targets'"}, d)
+
+
+def test_run_several_says_when_history_refused_the_eq(eq_screen, check, monkeypatch):
+    # (a review of the text survey, 2026-11-24: when History did not take the EQ, the row said "Done · … · not
+    # saved", as if the EQ was in History. A stand-in for the EQ part's answers: the job done, History's error; no
+    # file type set, so no file is written)
+    from eq import exports
+    page = eq_screen.page
+    cfg = copy.deepcopy(page.S)
+    for k in exports.FORMATS:
+        cfg["export"][k] = False
+    payload = {"settings": cfg, "mode": "best_fit", "pick": 1, "device": "Stand-in IEM", "target_name": "Stand-in",
+               "results": [{"id": 1, "n_filters": 1, "rms": 0.5, "q_max": 2, "gain_max": 6,
+                            "filters": [{"type": "PK", "freq": 1000.0, "gain": 1.0, "q": 1.0}]}]}
+    history = list(page.history)
+    answers = {"/api/job": lambda body: {} if body else {"status": "done", "result": payload},
+               "/api/history/add": lambda body: {"error": "Stand-in: History is full"}}
+    real = page.svc.call
+    q = QueueWindow(page)
+    try:
+        q.table.setRowCount(1)
+        q.i = 0
+        monkeypatch.setattr(q, "next_job", lambda: None)  # (one row only: the queue does not go on)
+        monkeypatch.setattr(page, "keep_run", lambda run: None)  # (no run of the stand-in kept in Runs)
+        monkeypatch.setattr(page, "render_runs", lambda: None)
+        monkeypatch.setattr(page.svc, "call", lambda path, body=None, *a, **k: answers[path](body) if path in answers
+                            else real(path, body, *a, **k))
+        q.poll()
+        row = q.table.item(0, 2).text()
+    finally:
+        monkeypatch.undo()
+        qt.close(q)
+    check("queue: a row whose EQ History did not take says “Save failed (not added to History): …”, not “Done”, and "
+          "History is as it was", row == "Save failed (not added to History): Stand-in: History is full"
+          and page.history == history, row)

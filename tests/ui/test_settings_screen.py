@@ -102,6 +102,48 @@ def test_after_a_restore_nothing_is_saved_before_the_restart(devices_window, che
           seen == [(True, False)], seen)
 
 
+def test_backup_messages_say_one_file_and_one_profile(devices_window, check, monkeypatch):
+    # (2026-11-24, the text survey's older faults: the owner typed "{n} files ({n} profiles)", the words for more
+    # than one; a count of 1 said "1 files" and "1 profiles")
+    import backup
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+    w = devices_window
+    sw, stub = w.sw, w.app
+    said = {"status": [], "question": [], "information": []}
+    stub.timer = QTimer()
+    stub.restart = lambda: None
+    monkeypatch.setattr(w.win, "status", lambda text, *a: said["status"].append(text))
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", staticmethod(lambda *a, **k: ("b.zip", "")))
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: ("b.zip", "")))
+    monkeypatch.setattr(QMessageBox, "question",
+                        staticmethod(lambda p, t, text, *a: said["question"].append(text) or QMessageBox.Yes))
+    monkeypatch.setattr(QMessageBox, "information",
+                        staticmethod(lambda p, t, text, *a: said["information"].append(text)))
+    try:
+        for files, profiles in ((1, 1), (2, 0)):
+            monkeypatch.setattr(backup, "make", lambda dest, prof, f=files, p=profiles: {"files": f, "profiles": p})
+            monkeypatch.setattr(backup, "read", lambda src, f=files, p=profiles: {"made": "today", "files": f,
+                                                                                    "profiles": p})
+            monkeypatch.setattr(backup, "restore", lambda src, prof, f=files: {"files": f, "kept": "kept.zip",
+                                                                                "skipped": []})
+            w.win.make_backup()
+            w.win.load_backup()
+            sw.read_only = False
+    finally:
+        monkeypatch.undo()
+        sw.read_only = False
+        stub.timer.stop()
+        del stub.timer, stub.restart
+    got = (said["status"], [q.split("\n")[0] for q in said["question"]],
+           [i.split(" Your")[0] for i in said["information"]])
+    check("settings: the backup messages say \"1 file\" and \"1 profile\" for one, and keep the owner's \"files\" and "
+          "\"profiles\" for any other count",
+          got == (["Saved 1 file (1 profile) to b.zip", "Saved 2 files (0 profiles) to b.zip"],
+                  ["Restore backup from today (1 file, 1 profile)?", "Restore backup from today (2 files, 0 profiles)?"],
+                  ["Restored 1 file.", "Restored 2 files."]), got)
+
+
 def test_a_hotkey_box_keeps_the_key_while_you_type(devices_window, monkeypatch, check):
     # (the review of 2026-11-10: Qt empties the box at the first key press of a new hotkey, and that empty value was
     # said as "no hotkey": the app saved it and took the hotkey off, so a key that Windows then refused could not put

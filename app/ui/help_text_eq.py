@@ -120,7 +120,7 @@ HELP_EQ = {'slot:target': ['Desired frequency response for your IEM or headphone
  'library.folders': ['', 'databases'],
  'databases': ['', 'databases', 'rig-tags'],
  'performance.cores': '',
- '#target-adjust': ['Fine-tune the target’s tilt, bass, half-tilt, ear gain, treble, and air',
+ '#target-adjust': ["Fine-tune the target's tilt, bass, half-tilt, ear gain, treble, and air",
                     'target-adjustments'],
  '#target-save': '',
  '#compare-results': '',
@@ -644,7 +644,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'a name (each word must be in the name). Then click the item or press Enter.']},
                           {'key': '#pk-f-sure',
                            'title': 'Known rig',
-                           'body': ['Hides the items with a rig that the app is not sure of (their tag has “?” at the end).']},
+                           'body': ['Hides the items with an unknown rig, a guessed rig (their tag has “?” at the end) '
+                                    'or mixed rigs.']},
                           {'key': '#pk-f-dl',
                            'title': 'Available to download',
                            'body': ['Hides the entries that the app cannot download. The app traces those entries from '
@@ -778,9 +779,9 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'title': 'Queue… (calculate EQs one after the other)',
                            'body': ['Select IEMs and targets. The app makes an EQ for each IEM with each target, one '
                                     'after the other, with your settings and method. It calculates the automatic '
-                                    'settings for each EQ. It saves each selected result in your Saved EQs folder with '
-                                    'its automatic name (it does not replace a file). It also keeps it in History and '
-                                    'in EQs that you made.',
+                                    'settings for each EQ. When a file type is set in More settings › Saved files, it '
+                                    'saves each selected result in your Saved EQs folder with its automatic name (it '
+                                    'does not replace a file). It also keeps it in History and in EQs that you made.',
                                     'Cancel stops the EQ in progress and the EQs after it. Your selection of files '
                                     'does not change.']}]},
                {'title': 'Your result: compare',

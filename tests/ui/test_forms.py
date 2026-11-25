@@ -330,9 +330,10 @@ def test_pairs_and_long_words(qapp, check):
         qt.close(dlg)
 
 
-def test_a_box_is_described_by_its_line_of_help(qapp, check):
-    # (2026-11-24: a box of the settings had its line of Help only as a tooltip; a control with help_window.tag has
-    # it as the description that a screen reader reads after the name. An empty line: no description)
+def test_a_box_is_described_by_its_tooltip(qapp, check):
+    # (the owner's rule of 2026-11-24: a screen reader reads a control's tooltip after its name. A box of the settings
+    # had its line of Help as the description, without the limits of its tooltip, a review of the text survey found.
+    # The box sets no description, and Qt gives the tooltip: helpers.qt.description)
     from helpers import qt
     form = forms.Form([("Saved files", [("", [("export.apo", "check")]),
                                         ("Shelf", [("best_fit.low_shelf", "check")]),
@@ -343,12 +344,12 @@ def test_a_box_is_described_by_its_line_of_help(qapp, check):
                       lambda p, v: None, lambda p: None, lambda s: None)
     try:
         lines = {p: forms.help_of(p) for p in form.fields}
-        got = {p: f.box.accessibleDescription() for p, f in form.fields.items()}
-        tip = form.fields["site.norm_hz"].box.toolTip()
-        check("settings boxes: a screen reader reads the line of Help of a box as its description (not the limits of "
-              "its tooltip), and no description for a box with an empty line",
-              got == lines and lines["site.norm_hz"] and lines["scoring.band_hz.1"] and lines["export.apo"] == ""
-              and lines["best_fit.layout"] == "" and tip.startswith(lines["site.norm_hz"] + "\nAllowed: "),
-              (got, lines, tip))
+        got = {p: qt.description(f.box) for p, f in form.fields.items()}
+        tips = {p: f.box.toolTip() for p, f in form.fields.items()}
+        check("settings boxes: a screen reader reads the tooltip of a box, with its limits, after its name; nothing for "
+              "a box with no tooltip",
+              got == tips and lines["site.norm_hz"] and lines["scoring.band_hz.1"] and lines["export.apo"] == ""
+              and tips["export.apo"] == "" and lines["best_fit.layout"] == ""
+              and tips["site.norm_hz"].startswith(lines["site.norm_hz"] + "\nAllowed: "), (got, tips))
     finally:
         qt.close(form)

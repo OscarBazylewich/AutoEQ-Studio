@@ -687,7 +687,7 @@ class Picker(QDialog):
             shown += min(len(rows), lim)
             if len(rows) > lim:
                 more = f"{len(rows) - lim:,} more: refine your search" +\
-                    ("" if self.src else f", or switch to {title.lower()} above")
+                    ("" if self.src else f", or switch to {title} above")  # (the tab's name as it shows: "This PC")
                 later.append(lambda t=more: self._add_note(t))
             # (no row of its own while the online lists load: the gray line above the list says it. The text survey,
             # 2026-11-24, removed the row "The database lists load…")
@@ -778,8 +778,10 @@ class Picker(QDialog):
         what = "Made for" if made else "Measured on"
         if tag == "mixed":
             return "mixed", "Contains files from different rigs"
-        # (how the app knows the rig, when it says: on a line of its own under the first)
-        how = f"\n{r['how']}" if r.get("how") else ""
+        # (how the app knows the rig, when it says: on a line of its own under the first, with an upper-case first
+        # letter, as a sentence: rigmap.site_notes gives the words in lower case, "from source (…)")
+        h = r.get("how") or ""
+        how = "\n" + h[:1].upper() + h[1:] if h else ""
         if key not in rigs:
             return "rig ?", ("Target rig unknown" if made else "Measurement rig unknown") + how
         guess = tag.endswith("?")

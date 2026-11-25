@@ -316,7 +316,7 @@ def test_target_words_of_the_wait_window_come_from_the_kind_of_the_entry(eq_scre
         wait = PictureWait(eq_screen.page, entry)
         try:
             seen[(kind, as_)] = (wait.target_note is not None,
-                                 picture_wait.TARGET_SETTINGS in wait.accessibleDescription())
+                                 picture_wait.TARGET_SETTINGS in qt.description(wait))
         finally:
             wait.deleteLater()
     check("website targets: the words about the settings of the website show for an entry of kind target (also from "

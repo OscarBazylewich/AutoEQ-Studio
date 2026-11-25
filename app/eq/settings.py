@@ -386,7 +386,7 @@ def load(path=PATH):
                     break
             except OSError as e:  # (locked, e.g. by an antivirus or backup program: never taken for a broken file)
                 if attempt == 39:
-                    raise OSError(f"Couldn’t read {path} ({e.strerror or e}) because another program is using it. Close "
+                    raise OSError(f"Couldn't read {path} ({e.strerror or e}) because another program is using it. Close "
                                   "it there or wait a moment, then try again.") from None
             time.sleep(0.05)
         if not isinstance(user, dict):

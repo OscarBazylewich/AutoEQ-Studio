@@ -226,7 +226,7 @@ def test_undo_after_delete_or_change(eq_screen, result, tmp_path, check):
     changed = said[-1]
     check("update a profile: Undo after the profile was deleted, or after its file changed, says it is not possible "
           "and changes nothing",
-          "Can't undo: “Daily” was deleted in Profiles" in deleted and still_gone
+          "Can't undo: “Daily” was deleted from Profiles" in deleted and still_gone
           and "Can't undo: “Daily” was modified externally after the update" in changed
           and _bytes(_file(sw, ids["Daily"])) == changed_bytes, (deleted, changed))
 
