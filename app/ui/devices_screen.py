@@ -157,7 +157,7 @@ class DevicesScreen:
         self.dev_list.setItemDelegate(DeviceRows(self.dev_list))
         self.dev_list.currentItemChanged.connect(self._pick_device)
         # (no devices: one gray line in the list that tells the next step, as every empty list: UI-RULES 21)
-        self.dev_empty = EmptyText(self.dev_list, "No playback devices. Connect a playback device to this PC.")
+        self.dev_empty = EmptyText(self.dev_list, "No playback devices found. Connect one to get started.")
         split.addWidget(self.dev_list)
         self.dev_panel = QWidget()
         self.dev_lay = QVBoxLayout(self.dev_panel)
@@ -246,11 +246,11 @@ class DevicesScreen:
         title.setWordWrap(True)
         words.addWidget(title)
         where, _ = self._device_state(key)
-        words.addWidget(muted(where + ("" if d else " (it is not in the Windows list)")
+        words.addWidget(muted(where + ("" if d else " (not in Windows device list)")
                               + (f" · Windows name: {rec['label']}" if rec.get("nickname") else "")))
         ren = QPushButton("Rename…")
         icons.put(ren, "rename")
-        ren.setToolTip("Your name for this device (for example, the IEM that you use on it)")
+        ren.setToolTip("Set a custom name for this device (e.g., your headphone or IEM)")
         ren.clicked.connect(lambda: self.rename_device(key))
         ren.setProperty("card_place", "rename")
         from ui import help_window
@@ -263,7 +263,7 @@ class DevicesScreen:
         rem.setObjectName("devRemove")  # (the bubble of a refused removal points at it, after the redraw)
         rem.setAccessibleName(f"Remove {shown(rec)} from Devices")
         # (on for a connected device too: a click tells why in a bubble, UI-RULES 25)
-        rem.setToolTip("Removes this device from Devices. Its profiles stay in Profiles.")
+        rem.setToolTip("Remove from Devices. Its profiles stay in Profiles.")
         rem.clicked.connect(lambda: self.remove_device(key))
         rem.setProperty("card_place", "remove device")
         help_window.tag(rem, "#dev-remove")
@@ -277,8 +277,8 @@ class DevicesScreen:
                 icons.put(b, "open_new")
                 b.clicked.connect(self.open_configurator)
                 b.setProperty("card_place", "configurator")
-            warn, _ = warning_card("Equalizer APO is not installed on this device. Thus, no EQ operates on it. "
-                                   "In APO's Configurator, select this device. Then restart Windows.", b)
+            warn, _ = warning_card("Equalizer APO isn't installed on this device, so EQ won't apply. Enable it in APO "
+                                   "Configurator, then restart Windows.", b)
             lay.addWidget(warn)
 
         box = QGroupBox("EQ for this device")
@@ -310,11 +310,9 @@ class DevicesScreen:
             rb.setChecked(True)
             rb.setProperty("card_place", "trial")
             group.addButton(rb)
-            holder = QWidget()
-            tr = QHBoxLayout(holder)
-            tr.setContentsMargins(0, 0, 0, 0)
-            two_lines(tr, rb, "The bar at the top has the time, Keep it and Do not keep it")
-            bl.addWidget(holder)
+            # (no gray note under it: the bar at the window's top shows the time, Keep it and Do not keep it, and
+            # the message after the start tells where they are; the note went with the text survey, 2026-11-24)
+            bl.addWidget(rb)
         for pid in rec["profiles"]:
             p = self.sw.profiles().get(pid)
             row = QHBoxLayout()
@@ -323,12 +321,12 @@ class DevicesScreen:
             rb.toggled.connect(lambda on, pid=pid: on and self._card_choose(f"profile:{pid}", key, pid))
             rb.setProperty("card_place", f"profile:{pid}")
             group.addButton(rb)
-            two_lines(row, rb, profile_line(p) + ("  (its file is missing from APO's folder)" if
+            two_lines(row, rb, profile_line(p) + ("  (missing from APO folder)" if
                                                   self.sw.profile_missing(pid) else ""))
             x = QToolButton()
             theme.mark(x, quiet=True)  # (a row's ✕: every list's one look, UI-RULES 18)
             x.setText("✕")
-            x.setToolTip("Remove it from this device (it stays in Profiles)")  # (✕ = Remove: UI-RULES 10, 16)
+            x.setToolTip("Remove from this device. It stays in Profiles.")  # (✕ = Remove: UI-RULES 10, 16)
             x.setAccessibleName(f"Remove {p['name']} from this device")
             x.clicked.connect(lambda _=False, pid=pid: self.remove_profile_from_device(key, pid))
             x.setProperty("card_place", f"remove:{pid}")
@@ -346,9 +344,9 @@ class DevicesScreen:
         if others:
             menu.addSeparator()
         menu.addAction("Import EQ files…", lambda: self.import_files(for_device=key))  # (Profiles' words: one act)
-        make = menu.addAction("Make an EQ", lambda: self.show_page("eq"))  # (there, Use on device adds it to a device)
-        make.setToolTip("Make an EQ on the Make an EQ screen. Then click Use on device, and select this device.")
-        menu.setToolTipsVisible(True)
+        # (there, Use on device adds it to a device. The row has no tooltip: it went with the text survey,
+        # 2026-11-24; Help's entry "Use on device (Make an EQ)" tells the steps)
+        menu.addAction("Make an EQ", lambda: self.show_page("eq"))
         add.setMenu(menu)
         add.setProperty("card_place", "add")
         bl.addWidget(add, 0, Qt.AlignLeft)
@@ -362,8 +360,7 @@ class DevicesScreen:
             row.addWidget(self.check_label, 1)
             chk = QPushButton("Examine again")
             icons.put(chk, "refresh")
-            chk.setToolTip("Examine again with the Benchmark tool of Equalizer APO (it only reads), and show all "
-                           "the results")
+            chk.setToolTip("Re-check with Equalizer APO's read-only Benchmark tool and show full results")
             chk.clicked.connect(lambda: self.check_device(key))
             chk.setProperty("card_place", "check")
             help_window.tag(chk, "#dev-check")
@@ -389,9 +386,8 @@ class DevicesScreen:
             lay.addWidget(self.check_warn)
             self._auto_check(key)
         hk, onoff = self.sw.s.get("hotkey"), self.sw.s.get("onoff_hotkey")
-        lay.addWidget(muted("Select a profile in the tray icon menu" + (f", or with {hk} while this device is active."
-                                                                         if hk else ".")
-                            + (f" {onoff} disables its EQ and enables it again, to compare." if onoff else "")))
+        lay.addWidget(muted("Switch profiles in the tray menu" + (f" or with {hk} while active." if hk else ".")
+                            + (f" Press {onoff} to toggle EQ." if onoff else "")))
         lay.addStretch(1)
         self._card_rows = [str(pid) for pid in rec["profiles"]]
         self._card_focus_again(place, old_rows)
@@ -438,10 +434,10 @@ class DevicesScreen:
 
         def undo():
             if pid not in self.sw.profiles():  # (deleted in Profiles meanwhile)
-                self.status(f"You deleted “{name}” in Profiles: Undo is not possible.")
+                self.status(f"Can't undo: “{name}” was deleted from Profiles")
                 return
             self.sw.add_to_device(key, pid, switch_on=was_on, at=at, last=was_last)
-        self.status(f"Removed “{name}” from this device.", undo=undo)
+        self.status(f"Removed “{name}” from this device", undo=undo)
 
     def remove_device(self, key):
         """Remove in the device's card: a device that is not connected off the lists (switcher's remove_device: its
@@ -463,24 +459,24 @@ class DevicesScreen:
             if d and d.connected:  # (after the redraw's new Remove shows: a bubble at a hidden button closes)
                 QTimer.singleShot(0, self.dev_list, lambda: bubble.tell(
                     self.dev_panel.findChild(QPushButton, "devRemove"),
-                    "You can remove a device only when it is not connected.", near=self.dev_list))
+                    "Disconnect this device before removing it", near=self.dev_list))
             return
 
         def undo():
             self.selected = key
             if self.sw.restore_device(before) == "back":
-                self.status(f"You connected “{name}” again: Undo is not possible.")
+                self.status(f"Can't undo: “{name}” was reconnected")
             self.render_devices()
         self.render_devices()
         self.dev_list.setFocus()  # (the button went with the old panel: the keyboard and the message stay at the list)
-        self.status(f"Removed “{name}” from Devices." + (" It shows again when you connect it." if before["hidden"]
+        self.status(f"Removed “{name}” from Devices." + (" It will reappear when reconnected." if before["hidden"]
                                                           else ""), undo=undo)
 
     def rename_device(self, key):
         from ui.window_parts import ask_text  # (looked up here: the tests answer it)
         rec = self.sw.record(key)
         name, ok = ask_text(self, "Rename the device", "Your name for this device", rec.get("nickname", ""), "Rename",
-                            placeholder=rec["label"], note="If the box is empty, AutoEQ Studio uses the Windows name.")
+                            placeholder=rec["label"], note="Leave blank to use the Windows name")
         if ok:
             self.sw.set_nickname(key, name)
             self.render_all()
@@ -509,7 +505,7 @@ class DevicesScreen:
 
         def explain(found):
             if found.get("error"):
-                return None, f"AutoEQ Studio cannot get data from Equalizer APO: {found['error']}"
+                return None, f"Couldn't read Equalizer APO status: {found['error']}"
             return check.explain(apo, found, name, pfile, on_device)
         return work, explain
 
@@ -526,7 +522,7 @@ class DevicesScreen:
             return
         try:
             if key in self._checking and not got:
-                lab.setText("Wait for Equalizer APO: does it use this EQ?")
+                lab.setText("Checking Equalizer APO…")
                 lab.setToolTip("")
                 # (a usual wait, in a note's gray: it kept the colour of the answer before, a warning's after a bad
                 # one, while Examine again asked)
@@ -566,7 +562,7 @@ class DevicesScreen:
             return
         job = self._check_job(key)
         if job is None:
-            self._checks[key] = (sig, None, "Not connected: connect the device to examine its EQ.")
+            self._checks[key] = (sig, None, "Not connected: connect this device to check its EQ")
             self._show_check(key)
             return
         if key in self._checking:  # (asked already: a forced ask goes again after it, with its answer said)
@@ -581,7 +577,7 @@ class DevicesScreen:
         def done(found, err):
             self._checking.discard(key)
             if err is not None:
-                self._checks[key] = (sig, None, f"AutoEQ Studio cannot get data from Equalizer APO: {err}")
+                self._checks[key] = (sig, None, f"Couldn't read Equalizer APO status: {err}")
             else:
                 ok, text = explain(found)
                 self._checks[key] = (sig, ok, text)
@@ -602,9 +598,10 @@ class DevicesScreen:
         """Check again: APO asked now, and all it found said (switcher\\check.py)."""
         rec = self.sw.record(key)
         if self._check_job(key) is None:
-            bubble.tell(None, "This device is not in the Windows list: connect it first.", near=self)
+            bubble.tell(None, "Device not found in Windows. Connect it first.", near=self)
             return
-        self.status("Wait for Equalizer APO…", 4000)
+        # (no message while it waits: the line beside Examine again says "Checking Equalizer APO…", and a message
+        # box then shows all the results; the message went with the text survey, 2026-11-24)
 
         def said(got):
             (QMessageBox.information if got[1] else QMessageBox.warning)(self, f"Examine: {shown(rec)}", got[2])

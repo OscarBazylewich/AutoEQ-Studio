@@ -58,6 +58,45 @@ def test_the_device_card_and_its_rows(devices_window, check):
           and radios.get("Off") is False, (same_card, below, small, items, radios))
 
 
+def test_the_card_texts_that_the_text_survey_removed_or_changed(devices_window, check):
+    # (the text survey, area 27, 2026-11-24: the 5-minute row has no gray note under it, the Make an EQ row of Add a
+    # profile has no tooltip, and the last line of the card has the owner's words, with each hotkey only when it is set)
+    from PySide6.QtWidgets import QLabel, QPushButton
+    w = devices_window
+    win, sw = w.win, w.sw
+    kept = {k: sw.s.get(k) for k in ("hotkey", "onoff_hotkey")}
+    lines = {}
+    try:
+        win.show()
+        win.show_page("devices", remember=False)
+        win.selected = KEY
+        sw.trial = {"key": KEY, "name": "Bright", "until": time.time() + 200}
+        win.render_all()
+        qt.pump(10)
+        small = [lab.text() for lab in win.dev_panel.findChildren(QLabel) if lab.property("small") == "true"]
+        add = next(b for b in win.dev_panel.findChildren(QPushButton) if b.text() == "Add a profile")
+        make = next(a for a in add.menu().actions() if a.text() == "Make an EQ")
+        # (QAction gives its text as its tooltip when none is set; the menu shows no tooltips at all)
+        tip = (make.toolTip(), add.menu().toolTipsVisible())
+        sw.trial = None
+        for hk, onoff in (("Ctrl+Alt+E", "Ctrl+Alt+Space"), ("Ctrl+Alt+E", ""), ("", "")):
+            sw.s["hotkey"], sw.s["onoff_hotkey"] = hk, onoff
+            win.render_device_panel()
+            lines[(hk, onoff)] = next((lab.text() for lab in win.dev_panel.findChildren(QLabel)
+                                       if lab.text().startswith("Switch profiles")), None)
+    finally:
+        sw.trial = None
+        sw.s.update(kept)
+        win.render_all()
+    check("devices: the 5-minute row has no gray note under it; the Make an EQ row has no tooltip; the card's last "
+          "line has the hotkeys that are set",
+          not any("The bar at the top" in t for t in small) and tip == ("Make an EQ", False)
+          and lines == {("Ctrl+Alt+E", "Ctrl+Alt+Space"): "Switch profiles in the tray menu or with Ctrl+Alt+E while "
+                                                          "active. Press Ctrl+Alt+Space to toggle EQ.",
+                        ("Ctrl+Alt+E", ""): "Switch profiles in the tray menu or with Ctrl+Alt+E while active.",
+                        ("", ""): "Switch profiles in the tray menu."}, (small, tip, lines))
+
+
 def test_profiles_commands_and_its_empty_table(devices_window, check):
     from PySide6.QtWidgets import QFrame, QPushButton
     w = devices_window

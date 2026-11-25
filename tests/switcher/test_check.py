@@ -51,12 +51,31 @@ def test_said_plainly(bench, check):
     # was selftest.py:657
     check("check: said plainly: the EQ applies (and what config.txt adds on top), off, config.txt without AutoEQ "
           "Studio's line, no section for the device, the EQ's file missing, APO not on the device",
-          applies[0] and "APO uses “My IEM”" in applies[1] and "Loudness.txt" in applies[1]
+          applies[0] and "APO is using “My IEM”" in applies[1] and "Loudness.txt" in applies[1]
           and off[0] and "off for this device" in off[1]
-          and not not_ours[0] and "does not read AutoEQ Studio's file" in not_ours[1]
-          and not no_section[0] and "no section" in no_section[1]
+          and not not_ours[0] and "isn't loading AutoEQ Studio" in not_ours[1]
+          and not no_section[0] and "No APO section" in no_section[1]
           and not missing[0] and "missing" in missing[1]
-          and not no_apo[0] and "is not installed" in no_apo[1], (applies, off, not_ours, no_section, missing, no_apo))
+          and not no_apo[0] and "isn't installed" in no_apo[1], (applies, off, not_ours, no_section, missing, no_apo))
+
+
+def test_sentences_without_a_full_stop_joined(bench, check):
+    # (the owner's words of the text survey, 2026-11-24, end some sentences without a full stop: between two
+    # sentences one is put, so that the next does not run on; the last keeps the owner's end)
+    apo, eq, found = bench.apo, bench.eq, bench.found
+    no_section = c.explain(apo, {"loaded": [apo.config_txt, bench.ours, bench.other], "matched": []}, "My IEM", eq,
+                           apo_on_device=False)[1]
+    off = c.explain(apo, dict(found, loaded=found["loaded"][:3]), None)[1]
+    missing = c.explain(apo, dict(found, loaded=found["loaded"][:3]), "My IEM", eq)[1]
+    check("check: sentences without a full stop are joined with one, and the text keeps the owner's end",
+          no_section == "No APO section for this device: APO reads AutoEQ Studio's config, but doesn't apply EQ to "
+                        "this device. config.txt also loads these files for this device: Loudness.txt. Also, "
+                        "Equalizer APO isn't installed on this device, so EQ won't apply. Enable it in APO "
+                        "Configurator, then restart Windows."
+          and off == "EQ is off for this device (APO sees its section with no active profile). config.txt also loads "
+                     "these files for this device: Loudness.txt"
+          and missing == "“My IEM” is selected, but APO isn't loading it (file missing from APO folder). config.txt "
+                         "also loads these files for this device: Loudness.txt", (no_section, off, missing))
 
 
 def _never_run(*args, **kwargs):
@@ -74,4 +93,4 @@ def test_without_benchmark_tool(bench, monkeypatch, check):
     except OSError as e:
         raised = str(e)
     # was selftest.py:670
-    check("check: without APO's Benchmark tool, said (nothing run)", "Benchmark tool is not there" in raised, raised)
+    check("check: without APO's Benchmark tool, said (nothing run)", "Benchmark tool not found" in raised, raised)

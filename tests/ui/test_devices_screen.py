@@ -151,7 +151,7 @@ def test_playing_device_chosen_and_apo_missing_said(devices_window, check):
     labels = [w.text() for w in win.dev_panel.findChildren(type(win.banner_text))]
     # was selftest.py:374
     check("window: the device playing is chosen, and APO missing on it is said",
-          win.selected == "Headset|EarPods" and any("is not installed on this device" in t for t in labels),
+          win.selected == "Headset|EarPods" and any("isn't installed on this device" in t for t in labels),
           (win.selected, labels))
 
 
@@ -182,10 +182,32 @@ def test_check_again(set_up_window, check, monkeypatch):
     # was selftest.py:424 (the UI audit, 2026-11-08: a bad answer is Windows 11's warning bar, with Examine again in it)
     check("window: Check again asks APO for the device's endpoint and says all it found (its EQ applies, but APO "
           "isn't on the device); the device's line says it too, as a warning bar",
-          len(chk) == 1 and "{5}" in told and any(isinstance(x, tuple) and x[0] == "not" and "on this device: APO finds the section"
-                                                   in x[1] and "is not installed on this device" in x[1] for x in told)
-          and line.startswith("Equalizer APO is not installed on this device") and bar[0] and bar[1] == line
+          len(chk) == 1 and "{5}" in told and any(isinstance(x, tuple) and x[0] == "not" and "device section found and EQ file loaded"
+                                                   in x[1] and "isn't installed on this device" in x[1] for x in told)
+          and line.startswith("Equalizer APO isn't installed on this device") and bar[0] and bar[1] == line
           and not bar[2], (told, line, bar))
+
+
+def test_examine_again_shows_no_wait_message(set_up_window, check, monkeypatch):
+    # (the text survey, area 27, 2026-11-24: Examine again shows no message while it waits; the line beside it says
+    # "Checking Equalizer APO…", and then the message box shows all the results)
+    from PySide6.QtWidgets import QMessageBox
+    from switcher import check as apo_check
+    win = set_up_window.win
+    win._checks.clear()
+    said, boxes, line = [], [], []
+    monkeypatch.setattr(win, "status", lambda *a, **k: said.append(a[0] if a else k))
+    monkeypatch.setattr(apo_check, "run", lambda apo, guid, timeout=60: {"loaded": [], "matched": []})
+    for kind in ("information", "warning"):
+        monkeypatch.setattr(QMessageBox, kind, staticmethod(lambda *a, **k: boxes.append(a[2])))
+    real = win._show_check
+    monkeypatch.setattr(win, "_show_check", lambda key: (real(key), line.append(win.check_label.text()))[0])
+    win.check_device(KEY)
+    qt.wait_for(lambda: boxes, 10)
+    monkeypatch.undo()
+    check("devices: Examine again shows no message while it waits; the line says “Checking Equalizer APO…”, then the "
+          "message box shows the result", said == [] and "Checking Equalizer APO…" in line and len(boxes) == 1
+          and boxes[0].startswith("Equalizer APO isn't loading AutoEQ Studio"), (said, line, boxes))
 
 
 def test_line_asked_once_per_change(set_up_window, check, monkeypatch, qapp):
@@ -206,25 +228,24 @@ def test_line_asked_once_per_change(set_up_window, check, monkeypatch, qapp):
     # was selftest.py:477
     check("window: the device's line isn't asked again while nothing changed; asked by itself after a change "
           "(a warning bar: APO doesn't read AutoEQ Studio's file)", again == [] and asked == ["{5}"]
-          and win.check_warn.isVisibleTo(win) and "does not read" in win.check_warn_text.text(), (again, asked,
+          and win.check_warn.isVisibleTo(win) and "isn't loading" in win.check_warn_text.text(), (again, asked,
                                                                                          win.check_label.text()))
 
 
 def test_line_keeps_a_profiles_name_whole(check):
     # (the one-line answer kept a profile's name whole: "Truthear GATe (Diffuse field)" was cut at its bracket)
     from ui.window import check_line
-    lines = [check_line(True, "APO uses “Truthear GATe (Diffuse field)” on this device: APO finds the section of the "
-                              "device and loads the file of the EQ. config.txt also loads these files for this device: "
-                              "x.txt."),
-             check_line(False, "AutoEQ Studio selected “A. B (C)”, but APO does not load its file for this device (the "
-                               "file is missing from APO's folder)."),
-             check_line(True, "AutoEQ Studio's EQ is off for this device (APO finds its section, with no EQ in it)."),
-             check_line(None, "AutoEQ Studio cannot get data from Equalizer APO: Benchmark is not there.")]
+    lines = [check_line(True, "APO is using “Truthear GATe (Diffuse field)”: device section found and EQ file "
+                              "loaded. config.txt also loads these files for this device: x.txt"),
+             check_line(False, "“A. B (C)” is selected, but APO isn't loading it (file missing from APO folder)"),
+             check_line(True, "EQ is off for this device (APO sees its section with no active profile)"),
+             check_line(None, "Couldn't read Equalizer APO status: Benchmark tool not found. Install Equalizer APO "
+                              "1.3 or newer.")]
     # was selftest.py:489
     check("window: the device's line keeps a profile's name whole (brackets, a full stop) and drops the rest",
-          lines == ["APO uses “Truthear GATe (Diffuse field)” on this device.",
-                    "AutoEQ Studio selected “A. B (C)”, but APO does not load its file for this device.",
-                    "AutoEQ Studio's EQ is off for this device.", "AutoEQ Studio cannot get data from Equalizer APO"],
+          lines == ["APO is using “Truthear GATe (Diffuse field)”.",
+                    "“A. B (C)” is selected, but APO isn't loading it.",
+                    "EQ is off for this device.", "Couldn't read Equalizer APO status"],
           lines)
 
 
@@ -827,8 +848,8 @@ def test_examine_again_keeps_the_focus_when_the_card_is_made_again(set_up_window
 # For a connected device Remove stays on and a bubble at it tells why: UI-RULES 25)
 AWAY = "Headphones|Buds"  # (in Windows' list, not connected)
 GONE = "Headset|USB-C to 3.5mm Headphone Jack Adapter"  # (no longer in Windows' list)
-TIP = "Removes this device from Devices. Its profiles stay in Profiles."
-CONNECTED = "You can remove a device only when it is not connected."
+TIP = "Remove from Devices. Its profiles stay in Profiles."
+CONNECTED = "Disconnect this device before removing it"
 
 
 def _remove_profile(w, name):
@@ -971,7 +992,7 @@ def test_a_click_removes_and_undo_puts_it_back(devices_window, qapp, check):
     check("devices: a click on Remove removes the device (its profile stays in Profiles) and selects the row at the "
           "same place, with the keyboard in the list; the message names it, tells that it shows again when you "
           "connect it, and has Undo; Undo puts it back as it was and selects it",
-          off == (None, False, KEY, "Removed “My buds” from Devices. It shows again when you connect it.", True, True,
+          off == (None, False, KEY, "Removed “My buds” from Devices. It will reappear when reconnected.", True, True,
                   [AWAY], True) and back == (True, True, AWAY, AWAY, []), (off, back))
 
 
@@ -1000,7 +1021,7 @@ def test_the_list_selects_the_row_at_the_same_place_or_the_last(devices_window, 
     check("devices: after a removal the list selects the row at the same place (or the last row) and the panel shows "
           "it; a device that Windows does not list shows no more (the message has no more words for it)",
           order == [KEY, AWAY, GONE] and middle == (GONE, [KEY, GONE], "Removed “Headphones (Buds)” from Devices. It "
-                                                                       "shows again when you connect it.")
+                                                                       "will reappear when reconnected.")
           and last == (KEY, [KEY], "Removed “Headset (USB-C to 3.5mm Headphone Jack Adapter)” from Devices.", None),
           (order, middle, last))
 
@@ -1028,7 +1049,7 @@ def test_undo_after_the_device_connected_again(devices_window, qapp, check):
         win.render_all()
     check("devices: Undo after the device was connected again (a new device) changes nothing and tells why; the list "
           "selects that device (its row, not only the panel)",
-          got == ("You connected “Headphones (Buds)” again: Undo is not possible.", [], True, AWAY, AWAY), got)
+          got == ("Can't undo: “Headphones (Buds)” was reconnected", [], True, AWAY, AWAY), got)
 
 
 def test_use_on_device_and_the_tray_do_not_list_a_removed_device(devices_window, qapp, check):

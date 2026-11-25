@@ -531,9 +531,9 @@ class Switcher:
         Its own EQ comes back by itself (end_trial, from the app's clock). Raises OSError when it can't."""
         self._require_writable()
         if not self.apo.found:
-            raise OSError("Equalizer APO is not installed. Thus, the device cannot use the EQ.")
+            raise OSError("Equalizer APO isn't installed, so EQ can't be applied")
         if not self.record(key):
-            raise OSError("AutoEQ Studio does not know this device.")
+            raise OSError("This device isn't recognized")
         os.makedirs(self.apo.profiles, exist_ok=True)
         # (the text's own line ends: text mode made its CRLF CR CR LF)
         textfile.write_atomic(self.trial_path(), apo_text, newline="")

@@ -78,8 +78,8 @@ def test_a_profile_taken_off_a_device_comes_back_with_undo(devices_window, qapp,
         win.render_all()
     check("devices: a profile's ✕ removes it from the device and says so with Undo in a bubble; Undo puts it "
           "back in its place, the device's EQ as it was (Off stays off); deleted meanwhile, Undo says so",
-          off == (False, "Removed “First” from this device.", True) and back == (True, None, "")
-          and "Undo is not possible" in gone, (off, back, before, gone))
+          off == (False, "Removed “First” from this device", True) and back == (True, None, "")
+          and "Can't undo" in gone, (off, back, before, gone))
 
 
 def test_online_offline_one_width(devices_window, online, check):

@@ -1,7 +1,7 @@
 """Devices and Profiles at the window's smallest width, and the window's other corrections of the visual review
 (2026-11-10): a long profile name in a device's card ends in "…" (Rename… and the row's ✕ stay whole and in view);
 Profiles' "Used by" column has a limit, so the Name column keeps a width to read; the empty device list has the gray
-line of every empty list; the line "Wait for Equalizer APO…" is in a note's gray, not a warning's colour; and a window
+line of every empty list; the line "Checking Equalizer APO…" is in a note's gray, not a warning's colour; and a window
 whose title bar Windows refused is drawn once when it shows, not twice."""
 import os
 
@@ -115,7 +115,7 @@ def test_the_wait_line_is_not_a_warning(devices_window, check):
     roles = []
     try:
         if lab is not None:
-            win._checks[KEY] = (win._check_sig(KEY), False, "Equalizer APO is not installed on this device.")
+            win._checks[KEY] = (win._check_sig(KEY), False, "Equalizer APO isn't installed on this device, so EQ won't apply.")
             win._show_check(KEY)
             roles.append(lab.property("role"))
             win._checks.pop(KEY)  # (as Examine again does: asked again, no answer yet)
@@ -127,8 +127,8 @@ def test_the_wait_line_is_not_a_warning(devices_window, check):
         if kept is not None:
             win._checks[KEY] = kept
         win.render_all()
-    check("devices: while Equalizer APO is asked again after a bad answer, “Wait for Equalizer APO…” is in a note's "
-          "gray, not in the warning's colour", roles[:1] == ["warn"] and roles[1:2] and roles[1].startswith("Wait for")
+    check("devices: while Equalizer APO is asked again after a bad answer, “Checking Equalizer APO…” is in a note's "
+          "gray, not in the warning's colour", roles[:1] == ["warn"] and roles[1:2] and roles[1] == "Checking Equalizer APO…"
           and roles[2] == "muted" and roles[3], roles)
 
 
@@ -229,7 +229,7 @@ def test_the_empty_device_list(qapp, stub_app, tmp_path, check):
         qt.close(win)
     check("devices: an empty device list shows one gray line in its middle that tells the next step (UI-RULES 21), "
           "and the panel beside it does not say it again",
-          got[0] == 0 and got[1] and got[2].startswith("No playback devices. Connect") and got[3] == "muted"
+          got[0] == 0 and got[1] and got[2] == "No playback devices found. Connect one to get started." and got[3] == "muted"
           and not said_twice, (got, said_twice))
 
 
