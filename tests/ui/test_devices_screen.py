@@ -159,36 +159,47 @@ def test_playing_device_chosen_and_apo_missing_said(devices_window, check):
 
 @pytest.fixture
 def apo_on(set_up_window):
-    """The window after Set up, with Equalizer APO on the playing device while the test runs (the line about
-    Equalizer APO and Examine again show only on a device with APO: tests\\ui\\conftest.py)."""
+    """The window after Set up, with Equalizer APO on the playing device while the test runs
+    (tests\\ui\\conftest.py's apo_on_playing_device)."""
     with set_up_window.apo_on_playing_device():
         yield set_up_window
 
 
-def test_one_bar_on_a_device_without_apo(set_up_window, check):
-    # (a review of the text survey, 2026-11-24: on a device without Equalizer APO, the card's warning bar said so,
-    # and the line about Equalizer APO under it said the same in a second warning bar: Benchmark's answer for such a
-    # device ends with those words, switcher\check.py)
-    from PySide6.QtWidgets import QLabel, QPushButton
-    win = set_up_window.win
-    # (Benchmark's answer for such a device when the rest is right: switcher\check.py's last sentence alone)
-    missing = ("Equalizer APO isn't installed on this device, so EQ won't apply. Enable it in APO Configurator, then "
-               "restart Windows.")
-    if win.check_label is not None:  # (the line of the device, with that answer)
-        win._checks[KEY] = (win._check_sig(KEY), False, missing)
-        win._show_check(KEY)
-    said = [lab.text() for lab in win.dev_panel.findChildren(QLabel)
-            if lab.isVisibleTo(win) and "isn't installed on this device" in lab.text()]
-    again = [b for b in win.dev_panel.findChildren(QPushButton) if b.text() == "Examine again" and b.isVisibleTo(win)]
-    check("devices: a device without Equalizer APO says so in one warning bar, the card's, with no line about "
-          "Equalizer APO and no Examine again", len(said) == 1 and said[0].startswith("Equalizer APO isn't installed")
-          and win.check_label is None and not again, (said, len(again)))
-
-
-def test_check_again(apo_on, check, monkeypatch):
+def test_check_again(set_up_window, check, monkeypatch):
     # Is the EQ playing? Benchmark's answer (a stand-in for it here) on the device's line and, with Check again, said
-    # in full. (A device without Equalizer APO has no such line: test_one_bar_on_a_device_without_apo. Here APO is on
-    # the device, and its answer is bad: the profile's file is not loaded)
+    # in full
+    from PySide6.QtWidgets import QMessageBox, QPushButton
+    from switcher import check as apo_check
+    w = set_up_window
+    win, sw = w.win, w.sw
+    rec = sw.record(KEY)
+    win._checks.clear()
+    chk = [b for b in win.dev_panel.findChildren(QPushButton) if b.text() == "Examine again" and b.isVisibleTo(win)]
+    pfile = os.path.join(sw.apo.profiles, sw.profiles()[rec["active"]]["file"])
+    told = []
+    monkeypatch.setattr(apo_check, "run", lambda apo, guid, timeout=60: (told.append(guid), {
+        "loaded": [apo.config_txt, os.path.join(apo.config, "AutoEQ Studio", "switcher.txt"), pfile],
+        "matched": ["{5}"]})[1])
+    monkeypatch.setattr(QMessageBox, "information", staticmethod(lambda *a, **k: told.append(("ok", a[2]))))
+    monkeypatch.setattr(QMessageBox, "warning", staticmethod(lambda *a, **k: told.append(("not", a[2]))))
+    if chk:
+        chk[0].click()
+        qt.wait_for(lambda: len(told) >= 2, 10)
+    monkeypatch.undo()  # (put back before the line is read, as the old check did)
+    line = win.check_label.text() if win.check_label is not None else ""
+    bar = (win.check_warn is not None and win.check_warn.isVisibleTo(win), win.check_warn_text.text()
+           if win.check_warn is not None else "", win.check_row is not None and win.check_row.isVisibleTo(win))
+    # was selftest.py:424 (the UI audit, 2026-11-08: a bad answer is Windows 11's warning bar, with Examine again in it)
+    check("window: Check again asks APO for the device's endpoint and says all it found (its EQ applies, but APO "
+          "isn't on the device); the device's line says it too, as a warning bar",
+          len(chk) == 1 and "{5}" in told and any(isinstance(x, tuple) and x[0] == "not" and "device section found and EQ file loaded"
+                                                   in x[1] and "isn't installed on this device" in x[1] for x in told)
+          and line.startswith("Equalizer APO isn't installed on this device") and bar[0] and bar[1] == line
+          and not bar[2], (told, line, bar))
+
+
+def test_check_again_on_a_device_with_apo(apo_on, check, monkeypatch):
+    # (as test_check_again, with Equalizer APO on the device; its answer is bad: the profile's file is not loaded)
     from PySide6.QtWidgets import QMessageBox, QPushButton
     from switcher import check as apo_check
     w = apo_on
@@ -469,19 +480,14 @@ def test_symbols_beside_the_device_screens_words(set_up_window, check, qapp):
     win.render_device_panel()
     qapp.processEvents()  # (the panel's new parts are shown on Qt's next turn)
     buttons = {b.text(): b for b in win.dev_panel.findChildren(QPushButton) if b.isVisible()}
+    want = ("Rename…", "Add a profile", "Examine again")
     signs = [(lab.accessibleName(), lab.property("role")) for lab in win.dev_panel.findChildren(QLabel)
              if lab.property("glyph") == "true" and lab.isVisible()]
-    missing = [w for w in ("Rename…", "Add a profile") if w not in buttons or buttons[w].icon().isNull()]
-    # (Examine again is on the card of a device with Equalizer APO only)
-    with set_up_window.apo_on_playing_device():
-        qapp.processEvents()
-        again = [b for b in win.dev_panel.findChildren(QPushButton) if b.isVisible() and b.text() == "Examine again"]
-        missing += [] if again and not again[0].icon().isNull() else ["Examine again"]
-    buttons = sorted(buttons)
     # (the playing device has no APO on it: its card says so)
     check("devices: Windows 11's symbols beside Rename…, Add a profile and Check again (their words unchanged), and "
           "the warning sign on the card saying APO isn't on the device",
-          not missing and signs == [("Warning", "warn")], (buttons, missing, signs))
+          all(w in buttons and not buttons[w].icon().isNull() for w in want) and signs == [("Warning", "warn")],
+          (sorted(buttons), [w for w in want if w in buttons and buttons[w].icon().isNull()], signs))
 
 
 def test_add_a_profile_menu_sorts_numbers_as_numbers(set_up_window, check, qapp, tmp_path):

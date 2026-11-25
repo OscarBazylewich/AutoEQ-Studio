@@ -104,30 +104,29 @@ def test_used_by_has_a_limit(devices_window, check):
 
 
 def test_the_wait_line_is_not_a_warning(devices_window, check):
-    # (the line about Equalizer APO shows on a device with APO only: tests\ui\conftest.py's apo_on_playing_device;
-    # its bad answer here, a profile's file not loaded)
     w = devices_window
     win = w.win
     win.show()
     win.show_page("devices", remember=False)
     win.selected = KEY
+    win.render_all()
+    qt.wait_for(lambda: not win._checking, 30)
+    lab, kept = win.check_label, win._checks.get(KEY)
     roles = []
-    with w.apo_on_playing_device():
-        lab, kept = win.check_label, win._checks.get(KEY)
-        try:
-            if lab is not None:
-                win._checks[KEY] = (win._check_sig(KEY), False, "“EarPods” is selected, but APO isn't loading it")
-                win._show_check(KEY)
-                roles.append(lab.property("role"))
-                win._checks.pop(KEY)  # (as Examine again does: asked again, no answer yet)
-                win._checking.add(KEY)
-                win._show_check(KEY)
-                roles += [lab.text(), lab.property("role"), win.check_row.isVisibleTo(win)]
-        finally:
-            win._checking.discard(KEY)
-            if kept is not None:
-                win._checks[KEY] = kept
-            win.render_all()
+    try:
+        if lab is not None:
+            win._checks[KEY] = (win._check_sig(KEY), False, "Equalizer APO isn't installed on this device, so EQ won't apply.")
+            win._show_check(KEY)
+            roles.append(lab.property("role"))
+            win._checks.pop(KEY)  # (as Examine again does: asked again, no answer yet)
+            win._checking.add(KEY)
+            win._show_check(KEY)
+            roles += [lab.text(), lab.property("role"), win.check_row.isVisibleTo(win)]
+    finally:
+        win._checking.discard(KEY)
+        if kept is not None:
+            win._checks[KEY] = kept
+        win.render_all()
     check("devices: while Equalizer APO is asked again after a bad answer, “Checking Equalizer APO…” is in a note's "
           "gray, not in the warning's colour", roles[:1] == ["warn"] and roles[1:2] and roles[1] == "Checking Equalizer APO…"
           and roles[2] == "muted" and roles[3], roles)

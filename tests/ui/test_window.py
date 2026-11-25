@@ -223,6 +223,23 @@ def test_the_banner_and_the_trial_bar_as_windows_11(devices_window, check):
           (signs(win.banner), signs(win.trial_bar), plain))
 
 
+def test_the_trial_time_for_a_screen_reader(devices_window, check):
+    # (a review of the text survey, 2026-11-24: a screen reader reads the time of the trial bar as "{m:ss} left", the
+    # owner's words of the survey; it read "{m:ss} until the end")
+    import time
+    w = devices_window
+    win, sw = w.win, w.sw
+    try:
+        sw.trial = {"key": "Headset|EarPods", "name": "Bright", "until": time.time() + 200}
+        win.render_trial()
+        got = (win.trial_time.text(), win.trial_time.accessibleName())
+    finally:
+        sw.trial = None
+        win.render_trial()
+    check("window: a screen reader reads the trial bar's time as its text and \"left\"",
+          got[1] == got[0] + " left" and "until the end" not in got[1], got)
+
+
 def test_online_offline(devices_window, online, check):
     # (online first, as the old self-test started: the `online` fixture puts the session's offline back after)
     win = devices_window.win

@@ -169,10 +169,9 @@ class DevicesWindow:
 
     @contextlib.contextmanager
     def apo_on_playing_device(self):
-        """Equalizer APO installed on the playing device (the headset "{5}") while the block runs, then not again.
-        The line about Equalizer APO and Examine again show only on a device with APO (a device without it says
-        so in the card's warning bar): the tests of that line run in this block. The window's own question to APO
-        is let finish at both ends."""
+        """Equalizer APO installed on the playing device (the headset "{5}") while the block runs, then not again:
+        for the tests of the line about Equalizer APO on a device with APO. The window's own question to APO is let
+        finish at both ends."""
         from helpers import qt
         ep = next(e for e in self.eps if e.guid == "{5}")
         was = ep.apo

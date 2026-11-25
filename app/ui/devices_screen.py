@@ -354,9 +354,7 @@ class DevicesScreen:
         bl.addWidget(add, 0, Qt.AlignLeft)
         lay.addWidget(box)
         self.check_label = self.check_row = self.check_warn = None
-        # (off for now, APO plays the flat file: asked again once it's back. A device without Equalizer APO has no
-        # line: the card's warning bar above says it, and the line's answer said the same words in a second bar)
-        if self.sw.apo.found and d and d.apo and not c:
+        if self.sw.apo.found and d and not c:  # (off for now, APO plays the flat file: asked again once it's back)
             row = QHBoxLayout()
             self.check_label = QLabel()
             self.check_label.setWordWrap(True)

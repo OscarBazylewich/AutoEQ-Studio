@@ -735,6 +735,7 @@ def test_lists_a_demo_shows(s, check):
     from PySide6.QtWidgets import QLabel, QLineEdit, QMenu, QWidget
     from helpers import qt
     from ui import guide_demos, theme, tour
+    from ui.eq_page_history import NO_PRESETS
     page = s.page
     win, tk, combo = page.window(), theme.tokens(), page.mode_combo
 
@@ -810,7 +811,7 @@ def test_lists_a_demo_shows(s, check):
             and box.geometry().bottom() < m.rows[0].geometry().top() and mock_box == real_box \
             and real_box["line"] == tk["accent"]
         t.stop_demo()
-        items = [("No presets", False), "Save as a preset…", None, "Use for 5 minutes on ▸"]
+        items = [(NO_PRESETS, False), "Save as a preset…", None, "Use for 5 minutes on ▸"]
         g = guide_demos.mock_menu(api, page.use_btn, items)  # (a menu, as the demos show Presets' and Use on device's)
         next(g)
         qt.pump(50)
@@ -824,7 +825,7 @@ def test_lists_a_demo_shows(s, check):
     finally:
         t.end()
     real_m = QMenu(page)  # (a real menu in the app's look, the same rows, its item pointed at)
-    real_m.addAction("No presets").setEnabled(False)
+    real_m.addAction(NO_PRESETS).setEnabled(False)
     act = real_m.addAction("Save as a preset…")
     real_m.addSeparator()
     sub = real_m.addMenu("Use for 5 minutes on")
