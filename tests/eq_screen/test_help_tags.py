@@ -29,7 +29,10 @@ NO_TOOLTIP = {"#opt-view", "#target-save", "#compare-results", "#make-way", "#by
               "snd_list",
               # (area 22: the source tabs of Find…, Targets and measurements, the Rig, Type and Source lists, Paste
               # the picture, Rig of your target, Folders to search and Online databases)
-              "#pk-src", "#pk-anykind", "pk_filters", "#pw-paste", "#cmp-rig", "library.folders", "databases"}
+              "#pk-src", "#pk-anykind", "pk_filters", "#pw-paste", "#cmp-rig", "library.folders", "databases",
+              # (area 26: the tracer's Automatic settings, Top, Bottom, Left, Right, Points in each octave, Save
+              # from … to and Name)
+              "#tr-auto-on", "#tr-d1", "#tr-d2", "#tr-f1", "#tr-f2", "#tr-ppo", "#tr-fmin", "#tr-name"}
 
 
 @pytest.mark.timeout(600)  # (the tracer's labels read and three Auto traces first)
@@ -462,6 +465,52 @@ def test_listen_without_help_lines(eq_screen, check):
     got = [(w.toolTip(), w.accessibleDescription()) for w in (lis.abx_row, lis.abx_a, lis.abx_b, lis.abx_n, lis.abx_box)]
     check("help: the row of the ABX test, its 3 lists and the panel of the test show the new line, which a screen "
           "reader reads too", got == [(line, line)] * 5, got)
+
+
+def test_tracer_help_lines(eq_screen, check):
+    # (2026-11-24, the text survey, area 26: the Help lines of 8 controls of the tracer removed, 6 changed. A value
+    # box's tooltip was its line, then "Allowed: …" on a second line: with no line it is "Allowed: …" alone, with no
+    # empty first line, also after a value is typed)
+    from ui import help_window
+    from ui.trace_window import sample_image
+    page = eq_screen.page
+    page.open_trace()
+    tw = page.tracer
+    img, _s = sample_image()
+    tw.load_image(img, "Sample IEM")
+    eq_screen.wait_for(lambda: not tw.reading and not tw.loading, 60)
+    bare = {"Automatic settings": tw.auto_on, "Points in each octave": tw.ppo, "Name": tw.name}
+    got = {n: (w.toolTip(), bool(w.accessibleName()), w.accessibleDescription(), bool(help_window.entry_of_widget(w)))
+           for n, w in bare.items()}
+    check("help: Automatic settings, Points in each octave and Name of the tracer show no tooltip, and keep their name "
+          "for a screen reader and their entry in Help", all(v == ("", True, "", True) for v in got.values()), got)
+    limits = {"d1": "trace.db", "d2": "trace.db", "f1": "trace.hz", "f2": "trace.hz", "fmin": "trace.save",
+              "fmax": "trace.save"}
+    want = {k: "Allowed: " + tw.limits.text(lim) for k, lim in limits.items()}
+    got = {k: (tw.boxes[k].toolTip(), tw.boxes[k].accessibleDescription(), bool(tw.boxes[k].accessibleName()))
+           for k in limits}
+    check("help: Top, Bottom, Left, Right and Save from … to of the tracer show only the allowed values (no empty "
+          "first line), and keep their name for a screen reader",
+          got == {k: (want[k], "", True) for k in limits}, (got, want))
+    typed = {}
+    for k, value in (("d1", "90"), ("fmin", "x"), ("fmin", "30"), ("fmax", "15000")):
+        tw.boxes[k].setText(value)
+        tw.value_typed(k, limits[k])
+        typed[(k, value)] = tw.boxes[k].toolTip()
+    check("help: after a valid value is typed, a value box of the tracer still shows only the allowed values; after a "
+          "value that is not a number, the error",
+          typed[("d1", "90")] == want["d1"] and typed[("fmin", "30")] == want["fmin"]
+          and typed[("fmax", "15000")] == want["fmax"] and typed[("fmin", "x")] == "Enter a number", typed)
+    words = {"Align with grid lines": (tw.snap, "Snaps lines to the nearest grid line while dragging"),
+             "Follow all grid lines": (tw.every, "Uses all grid lines for irregular axes"),
+             "Color tolerance": (tw.tol, "Max color difference for a pixel to match the curve"),
+             "Dashed or dotted line": (tw.dashed, "Follows dashed or dotted curves across gaps"),
+             "The graph shows": (tw.shows, "Graph type: measurement, target, or either relative to a target"),
+             "Target of the graph": (tw.comp, "Reference target for a relative graph; added back to the traced "
+                                              "curve")}
+    got = {n: (w.toolTip(), w.accessibleDescription()) for n, (w, _line) in words.items()}
+    check("help: the 6 changed lines of the tracer are the tooltips of their controls, which a screen reader reads too",
+          got == {n: (line, line) for n, (_w, line) in words.items()}, got)
 
 
 def test_numbers_of_your_result_without_a_help_line(eq_screen, check):

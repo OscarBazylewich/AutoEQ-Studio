@@ -4,22 +4,20 @@ tooltip, with the ids of its "See also" entries in Help), and SETTINGS_TRACE, th
 """
 # flake8: noqa
 
-HELP_TRACE = {'#tr-auto-on': ["The app adjusts the tracer's settings for the image.", 'automatic-settings'],
- '#tr-d1': 'The dB value at the top red line.',
- '#tr-d2': 'The dB value at the bottom red line.',
- '#tr-f1': 'The frequency at the left blue line.',
- '#tr-f2': 'The frequency at the right blue line.',
- '#tr-snap': 'The lines that you drag move to the nearest grid line.',
- '#tr-every': 'The app uses all grid lines, for irregular axes.',
- '#tr-tol': "How different a pixel's color can be from the curve's color.",
- '#tr-ppo': 'The number of points in each octave that the app saves.',
- '#tr-fmin': 'The frequency range to save.',
- '#tr-name': "The saved file's name.",
- '#tr-dashed': 'The app follows dashed or dotted curves across their spaces.',
- '#tr-shows': ['The type of the graph in the picture: a measurement, a target line, or one of them as the '
-               'difference from a target.', 'compensated'],
- '#tr-comp': ['The target of a graph that shows the difference from a target. The app adds this target to the '
-              'curve.', 'compensated'],
+HELP_TRACE = {'#tr-auto-on': ['', 'automatic-settings'],
+ '#tr-d1': '',
+ '#tr-d2': '',
+ '#tr-f1': '',
+ '#tr-f2': '',
+ '#tr-snap': 'Snaps lines to the nearest grid line while dragging',
+ '#tr-every': 'Uses all grid lines for irregular axes',
+ '#tr-tol': 'Max color difference for a pixel to match the curve',
+ '#tr-ppo': '',
+ '#tr-fmin': '',
+ '#tr-name': '',
+ '#tr-dashed': 'Follows dashed or dotted curves across gaps',
+ '#tr-shows': ['Graph type: measurement, target, or either relative to a target', 'compensated'],
+ '#tr-comp': ['Reference target for a relative graph; added back to the traced curve', 'compensated'],
  '#tr-target-line': ["Save the graph's target line as a new target", 'tracer',
                      'databases']}
 

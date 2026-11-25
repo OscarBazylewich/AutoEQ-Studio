@@ -153,6 +153,13 @@ def _no_focus(root):
             w.setFocusPolicy(Qt.NoFocus)
 
 
+def _range_tip(line, allowed):
+    """A value box's tooltip: its Help line (help_of), then "Allowed: …" on a line of its own. With no Help line
+    (the text survey, 2026-11-24, removed the lines of Top, Bottom, Left, Right and Save from … to) only "Allowed:
+    …", with no empty first line."""
+    return "\n".join(p for p in (line, f"Allowed: {allowed}") if p)
+
+
 def _label(text="", role=None, wrap=True):
     lab = QLabel(text)
     lab.setWordWrap(wrap)
@@ -1002,7 +1009,7 @@ class TraceWindow(QWidget):
                 g.addWidget(_label(short, "muted", wrap=False), r, 1 + 2 * c)
                 b = QLineEdit()
                 b.setAccessibleName(text)
-                b.setToolTip(help_of(f"#tr-{key}") + f"\nAllowed: {self.limits.text(lim)}")
+                b.setToolTip(_range_tip(help_of(f"#tr-{key}"), self.limits.text(lim)))
                 b.textEdited.connect(lambda _t, k=key, lim=lim: self.value_typed(k, lim))
                 b.editingFinished.connect(lambda k=key, lim=lim: self.value_left(k, lim))
                 g.addWidget(b, r, 2 + 2 * c)
@@ -1157,7 +1164,7 @@ class TraceWindow(QWidget):
         self.fmin, self.fmax = _RangeBox(), _RangeBox()
         for key, b in (("fmin", self.fmin), ("fmax", self.fmax)):
             b.setMaximumWidth(80)
-            b.setToolTip(help_of("#tr-fmin") + f"\nAllowed: {self.limits.text('trace.save')}")
+            b.setToolTip(_range_tip(help_of("#tr-fmin"), self.limits.text("trace.save")))
             b.textEdited.connect(lambda _t, k=key: self.value_typed(k, "trace.save"))
             b.editingFinished.connect(lambda k=key: self.value_left(k, "trace.save"))
             self.boxes[key] = b
@@ -2018,7 +2025,8 @@ class TraceWindow(QWidget):
             except ValueError:
                 bad = ("bad", "Enter a number")
             theme.mark(b, bad=bool(bad))
-            b.setToolTip(bad[1] if bad else help_of(f"#tr-{key if key[0] in 'df' else 'fmin'}") + f"\nAllowed: {self.limits.text(lim)}")
+            b.setToolTip(bad[1] if bad else _range_tip(help_of(f"#tr-{key if key[0] in 'df' else 'fmin'}"),
+                                                         self.limits.text(lim)))
             if bad:
                 return
             t.v[key] = text
