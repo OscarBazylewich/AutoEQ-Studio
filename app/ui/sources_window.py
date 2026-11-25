@@ -1,12 +1,12 @@
 """Sources (AutoEQ Local's Settings › Sources, natively; sources.js): where Find… looks.
 - This PC: the folders searched for curve files (one per line; empty: Downloads, Documents, Desktop, Music), and
-  "Search again now"
+  "Search again"
 - Online databases: every database by kind of rig, each on or off (a group at once too), how many curves each list
   has, a search and All / On / Off; ones you added taken off with their row's ✕ (Undo in the window's line)
 - Add a database: from squig.link's list (searched; one clicked fills the address box, double-clicked is added), or
   any squig.link-style page by its address; one Add, beside the box (Enter there too)
 Changes are saved at once and the lists load again a moment later (offline: the saved ones). The footer is every
-window's (window_parts.Footer): Refresh the lists now (online only) and Open the downloads folder at the left, its own
+window's (window_parts.Footer): Update the lists (online only) and Open the downloads folder at the left, its own
 message line, Close; a list with nothing to show says so.
 The look: Windows 11's; the databases' tree is styled as the lists by theme_sheet's find_windows (sourcesTree); the
 folders' box as tall as four lines of its text (the four usual folders whole). Its size kept within the screen's free

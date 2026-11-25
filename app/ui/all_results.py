@@ -202,7 +202,7 @@ class AllResults(QDialog):
                     cells[k] = r
             rows = sorted({r.get("rows") for r in rs}, key=lambda x: (x is None, x))
             qs = sorted({r.get("q_max") for r in rs}, key=lambda x: (x is None, x))
-            sc =run.get("settings", {}).get("scoring", {})
+            sc = run.get("settings", {}).get("scoring", {})
             # (shaded = sounds the same as the target: what the audible pick chose among)
             ear_db = run.get("ear_db") or sc.get("ear_db", 0.25)
             g = self.grid

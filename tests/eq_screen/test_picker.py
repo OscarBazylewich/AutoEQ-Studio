@@ -908,7 +908,7 @@ def test_survey_texts(eq_screen, monkeypatch, check):
           and seen["status"].startswith("Loading online lists…"), (seen["notes"], seen["status"]))
     check("ui: Find…'s Available to download shows the first line of its Help entry; Hide, Trace a graph image… and "
           "Show files have no tooltip",
-          seen["Available to download"] == HELP["#pk-f-dl"] and seen["Hide"] in ([""], [])
+          seen["Available to download"] == HELP["#pk-f-dl"] and seen["Hide"] == [""]
           and seen["Trace a graph image…"] == [""] and seen.get("Show files tooltip") == ["Show files"],
           seen)
     made, unknown, plain = seen["rig tags"]

@@ -347,14 +347,14 @@ def test_refresh_after_failed_one(api, db_guard, monkeypatch, check):
 
 
 def test_offline_list_error_has_no_doubled_word(db_guard, monkeypatch, tmp_path, check):
-    # (the text survey, 2026-11-24: Sources shows this error as the tooltip of "did not load". With the name of the
+    # (the text survey, 2026-11-24: Sources shows this error as the tooltip of "failed to load". With the name of the
     # error's type before it, as the other errors have, it started "Offline: Offline.")
     site = {"name": "Test", "url": "https://example.invalid/", "short": "T"}
     monkeypatch.setattr(databases, "CACHE_PATH", os.path.join(tmp_path, "db-offline.json"))
     db_guard.stub_get(db_guard.saved["attrs"]["_get"])  # (the real one: offline, it refuses before any connection)
     databases.refresh_now([site], force=True)
     errors = [s.get("error") for s in databases.status()["sites"]]
-    check("databases: offline, the error of a list that did not load is “Offline. Switch to Online to download.” alone",
+    check("databases: offline, the error of a list that failed to load is “Offline. Switch to Online to download.” alone",
           errors == ["Offline. Switch to Online to download."], errors)
 
 
@@ -387,7 +387,7 @@ def test_too_large_file_names_the_limit(monkeypatch, check):
 
 
 def test_list_error_has_no_python_type_name(db_guard, monkeypatch, tmp_path, check):
-    # (2026-11-24: Sources shows this error as the tooltip of "did not load". It started with the Python name of the
+    # (2026-11-24: Sources shows this error as the tooltip of "failed to load". It started with the Python name of the
     # error's type: "ValueError: file is too large (over 20 MB)")
     site = {"name": "Test", "url": "https://example.invalid/", "short": "T"}
     monkeypatch.setattr(databases, "CACHE_PATH", os.path.join(tmp_path, "db-error.json"))
@@ -398,14 +398,14 @@ def test_list_error_has_no_python_type_name(db_guard, monkeypatch, tmp_path, che
         db_guard.stub_get(fails)
         databases.refresh_now([site], force=True)
         said[name] = [s.get("error") for s in databases.status()["sites"]]
-    check("databases: the error of a list that did not load is the message of the error alone, without the Python name "
+    check("databases: the error of a list that failed to load is the message of the error alone, without the Python name "
           "of its type; an error with no message gives that name (all there is)",
           said == {"message": ["file is too large (over 20 MB)"], "empty": ["TimeoutError"]}, said)
 
 
 def test_list_error_of_the_code_keeps_its_type_name(db_guard, monkeypatch, tmp_path, check):
     # (2026-11-24: with the message alone, a KeyError (a site list with a field missing) was only a quoted word in
-    # the tooltip of "did not load": 'items'. The message of such an error is not a sentence: the name of its type
+    # the tooltip of "failed to load": 'items'. The message of such an error is not a sentence: the name of its type
     # stays before it. An error of the app's own checks (ValueError) or of the connection (OSError) has a sentence)
     import urllib.error
     site = {"name": "Test", "url": "https://example.invalid/", "short": "T"}

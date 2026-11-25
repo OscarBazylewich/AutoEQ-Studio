@@ -124,7 +124,9 @@ def test_controls_without_a_tooltip(eq_screen, check):
 def test_find_which_measurement_history_and_sources_lines(eq_screen, check):
     # (2026-11-24, the text survey, area 22: the lines of Find…'s filter lists, Rig of your target, Folders to search
     # and Online databases removed: no tooltip and no line for a screen reader, their name and F1 tag stay. Targets
-    # and measurements and Known rig keep the tooltip of their own code; the others show the owner's new words)
+    # and measurements keeps the tooltip of its own code; the others show the owner's new words. Known rig: its
+    # tooltip and its line for a screen reader are one text, the Help line (the owner's decision of 2026-11-24: the
+    # screen-reader line of a control is its tooltip; area 16 gave the tooltip other words, area 22's fit the filter))
     from helpers import qt
     from ui import help_window
     from ui.compare_window import CompareWindow
@@ -160,7 +162,7 @@ def test_find_which_measurement_history_and_sources_lines(eq_screen, check):
         qt.close(src)
     want = {"Rig": ("", "", True, "set-pk-filters"), "Type": ("", "", True, "set-pk-filters"),
             "Source": ("", "", True, "set-pk-filters"),
-            "Known rig": ("Hides items with an uncertain rig (marked with “?”)",
+            "Known rig": ("Hide entries with an unknown, guessed, or mixed rig",
                           "Hide entries with an unknown, guessed, or mixed rig", True, "set-pk-f-sure"),
             "Available to download": ("Shows only entries that can be downloaded directly",
                                       "Shows only entries that can be downloaded directly", True, "set-pk-f-dl"),

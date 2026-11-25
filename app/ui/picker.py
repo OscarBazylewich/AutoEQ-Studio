@@ -341,7 +341,10 @@ class Picker(QDialog):
             box.activated.connect(lambda _i, box=box, key=key: self.set_filter(key, box.currentData()))
             fl.add(box, first=True, stretch=True, least=choice_room)
         self.f_sure = QCheckBox("Known rig")
-        self.f_sure.setToolTip("Hides items with an uncertain rig (marked with “?”)")
+        # (no tooltip of its own: it shows the first line of its Help entry, #pk-f-sure, which is also its line for a
+        # screen reader. The text survey, 2026-11-24, gave two wordings (area 16 for the tooltip, area 22 for the Help
+        # line); the owner decided that the screen-reader line of a control is its tooltip, so one text, area 22's:
+        # the filter hides the unknown, guessed and mixed rigs, not only the ones marked with “?”)
         self.f_sure.toggled.connect(lambda on: self.set_filter("sure", on))
         self.f_dl = QCheckBox("Available to download")
         for w, key in ((self.anykind, "#pk-anykind"), (self.f_rig, "pk_filters"), (self.f_form, "pk_filters"),

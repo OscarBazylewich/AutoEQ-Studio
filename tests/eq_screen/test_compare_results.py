@@ -72,7 +72,7 @@ def test_compare_texts_of_the_text_survey(eq_screen, history_eq, check):
     try:
         b = dlg.combos[1]  # (B: the History EQ, by its name: the lists are A to Z)
         b.setCurrentIndex(next(i for i in range(b.count()) if b.itemText(i).startswith("History · ")))
-        shows =[b for b in dlg.findChildren(QPushButton) if b.text() in ("Show A", "Show B")]
+        shows = [b for b in dlg.findChildren(QPushButton) if b.text() in ("Show A", "Show B")]
         lines = [lab.text() for lab in dlg.findChildren(QLabel) if lab.wordWrap()]
         said = {}
         for i in (0, 1):
