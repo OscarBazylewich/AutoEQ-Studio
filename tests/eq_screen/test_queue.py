@@ -34,6 +34,7 @@ def test_run_several(eq_screen, check):
     q.start()
     done = eq_screen.wait_for(lambda: not q.running, 300)
     said = [q.table.item(i, 2).text() for i in range(q.table.rowCount())]
+    end = q.footer.line.text.text()
     made = set(os.listdir(eq_paths.OUTPUT_DIR)) - out_before
     q.close()
     page.S = kept_S
@@ -43,6 +44,50 @@ def test_run_several(eq_screen, check):
           "session; your choice of files is as it was", done and len(said) == n >= 1
           and all(s.startswith("Done") for s in said) and len(made) >= n and len(page.session_runs) == min(20, runs + n)
           and len(page.history) >= hist + n and page.S["files"] == before, (done, said, sorted(made), runs, hist))
+    # (the text survey, area 20, 2026-11-24: a row's result and the last message in the owner's words)
+    check("queue: each row says “Done · {n} filters · {x} dB · saved as {file}”, and the message line “Completed {k} "
+          "of {n} EQs” with no period",
+          all(s.startswith("Done · ") and " dB · saved as " in s for s in said)
+          and end == f"Completed {n} of {n} EQ{'' if n == 1 else 's'}", (said, end))
+
+
+def test_run_several_texts_of_the_text_survey(eq_screen, check, monkeypatch):
+    # (the text survey, area 20, 2026-11-24: the line at the top, the count before Start, a row's progress and its
+    # failure in the owner's words; a row's progress joins only the parts it has, so it never starts with “ · ”)
+    from PySide6.QtWidgets import QLabel
+    page = eq_screen.page
+    q = QueueWindow(page)
+    try:
+        lead = next(lab.text() for lab in q.findChildren(QLabel) if lab.wordWrap())
+        for lst in (q.devs, q.tgts):
+            for i in range(lst.count()):
+                lst.item(i).setCheckState(Qt.Unchecked)
+        counts = [q.count_lab.text()]
+        q.devs.item(0).setCheckState(Qt.Checked)
+        q.tgts.item(0).setCheckState(Qt.Checked)
+        counts.append(q.count_lab.text())
+        q.table.setRowCount(1)
+        q.i = 0
+        monkeypatch.setattr(q, "next_job", lambda: None)  # (one row only: the queue does not go on)
+        rows, jobs = [], [{"status": "running", "message": "Best fit adds one filter at a time: 3/12", "elapsed": 6.2},
+                          {"status": "running", "message": "", "elapsed": 4},
+                          {"status": "running", "message": "Best fit adds one filter at a time: 1/12"},
+                          {"status": "error", "message": "No measurement"}, {"status": "error"}]
+        for job in jobs:
+            monkeypatch.setattr(page.svc, "call", lambda path, body=None, job=job: job if body is None else {})
+            q.poll()
+            rows.append(q.table.item(0, 2).text())
+        q.timer.stop()
+    finally:
+        monkeypatch.undo()
+        qt.close(q)
+    check("queue: the texts of the text survey: the line at the top, “Select an IEM and a target”, “1 EQ queued”; a "
+          "row's progress is the job's message and the time (no “In progress: ”), its failure “Failed: …” or “Failed”",
+          lead == ("Generates an EQ for each selected IEM and target, saves each to History, and exports to Saved EQs if "
+                   "a file type is set in More settings › Saved files. Closing this window stops the queue.")
+          and counts == ["Select an IEM and a target", "1 EQ queued"]
+          and rows == ["Best fit adds one filter at a time: 3/12 · 6 s", "4 s", "Best fit adds one filter at a time: 1/12",
+                       "Failed: No measurement", "Failed"], (lead, counts, rows))
 
 
 def test_run_several_look(eq_screen, check):
@@ -159,7 +204,8 @@ def test_run_several_keeps_the_focus_on_its_buttons(eq_screen, check):
                 qt.pump(50)
                 d["at the end"] = _focus_name(QApplication.focusWidget())
                 d["window open"] = q.isVisible()
-                d["result"] = q.table.item(0, 2).text().split(":")[0] if q.table.rowCount() else None
+                # (the result's first word: “Done · 5 filters · …”, “Canceled”)
+                d["result"] = q.table.item(0, 2).text().split(" · ")[0].split(":")[0] if q.table.rowCount() else None
                 seen[how] = d
             finally:
                 qt.close(q)

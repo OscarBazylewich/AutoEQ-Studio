@@ -184,14 +184,25 @@ def test_all_results_words_whole(four, check):
     bold.setBold(True)
     widest = max(QFontMetrics(bold).horizontalAdvance(g.item(i, j).text())
                  for i in range(g.rowCount()) for j in range(g.columnCount()))
-    ar.resize(ar.minimumSize())  # (the smallest the window can be made)
-    qt.pump(200)
-    note = ar.grid_note
-    smallest = (ar.width(), ar.height(), note.heightForWidth(note.width()), note.height())
+    # (the note under the grid, and its check that it was whole at the window's smallest, went with the text survey,
+    # area 20, 2026-11-24: the owner removed the note)
     check("all results: the grid's rows say “1 filter”, “2 filters”; its columns never narrower than their numbers "
-          "(in bold, as the one shown); at its smallest the note under the grid is whole (it ran over the grid)",
-          labels == ["1 filter", "2 filters"] and g.horizontalHeader().minimumSectionSize() >= widest
-          and smallest[2] <= smallest[3], (labels, widest, g.horizontalHeader().minimumSectionSize(), smallest))
+          "(in bold, as the one shown)",
+          labels == ["1 filter", "2 filters"] and g.horizontalHeader().minimumSectionSize() >= widest,
+          (labels, widest, g.horizontalHeader().minimumSectionSize()))
+
+
+def test_all_results_texts_of_the_text_survey(four, check):
+    # (the text survey, area 20, 2026-11-24: the line at the top in the owner's words, and no note under the grid)
+    from PySide6.QtWidgets import QLabel
+    ar = four
+    muted = [lab.text() for lab in ar.findChildren(QLabel)  # (the footer's message line aside)
+             if lab.property("role") == "muted" and not ar.footer.isAncestorOf(lab)]
+    found = {"muted lines": muted, "grid shown": not ar.grid.isHidden(), "note": hasattr(ar, "grid_note")}
+    check("all results: the only gray line is “Click a result to show it on the result card”; under the grid there "
+          "is no note (it told the lowest error, the highlighted cells and “up to … filters”)",
+          found == {"muted lines": ["Click a result to show it on the result card"], "grid shown": True, "note": False},
+          found)
 
 
 def test_all_results_wide_grid_in_a_narrow_window(eq_screen, history_eq, check):
@@ -311,8 +322,7 @@ def test_all_results_rows_told_apart(eq_screen, history_eq, check):
     try:
         g = ar.grid
         found = {"rows": [g.verticalHeaderItem(i).text() for i in range(g.rowCount())],
-                 "cells": [[g.item(i, j).text() for j in range(g.columnCount())] for i in range(g.rowCount())],
-                 "note": ar.grid_note.text().replace(chr(0xA0), " ")}  # (its spaces that never end a line, as spaces)
+                 "cells": [[g.item(i, j).text() for j in range(g.columnCount())] for i in range(g.rowCount())]}
     finally:
         qt.close(ar)
         page.run_result = real
@@ -321,10 +331,10 @@ def test_all_results_rows_told_apart(eq_screen, history_eq, check):
     check("all results: Best fit's rows say how many filters the run tried, different for every row (“6 filters”, then "
           "“up to 7 filters” … “up to 10 filters” where a result kept fewer; they read “6–7 filters” … “6–10 filters”, "
           "alike), never fewer than a result there has; a cell whose result kept fewer says its own count (“· 6f”), "
-          "as the website sweep's cells do, and the note under the grid says why",
+          "as the website sweep's cells do",  # (the note under the grid that said why went: text survey, 2026-11-24)
           found["rows"] == ["6 filters", "up to 7 filters", "up to 8 filters", "up to 9 filters", "up to 10 filters"]
           and len(set(found["rows"])) == len(found["rows"])
-          and own == [[False, False]] + [[True, False]] * 4 and "up to" in found["note"] and "6f" in found["note"],
+          and own == [[False, False]] + [[True, False]] * 4,
           found)
 
 

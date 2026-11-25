@@ -57,10 +57,37 @@ def test_compare_two_results(eq_screen, history_eq, check):
     # was eq_checks.py:2500
     check("compare: the result shown now and another side by side (the error as the result card's, every number, "
           "both filter tables); Show B puts it on the result card", len(opts) >= 2 and opts[0]["label"].startswith("Shown: ")
-          and a_rms == f"{card:.2f}" and len(names) == 5 and apart.startswith("Maximum difference between A and B")
+          and a_rms == f"{card:.2f}" and len(names) == 5 and apart.startswith("Max difference (A vs. B): ")
           and rows[0] == len(page.enabled_filters()) and rows[1] == 4
           and (other is None or other["rid"] is None or moved == other["rid"]) and page.cmp_btn.isVisibleTo(page),
           (len(opts), a_rms, card, names, rows, moved))
+
+
+def test_compare_texts_of_the_text_survey(eq_screen, history_eq, check):
+    # (the text survey, area 20, 2026-11-24: the line above A and B and the tooltip of Show A / Show B removed; the
+    # two messages of Show A / Show B in the owner's words)
+    from PySide6.QtWidgets import QLabel, QPushButton
+    page = eq_screen.page
+    dlg = CompareResults(page)  # (A: the result shown now)
+    try:
+        b = dlg.combos[1]  # (B: the History EQ, by its name: the lists are A to Z)
+        b.setCurrentIndex(next(i for i in range(b.count()) if b.itemText(i).startswith("History · ")))
+        shows =[b for b in dlg.findChildren(QPushButton) if b.text() in ("Show A", "Show B")]
+        lines = [lab.text() for lab in dlg.findChildren(QLabel) if lab.wordWrap()]
+        said = {}
+        for i in (0, 1):
+            dlg.show_on_card(i)
+            said[dlg.chosen()[i]["label"].split(" · ")[0]] = dlg.footer.line.text.text()
+        found = {"tooltips": [b.toolTip() for b in shows], "names": sorted(b.text() for b in shows),
+                 "lines": lines, "said": said}
+    finally:
+        qt.close(dlg)
+    check("compare: no line above A and B, Show A and Show B have no tooltip (their words stay their names); Show A "
+          "on the shown EQ says “Already on the result card”, Show B on a History EQ “History EQ: open History… and "
+          "click Show”",
+          found["tooltips"] == ["", ""] and found["names"] == ["Show A", "Show B"] and found["lines"] == []
+          and sorted(found["said"].values()) == ["Already on the result card", "History EQ: open History… and click Show"],
+          found)
 
 
 def test_compare_one_filter_says_filter(eq_screen, history_eq, check):

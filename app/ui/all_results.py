@@ -28,7 +28,6 @@ HEAD = [("Error (dB)", "rms"), ("Filters", "n_filters"), ("Rows", "rows"), ("Ran
         ("Maximum Q", "q_max"), ("Maximum gain", "max_boost"), ("Pre-amp", "preamp")]
 SAME = Qt.UserRole + 1  # (a grid cell's mark: sounds the same as the target)
 LEFT = Qt.AlignLeft | Qt.AlignVCenter  # (Windows 11's tables: words at the left, under their heading)
-NBSP = chr(0xA0)  # (a space that never ends a line: the words it joins stay together)
 
 
 class _Shade(QStyledItemDelegate):
@@ -88,15 +87,17 @@ class AllResults(QDialog):
         run, _r = page.current()
         self.run = run
         self.setWindowTitle(f"All {len(run['results'])} results of #{run.get('n', 1)}")
-        # (940 wide: the note under the grid on one line at Windows 11's text size; smaller than 720 x 560, the grid's
-        # numbers were cut and the note ran over it. Both within the screen's room: 720 high was under the taskbar)
+        # (940 wide: chosen for a note under the grid, which the text survey removed, 2026-11-24; the size stays as it
+        # was. Smaller than 720 x 560, the grid's numbers were cut. Both within the screen's room: 720 high was under
+        # the taskbar)
         fit_to_screen(self, (940, 720), (720, 560))
         v = QVBoxLayout(self)
         v.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as a card's)
-        lead = QLabel("All the results that the app tried. Click a result to show it.")
+        lead = QLabel("Click a result to show it on the result card")
         theme.mark(lead, role="muted")
         v.addWidget(lead)
-        self.grid_title, self.grid, self.grid_note = QLabel(), QTableWidget(), QLabel()
+        # (no note under the grid: the owner removed it in the text survey, 2026-11-24)
+        self.grid_title, self.grid = QLabel(), QTableWidget()
         theme.mark(self.grid_title, role="section")
         self.grid.setObjectName("eqwGrid")  # (its corner and its cells' room: ui\theme_sheet.py's eq_windows)
         self.grid.setItemDelegate(_Shade(self.grid))
@@ -104,9 +105,7 @@ class AllResults(QDialog):
         self._grid_height = None  # (its rows' height: render())
         self._sorted_run = None  # (the run the table was last filled with: render() keeps your sort for it)
         self.grid.horizontalScrollBar().rangeChanged.connect(self._fit_grid)
-        self.grid_note.setWordWrap(True)
-        theme.mark(self.grid_note, role="muted")
-        for w in (self.grid_title, self.grid, self.grid_note):
+        for w in (self.grid_title, self.grid):
             v.addWidget(w)
         self.grid.cellClicked.connect(lambda i, j: self.grid.item(i, j) is not None
                                       and self.grid.item(i, j).data(Qt.UserRole) is not None
@@ -192,7 +191,7 @@ class AllResults(QDialog):
         # the grid
         rs = run["results"]
         show = run["mode"] in ("site_sweep", "best_fit") and len(rs) > 1
-        for w in (self.grid_title, self.grid, self.grid_note):
+        for w in (self.grid_title, self.grid):
             w.setVisible(show)
         if show:
             site = run["mode"] == "site_sweep"
@@ -203,8 +202,7 @@ class AllResults(QDialog):
                     cells[k] = r
             rows = sorted({r.get("rows") for r in rs}, key=lambda x: (x is None, x))
             qs = sorted({r.get("q_max") for r in rs}, key=lambda x: (x is None, x))
-            best = next(r for r in rs if r["id"] == run["best"])["rms"]
-            sc = run.get("settings", {}).get("scoring", {})
+            sc =run.get("settings", {}).get("scoring", {})
             # (shaded = sounds the same as the target: what the audible pick chose among)
             ear_db = run.get("ear_db") or sc.get("ear_db", 0.25)
             g = self.grid
@@ -217,7 +215,6 @@ class AllResults(QDialog):
             g.setEditTriggers(QAbstractItemView.NoEditTriggers)
             g.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
             most = {} if site else {rv: self.row_most(rv, cells)[0] for rv in rows}
-            fewer = None  # (a cell whose result kept fewer filters than its row tried: its count, for the note)
             for i, rv in enumerate(rows):
                 for j, q in enumerate(qs):
                     c = cells.get((rv, q))
@@ -225,8 +222,6 @@ class AllResults(QDialog):
                         it = QTableWidgetItem("–")
                     else:
                         own = "" if site or c["n_filters"] == most[rv] else f" · {c['n_filters']}f"
-                        if own and fewer is None:
-                            fewer = c["n_filters"]
                         sub = (f"{round((c.get('freq_high') or 0) / 1000)}k · {c['n_filters']}f" if site
                                else f"maximum +{c['max_boost']:.1f}{own}")
                         it = QTableWidgetItem(f"{c['rms']:.2f}  ({sub})")
@@ -251,13 +246,6 @@ class AllResults(QDialog):
             self._grid_height = min(320, g.horizontalHeader().height() + sum(g.rowHeight(i) for i in range(len(rows))) + 4)
             self._fit_grid()
             self.grid_title.setText(f"Error by {'filter rows' if site else 'filter count'} and maximum Q (#{run.get('n', 1)})")
-            up = next((lab for lab in labels if lab.startswith("up to ")), None)  # (a row where a result kept fewer)
-            self.grid_note.setText(f"Each cell shows its lowest error in dB (the best: {best:.2f} dB). A highlighted "
-                                   f"cell has the same sound as the target (a difference of {ear_db:g} dB or less, as the "
-                                   "ear hears it). Click a cell to show it."
-                                   + (f" “{up.replace(' ', NBSP)}”: the app tried that number of filters. If a cell has "
-                                      f"a smaller number of filters, it shows that number (“{fewer}f”). The app removes "
-                                      "filters that are too small to change the sound." if up and fewer else ""))
         # the table (its Rows column for the website's methods only: there it's the filter rows typed into the site;
         # Best fit's own count of the filters it added said "1" for a 2-filter result and nothing for a Retry's)
         t = self.table
