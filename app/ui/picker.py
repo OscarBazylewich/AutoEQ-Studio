@@ -257,7 +257,7 @@ class MoreButton(QPushButton):
         self._fill = fill  # (fill(menu) puts the row's commands in its menu; None once they are in it)
         icons.put(self, "more")
         theme.mark(self, quiet=True, nochevron=True)
-        self.setToolTip("More actions")  # (its screen-reader name stays "More commands for <its row>": the code sets it)
+        self.setToolTip("More actions")  # (its screen-reader name is "More actions for <its row>": the code sets it)
 
     def menu(self):
         m = super().menu()
@@ -785,7 +785,8 @@ class Picker(QDialog):
         if key not in rigs:
             return "rig ?", ("Target rig unknown" if made else "Measurement rig unknown") + how
         guess = tag.endswith("?")
-        tip = f"{what}: {rigs[key]}" + (" (likely)" if guess else "") + how
+        # (", likely" also after a name that ends in brackets, "… (IEC 60318-4), likely": the owner, 2026-11-25)
+        tip = f"{what}: {rigs[key]}" + (", likely" if guess else "") + how
         convs = r.get("convs") or []
         label = key + ("?" if guess else "")
         if convs:
@@ -860,7 +861,7 @@ class Picker(QDialog):
         h.addSpacing(12)  # (the bin apart from Use, the main action, as History's ✕: UI-RULES 14)
         if r["src"] == "app":
             x = more_button(lambda m, r=r: self._fill_more(m, r))
-            x.setAccessibleName(f"More commands for {r['device']['name'] if r.get('device') else r['name']}")
+            x.setAccessibleName(f"More actions for {r['device']['name'] if r.get('device') else r['name']}")
             h.addWidget(x)
         else:  # (no ⋯: its room kept, so every Use is in one column. An empty room, not a hidden button: most rows
             # are online entries, and each button cost the window's time. The gap before a button too: a layout puts
@@ -921,7 +922,7 @@ class Picker(QDialog):
             m.addSeparator()
             m.addAction("Delete…", lambda: self.remove("measurement", [n], n))
         x = more_button(fill)
-        x.setAccessibleName(f"More commands for {fl['name']}")
+        x.setAccessibleName(f"More actions for {fl['name']}")
         h.addWidget(x)
         self._add_row_widget(it, w)
 

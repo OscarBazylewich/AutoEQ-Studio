@@ -223,7 +223,7 @@ def test_history_look_follows_the_theme(made_up_history, eq_screen, check):
         """The rows' first lines, the card's colour under a ⋯ as drawn now, and the theme's colours."""
         body = hw.scroll.widget()
         heads = [lab.text() for lab in body.findChildren(QLabel) if "→" in lab.text()]
-        x = next(b for b in body.findChildren(QPushButton) if b.accessibleName().startswith("More commands for "))
+        x = next(b for b in body.findChildren(QPushButton) if b.accessibleName().startswith("More actions for "))
         row = x.parentWidget()
         pm = row.grab()
         img = pm.toImage()
@@ -232,7 +232,7 @@ def test_history_look_follows_the_theme(made_up_history, eq_screen, check):
         return {"heads": heads, "muted": t["muted"], "under ✕": (img.pixelColor(p).name(), t["card"])}
     buttons = hw.scroll.widget().findChildren(QPushButton)
     symbols = sorted({b.text() or b.accessibleName().split(" for ")[0] for b in buttons if not b.icon().isNull()})
-    menu = [a.text() for a in next(b for b in buttons if b.accessibleName().startswith("More commands for ")).menu().actions()
+    menu = [a.text() for a in next(b for b in buttons if b.accessibleName().startswith("More actions for ")).menu().actions()
             if a.text()]
     # (each row's Show, in the rows' order, newest first: in the accent or not, and its symbol)
     shows = [(b.property("primary") in (True, "true"), not b.icon().isNull()) for b in buttons if b.text() == "Show"]
@@ -257,17 +257,17 @@ def test_history_look_follows_the_theme(made_up_history, eq_screen, check):
     check("history: only the first row's Show (the newest) is in the accent, the others plain (every row's was: a "
           "column of accent buttons); every Show has Windows 11's symbol beside its words",
           len(shows) == 3 and [accent for accent, _symbol in shows] == [True, False, False]
-          and all(symbol for _accent, symbol in shows) and symbols == ["More commands", "Show"], (shows, symbols))
+          and all(symbol for _accent, symbol in shows) and symbols == ["More actions", "Show"], (shows, symbols))
 
 
 def test_history_more_names_its_eq(made_up_history, check):
     # (2026-11-10, the code's review: a screen reader read "More commands" on every row's ⋯, never which EQ)
     from PySide6.QtWidgets import QPushButton
     names = [b.accessibleName() for b in made_up_history.scroll.widget().findChildren(QPushButton)
-             if b.accessibleName().startswith("More commands")]
-    check("history: each row's ⋯ has the name of its EQ for a screen reader (“More commands for” the IEM → the target, "
+             if b.accessibleName().startswith("More actions")]
+    check("history: each row's ⋯ has the name of its EQ for a screen reader (“More actions for” the IEM → the target, "
           "and its time): no two the same", len(names) == 3 and len(set(names)) == 3
-          and all(n.startswith("More commands for Look IEM → Look target, ") for n in names), names)
+          and all(n.startswith("More actions for Look IEM → Look target, ") for n in names), names)
 
 
 def test_history_remove_gives_the_focus_to_the_next_row(made_up_history, eq_screen, check, monkeypatch):
@@ -278,7 +278,7 @@ def test_history_remove_gives_the_focus_to_the_next_row(made_up_history, eq_scre
     hw, page = made_up_history, eq_screen.page
     real = page.svc.call
     mores = lambda: [b for b in hw.scroll.widget().findChildren(QPushButton)  # (the rows' ⋯, in the rows' order)
-                     if b.accessibleName().startswith("More commands for ")]
+                     if b.accessibleName().startswith("More actions for ")]
 
     def call(path, body=None, *a, **k):  # (the made-up entries: the service's file does not have them)
         if path == "/api/history/remove":

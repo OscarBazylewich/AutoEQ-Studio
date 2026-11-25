@@ -12,8 +12,23 @@ import paths
 import userfiles
 
 TITLE = "Your AutoEQ Studio files"
-# ("file(s)" in the messages below: the user's words of the text survey, 2026-11-24, as typed; before, the code
-# chose "file" or "files")
+# (the messages below: the user's words of the text survey, 2026-11-24, with "file" or "files" and "was" or "were"
+# chosen by the count, and "(2), (3) …" when a copy got (3) or more: the user, 2026-11-25)
+
+
+def files(n):
+    """The count with its noun: "1 file", "2 files"."""
+    return f"{n} file" + ("" if n == 1 else "s")
+
+
+def moved_words(moved, renamed, highest=2):
+    """The message after a move. highest: the highest copy number that a renamed file got (userfiles.move_all)."""
+    words = f"Moved {files(moved)} to {paths.ROOT}."
+    if renamed:
+        copies = "(2)" if highest <= 2 else "(2), (3) …"
+        words += (f"\n\n{renamed} had duplicate names and {'was' if renamed == 1 else 'were'} renamed with {copies} "
+                  "to keep both copies.")
+    return words
 
 
 def _choose(parent, start):
@@ -30,10 +45,9 @@ def _choose(parent, start):
         start = d
 
 
-def _tell_moved(parent, moved, renamed):
+def _tell_moved(parent, moved, renamed, highest):
     if moved or renamed:
-        QMessageBox.information(parent, TITLE, f"Moved {moved} file(s) to {paths.ROOT}." + (
-            f"\n\n{renamed} had duplicate names and were renamed with (2) to keep both copies." if renamed else ""))
+        QMessageBox.information(parent, TITLE, moved_words(moved, renamed, highest))
 
 
 def offer_move(parent, save):
@@ -48,7 +62,7 @@ def offer_move(parent, save):
     box.setWindowTitle(TITLE)
     box.setIcon(QMessageBox.Question)
     box.setText("Your targets, measurements, saved EQs, and presets are stored in:")
-    box.setInformativeText(f"{paths.ROOT}\n\nFound {n} file(s) from a previous version in:\n" + "\n".join(where)
+    box.setInformativeText(f"{paths.ROOT}\n\nFound {files(n)} from a previous version in:\n" + "\n".join(where)
                            + "\n\nMove them to the current folder? Existing files won't be overwritten.")
     move = box.addButton("Move them", QMessageBox.AcceptRole)
     other = box.addButton("Select a different folder…", QMessageBox.ActionRole)
@@ -65,12 +79,12 @@ def offer_move(parent, save):
     elif box.clickedButton() is not move:
         return False
     try:
-        moved, renamed = userfiles.move_all(pairs, sources)
+        moved, renamed, highest = userfiles.move_all(pairs, sources)
     except OSError as e:
         QMessageBox.warning(parent, TITLE, f"Couldn't move all files ({e}). You'll be prompted for the remaining "
                                            "files next time AutoEQ Studio starts.")
         return True
-    _tell_moved(parent, moved, renamed)
+    _tell_moved(parent, moved, renamed, highest)
     return True
 
 
@@ -85,7 +99,7 @@ def change_location(parent, save, restart):
         box = QMessageBox(parent)
         box.setWindowTitle(TITLE)
         box.setIcon(QMessageBox.Question)
-        box.setText(f"Move {n} file(s) to {d}?")
+        box.setText(f"Move {files(n)} to {d}?")
         box.setInformativeText("Existing files won't be overwritten. AutoEQ Studio will restart to apply the change.")
         move = box.addButton("Move and start again", QMessageBox.AcceptRole)
         keep = box.addButton("Use it and do not move them", QMessageBox.ActionRole)
@@ -96,14 +110,14 @@ def change_location(parent, save, restart):
             return False
         if box.clickedButton() is move:
             try:
-                moved, renamed = userfiles.move_all(pairs)
+                moved, renamed, highest = userfiles.move_all(pairs)
             except OSError as e:
                 QMessageBox.warning(parent, TITLE, f"Couldn't move all files ({e}). Still using {paths.ROOT}; files "
                                                    f"already moved are in {d}.")
                 return False
             save(paths.FILES_KEY, d)
             paths.locate()
-            _tell_moved(parent, moved, renamed)
+            _tell_moved(parent, moved, renamed, highest)
             restart()
             return True
     elif QMessageBox.question(parent, TITLE, f"Use {d} for your files? AutoEQ Studio will restart to apply the change.") \

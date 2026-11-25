@@ -24,9 +24,9 @@ HELP_TRACE = {'#tr-auto-on': ['', 'automatic-settings'],
 SETTINGS_TRACE = [{'title': 'Trace a graph image',
                    'items': [{'key': '#tr-auto-on',
                               'title': 'Automatic settings (tracer)',
-                              'body': ["The app adjusts the tracer's settings for the image: color tolerance, points in "
-                                       'each octave, the range to save and dashed lines. If you change a setting, it '
-                                       'shows “your value”. The app keeps your value until you click ↺ or open a new '
+                              'body': ["The app adjusts the tracer's settings for the image: color tolerance, points per "
+                                       'octave, the range to save and dashed lines. If you change a setting, it '
+                                       'shows “custom”. The app keeps your value until you click ↺ or open a new '
                                        'picture.',
                                        'The app always works carefully. It makes the labels larger before it reads them, '
                                        'and tries again if necessary. It puts the traced line between pixels. If a traced '
@@ -61,8 +61,8 @@ SETTINGS_TRACE = [{'title': 'Trace a graph image',
                                        'curve. For curves with a weak color or edges that are not sharp, increase it. If '
                                        'the traced line goes to a different line, decrease it.']},
                              {'key': '#tr-ppo',
-                              'title': 'Points in each octave',
-                              'body': ['The number of points in each octave that the app saves. squiglink uses 48. '
+                              'title': 'Points per octave',
+                              'body': ['The number of points per octave that the app saves. squiglink uses 48. '
                                        'More points only make the file larger.']},
                              {'key': '#tr-fmin',
                               'title': 'Save from … to (Hz)',
@@ -112,7 +112,7 @@ SETTINGS_TRACE = [{'title': 'Trace a graph image',
                                        'and selects “A target line” in “The graph shows”. Thus, the add button is Add '
                                        'as target. If you select “A measurement”, Add as measurement also adds the '
                                        'line. If the picture has more than one target line, show only one target on '
-                                       'the graph of the website. Then copy a new picture.',
+                                       'the graph of the website, then capture the graph again.',
                                        'Add as measurement does not add the target line. If you change the target line '
                                        '(for example, you erase a part of it or rename it), it becomes a measurement '
                                        'curve. To add it as a target, select it. Select “A target line” in “The graph '

@@ -23,7 +23,8 @@ SETTINGS_DEVICES = [{'title': 'Devices',
                                          'not (✕). AutoEQ Studio gets this information automatically from the Benchmark '
                                          'tool of Equalizer APO. This tool only reads, and it does not change a file. '
                                          'AutoEQ Studio gets the information again each time the EQ, config.txt or the '
-                                         'device changes.',
+                                         'device changes. On a device without Equalizer APO, the warning bar at the '
+                                         'top of its card says so, and the line shows the other results, with no ✓.',
                                          'Examine again gets the information and shows all of it. It shows if APO reads '
                                          'the file of AutoEQ Studio and finds the part for this device. It shows if APO '
                                          'loads the EQ that you selected for this device, and the lines that config.txt '

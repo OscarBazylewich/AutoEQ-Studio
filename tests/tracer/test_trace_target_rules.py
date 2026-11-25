@@ -365,7 +365,7 @@ def test_one_thin_line_is_one_target_line(qapp, monkeypatch, check):
     r = trace_core.auto_read(as_rgb(img), NO_WORDS, False, "Sample Target", want="target")
     e = errors(r.points, truth["tgt"])
     check("a thin target line (0.8 units, 1000 px, a page): one target line, all checks pass, within 0.5 dB",
-          r.ok and reason(r, "trace_single") == "The picture has one target line." and e and e[0] <= 0.5,
+          r.ok and reason(r, "trace_single") == "The image has one target line." and e and e[0] <= 0.5,
           (failed(r), e))
 
 

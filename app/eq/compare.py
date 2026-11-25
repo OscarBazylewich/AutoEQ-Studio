@@ -206,7 +206,8 @@ def compare(cfg, query, target, rig_override=None, progress=None):
                    | {"rig_name": RIGS.get(c["rig"], "unknown rig"), "body": body_,
                       "vals": [round(float(v), 2) for v in c["vals"][::2]]})
     same = sum(1 for c in items if tgt_rig and c["rig"] == tgt_rig)
-    conv = sum(1 for c in items if (c.get("conv") or {}).get("how") in ("own", "rigs"))
+    # (only a change that is on adjusts the target: with Rig change off, the note says that nothing matches)
+    conv = sum(1 for c in items if (c.get("conv") or {}).get("how") in ("own", "rigs") and c["conv"].get("enabled"))
     note = ""
     # (each one of a database that refused the download: no note, as with nothing found above)
     if not items and errors:  # (every one failed to load: offline with nothing downloaded before, or their sites didn't answer)
@@ -262,8 +263,11 @@ def score(c, tgt_rig):
         with_ = c["source"] if x["how"] == "own" else f"rig average, {x['models']} models"
         head = ("Same rig as target, with a slight source offset." if c["rig"] == tgt_rig
                 else f"Measured on {RIGS[c['rig']] if c['rig'] else 'an unknown rig'}.")
-        left = f"~{x['error']:.1f} dB error, 1–10 kHz" + ("" if x["enabled"] else "; rig change off")
-        r.append(("+" if p >= 30 else "·" if p >= 15 else "−", f"{head} Target adjusted via {with_} ({left})."))
+        # (Settings › Target › Rig change off: the target is not changed, so no "adjusted via" and no error of the
+        # change; the owner's words, 2026-11-25)
+        done = (f"Target adjusted via {with_} (~{x['error']:.1f} dB error, 1–10 kHz)." if x["enabled"]
+                else "Target not adjusted (rig change off).")
+        r.append(("+" if p >= 30 else "·" if p >= 15 else "−", f"{head} {done}"))
     elif c["rig"] == tgt_rig:
         pts += 40
         r.append(("+", f"Matches target rig ({RIGS[tgt_rig]})" + ("" if c["sure"] else ", typical for source")))
@@ -279,7 +283,9 @@ def score(c, tgt_rig):
     else:
         pts += 25 * max(0.0, 1 - c["dev"] / 3)
         word = "Matches" if c["dev"] < 1 else "Roughly matches" if c["dev"] < 2 else "Differs from"
-        r.append(("+" if c["dev"] < 1.5 else "−", f"{word} the other {c['peers']} on this rig ({c['dev']:.1f} dB difference)"))
+        # ("the other measurement" for one, "the other {n}" for more: the owner, 2026-11-25)
+        other = "measurement" if c["peers"] == 1 else c["peers"]
+        r.append(("+" if c["dev"] < 1.5 else "−", f"{word} the other {other} on this rig ({c['dev']:.1f} dB difference)"))
     # (full bass and an average of 4 or more files still score, with no line of their own: the line under the name
     # gives the number of files. The text survey, 2026-11-24)
     if c["bass"] is None:

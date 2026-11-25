@@ -8,7 +8,7 @@ Measured 2026-11-22 with real Tab keys on the app's sample graph with 2 traced c
 app puts the focus after a new picture):
   1 Axes   the 4 boxes of the red and blue lines
   2 Trace  the slider Color tolerance and the name box of each curve
-  3 Save   Name, Points in each octave, The graph shows, Target of the graph, the 2 boxes of Save from (Hz)
+  3 Save   Name, Points per octave, The graph shows, Target of the graph, the 2 boxes of Save from (Hz)
 then, on each tab, Open image…, Remove image and Guide. The side had 9, 19 and 7 buttons and tick boxes in sight
 on these tabs, and Tab went to none. (The side's scroll area takes one Tab key too: it is not a control, and it is
 not checked.) Only real keys measure this: no Python call of nextInFocusChain (AGENTS.md)."""

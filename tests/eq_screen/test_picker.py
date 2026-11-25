@@ -764,7 +764,7 @@ def test_files_says_show_or_hide(eq_screen, check):
 
         def items():
             b = next(b for b in pk.list.findChildren(QPushButton) if b.isVisible()
-                     and b.accessibleName() == f"More commands for {name}")
+                     and b.accessibleName() == f"More actions for {name}")
             return [a.text() or "|" for a in b.menu().actions()]
         for state in ("hidden", "shown"):
             if state == "shown":
@@ -809,7 +809,7 @@ def test_more_menus_made_when_needed(eq_screen, check):
           "Show files and Delete…), named for its row and in the Tab order; every Use still in one column",
           seen.get("⋯ (rows in the app)", (0, 1))[0] == seen["⋯ (rows in the app)"][1] >= 1
           and seen["menus made at the start"] == 0 and len(seen["right edges of Use"]) == 1
-          and seen["name, Tab"][0].startswith("More commands for ") and seen["name, Tab"][1]
+          and seen["name, Tab"][0].startswith("More actions for ") and seen["name, Tab"][1]
           and seen["after focus"] == ["Show files", "|", "Delete…"], seen)
 
 
@@ -879,7 +879,7 @@ def test_survey_texts(eq_screen, monkeypatch, check):
         if app_row:
             name = app_row["device"]["name"]
             more = next(b for b in pk.list.findChildren(QPushButton) if b.isVisible()
-                        and b.accessibleName() == f"More commands for {name}")
+                        and b.accessibleName() == f"More actions for {name}")
             seen["Show files tooltip"] = [a.toolTip() for a in more.menu().actions() if a.text() == "Show files"]
         seen["Available to download"] = pk.f_dl.toolTip()
         seen["Trace a graph image…"] = [b.toolTip() for b in pk.findChildren(QPushButton)
@@ -900,6 +900,9 @@ def test_survey_texts(eq_screen, monkeypatch, check):
         seen["rig tags"] = [pk._rig_tag({"rig": key + "?", "src": "db", "how": "From its name"}),
                             pk._rig_tag({"rig": "zz-none", "src": "db", "is_target": True, "how": "From its name"}),
                             pk._rig_tag({"rig": key, "src": "db"})]
+        # (2026-11-25, the owner: ", likely" after the rig's name, with or without brackets at its end)
+        monkeypatch.setitem(pk.meta, "rigs", {"zz-brackets": "711-type coupler (IEC 60318-4)", "zz-plain": "GRAS 43AG"})
+        seen["likely"] = [pk._rig_tag({"rig": k + "?", "src": "db"}) for k in ("zz-brackets", "zz-plain")]
     finally:
         _close(pk)
     check("ui: Find… while the online lists load: “No results · Still loading online lists…”, no row of its own for "
@@ -912,10 +915,13 @@ def test_survey_texts(eq_screen, monkeypatch, check):
           and seen["Trace a graph image…"] == [""] and seen.get("Show files tooltip") == ["Show files"],
           seen)
     made, unknown, plain = seen["rig tags"]
-    check("ui: a rig tag of Find… says (likely) for a “?” rig and how the app knows the rig on a line of its own",
-          bool(key) and made[1] == f"Measured on: {rigs[key]} (likely)\nFrom its name"
+    check("ui: a rig tag of Find… says “, likely” for a “?” rig and how the app knows the rig on a line of its own",
+          bool(key) and made[1] == f"Measured on: {rigs[key]}, likely\nFrom its name"
           and unknown == ("rig ?", "Target rig unknown\nFrom its name") and plain[1] == f"Measured on: {rigs[key]}",
           seen["rig tags"])
+    check("ui: a “?” rig tag of Find… says “, likely” after a name that ends in brackets and after a plain name",
+          seen["likely"] == [("zz-brackets?", "Measured on: 711-type coupler (IEC 60318-4), likely"),
+                             ("zz-plain?", "Measured on: GRAS 43AG, likely")], seen["likely"])
 
 
 def test_more_rows_note_names_the_tab(eq_screen, monkeypatch, check):

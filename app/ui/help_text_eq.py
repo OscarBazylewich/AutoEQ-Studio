@@ -186,7 +186,7 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'title': 'Automatic settings',
                            'body': ['Adjusts the settings of the method for your measurement and target. These are the '
                                     'error range, the filter counts, the minimum and maximum gain, the Q limits and '
-                                    'the shelves. A setting that you change shows “your value”, and the app keeps it. '
+                                    'the shelves. A setting that you change shows “custom”, and the app keeps it. '
                                     'Off: the app uses each setting as it is.',
                                     'More settings has the other settings, and the app sets them for you too.']},
                           {'key': 'rig_convert.enabled',
@@ -655,17 +655,16 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'body': ['Some websites do not let other programs download their files, and the app obeys '
                                     'that limit. The app has no browser in it and does not get the data of the '
                                     'website. Your browser shows the graph, and the app reads only a picture of it.',
-                                    'The app opens the website of the entry (a measurement or a target). If the graph '
-                                    'does not show this entry, select the entry in the list of the website. For some '
-                                    'websites, the app opens only the page of the database. Then select the entry on '
-                                    'that page.',
-                                    'The website can change a target with its settings (for example, tilt and bass). '
-                                    'The picture shows the target with these settings.',
+                                    'The app opens the website of the entry (a measurement or a target). If this '
+                                    "entry isn't shown, select it from the site's list. For some websites, the app "
+                                    "opens only the page of the database: select this entry from the site's list.",
+                                    'Site target adjustments (like tilt or bass) are captured in the screenshot.',
                                     'If a website does not let the app download an entry, the app also uses '
                                     'pictures for the other entries of that database. After 7 days, the app '
                                     'tries to download again.',
-                                    'If the website shows a window in front of the graph, close that window before you '
-                                    'copy the picture.',
+                                    'Maximize your browser for better accuracy, and close any popups over the graph. '
+                                    'Press Win+Shift+S and drag over the graph, or click Screenshot on the site to '
+                                    'save it to Downloads.',
                                     'While the app waits, it looks at the clipboard and at the names of the picture '
                                     'files in your Downloads folder. It uses only a picture that is new after it '
                                     'started to wait. It does not change or delete a file. Paste the picture uses the '
@@ -675,8 +674,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'measurement, the result is one measurement: the average of the left and right '
                                     'curves. If a curve '
                                     'goes above or below the grid near an end of the frequency axis, the measurement '
-                                    'does not include that part. The text on 3 Save gives the frequencies. Compare '
-                                    'the traced curve with the picture before you add it.',
+                                    'does not include that part. The text on 3 Save gives the frequencies. Verify '
+                                    'the traced curve against the picture before you add it.',
                                     'For an entry of a target, show only the target on the graph of the website. The '
                                     'tracer then traces the target line. If the line stops before an end of the '
                                     'frequency axis, 3 Save shows its first and last frequency.',
@@ -684,7 +683,7 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'line”. Thus, the add button is Add as target. The text on 3 Save tells you to '
                                     'click it. If the app '
                                     'cannot trace only the target line, remove the measurement curve from the graph '
-                                    'of the website. Then copy a new picture.',
+                                    'of the website, then capture the graph again.',
                                     'A small picture, or a second curve in almost the same color, can cause errors. '
                                     'If the app cannot trace the '
                                     'picture automatically, the tracer opens on the tab where your input is '
@@ -828,6 +827,6 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'Save as a preset… opens a box for a name (the new preset replaces a preset with '
                                     'the same name). Click a preset to load all its settings. Undo, adjacent to the '
                                     'message at the bottom, loads the previous settings again.',
-                                    'Delete a preset removes a preset. Use the initial settings… sets all settings to '
+                                    'Delete a preset removes a preset. Reset all settings… sets all settings to '
                                     'their initial values (the app keeps your files and presets). Presets are files in '
                                     'your Presets folder (Settings › Your files).']}]}]

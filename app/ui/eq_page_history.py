@@ -1,7 +1,7 @@
 """Make an EQ's History and presets (a part of EqPage, ui/eq_page.py): what a result is in a line, an EQ kept in
 History (after a run, saved or copied), "You've EQ'd this before", History's window (ui/history_window.py) and an EQ
 from it shown again, Copy (the filters as Equalizer APO text), and the top bar's Presets menu (a preset loaded, saved
-or deleted; Use the initial settings…).
+or deleted; Reset all settings…).
 EqHistory is a plain class (no __init__, no signals); EqPage (ui/eq_page.py) joins it with the other parts.
 """
 import hashlib
@@ -187,7 +187,7 @@ class EqHistory:
 
     def fill_presets(self, menu):
         """The top bar's Presets menu: each preset (click: load it), Save as a preset…, Delete a preset, and
-        Use the initial settings… A preset keeps every setting, not your files."""
+        Reset all settings… A preset keeps every setting, not your files."""
         menu.clear()
         names = self.preset_names()
         if not names:
@@ -205,7 +205,7 @@ class EqHistory:
             for n in names:
                 d.addAction(n, lambda n=n: self.delete_preset(n))
         menu.addSeparator()
-        menu.addAction("Use the initial settings…", self.use_initial_settings)
+        menu.addAction("Reset all settings…", self.use_initial_settings)
 
     def preset_in_use(self, name):
         """Whether the preset has the settings in use: all of them but your files and, with the automatic settings on,
@@ -281,12 +281,12 @@ class EqHistory:
         self.notify(f"Deleted preset “{name}”")
 
     def use_initial_settings(self):
-        if QMessageBox.question(self, "Use the initial settings", "Reset all settings to defaults? Your files and "
+        if QMessageBox.question(self, "Reset all settings", "Reset all settings to defaults? Your files and "
                                 "presets won't change.") \
                 != QMessageBox.Yes:
             return
         res = self.svc.call("/api/reset")
         if res.get("error"):
-            QMessageBox.warning(self, "Use the initial settings", res["error"])
+            QMessageBox.warning(self, "Reset all settings", res["error"])
             return
         self._use_settings(res["settings"], "Settings reset to defaults (files unchanged)")

@@ -63,7 +63,7 @@ def test_the_tray_texts(devices_window, check):
     try:
         sw.trial = {"key": KEY, "name": "Bright", "until": time.time() + 200}
         App.build_menu(fake)
-        item = next(a for a in fake.menu.actions() if a.text() == "For 5 minutes: Bright")
+        item = next(a for a in fake.menu.actions() if a.text() == "5-min preview: Bright")
         own_tip = item.toolTip() != item.text()  # (Qt gives an action with no tooltip of its own its text)
         line, elsewhere = trial_words(sw, KEY), trial_words(sw, "Other|Device")
         App.update_tray_icon(fake)

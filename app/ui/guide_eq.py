@@ -228,7 +228,7 @@ def eq_steps(page):
         yield from api.at(page.mode_hint, 0.5, 0.5, 1300, say="The ⓘ after its label: its function")
 
     def your_value_demo(api):
-        """A value of your own typed into the method's first box: it's marked “yours ↺” (shown, not kept)."""
+        """A value of your own typed into the method's first box: it's marked “custom ↺” (shown, not kept)."""
         f = _first_box()
         if f is None:
             yield 300
@@ -244,9 +244,9 @@ def eq_steps(page):
         yield from api.key("Enter", 700)
         old = f.tag.text() if f.tag.isVisible() else None
         f.set_tag("yours")
-        # (the tag's words: "yours ↺" in older versions, "your value ↺" now; "auto" / "automatic" otherwise)
-        api.undo(lambda: f.set_tag(None if old is None else "yours" if old.startswith("your") else "auto"))
-        api.say("It shows “your value ↺”. Click it to make it automatic again")
+        # (the tag's words: "custom ↺" for "yours", "automatic" for "auto")
+        api.undo(lambda: f.set_tag(None if old is None else "yours" if old.startswith("custom") else "auto"))
+        api.say("It shows “custom ↺”. Click it to make it automatic again")
         yield from api.at(f.tag, 0.5, 0.5, 1400)
 
     def _first_box():
@@ -553,7 +553,7 @@ def eq_steps(page):
         b = win.presets_btn
         names = page.preset_names()
         items = (names[:5] or [(NO_PRESETS, False)]) + [None, "Save as a preset…", "Delete a preset ▸",
-                                                          None, "Use the initial settings…"]
+                                                          None, "Reset all settings…"]
         api.say("Click Presets")
         yield from api.click(b)
         m = yield from mock_menu(api, b, items)
@@ -690,7 +690,7 @@ def eq_steps(page):
                   {"at": lambda: page.estimate, "x": 0.6, "say": "Its tooltip gives the settings that the app tries"}]},
         {"chapter": "2 · Settings", "title": "Your values", "target": lambda: [st.form],
          "before": settings_open, "after": settings_close,
-         "text": "If you change a setting, it shows “your value”, and new files do not change it. Click “your value ↺” "
+         "text": "If you change a setting, it shows “custom”, and new files do not change it. Click “custom ↺” "
                  "to make it automatic again, or disable Automatic settings.",
          "demo": [{"run": your_value_demo, "say": "Type your value. Press Enter"},
                   {"at": lambda: st.auto_on, "x": 0.1, "say": "Or disable Automatic settings"}]},

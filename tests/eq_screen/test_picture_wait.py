@@ -87,7 +87,7 @@ def stand_in(ok=True, fail="trace_curve", target=False, error=None, delay=0.0, c
         if target:
             line = {"label": "Target", "colour": (136, 136, 136), "ys": column_values(tgt, cx, cy, t.W), "target": True}
             t.curves.append(line)
-        checks = [Check("axes_plot", True, "The app found the graph in the picture."),
+        checks = [Check("axes_plot", True, "The app found the graph in the image."),
                   Check(fail, ok, "The reason of this check.")]
         return AutoRead(ok, t, checks, curve, line, None, None, None, 0.01)
     return fake
@@ -1660,7 +1660,7 @@ def test_window_in_front_of_the_graph(eq_screen, flow, monkeypatch, check):
                 wait.deleteLater()
     qt.pump(50)
     body = help_window._by_id()[help_window.entry_for("#pw-paste")]["body"]
-    para = next((p for p in body if "in front of the graph" in p), "")
+    para = next((p for p in body if "popups over the graph" in p), "")
     sentences = [s for s in para.replace("…", "").split(". ") if s.strip()]
     # (2026-11-12: then the sentence for an entry that the graph does not show: its share link is not verified on
     # each website)
@@ -1674,9 +1674,12 @@ def test_window_in_front_of_the_graph(eq_screen, flow, monkeypatch, check):
               for s in SCALED_ROOMS), {k: v[:2] + v[3:4] for k, v in seen.items()})
     # (2026-11-12: the instruction was in the paragraph that tells what the app does not do: one subject in each
     # paragraph, so it is a paragraph of its own)
-    check("website flow: Help of Paste the picture tells it too, in a paragraph of its own",
-          para == "If the website shows a window in front of the graph, close that window before you copy the picture."
-          and len(sentences) == 1, (len(sentences), para))
+    # (2026-11-25, the owner: Help has the words of the window's two steps, in a paragraph of their own)
+    check("website flow: Help of Paste the picture tells it too, with the words of the window's two steps, in a "
+          "paragraph of its own",
+          para == FRONT_WINDOW + " Press Win+Shift+S and drag over the graph, or click Screenshot on the site to "
+          "save it to Downloads." and len(sentences) == 2
+          and not any("in front of the graph" in p or "list of the website" in p for p in body), (len(sentences), para))
     # (2026-11-12: a curve that goes out of the grid near an end of the frequency axis is traced only to a frequency
     # before that end, trace_auto.out_parts: Help did not tell it. "Starts or stops at that frequency" was not exact
     # (a curve out at 18.6 kHz gave points to 17.45 kHz): the part is not included, and 3 Save's text gives the values)
@@ -1972,7 +1975,7 @@ def test_moved_line_and_users_picture(eq_screen, flow, monkeypatch, check):
 
 def _change(tw, what):
     """A change of the user on 3 Save, as its signals come from a click or a key: the Name box, "The graph shows",
-    "Points in each octave" or the range to save."""
+    "Points per octave" or the range to save."""
     tw.show_tab(2)
     if what == "name":
         tw.name.setText("My name")
@@ -2000,7 +2003,7 @@ def _no_curve(tw):
 
 
 def test_changes_of_3_save_stop_use(eq_screen, flow, monkeypatch, check):
-    """A changed Name box, "The graph shows", "Points in each octave" or range to save is the user's work: a new Use
+    """A changed Name box, "The graph shows", "Points per octave" or range to save is the user's work: a new Use
     stops for it, with a curve (the words for the curve) and with no curve (the words for a changed picture), for a
     picture from a website and for a picture of the user. The values that the automatic read and the automatic
     settings set are not the user's work, and a picture with no change is replaced. (2026-11-11: these changes did
@@ -2050,7 +2053,7 @@ def test_changes_of_3_save_stop_use(eq_screen, flow, monkeypatch, check):
     replaced = wait is not None and bool(opened)
     if wait is not None:
         wait.reject()
-    check("website flow: after a read that was OK, a changed Name box, “The graph shows”, “Points in each octave” or "
+    check("website flow: after a read that was OK, a changed Name box, “The graph shows”, “Points per octave” or "
           "range to save is the user's work: with the curve, Use stops with the words for the curve; with no curve, "
           "with the words for a changed picture", all(
               v[0] and v[1] == (0, False, False, set()) and v[2] == (1, True) and v[3] and v[4] and v[5] == ONE_CHANGE
@@ -2079,7 +2082,7 @@ def _again(tw, what):
 
 
 def test_same_value_again_is_no_change(eq_screen, flow, monkeypatch, check):
-    """The same row of "The graph shows" or "Points in each octave" selected again, and a Name box or a range typed
+    """The same row of "The graph shows" or "Points per octave" selected again, and a Name box or a range typed
     and then typed back to its first value, are no change of the user: a new Use replaces the picture (2026-11-12:
     each one counted as a change, and the bubble told of changes that were not there). With an entry after its read
     (with its curve), and for a picture of the user (no curve)."""

@@ -30,7 +30,7 @@ NO_TOOLTIP = {"#opt-view", "#target-save", "#compare-results", "#make-way", "#by
               # (area 22: the source tabs of Find…, Targets and measurements, the Rig, Type and Source lists, Paste
               # the picture, Rig of your target, Folders to search and Online databases)
               "#pk-src", "#pk-anykind", "pk_filters", "#pw-paste", "#cmp-rig", "library.folders", "databases",
-              # (area 26: the tracer's Automatic settings, Top, Bottom, Left, Right, Points in each octave, Save
+              # (area 26: the tracer's Automatic settings, Top, Bottom, Left, Right, Points per octave, Save
               # from … to and Name)
               "#tr-auto-on", "#tr-d1", "#tr-d2", "#tr-f1", "#tr-f2", "#tr-ppo", "#tr-fmin", "#tr-name",
               # (area 30: the line about Equalizer APO and Examine again, Rename… and Edit in Make an EQ; and the lines
@@ -492,10 +492,10 @@ def test_tracer_help_lines(eq_screen, check):
     img, _s = sample_image()
     tw.load_image(img, "Sample IEM")
     eq_screen.wait_for(lambda: not tw.reading and not tw.loading, 60)
-    bare = {"Automatic settings": tw.auto_on, "Points in each octave": tw.ppo, "Name": tw.name}
+    bare = {"Automatic settings": tw.auto_on, "Points per octave": tw.ppo, "Name": tw.name}
     got = {n: (w.toolTip(), bool(w.accessibleName()), qt.description(w), bool(help_window.entry_of_widget(w)))
            for n, w in bare.items()}
-    check("help: Automatic settings, Points in each octave and Name of the tracer show no tooltip, and keep their name "
+    check("help: Automatic settings, Points per octave and Name of the tracer show no tooltip, and keep their name "
           "for a screen reader and their entry in Help", all(v == ("", True, "", True) for v in got.values()), got)
     limits = {"d1": "trace.db", "d2": "trace.db", "f1": "trace.hz", "f2": "trace.hz", "fmin": "trace.save",
               "fmax": "trace.save"}

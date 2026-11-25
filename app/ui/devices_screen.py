@@ -143,6 +143,18 @@ def check_line(ok, text):
     return first
 
 
+def device_line(ok, text, line=None):
+    """The device's line for an answer of Equalizer APO's check (ok, text): (its words, its tooltip, its look: "good",
+    "warn" or "muted"; "warn" shows it as the warning bar). line: the answer without the sentence that the card's own
+    warning bar says (a device without APO: switcher\\check.explain's said_on_card): with its configuration right,
+    it is a note in gray with no ✓, as the bar above says that EQ won't apply; else the warning bar, with the
+    configuration's problem only."""
+    if line is not None:
+        fine, words = line
+        return check_line(fine, words), words, "muted" if fine else "warn"
+    return ("✓ " if ok else "") + check_line(ok, text), text, "good" if ok else "warn" if ok is False else "muted"
+
+
 class DevicesScreen:
     """The Devices screen's part of the window: the list of devices, the chosen one's panel, Rename…, Remove, and the
     line saying whether its EQ plays. A plain class (no __init__, no signals): what it keeps (_checks, _checking,
@@ -308,7 +320,7 @@ class DevicesScreen:
             note.setContentsMargins(26, 0, 0, 2)  # (under the name, not under the round button)
             col.addWidget(note)
         if trying:  # (selecting a profile ends the 5 minutes, as in the tray menu: switcher's set_active)
-            rb = ElidedRadio(f"For 5 minutes: {trying['name']}")
+            rb = ElidedRadio(f"5-min preview: {trying['name']}")
             rb.setChecked(True)
             rb.setProperty("card_place", "trial")
             group.addButton(rb)
@@ -484,8 +496,9 @@ class DevicesScreen:
             self.render_all()
 
     def _check_job(self, key):
-        """What asking APO about a device needs: (the work, a function giving (ok, text) from its answer), or None
-        when Windows doesn't list the device now."""
+        """What asking APO about a device needs: (the work, a function giving (ok, text, line) from its answer), or
+        None when Windows doesn't list the device now. ok and text: all of the answer (Examine again's message box);
+        line: what the device's line shows when it differs from (ok, text), see device_line."""
         from switcher import check
         from switcher import devices as D
         d, rec = self.sw.device(key), self.sw.record(key)
@@ -507,8 +520,13 @@ class DevicesScreen:
 
         def explain(found):
             if found.get("error"):
-                return None, f"Couldn't read Equalizer APO status: {found['error']}"
-            return check.explain(apo, found, name, pfile, on_device)
+                return None, f"Couldn't read Equalizer APO status: {found['error']}", None
+            ok, text = check.explain(apo, found, name, pfile, on_device)
+            if on_device:
+                return ok, text, None
+            # (the card's warning bar above says that APO isn't installed on this device: the line shows the other
+            # findings without that sentence, the owner 2026-11-25; it repeated it as a second warning bar)
+            return ok, text, check.explain(apo, found, name, pfile, on_device, said_on_card=True)
         return work, explain
 
     def _check_sig(self, key):
@@ -523,18 +541,19 @@ class DevicesScreen:
         if lab is None or key != self.selected:
             return
         try:
+            look = None
             if key in self._checking and not got:
                 lab.setText("Checking Equalizer APO…")
                 lab.setToolTip("")
                 # (a usual wait, in a note's gray: it kept the colour of the answer before, a warning's after a bad
                 # one, while Examine again asked)
                 theme.mark(lab, role="muted")
-            elif got:
-                ok, text = got[1], got[2]
-                lab.setText(("✓ " if ok else "") + check_line(ok, text))
-                lab.setToolTip(text)
-                theme.mark(lab, role="good" if ok else "warn" if ok is False else "muted")
-            bad = bool(got) and got[1] is False
+            elif got:  # (_auto_check's (sig, ok, text), with the line's own answer (or None) as a 4th item when APO answered)
+                words, tip, look = device_line(got[1], got[2], got[3] if len(got) > 3 else None)
+                lab.setText(words)
+                lab.setToolTip(tip)
+                theme.mark(lab, role=look)
+            bad = look == "warn"
             if self.check_warn is not None:
                 self.check_warn_text.setText(lab.text())
                 self.check_warn_text.setToolTip(lab.toolTip())
@@ -581,8 +600,8 @@ class DevicesScreen:
             if err is not None:
                 self._checks[key] = (sig, None, f"Couldn't read Equalizer APO status: {err}")
             else:
-                ok, text = explain(found)
-                self._checks[key] = (sig, ok, text)
+                ok, text, line = explain(found)
+                self._checks[key] = (sig, ok, text, line)
             # (the EQ changed while APO was asked: that answer is about the one before, so it's asked again and the
             # old answer never shown; a change during an ask was dropped and the line named the previous EQ)
             if key not in self._check_after and self.sw.record(key) and self._check_sig(key) != sig:

@@ -1,4 +1,4 @@
-"""Make an EQ's Settings: the "your value ↺" tag of a setting, pressed with the keyboard (ui\\forms.py's Field.set_tag;
+"""Make an EQ's Settings: the "custom ↺" tag of a setting, pressed with the keyboard (ui\\forms.py's Field.set_tag;
 2026-11-15, found by the verifier of the Calculate fault). The tag goes off when it says "automatic", and Qt gave the
 focus of a control that goes off to the next control in the page's order: the next setting, and the page scrolled to
 it (670 px to 791 px, measured). Now the value's box beside the tag gets the focus first, after it shows the automatic
@@ -55,10 +55,10 @@ def test_your_value_tag_with_the_keyboard_keeps_the_page(eq_screen, check):
         qt.pump(400)
         f = QApplication.focusWidget()
         seen = f is not None and vp.rect().contains(QRect(f.mapTo(vp, QPoint(0, 0)), f.size()))
-        check("settings: Space on a setting's “your value ↺” tag makes the value automatic, the page stays where it "
+        check("settings: Space on a setting's “custom ↺” tag makes the value automatic, the page stays where it "
               "is, and the focus goes to the value's box beside the tag, in sight (the page scrolled to the next "
               "setting, 121 px)",
-              had and said == "your value ↺" and tag.text() == "automatic" and bar.value() == at
+              had and said == "custom ↺" and tag.text() == "automatic" and bar.value() == at
               and f is field.box and seen,
               (path, had, said, tag.text(), at, bar.value(), type(f).__name__ if f else None, f is field.box, seen))
         check("settings: the box of a value made automatic with the keyboard shows the automatic value (a box with "

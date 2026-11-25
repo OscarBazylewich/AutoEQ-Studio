@@ -32,24 +32,28 @@ def test_readme_words_of_a_graph_from_a_website(check):
     with open(os.path.join(paths.PROJECT, "README.txt"), encoding="utf-8") as fh:
         raw = fh.read()
     text = " ".join(raw.split())
-    check("readme: step 1 of a graph from a website closes a window in front of the graph first, and step 2 tells "
+    # (2026-11-25, the owner: steps 1 and 2 have the words of the wait window's two steps, ui\picture_wait.py)
+    check("readme: steps 1 and 2 of a graph from a website have the words of the wait window, and step 3 tells "
           "that the measurement does not include the part out of the grid",
           # (2026-11-12: then what to do when the graph does not show the entry: the share link of an entry is not
           # verified on each website)
-          "1. If the website shows a window in front of the graph, close that window. If the graph does not show the "
-          "entry, select the entry in the list of the website. For an entry of a target, show only the target on the "
-          "graph of the website. Press Windows + Shift + S. Then select the area of the graph. Or click Screenshot on "
-          "the website." in text
+          "1. Maximize your browser for better accuracy, and close any popups over the graph. If this entry isn't "
+          "shown, select it from the site's list. For an entry of a target, show only the target on the graph of the "
+          "website. 2. Press Win+Shift+S and drag over the graph. Or click Screenshot on the site to save it to "
+          "Downloads." in text
+          and "Site target adjustments (like tilt or bass) are captured in the screenshot." in text
           and "If a curve goes above or below the grid near an end of the frequency axis, the measurement does not "
           "include that part. The text on 3 Save gives the frequencies." in text
-          and "starts or stops at that frequency" not in text, text[:0])
+          and "starts or stops at that frequency" not in text
+          and not any(w in text for w in ("in front of the graph", "Windows + Shift + S", "list of the website",
+                                          "If they agree", "Compare the curve")), text[:0])
     # (2026-11-13: the tracer of a target from a website traces the target line when the graph shows only the target.
-    # The instruction to show only the target is in step 1, before the picture; step 3 tells Add as target one time)
-    check("readme: step 1 tells to show only the target for an entry of a target, and step 3 tells Add as target "
+    # The instruction to show only the target is in step 1, before the picture; step 4 tells Add as target one time)
+    check("readme: step 1 tells to show only the target for an entry of a target, and step 4 tells Add as target "
           "for an entry of a target or from Find a target, one time",
-          "3. If they agree, click Add as measurement. For an entry of a target or an entry from Find a target, the "
-          "tracer tells you to click Add as target. If the tracer cannot trace the picture, it shows the step that "
-          "you must correct." in text and text.count("show only the target") == 1
+          "4. Verify the curve against the picture, then click Add as measurement. For an entry of a target or an "
+          "entry from Find a target, the tracer tells you to click Add as target. If the tracer cannot trace the "
+          "picture, it shows the step that you must correct." in text and text.count("show only the target") == 1
           and text.count("click Add as target") == 1, text[:0])
     check("readme: each line of README.txt has 120 characters or fewer, with LF line ends",
           "\r" not in raw and all(len(line) <= 120 for line in raw.split("\n")),

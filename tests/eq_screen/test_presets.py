@@ -32,7 +32,16 @@ def test_presets(eq_screen, monkeypatch, check):
     page.delete_preset("Check preset")
     gone = not os.path.exists(os.path.join(eq_paths.PRESET_DIR, "Check preset.json"))
     page.S["best_fit"]["q_min"] = 0.7
-    page.use_initial_settings()
+    from ui import eq_page_history
+    titles = []
+    real_question = eq_page_history.QMessageBox.question
+
+    def question(parent, title, *a, **k):  # (the title of the box that asks, then the tests' own answer)
+        titles.append(title)
+        return real_question(parent, title, *a, **k)
+    with monkeypatch.context() as m:
+        m.setattr(eq_page_history.QMessageBox, "question", staticmethod(question))
+        page.use_initial_settings()
     reset = page.S["best_fit"]["q_min"] != 0.7 and json.dumps(page.S["files"]) == was_files
     eq_screen.undo()  # (the message line's Undo)
     reset_undone = page.S["best_fit"]["q_min"] == 0.7
@@ -42,6 +51,10 @@ def test_presets(eq_screen, monkeypatch, check):
           saved and "Check preset" in listed and "Save as a preset…" in listed
           and loaded == (was_mode, was_files, was_mode) and undone != was_mode and gone and reset and reset_undone,
           (saved, listed, loaded, undone, gone, reset, reset_undone))
+    # (the owner, 2026-11-25: the command was "Use the initial settings…", and its box had that title)
+    check("presets: the menu's last command is “Reset all settings…”, and the box that asks first has the title "
+          "“Reset all settings”",
+          listed[-1] == "Reset all settings…" and titles == ["Reset all settings"], (listed, titles))
     page.S = was_all  # (the settings as they were)
     page.changed(curves=True)
     eq_screen.wait_for(lambda: page.curves is not None, 30)

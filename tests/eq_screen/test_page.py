@@ -176,7 +176,7 @@ def test_yours_and_the_legend_read_well(eq_screen, check):
             grey = lambda c: c.name() if c is not None else "#969696"
             legend = grey(page.legend.opts.get("labelTextColor"))
             drawn = {grey(label.opts.get("color")) for _sample, label in page.legend.items}
-            found[mode] = {"yours": (t["accent_text"] in st.why.text(), "your value" in st.why.text(),
+            found[mode] = {"yours": (t["accent_text"] in st.why.text(), ">custom</span>" in st.why.text(),
                                      round(theme_tokens.contrast(t["accent_text"], t["card"]), 2)),
                            "legend": (legend, drawn == {legend}, round(theme_tokens.contrast(legend, g["bg"]), 2))}
     finally:
@@ -184,7 +184,7 @@ def test_yours_and_the_legend_read_well(eq_screen, check):
         qapp.processEvents()
         page.S["auto"], page.S["best_fit"]["filter_counts"] = kept
         page.changed()
-    check("look: “yours” in Why these values is the accent's text colour, as the “yours ↺” tags, and the graph's "
+    check("look: “custom” in Why these values is the accent's text colour, as the “custom ↺” tags, and the graph's "
           "legend the axes' grey: each 4.5:1 on its card, light and dark",
           len(found) == 2 and all(f["yours"][0] and f["yours"][1] and f["yours"][2] >= 4.5 and f["legend"][1]
                                   and f["legend"][2] >= 4.5 for f in found.values()), found)
@@ -214,8 +214,8 @@ def test_overridden_follows_a_note_without_a_period(eq_screen, check):
         page.changed()
     check("settings: in About these settings, “(overridden)” follows the note of a value of yours with no period "
           "before it; the other notes show as they are",
-          lines == ["your value · Automatic: Maximum 16 filters: made up for the test, with its cause (overridden)",
-                    "your value · Automatic: Maximum 16 filters: no period (overridden)", "Not a value of yours."],
+          lines == ["custom · Automatic: Maximum 16 filters: made up for the test, with its cause (overridden)",
+                    "custom · Automatic: Maximum 16 filters: no period (overridden)", "Not a value of yours."],
           lines)
 
 

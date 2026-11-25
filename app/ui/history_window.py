@@ -202,9 +202,9 @@ class HistoryWindow(QDialog):
         more = QPushButton()
         icons.put(more, "more")
         theme.mark(more, quiet=True, nochevron=True)  # (no chevron: its symbol says it is a menu)
-        more.setToolTip("More actions")  # (its screen-reader name stays "More commands for <its row>", set below)
-        more.setAccessibleName(f"More commands for {e.get('device')} → {e.get('target')}, "  # (each row's own name: a
-                               f"{day_of(e['when'])} {time_of(e['when'])}")  # screen reader read "More commands" on all)
+        more.setToolTip("More actions")  # (its screen-reader name is "More actions for <its row>", set below)
+        more.setAccessibleName(f"More actions for {e.get('device')} → {e.get('target')}, "  # (each row's own name: a
+                               f"{day_of(e['when'])} {time_of(e['when'])}")  # screen reader read one name on all)
         menu = QMenu(more)
         menu.addAction("Copy", lambda: self.page.copy_filters(e["filters"], e.get("preamp") or 0, record=False,
                                                               say=self.footer.say))
@@ -290,7 +290,7 @@ class HistoryWindow(QDialog):
     def _mores(self):
         """The rows' ⋯ buttons, in the rows' order."""
         body = self.scroll.widget()
-        return [b for b in body.findChildren(QPushButton) if b.accessibleName().startswith("More commands for ")
+        return [b for b in body.findChildren(QPushButton) if b.accessibleName().startswith("More actions for ")
                 and b.isVisibleTo(body)] if body is not None else []
 
     def _put_back(self, gone):

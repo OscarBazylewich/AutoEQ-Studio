@@ -64,7 +64,7 @@ def test_older_copy_moved_in(place, check):
         json.dump({"T.csv": {"site": "Ours"}}, fh)
     pairs, sources = userfiles.old_places([old])
     n = userfiles.count_files(pairs)
-    moved, renamed = userfiles.move_all(pairs, sources)
+    moved, renamed, highest = userfiles.move_all(pairs, sources)
     place.moved = True
     have = sorted(os.path.relpath(os.path.join(d, f), paths.ROOT) for d, _s, fs in os.walk(paths.ROOT) for f in fs)
     with open(paths.SOURCES, encoding="utf-8") as fh:
@@ -72,7 +72,7 @@ def test_older_copy_moved_in(place, check):
     # was selftest.py:808
     check("your files: an older copy's targets, measurements, saved EQs and presets moved into their folders; a "
           "different file of the same name kept as (2), the same one not twice; the old records merged, ours first; "
-          "the old folders gone", (n, moved, renamed) == (4, 3, 1) and have == [
+          "the old folders gone", (n, moved, renamed, highest) == (4, 3, 1, 2) and have == [
               os.path.join("Measurements", "M L (2).txt"), os.path.join("Measurements", "M L.txt"),
               os.path.join("Presets", "P.json"), os.path.join("Saved EQs", "My EQ.txt"), os.path.join("Targets", "T.csv")]
           and recs == {"T.csv": {"site": "Ours"}, "M L.txt": {"site": "Old"}}
@@ -93,7 +93,7 @@ def test_moving_onto_itself_removes_nothing(place, check):
             os.rmdir(link)
     # was selftest.py:826
     check("your files: moving a folder onto itself, or onto itself by another path (a junction), removes nothing",
-          same == (0, 0) and by_link == (0, 0) and linked and os.path.isfile(os.path.join(paths.TARGETS, "T.csv")),
+          same == (0, 0, 0) and by_link == (0, 0, 0) and linked and os.path.isfile(os.path.join(paths.TARGETS, "T.csv")),
           (same, by_link, linked))
 
 
@@ -104,7 +104,7 @@ def test_change_moves_them_all(place, check):
     top = place.top
     new = os.path.join(top, "elsewhere")
     pairs = userfiles.change_pairs(new)
-    moved, renamed = userfiles.move_all(pairs)
+    moved, renamed, _highest = userfiles.move_all(pairs)
     there = sorted(os.path.relpath(os.path.join(d, f), new) for d, _s, fs in os.walk(new) for f in fs)
     why = [userfiles.problem_with(p) for p in (os.path.join(paths.PROGRAM, "mine"), os.path.join(paths.TARGETS, "x"),
                                                 os.path.join(top, "fine"))]

@@ -187,11 +187,19 @@ def test_words_of_a_website_entry(check):
               # (2026-11-16: one add button, whose name follows the type in "The graph shows")
               "For an entry of a target or from Find a target, the tracer selects “A target line”. Thus, the add "
               "button is Add as target. The text on 3 Save tells you to click it. If the app cannot trace only the "
-              "target line, remove the measurement curve from the graph of the website. Then copy a new picture.")
+              "target line, remove the measurement curve from the graph of the website, then capture the graph again.")
     check("website words: Help tells to show only the target for an entry of a target",
           all(p in paras for p in target)
           and " ".join(paras).count("the add button is Add as target") == 1,  # (one sentence tells it)
           paras)
+    # (2026-11-25, the owner: Help of the tracer's target line tells the new picture in the wait window's words,
+    # "Capture this entry's graph")
+    from ui import help_text_trace
+    line = " ".join(next(it["body"] for group in help_text_trace.SETTINGS_TRACE for it in group["items"]
+                         if it["key"] == "#tr-target-line")[1:2])
+    check("website words: Help of the tracer's target line tells to capture the graph again, in the wait window's "
+          "words", "show only one target on the graph of the website, then capture the graph again." in line
+          and "copy a new picture" not in line, line)
     words = {"BROWSE_NOTE": databases.BROWSE_NOTE, "REFUSED_NOTE": databases.REFUSED_NOTE, "Help": " ".join(paras)}
     check("website words: the messages and Help say that the app opens the website, not the entry (a link can be the "
           "page of the database)",

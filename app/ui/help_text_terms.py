@@ -360,7 +360,7 @@ TERMS = [{'title': 'Curves and sound',
                               'values).'],
                      'see': ['best-fit']},
                     {'id': 'automatic-settings',
-                     'title': 'Automatic settings, “your value” and ↺',
+                     'title': 'Automatic settings, “custom” and ↺',
                      'body': ['When you select a target and a measurement, the app adjusts these settings of the '
                               'method for them:',
                               ['The error range.',
@@ -369,8 +369,8 @@ TERMS = [{'title': 'Curves and sound',
                                'The maximum Q.',
                                'If it uses a low shelf.'],
                               '“About these settings” gives the cause of each value.',
-                              'If you change a setting, it shows “your value”, and the app keeps your value. “your '
-                              'value ↺” makes it automatic again. To use all settings as they are, clear Automatic '
+                              'If you change a setting, it shows “custom”, and the app keeps your value. “custom ↺” '
+                              'makes it automatic again. To use all settings as they are, clear Automatic '
                               'settings.'],
                      'see': ['speed-accuracy']},
                     {'id': 'speed-accuracy',
@@ -600,8 +600,8 @@ QUESTIONS = [{'id': 'q-which-method',
                         'Adjust the filters while you listen. You can edit the table and the sliders.']],
               'see': ['unit-variation', 'seal', 'match-loudness']},
              {'id': 'q-yours',
-              'q': 'A setting shows “your value”.',
-              'body': ['You changed it. Thus, the automatic settings do not change it. “your value ↺” makes it '
+              'q': 'A setting shows “custom”.',
+              'body': ['You changed it. Thus, the automatic settings do not change it. “custom ↺” makes it '
                        'automatic again.'],
               'see': ['automatic-settings']},
              {'id': 'q-auto-why',

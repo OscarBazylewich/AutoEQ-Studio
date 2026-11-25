@@ -252,8 +252,8 @@ def scroll_areas_and_menus(t, img):
 
 
 def settings_boxes(t, img):
-    """Settings boxes: a value that isn't one (bad=true), the many-line text box, a setting's “automatic” / “your value
-    ↺” tag (tag=true: “automatic” is gray words with no edge, as it can't be clicked; “your value ↺” a button), section headings (in line with the labels under them: no indent of Qt's own), folds (fold=true:
+    """Settings boxes: a value that isn't one (bad=true), the many-line text box, a setting's “automatic” / “custom ↺”
+    tag (tag=true: “automatic” is gray words with no edge, as it can't be clicked; “custom ↺” a button), section headings (in line with the labels under them: no indent of Qt's own), folds (fold=true:
     ui\\forms.py's Fold, the Target card's Adjust; Windows 11's chevron, right when closed and down when open, its
     place starting where the button does, so in line with the card's content, and a fill when pointed at, as Windows
     11's expanders)."""
