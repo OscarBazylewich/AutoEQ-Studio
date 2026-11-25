@@ -85,9 +85,6 @@ class ProfilesScreen:
                 self.prof_needs_one.append(b)
             if symbol == "edit":
                 b.setToolTip("Save changes back with Use on device › Update")
-                # (the line for a screen reader is the tooltip, the owner's rule of 2026-11-24: without this, tag()
-                # gave it the different first line of "#prof-edit" in HELP)
-                b.setAccessibleDescription(b.toolTip())
                 help_window.tag(b, "#prof-edit")
                 self.prof_edit_btn = b
         self.prof_table = QTableWidget(0, 4)

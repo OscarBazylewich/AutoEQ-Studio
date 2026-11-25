@@ -221,10 +221,8 @@ class Field(QWidget):
         # words: the tooltip is then only the limits, with no empty first line; with no limits either, no tooltip)
         self.base_tip = "\n".join(t for t in (tip, f"Allowed: {allowed}" if allowed else "") if t)
         self.box.setToolTip(self.base_tip)
-        # (for a screen reader, after the name of the box: the line of Help without the limits, the same rule as a
-        # control with help_window.tag. An empty line: no description)
-        if tip:
-            self.box.setAccessibleDescription(tip)
+        # (no description for a screen reader is set: Qt gives the tooltip, with the limits and any message of a bad
+        # value, the owner's rule of 2026-11-24, as help_window.tag)
         self.box.setProperty("help_key", path)  # (F1 on it: its entry in Help)
 
     # the value as the box shows it, and back
@@ -316,7 +314,7 @@ class Field(QWidget):
                 self._commit(c)
                 self.show_value(c)
                 self.form.say(f"Adjusted to {fmt_list(c) if isinstance(c, list) else number_text(c)} "
-                              f"(allowed: {self.form.limits.text(self.path)}).")
+                              f"(allowed: {self.form.limits.text(self.path)})")
                 return
         if isinstance(v, tuple) and self.box.text().strip() == "":
             self.show_value(self.form.get(self.path))

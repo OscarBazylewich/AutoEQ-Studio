@@ -121,7 +121,7 @@ def test_tabs_say_what_the_mark_means(eq_screen, check):
     pk = Picker(eq_screen.page, "measurement")
     try:
         tips = {name: (pk.src_by_key[key].toolTip(), pk.src_by_key[key].accessibleName(),
-                       pk.src_by_key[key].accessibleDescription()) for key, name in SOURCES}
+                       qt.description(pk.src_by_key[key])) for key, name in SOURCES}
         entries = {name: help_window.entry_of_widget(pk.src_by_key[key]) for key, name in SOURCES}
     finally:
         qt.close(pk)

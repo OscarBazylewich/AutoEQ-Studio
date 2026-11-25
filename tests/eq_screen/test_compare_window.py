@@ -102,7 +102,7 @@ def test_says_when_nothing_could_be_loaded(eq_screen, monkeypatch, check):
         qt.close(cw)
     check("ui: Which measurement says, in its list, none of the model's measurements could be loaded, and why (not "
           "that nothing was found)",
-          status == "Couldn’t load measurements for “Truthear GATe”. Check “Not loaded” below for details."
+          status == "Couldn't load measurements for “Truthear GATe”. Check “Not loaded” below for details."
           and note.startswith("Couldn't download measurements.") and reasons and "no internet in the tests" in reasons[0],
           (status, note, reasons))
 

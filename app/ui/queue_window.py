@@ -242,8 +242,9 @@ class QueueWindow(QDialog):
                  "preamp": preamp, "n_filters": len(filters),
                  "site": cfg["site"], "rig_convert": cfg["rig_convert"]["enabled"], "band": cfg["scoring"]["band_hz"]}
         h = page.svc.call("/api/history/add", {"entry": entry})
-        if not h.get("error"):
-            page.history = [e for e in page.history if e.get("key") != h["entry"]["key"]] + [h["entry"]]
+        if h.get("error"):  # (said in the row by poll: "Save failed (not added to History): …", not "Done")
+            raise ValueError(h["error"])
+        page.history = [e for e in page.history if e.get("key") != h["entry"]["key"]] + [h["entry"]]
         return (f"Done · {count_words(r['n_filters'], r.get('engine'))} · {r['rms']:.2f} dB · "
                 + (f"saved as {written[0]}" if written else "not saved (set file type in More settings › Saved files)"))
 

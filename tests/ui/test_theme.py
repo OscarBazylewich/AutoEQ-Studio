@@ -239,7 +239,7 @@ for dark in (True, False):
     holder = QWidget()
     lay = QVBoxLayout(holder)
     menu = QMenu(holder)
-    note = menu.addAction("No presets yet: a preset keeps all your settings (not your files)")
+    note = menu.addAction("No presets yet: presets save all settings, not files")
     note.setEnabled(False)
     menu.addAction("Save as a preset…")
     sub = menu.addMenu("Try for 5 minutes on")

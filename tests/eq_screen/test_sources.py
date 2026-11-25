@@ -198,7 +198,7 @@ def test_folders_box_shows_four_lines(eq_screen, check):
 
 
 def test_fits_a_small_screen(eq_screen, monkeypatch, check):
-    # (at 560 x 680 at its smallest, and opening 820 high, its bottom row (Refresh the lists now, Open the downloads
+    # (at 560 x 680 at its smallest, and opening 820 high, its bottom row (Update the lists, Open the downloads
     # folder, Close) was under the taskbar of a 1920 x 1080 laptop at 150 %, out of reach. The screen is stood in:
     # the room Qt says it has above the taskbar)
     import net
@@ -239,7 +239,7 @@ def test_fits_a_small_screen(eq_screen, monkeypatch, check):
     small, big = [seen[h] for _w, h in SMALL_SCREENS], seen[1032]
     # (the UI audit, 2026-11-08: a tab for each part, so nothing scrolls as a page)
     check("restyle: Sources fits a laptop's screen at 150 % and 175 % (its size and its smallest above the taskbar): "
-          "nothing over another, and its bottom row (Refresh the lists now, Open the downloads folder, Close) stays in "
+          "nothing over another, and its bottom row (Update the lists, Open the downloads folder, Close) stays in "
           "sight; on a big screen it opens and shrinks as before, without scrolling",
           all(s["fits"] and s["bottom row in sight"] and not s["over"] and s["tree"][0] >= s["tree"][1]
               for s in small)
@@ -315,3 +315,61 @@ def test_browse_database_from_a_picture(eq_screen, check):
     hangout = counts.get("Hangout.Audio IEMs (Crinacle, 5128)", "")
     check("sources: a database that the app traces from a picture says “· from image” after its count",
           hangout.endswith(" · from image") and not any("only in the list" in c for c in counts.values()), hangout)
+
+
+def test_curve_file_counts_say_one_file(eq_screen, monkeypatch, check):
+    # (a review of the text survey, 2026-11-24: This PC's gray line said "1 curve files", and "1 cloud-only OneDrive
+    # files skipped". A stand-in for the EQ part's answer about the search)
+    from ui.sources_window import Sources
+    src = Sources(eq_screen.page)
+    said = []
+    try:
+        src._refresh_soon.stop()
+        src._lib_poll.stop()
+        for st in ({"scanning": True, "found": 1}, {"scanning": True, "found": 2},
+                   {"found": 1, "cloud": 1, "folders": ["C:\\Music"]}, {"found": 3, "cloud": 2, "folders": ["C:\\Music"]}):
+            monkeypatch.setattr(src.svc, "call", lambda path, body=None, st=st: st)
+            src.poll_lib()
+            said.append(src.lib_status.text())
+            src._lib_poll.stop()
+    finally:
+        monkeypatch.undo()
+        qt.close(src)
+    check("sources: This PC's gray line says “1 curve file” and “1 cloud-only OneDrive file” for one, the plural for more",
+          said == ["Searching… 1 curve file", "Searching… 2 curve files",
+                   "1 curve file in Music (1 cloud-only OneDrive file skipped; download to include)",
+                   "3 curve files in Music (2 cloud-only OneDrive files skipped; download to include)"], said)
+
+
+def test_database_added_offline_says_no_loading(eq_screen, monkeypatch, check):
+    # (a review of the text survey, 2026-11-24: offline, a database added said "Database added. Loading list…", but
+    # the app loads no list offline. Online is stood in for net.offline() only, and the background calls of the
+    # Sources window get no answer, so nothing connects: as test_squiglink_note_hidden_while_loading)
+    import net
+    from ui import sources_window
+    from ui.sources_window import Sources
+    page = eq_screen.page
+    S = page.S
+    kept = json.loads(json.dumps(S["databases"]))
+    real = sources_window.tasks.background
+    monkeypatch.setattr(sources_window.tasks, "background",
+                        lambda work, done, owner=None: None if isinstance(owner, Sources)
+                        else real(work, done, owner=owner))
+    said = {}
+    try:
+        for off in (True, False):
+            monkeypatch.setattr(net, "offline", lambda off=off: off)
+            src = Sources(page)
+            try:
+                src.add_database(f"https://stand-in-{'off' if off else 'on'}.squig.link")
+                said["offline" if off else "online"] = src.footer.line.text.text()
+            finally:
+                src._refresh_soon.stop()
+                qt.close(src)
+            S["databases"].clear()
+            S["databases"].update(json.loads(json.dumps(kept)))
+    finally:
+        monkeypatch.undo()
+        page.svc.call("/api/settings", {"settings": S})
+    check("sources: a database added says “Database added” offline, and “Database added. Loading list…” online",
+          said == {"offline": "Database added", "online": "Database added. Loading list…"}, said)

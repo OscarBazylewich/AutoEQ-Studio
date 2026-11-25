@@ -64,6 +64,7 @@ import math
 import os
 
 import numpy as np
+import paths
 from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox, QFileDialog, QFrame, QGridLayout,
@@ -160,6 +161,12 @@ def _range_tip(line, allowed):
     (the text survey, 2026-11-24, removed the lines of Top, Bottom, Left, Right and Save from … to) only "Allowed:
     …", with no empty first line."""
     return "\n".join(p for p in (line, f"Allowed: {allowed}") if p)
+
+
+def _box_help_key(key):
+    """The Help key of a value box (d1, d2, f1, f2, fmin, fmax): the two boxes of Save from … to share "#tr-fmin".
+    One function for the tooltip made with the box and the one put back after a bad value."""
+    return "#tr-fmin" if key in ("fmin", "fmax") else f"#tr-{key}"
 
 
 def _label(text="", role=None, wrap=True):
@@ -1000,7 +1007,7 @@ class TraceWindow(QWidget):
         g = placed(v, QGridLayout())
         g.setColumnStretch(2, 1)
         g.setColumnStretch(4, 1)
-        self.boxes = {}
+        self.boxes, self.box_limits = {}, {}  # (box_limits: each value box's key of Limits)
         rows = (("Red lines (dB)", (("d1", "Top", "Top red line (dB)", "trace.db"),
                                     ("d2", "Bottom", "Bottom red line (dB)", "trace.db"))),
                 ("Blue lines (Hz)", (("f1", "Left", "Left blue line (Hz)", "trace.hz"),
@@ -1011,7 +1018,8 @@ class TraceWindow(QWidget):
                 g.addWidget(_label(short, "muted", wrap=False), r, 1 + 2 * c)
                 b = QLineEdit()
                 b.setAccessibleName(text)
-                b.setToolTip(_range_tip(help_of(f"#tr-{key}"), self.limits.text(lim)))
+                self.box_limits[key] = lim
+                b.setToolTip(self.box_tip(key))
                 b.textEdited.connect(lambda _t, k=key, lim=lim: self.value_typed(k, lim))
                 b.editingFinished.connect(lambda k=key, lim=lim: self.value_left(k, lim))
                 g.addWidget(b, r, 2 + 2 * c)
@@ -1166,7 +1174,8 @@ class TraceWindow(QWidget):
         self.fmin, self.fmax = _RangeBox(), _RangeBox()
         for key, b in (("fmin", self.fmin), ("fmax", self.fmax)):
             b.setMaximumWidth(80)
-            b.setToolTip(_range_tip(help_of("#tr-fmin"), self.limits.text("trace.save")))
+            self.box_limits[key] = "trace.save"
+            b.setToolTip(self.box_tip(key))
             b.textEdited.connect(lambda _t, k=key: self.value_typed(k, "trace.save"))
             b.editingFinished.connect(lambda k=key: self.value_left(k, "trace.save"))
             self.boxes[key] = b
@@ -1217,6 +1226,7 @@ class TraceWindow(QWidget):
             if not b.hasFocus():
                 b.setText(str(tv[key]))
                 theme.mark(b, bad=False)
+                b.setToolTip(self.box_tip(key))  # (not the message of a bad value the box had)
         for w, on in ((self.snap, tv["snap"]), (self.every, tv["every"]), (self.dashed, tv["dashed"])):
             w.blockSignals(True)
             w.setChecked(bool(on))
@@ -1239,7 +1249,7 @@ class TraceWindow(QWidget):
         esc = lambda s: s.replace("&", "&amp;").replace("<", "&lt;")
         notes = [(k, x) for k, x in ta["notes"].items() if x]
         if on:
-            items = "".join(f"<li><i>Custom</i> · Auto: {esc(x)}</li>" if t.is_your_value(k)
+            items = "".join(f"<li><i>Custom</i> · Auto: {esc(x)}</li>" if t.is_custom(k)
                             else f"<li>{esc(x)}</li>" for k, x in notes) or "<li>Open an image to auto-adjust settings</li>"
         else:
             items = "<li>Auto settings are off</li>"
@@ -1249,7 +1259,7 @@ class TraceWindow(QWidget):
                ("Save range", f"{tv['fmin']}–{tv['fmax']} Hz", "fmin"),
                ("Dashed line", "yes" if tv["dashed"] else "no", "dashed")]
         def whose(k):
-            return f" <i>{'custom' if t.is_your_value(k) else 'auto'}</i>" if on and k else ""
+            return f" <i>{'custom' if t.is_custom(k) else 'auto'}</i>" if on and k else ""
         self.auto_eff.setText("<br>".join(f"{a}: <b>{esc(str(b))}</b>" + whose(k) for a, b, k in eff))
         mine = sorted(ta["manual"])
         self.auto_manual.setVisible(on and bool(mine))
@@ -1684,7 +1694,9 @@ class TraceWindow(QWidget):
             self.show_name()
             self.changed()
             self.status.setText(IDLE)  # (not LOADING of a large picture)
-            self.box("warning", "Trace", f"Couldn't detect graph axes ({e}). Send the image and data\\app.log to "
+            # (the full path of the app's log, as the other messages that name it: an installed copy keeps its data
+            # out of the program's folder, so "data\app.log" was not where the file is)
+            self.box("warning", "Trace", f"Couldn't detect graph axes ({e}). Send the image and {paths.LOG} to "
                      "report this issue.")
             self.focus_open_image(had)
             return
@@ -2019,9 +2031,13 @@ class TraceWindow(QWidget):
         b, t = self.boxes[key], self.t
         text = b.text().strip().replace(",", ".")
         before = self.save_value("range")  # (the range before this change: users_work)
+        # (the box's own tooltip, as made with it: back after a bad value is corrected or emptied. A screen reader
+        # reads the tooltip of the moment: help_window.tag sets no description)
+        own_tip = self.box_tip(key)
         if text == "":
             t.v[key] = ""
             theme.mark(b, bad=False)
+            b.setToolTip(own_tip)
         else:
             try:
                 x = float(text)
@@ -2029,8 +2045,7 @@ class TraceWindow(QWidget):
             except ValueError:
                 bad = ("bad", "Enter a number")
             theme.mark(b, bad=bool(bad))
-            b.setToolTip(bad[1] if bad else _range_tip(help_of(f"#tr-{key if key[0] in 'df' else 'fmin'}"),
-                                                         self.limits.text(lim)))
+            b.setToolTip(bad[1] if bad else own_tip)
             if bad:
                 return
             t.v[key] = text
@@ -2043,6 +2058,10 @@ class TraceWindow(QWidget):
         self.show_values()  # (points per octave and the range follow the axes' values; the box typed in is left be)
         self.render_auto_settings()
         self.update_ui()
+
+    def box_tip(self, key):
+        """A value box's own tooltip (not the message of a bad value): its Help line and its limits."""
+        return _range_tip(help_of(_box_help_key(key)), self.limits.text(self.box_limits[key]))
 
     def value_left(self, key, lim):
         """Leaving a box with a value past its limits: moved to the limit (said)."""

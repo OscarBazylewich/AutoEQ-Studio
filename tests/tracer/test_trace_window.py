@@ -16,6 +16,9 @@ from ui.trace_window import sample_image
 
 # (what the window reaches through Make an EQ: for app\tools\relevant_tests.py)
 COVERS = ("ui.trace_core", "ui.ocr", "ui.eq_page", "eq.service", "eq.inputs")
+# (the key of Limits of each value box, as the window makes them)
+BOX_LIMITS = {"d1": "trace.db", "d2": "trace.db", "f1": "trace.hz", "f2": "trace.hz", "fmin": "trace.save",
+              "fmax": "trace.save"}
 
 
 def test_two_fingers_zoom_and_drag(eq_screen, monkeypatch, check):
@@ -325,3 +328,55 @@ def test_outputs_name_and_target_mark(eq_screen, check):
     check("tracer: a curve marked as target is not in the measurement's files (Add as target of that curve has it), "
           "and Add the target line as target… shows for it",
           len(marked) == len(named) - 1 and one == [t.curves[1]["label"]] and button, (marked, one, button))
+
+
+def test_value_box_tooltip_after_a_bad_value(eq_screen, check):
+    # (a review of the text survey, 2026-11-24: a value box that said "Enter a number" kept that tooltip after it was
+    # emptied; the boxes of Save from … to made their Help key in two ways. A screen reader reads the tooltip of the
+    # moment: helpers.qt.description)
+    from helpers import qt
+    tw, _truth, _msgs = eqpage.open_traced_sample(eq_screen)
+    seen = {}
+    try:
+        for key in ("d1", "f2", "fmin", "fmax"):
+            b = tw.boxes[key]
+            made = b.toolTip()
+            kept = b.text()
+            steps = {}
+            for name, text in (("made", None), ("bad", "x"), ("emptied", ""), ("good", kept)):
+                if text is not None:
+                    b.setText(text)
+                    tw.value_typed(key, BOX_LIMITS[key])
+                steps[name] = (b.toolTip(), qt.description(b))
+            seen[key] = (made, steps)
+    finally:
+        tw.close()
+    check("tracer: a value box shows “Enter a number” for a bad value, and its own tooltip again when it is emptied or "
+          "has a good value; a screen reader reads the tooltip each time",
+          all(made and steps["made"] == (made, made) and steps["bad"] == ("Enter a number",) * 2
+              and steps["emptied"] == (made, made) and steps["good"] == (made, made)
+              for made, steps in seen.values()), seen)
+    check("tracer: the two boxes of Save from … to have one tooltip", seen["fmin"][0] == seen["fmax"][0],
+          (seen["fmin"][0], seen["fmax"][0]))
+
+
+def test_range_custom_when_only_its_end_is_set(eq_screen, check):
+    # (a review of the text survey, 2026-11-24: with only the "to" box of Save from … to set by hand, About these
+    # settings and Active settings said the range was automatic: its note and row are under "fmin")
+    tw, _truth, _msgs = eqpage.open_traced_sample(eq_screen)
+    t = tw.t
+    try:
+        auto_note = t.ta["notes"]["fmin"]
+        b = tw.boxes["fmax"]
+        b.setText("15000")
+        tw.value_typed("fmax", BOX_LIMITS["fmax"])
+        seen = {"yours": sorted(t.ta["manual"]), "notes": tw.auto_notes.text(), "active": tw.auto_eff.text()}
+        t.make_auto()
+        tw.render_auto_settings()
+    finally:
+        tw.close()
+    check("tracer: the sample graph's range note says the audible range", auto_note.endswith(
+          "audible range (covered by graph)"), auto_note)
+    check("tracer: the range to save is custom in About these settings and in Active settings when only its “to” box "
+          "is set by hand", seen["yours"] == ["fmax"] and "<i>Custom</i> · Auto: Save " in seen["notes"]
+          and "Save range: <b>" in seen["active"] and "Hz</b> <i>custom</i>" in seen["active"], seen)

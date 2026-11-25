@@ -71,7 +71,7 @@ def test_db_range_of_a_target(check):
     check("db_range_check: -50 dB to -10 dB is not usual for a target, with the words of a target",
           not low.ok and low.reason == "Detected dB range is -50 to -10 dB. Unusual range for a target graph.", low)
     check("db_range_check: -20 dB to 20 dB is not usual for a measurement, with the words of a measurement",
-          not meas.ok and meas.reason == "Detected dB range is -20 to 20 dB. Unusual range for a headphone/IEM graph.",
+          not meas.ok and meas.reason == "Detected dB range is -20 to 20 dB. Unusual range for an IEM or headphone graph.",
           meas)
 
 

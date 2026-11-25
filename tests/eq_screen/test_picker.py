@@ -916,3 +916,41 @@ def test_survey_texts(eq_screen, monkeypatch, check):
           bool(key) and made[1] == f"Measured on: {rigs[key]} (likely)\nFrom its name"
           and unknown == ("rig ?", "Target rig unknown\nFrom its name") and plain[1] == f"Measured on: {rigs[key]}",
           seen["rig tags"])
+
+
+def test_more_rows_note_names_the_tab(eq_screen, monkeypatch, check):
+    # (a review of the text survey, 2026-11-24: in All, the row after This PC's first rows said "…, or switch to
+    # this pc above": the name of the tab in lower case. The tab is "This PC")
+    from ui import picker as picker_mod
+    pk = _shown_picker(eq_screen.page, "")
+    try:
+        n = picker_mod.LIMIT_ALL["pc"] + 5
+        folder = "C:\\Stand-in\\Curves"
+        monkeypatch.setattr(pk, "lib", {"items": [{"id": f"pc{i}", "kind": "measurement", "name": f"Zz stand-in {i}",
+                                                   "folder": folder, "files": [f"Zz stand-in {i}.txt"], "rig": ""}
+                                                  for i in range(n)]})
+        pk.q.setText("zz stand-in")
+        pk._later.stop()
+        pk.render()
+        pk.finish_list()
+        notes = [pk.list.item(i).text() for i in range(pk.list.count()) if "more: refine your search" in
+                 pk.list.item(i).text()]
+    finally:
+        _close(pk)
+    check("ui: Find… in All, with more rows from This PC than it shows, names the tab as it shows: “…, or switch to "
+          "This PC above”", notes == ["5 more: refine your search, or switch to This PC above"], notes)
+
+
+def test_how_the_rig_is_known_starts_upper_case(eq_screen, check):
+    # (a review of the text survey, 2026-11-24: the second line of a rig tag's tooltip is how the app knows the rig,
+    # and rigmap.site_notes gives it in lower case: "from source (…)")
+    from ui.picker import Picker
+    pk = Picker(eq_screen.page, "measurement")
+    try:
+        rigs = pk.meta.get("rigs") or {}
+        key = next(iter(rigs), "")
+        _label, tip = pk._rig_tag({"rig": key, "src": "db", "how": "from source (its website)"})
+    finally:
+        _close(pk)
+    check("ui: a rig tag's tooltip starts its line about how the app knows the rig with an upper-case letter",
+          bool(key) and tip == f"Measured on: {rigs[key]}\nFrom source (its website)", tip)

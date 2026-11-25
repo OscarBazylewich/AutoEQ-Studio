@@ -266,9 +266,6 @@ class DevicesScreen:
         rem.setAccessibleName(f"Remove {shown(rec)} from Devices")
         # (on for a connected device too: a click tells why in a bubble, UI-RULES 25)
         rem.setToolTip("Remove from Devices. Its profiles stay in Profiles.")
-        # (the line for a screen reader is the tooltip, the owner's rule of 2026-11-24. The line of "#dev-remove" in
-        # HELP is empty, so tag() gives no description: this one gives it)
-        rem.setAccessibleDescription(rem.toolTip())
         rem.clicked.connect(lambda: self.remove_device(key))
         rem.setProperty("card_place", "remove device")
         help_window.tag(rem, "#dev-remove")
@@ -357,7 +354,9 @@ class DevicesScreen:
         bl.addWidget(add, 0, Qt.AlignLeft)
         lay.addWidget(box)
         self.check_label = self.check_row = self.check_warn = None
-        if self.sw.apo.found and d and not c:  # (off for now, APO plays the flat file: asked again once it's back)
+        # (off for now, APO plays the flat file: asked again once it's back. A device without Equalizer APO has no
+        # line: the card's warning bar above says it, and the line's answer said the same words in a second bar)
+        if self.sw.apo.found and d and d.apo and not c:
             row = QHBoxLayout()
             self.check_label = QLabel()
             self.check_label.setWordWrap(True)

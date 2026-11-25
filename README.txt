@@ -169,8 +169,8 @@ One column, from the top to the bottom:
   frequencies.
   For FxSound (1.2.14 or later), Best fit calculates one EQ for each band count (5, 10, 15, 20 and 31): select one
   in Number of filters. With 5 or 10 bands, set each band of FxSound to the frequency in the filter table.
-  "Queue…" makes EQs for more than one IEM or target, one after the other (select them). It saves each EQ and keeps
-  it in History.
+  "Queue…" makes EQs for more than one IEM or target, one after the other (select them). It keeps each EQ in
+  History, and saves it when a file type is set in More settings › Saved files.
   Manually: you make the EQ. Start from: an empty EQ, a copy of the selected EQ, an EQ file, pasted filters or a
   device's profile. An EQ file can be from Equalizer APO, AutoEq, squig.link, Room EQ Wizard ("Export filter settings
   as text") or Peace (a preset). Then click Start. The manual EQ is on the result card, the same as a calculated EQ.

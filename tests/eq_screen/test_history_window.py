@@ -421,6 +421,63 @@ def test_history_deleted_straight_after_drawing_again(made_up_history, check):
           "afterwards", gone, gone)
 
 
+def _show_with_page_put_back(page, entry, before_put_back=lambda: None):
+    """History's Show of `entry`, then the page's settings, files and curves as they were (Show changes them).
+    before_put_back: what the test takes away first (its stand-ins)."""
+    import copy
+    kept = copy.deepcopy(page.S)
+    try:
+        page.show_history_entry(entry)
+    finally:
+        before_put_back()
+        page.S = kept
+        res = page.svc.call("/api/settings", {"settings": page.S})
+        if res.get("inputs"):
+            page.show_inputs(res["inputs"])
+        page.curves_loaded(page.svc.call("/api/curves", {"settings": page.S}))
+        page.show_settings()
+
+
+def test_show_says_the_frequency_range_without_decimals(eq_screen, check, monkeypatch):
+    # (a review of the text survey, 2026-11-24: History keeps an EQ's frequency range as numbers with decimals, and
+    # Show said "Frequency range changed from 20.0–19000.0 Hz …")
+    page = eq_screen.page
+    if page.curves is None:
+        raise RuntimeError("Show needs curves in use for this check")
+    said = []
+    monkeypatch.setattr(page, "status", lambda text, *a, **k: said.append(text))
+    now = page.S["scoring"]["band_hz"]
+    entry = {"key": "band-check", "base": "band-check", "when": time.time(), "device": "Stand-in IEM",
+             "target": "Stand-in target", "meas_files": ["not in the app.csv"], "target_file": "not in the app.csv",
+             "mode": "best_fit", "filters": [{"type": "PK", "freq": 1000, "gain": 1.0, "q": 1.0}], "n_filters": 1,
+             "rms": 0.5, "band": [20.0, 19000.0]}
+    _show_with_page_put_back(page, entry, monkeypatch.undo)
+    want = (f"Frequency range changed from 20–19000 Hz to {now[0]:g}–{now[1]:g} Hz, so the displayed error differs "
+            "from History")
+    check("history: Show says a changed frequency range with no decimals (“20–19000 Hz”)", want in said, said)
+
+
+def test_show_says_why_the_curves_failed(eq_screen, check, dialogs, monkeypatch):
+    # (a review of the text survey, 2026-11-24: with the EQ's measurement and target both in the app, curves that
+    # failed made Show say "Original target not found". A stand-in /api/curves gives the error)
+    page = eq_screen.page
+    names = [m["name"] for m in page.inputs["measurements"] if m["included"]]
+    target = page.S["files"].get("active_target") or next(iter(page.inputs["targets"]), None)
+    if not names or not target:
+        raise RuntimeError("Show needs a measurement and a target in the app for this check")
+    real = page.svc.call
+    monkeypatch.setattr(page.svc, "call", lambda path, body=None, *a, **k: {"error": "Stand-in: no curves"}
+                        if path == "/api/curves" else real(path, body, *a, **k))
+    entry = {"key": "curves-check", "base": "curves-check", "when": time.time(), "device": "Stand-in IEM",
+             "target": "Stand-in target", "meas_files": names, "target_file": target, "mode": "best_fit",
+             "filters": [{"type": "PK", "freq": 1000, "gain": 1.0, "q": 1.0}], "n_filters": 1, "rms": 0.5}
+    dialogs.asked.clear()
+    _show_with_page_put_back(page, entry, monkeypatch.undo)
+    boxes = [text for kind, text in dialogs.asked if kind == "information"]
+    check("history: Show with the EQ's files in the app but no curves says why the curves failed, not “not found”",
+          boxes == ["Stand-in: no curves"], boxes)
+
+
 def test_unreadable_history_is_said(eq_screen, check, dialogs, fresh_studio):
     # (last in this file: it breaks History on purpose; fresh_studio puts the studio back after it)
     page = eq_screen.page

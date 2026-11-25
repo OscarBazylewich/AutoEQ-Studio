@@ -158,7 +158,7 @@ def test_four_types_one_add_button(eq_screen, tmp_path, check):
             seen[(curves, kind)] = {
                 "row": _row(tw), "target list": (tw.comp_lab.isVisible(), tw.comp.isVisible()),
                 "line": tw.save_what.text(), "line in sight": tw.save_what.isVisible(),
-                "described": tw.save_btn.accessibleDescription(), "add": tw.add_kind(),
+                "described": qt.description(tw.save_btn), "add": tw.add_kind(),
                 "tab": _tab_order(tw), "unnamed": a11y.unnamed(card),
                 # (top to bottom: the list, the list of the target, the buttons, the gray line)
                 "below": [w.mapTo(card, QPoint(0, 0)).y() for w in (tw.shows, tw.comp, tw.save_btn, tw.save_what)

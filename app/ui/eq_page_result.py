@@ -951,7 +951,7 @@ class EqResult:
             QMessageBox.warning(self, "Use for 5 minutes", str(e))
             return
         self._trying = {"key": key, "run": id(run), "rid": r["id"]}
-        extra = "" if self.sw.apo.includes_studio() else (" Equalizer APO isn't linked to AutoEQ Studio: click Add "
+        extra = "" if self.sw.apo.includes_studio() else (" Equalizer APO isn't linked to AutoEQ Studio. Click Add "
                                                           "AutoEQ Studio to APO… in Devices.")
         self.window().render_all() if hasattr(self.window(), "render_trial") else None
         self.status(f"Previewing “{name}” on {shown(self.sw.record(key))} for {minutes} minutes (updates live as you "
@@ -974,7 +974,7 @@ class EqResult:
         rec, d = self.sw.record(key), self.sw.device(key)
         extra = ""
         if not self.sw.apo.includes_studio():
-            extra = " Equalizer APO isn't linked to AutoEQ Studio: click Add AutoEQ Studio to APO… in Devices."
+            extra = " Equalizer APO isn't linked to AutoEQ Studio. Click Add AutoEQ Studio to APO… in Devices."
         elif d and not d.apo:
             extra = " Equalizer APO isn't installed on this device (see Devices)."
         self.status(f"“{self.sw.profile_name(pid)}” is now active on {shown(rec)}.{extra}", 10000)
@@ -1010,7 +1010,7 @@ class EqResult:
                 QMessageBox.warning(self, "Update the profile", str(e))
                 return
             self.status({"": f"Restored previous EQ for “{now}”",
-                         "deleted": f"Can't undo: “{now}” was deleted in Profiles",
+                         "deleted": f"Can't undo: “{now}” was deleted from Profiles",
                          "changed": f"Can't undo: “{now}” was modified externally after the update"}[why])
         self.status(words, undo=undo)
 

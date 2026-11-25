@@ -405,19 +405,21 @@ class HelpWindow(QWidget):
 def tag(widget, key):
     """A control belongs to a setting: its line as the tooltip (when it has none), and F1 on it opens the setting's
     entry (the tooltip does not say so, to stay short: Help, the Guide and README.txt tell about F1). An empty
-    line in HELP (help_texts.py) means no tooltip from here and no description for a screen reader: the control
-    keeps its tag, its name and a tooltip that its own code gave it."""
+    line in HELP (help_texts.py) means no tooltip from here: the control keeps its tag, its name and a tooltip that
+    its own code gave it."""
     widget.setProperty("help_key", key)
     h = HELP.get(help_key(key) or "")
     line = (h[0] if isinstance(h, list) else h) if h else ""
     if line and not widget.toolTip():
         widget.setToolTip(line)
-    # (for a screen reader: the setting's name, as Help names it, and its line)
+    # (for a screen reader: the setting's name, as Help names it. No description is set here: the line a screen
+    # reader reads after the name is the tooltip (the owner's rule, 2026-11-24), and Qt gives the tooltip when a
+    # widget has no description of its own (QAccessibleWidget, measured on PySide6 6.11.2), always the tooltip of
+    # the moment. A description set here was the Help line, and stayed when the control's code gave or changed its
+    # tooltip: a value box's "Enter a number", a control's own tooltip of the text survey)
     e = _by_id().get(entry_for(key) or "")
     if not widget.accessibleName() and (e and e.get("title") or line):
         widget.setAccessibleName(e["title"] if e and e.get("title") else line.split(".")[0])
-    if line and not widget.accessibleDescription():
-        widget.setAccessibleDescription(line)
     return widget
 
 

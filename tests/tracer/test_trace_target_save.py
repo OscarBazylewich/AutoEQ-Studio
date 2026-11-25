@@ -169,8 +169,8 @@ def test_kind_of_entry_and_picture_disagree(eq_screen, monkeypatch, tmp_path, ch
                                   ("Add as measurement", True), False), seen["measurement"])
     check("tracer: an entry of a measurement, the website's graph of a target (-20 dB to 20 dB): 1 Axes is in sight, "
           "and the status line has the reason of the dB axis, the sentence about the gray line and the step to correct",
-          seen["graph of a target"] == (False, 0, head + "Detected dB range is -20 to 20 dB. Unusual range for a "
-                                        "headphone/IEM graph. If only a target is shown, enable the measurement on "
+          seen["graph of a target"] == (False, 0, head + "Detected dB range is -20 to 20 dB. Unusual range for an "
+                                        "IEM or headphone graph. If only a target is shown, enable the measurement on "
                                         "the graph\n" + CORRECT_STEP), seen["graph of a target"])
     check("tracer: an entry of a target, a picture with a measurement across the target line: the read is not OK, and "
           "the status line tells to remove the measurement and to copy a new picture",

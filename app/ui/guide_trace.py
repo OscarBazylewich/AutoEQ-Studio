@@ -66,7 +66,7 @@ def trace_steps(tw):
          "text": "The app adjusts these settings for the picture: color tolerance, points in each octave, the range to "
                  "save and dashed lines. It makes the labels larger before it reads them, and puts the traced line "
                  "between pixels. If a traced line stops before the end of the curve, the app tries again. If "
-                 "you change a setting, it shows “your value” until you click ↺."},
+                 "you change a setting, it shows “your value” until you click ↺ or open a new picture."},
         {"chapter": "1 · Axes", "title": "Examine the axes", "target": lambda: tw.boxes["d1"].parentWidget(),
          "before": tab(0),
          "text": "The red lines show two dB grid lines, and the blue lines show two frequency grid lines. The app puts "

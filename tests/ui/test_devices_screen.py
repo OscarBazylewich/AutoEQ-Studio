@@ -17,6 +17,8 @@ import os
 import threading
 import types
 
+import pytest
+
 from helpers import qt, session, subproc
 
 KEY = "Headset|EarPods"
@@ -155,20 +157,49 @@ def test_playing_device_chosen_and_apo_missing_said(devices_window, check):
           (win.selected, labels))
 
 
-def test_check_again(set_up_window, check, monkeypatch):
+@pytest.fixture
+def apo_on(set_up_window):
+    """The window after Set up, with Equalizer APO on the playing device while the test runs (the line about
+    Equalizer APO and Examine again show only on a device with APO: tests\\ui\\conftest.py)."""
+    with set_up_window.apo_on_playing_device():
+        yield set_up_window
+
+
+def test_one_bar_on_a_device_without_apo(set_up_window, check):
+    # (a review of the text survey, 2026-11-24: on a device without Equalizer APO, the card's warning bar said so,
+    # and the line about Equalizer APO under it said the same in a second warning bar: Benchmark's answer for such a
+    # device ends with those words, switcher\check.py)
+    from PySide6.QtWidgets import QLabel, QPushButton
+    win = set_up_window.win
+    # (Benchmark's answer for such a device when the rest is right: switcher\check.py's last sentence alone)
+    missing = ("Equalizer APO isn't installed on this device, so EQ won't apply. Enable it in APO Configurator, then "
+               "restart Windows.")
+    if win.check_label is not None:  # (the line of the device, with that answer)
+        win._checks[KEY] = (win._check_sig(KEY), False, missing)
+        win._show_check(KEY)
+    said = [lab.text() for lab in win.dev_panel.findChildren(QLabel)
+            if lab.isVisibleTo(win) and "isn't installed on this device" in lab.text()]
+    again = [b for b in win.dev_panel.findChildren(QPushButton) if b.text() == "Examine again" and b.isVisibleTo(win)]
+    check("devices: a device without Equalizer APO says so in one warning bar, the card's, with no line about "
+          "Equalizer APO and no Examine again", len(said) == 1 and said[0].startswith("Equalizer APO isn't installed")
+          and win.check_label is None and not again, (said, len(again)))
+
+
+def test_check_again(apo_on, check, monkeypatch):
     # Is the EQ playing? Benchmark's answer (a stand-in for it here) on the device's line and, with Check again, said
-    # in full
+    # in full. (A device without Equalizer APO has no such line: test_one_bar_on_a_device_without_apo. Here APO is on
+    # the device, and its answer is bad: the profile's file is not loaded)
     from PySide6.QtWidgets import QMessageBox, QPushButton
     from switcher import check as apo_check
-    w = set_up_window
+    w = apo_on
     win, sw = w.win, w.sw
     rec = sw.record(KEY)
     win._checks.clear()
     chk = [b for b in win.dev_panel.findChildren(QPushButton) if b.text() == "Examine again" and b.isVisibleTo(win)]
-    pfile = os.path.join(sw.apo.profiles, sw.profiles()[rec["active"]]["file"])
+    name = sw.profiles()[rec["active"]]["name"]
     told = []
     monkeypatch.setattr(apo_check, "run", lambda apo, guid, timeout=60: (told.append(guid), {
-        "loaded": [apo.config_txt, os.path.join(apo.config, "AutoEQ Studio", "switcher.txt"), pfile],
+        "loaded": [apo.config_txt, os.path.join(apo.config, "AutoEQ Studio", "switcher.txt")],
         "matched": ["{5}"]})[1])
     monkeypatch.setattr(QMessageBox, "information", staticmethod(lambda *a, **k: told.append(("ok", a[2]))))
     monkeypatch.setattr(QMessageBox, "warning", staticmethod(lambda *a, **k: told.append(("not", a[2]))))
@@ -180,20 +211,21 @@ def test_check_again(set_up_window, check, monkeypatch):
     bar = (win.check_warn is not None and win.check_warn.isVisibleTo(win), win.check_warn_text.text()
            if win.check_warn is not None else "", win.check_row is not None and win.check_row.isVisibleTo(win))
     # was selftest.py:424 (the UI audit, 2026-11-08: a bad answer is Windows 11's warning bar, with Examine again in it)
-    check("window: Check again asks APO for the device's endpoint and says all it found (its EQ applies, but APO "
-          "isn't on the device); the device's line says it too, as a warning bar",
-          len(chk) == 1 and "{5}" in told and any(isinstance(x, tuple) and x[0] == "not" and "device section found and EQ file loaded"
-                                                   in x[1] and "isn't installed on this device" in x[1] for x in told)
-          and line.startswith("Equalizer APO isn't installed on this device") and bar[0] and bar[1] == line
+    check("window: Check again asks APO for the device's endpoint and says all it found (the profile is selected, but "
+          "APO isn't loading its file); the device's line says it too, as a warning bar in the line's place",
+          len(chk) == 1 and "{5}" in told and any(isinstance(x, tuple) and x[0] == "not"
+                                                  and f"“{name}” is selected, but APO isn't loading it" in x[1]
+                                                  for x in told)
+          and line == f"“{name}” is selected, but APO isn't loading it" and bar[0] and bar[1] == line
           and not bar[2], (told, line, bar))
 
 
-def test_examine_again_shows_no_wait_message(set_up_window, check, monkeypatch):
+def test_examine_again_shows_no_wait_message(apo_on, check, monkeypatch):
     # (the text survey, area 27, 2026-11-24: Examine again shows no message while it waits; the line beside it says
     # "Checking Equalizer APO…", and then the message box shows all the results)
     from PySide6.QtWidgets import QMessageBox
     from switcher import check as apo_check
-    win = set_up_window.win
+    win = apo_on.win
     win._checks.clear()
     said, boxes, line = [], [], []
     monkeypatch.setattr(win, "status", lambda *a, **k: said.append(a[0] if a else k))
@@ -210,11 +242,11 @@ def test_examine_again_shows_no_wait_message(set_up_window, check, monkeypatch):
           and boxes[0].startswith("Equalizer APO isn't loading AutoEQ Studio"), (said, line, boxes))
 
 
-def test_line_asked_once_per_change(set_up_window, check, monkeypatch, qapp):
+def test_line_asked_once_per_change(apo_on, check, monkeypatch, qapp):
     # the line asks by itself, once per change (the answer kept while nothing it depends on changes: here the one
-    # Check again got, just before)
+    # the line got when Equalizer APO came on the device, apo_on)
     from switcher import check as apo_check
-    win = set_up_window.win
+    win = apo_on.win
     asked = []
     monkeypatch.setattr(apo_check, "run", lambda apo, guid, timeout=60: (asked.append(guid), {"loaded": [], "matched": []})[1])
     win.render_device_panel()
@@ -254,10 +286,10 @@ def test_line_keeps_a_profiles_name_whole(check):
           lines)
 
 
-def test_eq_switched_while_apo_is_asked(set_up_window, check, monkeypatch, qapp):
+def test_eq_switched_while_apo_is_asked(apo_on, check, monkeypatch, qapp):
     # (the EQ switched while APO is still being asked: the line is about the new one, not the one asked about)
     from switcher import check as apo_check
-    w = set_up_window
+    w = apo_on
     win, sw, key = w.win, w.sw, KEY
     first = sw.record(key)["active"]
     other = next(p for p in sw.profiles() if p != first)
@@ -284,8 +316,7 @@ def test_eq_switched_while_apo_is_asked(set_up_window, check, monkeypatch, qapp)
     finally:
         switched.set()
         monkeypatch.undo()
-    told = win.check_label.toolTip() if win.check_label is not None else ""  # (all of the answer; this test device
-    # has no APO, so its short line says that)
+    told = win.check_label.toolTip() if win.check_label is not None else ""  # (all of the answer)
     try:
         # was selftest.py:523
         check("window: the EQ switched while APO is asked: it's asked again, and the answer is about the EQ on now",
@@ -438,14 +469,19 @@ def test_symbols_beside_the_device_screens_words(set_up_window, check, qapp):
     win.render_device_panel()
     qapp.processEvents()  # (the panel's new parts are shown on Qt's next turn)
     buttons = {b.text(): b for b in win.dev_panel.findChildren(QPushButton) if b.isVisible()}
-    want = ("Rename…", "Add a profile", "Examine again")
     signs = [(lab.accessibleName(), lab.property("role")) for lab in win.dev_panel.findChildren(QLabel)
              if lab.property("glyph") == "true" and lab.isVisible()]
+    missing = [w for w in ("Rename…", "Add a profile") if w not in buttons or buttons[w].icon().isNull()]
+    # (Examine again is on the card of a device with Equalizer APO only)
+    with set_up_window.apo_on_playing_device():
+        qapp.processEvents()
+        again = [b for b in win.dev_panel.findChildren(QPushButton) if b.isVisible() and b.text() == "Examine again"]
+        missing += [] if again and not again[0].icon().isNull() else ["Examine again"]
+    buttons = sorted(buttons)
     # (the playing device has no APO on it: its card says so)
     check("devices: Windows 11's symbols beside Rename…, Add a profile and Check again (their words unchanged), and "
           "the warning sign on the card saying APO isn't on the device",
-          all(w in buttons and not buttons[w].icon().isNull() for w in want) and signs == [("Warning", "warn")],
-          (sorted(buttons), [w for w in want if w in buttons and buttons[w].icon().isNull()], signs))
+          not missing and signs == [("Warning", "warn")], (buttons, missing, signs))
 
 
 def test_add_a_profile_menu_sorts_numbers_as_numbers(set_up_window, check, qapp, tmp_path):
@@ -794,14 +830,14 @@ def test_examine_again_keeps_the_focus_in_the_card(set_up_window, check, qapp, m
           "Make an EQ button, where the next Space opened Make an EQ)", not wrong("click"), wrong("click"))
 
 
-def test_examine_again_keeps_the_focus_when_the_card_is_made_again(set_up_window, check, qapp, monkeypatch):
+def test_examine_again_keeps_the_focus_when_the_card_is_made_again(apo_on, check, qapp, monkeypatch):
     # (2026-11-16: the EQ hotkey changes the device's EQ while Examine again in the warning bar has the focus. The
     # card is made again and asks Equalizer APO again: the line shows, with its own Examine again. The two buttons
     # had different places in the card, so the focus went to Add a profile, where Space opened its menu)
     from PySide6.QtCore import Qt
     from PySide6.QtWidgets import QApplication, QPushButton
     from switcher import check as apo_check
-    win, sw = set_up_window.win, set_up_window.sw
+    win, sw = apo_on.win, apo_on.sw
     was = sw.record(KEY)["active"]
     go = threading.Event()
     go.set()
@@ -920,32 +956,51 @@ def test_the_help_of_remove_says_from_devices(check):
           (wide, texts))
 
 
-def test_rename_and_examine_again_without_a_help_line(set_up_window, check, monkeypatch):
+def test_rename_and_examine_again_without_a_help_line(apo_on, check, monkeypatch):
     # (2026-11-24, the text survey, area 30: the Help lines of "#dev-rename" and "#dev-check" removed. Rename… and the
-    # two Examine again buttons keep the tooltips that their own code gives them; a screen reader reads their name
-    # (the title of their Help entry) and no line of Help after it; the line about Equalizer APO keeps its tag for F1)
+    # two Examine again buttons keep the tooltips that their own code gives them, and a screen reader reads their
+    # name (the title of their Help entry), then their tooltip (the owner's rule of 2026-11-24); the line about
+    # Equalizer APO keeps its tag for F1, and a screen reader reads its tooltip, all of the answer, after its name)
     from PySide6.QtWidgets import QPushButton
     from switcher import check as apo_check
-    win = set_up_window.win
+    win = apo_on.win
     monkeypatch.setattr(apo_check, "run", lambda apo, guid, timeout=60: {"loaded": [], "matched": []})
+    win._checks.clear()
     win.render_device_panel()
+    qt.wait_for(lambda: not win._checking, 10)
     buttons = win.dev_panel.findChildren(QPushButton)
     ren = next(b for b in buttons if b.text() == "Rename…")
     again = [b for b in buttons if b.text() == "Examine again"]
-    got = {"Rename…": (ren.toolTip(), ren.accessibleName(), ren.accessibleDescription(), ren.property("help_key"))}
-    got.update({f"Examine again {i}": (b.toolTip(), b.accessibleName(), b.accessibleDescription(),
+    got = {"Rename…": (ren.toolTip(), ren.accessibleName(), qt.description(ren), ren.property("help_key"))}
+    got.update({f"Examine again {i}": (b.toolTip(), b.accessibleName(), qt.description(b),
                                        b.property("help_key")) for i, b in enumerate(again)})
     lab = win.check_label
-    got["line"] = (lab.accessibleName(), lab.accessibleDescription(), lab.property("help_key"))
-    exam = ("Re-check with Equalizer APO's read-only Benchmark tool and show full results",
-            "Does Equalizer APO use the EQ? (Examine again)", "", "#dev-check")
-    check("devices: Rename… and Examine again keep their own tooltips, with no line of Help for a screen reader; the "
-          "line about Equalizer APO keeps its name and its tag for F1",
-          got == {"Rename…": ("Set a custom name for this device (e.g., your headphone or IEM)", "Rename… (a device)",
-                              "", "#dev-rename"),
-                  "Examine again 0": exam, "Examine again 1": exam,
-                  "line": ("Does Equalizer APO use the EQ? (Examine again)", "", "#dev-check")}, got)
+    got["line"] = (lab.accessibleName(), qt.description(lab), lab.property("help_key"))
+    answer = lab.toolTip()
+    monkeypatch.undo()
+    exam_tip = "Re-check with Equalizer APO's read-only Benchmark tool and show full results"
+    exam = (exam_tip, "Does Equalizer APO use the EQ? (Examine again)", exam_tip, "#dev-check")
+    rename_tip = "Set a custom name for this device (e.g., your headphone or IEM)"
+    check("devices: Rename… and Examine again keep their own tooltips, which a screen reader reads after their name; "
+          "the line about Equalizer APO keeps its name and its tag for F1, and a screen reader reads its tooltip",
+          answer.startswith("Equalizer APO isn't loading AutoEQ Studio")
+          and got == {"Rename…": (rename_tip, "Rename… (a device)", rename_tip, "#dev-rename"),
+                      "Examine again 0": exam, "Examine again 1": exam,
+                      "line": ("Does Equalizer APO use the EQ? (Examine again)", answer, "#dev-check")}, got)
 
+
+
+def test_every_tagged_control_reads_its_tooltip(apo_on, check):
+    # (the owner's rule of 2026-11-24: the line a screen reader reads after a control's name is its tooltip. A review
+    # of the text survey found help_window.tag giving the Help line as the description, which stayed when the
+    # control's own code gave it a different tooltip. Every control of the window tagged for F1, on each screen)
+    from PySide6.QtWidgets import QWidget
+    win = apo_on.win
+    tagged = [w for w in win.findChildren(QWidget) if w.property("help_key")]
+    differ = [(w.property("help_key"), type(w).__name__, w.toolTip(), qt.description(w)) for w in tagged
+              if qt.description(w) != w.toolTip()]
+    check("devices: a screen reader reads the tooltip of each control of the window tagged for F1",
+          len(tagged) > 10 and not differ, (len(tagged), differ))
 
 
 def test_remove_reads_its_tooltip_to_a_screen_reader(set_up_window, check):
@@ -955,7 +1010,7 @@ def test_remove_reads_its_tooltip_to_a_screen_reader(set_up_window, check):
     win = set_up_window.win
     win.render_device_panel()
     rem = next(b for b in win.dev_panel.findChildren(QPushButton) if b.text() == "Remove")
-    got = (rem.toolTip(), rem.accessibleDescription(), rem.property("help_key"))
+    got = (rem.toolTip(), qt.description(rem), rem.property("help_key"))
     check("devices: a screen reader reads Remove's tooltip as its description; F1 still opens its Help entry",
           got == ("Remove from Devices. Its profiles stay in Profiles.",
                   "Remove from Devices. Its profiles stay in Profiles.", "#dev-remove"), got)

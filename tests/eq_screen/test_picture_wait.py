@@ -782,7 +782,7 @@ def test_screen_reader(eq_screen, flow, monkeypatch, check):
         return out
     wait, _o = _use(flow)
     qt.pump(100)
-    desc = wait.accessibleDescription()
+    desc = qt.description(wait)
     first = wait.focusWidget() or wait.paste_btn
     order = tab_order(wait, first)
     check("website flow: a screen reader reads the wait window's heading and steps (its description), each control "
@@ -1391,7 +1391,7 @@ def test_zero_width_character_in_a_word(eq_screen, flow, check):
     name = "Truthear Ga\N{ZERO WIDTH SPACE}te\N{ZERO WIDTH JOINER}"
     wait = PictureWait(flow["pk"], {"name": name, "site": "Site\N{LEFT-TO-RIGHT MARK}s"})
     head = wait.head.text()
-    intro = wait.accessibleDescription()
+    intro = qt.description(wait)
     wait.deleteLater()
     page = flow["page"]
     entry = page.svc.call("/api/db/entry", {"id": flow["row"]["id"]})["entry"]

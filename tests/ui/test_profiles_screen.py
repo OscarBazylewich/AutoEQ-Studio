@@ -2,6 +2,7 @@
 profile listed. Moved from selftest.py's qt_checks: after Set up (tests\\ui\\conftest.py's set_up_window), the two
 EQ files config.txt used are the two profiles. Then its look in Windows 11's (the restyle, 2026-10-23): the table
 and the symbols beside its buttons' words."""
+from helpers import qt
 
 
 def test_the_profiles_list(set_up_window, check):
@@ -66,9 +67,9 @@ def test_edit_in_make_an_eq(set_up_window, qapp, check, monkeypatch):
     tip = "Save changes back with Use on device › Update"
     check("profiles: Edit in Make an EQ has the tooltip of the text survey, a screen reader gets the same line, and "
           "the message while Make an EQ opens is the survey's",
-          win.prof_edit_btn.toolTip() == tip and win.prof_edit_btn.accessibleDescription() == tip
+          win.prof_edit_btn.toolTip() == tip and qt.description(win.prof_edit_btn) == tip
           and asked == ["Opening profile in Make an EQ…"],
-          (win.prof_edit_btn.toolTip(), win.prof_edit_btn.accessibleDescription(), asked))
+          (win.prof_edit_btn.toolTip(), qt.description(win.prof_edit_btn), asked))
 
 
 def test_profiles_sort_numbers_as_numbers(set_up_window, qapp, check, tmp_path):

@@ -10,7 +10,7 @@ them already (Make an EQ's tests, a helper): those make their window in a Python
 stand-in APO folder in the test's folder, and the test checks what it prints.
 """
 import net
-from helpers import session, subproc
+from helpers import qt, session, subproc
 
 COVERS = ("ui.window", "switcher.core", "switcher.apo", "switcher.devices", "net")
 
@@ -325,7 +325,7 @@ def test_presets_reads_its_tooltip_to_a_screen_reader(devices_window, check):
     # (the line for a screen reader is the tooltip, the owner's rule of 2026-11-24: Presets has a tooltip of its own,
     # and tag() gave it the different first line of "#presets" in HELP as its description)
     b = devices_window.win.presets_btn
-    got = (b.property("tip"), b.accessibleDescription(), b.property("help_key"))
+    got = (b.property("tip"), qt.description(b), b.property("help_key"))
     check("window: a screen reader reads the tooltip of Presets as its description; F1 still opens its Help entry",
           got == ("Save or load Make an EQ settings as a preset (settings only)",
                   "Save or load Make an EQ settings as a preset (settings only)", "#presets"), got)
