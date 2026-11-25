@@ -113,8 +113,9 @@ def test_target_graph_of_a_website(qapp, monkeypatch, check, w):
               "the result is the target line, within 0.5 dB of the truth on the axis of the picture (-20 to 20 dB)",
               r.ok and is_target(r) and e and e[0] <= 0.5 and e[2] >= 450, (failed(r), e))
         reason = next(c.reason for c in r.checks if c.name == "axes_db_range")
-        check(f"the look of a website's graph of a target ({w} px): the dB axis -20 dB to 20 dB is usual for a target",
-              reason == "The dB axis is -20 dB to 20 dB." and r.tracer.axis_note.endswith(reason), reason)
+        check(f"the look of a website's graph of a target ({w} px): the dB axis -20 dB to 20 dB is usual for a "
+              "target, and 1 Axes' note gives the two axes", reason == "Detected dB range is -20 to 20 dB."
+              and r.tracer.axis_note == "Axes: 20 Hz to 20 kHz, -20 to 20 dB", (reason, r.tracer.axis_note))
 
 
 def test_negative_axis_only_for_a_target(qapp, monkeypatch, check):
@@ -124,7 +125,7 @@ def test_negative_axis_only_for_a_target(qapp, monkeypatch, check):
     reason = next(c.reason for c in r.checks if c.name == "axes_db_range")
     check("a measurement on a dB axis of -20 to 20 dB: axes_db_range fails, as before",
           not r.ok and not getattr(r, "target_only", False)
-          and reason == "The dB axis is -20 dB to 20 dB. This range is not usual for a graph of an IEM or headphone.",
+          and reason == "Detected dB range is -20 to 20 dB. Unusual range for a headphone/IEM graph.",
           (reason, failed(r)))
 
 
@@ -168,21 +169,20 @@ def test_entry_of_a_target(qapp, monkeypatch, check):
               and first == [("trace_kind", trace_auto.KIND_NOT_TARGET)], first)
     # (one name for one item: "the measurement curve", as in Help #pw-paste; the final verification's SF6)
     check("the words of KIND_NOT_TARGET", trace_auto.KIND_NOT_TARGET == (
-        "The picture has a measurement curve. The app cannot trace only the target line. Remove the measurement curve "
-        "from the graph of the website."), trace_auto.KIND_NOT_TARGET)
+        "Hide the measurement curve on the graph to trace the target alone"), trace_auto.KIND_NOT_TARGET)
 
 
 def test_words_for_an_entry_of_a_target(qapp, monkeypatch, check):
     # (2026-11-13, the verifier's S3 and S4: each reason is true for a target)
     _truth, r = read(monkeypatch, 1000, look=True, target=None, want="target", db_range=(-30, 30))
     reasons = {c.name: (c.ok, c.reason) for c in r.checks}
-    check("an entry of a target, a picture with no line: trace_curve fails with \"The app did not find a target "
-          "line.\", and the dB axis -30 dB to 30 dB is usual for a target",
-          not r.ok and failed(r)[:1] == [("trace_curve", "The app did not find a target line.")]
-          and reasons["axes_db_range"] == (True, "The dB axis is -30 dB to 30 dB."), failed(r))
+    check("an entry of a target, a picture with no line: trace_curve fails with \"No target curve found\", and the "
+          "dB axis -30 dB to 30 dB is usual for a target",
+          not r.ok and failed(r)[:1] == [("trace_curve", "No target curve found")]
+          and reasons["axes_db_range"] == (True, "Detected dB range is -30 to 30 dB."), failed(r))
     _truth, r = read(monkeypatch, 1000, look=True, target=None, want="target", db_range=(-60, -20))
     check("an entry of a target, a dB axis of -60 dB to -20 dB: not usual, with the words of a target",
-          ("axes_db_range", "The dB axis is -60 dB to -20 dB. This range is not usual for a graph of a target.")
+          ("axes_db_range", "Detected dB range is -60 to -20 dB. Unusual range for a target graph.")
           in failed(r), failed(r))
     _truth, r = read(monkeypatch, 1000, target="solid", target_fn=lambda f: website_graph_target(f) - 14,
                      db_range=(30, 80), want="target")
@@ -202,8 +202,8 @@ def has_curve(r):
     return any(r.tracer.has_data(c) for c in r.tracer.curves)
 
 
-GREY_REASON = "The app did not find a curve in a strong color. If the graph of the website shows only a target, show " \
-              "the measurement on the graph."
+# (two fragments of the owner with no end period: the first gets one, as another sentence follows it)
+GREY_REASON = "No colored measurement curve found. If only a target is shown, enable the measurement on the graph"
 
 
 def test_entry_of_a_measurement(qapp, monkeypatch, check):
@@ -225,8 +225,8 @@ def test_entry_of_a_measurement(qapp, monkeypatch, check):
 @pytest.mark.parametrize("form", ["purple, 550 px, JPEG 20, 5 dB apart", "blue, 500 px, JPEG 50, 6 dB apart",
                                   "gray (#808080), 1000 px, PNG", "black, 1396 px, JPEG 85"])
 def test_measurement_that_the_app_cannot_read(qapp, monkeypatch, check, form):
-    # (the verifier's 4 forms: the words and the state of the tracer of 357d228, "The app did not find a curve in a
-    # strong color." with no curve, and a second sentence only when the app found a gray line)
+    # (the verifier's 4 forms: the words and the state of the tracer of 357d228, NO_STRONG_CURVE with no curve, and
+    # a second sentence only when the app found a gray line)
     kw, w, jpeg = {"purple": (dict(colours=("#8e44ad", "#6c3483"), offset_db=5), 550, 20),
                    "blue": (dict(offset_db=6), 500, 50), "gray": (dict(colours=("#808080", "#6e6e6e")), 1000, None),
                    "black": (dict(colours=("#000000", "#202020")), 1396, 85)}[form.split(",")[0].split(" ")[0]]
@@ -235,7 +235,7 @@ def test_measurement_that_the_app_cannot_read(qapp, monkeypatch, check, form):
     check(f"an entry of a measurement, a measurement that the app cannot read ({form}): trace_curve fails first with "
           "the words of a measurement, no target result, no curve in the tracer",
           not r.ok and not r.target_only and first and first[0][0] == "trace_curve"
-          and first[0][1] in ("The app did not find a curve in a strong color.", GREY_REASON) and not has_curve(r),
+          and first[0][1] in ("No colored measurement curve found", GREY_REASON) and not has_curve(r),
           (first, has_curve(r)))
 
 
@@ -256,14 +256,14 @@ def test_entry_of_a_measurement_and_a_graph_of_a_target(qapp, monkeypatch, check
     check("an entry of a measurement, the look of a website's graph of a target: axes_db_range fails first, with the "
           "sentence about the gray line after its own words; trace_curve has its words; no target result, no curve",
           not r.ok and not r.target_only and not has_curve(r) and failed(r)[:1] == [(
-              "axes_db_range", "The dB axis is -20 dB to 20 dB. This range is not usual for a graph of an IEM or "
-              "headphone. " + trace_auto.ONLY_GREY_LINE)] and failed(r)[-1:] == [("trace_curve", GREY_REASON)],
+              "axes_db_range", "Detected dB range is -20 to 20 dB. Unusual range for a headphone/IEM graph. "
+              + trace_auto.ONLY_GREY_LINE)] and failed(r)[-1:] == [("trace_curve", GREY_REASON)],
           failed(r))
     _truth, r = read(monkeypatch, 1200, look=True, want="measurement", target=None)
     check("an entry of a measurement, the look of a website's graph of a target with no line: axes_db_range fails "
           "first with its own words only", failed(r)[:1] == [(
-              "axes_db_range", "The dB axis is -20 dB to 20 dB. This range is not usual for a graph of an IEM or "
-              "headphone.")], failed(r))
+              "axes_db_range", "Detected dB range is -20 to 20 dB. Unusual range for a headphone/IEM graph.")],
+          failed(r))
 
 
 @pytest.mark.parametrize("form", ["treble down", "treble up, cut", "bass out at the bottom, cut",
@@ -285,8 +285,7 @@ def test_target_line_out_of_the_grid(qapp, monkeypatch, check, form):
     if form == "treble down":
         curve = next(c.reason for c in r.checks if c.name == "trace_curve")
         check("a target line alone out of the grid at 15.6 kHz: all checks pass, and trace_curve and the note tell "
-              "where", r.ok and "the target line goes below the bottom of the grid. The app traced the target line "
-              "to " in curve and r.out_words and r.out_words in curve and r.points[-1][0] < 15600, curve)
+              "where", r.ok and "the target curve goes below the grid. Traced to " in curve and r.out_words and r.out_words in curve and r.points[-1][0] < 15600, curve)
 
 
 @pytest.mark.parametrize("w", [600, 1000, 2234])

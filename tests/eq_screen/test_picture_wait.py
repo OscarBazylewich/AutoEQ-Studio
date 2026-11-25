@@ -34,7 +34,7 @@ WHERE = "Auto-imports the next image from your clipboard or Downloads (watches o
 # (the format characters that an entry's words must not keep: zero-width spaces and joiners, direction marks and
 # overrides, the word joiner and the isolates, the byte order mark)
 FORMAT = [chr(c) for c in (*range(0x200B, 0x2010), *range(0x202A, 0x202F), *range(0x2060, 0x206A), 0xFEFF)]
-NOT_GRAPH_WORDS = "Copy a new picture of the graph. Then paste it in the tracer (Ctrl+V)."
+NOT_GRAPH_WORDS = "Copy a new graph image and paste it here (Ctrl+V)."
 
 
 def _rows(pk):
@@ -75,8 +75,8 @@ def stand_in(ok=True, fail="trace_curve", target=False, error=None, delay=0.0, c
         t = trace_core.Tracer()
         t.load(np.array(rgb[cy:, cx:], np.uint8, copy=True), name, jpeg)
         if fail == "axes_plot" and not ok:
-            return AutoRead(False, t, [Check("axes_plot", False, "The app did not find the grid of a graph in this "
-                                             "picture.")], None, None, None, None, None, 0.01)
+            return AutoRead(False, t, [Check("axes_plot", False, "No graph grid found")], None, None, None, None, None,
+                            0.01)
         X = lambda f: SL + (math.log10(f) - math.log10(20)) / 3 * (SW - SL - SR) - cx  # noqa: E731
         Y = lambda v: ST + (HI - v) / (HI - LO) * (SH - ST - SB) - cy  # noqa: E731
         t.cal.update(x1=X(20), x2=X(20000), y1=Y(HI), y2=Y(LO))
@@ -870,7 +870,7 @@ def test_reading_takes_no_input(eq_screen, flow, monkeypatch, check):
 def test_axes_check_failed(eq_screen, flow, monkeypatch, check):
     came, tw = _traced(flow, monkeypatch, stand_in(ok=False, fail="axes_hz_labels"))
     check("website flow: a check of the axes not OK, the tracer shows 1 Axes with the reason",
-          came and tw.pages.currentIndex() == 0 and "cannot trace this picture automatically" in tw.status.text()
+          came and tw.pages.currentIndex() == 0 and "Couldn't auto-trace this image." in tw.status.text()
           and "The reason of this check." in tw.status.text() and "The reason of this check." in tw.axis_note.text(),
           (tw.pages.currentIndex(), tw.status.text(), tw.axis_note.text()))
 
@@ -879,7 +879,7 @@ def test_trace_check_failed(eq_screen, flow, monkeypatch, check):
     came, tw = _traced(flow, monkeypatch, stand_in(ok=False, fail="trace_band"))
     check("website flow: a check of the curve not OK, the tracer shows 2 Trace with the reason",
           came and tw.pages.currentIndex() == 1 and "The reason of this check." in tw.status.text()
-          and f"Then go to 3{NB}Save." in tw.status.text(), (tw.pages.currentIndex(), tw.status.text()))
+          and f"Fix this step, then go to 3{NB}Save." in tw.status.text(), (tw.pages.currentIndex(), tw.status.text()))
 
 
 def test_not_a_graph(eq_screen, flow, monkeypatch, check):
@@ -890,13 +890,13 @@ def test_not_a_graph(eq_screen, flow, monkeypatch, check):
     came, tw = _traced(flow, monkeypatch, stand_in(ok=False, fail="axes_plot"))
     check("website flow: a picture that is not a graph (axes_plot), the tracer shows 1 Axes with the reason and reads "
           "the labels as for any picture", came and tw.pages.currentIndex() == 0 and calls
-          and "did not find the grid" in tw.status.text(), (tw.pages.currentIndex(), calls, tw.status.text()))
+          and "No graph grid found" in tw.status.text(), (tw.pages.currentIndex(), calls, tw.status.text()))
     qt.wait_for(lambda: not tw.reading, 60)
     check("website flow: for a picture that is not a graph, the words tell the user to copy a new picture and paste "
           "it (not to correct a step), and 1 Axes has one message (the label read's)",
-          tw.status.text() == "The app cannot trace this picture automatically. The app did not find the grid of a "
-          "graph in this picture. Copy a new picture of the graph. Then paste it in the tracer (Ctrl+V)."
-          and "automatically" not in tw.axis_note.text() and "3 Save" not in tw.axis_note.text(),
+          tw.status.text() == "Couldn't auto-trace this image. No graph grid found. Copy a new graph image and paste "
+          "it here (Ctrl+V)."
+          and "auto-trace" not in tw.axis_note.text() and "3 Save" not in tw.axis_note.text(),
           (tw.status.text(), tw.axis_note.text()))
 
 
@@ -910,8 +910,8 @@ def test_error_of_the_read(eq_screen, flow, monkeypatch, check):
           came and tw.pages.currentIndex() == 0 and calls and tw.read_ok is False and tw.entry["name"] == ENTRY
           and tw.t.src_name == NAME, (tw.pages.currentIndex(), calls, tw.t.src_name))
     check("website flow: after an error of the read, no Python words on the screen, and the words name 1 Axes and "
-          "2 Trace", tw.status.text() == f"The app cannot trace this picture automatically. Do the steps 1{NB}Axes and "
-          f"2{NB}Trace manually. Then go to 3{NB}Save."
+          "2 Trace", tw.status.text() == f"Couldn't auto-trace this image. Complete 1{NB}Axes and 2{NB}Trace "
+          f"manually, then go to 3{NB}Save."
           and "made-up failure" not in tw.status.text() + tw.axis_note.text(), tw.status.text())
 
 
@@ -1882,7 +1882,7 @@ def test_white_picture_one_message(eq_screen, flow, monkeypatch, check):
     note, status = tw.axis_note.text(), tw.status.text()
     check("website flow: a white picture that is not a graph: the status line tells the user to copy a new picture, "
           "and the note of 1 Axes does not repeat it", came and NOT_GRAPH_WORDS in status
-          and "automatically" not in note and "Copy a new picture" not in note and "3" not in note, (status, note))
+          and "auto-trace" not in note and "Copy a new graph image" not in note and "3" not in note, (status, note))
 
 
 ONE_CHANGE = "The tracer has an edited image. Click Remove image in the tracer, then select this entry again."
@@ -3564,7 +3564,7 @@ def test_remove_image_no_during_a_large_load_writes_the_words_of_before_it_again
     real = trace_window.prepared
 
     def words(text):
-        return "the instruction of the read" if text.startswith("The app cannot trace this picture automatically.") \
+        return "the instruction of the read" if text.startswith("Couldn't auto-trace this image.") \
             else text
     try:
         tw.load_image(_graph().copy(0, 0, 1198, 719), entry=tw.entry)  # (a new picture: a new read)

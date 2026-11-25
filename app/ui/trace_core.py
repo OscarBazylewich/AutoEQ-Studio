@@ -251,6 +251,17 @@ def _num(v):
     return x if math.isfinite(x) else None
 
 
+def sentences(parts):
+    """The tracer's messages joined with one space, by the rule of eq_page_result.sentences (not imported from there:
+    that module is a part of Make an EQ, and the tracer must not load it). Many of the text survey's words have no
+    period at their end (the owner's words, kept as typed): such a part gets one here when another sentence comes
+    after it ("No graph grid found. Copy a new graph image …"); the last part stays as it is. Empty parts (a check
+    whose text the survey removed) are left out."""
+    parts = [p for p in parts if p]
+    return " ".join(p if i == len(parts) - 1 or p.endswith((".", "!", "?", "…")) else p + "."
+                    for i, p in enumerate(parts))
+
+
 # ---------------------------------------------------------------- reading the labels
 def join_words(ws):
     """Pieces of one label ("-" "10") that sit side by side, joined."""
@@ -1058,8 +1069,9 @@ class Tracer:
         if parts:
             self.axis_note = f"Detected labels: {'; '.join(parts)}. Verify the green boxes against the image."
         else:
-            self.axis_note = before + ("" if db or hz else " Couldn't read axis labels. Enter the red and blue line "
-                                       "values manually.")
+            # (sentences: before can be the automatic read's note, which has no end period)
+            self.axis_note = sentences([before, "" if db or hz else "Couldn't read axis labels. Enter the red and blue "
+                                        "line values manually."])
         return self.axis_note
 
     def use_hz_labels(self, hz):

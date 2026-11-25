@@ -101,11 +101,13 @@ RADIUS = 8  # (the picture's card: a card's corners, as theme_sheet's)
 # message line is empty now, IDLE)
 IDLE = ""
 # (the automatic read of a picture from a website: the picture is not a graph; the read stopped with an error)
-NOT_GRAPH = "Copy a new picture of the graph. Then paste it in the tracer (Ctrl+V)."
+# (NOT_GRAPH and CORRECT_STEP: the words of the whole message in the text survey, with their end periods; the survey's
+# items of the two lines alone have none, but the message always shows them after the cause)
+NOT_GRAPH = "Copy a new graph image and paste it here (Ctrl+V)."
 NBSP = "\N{NO-BREAK SPACE}"  # (between a tab's number and its name: the name stays on one line)
-READ_ERROR = (f"The app cannot trace this picture automatically. Do the steps 1{NBSP}Axes and 2{NBSP}Trace manually. "
-              f"Then go to 3{NBSP}Save.")
-CORRECT_STEP = f"Correct this step. Then go to 3{NBSP}Save."  # (after a check of the automatic read that is not OK)
+READ_ERROR = f"Couldn't auto-trace this image. Complete 1{NBSP}Axes and 2{NBSP}Trace manually, then go to 3{NBSP}Save."
+CORRECT_STEP = f"Fix this step, then go to 3{NBSP}Save."  # (after a check of the automatic read that is not OK)
+READ_FAILED = "Couldn't auto-trace this image."  # (the start of the message after a check that is not OK)
 # (a picture of more pixels than this loads in a thread: its load stopped the window for 286 ms at 3840 x 2160 and
 # 580 ms at 16 MP; a smaller one loads at once, measured 40 ms or less, 2026-11-11: .claude/notes/benchmarks)
 SYNC_PIXELS = 1_000_000
@@ -1867,8 +1869,10 @@ class TraceWindow(QWidget):
             # (trace_kind: the picture has the other kind of curve than the entry; trace_single of a target line
             # alone: two target lines. The reason tells what to change on the website, then a new picture)
             new = first.name == "trace_kind" or (only and first.name == "trace_single")
-            text = f"The app cannot trace this picture automatically. {first.reason}" + (
-                " " + NOT_GRAPH if not_graph else "\n" + NOT_GRAPH if new else "\n" + CORRECT_STEP)
+            # (tc.sentences: a cause with no end period gets one before the instruction on the same line, "No graph
+            # grid found. Copy a new graph image …")
+            text = tc.sentences([READ_FAILED, first.reason] + ([NOT_GRAPH] if not_graph else [])) + (
+                "" if not_graph else "\n" + NOT_GRAPH if new else "\n" + CORRECT_STEP)
             axes = first.name.startswith("axes")
             if axes and not not_graph:
                 t.axis_note = t.detect_note = text  # (also on 1 Axes; a label read starts from it)
@@ -2087,7 +2091,8 @@ class TraceWindow(QWidget):
             return
         from ui import ocr
         before = getattr(t, "detect_note", t.axis_note)  # (not the last reading's note: it added up)
-        self.axis_note.setText(before + " Reading axis labels…")
+        # (tc.sentences: the note of the automatic read, "Axes: 20 Hz to 20 kHz, -10 to 30 dB", has no end period)
+        self.axis_note.setText(tc.sentences([before, "Reading axis labels…"]))
         t.moved = {"d": False, "f": False}
         t.label_token += 1
         self.reading = True
@@ -2099,7 +2104,8 @@ class TraceWindow(QWidget):
             self.reading = False
             if err is not None:
                 # (ocr.Unavailable's words end with a period: it goes, as the sentence has its own)
-                t.axis_note = before + f" Couldn't read axis labels: {str(err).rstrip('.')}. Enter the values manually."
+                t.axis_note = tc.sentences([before, f"Couldn't read axis labels: {str(err).rstrip('.')}. Enter the "
+                                                    "values manually."])
             else:
                 t.use_labels(res, before)
             self.show_values()

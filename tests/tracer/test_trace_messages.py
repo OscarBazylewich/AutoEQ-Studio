@@ -1,6 +1,7 @@
 """The joined messages of the tracer's core (ui\\trace_core.py) that the text survey of 2026-11-24 changed: the error
 of one of several curves (the error's own end period goes before "(or remove it on 2 Trace)") and the message after
-a save with untraced gaps (one gap or more). No window: a plain white picture with typed axis values."""
+a save with untraced gaps (one gap or more); sentences, which joins the causes of the automatic read (area 25), and
+a label read after its note. No window: a plain white picture with typed axis values."""
 import numpy as np
 
 from ui.trace_core import NBSP, Tracer
@@ -40,3 +41,29 @@ def test_gaps_message(check):
           and two.endswith(". Trace or draw across those gaps for an accurate curve.") and two.count("–") == 2,
           (one, two))
     check("tracer: no message when every part is traced", Tracer.gaps_text([{"gaps": []}]) == "")
+
+
+def test_sentences(check):
+    # (area 25 of the text survey: the causes of the automatic read have no end period, and the window joins them
+    # with the next sentence: the first part gets a period, the last stays as typed, an empty cause is left out)
+    from ui.trace_core import sentences
+    check("tracer: sentences gives a part with no end period one when another sentence follows it, and leaves out "
+          "empty parts",
+          sentences(["Couldn't auto-trace this image.", "No graph grid found",
+                     "Copy a new graph image and paste it here (Ctrl+V)."])
+          == "Couldn't auto-trace this image. No graph grid found. Copy a new graph image and paste it here (Ctrl+V)."
+          and sentences(["Axes: 20 Hz to 20 kHz, 40 to 90 dB", "", "Reading axis labels…"])
+          == "Axes: 20 Hz to 20 kHz, 40 to 90 dB. Reading axis labels…"
+          and sentences(["", "Detected dB labels don't match each other"]) == "Detected dB labels don't match each other"
+          and sentences([]) == "")
+
+
+def test_label_read_after_the_automatic_note(check):
+    # (1 Axes' note of the automatic read, "Axes: … dB", has no end period: a label read that finds no labels adds
+    # its sentence after a period, not run together)
+    t = _tracer()
+    note = t.use_labels({"token": t.label_token, "hz": None, "db": None, "seconds": 0.1, "scale": 1},
+                        "Axes: 20 Hz to 20 kHz, 40 to 90 dB")
+    check("tracer: a label read with no labels after the automatic read's note joins the two with a period",
+          note == "Axes: 20 Hz to 20 kHz, 40 to 90 dB. Couldn't read axis labels. Enter the red and blue line values "
+          "manually.", note)
