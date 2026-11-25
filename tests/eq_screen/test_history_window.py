@@ -44,6 +44,8 @@ def test_history_keeps_a_saved_eq(eq_screen, chain, check):
     check("ui: History keeps a saved EQ (copying the same one again doesn't add another)",
           len(kept) == 1 and len([e for e in page.history if e.get("saved")]) == 1
           and kept[0]["device"] == run["device"] and kept[0]["filters"], [e.get("label") for e in page.history])
+    check("ui: the message after Copy is “Copied filters” (the words of the text survey, 2026-11-24)",
+          eq_screen.said[-1] == "Copied filters", eq_screen.said[-1:])
 
 
 def test_show_brings_it_back(eq_screen, chain, check):

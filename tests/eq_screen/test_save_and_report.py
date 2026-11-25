@@ -45,7 +45,7 @@ def test_save_with_no_file_ticked_and_report(eq_screen, chain, check, dialogs):
     page.S["export"].update({k: False for k in exp if isinstance(exp[k], bool)})
     dialogs.asked.clear()  # (the message boxes said so far: the old BOXES)
     page.save_filters()
-    nothing = (any("No file type is selected" in text for _kind, text in dialogs.asked), len(page.history) == n_hist)
+    nothing = (any("No file type selected." in text for _kind, text in dialogs.asked), len(page.history) == n_hist)
     page.S["export"].update(exp)
     path = page.report(open_it=False)
     # was eq_checks.py:1681
@@ -59,7 +59,7 @@ def test_saved_line_keeps_sentences_apart(check):
     from ui.eq_page_result import REPORT_KEPT, saved_line
     skipped = "Skipped convolution file: couldn't generate one from these filters"
     note = "Note: this EQ has 25 filters (some apps limit imports to 20)."
-    start = "The app saved A - filters.txt in your Saved EQs folder."
+    start = "Saved A - filters.txt to Saved EQs."
     got = {"none": saved_line(["A - filters.txt"]), "last": saved_line(["A - filters.txt"], [note, skipped]),
            "first": saved_line(["A - filters.txt"], [skipped, note]),
            "kept": saved_line(["A - filters.txt"], [skipped], kept=True)}

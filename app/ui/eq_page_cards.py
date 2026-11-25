@@ -646,12 +646,11 @@ class EqCards:
         folder.clicked.connect(lambda: self.svc.call("/api/open", {"what": "output"}))
         keep = QPushButton("Keep to compare")
         icons.put(keep, "pin")  # (Windows 11's pin, where the words had 📌)
-        keep.setToolTip("Add this EQ to Your EQs to compare for this IEM: on the graph, and in Listen, where you can hear "
-                         "it")
+        keep.setToolTip("Add this EQ to compare on the graph and in Listen")
         keep.clicked.connect(lambda: self.listen.add_selected())
         copy = QPushButton("Copy")
         icons.put(copy, "copy")
-        copy.setToolTip("Copy the filters as Equalizer APO / squiglink text")
+        copy.setToolTip("Copy filters as text")
         copy.clicked.connect(lambda: self.copy_filters(self.enabled_filters(), self.stats()["preamp_raw"]))
         # (two rows by function, the user's answer, 2026-11-08: they were 6 buttons in one row for different jobs. Row
         # 1, under File name: the files (Save filters, the accent; Copy; Open the Saved EQs folder). Row 2: this EQ on a

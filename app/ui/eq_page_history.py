@@ -106,7 +106,7 @@ class EqHistory:
             QMessageBox.warning(self, "Copy", res["error"])
             return
         QGuiApplication.clipboard().setText(res["apo"])
-        (say or self.status)("The app copied the filters (Equalizer APO / squiglink format).")
+        (say or self.status)("Copied filters")
         if record:
             self.add_to_history(True)
 

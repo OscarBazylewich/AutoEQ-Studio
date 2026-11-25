@@ -37,7 +37,7 @@ def test_use_on_device(eq_screen, history_eq, check):
     # was eq_checks.py:1622
     check("ui: Use on device makes the result the device's profile, switched on, in APO's file",
           rec["active"] and sw.profile_name(rec["active"]) == "UI check" and "Include: profiles\\UI check.txt" in sw_text
-          and "is on for Headset (EarPods)" in said[-1], (rec, said[-1:]))
+          and "is now active on Headset (EarPods)" in said[-1], (rec, said[-1:]))
     with open(os.path.join(sw.apo.profiles, sw.profiles()[rec["active"]]["file"]), "rb") as fh:
         raw = fh.read()
     text = eq_screen.page._apo_text("Use on device")

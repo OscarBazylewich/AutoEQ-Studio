@@ -251,13 +251,16 @@ def muted(text=""):
     return lab
 
 
-def profile_line(p):
-    """A profile's EQ in a few words ("5 filters, pre-amp -3.2 dB", or "GraphicEQ, …"); empty for no profile."""
+def profile_line(p, preamp_last=False):
+    """A profile's EQ in a few words ("5 filters, pre-amp -3.2 dB", or "GraphicEQ, …"); empty for no profile.
+    preamp_last: "5 filters, -3.2 dB pre-amp" (the words of the text survey for the tooltip of an Update row in Use on
+    device; Devices and Profiles keep "pre-amp -3.2 dB")."""
     if not p:
         return ""
     n = p.get("filters", 0)
     what = "GraphicEQ" if p.get("graphic") and not n else f"{n} filter{'' if n == 1 else 's'}"
-    return f"{what}, pre-amp {p.get('preamp', 0):g} dB"
+    amp = f"{p.get('preamp', 0):g} dB"
+    return f"{what}, {amp} pre-amp" if preamp_last else f"{what}, pre-amp {amp}"
 
 
 def glyph_label(name, role=None, said=""):

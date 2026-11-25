@@ -281,7 +281,7 @@ class EqHandles:
             try:
                 self.sw.trial_update(res["apo"])
             except OSError as e:
-                self.status(f"The EQ for 5 minutes on the device did not change: {e}", 6000)
+                self.status(f"Couldn't update the 5-minute preview EQ: {e}", 6000)
 
 
 def eq_grid():

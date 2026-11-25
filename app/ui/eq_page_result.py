@@ -19,8 +19,8 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 import textfile
 from ui import bubble
-from ui.eq_page_parts import (MESSAGE_NAMES, MODE_SHORT, and_list, file_base_name, first_names, modal, row_name,
-                              update_row_words, use_menu_order)
+from ui.eq_page_parts import (MESSAGE_NAMES, MODE_SHORT, PASTE_HINT, and_list, file_base_name, first_names, modal,
+                              row_name, skipped_words, update_row_words, use_menu_order)
 from ui.search_combo import natural_key
 
 # By hand's Start from: an EQ's sources in the order every such list has (.claude/notes/UI-RULES.md 16), each with the
@@ -39,17 +39,23 @@ NO_PROFILES = "No device profiles yet. Add one in Devices first, then select it 
 NO_FILES = "Add a target and at least one measurement first"
 NO_CURVES = "Couldn't calculate curves for these files. See the line below the EQ graph."
 # (after Save filters, when the report of that name was kept as it was)
-REPORT_KEPT = ("The report with that name did not change: change the File name to save a different report in the same "
-               "folder.")
+REPORT_KEPT = "Existing report was kept: change the file name to save a new one."
+
+
+def sentences(parts):
+    """Sentences joined with one space. Many of the text survey's words have no period at their end (the owner's
+    words, kept as typed): such a part gets one here when another sentence comes after it, so that two sentences never
+    run together ("… when you connect it Equalizer APO isn't installed …"); the last part stays as it is. Empty parts
+    are left out."""
+    parts = [p for p in parts if p]
+    return " ".join(p if i == len(parts) - 1 or p.endswith((".", "!", "?")) else p + "."
+                    for i, p in enumerate(parts))
 
 
 def saved_line(written, notes=(), kept=False):
     """The message line after Save filters: the files' names, then each note of the files (eq\\exports.py), then the
-    sentence about a report that was kept. Some notes have no period at their end (the text survey's words): such a
-    note gets one here when another sentence comes after it, so that two sentences never run together."""
-    parts = [f"The app saved {', '.join(written)} in your Saved EQs folder.", *notes] + ([REPORT_KEPT] if kept else [])
-    return " ".join(p if i == len(parts) - 1 or p.endswith((".", "!", "?")) else p + "."
-                    for i, p in enumerate(parts))
+    sentence about a report that was kept (sentences: a note with no period gets one when more comes after it)."""
+    return sentences([f"Saved {', '.join(written)} to Saved EQs.", *notes] + ([REPORT_KEPT] if kept else []))
 
 
 class EqResult:
@@ -471,13 +477,13 @@ class EqResult:
         if not r:
             return
         if not self.enabled_filters():
-            bubble.tell(None, "There are no filters to save: all the filters are off.", near=self.save_btn)
+            bubble.tell(None, "No filters to save. Enable at least one filter.", near=self.save_btn)
             return
         from eq import exports
         files = any(self.S["export"].get(k) for k in exports.FORMATS)
         if not files and not self.S["export"].get("report"):
-            bubble.tell(None, "No file type is selected: select your EQ app, or select the file types in More settings "
-                        "› Saved files.", near=self.save_btn)
+            bubble.tell(None, "No file type selected. Choose an EQ app, or pick formats in More settings › Saved files.",
+                        near=self.save_btn)
             return
         name = self.name_edit.text().strip() or self.auto_name()
         written, notes, kept = [], [], False
@@ -509,8 +515,8 @@ class EqResult:
     def _replace_ok(self, names, command):
         """Replace files already in Saved EQs? Titled by the command asking (Save filters, Report); No the default, as a
         file replaced can't be had back (.claude/notes/UI-RULES.md 17; the tracer's Save .txt asks the same way)."""
-        return QMessageBox.question(self, command, "These files are in your Saved EQs folder:\n\n" + "\n".join(names)
-                                    + "\n\nReplace them? (No keeps them. To save new files in the same folder, change the File name.)",
+        return QMessageBox.question(self, command, "These files already exist in Saved EQs:\n\n" + "\n".join(names)
+                                    + "\n\nReplace them? Change the file name to save separately.",
                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No) == QMessageBox.Yes
 
     def report(self, open_it=True):
@@ -520,8 +526,7 @@ class EqResult:
         if not r:
             return None
         if not self.curves:  # (an EQ by hand with no measurement chosen: nothing to draw it on)
-            bubble.tell(None, "A report shows the EQ on a measurement and its target: select them first (Target and "
-                        "Measurement, above).", near=self.report_btn)
+            bubble.tell(None, "Select a Target and Measurement above to generate a report", near=self.report_btn)
             return None
         title = MODE_SHORT.get(run["mode"], "EQ") + (" (edited)" if self.edited() else "")
         fields = [["Filter rows", r.get("rows")], ["Frequency range", f"{r.get('freq_low')} to {r.get('freq_high')}"],
@@ -555,7 +560,7 @@ class EqResult:
             QMessageBox.warning(self, "Report", res["error"])
             return None
         if open_it:
-            self.status(f"Report: {os.path.basename(res['path'])} (in your Saved EQs folder).", 8000)
+            self.status(f"Saved report {os.path.basename(res['path'])} to Saved EQs", 8000)
         return res.get("path")
 
     # ---------------------------------------------------------------- an EQ made by hand
@@ -721,14 +726,13 @@ class EqResult:
         try:
             text = textfile.read(f)
         except OSError as e:  # (no rights, an offline OneDrive file, one another program holds)
-            QMessageBox.warning(self, "Manually", f"AutoEQ Studio cannot read the file: {e}")
+            QMessageBox.warning(self, "Manually", f"Couldn't read the file: {e}")
             return
         self._manual_from_text(text, f"from {os.path.basename(f)}", os.path.splitext(os.path.basename(f))[0])
 
     def manual_from_paste(self):
         from ui.eq_page_parts import paste_dialog
-        got = paste_dialog(self, "Paste filters", "For example, New EQ", "Equalizer APO lines, Room EQ Wizard "
-                           "filters, or one filter on each line as “frequency gain Q”", "Start")
+        got = paste_dialog(self, "Paste filters", "e.g., New EQ", PASTE_HINT, "Start")
         if got:
             self._manual_from_text(got[1], "from pasted filters", got[0] or "Pasted EQ")
 
@@ -740,7 +744,7 @@ class EqResult:
         try:
             text = textfile.read(os.path.join(self.sw.apo.profiles, p["file"]))
         except OSError as e:
-            QMessageBox.warning(self, "Manually", f"AutoEQ Studio cannot read the profile's file: {e}")
+            QMessageBox.warning(self, "Manually", f"Couldn't read the profile file: {e}")
             return
         self._manual_from_text(text, f"from “{p['name']}”", p["name"], profile=pid)
 
@@ -762,22 +766,21 @@ class EqResult:
             return
         left = r.get("left_out") or []
         if not r.get("filters"):
-            QMessageBox.information(self, "Manually", (f"This EQ has no items that you can edit here: {' · '.join(left)}."
+            QMessageBox.information(self, "Manually", (f"No editable filters found ({' · '.join(left)})."
                                     if left else
-                                    "It has no filters. AutoEQ Studio can read:\n"
+                                    "No filters found. Supported formats:\n"
                                     "• Equalizer APO lines (Filter 1: ON PK Fc 100 Hz Gain 3 dB Q 1)\n"
-                                    "• Room EQ Wizard filters\n• a Peace preset\n"
-                                    "• one filter on each line as frequency, gain and Q.") + "\n\nAn EQ here has peaking "
-                                    "and shelf filters.")
+                                    "• Room EQ Wizard filters\n• Peace presets\n"
+                                    "• One filter per line: frequency, gain, Q") + "\n\nOnly peaking and shelf filters "
+                                    "are supported here.")
             return
         self.start_manual(r["filters"], source, name, profile, left)
         if left:
-            QMessageBox.information(self, "Manually", f"These items are not in “{name}” (an EQ here has only peaking and "
-                                    f"shelf filters): {' · '.join(left)}.")
+            QMessageBox.information(self, "Manually", skipped_words(name, left))
         else:
             n = len(r["filters"])
-            self.status(f"“{name}”: {n} filter{'' if n == 1 else 's'}, read as Equalizer APO reads "
-                        f"{'it' if n == 1 else 'them'}. The app calculates the pre-amp for you.", 8000)
+            self.status(f"Loaded “{name}” ({n} filter{'' if n == 1 else 's'}) and calculated pre-amp for "
+                        f"{'it' if n == 1 else 'them'}", 8000)
 
     # ---------------------------------------------------------------- Use on device
     def _fill_use_menu(self):
@@ -788,7 +791,7 @@ class EqResult:
             m.addAction("Calculate first").setEnabled(False)
             return
         if not self.sw.apo.found:
-            m.addAction("Equalizer APO is not installed (refer to Devices)").setEnabled(False)
+            m.addAction("Equalizer APO not installed (see Devices)").setEnabled(False)
             return
         m.setToolTipsVisible(True)
         pid = run.get("profile")
@@ -822,8 +825,8 @@ class EqResult:
             t.setToolTipsVisible(True)
             for key in live:
                 a = self._device_row(t, shown(self.sw.record(key)), "active" if key == self.sw.playing_key else "",
-                                     "The EQ plays in all apps for 5 minutes. Then, if you do not select Keep it, the "
-                                     "device uses its usual EQ again.")
+                                     "Applies this EQ in all apps for 5 minutes. Restores the previous EQ unless you "
+                                     "click Keep it.")
                 a.triggered.connect(lambda _=False, k=key: self.start_trial(k))
 
     @staticmethod
@@ -855,13 +858,13 @@ class EqResult:
         a = menu.addAction(f"{text}\t{where}".replace("&", "&&"))  # (Qt reads one "&" as a key's mark)
         if pid == run.get("profile") and run.get("left_out"):
             a.setEnabled(False)
-            why = ("its file has items that this EQ cannot show (" + " · ".join(run["left_out"]) + "): use this EQ as a "
-                   "new profile (click a device in this menu)")
-            a.setToolTip(f"The profile “{name}”: {why}" if cut else why[0].upper() + why[1:])  # (cut: its whole name)
+            why = ("its file has unsupported items (" + " · ".join(run["left_out"]) + "). Click a device in this menu to "
+                   "save as a new profile.")
+            a.setToolTip(f"Can't update “{name}”: {why}" if cut else f"Can't update; {why}")  # (cut: its whole name)
             return a
-        who = self._on_sentences(keys, unused) or "No device has this profile on."
-        a.setToolTip((f"The profile “{name}” changes to this EQ." if cut else "The profile changes to this EQ.")
-                     + f" {who} The EQ of the profile at this time: {profile_line(self.sw.profiles()[pid])}.")
+        who = self._on_sentences(keys, unused) or "Not active on any device."
+        a.setToolTip(sentences([f"Updates “{name}” with this EQ." if cut else "Updates this profile with this EQ.", who,
+                                f"Current: {profile_line(self.sw.profiles()[pid], preamp_last=True)}."]))
         a.triggered.connect(lambda _=False, pid=pid: self.update_profile(pid))
         return a
 
@@ -892,25 +895,26 @@ class EqResult:
         if unused is None:
             unused = not self.sw.apo.includes_studio()
         if unused:  # (APO reads none of the app's files: as use_on says it)
-            out.append("Equalizer APO does not use AutoEQ Studio: click Add AutoEQ Studio to APO… on the Devices screen.")
+            out.append("Equalizer APO isn't linked to AutoEQ Studio. Click Add AutoEQ Studio to APO… in Devices.")
         if now:
             out.append(f"{names(now)} {'uses' if len(now) == 1 else 'use'} the new EQ "
                        f"{'after that' if unused else 'immediately'}.")
         if trying:
             one = len(trying) == 1
-            out.append(f"{names(trying)} {'has' if one else 'have'} an EQ for 5 minutes. If you do not click Keep it, "
-                       f"{names(trying)} {'uses' if one else 'use'} the new EQ after that.")
+            out.append(f"{names(trying)} {'has' if one else 'have'} a 5-minute preview active. Unless you click Keep it, "
+                       f"{names(trying)} {'uses' if one else 'use'} the new EQ afterward.")
         if comparing:
             one = len(comparing) == 1
-            out.append(f"{names(comparing)} {'has its' if one else 'have their'} EQ off to compare. "
-                       f"{names(comparing)} {'uses' if one else 'use'} the new EQ after that.")
+            out.append(f"{names(comparing)} {'has its' if one else 'have their'} EQ bypassed for comparison. "
+                       f"{names(comparing)} {'uses' if one else 'use'} the new EQ afterward.")
         if away:
             one = len(away) == 1
             out.append(f"{names(away)} {'uses' if one else 'use'} the new EQ {'after that, ' if unused else ''}"
-                       f"when you connect {'it' if one else 'them'}.")
+                       f"when you connect {'it' if one else 'them'}")
         if no_apo:
-            out.append(f"Equalizer APO is not installed on {names(no_apo)} (refer to Devices).")
-        return " ".join(out)
+            out.append(f"Equalizer APO isn't installed on {names(no_apo)} (see Devices)")
+        # (the last two have no period of their own, the owner's words: sentences() gives one when more comes after)
+        return sentences(out)
 
     def _apo_text(self, title):
         """The EQ shown, as Equalizer APO text (as edited, with its pre-amp), or None (said)."""
@@ -936,12 +940,11 @@ class EqResult:
             QMessageBox.warning(self, "Use for 5 minutes", str(e))
             return
         self._trying = {"key": key, "run": id(run), "rid": r["id"]}
-        extra = "" if self.sw.apo.includes_studio() else (" (Equalizer APO does not use AutoEQ Studio: click Add AutoEQ Studio "
-                                                  "to APO… on Devices.)")
+        extra = "" if self.sw.apo.includes_studio() else (" Equalizer APO isn't linked to AutoEQ Studio: click Add "
+                                                          "AutoEQ Studio to APO… in Devices.")
         self.window().render_all() if hasattr(self.window(), "render_trial") else None
-        self.status(f"“{name}” plays on {shown(self.sw.record(key))} for {minutes} minutes, with your changes while you "
-                    f"make them. Select Keep it or Do not keep it in the bar at the top, or in the menu of the tray "
-                    f"icon.{extra}", 10000)
+        self.status(f"Previewing “{name}” on {shown(self.sw.record(key))} for {minutes} minutes (updates live as you "
+                    f"edit). Choose Keep it or Do not keep it in the top bar or tray menu.{extra}", 10000)
 
     def use_on(self, key):
         """The EQ shown becomes a profile of this device, switched on (APO applies it while the device plays)."""
@@ -960,10 +963,10 @@ class EqResult:
         rec, d = self.sw.record(key), self.sw.device(key)
         extra = ""
         if not self.sw.apo.includes_studio():
-            extra = " Equalizer APO does not use AutoEQ Studio: click Add AutoEQ Studio to APO… on the Devices screen."
+            extra = " Equalizer APO isn't linked to AutoEQ Studio: click Add AutoEQ Studio to APO… in Devices."
         elif d and not d.apo:
-            extra = " Equalizer APO is not installed on this device (refer to Devices)."
-        self.status(f"“{self.sw.profile_name(pid)}” is on for {shown(rec)}.{extra}", 10000)
+            extra = " Equalizer APO isn't installed on this device (see Devices)."
+        self.status(f"“{self.sw.profile_name(pid)}” is now active on {shown(rec)}.{extra}", 10000)
 
     def update_profile(self, pid):
         """The EQ shown (a result, or an EQ by hand begun from this profile) written into a profile that you have: its
@@ -985,8 +988,8 @@ class EqResult:
         except (OSError, ValueError) as e:
             QMessageBox.warning(self, "Update the profile", str(e))
             return
-        words = f"The app updated “{name}”. " + (self._on_sentences(self.sw.on_for(pid), short=True)
-                                                 or "No device has it on.")
+        words = f"Updated “{name}”. " + (self._on_sentences(self.sw.on_for(pid), short=True)
+                                         or "Not active on any device.")
 
         def undo():
             now = self.sw.profile_name(pid) or name  # (renamed meanwhile: its name now)
@@ -995,10 +998,9 @@ class EqResult:
             except OSError as e:
                 QMessageBox.warning(self, "Update the profile", str(e))
                 return
-            self.status({"": f"“{now}” has its previous EQ again.",
-                         "deleted": f"You deleted “{now}” in Profiles: Undo is not possible.",
-                         "changed": f"The file of “{now}” changed after the app updated it: Undo is not "
-                                    "possible."}[why])
+            self.status({"": f"Restored previous EQ for “{now}”",
+                         "deleted": f"Can't undo: “{now}” was deleted in Profiles",
+                         "changed": f"Can't undo: “{now}” was modified externally after the update"}[why])
         self.status(words, undo=undo)
 
     @staticmethod

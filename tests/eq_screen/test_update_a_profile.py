@@ -106,24 +106,24 @@ def test_menu_has_the_update_rows(eq_screen, result, tmp_path, check):
     rows = _rows(page.use_menu)
     check("update a profile: the menu keeps the device rows first (one click), then a row Update “…” for each profile "
           "that is on with its device in the keys' column, then Update a profile, then Use for 5 minutes on",
-          rows == ["Headset (EarPods)\tactive", "Update “Daily”\ton for Headset (EarPods)", "Update a profile",
+          rows == ["Headset (EarPods)\tactive", "Update “Daily”\tactive on Headset (EarPods)", "Update a profile",
                    "Use for 5 minutes on"], rows)
     sub = _sub(page, "Update a profile")
-    check("update a profile: the submenu lists every profile A to Z, each with the devices where it is on, or “not on”; "
+    check("update a profile: the submenu lists every profile A to Z, each with the devices where it is on, or “off”; "
           "a name with & shows as it is",
-          sub is not None and _rows(sub) == ["alpha && co\tnot on", "Beta\tnot on", "Daily\ton for Headset (EarPods)"]
+          sub is not None and _rows(sub) == ["alpha && co\toff", "Beta\toff", "Daily\tactive on Headset (EarPods)"]
           and all(a.isEnabled() for a in sub.actions()), sub and _rows(sub))
     flat, beta = _row(page.use_menu, "Update “Daily”"), _row(sub, "Beta")
     check("update a profile: each update row's tooltip says which devices use the EQ immediately and the profile's EQ "
           "at this time (no “it” or “its” that can be the EQ or the device)",
-          flat.toolTip() == "The profile changes to this EQ. Headset (EarPods) uses the new EQ immediately. The EQ of the "
-                            f"profile at this time: {profile_line(sw.profiles()[ids['Daily']])}."
-          and "No device has this profile on" in beta.toolTip(), (flat.toolTip(), beta.toolTip()))
+          flat.toolTip() == "Updates this profile with this EQ. Headset (EarPods) uses the new EQ immediately. Current: "
+                            f"{profile_line(sw.profiles()[ids['Daily']], preamp_last=True)}."
+          and "Not active on any device" in beta.toolTip(), (flat.toolTip(), beta.toolTip()))
     from PySide6.QtGui import QAccessible
     face = QAccessible.queryAccessibleInterface(page.use_menu)
     names = [face.child(k).text(QAccessible.Name) for k in range(face.childCount())] if face else []
     check("update a profile: a screen reader reads an update row's profile name and where it is on",
-          any(n.startswith("Update “Daily”") and "on for Headset (EarPods)" in n for n in names), names)
+          any(n.startswith("Update “Daily”") and "active on Headset (EarPods)" in n for n in names), names)
 
 
 def test_one_row_for_a_profile_on_for_two_devices(eq_screen, result, tmp_path, check, monkeypatch):
@@ -140,9 +140,9 @@ def test_one_row_for_a_profile_on_for_two_devices(eq_screen, result, tmp_path, c
     finally:
         _apart(sw, monkeypatch)
     # (since 2026-11-12 the row gives the first device and the count, the message up to 3 names: first_names)
-    check("update a profile: a profile that is on for two devices has one row, “on for … and 1 more device”; its "
+    check("update a profile: a profile that is on for two devices has one row, “active on … and 1 more device”; its "
           "tooltip and the message name the two devices",
-          flats == ["Update “Daily”\ton for Headset (EarPods) and 1 more device"]
+          flats == ["Update “Daily”\tactive on Headset (EarPods) and 1 more device"]
           and "Headset (EarPods) and Speakers (Realtek) use the new EQ immediately" in tip
           and "Headset (EarPods) and Speakers (Realtek) use the new EQ immediately" in message
           and sw.record(KEY)["active"] == ids["Daily"], (flats, tip, message))
@@ -188,7 +188,7 @@ def test_a_calculated_result_updates_a_profile(eq_screen, result, tmp_path, chec
         check("update a profile: Undo puts the profile's file back byte for byte, with its old counts and From, and "
               "says so",
               _bytes(_file(sw, pid)) == old and sw.profiles()[pid] == rec_before
-              and "has its previous EQ again" in said[-1], (sw.profiles()[pid], rec_before, said[-1]))
+              and said[-1] == "Restored previous EQ for “Daily”", (sw.profiles()[pid], rec_before, said[-1]))
     finally:
         _apart(sw, monkeypatch)
 
@@ -202,7 +202,7 @@ def test_update_from_the_submenu_of_a_profile_that_is_not_on(eq_screen, result, 
     _row(_sub(page, "Update a profile"), "Beta\t").trigger()
     check("update a profile: Update a profile › a profile that is on for no device updates it; the message says no "
           "device has it on; no device changes",
-          _bytes(_file(sw, ids["Beta"])) != old and "No device has it on." in said[-1]
+          _bytes(_file(sw, ids["Beta"])) != old and "Not active on any device." in said[-1]
           and {k: d["active"] for k, d in sw.s["devices"].items()} == active, (said[-1], active))
 
 
@@ -226,8 +226,8 @@ def test_undo_after_delete_or_change(eq_screen, result, tmp_path, check):
     changed = said[-1]
     check("update a profile: Undo after the profile was deleted, or after its file changed, says it is not possible "
           "and changes nothing",
-          "You deleted “Daily” in Profiles: Undo is not possible." in deleted and still_gone
-          and "The file of “Daily” changed after the app updated it: Undo is not possible." in changed
+          "Can't undo: “Daily” was deleted in Profiles" in deleted and still_gone
+          and "Can't undo: “Daily” was modified externally after the update" in changed
           and _bytes(_file(sw, ids["Daily"])) == changed_bytes, (deleted, changed))
 
 
@@ -280,8 +280,8 @@ def test_a_device_trying_an_eq_keeps_it(eq_screen, result, tmp_path, check):
           "running (APO's file still has _trying.txt); the message says that device uses the new EQ after that, not "
           "immediately",
           trial == KEY and "_trying.txt" in sw_text
-          and "Headset (EarPods) has an EQ for 5 minutes. If you do not click Keep it, Headset (EarPods) uses the "
-          "new EQ after that." in said[-1] and "immediately" not in said[-1], (trial, said[-1]))
+          and "Headset (EarPods) has a 5-minute preview active. Unless you click Keep it, Headset (EarPods) uses the "
+          "new EQ afterward." in said[-1] and "immediately" not in said[-1], (trial, said[-1]))
 
 
 def test_a_device_with_its_eq_off_to_compare_keeps_it(eq_screen, result, tmp_path, check):
@@ -297,13 +297,13 @@ def test_a_device_with_its_eq_off_to_compare_keeps_it(eq_screen, result, tmp_pat
     check("update a profile: updating the profile of a device with its EQ off to compare leaves it off; the message "
           "says that device uses the new EQ after that, not immediately",
           off and off[0] == "off" and compare == KEY
-          and "Headset (EarPods) has its EQ off to compare. Headset (EarPods) uses the new EQ after that." in said[-1]
-          and "5 minutes" not in said[-1] and "immediately" not in said[-1], (off, compare, said[-1]))
+          and "Headset (EarPods) has its EQ bypassed for comparison. Headset (EarPods) uses the new EQ afterward."
+          in said[-1] and "5-minute" not in said[-1] and "immediately" not in said[-1], (off, compare, said[-1]))
 
 
 def test_apo_without_the_app_is_said(eq_screen, result, tmp_path, check, monkeypatch):
     page, sw, said = eq_screen.page, eq_screen.sw, eq_screen.said
-    apo = "Equalizer APO does not use AutoEQ Studio: click Add AutoEQ Studio to APO… on the Devices screen."
+    apo = "Equalizer APO isn't linked to AutoEQ Studio. Click Add AutoEQ Studio to APO… in Devices."
     seen = []
     for on in ({KEY: "on"}, {KEY: "on", KEY2: "on"}):
         _two_devices(sw, monkeypatch)
@@ -321,11 +321,11 @@ def test_apo_without_the_app_is_said(eq_screen, result, tmp_path, check, monkeyp
     check("update a profile: when Equalizer APO does not include AutoEQ Studio, no device uses the new EQ immediately: "
           "the message says so first, how to add it, then that the device uses the new EQ after that; the tooltip "
           "says the same",
-          one[0] == f"The app updated “Daily”. {apo} Headset (EarPods) uses the new EQ after that."
-          and f"{apo} Headset (EarPods) uses the new EQ after that. The EQ of the profile" in one[1]
+          one[0] == f"Updated “Daily”. {apo} Headset (EarPods) uses the new EQ after that."
+          and f"{apo} Headset (EarPods) uses the new EQ after that. Current:" in one[1]
           and "immediately" not in one[0] + one[1], one)
     check("update a profile: the same with two devices (“use”, plural; the message names the two)",
-          two[0] == f"The app updated “Daily”. {apo} Headset (EarPods) and Speakers (Realtek) use the new EQ after "
+          two[0] == f"Updated “Daily”. {apo} Headset (EarPods) and Speakers (Realtek) use the new EQ after "
                     "that."
           and f"{apo} Headset (EarPods) and Speakers (Realtek) use the new EQ after that." in two[1]
           and "immediately" not in two[0] + two[1], two)
@@ -357,30 +357,30 @@ def _without_the_app(eq_screen, tmp_path, monkeypatch, on, *endpoints, compare=N
 def test_apo_without_the_app_and_devices_not_used_now(eq_screen, result, tmp_path, check, monkeypatch):
     # (2026-11-11: the APO sentence was tested only with connected devices; a device not connected was said to use
     # the new EQ when you connect it, but APO uses it only after the app is added)
-    apo = "Equalizer APO does not use AutoEQ Studio: click Add AutoEQ Studio to APO… on the Devices screen."
-    line = "The EQ of the profile at this time: 1 filter, pre-amp -3 dB."
+    apo = "Equalizer APO isn't linked to AutoEQ Studio. Click Add AutoEQ Studio to APO… in Devices."
+    line = "Current: 1 filter, -3 dB pre-amp."
     away = D.Endpoint("{6}", "Speakers", "Realtek", D.UNPLUGGED, True)
     held = _without_the_app(eq_screen, tmp_path, monkeypatch, {KEY: "on"}, compare=KEY)
-    words = f"{apo} Headset (EarPods) has its EQ off to compare. Headset (EarPods) uses the new EQ after that."
+    words = f"{apo} Headset (EarPods) has its EQ bypassed for comparison. Headset (EarPods) uses the new EQ afterward."
     check("update a profile: Equalizer APO without the app and a device with its EQ off to compare only: the APO "
           "sentence first, then the held sentence, in the message and the tooltip",
-          held == (f"The app updated “Daily”. {words}", f"The profile changes to this EQ. {words} {line}", "off"), held)
+          held == (f"Updated “Daily”. {words}", f"Updates this profile with this EQ. {words} {line}", "off"), held)
     one = _without_the_app(eq_screen, tmp_path, monkeypatch, {KEY2: "on"}, away)
-    words = f"{apo} Speakers (Realtek) uses the new EQ after that, when you connect it."
+    words = f"{apo} Speakers (Realtek) uses the new EQ after that, when you connect it"
     check("update a profile: Equalizer APO without the app and a device that is not connected only: the APO sentence, "
           "then the device uses the new EQ “after that, when you connect it”, in the message and the tooltip",
-          one == (f"The app updated “Daily”. {words}", f"The profile changes to this EQ. {words} {line}", "off"), one)
+          one == (f"Updated “Daily”. {words}", f"Updates this profile with this EQ. {words}. {line}", "off"), one)
     two = _without_the_app(eq_screen, tmp_path, monkeypatch, {KEY2: "on", "TV|NVIDIA": "on"}, away,
                            D.Endpoint("{7}", "TV", "NVIDIA", D.UNPLUGGED, True))
-    words = f"{apo} Speakers (Realtek) and TV (NVIDIA) use the new EQ after that, when you connect them."
+    words = f"{apo} Speakers (Realtek) and TV (NVIDIA) use the new EQ after that, when you connect them"
     check("update a profile: the same with two devices that are not connected (“use … them”, plural; the message "
           "names the two)",
-          two == (f"The app updated “Daily”. {words}", f"The profile changes to this EQ. {words} {line}", "off"), two)
+          two == (f"Updated “Daily”. {words}", f"Updates this profile with this EQ. {words}. {line}", "off"), two)
     none = _without_the_app(eq_screen, tmp_path, monkeypatch, {})
     check("update a profile: Equalizer APO without the app and a profile that no device has on: no APO sentence, only "
-          "“No device has it on.” (the tooltip: “No device has this profile on.”)",
-          none == ("The app updated “Daily”. No device has it on.",
-                   f"The profile changes to this EQ. No device has this profile on. {line}", "off"), none)
+          "“Not active on any device.”, in the message and in the tooltip",
+          none == ("Updated “Daily”. Not active on any device.",
+                   f"Updates this profile with this EQ. Not active on any device. {line}", "off"), none)
 
 
 def test_undo_refused_when_settings_are_read_only(eq_screen, result, tmp_path, check, monkeypatch):
@@ -416,7 +416,7 @@ def test_three_devices_named_in_the_message(eq_screen, result, tmp_path, check, 
         _apart(sw, monkeypatch)
     check("update a profile: a profile on for three devices: its row names the first and “2 more devices”; its "
           "tooltip and the message name the three, “A, B, and C”",
-          text == "Update “Daily”\ton for Headset (EarPods) and 2 more devices"
+          text == "Update “Daily”\tactive on Headset (EarPods) and 2 more devices"
           and "Headset (EarPods), Speakers (Realtek), and TV (NVIDIA) use the new EQ immediately." in tip
           and "Headset (EarPods), Speakers (Realtek), and TV (NVIDIA) use the new EQ immediately." in message,
           (text, tip, message))
@@ -438,10 +438,10 @@ def test_devices_not_connected_or_without_apo_are_said_apart(eq_screen, result, 
     check("update a profile: the message says that only a connected device with Equalizer APO uses the new EQ "
           "immediately, a device not connected uses it when you connect it, and Equalizer APO is not installed on "
           "the other; the tooltip says the same",
-          message == "The app updated “Daily”. Headset (EarPods) uses the new EQ immediately. Speakers (Realtek) uses "
-                     "the new EQ when you connect it. Equalizer APO is not installed on TV (NVIDIA) (refer to Devices)."
+          message == "Updated “Daily”. Headset (EarPods) uses the new EQ immediately. Speakers (Realtek) uses "
+                     "the new EQ when you connect it. Equalizer APO isn't installed on TV (NVIDIA) (see Devices)"
           and "Headset (EarPods) uses the new EQ immediately. Speakers (Realtek) uses the new EQ when you connect it. "
-              "Equalizer APO is not installed on TV (NVIDIA) (refer to Devices)." in tip, (message, tip))
+              "Equalizer APO isn't installed on TV (NVIDIA) (see Devices). Current:" in tip, (message, tip))
 
 
 def test_a_device_name_with_and_sign_shows_as_it_is(eq_screen, result, tmp_path, check, monkeypatch):
@@ -456,7 +456,7 @@ def test_a_device_name_with_and_sign_shows_as_it_is(eq_screen, result, tmp_path,
         _apart(sw, monkeypatch)
     check("update a profile: a device name with & shows as it is in the device rows, the update rows and Use for 5 "
           "minutes on (Qt reads one & as a key's mark)",
-          "TV (R&&D Audio)\tconnected" in rows and "Update “Daily”\ton for TV (R&&D Audio)" in rows
+          "TV (R&&D Audio)\tconnected" in rows and "Update “Daily”\tactive on TV (R&&D Audio)" in rows
           and "TV (R&&D Audio)" in tries, (rows, tries))
 
 
@@ -479,9 +479,9 @@ def test_long_names_do_not_make_the_menu_wide(eq_screen, result, tmp_path, check
           "menu and Update a profile stay narrower than 700 px; the tooltip has the whole name and the device; a short "
           "name stays whole",
           len(sw.profiles()[ids[name]]["name"]) == 80 and max(wide) < 700 and "…" in text and name not in text
-          and text.startswith("Update “Truthear") and f"The profile “{name}” changes to this EQ." in tip
+          and text.startswith("Update “Truthear") and f"Updates “{name}” with this EQ." in tip
           and "Speakers (Realtek(R) High Definition Audio) uses the new EQ immediately." in tip
-          and short == "Update “Daily”\ton for Headset (EarPods)", (wide, text, tip, short))
+          and short == "Update “Daily”\tactive on Headset (EarPods)", (wide, text, tip, short))
     first = text.split("\t")[0]
     check("update a profile: a long profile name is cut in the middle: the row keeps its start and its end (the end, "
           "“… 10f”, tells automatic names apart)",
@@ -508,11 +508,11 @@ def test_own_profile_with_items_left_out_stays_protected(eq_screen, result, tmp_
           and first.text().startswith("Update “Graphic one”") and not first.isEnabled() and not own.isEnabled()
           and "graphic EQ" in first.toolTip() and "graphic EQ" in own.toolTip() and other.isEnabled(),
           (run.get("profile"), run.get("left_out"), first.text(), own.toolTip()))
-    why = ("Its file has items that this EQ cannot show (" + " · ".join(run.get("left_out") or []) + "): use this EQ as "
-           "a new profile (click a device in this menu)")  # (2026-11-11: not "below", an adverb in STE)
-    check("update a profile: the off row of a whole (short) name has the reason only, with a capital letter, and no "
-          "“The profile “”, in the menu and in Update a profile",
-          first.toolTip() == why and own.toolTip() == why and "The profile “" not in first.toolTip() + own.toolTip(),
+    why = ("Can't update; its file has unsupported items (" + " · ".join(run.get("left_out") or []) + "). Click a "
+           "device in this menu to save as a new profile.")  # (the words of the text survey, 2026-11-24)
+    check("update a profile: the off row of a whole (short) name has the reason with no name (“Can't update; …”), in "
+          "the menu and in Update a profile",
+          first.toolTip() == why and own.toolTip() == why and "Can't update “" not in first.toolTip() + own.toolTip(),
           (first.toolTip(), own.toolTip()))
 
 
@@ -532,9 +532,9 @@ def test_an_eq_by_hand_updates_its_own_profile(eq_screen, result, tmp_path, chec
     page.use_menu.actions()[0].trigger()
     check("update a profile: an EQ by hand begun from a profile that is on has its Update “…” row first (a name with & "
           "as it is), with no second row for it; the update keeps the profile's From",
-          rows[0] == "Update “A && B”\ton for Headset (EarPods)"
+          rows[0] == "Update “A && B”\tactive on Headset (EarPods)"
           and not any(r.startswith("Update “A") for r in rows[1:]) and sw.profiles()[pid]["source"] == source
-          and "updated “A & B”" in eq_screen.said[-1], (rows, sw.profiles()[pid]["source"], source))
+          and "Updated “A & B”" in eq_screen.said[-1], (rows, sw.profiles()[pid]["source"], source))
 
 
 def test_own_profile_off_with_a_long_name_gives_the_whole_name(eq_screen, result, tmp_path, check):
@@ -553,7 +553,7 @@ def test_own_profile_off_with_a_long_name_gives_the_whole_name(eq_screen, result
     check("update a profile: the off row of the profile an EQ by hand came from, its name cut, has a tooltip that "
           "starts with the whole name, then the reason",
           run.get("profile") == ids[name] and not first.isEnabled() and "…" in first.text()
-          and first.toolTip().startswith(f"The profile “{name}”: its file has items that this EQ cannot show (")
+          and first.toolTip().startswith(f"Can't update “{name}”: its file has unsupported items (")
           and "graphic EQ" in first.toolTip(), (first.text(), first.toolTip()))
 
 
@@ -580,7 +580,7 @@ def test_cut_on_words_keep_the_count(eq_screen, result, tmp_path, check, monkeyp
     check("update a profile: on words too long for their room cut the first device's name, not the count: the row "
           "ends with “and 1 more device”, has “…”, fits in its room, and the menus stay narrower than 700 px; the "
           "tooltip names the two devices",
-          where.startswith("on for Speakers (Realtek") and "…" in where and where.endswith("… and 1 more device")
+          where.startswith("active on Speakers (Realtek") and "…" in where and where.endswith("… and 1 more device")
           and sub_where == where and fm.horizontalAdvance(where) <= fm.averageCharWidth() * UPDATE_ROOM
           and max(wide) < 700
           and "Speakers (Realtek(R) High Definition Audio) and TV (NVIDIA) use the new EQ immediately." in tip,
@@ -596,9 +596,9 @@ def test_cut_on_words_keep_the_count(eq_screen, result, tmp_path, check, monkeyp
         one = _row(page.use_menu, "Update “Solo”").text().split("\t")[1]
     finally:
         _apart(sw, monkeypatch)
-    check("update a profile: the on words of one device with a name of 60 or more characters are cut too: “on for "
+    check("update a profile: the on words of one device with a name of 60 or more characters are cut too: “active on "
           "…” with “…”, in their room",
-          len(f"Speakers ({dock.conn})") >= 60 and one.startswith("on for Speakers (Realtek") and "…" in one
+          len(f"Speakers ({dock.conn})") >= 60 and one.startswith("active on Speakers (Realtek") and "…" in one
           and " more device" not in one and fm.horizontalAdvance(one) <= fm.averageCharWidth() * UPDATE_ROOM, one)
 
 
@@ -623,14 +623,14 @@ def test_two_held_devices_are_said_in_the_plural(eq_screen, result, tmp_path, ch
         _apart(sw, monkeypatch)
     # (2026-11-12: the two were one sentence, "have an EQ for 5 minutes, or their EQ off to compare. They use the new
     # EQ after that": untrue after Keep it, which makes the EQ for 5 minutes a new profile. Now a sentence for each)
-    words = ("Headset (EarPods) has an EQ for 5 minutes. If you do not click Keep it, Headset (EarPods) uses the new "
-             "EQ after that. Speakers (Realtek) has its EQ off to compare. Speakers (Realtek) uses the new EQ after "
-             "that.")
+    words = ("Headset (EarPods) has a 5-minute preview active. Unless you click Keep it, Headset (EarPods) uses the "
+             "new EQ afterward. Speakers (Realtek) has its EQ bypassed for comparison. Speakers (Realtek) uses the new "
+             "EQ afterward.")
     check("update a profile: a device with an EQ for 5 minutes and a second with its EQ off to compare: the message "
           "and the tooltip give a sentence for each (Keep it only with the EQ for 5 minutes), and nothing "
           "“immediately”",
-          off and off[0] == "off" and held == (KEY, KEY2) and message == f"The app updated “Daily”. {words}"
-          and f"The profile changes to this EQ. {words} The EQ of the profile" in tip
+          off and off[0] == "off" and held == (KEY, KEY2) and message == f"Updated “Daily”. {words}"
+          and f"Updates this profile with this EQ. {words} Current:" in tip
           and "immediately" not in message + tip, (held, message, tip))
 
 
@@ -647,10 +647,10 @@ def test_two_devices_not_connected_are_said_in_the_plural(eq_screen, result, tmp
         message = said[-1]
     finally:
         _apart(sw, monkeypatch)
-    words = "Speakers (Realtek) and TV (NVIDIA) use the new EQ when you connect them."
+    words = "Speakers (Realtek) and TV (NVIDIA) use the new EQ when you connect them"
     check("update a profile: two devices that are not connected: the message and the tooltip say “use … them” (the "
           "plural)",
-          message == f"The app updated “Daily”. {words}" and f" {words} The EQ of the profile" in tip, (message, tip))
+          message == f"Updated “Daily”. {words}" and f" {words}. Current:" in tip, (message, tip))
 
 
 def test_the_groups_are_said_in_their_sequence(eq_screen, result, tmp_path, check, monkeypatch):
@@ -670,14 +670,13 @@ def test_the_groups_are_said_in_their_sequence(eq_screen, result, tmp_path, chec
             sw.compare_end()
     finally:
         _apart(sw, monkeypatch)
-    words = ("Monitor (Dell) uses the new EQ immediately. Headset (EarPods) has its EQ off to compare. Headset "
-             "(EarPods) uses the new EQ after that. Speakers (Realtek) uses the new EQ when you connect it. Equalizer "
-             "APO is not installed on TV (NVIDIA) (refer to Devices).")
+    words = ("Monitor (Dell) uses the new EQ immediately. Headset (EarPods) has its EQ bypassed for comparison. "
+             "Headset (EarPods) uses the new EQ afterward. Speakers (Realtek) uses the new EQ when you connect it. "
+             "Equalizer APO isn't installed on TV (NVIDIA) (see Devices)")
     check("update a profile: the message and the tooltip give the groups in this sequence: immediately, an EQ for 5 "
           "minutes or off to compare, not connected, no Equalizer APO (the held sentence in the tooltip too)",
-          off and off[0] == "off" and message == f"The app updated “Daily”. {words}"
-          and tip == f"The profile changes to this EQ. {words} The EQ of the profile at this time: 1 filter, pre-amp "
-                     "-3 dB.", (message, tip))
+          off and off[0] == "off" and message == f"Updated “Daily”. {words}"
+          and tip == f"Updates this profile with this EQ. {words}. Current: 1 filter, -3 dB pre-amp.", (message, tip))
 
 
 def test_a_profile_on_only_for_a_device_that_windows_does_not_list(eq_screen, result, tmp_path, check, monkeypatch):
@@ -698,12 +697,12 @@ def test_a_profile_on_only_for_a_device_that_windows_does_not_list(eq_screen, re
         message = said[-1]
     finally:
         _apart(sw, monkeypatch)
-    words = "Speakers (Realtek) uses the new EQ when you connect it."
+    words = "Speakers (Realtek) uses the new EQ when you connect it"
     check("update a profile: a profile that is on only for a device that Windows does not list has its Update row "
-          "(“on for” that device); its tooltip and the message say the device uses the new EQ when you connect it",
-          gone and "Speakers (Realtek)\tnot connected" in rows and "Update “Daily”\ton for Speakers (Realtek)" in rows
-          and f"The profile changes to this EQ. {words} The EQ of the profile" in tip
-          and message == f"The app updated “Daily”. {words}", (gone, rows, tip, message))
+          "(“active on” that device); its tooltip and the message say the device uses the new EQ when you connect it",
+          gone and "Speakers (Realtek)\tnot connected" in rows and "Update “Daily”\tactive on Speakers (Realtek)" in rows
+          and f"Updates this profile with this EQ. {words}. Current:" in tip
+          and message == f"Updated “Daily”. {words}", (gone, rows, tip, message))
 
 
 def test_submenu_sorts_numbers_as_numbers(eq_screen, result, tmp_path, check):
@@ -723,7 +722,7 @@ def test_undo_after_a_rename_says_the_new_name(eq_screen, result, tmp_path, chec
     sw.rename_profile(ids["Daily"], "Evening")
     eq_screen.undo()
     check("update a profile: Undo of an update after a rename of the profile says its name at that time",
-          said[-1] == "“Evening” has its previous EQ again.", said[-1])
+          said[-1] == "Restored previous EQ for “Evening”", said[-1])
 
 
 def test_each_device_row_uses_its_device(eq_screen, result, tmp_path, check, monkeypatch):
@@ -790,19 +789,19 @@ def test_the_message_gives_three_names_and_the_count(eq_screen, result, tmp_path
     all_names = [f"Dev {k:02d} (Maker)" for k in range(20, 20 + n)]
     now, tip = _message_for(eq_screen, tmp_path, monkeypatch, _devices(n))
     check(f"update a profile: {n} connected devices: the message gives up to 3 names and the count; the tooltip all",
-          now == f"The app updated “Daily”. {names} {verb} the new EQ immediately."
+          now == f"Updated “Daily”. {names} {verb} the new EQ immediately."
           and all(x in tip for x in all_names), (now, tip))
     away, _ = _message_for(eq_screen, tmp_path, monkeypatch, _devices(n, D.UNPLUGGED))
     check(f"update a profile: {n} devices that are not connected: up to 3 names and the count",
-          away == f"The app updated “Daily”. {names} {verb} the new EQ when you connect {'it' if n == 1 else 'them'}.",
+          away == f"Updated “Daily”. {names} {verb} the new EQ when you connect {'it' if n == 1 else 'them'}",
           away)
     no_apo, _ = _message_for(eq_screen, tmp_path, monkeypatch, _devices(n, apo=False))
     check(f"update a profile: {n} devices with no Equalizer APO: up to 3 names and the count",
-          no_apo == f"The app updated “Daily”. Equalizer APO is not installed on {names} (refer to Devices).", no_apo)
-    apo = "Equalizer APO does not use AutoEQ Studio: click Add AutoEQ Studio to APO… on the Devices screen."
+          no_apo == f"Updated “Daily”. Equalizer APO isn't installed on {names} (see Devices)", no_apo)
+    apo = "Equalizer APO isn't linked to AutoEQ Studio. Click Add AutoEQ Studio to APO… in Devices."
     later, _ = _message_for(eq_screen, tmp_path, monkeypatch, _devices(n), unused=True)
     check(f"update a profile: {n} devices, Equalizer APO without the app: up to 3 names and the count",
-          later == f"The app updated “Daily”. {apo} {names} {verb} the new EQ after that.", later)
+          later == f"Updated “Daily”. {apo} {names} {verb} the new EQ after that.", later)
 
 
 def test_the_message_of_twelve_devices(eq_screen, result, tmp_path, check, monkeypatch):
@@ -810,10 +809,10 @@ def test_the_message_of_twelve_devices(eq_screen, result, tmp_path, check, monke
     message, tip = _message_for(eq_screen, tmp_path, monkeypatch, eps)
     check("update a profile: 12 devices in three groups: a short message (each group: 3 names and the count), and the "
           "tooltip names all 12",
-          message == "The app updated “Daily”. Dev 20 (Maker), Dev 21 (Maker), Dev 22 (Maker), and 1 more device use "
+          message == "Updated “Daily”. Dev 20 (Maker), Dev 21 (Maker), Dev 22 (Maker), and 1 more device use "
                      "the new EQ immediately. Dev 30 (Maker), Dev 31 (Maker), Dev 32 (Maker), and 1 more device use "
-                     "the new EQ when you connect them. Equalizer APO is not installed on Dev 40 (Maker), Dev 41 "
-                     "(Maker), Dev 42 (Maker), and 1 more device (refer to Devices)."
+                     "the new EQ when you connect them. Equalizer APO isn't installed on Dev 40 (Maker), Dev 41 "
+                     "(Maker), Dev 42 (Maker), and 1 more device (see Devices)"
           and all(f"Dev {k:02d} (Maker)" in tip for k in (*range(20, 24), *range(30, 34), *range(40, 44))),
           (message, tip))
 
@@ -823,8 +822,8 @@ def test_the_menu_and_the_message_have_their_own_limit(check):
     from ui.eq_page_parts import MESSAGE_NAMES, NAMES_SHOWN, first_names, on_words
     names = [f"Dev {k}" for k in range(1, 13)]
     check("update a profile: the menu's on words give one name and the count; the message's limit is 3 names",
-          (NAMES_SHOWN, MESSAGE_NAMES) == (1, 3) and on_words(names[:2]) == "on for Dev 1 and 1 more device"
-          and on_words(names) == "on for Dev 1 and 11 more devices"
+          (NAMES_SHOWN, MESSAGE_NAMES) == (1, 3) and on_words(names[:2]) == "active on Dev 1 and 1 more device"
+          and on_words(names) == "active on Dev 1 and 11 more devices" and on_words([]) == "off"
           and first_names(names, MESSAGE_NAMES) == "Dev 1, Dev 2, Dev 3, and 9 more devices"
           and first_names(names[:3], MESSAGE_NAMES) == "Dev 1, Dev 2, and Dev 3",
           (on_words(names[:2]), on_words(names), first_names(names, MESSAGE_NAMES)))
@@ -890,7 +889,7 @@ def test_long_device_names_are_cut_in_their_rows(eq_screen, result, tmp_path, ch
     check("use on device: the tooltip of a cut device row has the whole name (also in Use for 5 minutes on, then what "
           "the row does); a name with & shows && in the row and one & in the tooltip",
           (not cut or (tips[:2] == list(names) and tips[3].startswith(whole_amp)
-                       and tips[2].startswith(whole + "\nThe EQ plays in all apps for 5 minutes.")))
+                       and tips[2].startswith(whole + "\nApplies this EQ in all apps for 5 minutes.")))
           and "R&&D" in rows[1].text() and "R&&D" in trial[1].text(), (tips, [a.text() for a in rows + trial]))
     check("use on device: a short device name stays whole",
           short == ["Headset (EarPods)\tactive"], short)
@@ -926,18 +925,18 @@ def test_the_message_is_true_after_keep_it(eq_screen, result, tmp_path, check, k
     active = sw.record(KEY)["active"]
     if keep:
         check("update a profile: Keep it after the update: the device uses the EQ for 5 minutes as a new profile, not "
-              "the new EQ; the message says the condition (“If you do not click Keep it”) and not that it always uses "
+              "the new EQ; the message says the condition (“Unless you click Keep it”) and not that it always uses "
               "the new EQ",
               kept and active == kept != ids["Daily"] and now == tried.encode("utf-8") and now != new
               and file == sw.profiles()[kept]["file"]
-              and "Headset (EarPods) has an EQ for 5 minutes. If you do not click Keep it, Headset (EarPods) uses the "
-              "new EQ after that." in message and "or its EQ off to compare" not in message,
+              and "Headset (EarPods) has a 5-minute preview active. Unless you click Keep it, Headset (EarPods) uses "
+              "the new EQ afterward." in message and "bypassed for comparison" not in message,
               (kept, active, file, now[:80], message))
     else:
         check("update a profile: no Keep it after the update: the device uses the new EQ of the profile, as the "
               "message says",
               kept is None and active == ids["Daily"] and now == new and file == sw.profiles()[ids["Daily"]]["file"]
-              and "If you do not click Keep it, Headset (EarPods) uses the new EQ after that." in message,
+              and "Unless you click Keep it, Headset (EarPods) uses the new EQ afterward." in message,
               (kept, active, file, message))
 
 
@@ -959,8 +958,8 @@ def test_the_message_is_true_after_the_compare(eq_screen, result, tmp_path, chec
           "message says (no Keep it in its words)",
           off[0] == "off" and on[0] == "on" and during != "Daily.txt" and file == "Daily.txt"
           and now == _bytes(_file(sw, ids["Daily"]))
-          and "Headset (EarPods) has its EQ off to compare. Headset (EarPods) uses the new EQ after that." in message
-          and "Keep it" not in message, (off, on, during, file, message))
+          and "Headset (EarPods) has its EQ bypassed for comparison. Headset (EarPods) uses the new EQ afterward."
+          in message and "Keep it" not in message, (off, on, during, file, message))
 
 
 @pytest.mark.parametrize("keep", [True, False], ids=["Keep it", "Do not keep it"])
@@ -991,9 +990,9 @@ def test_a_device_with_an_eq_for_5_minutes_and_its_eq_off_to_compare(eq_screen, 
             sw.end_trial()
     file, now = _uses(sw, KEY)
     new = _bytes(_file(sw, ids["Daily"]))
-    words = ("Headset (EarPods) has an EQ for 5 minutes. If you do not click Keep it, Headset (EarPods) uses the new "
-             "EQ after that." in message and "off to compare" not in message
-             and "If you do not click Keep it" in tip and "off to compare" not in tip)
+    words = ("Headset (EarPods) has a 5-minute preview active. Unless you click Keep it, Headset (EarPods) uses the "
+             "new EQ afterward." in message and "bypassed for comparison" not in message
+             and "Unless you click Keep it" in tip and "bypassed for comparison" not in tip)
     if keep:
         uses = kept and now == tried.encode("utf-8") and now != new
     else:
