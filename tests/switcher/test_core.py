@@ -260,4 +260,4 @@ def test_without_apo(start, check):
     except OSError as e:
         said = str(e)
     # was selftest.py:239
-    check("core: without APO, importing says so and nothing is written", "is not installed" in said and not gone.apply(), said)
+    check("core: without APO, importing says so and nothing is written", "Equalizer APO isn't installed" in said and not gone.apply(), said)

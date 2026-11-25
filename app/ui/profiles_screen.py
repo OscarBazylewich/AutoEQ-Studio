@@ -55,9 +55,7 @@ class ProfilesScreen:
         w = QWidget()
         lay = QVBoxLayout(w)
         lay.setContentsMargins(0, 0, 0, 0)  # (lined up with the top bar, as every screen: UI-RULES 5)
-        lay.addWidget(muted("A profile is a copy of an EQ file in the Equalizer APO format (the “Equalizer APO” file "
-                            "of AutoEQ Local, ParametricEQ.txt of AutoEq, an EQ file that squig.link exports). To "
-                            "rename a profile, double-click its name."))
+        lay.addWidget(muted("Double-click a name to rename"))
         # (the table's commands above it, near the rows they act on: under a table that fills the screen they were
         # 750 px from its one row)
         # (the general commands first, then a thin line and those for the selected profile, Delete… last and apart: as
@@ -74,7 +72,7 @@ class ProfilesScreen:
             b.clicked.connect(fn)
             if text == "Delete…":
                 row.addStretch(1)  # (last and apart: UI-RULES 14)
-                b.setToolTip("Delete the selected profile and its file, and remove it from its devices")
+                b.setToolTip("Delete the selected profile, its file, and all device assignments")
             if text == "Edit in Make an EQ":
                 line = QFrame()
                 theme.mark(line, vline=True)
@@ -86,8 +84,10 @@ class ProfilesScreen:
             if symbol in ("edit", "rename", "delete"):  # (for the chosen profile: off until one is chosen)
                 self.prof_needs_one.append(b)
             if symbol == "edit":
-                b.setToolTip("Change the filters of the selected profile manually (on the graph, or in the table). Use "
-                             "on device › Update saves them in the profile, and its devices keep it.")
+                b.setToolTip("Save changes back with Use on device › Update")
+                # (the line for a screen reader is the tooltip, the owner's rule of 2026-11-24: without this, tag()
+                # gave it the different first line of "#prof-edit" in HELP)
+                b.setAccessibleDescription(b.toolTip())
                 help_window.tag(b, "#prof-edit")
                 self.prof_edit_btn = b
         self.prof_table = QTableWidget(0, 4)
@@ -111,7 +111,7 @@ class ProfilesScreen:
         h.setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.prof_used_by = UsedByWidth(self.prof_table)  # ("Used by": as wide as its words, to a limit)
         # (no profiles: one gray line that tells the next step, as every empty list: UI-RULES 21)
-        self.prof_empty = EmptyText(self.prof_table, "No profiles. Click “Import EQ files…”, or make an EQ in Make an EQ "
+        self.prof_empty = EmptyText(self.prof_table, "No profiles yet. Click Import EQ files…, or create one in Make an EQ "
                                     "and click Use on device.")
         self.prof_table.itemChanged.connect(self._renamed)
         self.prof_table.itemSelectionChanged.connect(self._update_profile_commands)
@@ -180,7 +180,7 @@ class ProfilesScreen:
         if not pid:  # (off then: UI-RULES 19)
             return
         self.show_page("eq")
-        self.when_eq_opens(lambda page: page.manual_from_profile(pid), "The profile opens after Make an EQ opens…")
+        self.when_eq_opens(lambda page: page.manual_from_profile(pid), "Opening profile in Make an EQ…")
 
     def _delete_profile(self):
         pid = self._selected_profile()
@@ -188,7 +188,7 @@ class ProfilesScreen:
             return
         used = self.sw.used_by(pid)
         if QMessageBox.question(self, "Delete", f"Delete “{self.sw.profile_name(pid)}” and its file?"
-                                + (f"\n\nAutoEQ Studio also removes it from {', '.join(used)}." if used else ""),
+                                + (f"\n\nThis also removes it from {', '.join(used)}." if used else ""),
                                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No) == QMessageBox.Yes:
             self.sw.remove_profile(pid)  # (No the default: it can't be undone, UI-RULES 17)
 

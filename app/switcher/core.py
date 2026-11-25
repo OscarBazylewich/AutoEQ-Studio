@@ -294,7 +294,7 @@ class Switcher:
         """Copy an EQ file into APO's profiles folder as a new profile. Returns its id. Raises eqfile.NotAnEqFile
         (said as it is) or OSError (couldn't read or write)."""
         if not self.apo.found:
-            raise OSError("Equalizer APO is not installed. Thus, AutoEQ Studio cannot keep profiles.")
+            raise OSError("Equalizer APO isn't installed. Install it to import and save profiles.")
         self._require_writable()
         raw, info = eqfile.read_eq(path)
         name = self._unique_name((name or eqfile.name_from_file(path)).strip() or "EQ")
@@ -322,7 +322,7 @@ class Switcher:
         write, so a refusal changes nothing; a save that fails puts the file and the record back first."""
         p = self.s["profiles"].get(pid)
         if not p:
-            raise OSError("The profile is not there.")
+            raise OSError("This profile no longer exists")
         self._require_writable()
         raw, info = eqfile.read_eq(path)
         file = os.path.join(self.apo.profiles, p["file"])
