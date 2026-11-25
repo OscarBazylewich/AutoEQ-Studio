@@ -6,6 +6,7 @@ import contextlib
 import os
 import shutil
 import time
+import types
 
 import pytest
 
@@ -38,10 +39,44 @@ def test_group_keeps_its_id(check):
     check("This PC: a group keeps its id when others are found before it", g1[0]["id"] == g2[1]["id"], (g1[0]["id"], g2[1]["id"]))
 
 
-def test_cloud_only_files_left_out(check):
+class _Entry:
+    """An os.DirEntry of a real file, with the file attributes of its stat() set by the test: a test can't make an
+    online-only file of OneDrive."""
+
+    def __init__(self, real, attributes):
+        self._real, self.name, self.path = real, real.name, real.path
+        self._attributes = attributes
+
+    def is_dir(self, follow_symlinks=True):
+        return self._real.is_dir(follow_symlinks=follow_symlinks)
+
+    def stat(self):
+        st = self._real.stat()
+        return types.SimpleNamespace(st_mtime=st.st_mtime, st_size=st.st_size, st_file_attributes=self._attributes)
+
+
+def test_cloud_only_files_left_out(tmp_path, monkeypatch, check):
+    # (2026-11-25, the test audit: the check before read only the constant CLOUD_ONLY, and passed with the skip in
+    # _walk turned off. Now _walk reads a folder whose files have the attributes of an online-only file: "recall on
+    # data access" (0x400000), "recall on open" (0x40000), "offline" (0x1000), and one a usual file has, "archive"
+    # (0x20))
+    attributes = {"Data access.txt": 0x400000, "On open.txt": 0x40000, "Offline.txt": 0x1000, "On this PC.txt": 0x20}
+    for name in attributes:
+        (tmp_path / name).write_text("20 80\n20000 80\n", encoding="utf-8")
+    real_scandir = os.scandir
+
+    @contextlib.contextmanager
+    def scandir(path):
+        with real_scandir(path) as it:
+            yield [_Entry(e, attributes.get(e.name, 0)) for e in it]
+    monkeypatch.setattr(library.os, "scandir", scandir)
+    seen, cloud = [], []
+    found = [os.path.basename(p) for p, _mtime, _size in
+             library._walk(str(tmp_path), lambda: seen.append(1), lambda: cloud.append(1))]
+    monkeypatch.undo()
     # was eq_checks.py:928
     check("This PC: OneDrive's online-only files are left out (reading one downloads it)",
-          library.CLOUD_ONLY & 0x400000 and library.CLOUD_ONLY & 0x1000)
+          found == ["On this PC.txt"] and len(cloud) == 3 and len(seen) == 1, (found, len(cloud), len(seen)))
 
 
 @pytest.fixture(scope="module")

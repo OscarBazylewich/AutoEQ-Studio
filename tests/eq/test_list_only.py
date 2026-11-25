@@ -80,10 +80,15 @@ def test_targets_of_a_marked_database_with_links(lists, check):
           st[URL]["list_only"] is True and st[URL]["count"] == 4, st[URL])
 
 
-def test_modern_graph_tool_link_is_the_page(lists, check):
+def test_modern_graph_tool_link_is_the_page(lists, eq_cfg, check):
     got = lists([dict(SITE, browse=True)], conf=dict(CONF, targets_base=URL + "data/target/"))
     check("list only: for modernGraphTool (no known share link) the link of each entry is the page of the database",
           got and all(it.get("link") == URL for it in got), [it.get("link") for it in got])
+    # (the verifier's M17: no test gave the service a link to the page of a database. A test of its own before the
+    # test audit of 2026-11-25, with the same lists)
+    e = service.call("/api/db/entry", {"id": got[0]["id"]})["entry"]
+    check("list only: /api/db/entry says site_page for a link to the page of the database (modernGraphTool)",
+          e["link"] == URL and e["site_page"] is True, e)
 
 
 def test_saved_lists_keep_the_links_for_version_1_6_1(db_guard, monkeypatch, tmp_path, check):
@@ -131,14 +136,6 @@ def test_link_of_an_address_with_a_query_and_of_a_name_with_a_comma(lists, eq_cf
     tight = {f: databases.entry_link(URL, {"ref": {"file": f}}, CONF) for f in ("Harman,2019", "A,B Target", "Gate")}
     check("list only: a file name with a comma and no space after it also gets the page of the database",
           tight == {"Harman,2019": URL, "A,B Target": URL, "Gate": URL + "?share=Gate"}, tight)
-
-
-def test_service_says_a_modern_graph_tool_link_is_the_page(lists, eq_cfg, check):
-    # (the verifier's M17: no test gave the service a link to the page of a database)
-    got = lists([dict(SITE, browse=True)], conf=dict(CONF, targets_base=URL + "data/target/"))
-    e = service.call("/api/db/entry", {"id": got[0]["id"]})["entry"]
-    check("list only: /api/db/entry says site_page for a link to the page of the database (modernGraphTool)",
-          e["link"] == URL and e["site_page"] is True, e)
 
 
 def test_a_downloadable_database_has_no_links(lists, check):

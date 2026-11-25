@@ -40,7 +40,7 @@ def test_lines_on_found(fake_apo, check):
 @pytest.fixture(scope="module")
 def set_up(tmp_path_factory):
     """AutoEQ Studio set up twice on a new stand-in folder (selftest.py lines 94-105): the lines turned off, then
-    config.txt and the copy kept of it, as bytes. The three tests after it use it in the old order: set up, "set up",
+    config.txt and the copy kept of it, as bytes. The two tests after it use it in the old order: set up (and "set up"),
     taken out again."""
     conf = stand_in.fake_apo(str(tmp_path_factory.mktemp("apo-set-up")))
     a = Apo(conf)
@@ -59,9 +59,7 @@ def test_setting_up(set_up, check):
     check("apo: setting up turns the other lines off, adds its line once, keeps the BOM, CRLF and the first copy",
           off == ["Include: EarPods.txt"] and raw.startswith(b"\xef\xbb\xbf") and raw.count(INCLUDE_LINE.encode()) == 1
           and (OFF_MARK + "Include: EarPods.txt\r\n").encode() in raw and backup == stand_in.CONFIG, raw)
-
-
-def test_is_set_up(set_up, check):
+    # (a test of its own before the test audit of 2026-11-25, on the same fixture)
     # was selftest.py:109
     check("apo: set up", set_up.a.includes_studio())
 

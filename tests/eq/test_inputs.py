@@ -24,6 +24,10 @@ def test_device_name_from_seating_files(check):
     # was eq_checks.py:147
     check("files: device name from seating files", inputs.device_name(["GATe Wide L1.txt", "GATe Wide R5.txt"]) == "GATe Wide"
           and inputs.device_name([]) == "")
+    # one ticked file of an IEM is still that IEM
+    # was eq_checks.py:796
+    check("files: one seating file names its device like several do", inputs.device_name(["GATe Wide L1.txt"]) == "GATe Wide"
+          and inputs.device_name(["HD 600.txt"]) == "HD 600", inputs.device_name(["GATe Wide L1.txt"]))
 
 
 def test_targets_told_apart_by_name(check):
@@ -57,13 +61,6 @@ def test_remove_or_move_needs_a_name(fresh_studio, check):
     # was eq_checks.py:157
     check("files: removing or moving needs a file name (never the folder itself)",
           all(blank) and os.path.isdir(inputs.TARGET_DIR) and os.listdir(inputs.TARGET_DIR), blank)
-
-
-def test_one_seating_file_names_its_device(check):
-    # one ticked file of an IEM is still that IEM
-    # was eq_checks.py:796
-    check("files: one seating file names its device like several do", inputs.device_name(["GATe Wide L1.txt"]) == "GATe Wide"
-          and inputs.device_name(["HD 600.txt"]) == "HD 600", inputs.device_name(["GATe Wide L1.txt"]))
 
 
 def test_database_measurements_named(check):

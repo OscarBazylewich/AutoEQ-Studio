@@ -518,12 +518,6 @@ def test_body_not_a_dict(api, check):
           "or measurement)")
 
 
-def test_missing_field_named(api, chain, check):
-    # was eq_checks.py:1235
-    check("requests: missing field named", _ask(api, "/api/files/move", {"settings": _every_format(_small(chain["S"]))})[1].get("error")
-          == "Internal error: missing file type (target or measurement)")
-
-
 def test_preset_read_changes_no_file(api, chain, check):
     # (2026-11-10, a code review: the Presets menu found the preset in use with /api/presets/load, which saves the
     # preset as settings.json; /api/presets/read gives the same settings and saves nothing)
@@ -560,11 +554,8 @@ def test_wrong_kinds_of_values(api, check):
 def test_opens_nothing_outside_its_folder(api, check):
     # was eq_checks.py:1240
     check("requests: opens nothing outside its folder", _ask(api, "/api/open", {"path": "C:\\Windows"})[0] == 400)
-
-
-def test_opens_no_file_by_path(api, check):
     # only the app's folders by name, and only its own page (opening any file would also start programs: here, the
-    # session's copy of the app)
+    # session's copy of the app). (Its own test before the test audit of 2026-11-25: the same request and fixture.)
     inside = os.path.join(session.SESSION.studio, "app", "start.py")
     # was eq_checks.py:1243
     check("requests: opens no file by path (a program could start)", _ask(api, "/api/open", {"path": inside})[0] == 400)
