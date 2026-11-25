@@ -48,11 +48,10 @@ def test_a_refused_key_said_as_a_warning(devices_window, check):
     finally:
         del w.app.onoff_problem
         w.win.render_settings()
-    # (the UI audit, 2026-11-08: the words about the hotkey are behind its ⓘ; under its box only a problem)
-    check("onoff: a key Windows refused is said under its box in the warning colour, and goes after; the words about "
-          "the hotkey are in its ⓘ",
-          said[0].startswith("Windows didn't take") and said[1] == "warn" and w.win.onoff_note.isHidden()
-          and "With Same level" in w.win.onoff_info.toolTip(), said)
+    # (the UI audit, 2026-11-08: under its box only a problem; the ⓘ after its label went with the text survey,
+    # 2026-11-24: tests\ui\test_settings_screen.py checks that)
+    check("onoff: a key Windows refused is said under its box in the warning colour, and goes after",
+          said[0].startswith("Windows didn't take") and said[1] == "warn" and w.win.onoff_note.isHidden(), said)
 
 
 @pytest.fixture

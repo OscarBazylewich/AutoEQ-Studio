@@ -145,12 +145,12 @@ def problem_with(folder):
     lose them), not inside one of your files' own folders, and one this Windows user can write in."""
     folder = os.path.abspath(folder)
     if textfile.inside(folder, paths.PROGRAM):
-        return ("That folder is in the AutoEQ Studio program folder. An update or a new installation can delete your "
-                "files there.")
+        return ("That folder is inside the AutoEQ Studio installation directory, where updates or reinstalls can "
+                "delete your files. Choose a different folder.")
     for k in kind_folders(paths.ROOT):
         if textfile.inside(folder, k):
-            return (f"That folder is in your {os.path.basename(k)} folder. Select the folder that contains your "
-                    f"{os.path.basename(k)} folder, or a different folder.")
+            return (f"That folder is inside your {os.path.basename(k)} folder. Choose the folder containing "
+                    f"{os.path.basename(k)}, or a different folder.")
     try:
         os.makedirs(folder, exist_ok=True)
         probe = os.path.join(folder, f".autoeq-studio-probe-{os.getpid()}")
@@ -158,5 +158,5 @@ def problem_with(folder):
             pass
         os.remove(probe)
     except OSError as e:
-        return f"AutoEQ Studio cannot save files in that folder ({e.strerror or e})."
+        return f"Can't save files to that folder: {e.strerror or e}"
     return None

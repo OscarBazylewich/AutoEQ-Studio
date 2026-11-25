@@ -133,5 +133,5 @@ def test_settings_width_and_the_apo_card(devices_window, check):
     win.show_page("devices", remember=False)
     check("settings: on a wide window the cards are at most 900 px wide, at the left; the APO card says its condition "
           "first (a warning while APO does not use AutoEQ Studio), the folder under it, Add… in the accent",
-          width <= 900 and left <= 20 and state[0] == "APO does not use AutoEQ Studio." and state[1] == "warn"
-          and state[2] and state[3] == "true" and state[4].startswith("Its config folder:"), (width, left, state))
+          width <= 900 and left <= 20 and state[0] == "Not connected to Equalizer APO" and state[1] == "warn"
+          and state[2] and state[3] == "true" and state[4].startswith("Config folder:"), (width, left, state))

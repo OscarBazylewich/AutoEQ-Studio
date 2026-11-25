@@ -146,13 +146,16 @@ def test_a_control_scrolled_out_of_view(win, check):
     # (a bubble whose control was scrolled out of view stayed, at the window's top over the bar)
     from ui import bubble
     win.show_page("settings", remember=False)
+    # (an ⓘ of the test's own in the first row of the Hotkeys card: the ⓘ after the hotkeys' labels, used here before,
+    # went with the text survey, 2026-11-24, and Settings has no ⓘ of its own now)
+    mark = bubble.InfoMark("A note for the test.", "Test")
+    win.hotkey_edit.parentWidget().layout().addWidget(mark, 0, 3)
     win.resize(1040, 420)
     qt.pump(10)
     page = win.pages["settings"]
     bar = page.verticalScrollBar()
     bar.setValue(bar.maximum())
     qt.pump(5)
-    mark = win.hotkey_info
     mark.click()
     qt.pump(3)
     b = bubble.last("info")
@@ -177,6 +180,8 @@ def test_a_control_scrolled_out_of_view(win, check):
     qt.wait_for(lambda: say.anchor is None, 2)
     bottom = say.isVisible() and say.anchor is None and say.y() + say.height() > win.height() - 40
     say.close_now()
+    mark.hide()  # (the window as it was for the tests after this one)
+    mark.deleteLater()
     check("bubble: an ⓘ bubble closes when its control is scrolled out of view (it went over the top bar); a message "
           "goes to the window's bottom", out_first and in_view and showing and closed and near and bottom,
           (out_first, in_view, showing, closed, near, bottom))

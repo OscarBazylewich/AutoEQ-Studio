@@ -52,11 +52,27 @@ def test_a_hotkey_problem_said_as_a_warning(devices_window, check):
         del w.app.hotkey_problem  # (the stand-in app's own: none)
         w.win.render_settings()
     back = w.win.hotkey_note.isHidden()
-    # (the UI audit, 2026-11-08: the words about the hotkey are behind its ⓘ; under its box only a problem)
-    check("settings: a problem with the hotkey is said under its box in the warning colour, and goes after; the words "
-          "about the hotkey are in its ⓘ",
-          said[0].startswith("Windows didn't take") and said[1] == "warn" and back
-          and "next profile" in w.win.hotkey_info.toolTip(), (said, back))
+    # (the UI audit, 2026-11-08: under its box only a problem. The text survey, 2026-11-24: the ⓘ after the labels of
+    # the two hotkeys went; the boxes' tooltips, their Help lines, give the facts)
+    from ui import help_window
+    from ui.bubble import InfoMark
+    marks = w.win.pages["settings"].findChildren(InfoMark)
+    tips = (w.win.hotkey_edit.toolTip(), w.win.onoff_edit.toolTip())
+    check("settings: a problem with the hotkey is said under its box in the warning colour, and goes after; the "
+          "hotkeys' labels have no ⓘ, and each hotkey box's tooltip is its Help line",
+          said[0].startswith("Windows didn't take") and said[1] == "warn" and back and marks == []
+          and tips == (help_window.HELP["#hotkey"], help_window.HELP["#onoff-hotkey"][0]), (said, back, marks, tips))
+
+
+def test_change_has_the_help_line_of_your_files(devices_window, check):
+    # (the text survey, 2026-11-24: Change… lost its own tooltip; it has the Help line of Your files, as Open the
+    # folder has)
+    from ui import help_window
+    w = devices_window
+    line = help_window.HELP["#files-folder"][0]
+    check("settings: Your files' Change… and Open the folder have the Help line of Your files as their tooltip",
+          w.win.btn_files_change.toolTip() == line and w.win.btn_files_open.toolTip() == line,
+          (w.win.btn_files_change.toolTip(), line))
 
 
 def test_after_a_restore_nothing_is_saved_before_the_restart(devices_window, check, monkeypatch):

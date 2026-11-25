@@ -292,10 +292,9 @@ class App:
         """A hotkey registered with Windows (the setting "hotkey" or "onoff_hotkey"), its problem said in Settings."""
         ok = hotkey.set(text)
         problem = "" if ok else (
-            f"Add Ctrl, Alt or Win to {text}. If {text} is a hotkey without them, it does not operate in other apps."
+            f"Add Ctrl, Alt, or Win to {text}. Using {text} alone blocks it in other apps."
             if not winsys.to_windows(text) and winsys.to_windows("Ctrl+" + text) else
-            f"Windows did not accept {text} as a hotkey. It is possible that a different program (or the other hotkey) "
-            "uses it. Use a different hotkey.")
+            f"Windows rejected {text}. Another app or hotkey may already use it. Try a different combination.")
         setattr(self, "hotkey_problem" if setting == "hotkey" else "onoff_problem", problem)
         if save:
             self.sw.set(setting, text if ok else self.sw.s.get(setting, ""))
