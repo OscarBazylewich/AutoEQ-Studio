@@ -1,7 +1,7 @@
 """Make an EQ's By hand (ui\\eq_page_result.py, 2026-10-26): an EQ you make yourself, on the result card as a run of its
 own: begun empty, from an EQ file (a Room EQ Wizard export here: read as Equalizer APO plays it, what an EQ here can't
 have said in a box), from pasted lines, from a device's profile (Use on device › Update puts it back; refused for a
-profile with parts it can't show) or as a copy of the EQ shown; saved, kept in History and listed in this session's
+profile with parts it can't show: test_update_a_profile.py) or as a copy of the EQ shown; saved, kept in History and listed in this session's
 runs as any result; with no measurement chosen, the EQ graph still shows it and Report says what it needs. One page
 for the file (the eq_screen fixture: a stand-in APO folder and one stand-in device)."""
 import os
@@ -99,21 +99,8 @@ def test_from_a_profile_then_update_it(eq_screen, tmp_path, check):
           "name and device kept, still on)",
           "Gain 4.5 dB" in text and p["name"] == "Daily" and rec["active"] == pid
           and any("Updated “Daily”" in t for t in eq_screen.said[-2:]), (text, rec, eq_screen.said[-2:]))
-    graphic = sw.import_profile(_write(os.path.join(str(tmp_path), "Graphic.txt"),
-                                       "Filter 1: ON PK Fc 500 Hz Gain 1 dB Q 1\nGraphicEQ: 20 0; 1000 2; 20000 0\n"),
-                                "Graphic one")
-    _start(page, "Graphic one")
-    page._fill_use_menu()
-    refused = next(a for a in page.use_menu.actions() if a.text().startswith("Update “Graphic one”"))
-    # (its row in Update a profile, the submenu of all profiles, is off too; a device row, a new profile, stays on)
-    sub = next(a.menu() for a in page.use_menu.actions() if a.menu() is not None and a.text() == "Update a profile")
-    in_sub = next(a for a in sub.actions() if a.text().startswith("Graphic one\t"))
-    check("by hand: a profile with parts an EQ here can't show (a graphic EQ) can't be updated from it (said why); "
-          "using it as a new profile stays open",
-          not refused.isEnabled() and "graphic EQ" in refused.toolTip() and sw.profiles().get(graphic)
-          and not in_sub.isEnabled() and "graphic EQ" in in_sub.toolTip()
-          and any(a.isEnabled() and a.text().startswith("Headset") for a in page.use_menu.actions()),
-          (refused.toolTip(), in_sub.toolTip()))
+    # (a profile with a graphic EQ, refused: its check went to test_update_a_profile.py's
+    # test_own_profile_with_items_left_out_stays_protected, which reaches the same rows; the test audit, 2026-11-25)
 
 
 def test_a_copy_of_the_eq_shown(eq_screen, check):

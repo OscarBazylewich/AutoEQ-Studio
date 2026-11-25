@@ -273,11 +273,35 @@ def test_tracers_guide(s, check):
 
 
 def test_resized_window_and_tab(s, check):
-    # (two checks from one tour, as the old checks had them: Tab's answer taken first, then the window resized)
+    # (two checks from one tour, as the old checks had them: Tab and Shift+Tab pressed first, then the window resized)
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
     from ui import guide
     page, qapp = s.page, s.qapp
+    page.activateWindow()  # (the focus moves in an active window only)
+    qapp.processEvents()
     t = guide.start_eq(page)
-    kept_focus = t.focusNextPrevChild(True) is True and t.focusNextPrevChild(False) is True
+    qapp.processEvents()
+    # (real keys, each control that gets the focus meanwhile recorded: Qt's own Tab moved the focus to a control of
+    # the page under the Guide, and the tour's _keep_focus then took it back, so only the record shows it. The check
+    # before called the tour's focusNextPrevChild and read its answer, which passed with Qt's own method too: the test
+    # audit, 2026-11-25)
+    got = []
+
+    def moved(_old, new):
+        got.append(new)
+    in_guide = lambda w: w is t or (w is not None and t.isAncestorOf(w))
+    started = in_guide(QApplication.focusWidget())
+    qapp.focusChanged.connect(moved)
+    try:
+        for mod in (Qt.NoModifier, Qt.ShiftModifier):
+            QTest.keyClick(QApplication.focusWidget() or t, Qt.Key_Tab, mod)
+            qapp.processEvents()
+    finally:
+        qapp.focusChanged.disconnect(moved)
+    under = [f"{type(w).__name__} {w.objectName() or w.accessibleName()!r}" for w in got if not in_guide(w)]
+    kept_focus = started and not under and in_guide(QApplication.focusWidget())
     # (review 2) the window resized mid-demo: the kept graph picture is laid out again inside it
     win = t.win
     was_size = win.size()
@@ -293,15 +317,33 @@ def test_resized_window_and_tab(s, check):
     check("review: a resized window keeps the Guide's graph picture inside it, laid out again", pin_inside,
           (t.rect(), t.pin.geometry() if t.pin is not None else None))
     # was eq_checks.py:1780
-    check("review: Tab stays in the Guide (the controls under it can't be reached)", kept_focus)
+    check("review: Tab stays in the Guide (the controls under it can't be reached)", kept_focus, (started, under))
 
 
 def test_ring_cut_to_the_scroll_area(s, check):
+    # (the page scrolled so that Listen's card is partly in the view: the ring of a part lit there is that part's
+    # rectangle cut to the view. The check before compared the ring's height with the window's, which every card
+    # lower than the window passed, cut or not: the test audit, 2026-11-25)
+    from PySide6.QtCore import QPoint, QRect
     from ui import tour
     page = s.page
-    r = tour._rect(page.window(), [page.listen])
+    win, area = page.window(), page.page_area
+    bar, view = area.verticalScrollBar(), area.viewport()
+    at = bar.value()
+    top = page.listen.mapTo(area.widget(), QPoint(0, 0)).y()
+    bar.setValue(top - view.height() + 100)  # (the card's first 100 px at the view's bottom, the rest under it)
+    s.qapp.processEvents()
+    try:
+        shown = QRect(view.mapTo(win, QPoint(0, 0)), view.size())
+        whole = QRect(page.listen.mapTo(win, QPoint(0, 0)), page.listen.size())
+        r = tour._rect(win, [page.listen])
+    finally:
+        bar.setValue(at)
+        s.qapp.processEvents()
     # was eq_checks.py:1948
-    check("review: the Guide's ring is cut to what its scroll area shows", r.height() <= page.window().height(), r.getRect())
+    check("review: the Guide's ring is cut to what its scroll area shows",
+          page.listen.isVisible() and not shown.contains(whole) and 0 < r.height() < whole.height()
+          and r == whole.intersected(shown), (r.getRect(), whole.getRect(), shown.getRect()))
 
 
 def _on_step(page, title):

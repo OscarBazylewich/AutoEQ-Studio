@@ -3,30 +3,22 @@ File name saying what Save writes from the start (2026-10-23), and your EQ app s
 writes. Moved from eq_checks.py's ui_checks (the page opened as the old checks opened it: helpers.eqpage.open_screen,
 on the settings they started from).
 
-At the end: no control was shown as a window of its own while this file ran. The stray watch itself (helpers.qt)
-watches every Qt test of the session, from before the page is made: the stray_check fixture fails the test in which a
-control was shown as a window of its own, naming it, and at the end of a session in which none ever was, the check is
-logged once as ok (tests\\conftest.py). The last test here checks that the watch is really there and found nothing."""
+At the end: the stray watch is there. The watch itself (helpers.qt) watches every Qt test of the session, from before
+the page is made: the stray_check fixture fails the test in which a control was shown as a window of its own, naming
+it, and at the end of a session in which none ever was, the check is logged once as ok (tests\\conftest.py). A watch
+that is not there turns that guard off with no error, so the last test here checks that it is there; that it records
+a control shown alone is tests\\infra\\test_stray_watch.py's test (the test audit, 2026-11-25)."""
 import pytest
 
 from helpers import qt
 
 
 @pytest.fixture(scope="module", autouse=True)
-def strays_before():
-    """Whether the stray watch had found something before this file (in a test of another file marked allow_strays):
-    then only what it finds during this file can be told apart. (First: before the page is opened.)"""
-    watch = qt.stray_watch()
-    return watch is not None and watch.seen_any
-
-
-@pytest.fixture(scope="module", autouse=True)
-def settled(strays_before, eq_screen):
+def settled(eq_screen):
     """After the file's last test, the page's background work finished before the eq_screen fixture closes it: each
     load that ends starts the next in the background (the curves, their analysis, the automatic settings), and one
     still on its way once the page is deleted answers a page that's gone (an error inside a Qt call-back, "Internal
-    C++ object already deleted"). Quiet for half a second: nothing running, nothing new started. (strays_before
-    first: taken before the page opens.)"""
+    C++ object already deleted"). Quiet for half a second: nothing running, nothing new started."""
     yield
     from PySide6.QtCore import QThreadPool
     idle = {"n": 0}
@@ -39,11 +31,15 @@ def settled(strays_before, eq_screen):
 
 def test_opens_with_the_apps_files(eq_screen, check):
     page = eq_screen.page
-    loaded = page.curves is not None and page.auto is not None  # (open_screen waited up to 90 s for them)
+    # (open_screen waits until page.curves and page.auto are there, so a check of them can't fail here; the test audit,
+    # 2026-11-25. What can: the graph's two curves drawn, and the automatic settings' line (page.estimate: what a run
+    # tries and its time, refresh_auto) filled)
+    drawn = [item.name() for item in page.plot.listDataItems() if item.name()]
     # was eq_checks.py:1372
     check("ui: the EQ screen opens with the app's files and draws them (the curves, the automatic settings)",
-          loaded and page.target_combo.count() >= 1 and page.measurement_combo.count() >= 1
-          and "→" in page.graph_title.text(), (loaded, page.graph_note.text()))
+          "Measurement" in drawn and any(n.startswith("Target") for n in drawn) and page.estimate.text() != ""
+          and page.target_combo.count() >= 1 and page.measurement_combo.count() >= 1
+          and "→" in page.graph_title.text(), (drawn, page.estimate.text(), page.graph_note.text()))
 
 
 def test_says_what_save_writes_from_the_start(eq_screen, check):
@@ -68,13 +64,11 @@ def test_eq_app_sets_method_and_files(eq_screen, check):
         page.choose_app("apo")  # (back as the old checks put it, line 1491)
 
 
-def test_no_control_shown_as_a_window_of_its_own(eq_screen, check, strays_before):
-    # (last in this file: the page has opened and been worked; a control shown as a window of its own in an earlier
-    # test of this file has failed that test already, through the stray_check fixture, which then empties `found`)
-    watch = qt.stray_watch()
-    installed = watch is not None
+def test_no_control_shown_as_a_window_of_its_own(eq_screen, check):
+    # (only that the watch is there: a control shown as a window of its own in a test of this file has failed that
+    # test already, through the stray_check fixture, which then empties the watch's `found`, so a check of `found` or
+    # `seen_any` here could not fail; the test audit, 2026-11-25)
     # was eq_checks.py:1642
     check("ui: no control is ever shown as a window of its own (each flashed on the screen: Find…'s rows showed one "
           "Show button each while the lists loaded, 779 in a session, and each cost the window's time)",
-          installed and not watch.found and (strays_before or not watch.seen_any),
-          ("the stray watch isn't installed" if not installed else (watch.found[:5], watch.seen_any)))
+          qt.stray_watch() is not None, "the stray watch isn't installed")

@@ -3,6 +3,7 @@ in the table, Copy and Open the Saved EQs folder do. Of an f-string, its fixed p
 The source of the module that the page (the eq_screen fixture) loaded is read."""
 import ast
 import inspect
+import re
 
 
 def _text(node):
@@ -32,7 +33,12 @@ def test_guide_words_of_the_filters_and_the_files(eq_screen, check):
     # (2026-11-12: step 22 told that Copy opens the folder, which the button Open the Saved EQs folder does)
     from ui import guide_eq
     texts = " ".join(_step_texts(inspect.getsourcefile(guide_eq)))
+    # (by what each control does, not word for word: the owner did not decide these sentences, they are not in the
+    # text survey; the test audit, 2026-11-25)
+    sentences = re.split(r"(?<=[.)])\s+", texts)
     check("guide: On in the table disables a filter; Open the Saved EQs folder opens the folder, not Copy",
-          "(On in the table disables a filter)" in texts
-          and "Copy copies the filters to the clipboard, and Open the Saved EQs folder opens that folder." in texts
-          and "and the folder opens" not in texts, texts[:0])
+          any("On in the table" in s and "disables a filter" in s for s in sentences)
+          and any(re.search(r"\bCopy\b[^.]*\bclipboard\b", s) for s in sentences)
+          and any(re.search(r"Open the Saved EQs folder opens\b", s) for s in sentences)
+          and "and the folder opens" not in texts,  # (the words of 2026-11-12, after Copy)
+          [s for s in sentences if "Copy" in s or "On in the table" in s])

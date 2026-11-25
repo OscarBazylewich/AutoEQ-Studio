@@ -301,36 +301,6 @@ def test_a_device_with_its_eq_off_to_compare_keeps_it(eq_screen, result, tmp_pat
           in said[-1] and "5-minute" not in said[-1] and "immediately" not in said[-1], (off, compare, said[-1]))
 
 
-def test_apo_without_the_app_is_said(eq_screen, result, tmp_path, check, monkeypatch):
-    page, sw, said = eq_screen.page, eq_screen.sw, eq_screen.said
-    apo = "Equalizer APO isn't linked to AutoEQ Studio. Click Add AutoEQ Studio to APO… in Devices."
-    seen = []
-    for on in ({KEY: "on"}, {KEY: "on", KEY2: "on"}):
-        _two_devices(sw, monkeypatch)
-        try:
-            _profiles(sw, str(tmp_path), ("Daily", on))
-            monkeypatch.setattr(sw.apo, "includes_studio", lambda: False)
-            page._fill_use_menu()
-            row = _row(page.use_menu, "Update “Daily”")
-            tip = row.toolTip()
-            row.trigger()
-            seen.append((said[-1], tip))
-        finally:
-            _apart(sw, monkeypatch)
-    one, two = seen
-    check("update a profile: when Equalizer APO does not include AutoEQ Studio, no device uses the new EQ immediately: "
-          "the message says so first, how to add it, then that the device uses the new EQ after that; the tooltip "
-          "says the same",
-          one[0] == f"Updated “Daily”. {apo} Headset (EarPods) uses the new EQ after that."
-          and f"{apo} Headset (EarPods) uses the new EQ after that. Current:" in one[1]
-          and "immediately" not in one[0] + one[1], one)
-    check("update a profile: the same with two devices (“use”, plural; the message names the two)",
-          two[0] == f"Updated “Daily”. {apo} Headset (EarPods) and Speakers (Realtek) use the new EQ after "
-                    "that."
-          and f"{apo} Headset (EarPods) and Speakers (Realtek) use the new EQ after that." in two[1]
-          and "immediately" not in two[0] + two[1], two)
-
-
 def _without_the_app(eq_screen, tmp_path, monkeypatch, on, *endpoints, compare=None):
     """The message and the tooltip of Update “Daily” (on for these devices; with none, the submenu's row) when
     Equalizer APO does not include AutoEQ Studio; compare: a device with its EQ off to compare meanwhile."""
@@ -400,26 +370,6 @@ def test_undo_refused_when_settings_are_read_only(eq_screen, result, tmp_path, c
           "message, and the file keeps the update",
           len(boxes) == 1 and boxes[0][0] == "Update the profile" and len(said) == n
           and _bytes(_file(sw, ids["Daily"])) == updated, (boxes, said[n:]))
-
-
-def test_three_devices_named_in_the_message(eq_screen, result, tmp_path, check, monkeypatch):
-    page, sw, said = eq_screen.page, eq_screen.sw, eq_screen.said
-    _two_devices(sw, monkeypatch, SPEAKERS, D.Endpoint("{7}", "TV", "NVIDIA", D.ACTIVE, True))
-    try:
-        _profiles(sw, str(tmp_path), ("Daily", {KEY: "on", KEY2: "on", "TV|NVIDIA": "on"}))
-        page._fill_use_menu()
-        row = _row(page.use_menu, "Update “Daily”")
-        text, tip = row.text(), row.toolTip()
-        row.trigger()
-        message = said[-1]
-    finally:
-        _apart(sw, monkeypatch)
-    check("update a profile: a profile on for three devices: its row names the first and “2 more devices”; its "
-          "tooltip and the message name the three, “A, B, and C”",
-          text == "Update “Daily”\tactive on Headset (EarPods) and 2 more devices"
-          and "Headset (EarPods), Speakers (Realtek), and TV (NVIDIA) use the new EQ immediately." in tip
-          and "Headset (EarPods), Speakers (Realtek), and TV (NVIDIA) use the new EQ immediately." in message,
-          (text, tip, message))
 
 
 def test_devices_not_connected_or_without_apo_are_said_apart(eq_screen, result, tmp_path, check, monkeypatch):
@@ -514,6 +464,14 @@ def test_own_profile_with_items_left_out_stays_protected(eq_screen, result, tmp_
           "the menu and in Update a profile",
           first.toolTip() == why and own.toolTip() == why and "Can't update “" not in first.toolTip() + own.toolTip(),
           (first.toolTip(), own.toolTip()))
+    # (from test_by_hand.py, the test audit of 2026-11-25: the profile stays, and a device row, which saves the EQ as a
+    # new profile, stays on)
+    check("by hand: a profile with parts an EQ here can't show (a graphic EQ) can't be updated from it (said why); "
+          "using it as a new profile stays open",
+          not first.isEnabled() and "graphic EQ" in first.toolTip() and sw.profiles().get(ids["Graphic one"])
+          and not own.isEnabled() and "graphic EQ" in own.toolTip()
+          and any(a.isEnabled() and a.text().startswith("Headset") for a in page.use_menu.actions()),
+          (first.toolTip(), own.toolTip(), _rows(page.use_menu)))
 
 
 def test_an_eq_by_hand_updates_its_own_profile(eq_screen, result, tmp_path, check):
@@ -634,25 +592,6 @@ def test_two_held_devices_are_said_in_the_plural(eq_screen, result, tmp_path, ch
           and "immediately" not in message + tip, (held, message, tip))
 
 
-def test_two_devices_not_connected_are_said_in_the_plural(eq_screen, result, tmp_path, check, monkeypatch):
-    page, sw, said = eq_screen.page, eq_screen.sw, eq_screen.said
-    _two_devices(sw, monkeypatch, D.Endpoint("{6}", "Speakers", "Realtek", D.UNPLUGGED, True),
-                 D.Endpoint("{7}", "TV", "NVIDIA", D.UNPLUGGED, True))
-    try:
-        _profiles(sw, str(tmp_path), ("Daily", {KEY2: "on", "TV|NVIDIA": "on"}))
-        page._fill_use_menu()
-        row = _row(page.use_menu, "Update “Daily”")
-        tip = row.toolTip()
-        row.trigger()
-        message = said[-1]
-    finally:
-        _apart(sw, monkeypatch)
-    words = "Speakers (Realtek) and TV (NVIDIA) use the new EQ when you connect them"
-    check("update a profile: two devices that are not connected: the message and the tooltip say “use … them” (the "
-          "plural)",
-          message == f"Updated “Daily”. {words}" and f" {words}. Current:" in tip, (message, tip))
-
-
 def test_the_groups_are_said_in_their_sequence(eq_screen, result, tmp_path, check, monkeypatch):
     page, sw, said = eq_screen.page, eq_screen.sw, eq_screen.said
     _two_devices(sw, monkeypatch, D.Endpoint("{6}", "Speakers", "Realtek", D.UNPLUGGED, True),
@@ -746,8 +685,8 @@ def _devices(n, conn=D.ACTIVE, apo=True, start=20):
 
 
 def _message_for(eq_screen, tmp_path, monkeypatch, eps, *, unused=False, held=False):
-    """The message and the row's tooltip after Update “Daily”, on for these endpoints only (held: the first has its
-    EQ off to compare)."""
+    """The message, the row's tooltip and the row's words after Update “Daily”, on for these endpoints only (held: the
+    first has its EQ off to compare)."""
     page, sw, said = eq_screen.page, eq_screen.sw, eq_screen.said
     _two_devices(sw, monkeypatch, *eps)
     try:
@@ -760,14 +699,14 @@ def _message_for(eq_screen, tmp_path, monkeypatch, eps, *, unused=False, held=Fa
                     mp.setattr(sw.apo, "includes_studio", lambda: False)
                 page._fill_use_menu()
                 row = _row(page.use_menu, "Update “Daily”")
-                tip = row.toolTip()
+                text, tip = row.text(), row.toolTip()
                 row.trigger()
         finally:
             if held:
                 sw.compare_end()
     finally:
         _apart(sw, monkeypatch)
-    return said[-1], tip
+    return said[-1], tip, text
 
 
 # The names of each group in the message after Update, for 1, 2, 3, 4 and 12 devices (the rule of 2026-11-12: up to 3
@@ -779,6 +718,13 @@ GROUP_WORDS = {
     4: "Dev 20 (Maker), Dev 21 (Maker), Dev 22 (Maker), and 1 more device",
     12: "Dev 20 (Maker), Dev 21 (Maker), Dev 22 (Maker), and 9 more devices",
 }
+# (the checks of Equalizer APO without the app, by the number of devices, with their names of before 2026-11-25)
+APO_WITHOUT_THE_APP = {
+    1: "update a profile: when Equalizer APO does not include AutoEQ Studio, no device uses the new EQ immediately: "
+       "the message says so first, how to add it, then that the device uses the new EQ after that; the tooltip says "
+       "the same",
+    2: "update a profile: the same with two devices (“use”, plural; the message names the two)",
+}
 
 
 @pytest.mark.parametrize("n", [1, 2, 3, 4, 12])
@@ -787,34 +733,34 @@ def test_the_message_gives_three_names_and_the_count(eq_screen, result, tmp_path
     # one name and the count, which hid the second of two devices; now up to 3 names for each group and the count)
     names, verb = GROUP_WORDS[n], "uses" if n == 1 else "use"
     all_names = [f"Dev {k:02d} (Maker)" for k in range(20, 20 + n)]
-    now, tip = _message_for(eq_screen, tmp_path, monkeypatch, _devices(n))
+    now, tip, text = _message_for(eq_screen, tmp_path, monkeypatch, _devices(n))
     check(f"update a profile: {n} connected devices: the message gives up to 3 names and the count; the tooltip all",
           now == f"Updated “Daily”. {names} {verb} the new EQ immediately."
           and all(x in tip for x in all_names), (now, tip))
-    away, _ = _message_for(eq_screen, tmp_path, monkeypatch, _devices(n, D.UNPLUGGED))
+    if n == 3:  # (from test_three_devices_named_in_the_message, the test audit of 2026-11-25: the row's words too)
+        check("update a profile: a profile on for three devices: its row names the first and “2 more devices”; its "
+              "tooltip and the message name the three, “A, B, and C”",
+              text == "Update “Daily”\tactive on Dev 20 (Maker) and 2 more devices"
+              and f"{names} use the new EQ immediately." in tip and f"{names} use the new EQ immediately." in now,
+              (text, tip, now))
+    away, _, _ = _message_for(eq_screen, tmp_path, monkeypatch, _devices(n, D.UNPLUGGED))
     check(f"update a profile: {n} devices that are not connected: up to 3 names and the count",
           away == f"Updated “Daily”. {names} {verb} the new EQ when you connect {'it' if n == 1 else 'them'}",
           away)
-    no_apo, _ = _message_for(eq_screen, tmp_path, monkeypatch, _devices(n, apo=False))
+    no_apo, _, _ = _message_for(eq_screen, tmp_path, monkeypatch, _devices(n, apo=False))
     check(f"update a profile: {n} devices with no Equalizer APO: up to 3 names and the count",
           no_apo == f"Updated “Daily”. Equalizer APO isn't installed on {names} (see Devices)", no_apo)
     apo = "Equalizer APO isn't linked to AutoEQ Studio. Click Add AutoEQ Studio to APO… in Devices."
-    later, _ = _message_for(eq_screen, tmp_path, monkeypatch, _devices(n), unused=True)
+    later, later_tip, _ = _message_for(eq_screen, tmp_path, monkeypatch, _devices(n), unused=True)
     check(f"update a profile: {n} devices, Equalizer APO without the app: up to 3 names and the count",
           later == f"Updated “Daily”. {apo} {names} {verb} the new EQ after that.", later)
-
-
-def test_the_message_of_twelve_devices(eq_screen, result, tmp_path, check, monkeypatch):
-    eps = _devices(4) + _devices(4, D.UNPLUGGED, start=30) + _devices(4, apo=False, start=40)
-    message, tip = _message_for(eq_screen, tmp_path, monkeypatch, eps)
-    check("update a profile: 12 devices in three groups: a short message (each group: 3 names and the count), and the "
-          "tooltip names all 12",
-          message == "Updated “Daily”. Dev 20 (Maker), Dev 21 (Maker), Dev 22 (Maker), and 1 more device use "
-                     "the new EQ immediately. Dev 30 (Maker), Dev 31 (Maker), Dev 32 (Maker), and 1 more device use "
-                     "the new EQ when you connect them. Equalizer APO isn't installed on Dev 40 (Maker), Dev 41 "
-                     "(Maker), Dev 42 (Maker), and 1 more device (see Devices)"
-          and all(f"Dev {k:02d} (Maker)" in tip for k in (*range(20, 24), *range(30, 34), *range(40, 44))),
-          (message, tip))
+    # (from test_apo_without_the_app_is_said, the test audit of 2026-11-25: the tooltip of the row also says it; that
+    # test made the same message with Headset and Speakers)
+    if n in APO_WITHOUT_THE_APP:
+        check(APO_WITHOUT_THE_APP[n],
+              later == f"Updated “Daily”. {apo} {names} {verb} the new EQ after that."
+              and f"{apo} {names} {verb} the new EQ after that. Current:" in later_tip
+              and "immediately" not in later + later_tip, (later, later_tip))
 
 
 def test_the_menu_and_the_message_have_their_own_limit(check):

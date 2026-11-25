@@ -3,10 +3,10 @@ a database switched off and on, one added by its address (a wrong or repeated ad
 PC's folders one per line; offline, squig.link's list isn't fetched. Moved from eq_checks.py's rest_checks (lines
 2022-2076), on a page opened as the old checks opened it (the eq_screen fixture), offline. The two checks share one
 Sources window and one list of what it said, as there, so they're one test: the second's two messages come from the
-adds made before the first check. Its Windows 11 look (the restyle, 2026-10-23): at its smallest, every part has its
-room; closed straight after a tick, it never reaches for its deleted tree; the folders' box shows four whole lines;
-and on a short screen (a laptop at 150 % or 175 %, stood in) it fits above the taskbar, its parts scroll and its
-bottom row stays in sight."""
+adds made before the first check. Its Windows 11 look (the restyle, 2026-10-23): closed straight after a tick, it
+never reaches for its deleted tree; the folders' box shows four whole lines; and on a short screen (a laptop at 150 %
+or 175 %, stood in) it fits above the taskbar with every part its room and its bottom row in sight, and on a big one
+it opens and shrinks as before, with no page that scrolls (a tab for each part since the UI audit, 2026-11-08)."""
 import json
 
 from helpers import qt
@@ -24,18 +24,9 @@ def _overlapping(widgets):
 
 
 def _parts(holder):
-    """The widgets shown directly on `holder` (a window, or the page that scrolls inside it); none for no holder."""
+    """The widgets shown directly on `holder` (a window, or the page of its tab that shows)."""
     from PySide6.QtWidgets import QWidget
-    if holder is None:
-        return []
     return [w for w in holder.findChildren(QWidget) if w.parentWidget() is holder and w.isVisible()]
-
-
-def _page(src):
-    """The page Sources' parts are on, inside the window's scroll area (since 2026-10-23); None without one."""
-    from PySide6.QtWidgets import QScrollArea
-    area = src.findChild(QScrollArea)
-    return area.widget() if area is not None else None
 
 
 def test_sources(eq_screen, monkeypatch, check):
@@ -141,32 +132,6 @@ def test_squiglink_note_hidden_while_loading(eq_screen, monkeypatch, check):
           and loaded == (True, "2 squig.link databases"), seen)
 
 
-def test_smallest_size_fits(eq_screen, check):
-    # (Qt's own smallest size counts each wrapped line of text once: at it, the databases' tree was pushed over the
-    # heading under it. Since 2026-10-23 its parts are on a page that can scroll: the window's parts and the page's
-    # are both looked at)
-    import net
-    from ui.sources_window import Sources
-    was_off = net.offline()
-    net.set_offline(True)  # (its longest note, squig.link's list needing the internet, on two lines)
-    src = Sources(eq_screen.page)
-    try:
-        src._refresh_soon.stop()
-        src.show()
-        src.resize(1, 1)  # (to its smallest)
-        qt.pump(300)
-        size = (src.width(), src.height())
-        parts, inside = _parts(src), _parts(_page(src))
-        over = _overlapping(parts) + _overlapping(inside)
-        tree = (src.tree.height(), src.tree.minimumHeight())
-    finally:
-        src._refresh_soon.stop()
-        qt.close(src)
-        net.set_offline(was_off)
-    check("restyle: Sources at its smallest gives every part its room (the databases' tree never over the heading "
-          "under it)", parts and not over and tree[0] >= tree[1], (size, tree, over[:3]))
-
-
 def test_folders_box_shows_four_lines(eq_screen, check):
     # (80 px high, it held three and a half lines at Windows 11's 10.5 pt: the fourth of the usual folders was cut in
     # half, and the box scrolled by a line)
@@ -221,7 +186,6 @@ def test_fits_a_small_screen(eq_screen, monkeypatch, check):
                 src.resize(1, 1)  # (to its smallest)
                 qt.pump(300)
                 row = [b for b in src.findChildren(QPushButton) if b.text() in bottom_row]
-                area = src.findChild(QScrollArea)  # (the page of its parts, scrolling when they need more room)
                 seen[height] = {
                     "opens": opens, "smallest": (src.width(), src.height()),
                     "fits": opens[1] + TITLE_BAR <= height and src.height() + TITLE_BAR <= height
@@ -230,7 +194,10 @@ def test_fits_a_small_screen(eq_screen, monkeypatch, check):
                                                                  for b in row),
                     "over": _overlapping(_parts(src)) + _overlapping(_parts(src.pages.currentWidget())),
                     "tree": (src.tree.height(), src.tree.minimumHeight()),
-                    "scrolls": area is not None and area.verticalScrollBar().maximum() > 0}
+                    # (a scroll area of the window's own: the page of its parts, before the UI audit's tabs. The check
+                    # before read whether that area scrolled, and there has been none since: it could not fail;
+                    # the test audit, 2026-11-25)
+                    "no page that scrolls": src.findChild(QScrollArea) is None}
             finally:
                 src._refresh_soon.stop()
                 qt.close(src)
@@ -243,7 +210,7 @@ def test_fits_a_small_screen(eq_screen, monkeypatch, check):
           "sight; on a big screen it opens and shrinks as before, without scrolling",
           all(s["fits"] and s["bottom row in sight"] and not s["over"] and s["tree"][0] >= s["tree"][1]
               for s in small)
-          and big["opens"] == (760, 820) and big["smallest"] == (560, 700) and not big["scrolls"]
+          and big["opens"] == (760, 820) and big["smallest"] == (560, 700) and big["no page that scrolls"]
           and big["bottom row in sight"] and not big["over"], seen)
 
 
