@@ -32,7 +32,9 @@ NO_TOOLTIP = {"#opt-view", "#target-save", "#compare-results", "#make-way", "#by
               "#pk-src", "#pk-anykind", "pk_filters", "#pw-paste", "#cmp-rig", "library.folders", "databases",
               # (area 26: the tracer's Automatic settings, Top, Bottom, Left, Right, Points in each octave, Save
               # from … to and Name)
-              "#tr-auto-on", "#tr-d1", "#tr-d2", "#tr-f1", "#tr-f2", "#tr-ppo", "#tr-fmin", "#tr-name"}
+              "#tr-auto-on", "#tr-d1", "#tr-d2", "#tr-f1", "#tr-f2", "#tr-ppo", "#tr-fmin", "#tr-name",
+              # (area 30: the line about Equalizer APO and Examine again, Rename… and Edit in Make an EQ)
+              "#dev-check", "#dev-rename", "#prof-edit"}
 
 
 @pytest.mark.timeout(600)  # (the tracer's labels read and three Auto traces first)

@@ -61,6 +61,14 @@ def test_edit_in_make_an_eq(set_up_window, qapp, check, monkeypatch):
           not win.prof_edit_btn.icon().isNull() and help_window.entry_of_widget(win.prof_edit_btn)
           and off_without == [] and kept == (True, True) and not told and shown == ["eq"] and len(asked) == 1,
           (off_without, kept, told, shown, asked))
+    # (the text survey, 2026-11-24: the owner's words for the tooltip, the message while Make an EQ opens, and the
+    # line for a screen reader the same as the tooltip)
+    tip = "Save changes back with Use on device › Update"
+    check("profiles: Edit in Make an EQ has the tooltip of the text survey, a screen reader gets the same line, and "
+          "the message while Make an EQ opens is the survey's",
+          win.prof_edit_btn.toolTip() == tip and win.prof_edit_btn.accessibleDescription() == tip
+          and asked == ["Opening profile in Make an EQ…"],
+          (win.prof_edit_btn.toolTip(), win.prof_edit_btn.accessibleDescription(), asked))
 
 
 def test_profiles_sort_numbers_as_numbers(set_up_window, qapp, check, tmp_path):

@@ -34,13 +34,12 @@ def summary(text):
             continue
         cmd, rest = m.group(1).lower(), m.group(2)
         if cmd == "device":
-            raise NotAnEqFile(f"Line {n} selects devices (\"Device:\"). A profile cannot have this line, because "
-                              "AutoEQ Studio selects the devices.")
+            raise NotAnEqFile(f"Line {n} uses \"Device:\". Remove it; devices are assigned separately.")
         if cmd == "include":
-            raise NotAnEqFile(f"Line {n} includes a different file (\"Include:\"). Add the other file as the profile.")
+            raise NotAnEqFile(f"Line {n} uses \"Include:\", which isn't supported. Import the referenced file directly.")
         if cmd == "convolution" and not re.match(r"^\s*([A-Za-z]:\\|\\\\)", rest):
-            raise NotAnEqFile(f"Line {n} uses a convolution file with a short path. Write the full path (C:\\…) in "
-                              "the line, or remove the line.")
+            raise NotAnEqFile(f"Line {n} uses a relative convolution path. Use the full path (C:\\…) or remove the "
+                              "line.")
         if cmd == "filter":
             eq_lines += 1
             if re.match(r"^\s*ON\b", rest, re.I):
@@ -56,14 +55,14 @@ def summary(text):
         elif cmd in ("convolution", "channel", "copy", "stage", "delay", "loadplugin"):
             eq_lines += 1
     if not eq_lines:
-        raise NotAnEqFile("This file has no EQ: no filters, pre-amp or GraphicEQ line in Equalizer APO's format.")
+        raise NotAnEqFile("No Equalizer APO filters, pre-amp, or GraphicEQ found")
     return {"filters": filters, "preamp": round(preamp, 2), "graphic": graphic}
 
 
 def read_eq(path):
     """(the file's bytes, its summary). The bytes are copied as they are (APO read them like that already)."""
     if os.path.getsize(path) > 2_000_000:
-        raise NotAnEqFile("The file is too large for an EQ file (more than 2 MB).")
+        raise NotAnEqFile("File exceeds the 2 MB limit")
     with open(path, "rb") as fh:
         raw = fh.read()
     return raw, summary(read(path))

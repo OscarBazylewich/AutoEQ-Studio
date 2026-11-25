@@ -58,14 +58,13 @@ class SetUpDialog(QDialog):
         outer.addWidget(body, 1)
         text = sw.apo.read_config()
         self.others = sw.apo.others_on(text)
-        lay.addWidget(_words("AutoEQ Studio adds one line to APO's config.txt. This line includes the EQ that you "
-                             "selected for each device. First, AutoEQ Studio keeps a copy of config.txt "
-                             "(config.txt.autoeq-studio-backup)."))
+        lay.addWidget(_words("Adds one line to APO's config.txt to load your active EQ for each device. A backup "
+                             "(config.txt.autoeq-studio-backup) is saved first."))
         self.chk_off = None
         if self.others:
             lay.addWidget(_title("Lines in config.txt"))
-            lay.addWidget(_words("These lines in config.txt are enabled. They change the sound of all devices, "
-                                 "together with the EQ of each device:"))
+            lay.addWidget(_words("Enabled lines in config.txt (these apply to all devices alongside each device's "
+                                 "EQ):"))
             lst = QListWidget()
             lst.setAccessibleName("Enabled lines in config.txt")  # (what a screen reader says for it)
             lst.addItems(self.others)
@@ -88,8 +87,9 @@ class SetUpDialog(QDialog):
                     " (AutoEQ Studio does not have the EQ Switcher profiles. Their EQ files are in the “EQ "
                     "Switcher\\profiles” folder of Equalizer APO. To add them, use “Import EQ files…” in "
                     "Profiles)")
-            lay.addWidget(muted("“Include: EQ Switcher\\switcher.txt” is the line of EQ Switcher. AutoEQ "
-                                "Studio replaces EQ Switcher" + note + "."))
+            # (no period at the end: the user's words of the text survey, 2026-11-24)
+            lay.addWidget(muted("“Include: EQ Switcher\\switcher.txt” belongs to EQ Switcher, which AutoEQ Studio "
+                                "replaces" + note))
         self.chk_es_auto = self.chk_es_quit = None
         if es_auto:
             self.chk_es_auto = QCheckBox("Disable “Start with Windows” in EQ Switcher (AutoEQ Studio does this "
@@ -105,7 +105,8 @@ class SetUpDialog(QDialog):
         self.file_list = None
         if self.files:
             lay.addWidget(_title("EQ files"))
-            lay.addWidget(_words("EQ files that config.txt uses (enabled or disabled). Add them as profiles?"))
+            lay.addWidget(_words("EQ files referenced in config.txt (enabled or disabled). Selected files will be "
+                                 "added as profiles:"))
             self.file_list = QListWidget()
             self.file_list.setAccessibleName("EQ files to add as profiles")
             for f in self.files:
@@ -117,8 +118,7 @@ class SetUpDialog(QDialog):
             _fit(self.file_list, 4)
             key, _ = sw.playing()
             if key:
-                lay.addWidget(muted(f"The enabled EQ file becomes the EQ of {shown(sw.record(key))}, the "
-                                    "active device."))
+                lay.addWidget(muted(f"The enabled EQ file becomes the active EQ for {shown(sw.record(key))}"))
         # the buttons, as Windows 11's dialogs have them: on a band in the window's colour, the main one (Set up,
         # Enter's) in the accent, sharing the width
         footer, self.go_btn = dialog_band(self, "Add to APO", self._add_to_apo)  # (every such dialog's: window_parts)
@@ -149,7 +149,7 @@ class SetUpDialog(QDialog):
         try:
             self.sw.add_to_apo(turn_off=self.chk_off is None or self.chk_off.isChecked())
         except OSError as e:
-            QMessageBox.warning(self, "Add AutoEQ Studio to APO", f"AutoEQ Studio cannot change config.txt: {e}")
+            QMessageBox.warning(self, "Add AutoEQ Studio to APO", f"Couldn't update config.txt: {e}")
             return
         key, rec = self.sw.playing()
         if key and added_on and not rec["profiles"]:
@@ -160,10 +160,9 @@ class SetUpDialog(QDialog):
             try:
                 winsys.eq_switcher_autostart_off()
             except OSError as e:
-                problems.append(f"AutoEQ Studio cannot disable “Start with Windows” in EQ Switcher: {e}")
+                problems.append(f"Couldn't disable “Start with Windows” in EQ Switcher: {e}")
         if self.chk_es_quit is not None and self.chk_es_quit.isChecked() and not winsys.eq_switcher_quit():
-            problems.append("EQ Switcher is open (AutoEQ Studio cannot close this version). Close it from the "
-                            "menu of its tray icon.")
+            problems.append("EQ Switcher is running and couldn't be closed automatically. Close it from its tray icon.")
         if problems:
             QMessageBox.warning(self, "Add AutoEQ Studio to APO", "\n\n".join(problems))
         self.accept()

@@ -102,11 +102,11 @@ def read(src):
             info = json.loads(z.read("backup.json").decode("utf-8"))
             names = z.namelist()
     except (zipfile.BadZipFile, KeyError, ValueError, UnicodeDecodeError):
-        raise ValueError("That file is not an AutoEQ Studio backup.") from None
+        raise ValueError("This file isn't an AutoEQ Studio backup") from None
     if not isinstance(info, dict) or info.get("app") != "AutoEQ Studio" or not isinstance(info.get("format"), int):
-        raise ValueError("That file is not an AutoEQ Studio backup.")
+        raise ValueError("This file isn't an AutoEQ Studio backup")
     if info["format"] > FORMAT:
-        raise ValueError("A newer AutoEQ Studio made that backup. Update AutoEQ Studio first.")
+        raise ValueError("This backup was created by a newer version of AutoEQ Studio. Update the app first.")
     info["names"] = [n for n in names if _safe(n)]
     return info
 

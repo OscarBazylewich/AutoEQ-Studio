@@ -13,7 +13,6 @@ from PySide6.QtWidgets import (QCheckBox, QFileDialog, QGridLayout, QGroupBox, Q
 
 import paths
 from ui import help_window, icons, placed, theme
-from ui.bubble import InfoMark
 from ui.setup_dialog import SetUpDialog
 from ui.window_parts import glyph_label, muted
 
@@ -80,26 +79,15 @@ class SettingsScreen:
         bl.addWidget(self.chk_offline)
         lay.addWidget(box)
 
-        # the hotkeys, as a form (UI-RULES 26): their labels in one column, each with its ⓘ (the words about it: the
-        # gray notes under the boxes went behind it, the UI audit, 2026-11-08), their boxes lined up in the next, each
+        # the hotkeys, as a form (UI-RULES 26): their labels in one column, their boxes lined up in the next, each
         # with its ✕ at its right end (as the search boxes'; the Clear buttons went); a problem with a hotkey is said
-        # in the warning colour under its box
+        # in the warning colour under its box. (The labels had an ⓘ each until the text survey, 2026-11-24: the user
+        # removed them, as the boxes' tooltips and their Help entries give the same facts.)
         box = QGroupBox("Hotkeys")
         g = QGridLayout(box)
         g.setHorizontalSpacing(10)  # (as forms.py's: UI-RULES 26)
         g.setVerticalSpacing(6)
         g.setColumnStretch(2, 1)
-
-        def label(words, info):
-            w = QWidget()
-            h = QHBoxLayout(w)
-            h.setContentsMargins(0, 0, 0, 0)
-            h.setSpacing(4)
-            h.addWidget(QLabel(words))
-            mark = InfoMark(info, words)
-            h.addWidget(mark)
-            h.addStretch(1)
-            return w, mark
 
         def key_box(name, changed, setting):
             e = QKeySequenceEdit()
@@ -134,8 +122,7 @@ class SettingsScreen:
             e.keySequenceChanged.connect(lambda seq: seq.isEmpty() and not watch.typing and emptied())
             e.findChild(QLineEdit).textEdited.connect(lambda text: not text and emptied())  # (the box's ✕)
             return e
-        lab, self.hotkey_info = label("Change the EQ of the active device", "")
-        g.addWidget(lab, 0, 0)
+        g.addWidget(QLabel("Change the EQ of the active device"), 0, 0)
         self.hotkey_edit = key_box("Hotkey to change the EQ of the active device", self.hotkey_changed, "hotkey")
         g.addWidget(self.hotkey_edit, 0, 1)
         self.hotkey_note = QLabel()
@@ -144,8 +131,7 @@ class SettingsScreen:
         g.addWidget(self.hotkey_note, 1, 1, 1, 2)
         help_window.tag(self.hotkey_edit, "#hotkey")
         # the on/off hotkey (2026-10-26): the playing device's EQ off for now, to compare, and back
-        lab, self.onoff_info = label("Disable and enable its EQ, to compare", "")
-        g.addWidget(lab, 2, 0)
+        g.addWidget(QLabel("Disable and enable its EQ, to compare"), 2, 0)
         self.onoff_edit = key_box("Hotkey to disable the EQ and enable it again", self.onoff_hotkey_changed,
                                   "onoff_hotkey")
         g.addWidget(self.onoff_edit, 2, 1)
@@ -209,9 +195,7 @@ class SettingsScreen:
 
         box = QGroupBox("Your files")
         bl = QVBoxLayout(box)
-        bl.addWidget(muted("Your targets and measurements (for Make an EQ), saved EQs and presets, each in a "
-                           f"different folder ({paths.TARGETS_NAME}, {paths.MEASUREMENTS_NAME}, "
-                           f"{paths.SAVED_EQS_NAME}, {paths.PRESETS_NAME}), in:"))
+        bl.addWidget(muted("Targets, measurements, saved EQs, and presets are stored in:"))
         self.files_label = QLabel()
         self.files_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.files_label.setWordWrap(True)
@@ -222,7 +206,8 @@ class SettingsScreen:
         self.btn_files_open.clicked.connect(self.open_files_folder)
         self.btn_files_change = QPushButton("Change…")
         icons.put(self.btn_files_change, "change_folder")
-        self.btn_files_change.setToolTip("Keep your files in a different folder (AutoEQ Studio can move them there)")
+        # (no tooltip of its own: the text survey, 2026-11-24. Its tooltip is the Help line of Your files, as Open
+        # the folder's, from help_window.tag below)
         self.btn_files_change.clicked.connect(self.change_files_folder)
         for b in (self.btn_files_open, self.btn_files_change):
             help_window.tag(b, "#files-folder")
@@ -233,9 +218,7 @@ class SettingsScreen:
 
         box = QGroupBox("Backup")
         bl = QVBoxLayout(box)
-        bl.addWidget(muted("One .zip file keeps all your data. It has the devices and their profiles, the settings of "
-                           "Make an EQ, History, EQs to compare, your targets, measurements and saved EQs. It is for a new "
-                           "PC, or if you install AutoEQ Studio again."))
+        bl.addWidget(muted("Back up your devices, profiles, settings, History, and files to a single .zip"))
         row = placed(bl, QHBoxLayout())
         self.btn_backup = QPushButton("Save a backup…")
         icons.put(self.btn_backup, "backup")
@@ -253,7 +236,7 @@ class SettingsScreen:
         box = QGroupBox("About AutoEQ Studio")
         bl = QVBoxLayout(box)
         about = muted(f"Version {paths.VERSION}" + (" · installed" if paths.INSTALLED
-                                                     else f" · started from its folder ({paths.PROGRAM})"))
+                                                     else f" · portable ({paths.PROGRAM})"))
         about.setTextInteractionFlags(Qt.TextSelectableByMouse)
         about.setWordWrap(True)
         bl.addWidget(about)
@@ -263,14 +246,14 @@ class SettingsScreen:
 
     # ---------------------------------------------------------------- Your files (paths.py, userfiles.py)
     def render_files_folder(self):
-        self.files_label.setText(paths.ROOT + ("   (the usual folder)" if os.path.normcase(paths.ROOT) ==
-                                               os.path.normcase(paths.DEFAULT_FILES) else "   (your selection)"))
+        self.files_label.setText(paths.ROOT + ("   (default)" if os.path.normcase(paths.ROOT) ==
+                                               os.path.normcase(paths.DEFAULT_FILES) else "   (custom)"))
 
     def open_files_folder(self):
         try:
             os.makedirs(paths.ROOT, exist_ok=True)
         except OSError as e:
-            QMessageBox.warning(self, "Your files", f"AutoEQ Studio cannot open {paths.ROOT}: {e}")
+            QMessageBox.warning(self, "Your files", f"Couldn't open {paths.ROOT}: {e}")
             return
         QDesktopServices.openUrl(QUrl.fromLocalFile(paths.ROOT))
 
@@ -289,10 +272,9 @@ class SettingsScreen:
         try:
             info = backup.make(dest, self.sw.apo.profiles if self.sw.apo.found else None)
         except OSError as e:
-            QMessageBox.warning(self, "Backup", f"AutoEQ Studio cannot save the backup: {e}")
+            QMessageBox.warning(self, "Backup", f"Couldn't save backup: {e}")
             return
-        self.status(f"AutoEQ Studio saved {info['files']} files ({info['profiles']} profiles) in the backup {dest}.",
-                    10000)
+        self.status(f"Saved {info['files']} files ({info['profiles']} profiles) to {dest}", 10000)
 
     def load_backup(self):
         import backup
@@ -306,27 +288,26 @@ class SettingsScreen:
             QMessageBox.warning(self, "Load a backup", str(e))
             return
         if QMessageBox.question(
-                self, "Load a backup", f"Load the backup from {info['made']} ({info['files']} files, "
-                f"{info['profiles']} profiles)?\n\nIts settings, History and profiles replace the settings, History "
-                "and profiles on this PC. Its files replace the files that have the same names. AutoEQ Studio does "
-                "not delete other files. First, AutoEQ Studio saves a backup of the data that is on this PC "
-                "(data\\backups). Then AutoEQ Studio starts again.") != QMessageBox.Yes:
+                self, "Load a backup", f"Restore backup from {info['made']} ({info['files']} files, "
+                f"{info['profiles']} profiles)?\n\nThis replaces your current settings, History, profiles, and "
+                "matching files (other files are kept). Your current data is backed up first, then the app "
+                "restarts.") != QMessageBox.Yes:
             return
         if self.eq_page:
             self.eq_page.stop_sound()
         try:
             got = backup.restore(src, self.sw.apo.profiles if self.sw.apo.found else None)
         except (ValueError, OSError) as e:
-            QMessageBox.warning(self, "Load a backup", f"AutoEQ Studio cannot load the backup: {e}")
+            QMessageBox.warning(self, "Load a backup", f"Couldn't restore backup: {e}")
             return
         # (nothing written over what was just restored before the restart: the devices' poll, Listen's and the
         # tracer's choices saved as the app quits)
         self.sw.read_only = True
         self.app.timer.stop()
-        extra = ("\n\nAutoEQ Studio did not load the EQ files of the profiles: Equalizer APO is not installed on "
-                 "this PC." if got["skipped"] else "")
-        QMessageBox.information(self, "Load a backup", f"AutoEQ Studio loaded {got['files']} files. The backup of "
-                                f"your previous data is in {got['kept']}.{extra}\n\nAutoEQ Studio starts again.")
+        extra = ("\n\nProfile EQ files weren't restored because Equalizer APO isn't installed. Install Equalizer APO, "
+                 "then restore the backup again." if got["skipped"] else "")
+        QMessageBox.information(self, "Load a backup", f"Restored {got['files']} files. Your previous data was backed "
+                                f"up to {got['kept']}.{extra}\n\nAutoEQ Studio will now restart.")
         self.app.restart()
 
     def render_settings(self):
@@ -336,8 +317,6 @@ class SettingsScreen:
             chk.blockSignals(False)
         if not self.hotkey_edit.hasFocus():
             self._show_key(self.hotkey_edit, self.sw.s.get("hotkey") or "")
-        self.hotkey_info.set_text("It operates in all programs. It selects the next profile of the active device each "
-                                  "time, and Off after the last profile.")
         self.hotkey_note.setText(self.app.hotkey_problem or "")  # (a problem with the hotkey: said under its box)
         self.hotkey_note.setVisible(bool(self.app.hotkey_problem))
         if not self.onoff_edit.hasFocus():
@@ -346,24 +325,20 @@ class SettingsScreen:
         self.chk_matched.setChecked(bool(self.sw.s.get("onoff_matched", True)))
         self.chk_matched.blockSignals(False)
         problem = getattr(self.app, "onoff_problem", "")
-        self.onoff_info.set_text("It operates in all programs. It disables the EQ of the active device, and then it "
-                                 "enables the EQ again. With Same level, “off” and the EQ have the same loudness. Thus, "
-                                 "you compare the sound and not the volume.")
         self.onoff_note.setText(problem or "")
         self.onoff_note.setVisible(bool(problem))
         apo = self.sw.apo
         good = apo.found and apo.includes_studio()
         if not apo.found:
-            state = "Equalizer APO is not installed (or AutoEQ Studio did not find its config folder)."
+            state = "Equalizer APO isn't installed, or its config folder couldn't be found"
         else:
-            state = ("✓ APO uses AutoEQ Studio: config.txt has a line for the AutoEQ Studio file." if good
-                     else "APO does not use AutoEQ Studio.")
+            state = "✓ Connected to Equalizer APO (linked in config.txt)" if good else "Not connected to Equalizer APO"
         self.apo_state.setText(state)
         role = "good" if good else "warn"
         if self.apo_state.property("role") != role:
             theme.mark(self.apo_state, role=role)
         self.apo_mark.setVisible(not good)
-        self.apo_path.setText(f"Its config folder: {apo.config}" if apo.found else "")
+        self.apo_path.setText(f"Config folder: {apo.config}" if apo.found else "")
         self.apo_path.setVisible(apo.found)
         setup_on, unset_on = apo.found and not apo.includes_studio(), good  # (never both)
         # (the button that comes shows first, and takes the focus of the one that goes: hidden with the focus, Remove
@@ -401,9 +376,8 @@ class SettingsScreen:
     def remove_studio_from_apo(self):
         if QMessageBox.question(
                 self, "Remove AutoEQ Studio from APO",
-                "AutoEQ Studio removes its line from config.txt and enables the lines that it disabled. Then APO "
-                "operates as it did before you added AutoEQ Studio. AutoEQ Studio keeps your profiles (if you add "
-                "AutoEQ Studio to APO again).") == QMessageBox.Yes:  # (Set up… puts it back)
+                "Remove AutoEQ Studio from Equalizer APO?\n\nThis removes its line from config.txt and re-enables any "
+                "lines it disabled. Your profiles are kept.") == QMessageBox.Yes:  # (Set up… puts it back)
             try:
                 self.sw.remove_from_apo()
             except OSError as e:
@@ -417,10 +391,10 @@ class SettingsScreen:
                 winsys.start_program(exe)
             except OSError as e:  # (Windows' "allow changes?" answered No, among others)
                 if getattr(e, "winerror", None) != 1223:
-                    QMessageBox.warning(self, "APO's Configurator", f"AutoEQ Studio cannot open the Configurator: {e}")
+                    QMessageBox.warning(self, "APO's Configurator", f"Couldn't open APO Configurator: {e}")
 
     def open_folder(self, folder):
         if folder and os.path.isdir(folder):
             os.startfile(folder)
         elif folder:
-            QMessageBox.information(self, "Open the folder", f"The folder {folder} is not on this PC.")
+            QMessageBox.information(self, "Open the folder", f"Folder not found: {folder}")

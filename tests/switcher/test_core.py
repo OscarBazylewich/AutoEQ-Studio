@@ -87,8 +87,10 @@ def test_damaged_settings(start, check):
     # was selftest.py:164
     check("core: a damaged settings file is kept as .bad and said; the app starts fresh; APO's file isn't written "
           "(every EQ would go off: review 2)", os.path.exists(bad + ".bad")
-          and broken.problem.startswith(f"Couldn't read {os.path.basename(bad)}. Backed up as {os.path.basename(bad)}.bad "
-                                        "and created a new file. AutoEQ Studio did not change the EQs")
+          and broken.problem == (f"Couldn't read {os.path.basename(bad)}. Backed it up as {os.path.basename(bad)}.bad "
+                                 "in the data folder and created a new settings file. Your device EQs are unchanged, "
+                                 "but profiles were reset: re-import them in Profiles from Equalizer APO's “AutoEQ "
+                                 "Studio” folder.")
           and not broken.read_only and broken.s["profiles"] == {} and apo_after == apo_before,
           (broken.problem, apo_before, apo_after))
 
@@ -260,4 +262,4 @@ def test_without_apo(start, check):
     except OSError as e:
         said = str(e)
     # was selftest.py:239
-    check("core: without APO, importing says so and nothing is written", "is not installed" in said and not gone.apply(), said)
+    check("core: without APO, importing says so and nothing is written", "Equalizer APO isn't installed" in said and not gone.apply(), said)
