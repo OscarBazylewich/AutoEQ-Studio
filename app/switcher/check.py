@@ -20,8 +20,11 @@ def parse(out):
     return {"loaded": loaded, "matched": matched}
 
 
-def explain(apo, found, profile_name=None, profile_file=None, apo_on_device=True):
-    """The plain words for what Benchmark found (found: parse()'s answer)."""
+def explain(apo, found, profile_name=None, profile_file=None, apo_on_device=True, said_on_card=False):
+    """The plain words for what Benchmark found (found: parse()'s answer): (ok, text). On a device without APO
+    (apo_on_device False) the text says so too and ok is False. said_on_card: the device's card already says that
+    APO isn't installed on it (Devices: its own warning bar), so that sentence is left out and ok is the
+    configuration's own: the line below it shows only the other findings (the owner, 2026-11-25)."""
     same = lambda a, b: os.path.normcase(os.path.abspath(a)) == os.path.normcase(os.path.abspath(b))
     ours = os.path.join(apo.config, "AutoEQ Studio", "switcher.txt")
     lines, ok = [], False
@@ -46,9 +49,9 @@ def explain(apo, found, profile_name=None, profile_file=None, apo_on_device=True
     if others:
         lines.append("config.txt also loads these files for this device: "
                      + ", ".join(os.path.basename(f) for f in others))
-    if not apo_on_device:
-        # (first when the configuration is right: the device's short line is the first sentence, which said
-        # "“X” applies on this device" with a ✕; after a problem with the configuration itself, which comes first)
+    if not apo_on_device and not said_on_card:
+        # (for all of the answer, Examine again's message box: first when the configuration is right, so that the
+        # box opens with the reason EQ won't apply; after a problem with the configuration itself, which comes first)
         missing = ("Equalizer APO isn't installed on this device, so EQ won't apply. Enable it in APO Configurator, "
                    "then restart Windows.")
         if ok:

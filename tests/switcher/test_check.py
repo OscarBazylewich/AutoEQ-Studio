@@ -78,6 +78,28 @@ def test_sentences_without_a_full_stop_joined(bench, check):
                          "also loads these files for this device: Loudness.txt", (no_section, off, missing))
 
 
+def test_the_card_says_apo_is_not_installed(bench, check):
+    # (the owner, 2026-11-25: Devices' card of a device without APO says so in its own warning bar, so its line
+    # leaves that sentence out (said_on_card) and keeps every other finding; ok is then the configuration's own.
+    # Without said_on_card the answer is all of it, as Examine again's message box shows it)
+    apo, eq, found = bench.apo, bench.eq, bench.found
+    right = c.explain(apo, found, "My IEM", eq, apo_on_device=False, said_on_card=True)
+    problem = c.explain(apo, dict(found, loaded=found["loaded"][:3]), "My IEM", eq, apo_on_device=False,
+                        said_on_card=True)
+    whole = c.explain(apo, found, "My IEM", eq, apo_on_device=False)
+    with_apo = c.explain(apo, found, "My IEM", eq, said_on_card=True)
+    check("check: with the card saying that APO isn't installed on the device, the answer leaves that sentence out "
+          "and keeps the other findings; without it, the answer has all",
+          right == (True, "APO is using “My IEM”: device section found and EQ file loaded. config.txt also loads "
+                          "these files for this device: Loudness.txt")
+          and problem == (False, "“My IEM” is selected, but APO isn't loading it (file missing from APO folder). "
+                                 "config.txt also loads these files for this device: Loudness.txt")
+          and whole == (False, "Equalizer APO isn't installed on this device, so EQ won't apply. Enable it in APO "
+                               "Configurator, then restart Windows. APO is using “My IEM”: device section found and EQ "
+                               "file loaded. config.txt also loads these files for this device: Loudness.txt")
+          and with_apo == c.explain(apo, found, "My IEM", eq), (right, problem, whole, with_apo))
+
+
 def _never_run(*args, **kwargs):
     """check.py's subprocess.run, in this test: APO's Benchmark tool must never be started by the tests."""
     raise AssertionError(f"APO's Benchmark tool was started ({args[0] if args else kwargs}): the tests never run it")

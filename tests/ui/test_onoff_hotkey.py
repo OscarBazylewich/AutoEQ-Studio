@@ -130,12 +130,28 @@ def test_the_apps_notices(check):
           "to switch says how to give it one",
           off == "EQ off to compare (4.2 dB lower). Press Ctrl+Alt+Space to turn back on."
           and plain == "EQ off to compare. Press Ctrl+Alt+Space to turn back on."
-          and louder == ("EQ off to compare (0.0 dB lower). Press Ctrl+Alt+Space to turn back on. Level match skipped "
-                         "to avoid clipping. (Approximate level match: some filters couldn't be measured.)")
+          and louder == ("EQ off to compare. Press Ctrl+Alt+Space to turn back on. Level match skipped to avoid "
+                         "clipping. (Approximate level match: some filters couldn't be measured.)")
           and no_key == "EQ off to compare. Press the on/off hotkey to turn back on."
           and on == "EQ on: Daily" and on_none == "EQ on"
           and [text for _, text in said] == ["No profiles for this device. Open Devices to add one."] * 2,
           (off, plain, louder, no_key, on, on_none, said))
+
+
+def test_no_number_when_the_level_match_is_skipped(check):
+    # (the owner, 2026-11-25: an EQ louder than none isn't level-matched, so the notice has no "(… dB lower)"; one
+    # quieter than none keeps its number, also 0.0 dB)
+    from ui.app import App
+    fake = types.SimpleNamespace(sw=types.SimpleNamespace(s={"onoff_hotkey": "Ctrl+Alt+Space"}))
+    skipped = App.compare_text(fake, ("off", {"matched": True, "db": 0.0, "louder": True, "complete": True}))
+    matched = App.compare_text(fake, ("off", {"matched": True, "db": -2.0, "louder": False, "complete": True}))
+    same = App.compare_text(fake, ("off", {"matched": True, "db": 0.0, "louder": False, "complete": True}))
+    check("onoff: the notice of an EQ louder than none has no “dB lower” (its level match skipped); a matched one "
+          "says by how much",
+          skipped == "EQ off to compare. Press Ctrl+Alt+Space to turn back on. Level match skipped to avoid clipping."
+          and matched == "EQ off to compare (2.0 dB lower). Press Ctrl+Alt+Space to turn back on."
+          and same == "EQ off to compare (0.0 dB lower). Press Ctrl+Alt+Space to turn back on.",
+          (skipped, matched, same))
 
 
 def test_the_tray_menu_item(on_device, qapp, check):

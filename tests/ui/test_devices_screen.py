@@ -189,13 +189,56 @@ def test_check_again(set_up_window, check, monkeypatch):
     line = win.check_label.text() if win.check_label is not None else ""
     bar = (win.check_warn is not None and win.check_warn.isVisibleTo(win), win.check_warn_text.text()
            if win.check_warn is not None else "", win.check_row is not None and win.check_row.isVisibleTo(win))
-    # was selftest.py:424 (the UI audit, 2026-11-08: a bad answer is Windows 11's warning bar, with Examine again in it)
+    name = sw.profiles()[rec["active"]]["name"]
+    # was selftest.py:424. (The owner, 2026-11-25: the card's own warning bar says that APO isn't installed on the
+    # device, so the line shows the rest of the answer, a gray note with no ✓, not a second warning bar)
     check("window: Check again asks APO for the device's endpoint and says all it found (its EQ applies, but APO "
-          "isn't on the device); the device's line says it too, as a warning bar",
+          "isn't on the device); the device's line shows the rest, not a second warning bar",
           len(chk) == 1 and "{5}" in told and any(isinstance(x, tuple) and x[0] == "not" and "device section found and EQ file loaded"
                                                    in x[1] and "isn't installed on this device" in x[1] for x in told)
-          and line.startswith("Equalizer APO isn't installed on this device") and bar[0] and bar[1] == line
-          and not bar[2], (told, line, bar))
+          and line == f"APO is using “{name}”" and win.check_label.property("role") == "muted"
+          and "device section found and EQ file loaded" in win.check_label.toolTip()
+          and not bar[0] and bar[2] and _visible_not_installed(win) == 1, (told, line, bar, _visible_not_installed(win)))
+
+
+def _visible_not_installed(win):
+    """How many labels that the device's card shows say that Equalizer APO isn't installed on the device."""
+    from PySide6.QtWidgets import QLabel
+    return sum("isn't installed on this device" in lab.text() for lab in win.dev_panel.findChildren(QLabel)
+               if lab.isVisibleTo(win))
+
+
+def test_one_not_installed_sentence_on_a_device_without_apo(set_up_window, check, monkeypatch):
+    # (the owner, 2026-11-25: on a device without Equalizer APO, the card's warning bar says so; a problem of the
+    # configuration still shows as the line's warning bar, with Examine again, but without "Also, Equalizer APO isn't
+    # installed …", and every other finding stays; the message box of Examine again has all of the answer)
+    from PySide6.QtWidgets import QMessageBox
+    from switcher import check as apo_check
+    w = set_up_window
+    win, sw = w.win, w.sw
+    name = sw.profiles()[sw.record(KEY)["active"]]["name"]
+    other = os.path.join(sw.apo.config, "Loudness.txt")
+    told = []
+    monkeypatch.setattr(apo_check, "run", lambda apo, guid, timeout=60: {
+        "loaded": [apo.config_txt, other, os.path.join(apo.config, "AutoEQ Studio", "switcher.txt")],
+        "matched": ["{5}"]})
+    for kind in ("information", "warning"):
+        monkeypatch.setattr(QMessageBox, kind, staticmethod(lambda *a, **k: told.append(a[2])))
+    try:
+        win._checks.clear()
+        win.check_device(KEY)
+        qt.wait_for(lambda: told, 10)
+    finally:
+        monkeypatch.undo()
+    bar_text, tip = win.check_warn_text.text(), win.check_warn_text.toolTip()
+    shown = (win.check_warn.isVisibleTo(win), win.check_row.isVisibleTo(win), _visible_not_installed(win))
+    check("devices: a device without APO with a problem in the configuration: its line is a warning bar with the "
+          "problem and the other findings, without the card's sentence that APO isn't installed; one label says that",
+          bar_text == f"“{name}” is selected, but APO isn't loading it" and shown == (True, False, 1)
+          and "config.txt also loads these files for this device: Loudness.txt" in tip
+          and "isn't installed" not in tip
+          and len(told) == 1 and "Also, Equalizer APO isn't installed on this device" in told[0]
+          and f"“{name}” is selected, but APO isn't loading it" in told[0], (bar_text, tip, shown, told))
 
 
 def test_check_again_on_a_device_with_apo(apo_on, check, monkeypatch):

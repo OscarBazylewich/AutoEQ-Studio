@@ -278,11 +278,13 @@ class App:
         back = f"Press {hk} to turn back on."
         if not c["matched"]:
             return f"EQ off to compare. {back}"
-        # (level-matched: how much lower "off" plays, also "0.0 dB lower" for an EQ as loud as none or louder: the
-        # owner's words have the number in all cases; the sentence about clipping then says why)
+        # (level-matched: how much lower "off" plays. An EQ louder than none isn't matched (switcher\core.py: "off"
+        # never plays louder), so no number then, only the sentence about clipping: the owner, 2026-11-25; the
+        # notice said "0.0 dB lower" while the window's compare bar (window.py render_compare) said "same level")
         extra = (" Level match skipped to avoid clipping." if c["louder"] else "") \
             + (" (Approximate level match: some filters couldn't be measured.)" if not c["complete"] else "")
-        return f"EQ off to compare ({abs(c['db'] or 0):.1f} dB lower). {back}{extra}"
+        lower = "" if c["louder"] else f" ({abs(c['db'] or 0):.1f} dB lower)"
+        return f"EQ off to compare{lower}. {back}{extra}"
 
     def set_hotkey(self, text, save=True):
         self._set_key("hotkey", self.hotkey, text, save)
