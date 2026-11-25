@@ -113,26 +113,25 @@ def test_messages_whole(eq_screen, look, check):
 
 def test_tabs_say_what_the_mark_means(eq_screen, check):
     # (2026-11-12: "This PC  0…" looked like a cut label. The "…" says that This PC is still searched, or, as the
-    # number of All and Online databases, that the online lists still load: each tab's tooltip and its Help entry
-    # say so, and F1 on a tab opens that entry)
+    # number of All and Online databases, that the online lists still load: the tabs' Help entry says so, and F1 on
+    # a tab opens that entry. The text survey, 2026-11-24, removed the tabs' tooltip: a screen reader still reads
+    # each tab's name)
     from ui import help_window
     from ui.picker import SOURCES, Picker
     pk = Picker(eq_screen.page, "measurement")
     try:
-        tips = {name: pk.src_by_key[key].toolTip() for key, name in SOURCES}
+        tips = {name: (pk.src_by_key[key].toolTip(), pk.src_by_key[key].accessibleName(),
+                       pk.src_by_key[key].accessibleDescription()) for key, name in SOURCES}
         entries = {name: help_window.entry_of_widget(pk.src_by_key[key]) for key, name in SOURCES}
     finally:
         qt.close(pk)
     body = " ".join(b for b in help_window._by_id().get("set-pk-src", {}).get("body", []) if isinstance(b, str))
-    # (the first sentence is for each tab: All shows all sources, so "one source" alone was not true for it)
-    seen = {"tooltips say it": sorted(n for n, t in tips.items() if "“…”: the app continues to search this PC or to "
-                                      "load the online lists." in t and "F1 opens Help." not in t
-                                      and t.startswith("Shows the items of all sources or of one source, and their "
-                                                       "number.")),
+    seen = {"no tooltip, their name": sorted(n for n, t in tips.items() if t == ("", n, "")),
             "F1 entries": sorted(set(entries.values())),
             "Help says it": "“…” after the number of This PC: the app continues to search this PC" in body
             and "“…” as the number of All or Online databases: the app continues to load the online lists." in body}
-    check("Find…: the tooltip of each source tab and its Help entry say what “…” after a number means (This PC is "
-          "still searched, the online lists still load); F1 on a tab opens that entry",
-          seen == {"tooltips say it": sorted(n for _k, n in SOURCES), "F1 entries": ["set-pk-src"],
+    check("Find…: the source tabs have no tooltip and keep their name for a screen reader; their Help entry says "
+          "what “…” after a number means (This PC is still searched, the online lists still load); F1 on a tab "
+          "opens that entry",
+          seen == {"no tooltip, their name": sorted(n for _k, n in SOURCES), "F1 entries": ["set-pk-src"],
                    "Help says it": True}, (seen, tips))

@@ -109,7 +109,13 @@ def test_squiglink_note_hidden_while_loading(eq_screen, monkeypatch, check):
     from ui.sources_window import Sources
     answers = []
     monkeypatch.setattr(net, "offline", lambda: False)
-    monkeypatch.setattr(sources_window.tasks, "background", lambda work, done, owner=None: answers.append(done))
+    # (only the calls of the Sources window are stood in: tasks is the app's one module, so a call of the page that
+    # an earlier test left waiting came here too, and the list's answer given to it failed in the page, KeyError
+    # 'name'. The other calls go to the real function)
+    real = sources_window.tasks.background
+    monkeypatch.setattr(sources_window.tasks, "background",
+                        lambda work, done, owner=None: answers.append(done) if isinstance(owner, Sources)
+                        else real(work, done, owner=owner))
     src = Sources(eq_screen.page)
     try:
         src._refresh_soon.stop()

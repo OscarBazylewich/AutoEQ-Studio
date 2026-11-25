@@ -26,7 +26,10 @@ NO_TOOLTIP = {"#opt-view", "#target-save", "#compare-results", "#make-way", "#by
               # (area 15: Listen's Sound, Tone from … to, Volume, Same level, Hide the names, Ears, Left, Right and
               # Your EQs to compare)
               "#snd-src", "#tone-from", "#snd-vol", "#snd-lm", "#snd-blind", "#snd-ears", "#snd-left", "#snd-right",
-              "snd_list"}
+              "snd_list",
+              # (area 22: the source tabs of Find…, Targets and measurements, the Rig, Type and Source lists, Paste
+              # the picture, Rig of your target, Folders to search and Online databases)
+              "#pk-src", "#pk-anykind", "pk_filters", "#pw-paste", "#cmp-rig", "library.folders", "databases"}
 
 
 @pytest.mark.timeout(600)  # (the tracer's labels read and three Auto traces first)
@@ -116,6 +119,62 @@ def test_controls_without_a_tooltip(eq_screen, check):
     check("help: Compare… and the tabs Automatically and Manually keep the tooltip of their own, and a screen reader "
           "reads only their name (no line of Help after it)",
           all(v == (True, True, "") for v in got.values()), got)
+
+
+def test_find_which_measurement_history_and_sources_lines(eq_screen, check):
+    # (2026-11-24, the text survey, area 22: the lines of Find…'s filter lists, Rig of your target, Folders to search
+    # and Online databases removed: no tooltip and no line for a screen reader, their name and F1 tag stay. Targets
+    # and measurements and Known rig keep the tooltip of their own code; the others show the owner's new words)
+    from helpers import qt
+    from ui import help_window
+    from ui.compare_window import CompareWindow
+    from ui.history_window import HistoryWindow
+    from ui.picker import Picker
+    from ui.sources_window import Sources
+    page = eq_screen.page
+    seen = {}
+    pk = Picker(page, "measurement")
+    try:
+        for n, w in (("Rig", pk.f_rig), ("Type", pk.f_form), ("Source", pk.f_site), ("Known rig", pk.f_sure),
+                     ("Available to download", pk.f_dl), ("Targets and measurements", pk.anykind)):
+            seen[n] = (w.toolTip(), w.accessibleDescription(), bool(w.accessibleName()), help_window.entry_of_widget(w))
+    finally:
+        qt.close(pk)
+    cw = CompareWindow(page)
+    try:
+        for n, w in (("Model", cw.q), ("Rig of your target", cw.rig)):
+            seen[n] = (w.toolTip(), w.accessibleDescription(), bool(w.accessibleName()), help_window.entry_of_widget(w))
+    finally:
+        qt.close(cw)
+    hw = HistoryWindow(page)
+    try:
+        seen["This IEM only"] = (hw.only.toolTip(), hw.only.accessibleDescription(), bool(hw.only.accessibleName()),
+                                 help_window.entry_of_widget(hw.only))
+    finally:
+        qt.close(hw)
+    src = Sources(page)
+    try:
+        for n, w in (("Folders to search", src.folders), ("Online databases", src.tree)):
+            seen[n] = (w.toolTip(), w.accessibleDescription(), bool(w.accessibleName()), help_window.entry_of_widget(w))
+    finally:
+        qt.close(src)
+    want = {"Rig": ("", "", True, "set-pk-filters"), "Type": ("", "", True, "set-pk-filters"),
+            "Source": ("", "", True, "set-pk-filters"),
+            "Known rig": ("Hides items with an uncertain rig (marked with “?”)",
+                          "Hide entries with an unknown, guessed, or mixed rig", True, "set-pk-f-sure"),
+            "Available to download": ("Shows only entries that can be downloaded directly",
+                                      "Shows only entries that can be downloaded directly", True, "set-pk-f-dl"),
+            "Targets and measurements": ("Shows both targets and measurements", "", True, "set-pk-anykind"),
+            "Model": ("All words must match the measurement name", "All words must match the measurement name", True,
+                      "set-cmp-q"),
+            "Rig of your target": ("", "", True, "set-cmp-rig"),
+            "This IEM only": ("Show only EQs for the selected measurement", "Show only EQs for the selected measurement",
+                              True, "set-hist-this"),
+            "Folders to search": ("", "", True, "set-library-folders"),
+            "Online databases": ("", "", True, "set-databases")}
+    check("help: Find…, Which measurement, History and Sources show the lines of the text survey (area 22), and the "
+          "controls whose line went keep their name and their Help entry", seen == want,
+          {n: (seen.get(n), want[n]) for n in want if seen.get(n) != want[n]})
 
 
 def test_settings_boxes_without_a_help_line(eq_screen, check):

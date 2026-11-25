@@ -344,8 +344,8 @@ class PictureWait(QDialog):
         if site and shown_site != f"“{site}”":
             self.intro.setToolTip(plain_tip(site))
         band, self.paste_btn = dialog_band(self, "Paste the picture", self.paste)
-        # (its tooltip is the first line of its Help entry, from tag(): the owner removed the button's own tooltip,
-        # the text survey, 2026-11-24. F1 opens Help in a window that blocks the others, as this one does, since such
+        # (no tooltip: the owner removed the button's own tooltip and the first line of its Help entry, the text
+        # survey, 2026-11-24; the tag stays for F1 and the button's name for a screen reader. F1 opens Help in a window that blocks the others, as this one does, since such
         # a window gets an F1 shortcut of its own (ui\window.py's F1Anywhere), 2026-11-12)
         help_window.tag(self.paste_btn, "#pw-paste")
         outer.addWidget(band)

@@ -321,7 +321,9 @@ class Picker(QDialog):
             b.setCheckable(True)
             theme.mark(b, nav=True, flush=True)  # (its words at the window's left edge, as every tab's: the UI audit)
             b.setAccessibleName(name)
-            help_window.tag(b, "#pk-src")  # (its tooltip and Help say what the "…" after a count means)
+            # (F1 opens the Help entry that says what the "…" after a count means. No tooltip: the text survey,
+            # 2026-11-24, removed the tabs' line)
+            help_window.tag(b, "#pk-src")
             self.src_by_key[key] = b
             b.setChecked(key == "")
             b.clicked.connect(lambda _=False, k=key: self.set_src(k))
