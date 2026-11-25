@@ -21,7 +21,7 @@ def _tab_to(w):
     qt.pump(30)
 
 
-def test_your_value_tag_with_the_keyboard_keeps_the_page(eq_screen, check):
+def test_custom_tag_with_the_keyboard_keeps_the_page(eq_screen, check):
     from ui.forms import Fold, number_text
     page = eq_screen.page
     st = page.settings

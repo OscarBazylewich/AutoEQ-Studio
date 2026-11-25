@@ -53,7 +53,7 @@ FOCUS_CHAIN_FILES = {
     "tests/eq_screen/test_picture_wait.py": 1,
     "tests/eq_screen/test_result_narrow.py": 1,
     "tests/eq_screen/test_run_keeps_the_page.py": 2,
-    "tests/eq_screen/test_your_value_tag_keeps_the_page.py": 2,
+    "tests/eq_screen/test_custom_tag_keeps_the_page.py": 2,
 }
 
 
