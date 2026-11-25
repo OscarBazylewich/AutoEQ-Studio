@@ -21,7 +21,7 @@ message in this window's line; the rows then get the links (website_refused).
 
 The look (Windows 11's, ui\\theme_sheet.py's find_windows part matches the names given here): a row's name in
 semibold (findRowName), ending in "…" when it's longer than its room (never cut mid-letter), the download mark as
-Windows 11's symbol (findMark, read as "Downloads when used"); only one Use has the accent, the one Enter presses (the
+Windows 11's symbol (findMark, read as its tooltip "Downloads when you click Use or Preview"); only one Use has the accent, the one Enter presses (the
 chosen row's, or the first row's when none is chosen); a row's bin quiet (no fill until pointed at, as every row's ✕
 and bin); Files says Show files or Hide files (a chevron is a menu's: UI-RULES 12); the chosen and pointed-at rows as
 every list, laid out again whenever the window changes size. Narrower than its filters
@@ -257,7 +257,7 @@ class MoreButton(QPushButton):
         self._fill = fill  # (fill(menu) puts the row's commands in its menu; None once they are in it)
         icons.put(self, "more")
         theme.mark(self, quiet=True, nochevron=True)
-        self.setToolTip("More commands")
+        self.setToolTip("More actions")  # (its screen-reader name stays "More commands for <its row>": the code sets it)
 
     def menu(self):
         m = super().menu()
@@ -309,7 +309,7 @@ class Picker(QDialog):
         self.q.textChanged.connect(lambda _t: self._later.start())
         top.addWidget(self.q, 1)
         self.anykind = QCheckBox("Targets and measurements")
-        self.anykind.setToolTip("Show targets and measurements (some entries are in the incorrect group)")
+        self.anykind.setToolTip("Shows both targets and measurements")
         self.anykind.toggled.connect(self.render)
         top.addWidget(self.anykind)
         srcs = placed(v, QHBoxLayout())
@@ -339,14 +339,14 @@ class Picker(QDialog):
             box.activated.connect(lambda _i, box=box, key=key: self.set_filter(key, box.currentData()))
             fl.add(box, first=True, stretch=True, least=choice_room)
         self.f_sure = QCheckBox("Known rig")
-        self.f_sure.setToolTip("Only the entries with a rig that their source gives (not the usual rig of a database: a “?”)")
+        self.f_sure.setToolTip("Hides items with an uncertain rig (marked with “?”)")
         self.f_sure.toggled.connect(lambda on: self.set_filter("sure", on))
         self.f_dl = QCheckBox("Available to download")
         for w, key in ((self.anykind, "#pk-anykind"), (self.f_rig, "pk_filters"), (self.f_form, "pk_filters"),
                        (self.f_site, "pk_filters"), (self.f_sure, "#pk-f-sure"), (self.f_dl, "#pk-f-dl")):
             help_window.tag(w, key)
-        self.f_dl.setToolTip("Do not show the entries that the app cannot download (the app traces them from a picture "
-                             "of the website)")
+        # (Available to download sets no tooltip of its own: it shows the first line of its Help entry, #pk-f-dl. The
+        # text survey, 2026-11-24, removed its longer one)
         self.f_dl.toggled.connect(lambda on: self.set_filter("dl", on))
         self.f_clear = QPushButton("Clear the selections")  # (always there, off with no filter on: it made the row jump)
         self.f_clear.clicked.connect(self.clear_filters)
@@ -368,12 +368,10 @@ class Picker(QDialog):
         # (every window's footer, window_parts.Footer: its other actions at the left, its own message line, Close)
         sources = QPushButton("Sources…")
         icons.put(sources, "list")
-        sources.setToolTip("The folders on this PC and the online databases that Find… searches. You can also add a "
-                           "database.")
+        sources.setToolTip("Manage local folders and online databases")
         sources.clicked.connect(self.open_sources)
-        trace = QPushButton("Trace a graph image…")
+        trace = QPushButton("Trace a graph image…")  # (no tooltip: its name says what it does; the text survey, 2026-11-24)
         icons.put(trace, "trace")
-        trace.setToolTip("Do you have only a picture of the graph? Trace it to make a curve.")
         trace.clicked.connect(lambda: (self.reject(), self.page.open_trace()))
         for b in (sources, trace):
             b.setAutoDefault(False)
@@ -484,7 +482,7 @@ class Picker(QDialog):
         inp = self.page.inputs
         if self.kind == "target":
             return sorted(({"src": "app", "key": "app:t:" + n, "name": os.path.splitext(n)[0], "file": n,
-                            "sub": "your target" if n == inp["active_target"] else "in the app",
+                            "sub": "your target" if n == inp["active_target"] else "saved",
                             "current": n == inp["active_target"], "rig": self.app_rig(n), "form": name_form(n), "site": "app"}
                            for n in inp["targets"] if hit(n.lower())), key=lambda r: natural_key(r["name"]))
         out = []
@@ -683,18 +681,16 @@ class Picker(QDialog):
                         later.append(lambda r=r, fl=fl: self._add_file_row(r, fl))
             shown += min(len(rows), lim)
             if len(rows) > lim:
-                more = f"{len(rows) - lim:,} more. Type more text for a shorter list" +\
-                    ("" if self.src else f", or show only {title.lower()} (above).")
+                more = f"{len(rows) - lim:,} more: refine your search" +\
+                    ("" if self.src else f", or switch to {title.lower()} above")
                 later.append(lambda t=more: self._add_note(t))
-            if not rows and s == "db" and self.db.get("loading"):
-                later.append(lambda: self._add_note("The database lists load…"))
+            # (no row of its own while the online lists load: the gray line above the list says it. The text survey,
+            # 2026-11-24, removed the row "The database lists load…")
         if not shown:
-            later.append(lambda: self._add_note(("No results." if ws or hidden else "No items.")
-                                            + (" (The app continues to load the online lists.)" if self.db.get("loading")
-                                               else "")))
+            later.append(lambda: self._add_note(("No results" if ws or hidden else "No items")
+                                            + (" · Still loading online lists…" if self.db.get("loading") else "")))
         if hidden:
-            later.append(lambda: self._add_note(f"The selections hide {hidden:,} more. “Clear the selections” (above) shows "
-                                            "them."))
+            later.append(lambda: self._add_note(f"{hidden:,} more hidden by filters: click “Clear the selections” above"))
         self._pending = later
         self._make_more(max(FIRST_ROWS, place[0]) if place else FIRST_ROWS)
         if place:
@@ -720,8 +716,8 @@ class Picker(QDialog):
             words = f"{name}  {counts[key]}"
             if b.text() != words:
                 b.setText(words)
-        said = (["The online lists load…"] if loading else []) + \
-            (["Offline: you can use the online entries that you downloaded."] if net.offline() else [])
+        said = (["Loading online lists…"] if loading else []) + \
+            (["Offline: downloaded online entries are still available"] if net.offline() else [])
         self.status.setText(" ".join(said))
         self.status.setVisible(bool(said))
 
@@ -776,23 +772,21 @@ class Picker(QDialog):
         made = r.get("is_target") or (r["src"] == "app" and not r.get("device"))
         what = "Made for" if made else "Measured on"
         if tag == "mixed":
-            return "mixed", "Its files are from different rigs"
+            return "mixed", "Contains files from different rigs"
+        # (how the app knows the rig, when it says: on a line of its own under the first)
+        how = f"\n{r['how']}" if r.get("how") else ""
         if key not in rigs:
-            return "rig ?", ("The rig that it is made for is not known" if made else "The rig that it was measured on is not "
-                             "known") \
-                + (f": {r['how']}" if r.get("how") else "")
+            return "rig ?", ("Target rig unknown" if made else "Measurement rig unknown") + how
         guess = tag.endswith("?")
-        tip = f"{what}: {rigs[key]}" \
-            + (" (very possibly: the usual rig for its source, which does not give the rig)" if guess else "") \
-            + (f": {r['how']}" if r.get("how") else "")
+        tip = f"{what}: {rigs[key]}" + (" (likely)" if guess else "") + how
         convs = r.get("convs") or []
         label = key + ("?" if guess else "")
         if convs:
             short = lambda x: rigs.get(x, x).split(" (")[0]
             label += " ⇄"
-            tip += ("\nRig change by its database (the error from 1 to 10 kHz): " +
-                    " · ".join(f"for {short(c['from'])} targets ({c['models']} models: approximately {c['error']:.1f} dB "
-                               f"with the change, {c['before']:.1f} dB without it)" for c in convs))
+            # (each rig change of its database whole, one after the other: " · " between them)
+            tip += "\n" + " · ".join(f"Database rig compensation for {short(c['from'])} targets: ~{c['error']:.1f} dB error "
+                                     f"vs. {c['before']:.1f} dB without (1–10 kHz, {c['models']} models)" for c in convs)
         return label, tip
 
     def _add_row(self, r):
@@ -809,7 +803,7 @@ class Picker(QDialog):
         name.setToolTip(r["name"])
         name.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)  # (the room left for it, whatever its length)
         text.addWidget(name)
-        sub = Elided("Download in progress…" if self.busy == r["key"] else r["sub"])
+        sub = Elided("Downloading…" if self.busy == r["key"] else r["sub"])
         theme.mark(sub, role="muted")
         sub.setToolTip(r["sub"])
         sub.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
@@ -822,26 +816,27 @@ class Picker(QDialog):
         if r.get("other"):
             other = QLabel("measurement?" if self.kind == "target" else "target?")
             theme.mark(other, role="muted")
-            other.setToolTip(f"Its group in the database: {'measurement' if self.kind == 'target' else 'target'}")
+            other.setToolTip(f"Listed as a {'measurement' if self.kind == 'target' else 'target'} in the database")
             h.addWidget(other)
         if r.get("link"):
-            ext = QLabel("trace from the website ↗")
+            ext = QLabel("trace from website ↗")
             theme.mark(ext, role="muted")
-            ext.setToolTip("Other programs cannot download the files of this website. Use opens the website in your "
-                           "browser. Then the app waits for a picture of the graph and traces it.")
+            ext.setToolTip("This site blocks direct downloads. Click Use to open it and trace a graph screenshot.")
             h.addWidget(ext)
         elif r["src"] == "db":
             dl = QLabel(chr(int(icons.GLYPHS["download"], 16)))  # (Windows 11's symbol, from its icon font: findMark)
             dl.setObjectName("findMark")
-            dl.setToolTip("Downloads when you use it")
-            dl.setAccessibleName("Downloads when you use it")  # (a screen reader read its symbol's character, as nothing)
+            dl.setToolTip("Downloads when you click Use or Preview")
+            # (a screen reader read its symbol's character, as nothing)
+            dl.setAccessibleName("Downloads when you click Use or Preview")
             h.addWidget(dl)
         # (the row's buttons at its right end as every list's, UI-RULES 18: Preview, the row's own, Use (the main one)
         # last, then the ✕ apart; a button a row hasn't got keeps its room, so every Use is in one column)
         prev = self.page.has_preview(r["key"])
         eye = QPushButton("Hide" if prev else "Preview")  # ("Show" puts an EQ on the result card: UI-RULES 16)
         eye.setMinimumWidth(QFontMetrics(eye.font()).horizontalAdvance("Preview") + 2 * 12 + 2)
-        eye.setToolTip("Remove it from the graph" if prev else "Show it on the graph as a dotted line, but do not use it")
+        # (Hide has no tooltip, its name says it: the text survey, 2026-11-24)
+        eye.setToolTip("" if prev else "Show as a dotted line on the graph without selecting it")
         eye.clicked.connect(lambda _=False, r=r: self.preview(r))
         h.addWidget(_keep_room_when_hidden(eye))
         # (only once it's in the row: shown before, a button with no parent is a window of its own, and every row
@@ -871,9 +866,8 @@ class Picker(QDialog):
         line (made when the menu is first needed: MoreButton)."""
         if r.get("device"):
             shown = r["device"]["name"] in self.expanded
-            a = m.addAction(FILES_WORDS[1] if shown else FILES_WORDS[0],
-                            lambda d=r["device"]["name"]: self.toggle_expand(d))
-            a.setToolTip("Select or clear the files one by one (seatings, left and right)")
+            # (no tooltip: a menu shows none; the text survey, 2026-11-24, removed the one it had)
+            m.addAction(FILES_WORDS[1] if shown else FILES_WORDS[0], lambda d=r["device"]["name"]: self.toggle_expand(d))
             m.addSeparator()
             m.addAction("Delete…", lambda d=r["device"]: self.remove("measurement", [f["name"] for f in d["files"]],
                                                                       d["name"]))
@@ -911,7 +905,7 @@ class Picker(QDialog):
         h.setContentsMargins(46, 2, 6, 2)
         cb = QCheckBox(fl["name"])
         cb.setChecked(fl["included"])
-        cb.setToolTip("Include it in the average")
+        cb.setToolTip("Include in average")
         cb.toggled.connect(lambda on, n=fl["name"]: self.toggle_file(n, on))
         h.addWidget(cb, 1)
         h.addSpacing(12)  # (its ⋯ in the column of the rows' ⋯)
@@ -1028,7 +1022,7 @@ class Picker(QDialog):
             self.render()
             return
         if not self.page.curves:  # ("do this first": the button on, a bubble at it saying what's needed, UI-RULES 25)
-            bubble.tell(None, "Select a target and a measurement first. The graph shows a preview with them.", near=self)
+            bubble.tell(None, "Select a target and measurement first to preview", near=self)
             return
         loading = self.__dict__.setdefault("_showing", set())
         if r["key"] in loading:  # (pressed again while it loads)
@@ -1072,7 +1066,7 @@ class Picker(QDialog):
 
     def remove(self, kind, names, label):
         if QMessageBox.question(self, "Delete", f"Delete “{label}” ({len(names)} file{'s' if len(names) != 1 else ''}) "
-                                "from the app? (A copy in a different folder does not change.)",
+                                "from AutoEQ Studio? Original files in other folders won't be affected.",
                                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
             return  # (No the default: it can't be undone, UI-RULES 17)
         r = self.svc.call("/api/files/remove", {"kind": kind, "names": names, "settings": self.page.S})

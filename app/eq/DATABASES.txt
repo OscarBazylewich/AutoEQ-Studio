@@ -94,7 +94,7 @@ HOW EACH IS INTEGRATED (checked 23 September 2026)
   - AutoEq: GitHub's file list and raw.githubusercontent.com downloads, as before.
   - Hangout.Audio (all three): its list (phone_book.json) is public and is indexed, but its server refuses the
     measurement files to anything but its own graph page (HTTP 403 Forbidden). The app doesn't try to get round
-    that. Its entries (measurements and the targets of its config) show in searches with "trace from the website
+    that. Its entries (measurements and the targets of its config) show in searches with "trace from website
     ↗". To use one of its entries, click Use in Find…. The app opens the entry in your browser (the share link
     squig.link itself uses; a target's file is "<name> Target"), waits for a picture of the graph and traces it.
     "Which measurement to use?" lists them with links that do the same. The app does not download data from the

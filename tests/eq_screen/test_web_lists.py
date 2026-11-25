@@ -1,6 +1,6 @@
 """The targets of a list-only database in Find a target, and a download that a website refuses in Find… (2026-11-12,
 ui\\picker.py, ui\\eq_page_files.py, ui\\picture_wait.py, ui\\sources_window.py): a target of the fixture's
-Hangout.Audio 5128 list shows "trace from the website ↗", and Use opens its share link and waits, with the entry
+Hangout.Audio 5128 list shows "trace from website ↗", and Use opens its share link and waits, with the entry
 marked as a target for the tracer and the words about the settings of the website; a Use whose download is refused
 (a made HTTP 403: nothing connects) says so in Find…'s line and goes on with the trace in the same Use; Sources
 then says "· from a picture" for that database. Pictures in light and dark are read back (each saved in the test's
@@ -101,9 +101,9 @@ def test_target_of_a_website_in_find_a_target(eq_screen, online, tmp_path, check
         w = pk.list.itemWidget(item) if item is not None else None
         marks = [lab.text() for lab in w.findChildren(QLabel)] if w is not None else []
         check("website targets: Find a target shows a target of a database that does not let other programs "
-              "download its files, with trace from the website ↗ (not of the other group)",
+              "download its files, with trace from website ↗ (not of the other group)",
               row is not None and row["is_target"] and not row.get("other") and row.get("link")
-              and "trace from the website ↗" in marks, (row, marks))
+              and "trace from website ↗" in marks, (row, marks))
         pics = _pictures(w, tmp_path, "find-target-row", eq_screen) if w is not None else {}
         check("website targets: the row of the target in light and dark (read back)",
               pics and _dark_and_light(pics) and pics["light"][2] > 400, pics)
