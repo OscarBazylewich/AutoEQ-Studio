@@ -785,7 +785,8 @@ class Picker(QDialog):
         if key not in rigs:
             return "rig ?", ("Target rig unknown" if made else "Measurement rig unknown") + how
         guess = tag.endswith("?")
-        tip = f"{what}: {rigs[key]}" + (" (likely)" if guess else "") + how
+        # (", likely" also after a name that ends in brackets, "… (IEC 60318-4), likely": the owner, 2026-11-25)
+        tip = f"{what}: {rigs[key]}" + (", likely" if guess else "") + how
         convs = r.get("convs") or []
         label = key + ("?" if guess else "")
         if convs:

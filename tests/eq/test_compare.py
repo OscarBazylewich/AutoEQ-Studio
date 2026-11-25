@@ -109,6 +109,52 @@ def test_reasons_without_full_bass_and_seatings(check):
           seen)
 
 
+def test_reasons_name_one_other_measurement_and_rig_change_off(check):
+    # (the owner, 2026-11-25: "the other 1 on this rig" read wrongly; and with Rig change off the line said "Target
+    # adjusted via rig average …" although the target was not changed)
+    base = {"sure": True, "rig": "5128", "conv": {"how": "same"}, "bass": None, "n_files": 2, "fmin": 20,
+            "fmax": 20000, "points": 300, "channels": "LR", "source": "X"}
+    lines = {}
+    for name, extra in (("one", {"dev": 0.5, "peers": 1}), ("two", {"dev": 0.5, "peers": 2}),
+                        ("one differs", {"dev": 2.5, "peers": 1})):
+        c = dict(base, **extra)
+        compare.score(c, "5128")
+        lines[name] = c["reasons"][1][1]
+    check("compare: a reason names one other measurement on the rig “the other measurement”, and more “the other {n}”",
+          lines == {"one": "Matches the other measurement on this rig (0.5 dB difference)",
+                    "two": "Matches the other 2 on this rig (0.5 dB difference)",
+                    "one differs": "Differs from the other measurement on this rig (2.5 dB difference)"}, lines)
+    seen = {}
+    for name, on in (("on", True), ("off", False)):
+        c = dict(base, rig="711", dev=None, conv=rigconv.expected_rig_error("iem", "5128", "711", None, enabled=on))
+        compare.score(c, "5128")
+        seen[name] = c["reasons"][0][1]
+    check("compare: with Rig change off, the rig line says “Target not adjusted (rig change off).”, with no error of "
+          "the change; with it on, the line still says how the target is adjusted",
+          seen["off"].endswith(". Target not adjusted (rig change off).") and "adjusted via" not in seen["off"]
+          and "dB error" not in seen["off"] and " Target adjusted via rig average, " in seen["on"]
+          and seen["on"].endswith(" dB error, 1–10 kHz)."), seen)
+
+
+def test_note_with_rig_change_off(monkeypatch, check):
+    # (with Rig change off, the note said "Target adjusted for {n} of them" although no target was changed)
+    # (two made-up measurements of the model on a 711, for a 5128 target: the search and the loading stood in)
+    found = [{"src": "db", "id": f"x{i}", "name": "Truthear GATe", "source": f"Site {i}", "site": f"Site {i}",
+              "rig": "711", "sure": True, "variant": ""} for i in range(2)]
+    monkeypatch.setattr(compare, "candidates", lambda query, links=None: [dict(c) for c in found])
+    monkeypatch.setattr(compare, "_fetch", lambda c: c)
+    monkeypatch.setattr(compare, "_load", lambda c, cfg: {
+        **c, "hash": c["id"], "vals": engines.np.full(len(compare.F), float(c["id"][1:])), "n_files": 2,
+        "channels": "LR", "points": 300, "fmin": 20, "fmax": 20000})
+    notes = {}
+    for name, on in (("on", True), ("off", False)):
+        notes[name] = compare.compare({"rig_convert": {"enabled": on}}, "Truthear GATe", None,
+                                      rig_override="5128").get("note")
+    check("compare: with Rig change off, the note doesn't say that the target was adjusted",
+          notes["on"].startswith("No measurements match your target rig") and "Target adjusted for 2 of them" in notes["on"]
+          and "Target adjusted" not in notes["off"], notes)
+
+
 def test_your_files_rig_as_the_app_gives_it(monkeypatch, check):
     # (the recheck, 2026-10-23: for the app's sample measurement, from listener800's 5128 IEMs (its files named
     # "… (L800 IEM) L1.txt"), Which measurement said "in the app · rig not known" and warned "None of these was measured

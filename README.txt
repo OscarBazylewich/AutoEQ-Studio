@@ -272,19 +272,18 @@ Ctrl+Z undo. The mouse wheel zooms, and the right button (or Space) moves the pi
 zoom and move the picture. With one finger, a tap traces and a finger that moves drags.
 A graph from a website: some databases do not let other programs download their files. Find… shows "trace from
 website ↗" for their entries (measurements and targets). For such an entry, Use opens the website in your browser,
-and the app waits for a picture of the graph. If a website does not let the app download an entry, the app also
+and the app waits for a screenshot of the graph. If a website does not let the app download an entry, the app also
 uses pictures for the other entries of that database. After 7 days, the app tries to download again.
-The website can change a target with its settings (for example, tilt and bass). The picture shows the target with
-these settings.
-  1. If the website shows a window in front of the graph, close that window. If the graph does not show the entry,
-     select the entry in the list of the website. For an entry of a target, show only the target on the graph of
-     the website. Press Windows + Shift + S. Then select the area of the graph. Or click Screenshot on the website.
-  2. The tracer traces the picture automatically and shows the curve on the picture, on 3 Save. If a curve goes
+Site target adjustments (like tilt or bass) are captured in the screenshot.
+  1. Maximize your browser for better accuracy, and close any popups over the graph. If this entry isn't shown,
+     select it from the site's list. For an entry of a target, show only the target on the graph of the website.
+  2. Press Win+Shift+S and drag over the graph. Or click Screenshot on the site to save it to Downloads.
+  3. The tracer traces the picture automatically and shows the curve on the picture, on 3 Save. If a curve goes
      above or below the grid near an end of the frequency axis, the measurement does not include that part. The text
-     on 3 Save gives the frequencies. Compare the curve with the picture.
-  3. If they agree, click Add as measurement. For an entry of a target or an entry from Find a target, the tracer
-     tells you to click Add as target. If the tracer cannot trace the picture, it shows the step that you must
-     correct.
+     on 3 Save gives the frequencies.
+  4. Verify the curve against the picture, then click Add as measurement. For an entry of a target or an entry from
+     Find a target, the tracer tells you to click Add as target. If the tracer cannot trace the picture, it shows the
+     step that you must correct.
 If Windows has no text reader for your language, you type the values (Settings > Time & language > Language: add
 English with its "optical character recognition").
 

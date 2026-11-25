@@ -112,7 +112,7 @@ SETTINGS_TRACE = [{'title': 'Trace a graph image',
                                        'and selects “A target line” in “The graph shows”. Thus, the add button is Add '
                                        'as target. If you select “A measurement”, Add as measurement also adds the '
                                        'line. If the picture has more than one target line, show only one target on '
-                                       'the graph of the website. Then copy a new picture.',
+                                       'the graph of the website, then capture the graph again.',
                                        'Add as measurement does not add the target line. If you change the target line '
                                        '(for example, you erase a part of it or rename it), it becomes a measurement '
                                        'curve. To add it as a target, select it. Select “A target line” in “The graph '

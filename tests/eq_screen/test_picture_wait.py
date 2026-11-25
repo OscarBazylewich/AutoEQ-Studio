@@ -1660,7 +1660,7 @@ def test_window_in_front_of_the_graph(eq_screen, flow, monkeypatch, check):
                 wait.deleteLater()
     qt.pump(50)
     body = help_window._by_id()[help_window.entry_for("#pw-paste")]["body"]
-    para = next((p for p in body if "in front of the graph" in p), "")
+    para = next((p for p in body if "popups over the graph" in p), "")
     sentences = [s for s in para.replace("…", "").split(". ") if s.strip()]
     # (2026-11-12: then the sentence for an entry that the graph does not show: its share link is not verified on
     # each website)
@@ -1674,9 +1674,12 @@ def test_window_in_front_of_the_graph(eq_screen, flow, monkeypatch, check):
               for s in SCALED_ROOMS), {k: v[:2] + v[3:4] for k, v in seen.items()})
     # (2026-11-12: the instruction was in the paragraph that tells what the app does not do: one subject in each
     # paragraph, so it is a paragraph of its own)
-    check("website flow: Help of Paste the picture tells it too, in a paragraph of its own",
-          para == "If the website shows a window in front of the graph, close that window before you copy the picture."
-          and len(sentences) == 1, (len(sentences), para))
+    # (2026-11-25, the owner: Help has the words of the window's two steps, in a paragraph of their own)
+    check("website flow: Help of Paste the picture tells it too, with the words of the window's two steps, in a "
+          "paragraph of its own",
+          para == FRONT_WINDOW + " Press Win+Shift+S and drag over the graph, or click Screenshot on the site to "
+          "save it to Downloads." and len(sentences) == 2
+          and not any("in front of the graph" in p or "list of the website" in p for p in body), (len(sentences), para))
     # (2026-11-12: a curve that goes out of the grid near an end of the frequency axis is traced only to a frequency
     # before that end, trace_auto.out_parts: Help did not tell it. "Starts or stops at that frequency" was not exact
     # (a curve out at 18.6 kHz gave points to 17.45 kHz): the part is not included, and 3 Save's text gives the values)

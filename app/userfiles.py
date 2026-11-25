@@ -73,18 +73,19 @@ def count_files(pairs):
 
 
 def _unused_path(path):
-    """path, or "name (2).ext", "(3)" … when that's taken."""
+    """(path, 0), or ("name (2).ext", 2), ("name (3).ext", 3) … when that's taken."""
     stem, ext = os.path.splitext(path)
-    n = 2
+    n, given = 2, 0
     while os.path.exists(path):
-        path, n = f"{stem} ({n}){ext}", n + 1
-    return path
+        path, given, n = f"{stem} ({n}){ext}", n, n + 1
+    return path, given
 
 
 def move_tree(old, new):
     """Every file in old into new (its subfolders kept). Returns (moved, kept beside a different one of the same
-    name). The old folders go when they're empty."""
-    moved = renamed = 0
+    name, the highest copy number given to one of those: 2 for "(2)", 0 when none). The old folders go when they're
+    empty."""
+    moved = renamed = highest = 0
     for d, _subs, names in os.walk(old):
         for n in names:
             src = os.path.join(d, n)
@@ -95,7 +96,8 @@ def move_tree(old, new):
                 if filecmp.cmp(src, dest, shallow=False):  # (already there: the old copy goes)
                     os.remove(src)
                     continue
-                dest, renamed = _unused_path(dest), renamed + 1
+                (dest, copy), renamed = _unused_path(dest), renamed + 1
+                highest = max(highest, copy)
             os.makedirs(os.path.dirname(dest), exist_ok=True)
             shutil.move(src, dest)
             moved += 1
@@ -104,7 +106,7 @@ def move_tree(old, new):
             os.rmdir(d)
         except OSError:  # (not empty: something was left, e.g. a file in use)
             pass
-    return moved, renamed
+    return moved, renamed, highest
 
 
 def merge_sources(old):
@@ -123,11 +125,11 @@ def merge_sources(old):
 
 
 def move_all(pairs, sources=()):
-    """Move them (old_places() or change_pairs()). Returns (moved, renamed)."""
-    moved = renamed = 0
+    """Move them (old_places() or change_pairs()). Returns (moved, renamed, highest copy number), as move_tree."""
+    moved = renamed = highest = 0
     for old, new in pairs:
-        m, r = move_tree(old, new)
-        moved, renamed = moved + m, renamed + r
+        m, r, h = move_tree(old, new)
+        moved, renamed, highest = moved + m, renamed + r, max(highest, h)
     for rec in sources:
         merge_sources(rec)
     for old, _new in pairs:  # (an emptied inputs folder of the old layout)
@@ -137,7 +139,7 @@ def move_all(pairs, sources=()):
                 os.rmdir(parent)
             except OSError:
                 pass
-    return moved, renamed
+    return moved, renamed, highest
 
 
 def problem_with(folder):
