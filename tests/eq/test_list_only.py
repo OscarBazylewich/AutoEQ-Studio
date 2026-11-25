@@ -452,7 +452,7 @@ def test_which_measurement_lists_refused_entries_with_links(lists, monkeypatch, 
     r = compare.compare(eq_cfg, "truthear gate", None)
     check("list only: Which measurement lists an entry whose download was refused with its link, not as an error",
           [lnk["link"] for lnk in r["links"]] == [URL + "?share=Gate"] and not r["errors"] and not r["items"]
-          and r["note"] == "The app found no measurements with that name that it can download.", r)
+          and r["note"] == "", r)  # (no note: the text survey, 2026-11-24; the links line names them)
     r2 = compare.compare(eq_cfg, "truthear gate", None)
     check("list only: the next search lists it with its link at once (no download)",
           [lnk["link"] for lnk in r2["links"]] == [URL + "?share=Gate"] and not r2.get("errors"), r2)

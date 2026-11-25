@@ -146,9 +146,9 @@ def compare(cfg, query, target, rig_override=None, progress=None):
         tgt_rig, how = None, "selected by you"
     links = []
     cands = candidates(query, links=links)
-    if not cands:
+    if not cands:  # (no note: the list says "No downloadable results …", and the links line names what it can't download)
         return {"query": query, "target": target, "target_rig": tgt_rig, "how": how, "items": [], "links": links,
-                "note": "The app found no measurements with that name" + (" that it can download." if links else ".")}
+                "note": ""}
     loaded, errors = [], []
     with ThreadPoolExecutor(6) as ex:  # downloads in parallel; the levelling (V8) one at a time
         futs = [ex.submit(_fetch, c) for c in cands]
@@ -208,19 +208,15 @@ def compare(cfg, query, target, rig_override=None, progress=None):
     same = sum(1 for c in items if tgt_rig and c["rig"] == tgt_rig)
     conv = sum(1 for c in items if (c.get("conv") or {}).get("how") in ("own", "rigs"))
     note = ""
-    if not items and not errors and links:  # (each one was of a database that refused the download)
-        note = "The app found no measurements with that name that it can download."
-    elif not items:  # (every one failed to load: offline with nothing downloaded before, or their sites didn't answer)
-        note = ("The app cannot load these measurements (the causes are below this text). The app downloads the "
-                "measurements from the online databases when it compares them. For this, the app must connect to the "
-                "internet (Online, at the top right), and their websites must be available. Try again after some minutes.")
-    elif tgt_rig and not same and conv:
-        note = (f"None of these measurements is from the {RIGS[tgt_rig]}, the rig that your target is made for. The app "
-                f"changes the target for {conv} of them. The text of each measurement shows the error that stays.")
-    elif tgt_rig and not same:
-        note = (f"None of these measurements is from the {RIGS[tgt_rig]}, the rig that your target is made for. Thus, "
-                f"above approximately 2 kHz, they all have errors. A target for the "
-                f"{items[0]['rig'] and RIGS.get(items[0]['rig']) or 'rig of these measurements'} is better for them.")
+    # (each one of a database that refused the download: no note, as with nothing found above)
+    if not items and errors:  # (every one failed to load: offline with nothing downloaded before, or their sites didn't answer)
+        note = "Couldn't download measurements. Check that the app is online and try again in a few minutes."
+    elif items and tgt_rig and not same and conv:
+        note = (f"No measurements match your target rig ({RIGS[tgt_rig]}). Target adjusted for {conv} of them; see each "
+                "card for remaining error.")
+    elif items and tgt_rig and not same:
+        note = (f"No measurements match your target rig ({RIGS[tgt_rig]}), causing errors above ~2 kHz. A target for "
+                f"{items[0]['rig'] and RIGS.get(items[0]['rig']) or 'their rig'} will be more accurate.")
     return {"query": query, "target": target, "target_rig": tgt_rig, "target_rig_name": RIGS.get(tgt_rig), "how": how,
             "items": out, "errors": errors, "note": note, "f": [round(f, 2) for f in F[::2]], "links": links}
 
@@ -235,10 +231,10 @@ def average(keys, name):
     ten seatings counts once, like one with two). Returns (file name, text, rig, what it's made of)."""
     got = [_LAST[k] for k in keys if k in _LAST]
     if len(got) < 2:
-        raise ValueError("Select 2 or more measurements (if the list changed, compare again).")
+        raise ValueError("Select at least 2 measurements")
     found = {c["rig"] for c in got}
     if len(found) != 1 or None in found:
-        raise ValueError("The app can calculate an average only of measurements from the same known rig.")
+        raise ValueError("Only measurements from the same known rig can be averaged")
     rig = found.pop()
     vals = np.mean(np.array([c["vals"] for c in got]), axis=0)
     of = [f"{c['name']} ({c['source']})" for c in got]
@@ -256,47 +252,45 @@ def score(c, tgt_rig):
     r, pts = [], 0.0
     if tgt_rig is None:
         pts += 20
-        r.append(("·", "Rig of your target not known: the app does not compare the rigs"))
+        r.append(("·", "Target rig unknown: rigs not compared"))
     elif (c.get("conv") or {}).get("how") in ("own", "rigs"):
         # converted for the target's rig: full points when that leaves no more than the usual spread between units on
         # one rig, none when the rig still adds 4 dB; a little under a measurement on the target's own rig
         x = c["conv"]
         p = min(38.0, 40 * max(0.0, 1 - x["rig_part"] / 4))
         pts += p
-        with_ = f"a rig change made for {c['source']}" if x["how"] == "own" else f"the average of the rigs ({x['models']} models)"
-        head = ("Same rig as your target, but its source measures with a small difference. The app changes the target for it with" if c["rig"] == tgt_rig
-                else f"Measured on {'a ' + RIGS[c['rig']] if c['rig'] else 'a rig that the app does not know'}. The app changes the target for it with")
-        left = f"approximately {x['error']:.1f} dB of error stays, 1–10 kHz" + ("" if x["enabled"] else ", with no rig change (it is off)")
-        r.append(("+" if p >= 30 else "·" if p >= 15 else "−", f"{head} {with_} ({left})"))
+        with_ = c["source"] if x["how"] == "own" else f"rig average, {x['models']} models"
+        head = ("Same rig as target, with a slight source offset." if c["rig"] == tgt_rig
+                else f"Measured on {RIGS[c['rig']] if c['rig'] else 'an unknown rig'}.")
+        left = f"~{x['error']:.1f} dB error, 1–10 kHz" + ("" if x["enabled"] else "; rig change off")
+        r.append(("+" if p >= 30 else "·" if p >= 15 else "−", f"{head} Target adjusted via {with_} ({left})."))
     elif c["rig"] == tgt_rig:
         pts += 40
-        r.append(("+", f"Same rig as your target ({RIGS[tgt_rig]})" + ("" if c["sure"] else ", usual for this source")))
+        r.append(("+", f"Matches target rig ({RIGS[tgt_rig]})" + ("" if c["sure"] else ", typical for source")))
     elif c["rig"] is None:
         pts += 12
-        r.append(("·", "Rig not known"))
+        r.append(("·", "Unknown rig"))
     else:
-        r.append(("−", f"Different rig ({RIGS[c['rig']]}) from the rig of your target ({RIGS[tgt_rig]}), and no data for a change between them"))
+        r.append(("−", f"Rig mismatch ({RIGS[c['rig']]} vs. {RIGS[tgt_rig]}): no compensation data"))
     if c["dev"] is None:
         pts += 12.5
         if c["rig"] is not None:
-            r.append(("·", "No other measurement on the same rig to compare with"))
+            r.append(("·", "Only measurement on this rig"))
     else:
         pts += 25 * max(0.0, 1 - c["dev"] / 3)
-        word = "Agrees with" if c["dev"] < 1 else "Agrees approximately with" if c["dev"] < 2 else "Does not agree with"
-        r.append(("+" if c["dev"] < 1.5 else "−", f"{word} the other {c['peers']} on its rig ({c['dev']:.1f} dB difference)"))
+        word = "Matches" if c["dev"] < 1 else "Roughly matches" if c["dev"] < 2 else "Differs from"
+        r.append(("+" if c["dev"] < 1.5 else "−", f"{word} the other {c['peers']} on this rig ({c['dev']:.1f} dB difference)"))
+    # (full bass and an average of 4 or more files still score, with no line of their own: the line under the name
+    # gives the number of files. The text survey, 2026-11-24)
     if c["bass"] is None:
         pts += 10
     else:
         pts += 15 * max(0.0, 1 - max(0.0, -c["bass"] - 0.5) / 4)
         if c["bass"] < -1.5:
-            r.append(("−", f"Bass {-c['bass']:.1f} dB below the others: very possibly a bad seal"))
-        elif c["bass"] > -0.5:
-            r.append(("+", "Full bass (good seal)"))
+            r.append(("−", f"Bass {-c['bass']:.1f} dB lower than others"))
     pts += 10 * min(1.0, np.log2(c["n_files"] + 1) / np.log2(11))
-    if c["n_files"] >= 4:
-        r.append(("+", f"The average of {c['n_files']} seatings/channels"))
-    elif c["n_files"] == 1:
-        r.append(("·", "One file (one seating, or an average that the source made)"))
+    if c["n_files"] == 1:
+        r.append(("·", "Single file (one seating or pre-averaged)"))
     q = 0.0
     q += 5 if c["fmin"] <= 25 and c["fmax"] >= 16000 else 2 if c["fmax"] >= 12000 else 0
     q += 3 if c["points"] >= 200 else 1 if c["points"] >= 64 else 0
