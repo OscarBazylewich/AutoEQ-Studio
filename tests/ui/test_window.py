@@ -320,6 +320,17 @@ def test_top_bar_tooltips(devices_window, online, check):
                    "offline": "Offline: local data only, no internet access. Click to go Online."}, seen)
 
 
+
+def test_presets_reads_its_tooltip_to_a_screen_reader(devices_window, check):
+    # (the line for a screen reader is the tooltip, the owner's rule of 2026-11-24: Presets has a tooltip of its own,
+    # and tag() gave it the different first line of "#presets" in HELP as its description)
+    b = devices_window.win.presets_btn
+    got = (b.property("tip"), b.accessibleDescription(), b.property("help_key"))
+    check("window: a screen reader reads the tooltip of Presets as its description; F1 still opens its Help entry",
+          got == ("Save or load Make an EQ settings as a preset (settings only)",
+                  "Save or load Make an EQ settings as a preset (settings only)", "#presets"), got)
+
+
 def test_online_offline_shows_no_message(check):
     """The text survey, 2026-11-23: the change to Offline or Online shows no message bubble (the button of the top bar
     shows the state). The setting is still saved and the whole app still follows."""

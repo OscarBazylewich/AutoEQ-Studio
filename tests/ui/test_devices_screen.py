@@ -240,12 +240,17 @@ def test_line_keeps_a_profiles_name_whole(check):
              check_line(False, "“A. B (C)” is selected, but APO isn't loading it (file missing from APO folder)"),
              check_line(True, "EQ is off for this device (APO sees its section with no active profile)"),
              check_line(None, "Couldn't read Equalizer APO status: Benchmark tool not found. Install Equalizer APO "
-                              "1.3 or newer.")]
-    # was selftest.py:489
-    check("window: the device's line keeps a profile's name whole (brackets, a full stop) and drops the rest",
-          lines == ["APO is using “Truthear GATe (Diffuse field)”.",
-                    "“A. B (C)” is selected, but APO isn't loading it.",
-                    "EQ is off for this device.", "Couldn't read Equalizer APO status"],
+                              "1.3 or newer."),
+             check_line(False, "Equalizer APO isn't installed on this device, so EQ won't apply. Enable it in APO "
+                               "Configurator, then restart Windows.")]
+    # was selftest.py:489. (2026-11-24, the text survey, area 27: the line is one sentence or fragment, so it has no end
+    # period (style.md, rule 4 of the checklist), as the owner typed these texts; check_line added one)
+    check("window: the device's line keeps a profile's name whole (brackets, a full stop) and drops the rest, with no "
+          "end period",
+          lines == ["APO is using “Truthear GATe (Diffuse field)”",
+                    "“A. B (C)” is selected, but APO isn't loading it",
+                    "EQ is off for this device", "Couldn't read Equalizer APO status",
+                    "Equalizer APO isn't installed on this device, so EQ won't apply"],
           lines)
 
 
@@ -939,6 +944,20 @@ def test_rename_and_examine_again_without_a_help_line(set_up_window, check, monk
                               "", "#dev-rename"),
                   "Examine again 0": exam, "Examine again 1": exam,
                   "line": ("Does Equalizer APO use the EQ? (Examine again)", "", "#dev-check")}, got)
+
+
+
+def test_remove_reads_its_tooltip_to_a_screen_reader(set_up_window, check):
+    # (the line for a screen reader is the tooltip, the owner's rule of 2026-11-24: Remove has a tooltip of its own,
+    # and tag() gave it the different first line of "#dev-remove" in HELP as its description)
+    from PySide6.QtWidgets import QPushButton
+    win = set_up_window.win
+    win.render_device_panel()
+    rem = next(b for b in win.dev_panel.findChildren(QPushButton) if b.text() == "Remove")
+    got = (rem.toolTip(), rem.accessibleDescription(), rem.property("help_key"))
+    check("devices: a screen reader reads Remove's tooltip as its description; F1 still opens its Help entry",
+          got == ("Remove from Devices. Its profiles stay in Profiles.",
+                  "Remove from Devices. Its profiles stay in Profiles.", "#dev-remove"), got)
 
 
 def test_a_connected_device_stays_and_a_bubble_tells_why(devices_window, qapp, check):

@@ -129,13 +129,15 @@ class ElidedRadio(QRadioButton):
 def check_line(ok, text):
     """The device's one-line answer from Equalizer APO's check (switcher\\check.explain's words; all of it in the
     tooltip): the first sentence up to its ": " and without a closing "(…)" remark. A profile's name in “ ” is kept
-    whole, brackets and all ("Truthear GATe (Diffuse field)" was cut to “Truthear GATe, 2026-10-21)."""
+    whole, brackets and all ("Truthear GATe (Diffuse field)" was cut to “Truthear GATe, 2026-10-21). The line is one
+    sentence or fragment, so it has no end period (the text survey, 2026-11-24: style.md's rule 4, as the owner typed
+    these texts), also when the cut text had a second sentence after it."""
     if ok is None:  # (couldn't ask: "Couldn't ask Equalizer APO: why")
         return text.split(": ")[0]
     names = re.findall(r"“[^”]*”", text)
     masked = re.sub(r"“[^”]*”", "\x00", text)
     first = masked.split(". ")[0].split(": ")[0]
-    first = re.sub(r"\s*\([^()]*\)\.?$", "", first).rstrip(".") + "."
+    first = re.sub(r"\s*\([^()]*\)\.?$", "", first).rstrip(".")
     for n in names:
         first = first.replace("\x00", n, 1)
     return first
@@ -264,6 +266,9 @@ class DevicesScreen:
         rem.setAccessibleName(f"Remove {shown(rec)} from Devices")
         # (on for a connected device too: a click tells why in a bubble, UI-RULES 25)
         rem.setToolTip("Remove from Devices. Its profiles stay in Profiles.")
+        # (the line for a screen reader is the tooltip, the owner's rule of 2026-11-24: without this, tag() gave it the
+        # different first line of "#dev-remove" in HELP)
+        rem.setAccessibleDescription(rem.toolTip())
         rem.clicked.connect(lambda: self.remove_device(key))
         rem.setProperty("card_place", "remove device")
         help_window.tag(rem, "#dev-remove")

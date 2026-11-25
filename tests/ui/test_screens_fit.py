@@ -171,7 +171,13 @@ def test_settings_keeps_the_smallest_width(devices_window, check):
         from PySide6.QtWidgets import QGroupBox
         box = win.chk_matched
         words = win.matched_words
-        lines = words.height() > words.fontMetrics().height() * 1.5
+        # (the words wrap: on more lines when the room they got is less than they need on one line, and at half that
+        # width in any case. The text survey, 2026-11-24, made them shorter: at the smallest width they now fit on one
+        # line, so "on more lines" alone failed without a fault)
+        one = words.fontMetrics().horizontalAdvance(words.text())
+        tall = words.fontMetrics().height() * 1.5
+        lines = ((words.height() > tall or words.width() >= one)
+                 and words.heightForWidth(one // 2) > tall)
         card = box.parentWidget()
         while not isinstance(card, QGroupBox):
             card = card.parentWidget()
