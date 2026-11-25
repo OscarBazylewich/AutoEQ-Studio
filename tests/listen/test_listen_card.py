@@ -165,7 +165,7 @@ def test_history_listen_for_another_iem(card, check):
     # was eq_checks.py:2971
     check("listen: History's Keep to compare adds an EQ made for another IEM, and says in History's own line that it "
           "won't sound as intended", len(lis.pins) == n + 2 and "made for Another IEM" in lis.pins[-1]["note"]
-          and "is not correct" in told, told)
+          and "won’t sound accurate on" in told, told)
 
 
 def test_history_says_already_in_its_own_line(card, check):

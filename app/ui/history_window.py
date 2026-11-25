@@ -124,15 +124,14 @@ class HistoryWindow(QDialog):
                    if (not only or e.get("device") == name)
                    and all(w in f"{e.get('device')} {e.get('target')} {MODE_SHORT.get(e.get('mode'), '')} {e.get('label')}".lower()
                            for w in words)]
-        self.keep.setText(("History keeps all results, and the EQs that you save or copy." if page.S["history"]["keep"]
-                           == "all" else "History keeps the EQs that you save or copy.")
-                          + " You can change this in More settings › History.")
+        self.keep.setText(("Keeps all results and saved/copied EQs." if page.S["history"]["keep"] == "all"
+                           else "Keeps only saved/copied EQs.") + " Change in More settings › History.")
         body = QWidget()
         lay = QVBoxLayout(body)
         lay.setSpacing(6)
         if not entries:  # (the gray line in the list's middle, as every empty list's: UI-RULES 21)
-            self.empty = EmptyText(body, "No results. Type different text, or clear “This IEM only”." if page.history
-                                   else "No EQs. If you save or copy an EQ, History keeps it here.")
+            self.empty = EmptyText(body, "No matching EQs. Try a different search or clear filters." if page.history
+                                   else "No EQs yet. Saved or copied EQs appear here.")
         else:
             self.empty = None
         todo, day = [], ""
@@ -195,14 +194,14 @@ class HistoryWindow(QDialog):
             theme.mark(show, primary=True)
             self._enter.button = show
         icons.put(show, "view")  # (after the accent: its symbol is drawn in the accent's text colour then)
-        show.setToolTip("Show the EQ on the graph and the result card again, with its files if they are in the app")
+        show.setToolTip("Load this EQ on the graph and result card, with its files if available")
         show.clicked.connect(lambda: (self.page.show_history_entry(e), self.accept()))
         # (Show, then ⋯ with the other commands: Copy, Keep to compare, Remove from the history; the UI audit,
         # 2026-11-08: the 3 buttons with words took half of the row, and an EQ used 5 lines)
         more = QPushButton()
         icons.put(more, "more")
         theme.mark(more, quiet=True, nochevron=True)  # (no chevron: its symbol says it is a menu)
-        more.setToolTip("More commands: Copy, Keep to compare, Remove from the history")
+        more.setToolTip("More actions")  # (its screen-reader name stays "More commands for <its row>", set below)
         more.setAccessibleName(f"More commands for {e.get('device')} → {e.get('target')}, "  # (each row's own name: a
                                f"{day_of(e['when'])} {time_of(e['when'])}")  # screen reader read "More commands" on all)
         menu = QMenu(more)
@@ -243,7 +242,7 @@ class HistoryWindow(QDialog):
     def _head_text(e):
         """A row's first line: the IEM in bold, then the target in the theme's quieter colour (as it is now)."""
         return (f"<b>{_esc(e.get('device'))}</b> <span style='color:{theme.tokens()['muted']}'>→ {_esc(e.get('target'))}"
-                "</span>" + ("  · saved" if e.get("saved") else "")
+                "</span>" + ("  · saved/copied" if e.get("saved") else "")
                 + ("  · edited" if str(e.get("label", "")).endswith("(edited)") else ""))
 
     def _recolour(self):
@@ -256,8 +255,8 @@ class HistoryWindow(QDialog):
         with a note saying so). Said in this window's line."""
         page = self.page
         if not page.curves:
-            bubble.tell(None, "Select a measurement first. Each IEM or headphone has a different list of EQs to "
-                        "compare.", near=self)
+            bubble.tell(None, "Select a measurement first. Comparison lists are stored per IEM or headphone.",
+                        near=self)
             return
         other = e.get("device") != page.curves["name"]
         ok = page.listen.add(f"{MODE_SHORT.get(e.get('mode'), 'EQ')}, {e.get('n_filters')} filter{'' if e.get('n_filters') == 1 else 's'} "
@@ -266,9 +265,8 @@ class HistoryWindow(QDialog):
                              "from History" + (f" · error {e['rms']:.2f} dB" if e.get("rms") is not None else ""),
                              say=self.footer.say, near=self)
         if ok:
-            self.footer.say(f"It is in your EQs to compare. That EQ is for {e.get('device')}. Thus, its sound on the "
-                            f"{page.curves['name']} is not correct." if other else
-                            "It is in your EQs to compare. You can hear it in Listen.", 10000 if other else None)
+            self.footer.say(f"Added to EQs to compare. Built for {e.get('device')}, so it won’t sound accurate on "
+                            f"{page.curves['name']}." if other else "Added to EQs to compare", 10000 if other else None)
 
     def remove(self, keys):
         """The ✕: out of the history, with Undo in this window's line (UI-RULES 20)."""
@@ -284,7 +282,7 @@ class HistoryWindow(QDialog):
             mores = self._mores()
             (mores[min(at, len(mores) - 1)] if mores else self.q).setFocus(Qt.OtherFocusReason)
         if gone:
-            self.footer.say(f"You removed “{gone[0].get('device')} → {gone[0].get('target')}” from the history.",
+            self.footer.say(f"Removed “{gone[0].get('device')} → {gone[0].get('target')}” from History",
                             undo=lambda: self._put_back(gone))
 
     def _mores(self):
@@ -310,19 +308,18 @@ class HistoryWindow(QDialog):
 
     def clear_all(self):
         n = len(self.page.history)
-        if not n:
-            self.footer.say("The history is empty.")
-            return
+        if not n:  # (nothing said: the button is off then, and the empty list says "No EQs yet"; the text survey,
+            return  # 2026-11-24, took out "The history is empty.")
         if QMessageBox.question(self, "Clear the history",  # (its words the button's: clear, delete, never "remove")
-                                f"Clear the history: delete {'the EQ' if n == 1 else f'all {n} EQs'} in it? The files that you saved stay in your "
+                                f"Delete {'the EQ' if n == 1 else f'all {n} EQs'} from History? Saved files remain in your "
                                 "Saved EQs folder.", QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
             return  # (No the default: it can't be undone, UI-RULES 17)
         r = self.page.svc.call("/api/history/remove", {"all": True})
         if r.get("error"):  # (history.json couldn't be written: nothing is said cleared)
             QMessageBox.warning(self, "Clear the history", r["error"])
             return
-        self._show_entries(r.get("entries", []))
-        self.footer.say("You cleared the history.")
+        self._show_entries(r.get("entries", []))  # (no message after it: the emptied list shows the result; the text
+        # survey, 2026-11-24, took out "You cleared the history.")
 
 
 def _esc(s):

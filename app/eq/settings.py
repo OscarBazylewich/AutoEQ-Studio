@@ -386,8 +386,8 @@ def load(path=PATH):
                     break
             except OSError as e:  # (locked, e.g. by an antivirus or backup program: never taken for a broken file)
                 if attempt == 39:
-                    raise OSError(f"The app cannot read {path} at this time ({e.strerror or e}): a different program has it "
-                                  "open. Close it in that program, or wait some seconds. Then try again.") from None
+                    raise OSError(f"Couldn’t read {path} ({e.strerror or e}) because another program is using it. Close "
+                                  "it there or wait a moment, then try again.") from None
             time.sleep(0.05)
         if not isinstance(user, dict):
             # unreadable (e.g. a hand edit gone wrong): kept as settings.json.bad (never over an earlier .bad), said
@@ -414,14 +414,14 @@ def list_presets():
 def preset_path(name):
     safe = textfile.safe_name(name, "")
     if not safe:  # (".." or "...": it would have been "preset.json", over a preset really called that)
-        raise ValueError("Give the preset a name.")
+        raise ValueError("Enter a preset name")
     return os.path.join(PRESET_DIR, safe + ".json")
 
 
 def save_preset(name, cfg):
     """A preset keeps every setting except the files."""
     if not isinstance(cfg, dict):
-        raise ValueError("There are no settings to save.")
+        raise ValueError("No settings to save")
     os.makedirs(PRESET_DIR, exist_ok=True)
     s = with_auto(cfg)
     s.pop("files", None)
@@ -433,7 +433,7 @@ def read_preset(name):
     Presets menu's mark at the preset in use). load_preset is the same, then saved."""
     p = textfile.read_json(preset_path(name))
     if not isinstance(p, dict):
-        raise ValueError(f"The preset “{name}” is missing, or the app cannot read it.")
+        raise ValueError(f"Preset “{name}” is missing or unreadable")
     p["files"] = load()["files"]
     return with_auto(p)
 

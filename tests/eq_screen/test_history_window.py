@@ -67,7 +67,7 @@ def test_history_window_lists_and_removes(eq_screen, chain, check):
     gone = not any(e["key"] == kept[0]["key"] for e in page.history)
     # (2026-10-27, UI-RULES 20: Undo beside it, in History's own line; it puts the entry back as it was, its time too)
     line = hw.footer.line
-    offered = (line.text.text().startswith("You removed"), line.undo_btn.isVisibleTo(hw))
+    offered = (line.text.text().startswith("Removed “"), line.undo_btn.isVisibleTo(hw))
     line.undo_btn.click()
     back = next((e for e in page.history if e["key"] == kept[0]["key"]), None)
     hw.remove([kept[0]["key"]])  # (taken out again: the checks after this one find it gone, as before)
@@ -115,9 +115,33 @@ def test_clear_one_eq_says_the_eq(eq_screen, check, dialogs):
             asked.append(next((text for kind, text in dialogs.asked if kind == "question"), None))
     finally:
         page.history = kept
-    check("ui: History's Clear the history… with one EQ asks “delete the EQ in it?” (it said “all 1 EQs”), with two "
-          "“delete all 2 EQs”", asked[0] and "delete the EQ in it?" in asked[0]
-          and asked[1] and "delete all 2 EQs in it?" in asked[1], asked)
+    check("ui: History's Clear the history… with one EQ asks “Delete the EQ from History?” (it said “all 1 EQs”), with "
+          "two “Delete all 2 EQs”", asked[0] and "Delete the EQ from History?" in asked[0]
+          and asked[1] and "Delete all 2 EQs from History?" in asked[1], asked)
+
+
+def test_clear_says_no_message(made_up_history, eq_screen, check, dialogs, monkeypatch):
+    # (the text survey, 2026-11-24: "You cleared the history." after a clear and "The history is empty." with nothing
+    # to clear were taken out; the emptied list shows the result, and the button is off with nothing in History)
+    from PySide6.QtWidgets import QMessageBox
+    hw, page = made_up_history, eq_screen.page
+    real = page.svc.call
+
+    def call(path, body=None, *a, **k):  # (the made-up entries: the service's file does not have them)
+        if path == "/api/history/remove":
+            return {"entries": []}
+        return real(path, body, *a, **k)
+    monkeypatch.setattr(page.svc, "call", call)
+    said = []
+    monkeypatch.setattr(hw.footer, "say", lambda *a, **k: said.append(a))
+    dialogs.answer("question", QMessageBox.Yes)
+    hw.clear_all()
+    after_clear = (list(said), page.history, hw.empty.label.text() if hw.empty else None)
+    said.clear()
+    hw.clear_all()  # (History empty now: no question, no message)
+    check("history: Clear the history… says no message after it clears (the emptied list shows “No EQs yet”), and "
+          "none with nothing to clear",
+          after_clear == ([], [], "No EQs yet. Saved or copied EQs appear here.") and said == [], (after_clear, said))
 
 
 def test_long_history_in_batches(eq_screen, check):
@@ -298,7 +322,7 @@ def test_history_empty_line(eq_screen, check):
             qt.close(hw)
         page.history = kept
     check("history: an empty History shows every empty list's gray line in the list (No EQs, and what to do), no "
-          "other label", seen[0] and seen[1].startswith("No EQs.") and not seen[2], seen)
+          "other label", seen[0] and seen[1] == "No EQs yet. Saved or copied EQs appear here." and not seen[2], seen)
 
 
 def test_keep_to_compare_refusal_shown_in_history(made_up_history, eq_screen, monkeypatch, check):

@@ -958,8 +958,8 @@ class Listen(QGroupBox):
         asked (History), where a refusal's bubble goes (said at this card, it was behind History, 2026-11-10)."""
         near = near or self
         if not self.pins_for:
-            bubble.tell(None, "Select a measurement first. Each IEM or headphone has a different list of EQs to "
-                        "compare.", near=near)
+            bubble.tell(None, "Select a measurement first. Comparison lists are stored per IEM or headphone.",
+                        near=near)
             return False
         filters = [dict(f) for f in filters if f.get("enabled", True) is not False and f.get("freq") and f.get("q")]
         if not filters:
