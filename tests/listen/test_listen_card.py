@@ -116,6 +116,34 @@ def test_keep_to_compare(card, check):
           and any(s == "Already in EQs to compare" for s in said), (len(lis.pins), names))
 
 
+def test_keep_to_compare_of_a_graphic_eq_says_bands(card, check, monkeypatch):
+    # (a review, 2026-11-24: Keep to compare named a graphic EQ's result "#1: Best fit, 20 filters" and its row said
+    # "20 filters", while History's Keep to compare said "20 bands")
+    from PySide6.QtWidgets import QLabel
+    page, lis = card.page, card.lis
+    run, r = page.current()
+    graphic = dict(r, engine="graphic")
+    # (other gains than the result's: the same filters twice are refused, and test_keep_to_compare added them)
+    filters = [dict(f, gain=float(f["gain"]) + 0.5) for f in page.enabled_filters()]
+    monkeypatch.setattr(page, "current", lambda *a, **k: (run, graphic))
+    monkeypatch.setattr(page, "enabled_filters", lambda *a, **k: [dict(f) for f in filters])
+    before = list(lis.pins)
+    lis.add_selected()
+    monkeypatch.undo()
+    added = [p for p in lis.pins if p not in before]
+    n = len(filters)
+    rows = [lab.text() for lab in lis.findChildren(QLabel) if lab.text().startswith(f"{n} ")]
+    saved = page.svc.call("/api/listen", {"device": page.curves["name"]}).get("eqs") or []
+    lis.pins = before
+    lis.save_pins()
+    check("listen: Keep to compare of a graphic EQ's result names it with “N bands”, keeps its engine, and its row "
+          "counts bands",
+          len(added) == 1 and added[0]["name"].endswith(f", {n} bands") and added[0].get("engine") == "graphic"
+          and any(s.get("engine") == "graphic" for s in saved)
+          and sum(t.startswith(f"{n} bands") for t in rows) == 1,
+          (added, rows))
+
+
 def test_blind_test(card, check):
     lis = card.lis
     offered = lis.blind.isEnabled()  # (with both ears hearing the same version: test_versions_and_play chose it)

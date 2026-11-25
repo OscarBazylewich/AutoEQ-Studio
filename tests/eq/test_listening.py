@@ -125,6 +125,18 @@ def test_damaged_file_kept_aside(check):
     textfile.take_set_aside()  # (the notice it left for the window: no later test should see it)
 
 
+def test_a_graphic_eqs_engine_kept(check):
+    # (2026-11-24: a graphic EQ's result in EQs to compare said "10 filters" on its row, and its name "10 bands". Its
+    # engine is kept, so the row says "bands"; another engine or a value that is no engine is not kept)
+    kept = listening.put("IEM G", [{"name": "g", "filters": one_filter(), "engine": "graphic"},
+                                   {"name": "p", "filters": one_filter(), "engine": "peq"},
+                                   {"name": "x", "filters": one_filter(), "engine": ["graphic"]}])
+    back = listening.get("IEM G")
+    listening.put("IEM G", [])
+    check("EQs to compare: a graphic EQ's engine is kept with it, and no other engine",
+          [e.get("engine") for e in kept] == ["graphic", None, None] and back == kept, kept)
+
+
 def test_no_filters_and_no_name_said_with_the_name_it_would_get(check):
     # (2026-11-24: an EQ with no name and no filters gave “” has no filters. An EQ needs no name here: it gets
     # "EQ 1", "EQ 2", by its place, and the message uses that name)

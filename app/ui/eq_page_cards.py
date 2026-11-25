@@ -36,8 +36,10 @@ from ui.forms import CHOICE_MOST
 from ui.search_combo import SearchCombo
 
 
-# Number of filters' longest line (eq_page_result.show_result: a count, its error, the pick's words), for its width
-COUNT_LONGEST = "00 filters  ·  00.00 dB  ✓ recommended"
+# Number of filters' longest line (eq_page_result.show_result: a count, its error, the pick's words), for its width.
+# "bands" (a graphic EQ's result, eq_page_parts.count_words), not "filters": in Segoe UI 9 pt "00 bands" is 47 px
+# and "00 filters" 44 px (measured with QFontMetrics, 2026-11-24)
+COUNT_LONGEST = "00 bands  ·  00.00 dB  ✓ recommended"
 
 
 class EqCards:
@@ -598,8 +600,8 @@ class EqCards:
         help_window.tag(self.retry_btn, "f_retry")
         self.retry_btn.setToolTip("Recalculate Best fit starting from these filters")
         retry_menu = QMenu(self.retry_btn)
-        retry_menu.addAction("Adjust them", lambda: self.run(retry={"filters": self.enabled_filters(), "add": False}))
-        retry_menu.addAction("Keep them and add filters", lambda: self.run(retry={"filters": self.enabled_filters(), "add": True}))
+        retry_menu.addAction("Adjust them", lambda: self.run(retry=self.retry_from_card(False)))
+        retry_menu.addAction("Keep them and add filters", lambda: self.run(retry=self.retry_from_card(True)))
         self.retry_btn.setMenu(retry_menu)
         tools.addWidget(self.retry_btn)
         from ui.filter_editor import FilterEditor

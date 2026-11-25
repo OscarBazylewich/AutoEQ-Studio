@@ -20,7 +20,9 @@ LOAD_EQ = [
          "Click “Save filters”. Then add the file in its “Configuration Editor” (or copy the file into its config "
          "folder and add it to config.txt with “Include”)."),
         ("peace", "Peace (for Equalizer APO)", "Click “Save filters”. Then import the file in Peace."),
-        ("fxsound", "FxSound", "Set its 10 sliders to the gains in the filter table."),
+        ("fxsound", "FxSound", "Set the number of bands of FxSound to the band count of the EQ, and Filter Q to 1.0. "
+                               "With 5 or 10 bands, set each band to the frequency in the filter table. Then set "
+                               "its sliders to the gains in the filter table."),
         ("sonar", "SteelSeries Sonar", "Manually enter the filters from the filter table in its parametric EQ."),
         ("voicemeeter", "Voicemeeter (Banana, Potato)",
          "Open the EQ of a bus. Right-click its top bar. Click “Load EQ Settings”."),

@@ -24,8 +24,11 @@ class EqHistory:
             # (no "Manually" at the start: the card's title, the report's title and History's Method column say it)
             return f"{run.get('source') or 'your filters'} · {n} filter{'' if n == 1 else 's'}"
         if r.get("engine") == "graphic":
-            return (f"{lay['name'] if lay else 'Graphic EQ'}: {r['n_filters']} bands, {r.get('gain_min')} to "
-                    f"+{r.get('gain_max')} dB ({r.get('step')} dB steps)")
+            # (":g": the range and step of the sliders are kept as -12.0, 12.0 and 1.0, and Settings to try says
+            # "-12 to +12 dB (1 dB steps)" on the same page. A value that is no number, an old entry: as it is)
+            g = lambda v: f"{v:g}" if isinstance(v, (int, float)) and not isinstance(v, bool) else f"{v}"
+            return (f"{lay['name'] if lay else 'Graphic EQ'}: {r['n_filters']} bands, {g(r.get('gain_min'))} to "
+                    f"+{g(r.get('gain_max'))} dB ({g(r.get('step'))} dB steps)")
         if run["mode"] == "best_fit":
             yours, added = r.get("yours") or 0, max(0, r["n_filters"] - (r.get("yours") or 0))
             mine = ""

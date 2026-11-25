@@ -1,5 +1,6 @@
 """Your EQs to compare, one list per IEM or headphone (the measurement's name), kept between sessions in
-data\\listen.json: each one's name, filters, a note on where it came from, and whether it's drawn on the graph.
+data\\listen.json: each one's name, filters, a note on where it came from, whether it's drawn on the graph, and for
+a graphic EQ's result its engine ("graphic").
 
 The page adds to a list from the result card (Keep to compare), from History (Listen) or from an EQ file or pasted
 filters (in Listen), and plays them all in Listen. At most MAX_EQS per list (each plays through its own filters all
@@ -64,7 +65,10 @@ def _clean(e, i):
     if not filters:
         raise ValueError(f"“{name[:60]}” has no filters")
     color = e.get("color")
-    return {"key": str(e.get("key") or f"eq{i}")[:40], "name": name,
+    # (a graphic EQ's result keeps its engine: its row on Listen's card says "10 bands", ui\eq_page_parts.count_words;
+    # any other EQ has none)
+    graphic = {"engine": "graphic"} if e.get("engine") == "graphic" else {}
+    return {**graphic, "key": str(e.get("key") or f"eq{i}")[:40], "name": name,
             "note": str(e.get("note") or "")[:200], "filters": filters, "shown": e.get("shown") is not False,
             "color": color if isinstance(color, int) and not isinstance(color, bool) and 0 <= color < 64 else i,
             "added": float(e["added"]) if isinstance(e.get("added"), (int, float)) and not isinstance(e.get("added"), bool) else time.time()}

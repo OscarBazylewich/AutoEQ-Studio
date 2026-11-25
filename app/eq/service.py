@@ -494,7 +494,7 @@ JOB = {"id": None, "status": "idle"}  # id, status (idle, running, done, error, 
 CANCEL = threading.Event()
 
 
-def _run_job(job_id, mode, cfg, analysis=None):
+def _run_job(job_id, mode, cfg, analysis=None, counts=None):
     def progress(done, total, msg=""):
         with JOB_LOCK:
             if JOB["id"] == job_id:
@@ -509,7 +509,7 @@ def _run_job(job_id, mode, cfg, analysis=None):
             an = analysis if isinstance(analysis, dict) and analysis.get("key") == key else autoset.analyse(cfg, curves, meas_texts)
             autoset.apply(cfg, autoset.plan(cfg, an, mode)["values"])
         t0 = time.time()
-        out = pipeline.run_mode(mode, cfg, curves, meas_texts, target_text, progress, CANCEL)
+        out = pipeline.run_mode(mode, cfg, curves, meas_texts, target_text, progress, CANCEL, counts=counts)
         if not out.get("reused_sweep"):  # (a run that reused recent site runs says little about this PC's speed)
             autoset.learn(cfg, mode, time.time() - t0)  # so the next estimate fits this PC
         payload = {"mode": mode, "results": [pipeline.result_summary(r) for r in out["results"]],
@@ -539,17 +539,28 @@ def run(body):
         raise ValueError("Missing EQ method")
     cfg = cfg_from(body)
     settings.save(cfg)
-    retry = body.get("retry")
+    retry, counts = body.get("retry"), None
     if retry is not None:  # this run only: Best fit from the filters on the result card (the saved settings stay)
         if body["mode"] != "best_fit" or not isinstance(retry, dict):
             raise ValueError("“Calculate from these filters” only works with Best fit")
         filters = [f for f in exports.clean_filters(retry.get("filters")) if f["enabled"]]
+        # ("card": every filter of the result card, also those switched off; a request without it: its filters)
+        card = exports.clean_filters(retry["card"]) if retry.get("card") else exports.clean_filters(retry.get("filters"))
         if not filters:
             raise ValueError("No active filters to start from. Add or enable at least one filter.")
         add = bool(retry.get("add"))
         cfg = copy.deepcopy(cfg)
         # (as they are: kept ones must stay exactly the card's, not rounded like a saved file)
         cfg["best_fit"].update(start_filters=exports.filters_text(filters), start_keep=add, start_add=add)
+        # A graphic EQ app with several band counts (FxSound): the card's filters are the bands of one count, so
+        # this run fits that count only. With every count, the 10-band card became the selected 31-band result. (A
+        # fit of fixed bands starts from no filters: the card's gains are not used, as before.) The count is known
+        # by the frequencies of all the card's filters, not by how many are switched on: a 10-band card with 5
+        # bands off gave the 5-band EQ, at other frequencies than the card. A card that is not the bands of one
+        # count (a filter added, removed or moved): every count. A parameter of the run, not a setting: the
+        # settings stay as saved and the result's "settings" are those of a run of every count.
+        n_bands = layouts.count_of(cfg["best_fit"].get("layout"), [f["freq"] for f in card])
+        counts = None if n_bands is None else [n_bands]
     with JOB_LOCK:
         if JOB.get("status") == "running":
             raise ValueError("Another EQ calculation is already in progress")
@@ -558,7 +569,7 @@ def run(body):
         JOB.clear()
         JOB.update(id=job_id, status="running", mode=body["mode"], done=0, total=1, message="In progress…",
                    started=time.time())
-    threading.Thread(target=_run_job, args=(job_id, body["mode"], cfg, body.get("analysis")), daemon=True).start()
+    threading.Thread(target=_run_job, args=(job_id, body["mode"], cfg, body.get("analysis"), counts), daemon=True).start()
     return {"id": job_id}
 
 

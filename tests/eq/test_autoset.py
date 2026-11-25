@@ -107,6 +107,55 @@ def test_graphic_eq_has_only_the_range_note(check):
                                                             "vary with fit"}, notes)
 
 
+# ---------------------------------------------------------------- FxSound's band counts (one EQ for each, no setting)
+RANGE_NOTE = "Fit up to 10 kHz (default): measurements above 10 kHz vary with fit"
+
+
+def _fx(auto=True):
+    return settings.with_auto({"mode": "best_fit", "auto": {"enabled": auto}, "best_fit": {"layout": "app:fxsound"}})
+
+
+def test_fxsound_notes_say_bands(check):
+    p = autoset.plan(_fx(), dict(AN))
+    notes = {n["path"]: n["text"] for n in p["notes"]}
+    check("automatic settings: FxSound gets the audible pick with its note in the words for bands, and no value of "
+          "Best fit (the run fits every band count, with no setting for them)",
+          p["values"].get("scoring.pick") == "audible" and p["values"].get("scoring.ear_db") == 0.25
+          and notes == {"scoring.band_hz.1": RANGE_NOTE, "scoring.pick": "Fewest bands for the same sound (≤ 0.25 dB)"}
+          and not [k for k in p["values"] if k.startswith("best_fit.")], (p["values"], notes))
+    other = autoset.plan(settings.with_auto({"mode": "best_fit"}), dict(AN))
+    g10 = autoset.plan(settings.with_auto({"mode": "best_fit", "best_fit": {"layout": "graphic_10"}}), dict(AN))
+    check("automatic settings: the note of Best result in the words for filters for a parametric layout, and none "
+          "for a graphic layout with one set of bands",
+          {n["path"]: n["text"] for n in other["notes"]}["scoring.pick"] == "Fewest filters for the same sound (≤ 0.25 dB)"
+          and "scoring.pick" not in g10["values"], sorted(g10["values"]))
+
+
+def test_fxsound_texts_of_what_a_run_tries(check):
+    found = {auto: (autoset.describe(_fx(auto)), autoset.describe_short(_fx(auto))) for auto in (True, False)}
+    check("automatic settings: the texts of what a run tries for FxSound name its 5 EQs and band counts, with "
+          "Automatic settings on and off",
+          found == {a: ("FxSound: 5 EQs (5, 10, 15, 20, and 31 bands), -12 to +12 dB (1 dB steps)", "5 EQs, 5 to 31 bands")
+                    for a in (True, False)}, found)
+    g10 = settings.with_auto({"mode": "best_fit", "best_fit": {"layout": "graphic_10"}})
+    check("automatic settings: the texts for a graphic layout without band counts are as before",
+          (autoset.describe(g10), autoset.describe_short(g10)) == ("10-band graphic EQ: 10 band gains, -12 to +12 dB (0.1 dB steps)", "10 bands"),
+          (autoset.describe(g10), autoset.describe_short(g10)))
+
+
+def test_estimate_and_learn_with_band_counts(fresh_studio, check):
+    g10 = settings.with_auto({"mode": "best_fit", "best_fit": {"layout": "graphic_10"}})
+    e5, eg = autoset.estimate(_fx(), "best_fit"), autoset.estimate(g10, "best_fit")
+    check("automatic settings: the time estimate of FxSound's 5 band counts is 0.25 s more than one graphic fit "
+          "(0.6 s) and stays under 2 s",
+          eg == 0.6 and abs((e5 - eg) - 0.25) < 1e-9 and e5 < 2, (eg, e5))
+    before = autoset.estimate(settings.with_auto({"mode": "best_fit"}), "best_fit")
+    said = raises(autoset.learn, _fx(), "best_fit", 0.3)
+    check("automatic settings: a run of several band counts is learned from without an error and changes no estimate "
+          "of a parametric run (it has no fitting work to compare)",
+          said is None and autoset.estimate(settings.with_auto({"mode": "best_fit"}), "best_fit") == before, said)
+
+
 def test_range_note_gives_its_cause(check):
     found = [_notes({"mode": "site_single"}, **an)["scoring.band_hz.1"] for an in (
         {"band_why": "agree", "band_top": 16000, "n_files": 4}, {"band_why": "data", "band_top": 8000, "data_top": 8500},

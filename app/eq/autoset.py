@@ -438,9 +438,10 @@ class _Plan:
         if lay in layouts.DEVICES:
             self.note("best_fit.layout", layouts.summary(lay))
 
-    def picking(self):
+    def picking(self, bands=False):
         """The pick (the user's ask, 2026-10-12: as close to the target as possible without an audible difference):
-        the simplest result that sounds the same as the target (within EAR_DB everywhere, ear-smoothed:
+        bands: the note in the words for a graphic EQ app with several band counts (its results differ in their
+        number of bands). The simplest result that sounds the same as the target (within EAR_DB everywhere, ear-smoothed:
         engines.ear_error); when none can, the simplest that sounds the same as the closest result. Until then the
         simplest within 0.1 dB average error of the best (a choice until 1.0.9): on 15 IEMs and
         headphones it took 12 filters but differed from the closest result by up to 0.87 dB in some band, more than
@@ -449,7 +450,7 @@ class _Plan:
         self.values["scoring.pick"] = "audible"
         self.values["scoring.ear_db"] = EAR_DB
         # (the selection "Minimum number of filters for the same sound" of Best result, in fewer words)
-        self.note("scoring.pick", f"Fewest filters for the same sound (≤ {EAR_DB:g} dB)")
+        self.note("scoring.pick", f"Fewest {'bands' if bands else 'filters'} for the same sound (≤ {EAR_DB:g} dB)")
 
 
 def plan(cfg, an, mode=None):
@@ -459,8 +460,11 @@ def plan(cfg, an, mode=None):
     p.scored_range()
     if mode in ("site_single", "site_sweep", "best_fit"):
         getattr(p, mode)()
-    if mode == "site_sweep" or mode == "best_fit" and not layouts.is_fixed(cfg["best_fit"].get("layout", "any")):
+    lay = cfg["best_fit"].get("layout", "any")
+    if mode == "site_sweep" or mode == "best_fit" and not layouts.is_fixed(lay):
         p.picking()
+    elif mode == "best_fit" and layouts.counts(lay):  # (a graphic EQ app with several band counts: one result each)
+        p.picking(bands=True)
     _keep_pairs_in_order(cfg, p.values, p.notes)
     return {"values": p.values, "notes": [{"path": path, "text": t} for path, t in p.notes]}
 
@@ -482,8 +486,10 @@ def describe(cfg, mode=None):
         bf = cfg["best_fit"]
         if layouts.is_fixed(bf["layout"]):
             lo, hi, step = layouts.sliders(bf)  # (a graphic EQ app's own range and steps kept)
-            return (f"{layouts.name(bf['layout'])}: {_many(len(layouts.bands(bf)[0]), 'band gain')}, {lo:g} to "
-                    f"+{hi:g} dB ({step:g} dB steps)")
+            tried = layouts.counts(bf["layout"])  # (an EQ app with several band counts: one EQ for each)
+            what = (f"{_many(len(tried), 'EQ')} ({layouts.listed(tried, 'and')} bands)" if tried else
+                    _many(len(layouts.bands(bf)[0]), "band gain"))
+            return f"{layouts.name(bf['layout'])}: {what}, {lo:g} to +{hi:g} dB ({step:g} dB steps)"
         bf = device_settings(bf)
         nfit = engines.fit_count(bf, _count_mine(bf))  # (with your own filters: theirs too)
         fp = len(engines.fight_penalties(bf))
@@ -533,6 +539,9 @@ def describe_short(cfg, mode=None):
     if mode == "best_fit":
         bf = cfg["best_fit"]
         if layouts.is_fixed(bf["layout"]):
+            tried = layouts.counts(bf["layout"])  # (an EQ app with several band counts: one EQ for each)
+            if tried:  # (the ends only: the tooltip, describe(), has the list)
+                return f"{_many(len(tried), 'EQ')}, {tried[0]} to {tried[-1]} bands"
             return _many(len(layouts.bands(bf)[0]), "band")
         bf = device_settings(bf)
         n_mine = _count_mine(bf)
@@ -630,7 +639,10 @@ def _work_of_run(cfg, mode, cached=True):
     if mode == "site_single":
         return 0.6 + site_t(cfg["site_single"]["rows"]), 0.0, 0.0
     if mode == "best_fit" and layouts.is_fixed(cfg["best_fit"]["layout"]):  # (one fit of the gains: well under a second)
-        return 0.6, 0.0, 0.0
+        # (an EQ app with several band counts: 0.05 s more for each count. An estimate, from the 5 counts of
+        # FxSound: 0.15 to 0.31 s together, measured 2026-11-24 on the 4 sample pairs of the samples folder, 3 runs
+        # each)
+        return 0.6 + 0.05 * len(layouts.counts(cfg["best_fit"]["layout"])), 0.0, 0.0
     sweep = cfg["site_sweep"]
     if engines.sweep_size(sweep) <= engines.MAX_SITE_RUNS:
         combos = engines.site_combos(sweep)

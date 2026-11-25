@@ -8,6 +8,7 @@ MODE_HINT, TICKS and file_base_name still import from ui/eq_page.py too.
   column; row_name(fm, name): a device's or a profile's name cut to a row's room; update_row_words(fm, name,
   names): an update row's two texts, cut to their room (the menu and the Guide);
   use_menu_order(sw, own): Use on device's device rows and Update rows, in one sequence (the menu and the Guide)
+- count_words(n, engine): one result's count in a line, "6 filters", or "10 bands" for a graphic EQ's result
 - label(text, role, wrap): a label, in one of the theme's text roles; set_note(lab, text): a note's words, the note
   hidden while it has none (so an empty one takes no room); hz(v): a frequency in Hz or kHz
 - combo_width(combo, text): the width a drop-down needs for text; SameWidth: empty room as wide as another widget;
@@ -64,6 +65,15 @@ def set_note(lab, text):
 
 def hz(v):
     return f"{v / 1000:g} kHz" if v >= 1000 else f"{v:g} Hz"
+
+
+def count_words(n, engine=None):
+    """How many filters one result has, as a line says it: "1 filter", "6 filters"; for a result of a graphic EQ
+    (engine "graphic": every band is a filter of the result) "1 band", "10 bands". One place for the word: the items
+    of Number of filters, Compare's list, the Queue's "Done" line and History's lines. The names of settings, the
+    column heads and Best result's choices say "filters" for every EQ."""
+    word = "band" if engine == "graphic" else "filter"
+    return f"{n} {word}{'' if n == 1 else 's'}"
 
 
 def and_list(names):

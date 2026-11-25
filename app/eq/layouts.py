@@ -1,13 +1,15 @@
 """Best fit's filter layouts (best_fit.layout): what kind of EQ the filters are for.
 
-"any": a parametric EQ that takes any filters (Equalizer APO, Peace…): Best fit places them freely.
+"any": a parametric EQ that takes any filters (Equalizer APO…): Best fit places them freely.
 Fixed bands (a graphic EQ): the bands' frequencies and Q are set, only their gains are fitted (engines.graphic_run),
   within the sliders' range and in their steps (best_fit.bands: gain_min, gain_max, step; "bands": your own
   frequencies and Q too).
 The EQ apps (eq_apps.py, the "Your EQ app" choice) add their own: "app:<key>", fixed bands for a graphic EQ (its
 sliders' stated range and steps kept: sliders()) or, for an app with a set number of filters and ranges, a device:
 Best fit's own settings are kept within them (device_settings(); its "bands" are peaking filters and shelves
-together). The shared fixed layouts are eq_apps.BAND_LAYOUTS."""
+together). The shared fixed layouts are eq_apps.BAND_LAYOUTS.
+A graphic EQ app with more than one band count (FxSound: COUNTS, counts()) is fitted at each of its counts in one
+run (engines.graphic_run)."""
 import copy
 import math
 
@@ -20,6 +22,9 @@ OWN_BANDS = "bands"  # your own frequencies and Q (best_fit.bands.freqs, .q)
 # shelf or not, gain, Q, filter frequencies. They're the EQ apps' (eq_apps.py), with the limits their makers state.
 DEVICES = {}
 SLIDERS = {}  # a graphic EQ app's stated sliders: {"gain": (lowest, highest), "step"}
+# A graphic EQ app that offers more than one band count (eq_apps "band_sets"): key: {count: (centres, each band's Q)}.
+# FIXED has the set of the count it starts with, so a caller that knows nothing of counts gets that one.
+COUNTS = {}
 # The devices this list had before the EQ apps (AutoEq's presets): a saved layout with one of these keys is the app's now
 OLD_KEYS = {k: "app:" + k for k in ("qudelix_5k", "poweramp", "uapp", "neutron", "minidsp_2x4hd", "minidsp_il_dsp",
                                      "moondrop_free_dsp", "aunbandeq")}
@@ -28,7 +33,11 @@ for _k, _a in eq_apps.APPS.items():
     if eq_apps.layout_key(_k) != "app:" + _k:
         continue
     if _a["kind"] == "graphic":
-        FIXED["app:" + _k] = (_a["name"], list(_a["freqs"]), _a["q"])
+        _sets = eq_apps.band_sets(_k)
+        if _sets:
+            COUNTS["app:" + _k] = _sets
+        _freqs, _q = _sets[_a["band_default"]] if _sets else (_a["freqs"], _a["q"])
+        FIXED["app:" + _k] = (_a["name"], list(_freqs), _q)
         SLIDERS["app:" + _k] = {f: _a[f] for f in ("gain", "step") if f in _a}
     else:
         DEVICES["app:" + _k] = {"name": _a["name"], **{f: _a[f] for f in ("bands", "peaks", "shelves", "gain", "q", "freq") if f in _a}}
@@ -51,8 +60,38 @@ def name(key):
         FIXED[key][0] if key in FIXED else DEVICES[key]["name"] if key in DEVICES else key)
 
 
-def bands(bf):
-    """(centre frequencies, Q) of a fixed-band layout."""
+def counts(key):
+    """The band counts a layout offers, in rising order ([] for a layout with one set of bands)."""
+    return sorted(COUNTS.get(key, {}))
+
+
+def count_of(key, freqs):
+    """The band count of a layout with counts whose bands are exactly at these frequencies (in any order), or None.
+    For "Calculate from these filters": the filters of a result card, switched on or off, are the bands of one count
+    only when no band was added, removed or moved. Within 0.1 %: a frequency as the filter table shows it (115.7 Hz
+    for 115.734 Hz) is still that band, and the nearest band of another count is 0.8 % away (63 and 62.5 Hz)."""
+    try:
+        got = sorted(float(f) for f in freqs)
+    except (TypeError, ValueError):
+        return None
+    for n, (own_freqs, _q) in COUNTS.get(key, {}).items():
+        if len(got) == n and all(math.isclose(a, b, rel_tol=1e-3) for a, b in zip(got, sorted(own_freqs))):
+            return n
+    return None
+
+
+def listed(values, word):
+    """Numbers in words: "5", "10 and 31", "5, 10, 15, 20, and 31" (word: "and" or "or")."""
+    v = [f"{x:g}" for x in values]
+    return v[0] if len(v) == 1 else f"{v[0]} {word} {v[1]}" if len(v) == 2 else ", ".join(v[:-1]) + f", {word} {v[-1]}"
+
+
+def bands(bf, n=None):
+    """(centre frequencies, Q) of a fixed-band layout; n: of that band count, for a layout with counts (without n:
+    its default set)."""
+    if n is not None and bf["layout"] in COUNTS:
+        freqs, q = COUNTS[bf["layout"]][n]
+        return list(freqs), q
     if bf["layout"] in FIXED:
         return list(FIXED[bf["layout"]][1]), FIXED[bf["layout"]][2]
     return sorted(set(float(x) for x in bf["bands"]["freqs"])), float(bf["bands"]["q"])
@@ -119,6 +158,8 @@ def summary(key):
     """A line on what the layout holds (the page shows it under the layout)."""
     if key == "any":
         return "Filters at all frequencies, with the filter counts that you set: for EQ apps with no limits on the filters."
+    if key in COUNTS:  # (each count has its own ends and Q: only the counts are said)
+        return f"{listed(counts(key), 'or')} bands: Best fit adjusts only their gains."
     if key in FIXED:
         f, q = FIXED[key][1], FIXED[key][2]
         return f"{len(f)} bands, {_hz(f[0])} to {_hz(f[-1])}, Q {q:g}: Best fit adjusts only their gains."

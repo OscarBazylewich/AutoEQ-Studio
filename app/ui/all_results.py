@@ -1,5 +1,6 @@
 """Every result of a run (AutoEQ Local's "All N results" window, results.js renderRuns/renderGrid, natively):
-- the grid: the lowest error for each filter count (or the website's filter rows) and max Q, shaded when it sounds
+- the grid (not for a graphic EQ's results, one for each band count): the lowest error for each filter count (or the
+  website's filter rows) and max Q, shaded when it sounds
   the same as the target (the audible pick's rule); a click shows that result (Best fit and the website sweep, with
   several results). Best fit's rows say how many filters the run tried ("6 filters", or "up to 7 filters" when a
   result there kept fewer: that cell says its own count, "· 6f", as the website sweep's cells do)
@@ -15,7 +16,7 @@ the screen has room, and within the screen's room (window_parts.fit_to_screen: a
 the taskbar). It ends with every window's footer (window_parts.Footer: its Close; it had none, only the title bar's
 ✕ and Esc), and Enter presses nothing (a cell or row is clicked).
 """
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QFontMetrics, QPalette
 from PySide6.QtWidgets import (QAbstractItemView, QDialog, QHeaderView, QLabel, QStyledItemDelegate, QTableWidget,
                                QTableWidgetItem, QVBoxLayout)
@@ -28,6 +29,10 @@ HEAD = [("Error (dB)", "rms"), ("Filters", "n_filters"), ("Rows", "rows"), ("Ran
         ("Maximum Q", "q_max"), ("Maximum gain", "max_boost"), ("Pre-amp", "preamp")]
 SAME = Qt.UserRole + 1  # (a grid cell's mark: sounds the same as the target)
 LEFT = Qt.AlignLeft | Qt.AlignVCenter  # (Windows 11's tables: words at the left, under their heading)
+NBSP = chr(0xA0)  # (a space that never ends a line: the words it joins stay together)
+# The room that a heading of the table has beside its words: the 8 px at each side of ui\theme_sheet.py's
+# "QHeaderView::section" and 2 px to spare; and the room of the sort arrow, in the one column that has it
+HEAD_PAD, HEAD_ARROW = 18, 16
 
 
 class _Shade(QStyledItemDelegate):
@@ -66,6 +71,10 @@ def _table_look(t):
     t.horizontalHeader().setDefaultAlignment(LEFT)
     t.horizontalHeader().setHighlightSections(False)
     t.verticalHeader().setDefaultAlignment(LEFT)
+
+
+def _is_num(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
 
 
 class _Num(QTableWidgetItem):
@@ -120,9 +129,10 @@ class AllResults(QDialog):
         self.table.verticalHeader().hide()
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        # (the error's column as wide as its words: "0.225  ✓ recommended" ended in "…" in a shared width)
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        # (the widths of the columns: _fit_columns, with each change of the table's width and of its sort)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Fixed)
+        self.table.viewport().installEventFilter(self)
+        self.table.horizontalHeader().sortIndicatorChanged.connect(self._fit_columns)
         self.table.cellClicked.connect(lambda row, _c: self.select_result(self.table.item(row, 0).data(Qt.UserRole)))
         v.addWidget(self.table, 1)
         self.footer = Footer(self)
@@ -130,6 +140,40 @@ class AllResults(QDialog):
         enter_presses(self)
         self.render()
         self._widen_for_grid()
+
+    def eventFilter(self, obj, event):
+        if obj is self.table.viewport() and event.type() == QEvent.Resize:
+            self._fit_columns()
+        return super().eventFilter(obj, event)
+
+    def _fit_columns(self, *_):
+        """The widths of the table's columns. The error's column as wide as its words ("0.225  ✓ recommended"
+        ended in "…" in a shared width); the others share the rest of the table's width evenly, as they did. When
+        that share is narrower than a heading or a value (a narrow window: "Maximum gain" was cut to "Maximum ga"),
+        each column is as wide as its own words and they share only what is left over; narrower than all the
+        words, the table scrolls sideways."""
+        t = self.table
+        h = t.horizontalHeader()
+        shown = [c for c in range(t.columnCount()) if not t.isColumnHidden(c)]
+        bold = QFont(h.font())
+        bold.setWeight(QFont.DemiBold)  # (the headings' weight in ui\theme_sheet.py)
+        fm = QFontMetrics(bold)
+        need = {c: max(fm.horizontalAdvance(HEAD[c][0]) + HEAD_PAD + (HEAD_ARROW if c == h.sortIndicatorSection() else 0),
+                       t.sizeHintForColumn(c)) for c in shown}
+        rest = [c for c in shown if c != 0]
+        room = t.viewport().width() - need[0]
+        even = room // max(1, len(rest))
+        if rest and even < max(need[c] for c in rest):
+            spare = max(0, room - sum(need[c] for c in rest)) // len(rest)
+            widths = {c: need[c] + spare for c in rest}
+        else:
+            widths = {c: even for c in rest}
+        if rest:  # (the last column to the table's edge: what the division left over)
+            widths[rest[-1]] += max(0, room - sum(widths.values()))
+        widths[0] = need[0] if rest else max(need[0], t.viewport().width())
+        for c, w in widths.items():
+            if h.sectionSize(c) != w:
+                h.resizeSection(c, w)
 
     def _widen_for_grid(self):
         """Opened wide enough for its whole grid when the screen has room (its rows' names and every column at its
@@ -190,7 +234,10 @@ class AllResults(QDialog):
         run, page = self.run, self.page
         # the grid
         rs = run["results"]
-        show = run["mode"] in ("site_sweep", "best_fit") and len(rs) > 1
+        # (no grid for a run of a graphic EQ's results, one for each band count of FxSound: each count has its own
+        # Q, so the grid would be filled only on its diagonal. The table below has every result)
+        graphic = all(r.get("engine") == "graphic" for r in rs)
+        show = run["mode"] in ("site_sweep", "best_fit") and len(rs) > 1 and not graphic
         for w in (self.grid_title, self.grid):
             w.setVisible(show)
         if show:
@@ -250,6 +297,8 @@ class AllResults(QDialog):
         # Best fit's own count of the filters it added said "1" for a 2-filter result and nothing for a Retry's)
         t = self.table
         t.setColumnHidden(2, not str(run.get("mode", "")).startswith("site"))
+        # (and its Range column not for a graphic EQ's results: their bands are fixed, so the column was empty)
+        t.setColumnHidden(3, graphic)
         # (the sort you chose by a click on a heading stays when the table fills again, as it does after each click
         # on a result; the lowest error first only on the first fill, or for a different run)
         h = t.horizontalHeader()
@@ -263,10 +312,13 @@ class AllResults(QDialog):
             t.insertRow(i)
             err = _Num(f"{r['rms']:.3f}" + ("  ✓ recommended" if r["id"] == run["pick"] else ""), r["rms"])
             err.setData(Qt.UserRole, r["id"])
-            pre = r.get("preamp")
+            pre, lo, hi = r.get("preamp"), r.get("gain_min"), r.get("gain_max")
             cells = [err, _Num(str(r["n_filters"]), r["n_filters"]), _Num(str(r.get("rows") or ""), r.get("rows")),
                      _Num(f"{r.get('freq_low', '')}–{r.get('freq_high', '')}" if r.get("freq_low") is not None else "", None),
-                     _Num(f"{r.get('gain_min', '')} to {r.get('gain_max', '')}" if r.get("gain_min") is not None else "", None),
+                     # (":g": a graphic EQ's slider range is kept as -12.0 and 12.0, and "-12.0 to 12.0" was cut
+                     # short in its column: "-12 to 12")
+                     _Num(f"{lo:g} to {hi:g}" if _is_num(lo) and _is_num(hi)
+                          else f"{lo} to {'' if hi is None else hi}" if lo is not None else "", None),
                      _Num(f"{r.get('q_max', '')}", r.get("q_max")), _Num(f"+{r['max_boost']:.1f}", r["max_boost"]),
                      _Num(page.preamp_text(pre) if pre is not None else "", pre)]
             for c, it in enumerate(cells):
@@ -279,3 +331,4 @@ class AllResults(QDialog):
         # (the lowest error at the top, its arrow up: Qt sorted them again from the highest when sorting came on;
         # the UI audit, 2026-11-08)
         t.sortByColumn(*sort)
+        self._fit_columns()

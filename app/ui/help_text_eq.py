@@ -309,7 +309,7 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                 'items': [{'key': 'best_fit.layout',
                            'title': 'Layout',
                            'body': ['The type of EQ, for Best fit. Parametric filters: an app with no limits '
-                                    '(Equalizer APO, Peace…). Graphic EQ: the sliders of a graphic EQ, and Best fit '
+                                    '(Equalizer APO…). Graphic EQ: the sliders of a graphic EQ, and Best fit '
                                     'adjusts only their gains. The layout of an EQ app: its number of filters and its '
                                     'ranges. Your EQ app sets this.']},
                           {'key': 'best_fit.bands.freqs',
@@ -417,7 +417,9 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                           {'key': 'fcounts',
                            'title': 'Number of filters',
                            'body': ['The best result for each number of filters. With one click, you get a smaller '
-                                    'number of filters (easier to enter) or a nearer result.']},
+                                    'number of filters (easier to enter) or a nearer result. For a graphic EQ app '
+                                    'with more than one band count (FxSound), the list has the best result for each '
+                                    'band count.']},
                           {'key': 'f_retry',
                            'title': 'Calculate from these filters',
                            'body': ['Calculates again with Best fit, from the filters on the result card, for this '

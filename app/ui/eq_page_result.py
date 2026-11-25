@@ -19,8 +19,8 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 import textfile
 from ui import bubble
-from ui.eq_page_parts import (MESSAGE_NAMES, MODE_SHORT, PASTE_HINT, and_list, file_base_name, first_names, modal,
-                              row_name, skipped_words, update_row_words, use_menu_order)
+from ui.eq_page_parts import (MESSAGE_NAMES, MODE_SHORT, PASTE_HINT, and_list, count_words, file_base_name, first_names,
+                              modal, row_name, skipped_words, update_row_words, use_menu_order)
 from ui.search_combo import natural_key
 
 # By hand's Start from: an EQ's sources in the order every such list has (.claude/notes/UI-RULES.md 16), each with the
@@ -195,7 +195,7 @@ class EqResult:
             by_n[shown["n_filters"]] = shown
         self.count_combo.clear()
         for n, x in sorted(by_n.items()):
-            self.count_combo.addItem(f"{n} filter{'' if n == 1 else 's'}  ·  {x['rms']:.2f} dB"
+            self.count_combo.addItem(f"{count_words(n, x.get('engine'))}  ·  {x['rms']:.2f} dB"
                                      + ("  ✓ recommended" if x["id"] == run["pick"] else ""), x["id"])
         self.count_combo.setCurrentIndex(max(0, self.count_combo.findData(rid)))
         self.count_combo.sort_items()
@@ -214,18 +214,19 @@ class EqResult:
         hz = lambda v: (f"{v / 1000:.1f} kHz" if v >= 1000 else f"{v:.0f} Hz") if v else ""
         if r.get("ear") is None or not case:
             return ""
+        things = "bands" if r.get("engine") == "graphic" else "filters"  # (a graphic EQ's results differ by band count)
         if r["id"] != run.get("pick"):  # (where the largest difference is: only when it is over the limit)
             return f"Within {r['ear']:.2f} dB of target" + (
                 f" · Peak deviation near {hz(r['ear_at'])}" if r.get("ear_at") and r["ear"] > lim else "")
         if case == "target":
-            return (f"Audibly matches target: within {r['ear']:.2f} dB (limit: {lim:g} dB), using the fewest filters "
+            return (f"Audibly matches target: within {r['ear']:.2f} dB (limit: {lim:g} dB), using the fewest {things} "
                     "needed")
         # (no EQ reaches the target: the nearest one's difference, and "(fewer filters)" when this EQ is not that one
         # but sounds the same with fewer filters)
         best = min((x for x in run["results"] if x.get("ear") is not None), key=lambda x: x["ear"], default=r)
         where = hz(best.get("ear_at"))
         return (f"Couldn't match target: closest is {best['ear']:.2f} dB off" + (f" near {where}" if where else "")
-                + ("" if best["id"] == r["id"] else " (fewer filters)"))
+                + ("" if best["id"] == r["id"] else f" (fewer {things})"))
 
     # ---------------------------------------------------------------- runs this session (results.js RUNS)
     def use_these_settings(self):
@@ -349,6 +350,14 @@ class EqResult:
         """The filters switched on, as the run, Save and Use take them."""
         return [{"type": f.get("type", "PK"), "freq": f["freq"], "gain": f["gain"], "q": f["q"]}
                 for f in self.EDIT if f.get("enabled", True) is not False]
+
+    def retry_from_card(self, add):
+        """What "Calculate from these filters" sends: the filters switched on (the run starts from them) and "card",
+        every filter of the card with its switch. By the frequencies of all of them the run knows the band count of
+        a graphic EQ's card (FxSound), also when some bands are switched off."""
+        return {"filters": self.enabled_filters(), "add": add,
+                "card": [{"type": f.get("type", "PK"), "freq": f["freq"], "gain": f["gain"], "q": f["q"],
+                          "enabled": f.get("enabled", True) is not False} for f in self.EDIT]}
 
     def edited(self):
         key = lambda fl: sorted((f.get("enabled", True) is not False, f.get("type", "PK"), float(f["freq"]),
@@ -548,8 +557,10 @@ class EqResult:
         body = {"settings": self.S, "cards": cards, "open": open_it, "name": own,
                 **({"meas_files": mf, "target_file": tf} if own_files else {})}
         if run["mode"] in ("site_sweep", "best_fit") and len(run["results"]) > 1:
+            # ("engine": report.grids_for makes no grid for the results of a graphic EQ, one for each band count)
             body.update(grid_mode=run["mode"], grid_results=[{k: x.get(k) for k in ("rows", "q_max", "rms", "freq_high",
-                                                                                     "n_filters", "max_boost", "ear")}
+                                                                                     "n_filters", "max_boost", "ear",
+                                                                                     "engine")}
                                                              for x in run["results"]])
         res = self.svc.call("/api/report", body)
         if res.get("exists"):

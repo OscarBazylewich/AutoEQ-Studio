@@ -175,6 +175,50 @@ def test_all_results_shading_follows_the_theme(four, eq_screen, check):
           (light["corner"], light["card"], dark["corner"], dark["card"]))
 
 
+def _heading_ink(t):
+    """{heading: how wide its words are drawn, in px} for the table's columns in sight, the sorted one aside (its
+    arrow is drawn too)."""
+    from PySide6.QtCore import QRect
+    h = t.horizontalHeader()
+    img, out = qt.picture(h), {}
+    for c in range(t.columnCount()):
+        if t.isColumnHidden(c) or c == h.sortIndicatorSection():
+            continue
+        rect = QRect(h.sectionViewportPosition(c), 0, h.sectionSize(c), h.height())
+        back = img.pixelColor(rect.left() + 1, rect.center().y()).getRgb()[:3]
+        cols = [x for x in range(rect.left(), rect.right() + 1)
+                if any(max(abs(a - b) for a, b in zip(img.pixelColor(x, y).getRgb()[:3], back)) > 80
+                       for y in range(rect.top() + 2, rect.bottom() - 1))]
+        out[t.horizontalHeaderItem(c).text()] = (cols[-1] - cols[0] + 1) if cols else 0
+    return out
+
+
+def test_all_results_headings_whole(four, check):
+    # (2026-11-24: with every column the same width, "Maximum gain" was cut to "Maximum ga" in a window of 780 px
+    # and at the window's smallest size. Each heading's words are measured as drawn, and again in a very wide window)
+    ar = four
+    t = ar.table
+    seen = {}
+    for name, size in (("at 780 px", (780, 720)), ("at its smallest", None), ("very wide", (2400, 720))):
+        ar.resize(*size) if size else ar.resize(ar.minimumSize())
+        qt.pump(200)
+        seen[name] = _heading_ink(t)
+        if name == "at its smallest":
+            h = t.horizontalHeader()
+            t.sortByColumn(6, Qt.AscendingOrder)  # (sorted by Maximum gain: its arrow beside its words, not over them)
+            qt.pump(100)
+            sorted_width = (h.sectionSize(6), _heading_ink(t).get("Filters"))
+            t.sortByColumn(0, Qt.AscendingOrder)
+            qt.pump(100)
+    wide = seen["very wide"]
+    check("all results: each heading of the table is drawn whole at 780 px and at the window's smallest size (as "
+          "wide as in a very wide window)",
+          len(wide) == 6 and all(v > 10 for v in wide.values())
+          and all(abs(seen[k][n] - wide[n]) <= 1 for k in ("at 780 px", "at its smallest") for n in wide), seen)
+    check("all results: the column that the table is sorted by has room for its arrow beside its heading",
+          sorted_width[0] >= wide["Maximum gain"] + 16 + 16 and sorted_width[1] == wide["Filters"], (sorted_width, wide))
+
+
 def test_all_results_words_whole(four, check):
     from PySide6.QtGui import QFont, QFontMetrics
     ar = four

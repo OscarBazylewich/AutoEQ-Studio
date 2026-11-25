@@ -177,9 +177,10 @@ def sweep_cached(cfg):
         return False
 
 
-def run_mode(mode, cfg, curves, meas_texts, target_text, progress=None, cancel=None, seeds=()):
+def run_mode(mode, cfg, curves, meas_texts, target_text, progress=None, cancel=None, seeds=(), counts=None):
     """Run one EQ method. progress(done, total, message) reports as it goes; cancel (an Event) stops it (raises
     engines.Cancelled). seeds: site results for Best fit to start from (none since 1.0.9: none are run for it).
+    counts: for a graphic EQ app with several band counts, only these (engines.graphic_run; None: all).
     Returns {"results": [...], "pick": the one picked, "best": the lowest error, "reused_sweep": site runs reused}."""
     say = progress or (lambda *a: None)
     check_run(mode, cfg, curves)
@@ -190,8 +191,10 @@ def run_mode(mode, cfg, curves, meas_texts, target_text, progress=None, cancel=N
     elif mode == "site_sweep":
         results, reused = _site_sweep(cfg, curves, meas_texts, target_text, say, cancel)
     elif mode == "best_fit" and layouts.is_fixed(cfg["best_fit"]["layout"]):
-        say(0, 1, f"Best fit: adjusting band gains ({layouts.name(cfg['best_fit']['layout'])})")
-        results = engines.graphic_run(cfg, curves)
+        # (one fit, or one for each band count of an EQ app with several: the count in done/total, the same
+        # message; in this process, they take a fraction of a second together)
+        msg = f"Best fit: adjusting band gains ({layouts.name(cfg['best_fit']['layout'])})"
+        results = engines.graphic_run(cfg, curves, lambda d, t: say(d, t, msg), cancel, counts)
     elif mode == "best_fit":
         cfg = copy.deepcopy(cfg)  # (a device layout: Best fit's settings within the device's)
         bf = cfg["best_fit"]

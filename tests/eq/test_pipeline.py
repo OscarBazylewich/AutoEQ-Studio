@@ -44,6 +44,31 @@ def test_more_of_your_filters_than_the_device_holds(sample_curves, check):
     check("devices: more filters of yours than the device holds is said before the run", "but Voicemeeter (Banana, Potato) allows at most" in msg7, msg7)
 
 
+@pytest.mark.parametrize("pick", ["audible", "lowest"])
+def test_fxsound_band_counts_one_run(pick, sample_curves, check):
+    curves, mt, tt = sample_curves
+    cfg = settings.with_auto({"mode": "best_fit", "auto": {"enabled": False}, "scoring": {"pick": pick}, "best_fit": {
+        "layout": "app:fxsound"}})
+    said = []
+    out = pipeline.run_mode("best_fit", cfg, curves, mt, tt, progress=lambda d, t, m="": said.append((d, t, m)))
+    rs = out["results"]
+    check(f"FxSound: a run with its 5 band counts gives 5 results in the order of the counts ({pick})",
+          [(r["id"], r["rows"], r["mode"], r["engine"]) for r in rs]
+          == [(i, n, "best_fit", "graphic") for i, n in enumerate((5, 10, 15, 20, 31))], [(r["id"], r["rows"]) for r in rs])
+    chosen, best, case = engines.pick(rs, cfg["scoring"], curves, cfg["scoring"]["band_hz"])
+    check(f"FxSound: the result of the run is the one that Best result selects among the 5, by the rule of every "
+          f"layout ({pick})",
+          out["pick"] is chosen and out["best"] is best and out["pick_case"] == case
+          and best["rms"] == min(r["rms"] for r in rs) and (pick != "lowest" or out["pick"] is best)
+          and (pick != "audible" or case in ("target", "best")), (out["pick"]["rows"], out["best"]["rows"], case))
+    msg = "Best fit: adjusting band gains (FxSound)"
+    check(f"FxSound: the progress counts the band counts, with the message of every graphic EQ ({pick})",
+          said == [(i, 5, msg) for i in range(6)], said)
+    one = pipeline.run_mode("best_fit", cfg, curves, mt, tt, counts=[20])
+    check(f"FxSound: a run asked for the band count 20 only gives one result of 20 bands, which is its pick ({pick})",
+          [r["rows"] for r in one["results"]] == [20] and one["pick"]["rows"] == 20, [r["rows"] for r in one["results"]])
+
+
 def test_sweep_cached_reads_no_files_again(fresh_studio, eq_cfg, monkeypatch, check):
     # whether a sweep is cached: the texts the curves were loaded from, not every file read again. (The files in use
     # are the studio's as new, the sample target and device: sweep_cached asks inputs.selected for them, as the old

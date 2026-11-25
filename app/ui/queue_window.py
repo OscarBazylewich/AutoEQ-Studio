@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QDialog, QHBoxLayout, QHeaderV
                                QTableWidget, QTableWidgetItem, QVBoxLayout)
 
 from ui import icons, placed, theme
+from ui.eq_page_parts import count_words
 from ui.search_combo import natural_key
 from ui.theme_sheet import CARD
 from ui.window_parts import Footer, enter_presses, fit_to_screen
@@ -243,7 +244,7 @@ class QueueWindow(QDialog):
         h = page.svc.call("/api/history/add", {"entry": entry})
         if not h.get("error"):
             page.history = [e for e in page.history if e.get("key") != h["entry"]["key"]] + [h["entry"]]
-        return (f"Done · {r['n_filters']} filter{'' if r['n_filters'] == 1 else 's'} · {r['rms']:.2f} dB · "
+        return (f"Done · {count_words(r['n_filters'], r.get('engine'))} · {r['rms']:.2f} dB · "
                 + (f"saved as {written[0]}" if written else "not saved (set file type in More settings › Saved files)"))
 
     def cancel(self):

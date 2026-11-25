@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QDialog, QFrame, QGridLayout, 
                                QPushButton, QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
 from ui import placed, theme
-from ui.eq_page_parts import CurveNames
+from ui.eq_page_parts import CurveNames, count_words
 from ui.history_window import follow_theme
 from ui.search_combo import SearchCombo, natural_key
 from ui.theme_sheet import CARD
@@ -90,12 +90,13 @@ def options(page):
         for k, x in sorted(by_n.items()):
             if r and rn is run and x["id"] == r["id"] and not page.edited():
                 continue
-            out.append({"label": f"#{rn.get('n', '?')} · {k} filter{'' if k == 1 else 's'} · {x['rms']:.2f} dB"
+            out.append({"label": f"#{rn.get('n', '?')} · {count_words(k, x.get('engine'))} · {x['rms']:.2f} dB"
                                  + ("  ✓ recommended" if x["id"] == rn["pick"] else ""),
                         "filters": _filters(x["filters"]), "run": rn, "rid": x["id"]})
     from ui.history_window import day_of, time_of
     for e in sorted((e for e in page.history if e.get("device") == name), key=lambda e: e["when"], reverse=True):
-        out.append({"label": f"History · {day_of(e['when'])} {time_of(e['when'])} · {e.get('n_filters', '?')} filter{'' if e.get('n_filters') == 1 else 's'}",
+        out.append({"label": f"History · {day_of(e['when'])} {time_of(e['when'])} · "
+                             + count_words(e.get("n_filters", "?"), (e.get("result") or {}).get("engine")),
                     "filters": _filters(e.get("filters") or []), "run": None, "rid": None})
     return out
 

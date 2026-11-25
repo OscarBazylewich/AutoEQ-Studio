@@ -17,8 +17,13 @@ and the result can differ a little in the app (the ⓘ after Your EQ app says so
 text survey, 2026-11-23): "Up to N" for a parametric EQ, "N fixed bands" for a graphic EQ, or "No limits". By the
 user's decision it has no steps to load the EQ, no words about what the maker does not state and no end period, so
 do not add them back (the sentence about band shapes of "approx" is not part of it: the page adds that one). A
-number in a note that differs from the limit the fit uses (Poweramp "5–32 bands", Peace "±60 dB max") is what the
+number in a note that differs from the limit the fit uses (Poweramp "5–32 bands", Neutron "4–130 bands") is what the
 app can be set to, not what Best fit does.
+
+"band_sets": a graphic EQ app with more than one band count (FxSound): {count: (centre frequencies, each band's Q)},
+and "band_default", the count the app starts with. Best fit fits every count in one run (engines.graphic_run) and
+Best result selects one; the user selects another in Number of filters. There is no setting for the counts (the
+user, 2026-11-24: no new control).
 
 The steps to load the EQ in each app are in Help (ui/help_text_apps.py LOAD_EQ, by the key and the name of the app
 here; the user, 2026-11-24): an app added, renamed or moved to another first platform here changes there too
@@ -52,15 +57,30 @@ APPS = {
         "note": "No limits"},
     "peace": {
         "name": "Peace (for Equalizer APO)", "platforms": ["Windows"], "kind": "parametric", "file": "apo",
+        # 31 bands: Peace wiki, Features FAQ, "Maximum number of sliders", the source below, fetched 2026-11-24.
+        # ±30 dB: Peace's default "Maximum dB" (tab Sizes and Amounts of its settings), ticket 94, answer of the
+        # developer of 2021-08-22, https://sourceforge.net/p/peace-equalizer-apo-extension/tickets/94/, fetched
+        # 2026-11-24. The note has no "(±60 dB max)": no source of Peace states that number
         "bands": 31, "gain": (-30, 30),
         "source": "https://sourceforge.net/p/peace-equalizer-apo-extension/wiki/Features%20FAQ/",
-        "note": "Up to 31 bands · ±30 dB (±60 dB max)"},
+        "note": "Up to 31 bands · ±30 dB"},
     "fxsound": {
         "name": "FxSound", "platforms": ["Windows"], "kind": "graphic", "file": None, "approx": True,
-        "freqs": [20.0, 43.1, 92.8, 200.0, 430.9, 928.3, 2000.0, 4308.9, 9283.2, 20000.0], "q": 1.0,
+        # The band counts 5, 10, 15, 20, 31 and the default 10: fxsound-app docs/COMMAND_LINE_OPTIONS.md line 27 (--num_bands), main, fetched 2026-11-24.
+        # The frequencies and the Q of each count: fxsound-app dsp/ptutil/DspUtil/GraphicEq/GraphicEqSet.cpp lines 106-250 and 430-524 (file commit 5246dbd9, 2026-08-22), fetched 2026-11-24. One Q for all bands: Q = max(1, sqrt(r)/(r-1)), r = (highest/lowest frequency)^(1/(bands-1)), at Filter Q 1.0 of FxSound (calculated; tests/eq/test_layouts.py calculates it again).
+        # Valid for FxSound 1.2.14.0 and later (releases API, https://api.github.com/repos/fxsound2/fxsound-app/releases, v1.2.14.0 of 2026-08-22 changed the 10-band frequencies; fetched 2026-11-24), with Filter Q 1.0 and, at 5 or 10 bands, the band frequencies at their defaults. The shape of its filter for a Q is not confirmed ("approx").
+        "band_sets": {
+            5: ([62.5, 250, 1000, 4000, 16000], 1.0),
+            10: ([62.5, 115.734, 214.311, 396.85, 734.867, 1360.79, 2519.84, 4666.12, 8640.48, 16000], 1.598),
+            15: ([25, 40, 63, 100, 160, 250, 400, 630, 1000, 1600, 2500, 4000, 6300, 10000, 16000], 2.148),
+            20: ([20, 31.5, 40, 63, 80, 125, 160, 250, 315, 500, 630, 1000, 1250, 2000, 2500, 4000, 5000, 8000, 10000,
+                  16000], 2.828),
+            31: (list(BAND_LAYOUTS["graphic_31"][1]), 4.333)},
+        "band_default": 10,
+        # ±12 dB: COMMAND_LINE_OPTIONS.md line 33 (--set_band_gain); 1 dB steps: fxsound/Source/GUI/FxEqualizer.cpp lines 48 and 98; main, fetched 2026-11-24
         "gain": (-12, 12), "step": 1,
         "source": "https://github.com/fxsound2/fxsound-app/blob/main/docs/COMMAND_LINE_OPTIONS.md",
-        "note": "10 fixed bands (5–31 configurable) · ±12 dB (1 dB steps) · shared Q"},
+        "note": "5, 10, 15, 20, or 31 fixed bands · ±12 dB (1 dB steps) · shared Q"},
     "sonar": {
         "name": "SteelSeries Sonar", "platforms": ["Windows"], "kind": "parametric", "file": None, "bands": 10,
         "source": "https://support.steelseries.com/hc/en-us/articles/5570622280077-How-do-I-add-or-delete-a-band-to-Sonar-Parametric-EQ",
@@ -146,9 +166,10 @@ APPS = {
         "note": "No limits"},
     "neutron": {
         "name": "Neutron Music Player", "platforms": ["Android", "iOS"], "kind": "parametric", "file": None,
-        "bands": 60,
+        # 130: "Parametric equalizer (PEQ): 4-130 bands, per channel" (its store pages: this source and https://play.google.com/store/apps/details?id=com.neutroncode.mp, fetched 2026-11-24). Best fit tries 32 filters at most (settings.LIMITS)
+        "bands": 130,
         "source": "https://apps.apple.com/us/app/neutron-music-player/id766858884",
-        "note": "4–60 bands"},
+        "note": "4–130 bands"},
     "uapp": {
         "name": "USB Audio Player PRO", "platforms": ["Android"], "kind": "parametric", "file": "uapp",
         "peaks": 10, "shelves": False, "gain": (-20, 20), "q": (0.1, 10), "freq": (20, 20000),
@@ -226,6 +247,11 @@ def layout_key(key):
     return "app:" + key
 
 
+def band_sets(key):
+    """{band count: (centre frequencies, each band's Q)} of a graphic EQ app with more than one band count, else {}."""
+    return {n: (list(f), q) for n, (f, q) in (APPS.get(key) or {}).get("band_sets", {}).items()}
+
+
 def summary(key):
     """What the app takes, in a line."""
     a = APPS.get(key)
@@ -236,7 +262,9 @@ def summary(key):
     if a["kind"] == "site":
         return "The AutoEQ of the website (the Website methods), or a maximum of 20 imported filters."
     if a["kind"] == "graphic":
-        n = len(a["freqs"] if "freqs" in a else BAND_LAYOUTS[a["layout"]][1])
+        # (an app with more than one band count: the count it starts with)
+        n = (a["band_default"] if "band_sets" in a else
+             len(a["freqs"] if "freqs" in a else BAND_LAYOUTS[a["layout"]][1]))
         parts = [f"{n} graphic EQ bands"]
     else:
         n = a.get("bands") or a.get("peaks")

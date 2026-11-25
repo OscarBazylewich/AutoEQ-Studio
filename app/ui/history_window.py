@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (QMenu, QBoxLayout, QCheckBox, QDialog, QFrame, QH
                                QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
 from ui import bubble, help_window, icons, placed, theme
+from ui.eq_page_parts import count_words
 from ui.theme_sheet import CARD
 from ui.window_parts import EmptyText, Footer, enter_presses, fit_to_screen
 
@@ -181,7 +182,7 @@ class HistoryWindow(QDialog):
         # (each part kept on one line, the line wrapping only between them: a narrower row, with Show's symbol, left
         # "dB" alone on a line, or broke "pre-amp" at its hyphen)
         parts = (time_of(e["when"]), str(MODE_SHORT.get(e.get("mode"), e.get("mode"))),
-                 f"{e.get('n_filters')} filter{'' if e.get('n_filters') == 1 else 's'}",
+                 count_words(e.get("n_filters"), (e.get("result") or {}).get("engine")),
                  f"error {'–' if rms is None else f'{rms:.2f} dB'}",
                  f"pre{NBH}amp {self.page.preamp_text(e.get('preamp') or 0)} dB")
         sub = QLabel((NBSP + "· ").join(p.replace(" ", NBSP) for p in parts))
@@ -259,11 +260,12 @@ class HistoryWindow(QDialog):
                         near=self)
             return
         other = e.get("device") != page.curves["name"]
-        ok = page.listen.add(f"{MODE_SHORT.get(e.get('mode'), 'EQ')}, {e.get('n_filters')} filter{'' if e.get('n_filters') == 1 else 's'} "
+        ok = page.listen.add(f"{MODE_SHORT.get(e.get('mode'), 'EQ')}, "
+                             f"{count_words(e.get('n_filters'), (e.get('result') or {}).get('engine'))} "
                              f"({day_of(e['when'])} {time_of(e['when'])})", [dict(f) for f in e["filters"]],
                              f"made for {e.get('device')}" if other else
                              "from History" + (f" · error {e['rms']:.2f} dB" if e.get("rms") is not None else ""),
-                             say=self.footer.say, near=self)
+                             say=self.footer.say, near=self, engine=(e.get("result") or {}).get("engine"))
         if ok:
             self.footer.say(f"Added to EQs to compare. Built for {e.get('device')}, so it won’t sound accurate on "
                             f"{page.curves['name']}." if other else "Added to EQs to compare", 10000 if other else None)
