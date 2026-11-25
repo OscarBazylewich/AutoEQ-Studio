@@ -30,8 +30,7 @@ SITE = "Hangout.Audio IEMs (Crinacle, 5128)"
 # (the sample graph's grid: trace_window.sample_image's L, R, T, B, width, height, lo and hi dB)
 SL, SR, ST, SB, SW, SH, LO, HI = 96, 40, 76, 84, 1200, 720, 40, 90
 NB = "\N{NO-BREAK SPACE}"  # (between a tab's number and its name in the tracer's words)
-WHERE = ("The app uses the first new picture on the clipboard or in the Downloads folder. It only reads the files of "
-         "this folder:")
+WHERE = "Auto-imports the next image from your clipboard or Downloads (watches only this folder):"
 # (the format characters that an entry's words must not keep: zero-width spaces and joiners, direction marks and
 # overrides, the word joiner and the isolates, the byte order mark)
 FORMAT = [chr(c) for c in (*range(0x200B, 0x2010), *range(0x202A, 0x202F), *range(0x2060, 0x206A), 0xFEFF)]
@@ -260,7 +259,8 @@ def test_paste_takes_old_picture(eq_screen, flow, check):
     # (2026-11-23, the text survey: no tooltip ends in "F1 opens Help." now; F1 still opens Help in this window)
     check("website flow: Paste the picture is the main button (the accent, Enter's) and has its help (its tooltip "
           "does not end in “F1 opens Help.”)",
-          main == (True, "#pw-paste", "Paste the picture", "Uses the picture that is on the clipboard at this time (also Ctrl+V)."), main)
+          main == (True, "#pw-paste", "Paste the picture", "Uses the picture that is on the clipboard at this time."),
+          main)
 
 
 def test_paste_with_nothing(eq_screen, flow, check):
@@ -314,7 +314,7 @@ def test_time_limit(eq_screen, flow, monkeypatch, check):
     wait, _o = _use(flow)
     gone = qt.wait_for(lambda: _closed(wait), 10)
     check("website flow: after the time limit the wait window closes and Find…'s line says so",
-          gone and pk.isVisible() and _said(pk) == "No new picture came in 10 minutes. Select the entry again.",
+          gone and pk.isVisible() and _said(pk) == "Timed out after 10 minutes without a screenshot. Select the entry again.",
           _said(pk))
 
 
@@ -324,14 +324,14 @@ def test_offline(eq_screen, flow, monkeypatch, check):
     monkeypatch.setattr(net, "offline", lambda: True)
     wait, opened = _use(flow)
     check("website flow: offline, nothing opens, no wait window, and the line says how to go online",
-          not opened and wait is None and _said(pk).startswith("Offline:") and "Online (top right)" in _said(pk)
+          not opened and wait is None and _said(pk).startswith("Offline:") and "switch to Online" in _said(pk)
           and pk.isVisible(), (opened, _said(pk)))
 
 
-ONE_CURVE = ("The tracer has a curve that you did not add. To keep it, add it in the tracer. "
-             "To remove it, click Remove image in the tracer. Then select the entry again.")
-CURVES = ("The tracer has curves that you did not add. To keep them, add them in the tracer. To remove them, click "
-          "Remove image in the tracer. Then select the entry again.")
+ONE_CURVE = ("The tracer has a curve you haven't added. Add it or click Remove image in the tracer, then "
+             "select this entry again.")
+CURVES = ("The tracer has curves you haven't added. Add them or click Remove image in the tracer, then select "
+          "this entry again.")
 
 
 def _told():
@@ -354,14 +354,14 @@ def test_no_browser_says_so(eq_screen, flow, monkeypatch, check):
     monkeypatch.setattr(QDesktopServices, "openUrl", staticmethod(lambda url: False))
     wait, _o = _use(flow)
     check("website flow: when Windows cannot open the link, Find…'s line says so and no wait starts",
-          wait is None and _said(pk) == "Windows cannot open the website of this entry.", _said(pk))
+          wait is None and _said(pk) == "Couldn't open the website for this entry", _said(pk))
 
 
 def test_messages_fit_finds_line(eq_screen, flow, monkeypatch, check):
-    """Each message of the flow in Find…'s line is whole at Find…'s opening width (900 px): the line cuts a longer
-    one at its edge."""
+    """Each message of the flow in Find…'s line is whole at Find…'s opening width (900 px): the line wraps a longer
+    one to more lines (picker.py)."""
     import net
-    from PySide6.QtGui import QDesktopServices, QFontMetrics
+    from PySide6.QtGui import QDesktopServices
     from ui import picture_wait
     pk = flow["pk"]
     pk.resize(900, pk.height())
@@ -380,11 +380,18 @@ def test_messages_fit_finds_line(eq_screen, flow, monkeypatch, check):
         _use(flow)
         said["no browser"] = _said(pk)
     line = pk.footer.line.text
-    fm = QFontMetrics(line.font())
-    wide = {k: (fm.horizontalAdvance(t), line.width()) for k, t in said.items()}
-    check("website flow: each message in Find…'s line fits it at Find…'s opening width (900 px)",
-          pk.width() == 900 and all(t for t in said.values()) and all(w <= room for w, room in wide.values()),
-          (said, wide))
+    # (Find…'s line wraps a longer message to more lines, picker.py: a message is whole when the line is as high as
+    # its words need, as test_picker_fit.py's test_messages_whole measures it. The time-limit message of the text
+    # survey, 2026-11-24, is longer than one line at this width)
+    high = {}
+    for k, t in said.items():
+        pk.footer.say(t, 0)
+        qt.pump(50)
+        high[k] = (line.height(), line.heightForWidth(line.width()), line.wordWrap())
+    check("website flow: each message in Find…'s line is whole in it at Find…'s opening width (900 px): it wraps to "
+          "more lines when it is longer than the line",
+          pk.width() == 900 and all(t for t in said.values()) and all(w and h >= need for h, need, w in high.values()),
+          (said, high))
 
 
 def test_tracer_with_curves_not_added(eq_screen, flow, check):
@@ -781,12 +788,18 @@ def test_screen_reader(eq_screen, flow, monkeypatch, check):
     order = tab_order(wait, first)
     check("website flow: a screen reader reads the wait window's heading and steps (its description), each control "
           "has a name, and Tab goes from Paste the picture to Cancel",
-          f"“{ENTRY}”" in desc and "Windows + Shift + S" in desc and "Maximize the window" in desc
+          f"“{ENTRY}”" in desc and "Win+Shift+S" in desc and "Maximize your browser" in desc
           and not a11y.unnamed(wait) and not a11y.unreachable(wait)
           and order[:2] == ["Paste the picture (a picture from the website)", "Cancel"], (desc, order))
     check("website flow: the wait window's description has the folder words and the folder's path, and the window "
           "has its name for a screen reader", f"{WHERE} {os.path.normpath(_downloads())}" in desc
           and wait.accessibleName() == "Picture from the website", (desc, wait.accessibleName()))
+    # (2026-11-24: the words of the text survey have no period after some lines; the two lines of step 2 ran together
+    # in the description, "drag over the graph Or click …")
+    check("website flow: in the wait window's description, each line of a step ends with a period, also where the "
+          "window shows none",
+          "2. Press Win+Shift+S and drag over the graph. Or click Screenshot on the site to save it to Downloads. "
+          in desc, desc)
     wait.reject()
     came, tw = _traced(flow, monkeypatch, stand_in(target=True))
     seen = {}
@@ -1336,7 +1349,7 @@ def test_entry_words_on_one_line(eq_screen, flow, monkeypatch, check):
     head = wait.head.text()
     wait.deleteLater()
     check("website flow: the wait window puts the entry's words on one line (also when its caller did not)",
-          head == "The app waits for a picture of “Gate X Y”…", ascii(head))
+          head == "Waiting for a graph screenshot of “Gate X Y”…", ascii(head))
     page = flow["page"]
     real = page.svc.call
 
@@ -1362,8 +1375,8 @@ def test_entry_words_on_one_line(eq_screen, flow, monkeypatch, check):
     came = _picture_came(page)
     check("website flow: a name with a tab, U+0085 and a C1 control character through Find…'s Use: the heading of the "
           "wait window, the tracer's name and the tray message have it on one line",
-          came and heading == "The app waits for a picture of “Gate X Y”…" and trays
-          and trays[0] == "The tracer shows the graph of “Gate X Y”. Go to the window of the tracer."
+          came and heading == "Waiting for a graph screenshot of “Gate X Y”…" and trays
+          and trays[0] == "“Gate X Y” is ready in the tracer"
           and page.tracer.t.src_name == f"Gate X Y ({TAG})", (ascii(heading), [ascii(t) for t in trays]))
 
 
@@ -1475,7 +1488,7 @@ def test_long_entry_name(eq_screen, flow, check):
         wait.paste()  # (with its note too)
         qt.pump(100)
         head = wait.head.text()
-        shown = head[len("The app waits for a picture of “"):-len("”…")]
+        shown = head[len("Waiting for a graph screenshot of “"):-len("”…")]
         seen[name[:5]] = (wait.width(), _cut(wait), len(shown), shown.endswith("…"), wait.head.toolTip())
         wait.reject()
         wait.deleteLater()
@@ -1569,8 +1582,9 @@ def test_window_as_high_as_its_words(eq_screen, flow, monkeypatch, check):
     from ui.picture_wait import PictureWait
     seen = {}
     # (2026-11-11: a site of 600 words made it higher than two thirds of the screen; the site is cut at NAME_MAX
-    # characters now, so a screen with 520 px of room is stood in: two thirds of it is less than the window needs)
-    for site, room in ((SITE, None), (SITE, 520)):
+    # characters now, so a screen with 490 px of room is stood in: two thirds of it is less than the window needs;
+    # 520 px until the shorter words of the text survey, 2026-11-24, made the window lower)
+    for site, room in ((SITE, None), (SITE, 490)):
         if room:
             monkeypatch.setattr(QScreen, "availableGeometry", lambda self, room=room: QRect(0, 0, 1097, room))
         wait = PictureWait(flow["pk"], {"name": ENTRY, "site": site})
@@ -1591,13 +1605,13 @@ def test_window_as_high_as_its_words(eq_screen, flow, monkeypatch, check):
 
 
 def test_window_never_higher_than_its_screen(eq_screen, flow, monkeypatch, check):
-    """On a screen with less room than the wait window needs (380 px stood in: the window with its note needs about
-    400 px), the window is not higher than that room (its title bar too), and it moves up into it."""
+    """On a screen with less room than the wait window needs (340 px stood in: the window with its note needs about
+    370 px with its title bar since the shorter words of the text survey, 2026-11-24; 380 px before), the window is not higher than that room (its title bar too), and it moves up into it."""
     from PySide6.QtCore import QRect
     from PySide6.QtGui import QScreen
     from ui.picture_wait import PictureWait
     with monkeypatch.context() as m:
-        m.setattr(QScreen, "availableGeometry", lambda self: QRect(0, 0, 1097, 380))
+        m.setattr(QScreen, "availableGeometry", lambda self: QRect(0, 0, 1097, 340))
         wait = PictureWait(flow["pk"], {"name": ENTRY, "site": SITE})
         wait.open()
         qt.pump(200)
@@ -1609,9 +1623,9 @@ def test_window_never_higher_than_its_screen(eq_screen, flow, monkeypatch, check
                 wait.frameGeometry().bottom(), bar)
         wait.reject()
         wait.deleteLater()
-    check("website flow: on a screen with 380 px of room, the wait window is not higher than the room (with its title "
-          "bar), and all of it is in the room", seen[0] + seen[4] <= 380 < seen[1] + seen[4] and 0 <= seen[2]
-          and seen[3] <= 379, seen)
+    check("website flow: on a screen with 340 px of room, the wait window is not higher than the room (with its title "
+          "bar), and all of it is in the room", seen[0] + seen[4] <= 340 < seen[1] + seen[4] and 0 <= seen[2]
+          and seen[3] <= 339, seen)
 
 
 # (a 1920 x 1080 laptop's room above the taskbar at 125 %, 150 % and 175 %, as Qt gives it)
@@ -1622,8 +1636,9 @@ def test_window_in_front_of_the_graph(eq_screen, flow, monkeypatch, check):
     """Step 1 tells the user to close a window of the website in front of the graph (at the first visit, a website
     shows "Welcome to Squiglink" on top of the graph: the screen copy then had no graph, 2026-11-11), and Help
     #pw-paste tells it too. The window is not wider for it, and no word is cut at 100 %, 125 %, 150 % and 175 % (the
-    room of each scale stood in). Also: Paste the picture's tooltip is its own words only: help_window.tag adds no
-    "F1 opens Help." to a tooltip (the text survey, 2026-11-23)."""
+    room of each scale stood in). Also: Paste the picture's tooltip is the first line of its Help entry only: the
+    owner removed the button's own tooltip (the text survey, 2026-11-24), and help_window.tag adds no "F1 opens Help."
+    to a tooltip (the text survey, 2026-11-23)."""
     from PySide6.QtCore import QRect
     from PySide6.QtGui import QScreen
     from ui import help_window, picture_wait
@@ -1651,10 +1666,9 @@ def test_window_in_front_of_the_graph(eq_screen, flow, monkeypatch, check):
     sentences = [s for s in para.replace("…", "").split(". ") if s.strip()]
     # (2026-11-12: then the sentence for an entry that the graph does not show: its share link is not verified on
     # each website)
-    step = ("Maximize the window of your browser. Larger pictures give better results. " + FRONT_WINDOW + " "
-            + picture_wait.NOT_SHOWN)
+    step = FRONT_WINDOW + " " + picture_wait.NOT_SHOWN
     check("website flow: step 1 of the wait window tells the user to close a window of the website in front of the "
-          "graph", FRONT_WINDOW == "If the website shows a window in front of the graph, close that window."
+          "graph", FRONT_WINDOW == "Maximize your browser for better accuracy, and close any popups over the graph."
           and all(v[2] == step for k, v in seen.items() if k[1]), {k: v[2] for k, v in seen.items()})
     check("website flow: the wait window is not wider with that sentence, no word is cut and it is in the room of its "
           "screen at 100 %, 125 %, 150 % and 175 %",
@@ -1674,8 +1688,9 @@ def test_window_in_front_of_the_graph(eq_screen, flow, monkeypatch, check):
           "If a curve goes above or below the grid near an end of the frequency axis, the measurement does not "
           "include that part. The text on 3 Save gives the frequencies." in result
           and "starts or stops at that frequency" not in result, result)
-    check("website flow: the tooltip of Paste the picture has no “F1 opens Help.” at its end, as each tagged control's",
-          all(v[4] == "Uses the picture that is on the clipboard at this time (also Ctrl+V)."
+    check("website flow: the tooltip of Paste the picture is the first line of its Help entry, with no “F1 opens "
+          "Help.” at its end, as each tagged control's",
+          all(v[4] == "Uses the picture that is on the clipboard at this time."
               for v in seen.values()), {v[4] for v in seen.values()})
 
 
@@ -1696,11 +1711,11 @@ def test_long_site_name(eq_screen, flow, monkeypatch, tmp_path, check):
         wait.open()
         qt.pump(200)
         words = wait.intro.text()
-        shown = words[len("Your browser shows this entry on “"):words.find("”. Give the app")]
+        shown = words[len("Opened on “"):words.find("”. Capture")]
         # (the cut site in quotation marks: no "…" and then the period of the sentence, "Site….", 2026-11-12)
         seen[key] = (len(shown) <= NAME_MAX + 1 and shown.endswith("…"), wait.intro.toolTip() == site,
                      wait.height() + 32 <= wait.screen().availableGeometry().height(), _cut(wait),
-                     words == f"Your browser shows this entry on “{shown}”. Give the app a picture of its graph:"
+                     words == f"Opened on “{shown}”. Capture its graph:"
                      and "…." not in words)
         for name, theme_on in (("light", qt.light), ("dark", qt.dark)):
             theme_on(eq_screen.qapp)
@@ -1753,7 +1768,7 @@ def test_long_site_name(eq_screen, flow, monkeypatch, tmp_path, check):
     check("website flow: on a screen with 450 px of room, the wait window low on it moves up: all of it is in the room",
           0 <= small[0] and small[1] <= 449 and small[2] <= 450, small)
     check("website flow: a name of 600 words in the tray message: NAME_MAX characters and “…”",
-          tray.startswith("The tracer shows the graph of “Name Name") and len(tray) < NAME_MAX + 80
+          tray.startswith("“Name Name") and len(tray) < NAME_MAX + 80
           and "…”" in tray, tray[:200])
 
 
@@ -1874,8 +1889,7 @@ def test_white_picture_one_message(eq_screen, flow, monkeypatch, check):
           and "automatically" not in note and "Copy a new picture" not in note and "3" not in note, (status, note))
 
 
-ONE_CHANGE = ("The tracer has a picture with your changes. To remove it, click Remove image in the tracer. Then select "
-              "the entry again.")
+ONE_CHANGE = "The tracer has an edited image. Click Remove image in the tracer, then select this entry again."
 
 
 def test_users_work_stops_use(eq_screen, flow, monkeypatch, check):
@@ -2191,7 +2205,7 @@ def test_tracer_front_when_not_active(eq_screen, flow, monkeypatch, check):
     came, tw = _traced(flow, monkeypatch, stand_in())
     check("website flow: when the app is not the active program, the taskbar button of the tracer flashes and a tray "
           "message says where the picture is", came and alerts == [tw] and trays
-          and trays[0][0] == "AutoEQ Studio has the picture" and f"“{ENTRY}”" in trays[0][1], (alerts, trays))
+          and trays[0][0] == "Graph screenshot captured" and f"“{ENTRY}”" in trays[0][1], (alerts, trays))
     alerts.clear()
     trays.clear()
     monkeypatch.setattr(QApplication, "applicationState", staticmethod(lambda: Qt.ApplicationActive))
@@ -2699,11 +2713,9 @@ def test_short_site_has_no_tooltip(eq_screen, flow, check):
         wait.reject()
         wait.deleteLater()
     check("website flow: the intro of the wait window shows a short site whole, in quotation marks, with no tooltip; "
-          "with no site it says “its website”, with no tooltip",
-          seen == {"a short site": (f"Your browser shows this entry on “{SITE}”. Give the app a picture of its graph:",
-                                    ""),
-                   "no site": ("Your browser shows this entry on its website. Give the app a picture of its graph:",
-                               "")}, seen)
+          "with no site it says “the website”, with no tooltip",
+          seen == {"a short site": (f"Opened on “{SITE}”. Capture its graph:", ""),
+                   "no site": ("Opened on the website. Capture its graph:", "")}, seen)
 
 
 def test_note_of_an_entry_with_no_site(eq_screen, flow, check):

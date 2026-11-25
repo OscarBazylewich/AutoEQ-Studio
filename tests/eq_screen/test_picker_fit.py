@@ -65,12 +65,12 @@ def _messages(name):
     (ui\\eq_page_files.py), with a long file name and a long cause where a message has one."""
     from eq import databases
     site = "Audio Discourse headphones (Headphones, 5128)"  # (a long name of a database: squig.link's list)
-    return [("Offline: to open this entry, change to Online (top right).", None),
-            ("Windows cannot open the website of this entry.", None),
-            ("The app has no link to the website of this entry. Select the entry again.", None),
+    return [("Offline: switch to Online to open this entry", None),
+            ("Couldn't open the website for this entry", None),
+            ("No website link found for this entry", None),
             (databases.REFUSED_NOTE.format(site=site), None),
             (databases.BROWSE_NOTE.format(site=site), None),
-            ("No new picture came in 10 minutes. Select the entry again.", None),
+            ("Timed out after 10 minutes without a screenshot. Select the entry again.", None),
             (f"Moved “{name}” to Measurement", lambda: None),
             (f"Moved “{name}” to Target", lambda: None),
             ("Couldn't apply selection: The file is not in the app. Select the file again in Find….", None)]

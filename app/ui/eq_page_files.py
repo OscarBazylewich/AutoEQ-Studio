@@ -184,11 +184,11 @@ class EqFiles:
         entry["as"] = want or entry.get("kind") or "measurement"  # (the tracer's note names that add)
         if not entry.get("link"):  # (the lists of this moment have no link: never an empty address. Windows then
             # said that it cannot open the website, 2026-11-13. Use again downloads it or learns the link)
-            say("The app has no link to the website of this entry. Select the entry again.")
+            say("No website link found for this entry")
             return False
         import net
         if net.offline():  # (the words fit Find…'s line at its opening width)
-            say("Offline: to open this entry, change to Online (top right).")
+            say("Offline: switch to Online to open this entry")
             return False
         tw = getattr(self, "tracer", None)
         n = tw.unadded_curves() if tw is not None else 0
@@ -197,17 +197,17 @@ class EqFiles:
             # a bubble at the control that was used, UI-RULES 25. The automatic read's own curves do not stop it.
             # With no curve, the user's work is on 1 Axes or 3 Save: words that are true for each change.)
             bubble.tell(None, (
-                "The tracer has a curve that you did not add. To keep it, add it in the tracer. To remove it, click "
-                "Remove image in the tracer. Then select the entry again." if n == 1 else
-                "The tracer has curves that you did not add. To keep them, add them in the tracer. To remove them, "
-                "click Remove image in the tracer. Then select the entry again." if n else
-                "The tracer has a picture with your changes. To remove it, click Remove image in the tracer. Then "
-                "select the entry again."), near=over)
+                "The tracer has a curve you haven't added. Add it or click Remove image in the tracer, then select "
+                "this entry again." if n == 1 else
+                "The tracer has curves you haven't added. Add them or click Remove image in the tracer, then select "
+                "this entry again." if n else
+                "The tracer has an edited image. Click Remove image in the tracer, then select this entry again."),
+                near=over)
             return False
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QDesktopServices
         if not QDesktopServices.openUrl(QUrl(entry.get("link") or "")):
-            say("Windows cannot open the website of this entry.")
+            say("Couldn't open the website for this entry")
             return False
         wait = self.picture_wait = PictureWait(over, entry)
         wait.finished.connect(lambda _code: self._wait_done(wait, entry, over, say))
@@ -223,7 +223,7 @@ class EqFiles:
         wait.deleteLater()
         if got is None:
             if timed_out:
-                say("No new picture came in 10 minutes. Select the entry again.", 60000)  # (whole in Find…'s line)
+                say("Timed out after 10 minutes without a screenshot. Select the entry again.", 60000)  # (whole in Find…'s line)
             return
         over.reject()
         img, jpeg = got
@@ -247,8 +247,7 @@ class EqFiles:
         app = getattr(self.window(), "app", None)
         if app is not None and hasattr(app, "tray_message"):
             from ui.picture_wait import short_words  # (a name of 600 words: NAME_MAX characters, then "…")
-            app.tray_message("AutoEQ Studio has the picture", f"The tracer shows the graph of "
-                             f"“{short_words(entry['name'])}”. Go to the window of the tracer.")
+            app.tray_message("Graph screenshot captured", f"“{short_words(entry['name'])}” is ready in the tracer")
 
     # ---------------------------------------------------------------- finding files (ui/picker.py)
     def find(self, kind):

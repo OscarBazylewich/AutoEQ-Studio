@@ -511,10 +511,10 @@ def test_website_link_messages_in_the_window_line(eq_screen, monkeypatch, check)
         qt.close(cw)
         QApplication.clipboard().clear()
     check("Which measurement: offline, a link of a website entry opens nothing and the window's line says how to go "
-          "online", said["offline"] == ("Offline: to open this entry, change to Online (top right).", [], None),
+          "online", said["offline"] == ("Offline: switch to Online to open this entry", [], None),
           said["offline"])
     check("Which measurement: after the time limit of the wait, the window's line says so and the window stays",
-          said["time limit"] == ("No new picture came in 10 minutes. Select the entry again.", True),
+          said["time limit"] == ("Timed out after 10 minutes without a screenshot. Select the entry again.", True),
           said["time limit"])
 
 

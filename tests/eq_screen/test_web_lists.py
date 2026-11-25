@@ -165,7 +165,7 @@ def test_page_link_tells_to_select_the_entry(eq_screen, online, check):
     try:
         words = [lab.text() for lab in wait.findChildren(QLabel)]
         check("website lists: for a link to the page of the database, the wait window tells the user to select the "
-              "entry", "Your browser shows “A website”. Give the app a picture of the graph of this entry:" in words
+              "entry", "Opened “A website”. Capture this entry's graph:" in words
               and picture_wait.SELECT in wait.steps()[0] and picture_wait.NOT_SHOWN not in wait.steps()[0], words)
     finally:
         wait.deleteLater()
@@ -210,7 +210,7 @@ def test_entry_with_no_link_opens_nothing(eq_screen, online, check):
     started = page.trace_from_website(entry["id"], over=page, say=lambda t, ms=10000: said.append(t))
     check("website lists: an entry with no link opens nothing, starts no wait and says so",
           started is False and qt.OPENED_URLS[n:] == [] and _wait_shown(page) is None
-          and said == ["The app has no link to the website of this entry. Select the entry again."],
+          and said == ["No website link found for this entry"],
           (started, qt.OPENED_URLS[n:], said))
 
 
