@@ -81,8 +81,7 @@ LOAD_EQ = [
     ]),
 ]
 
-# (the entry: a line for each platform, then its apps, each one "name: steps". What each saved file is, and which
-# apps read it, is in the entry Saved file formats: not said again here)
+# (what each saved file is, and which apps read it: in the entry Saved file formats, not repeated here)
 LOAD_EQ_TERM = {
     "id": "load-eq",
     "title": "Load the EQ in your EQ app",

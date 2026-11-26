@@ -1,14 +1,14 @@
-"""Other measurements of this model (Which measurement…; AutoEQ Local's compare.js, natively): every measurement of a
-model from the online
-databases, this PC and the app, ranked for the current target by eq\\compare.py (the rig's match first, then how they
-agree, the seal, averaging and the data), with the reasons for each.
+"""Other measurements of this model ("Which measurement" in the code; AutoEQ Local's compare.js, natively): every
+measurement of a model from the online databases, this PC and the app, ranked for the current target by
+eq\\compare.py (the rig's match first, then how they agree, the seal, averaging and the data), with the reasons for
+each.
 
 - the chart: every candidate levelled together; the best one for your target (or the one under the mouse) in blue; grey ones
   are on your target's rig, dotted ones on others; while the mouse is over an average's box, that average (green)
 - Use: the measurement into the app and in use (downloaded first when it's online)
-- Average and use: measurements on one rig averaged into one (unit and fit differences even out); ticked by default,
-  except one far from the others (a fit problem?) and the same data published twice; not offered when they're all
-  copies of one measurement
+- Use the average of n: measurements on one rig averaged into one (unit and fit differences even out); ticked by
+  default, except one far from the others (a fit problem?) and the same data published twice; not offered when
+  they're all copies of one measurement
 Offline (net.py): what's on this PC and in the app is compared; online measurements downloaded before too; the others
 are listed in the fold "Not loaded (n)" under the measurements.
 
@@ -199,7 +199,8 @@ class CompareWindow(QDialog):
         self.rig.addItem("Not known / ignore the rig", "none")
         for k, name in rigs.items():
             self.rig.addItem(name, k)
-        self.rig.sort_items(pinned=2)  # ("Automatic" and "Don't know" on top, the rigs A to Z under them: UI-RULES 22)
+        # ("Automatic" and "Not known / ignore the rig" on top, the rigs A to Z under them: UI-RULES 22)
+        self.rig.sort_items(pinned=2)
         self.target_lab.setText((r.get("target") or "No target selected").rsplit(".", 1)[0])
         self.q.setText(r.get("query") or "")
         if self.q.text().strip():
@@ -445,7 +446,7 @@ class CompareWindow(QDialog):
             words = placed(head, QVBoxLayout(), 1)
             words.addWidget(title)
             btn = QPushButton()  # (under the ticks it depends on, at the right as a measurement's Use: added below)
-            if not out:  # (the first average offered)
+            if not out:
                 theme.mark(btn, primary=True)
             note = QLabel()
             note.setTextFormat(Qt.PlainText)  # (its "\n" a line break, and a "<" in a source's name shown as it is)

@@ -1,15 +1,14 @@
 """History: your past EQs, kept between sessions (eq.service /api/history, eq/history.py; AutoEQ Local's history.js,
-natively). An EQ goes in when it's saved or copied, or after every run if Advanced › History says so.
+natively). An EQ goes in when it's saved or copied, or after every run if More settings › History says so.
 
 The window lists them by day, newest first (a search over IEM, target and method; "This IEM only"). Each row, its
-buttons as every list's (.claude\\notes\\UI-RULES.md 18): Copy (its filters as Equalizer APO text), Keep to compare
-(into Listen's EQs to compare), Show (the EQ back on the graph and in the result card, with its files and curve
-settings when they're still in the app), then ✕ apart (taken out, with Undo in the window's line). Clear the
-history… removes them all, asked first (saved files stay). The footer is every window's (window_parts.Footer): Clear the history at the
-left, the window's own message line, Close.
-Show, Copy and Keep to compare show Windows 11's symbols beside their words; only the first row's Show (the newest
-of those listed) is in the accent, as Windows 11 keeps the accent for one main action (every row's was: a column of
-them), and Enter presses it; ✕ is every row's quiet button.
+buttons as every list's (.claude\\notes\\UI-RULES.md 18): Show (the EQ back on the graph and in the result card, with
+its files and curve settings when they're still in the app), then ⋯ (quiet, a menu: Copy, its filters as Equalizer
+APO text; Keep to compare, into Listen's EQs to compare; Remove from the history, with Undo in the window's line; the
+UI audit, 2026-11-08). Clear the history… removes them all, asked first (saved files stay). The footer is every
+window's (window_parts.Footer): Clear the history at the left, the window's own message line, Close.
+Show and ⋯ show Windows 11's symbols; only the first row's Show (the newest of those listed) is in the accent, as
+Windows 11 keeps the accent for one main action (every row's was: a column of them), and Enter presses it.
 A row's target is in the theme's quieter colour, redone when Windows switches light/dark (follow_theme, which
 Compare's graph uses too).
 Each row is a card, its words starting where a card's do; in a narrow window (History at its smallest, or in the
@@ -85,7 +84,8 @@ class HistoryWindow(QDialog):
         self._todo, self._lay = [], None
         self._heads = []  # ((label, entry)): the rows' first lines, coloured again when the theme changes
         self.q.textChanged.connect(lambda: self._later.start())
-        self.only = QCheckBox("This IEM only", self)  # (the window its parent at once: see setVisible below)
+        self.only = QCheckBox("This IEM only", self)  # (its parent at once: setVisible below, on a box with no
+        # parent, showed it as a window of its own)
         help_window.tag(self.only, "#hist-this")
         self.only.setChecked(this_iem and bool(page.curves))
         self.only.toggled.connect(lambda: self.render())
@@ -93,7 +93,7 @@ class HistoryWindow(QDialog):
         # and Tab's order stay as they were)
         top.addWidget(self.q, 1)
         top.addWidget(self.only)
-        self.only.setVisible(bool(page.curves))  # (with no parent yet it flashed as a window of its own)
+        self.only.setVisible(bool(page.curves))
         self.keep = QLabel()
         theme.mark(self.keep, role="muted")
         v.addWidget(self.keep)
@@ -114,7 +114,7 @@ class HistoryWindow(QDialog):
 
     def render(self, keep=False):
         """The entries, newest first: the first ones at once, the rest a batch at a time. keep: the place in the list
-        stays (after ✕)."""
+        stays (after Remove from the history, or its Undo)."""
         page = self.page
         bar = self.scroll.verticalScrollBar()
         pos = bar.value() if keep else 0
@@ -145,7 +145,7 @@ class HistoryWindow(QDialog):
         lay.addStretch(1)
         self._more.stop()
         self._lay, self._todo, self._heads, self._first_show = lay, todo, [], None
-        self._enter.button = None  # (Enter: the first row's Show, once it's made)
+        self._enter.button = None
         self._make_more(len(todo) if keep else FIRST_ROWS)
         self.scroll.setWidget(body)
         if keep:  # (once laid out; the scroll bar its owner, so a window deleted meanwhile drops it, as Find…'s)
@@ -190,7 +190,7 @@ class HistoryWindow(QDialog):
         sub.setWordWrap(True)
         text.addWidget(sub)
         show = QPushButton("Show")
-        if self._first_show is None:  # (the first row's: the accent on one Show only, and Enter's)
+        if self._first_show is None:
             self._first_show = show
             theme.mark(show, primary=True)
             self._enter.button = show
@@ -202,7 +202,7 @@ class HistoryWindow(QDialog):
         more = QPushButton()
         icons.put(more, "more")
         theme.mark(more, quiet=True, nochevron=True)  # (no chevron: its symbol says it is a menu)
-        more.setToolTip("More actions")  # (its screen-reader name is "More actions for <its row>", set below)
+        more.setToolTip("More actions")
         more.setAccessibleName(f"More actions for {e.get('device')} → {e.get('target')}, "  # (each row's own name: a
                                f"{day_of(e['when'])} {time_of(e['when'])}")  # screen reader read one name on all)
         menu = QMenu(more)
@@ -271,7 +271,8 @@ class HistoryWindow(QDialog):
                             f"{page.curves['name']}." if other else "Added to EQs to compare", 10000 if other else None)
 
     def remove(self, keys):
-        """The ✕: out of the history, with Undo in this window's line (UI-RULES 20)."""
+        """Remove from the history (a row's ⋯ menu): out of the history, with Undo in this window's line
+        (UI-RULES 20)."""
         gone = [e for e in self.page.history if e.get("key") in set(keys)]
         r = self.page.svc.call("/api/history/remove", {"names": keys})
         if r.get("error"):
@@ -279,8 +280,8 @@ class HistoryWindow(QDialog):
             return
         mores = self._mores()  # (the row's ⋯ with the focus goes with its row: then no control had it, 2026-11-13)
         at = next((i for i, b in enumerate(mores) if b is self.focusWidget()), None)
-        self._show_entries(r.get("entries", []), keep=True)  # (the place in the list stays)
-        if at is not None:  # (the ⋯ of the row now in its place, else of the last row, else the search box)
+        self._show_entries(r.get("entries", []), keep=True)
+        if at is not None:
             mores = self._mores()
             (mores[min(at, len(mores) - 1)] if mores else self.q).setFocus(Qt.OtherFocusReason)
         if gone:

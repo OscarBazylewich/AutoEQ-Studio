@@ -80,7 +80,7 @@ def music_loop(sr, seed=2):
             w = signal.sosfilt(signal.butter(2, min(lp, sr * 0.45), "low", fs=sr, output="sos"), w)
         return w * env(length, vol, attack)
 
-    def mix(a, b):  # (two sounds of slightly different lengths, added)
+    def mix(a, b):
         n_ = max(len(a), len(b))
         return np.pad(a, (0, n_ - len(a))) + np.pad(b, (0, n_ - len(b)))
 

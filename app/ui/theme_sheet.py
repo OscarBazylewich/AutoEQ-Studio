@@ -223,8 +223,8 @@ def progress_and_sliders(t, img):
 
 
 def scroll_areas_and_menus(t, img):
-    """Scroll areas and their thin scroll bars, splitters, the status bar and menus. A menu's item that can't be
-    chosen is a note in this app ("No presets yet: …", "Run first", the tray's device playing): in the muted colour,
+    """Scroll areas and their thin scroll bars, splitters, the status bar and menus. A menu's item that can't be chosen
+    is a note in this app ("No presets yet: …", "Calculate first", the tray's device playing): in the muted colour,
     readable (4.5:1), not the unavailable grey. A submenu's arrow is Windows 11's chevron. A menu's default item (the
     tray's Open AutoEQ Studio: the icon's own click) in semibold, as Windows marks it (a stylesheet's menu item drops
     Qt's own bold). The square where two scroll bars meet is transparent (it had Qt's default colour)."""
@@ -253,10 +253,11 @@ def scroll_areas_and_menus(t, img):
 
 def settings_boxes(t, img):
     """Settings boxes: a value that isn't one (bad=true), the many-line text box, a setting's “automatic” / “custom ↺”
-    tag (tag=true: “automatic” is gray words with no edge, as it can't be clicked; “custom ↺” a button), section headings (in line with the labels under them: no indent of Qt's own), folds (fold=true:
-    ui\\forms.py's Fold, the Target card's Adjust; Windows 11's chevron, right when closed and down when open, its
-    place starting where the button does, so in line with the card's content, and a fill when pointed at, as Windows
-    11's expanders)."""
+    tag (tag=true: “automatic” is gray words with no edge, as it can't be clicked; “custom ↺” a button), section
+    headings (in line with the labels under them: no indent of Qt's own), folds (fold=true: ui\\forms.py's Fold,
+    e.g. Make the EQ's Settings; sub=true: a fold inside a card; Windows 11's chevron, right when closed and down when
+    open, its place starting where the button does, so in line with the card's content, and a fill when pointed at,
+    as Windows 11's expanders)."""
     return f"""
     QLineEdit[bad="true"], QPlainTextEdit[bad="true"] {{ border: 1px solid {t['err']}; border-bottom: 2px solid {t['err']};
         background: {t['field']}; }}
@@ -321,8 +322,8 @@ def focus_frame(t, img):
 
 
 # ---------------------------------------------------------------- each screen's own rules (after the shared ones,
-# so a screen's rule wins over them): its controls by objectName (#name) or a property of its own, for what used to
-# be a style set in the screen's code. Each belongs to that screen's area (the restyle's stage 2, 2026-10-23).
+# so a screen's rule wins over them): by objectName (#name) or a property of its own; each part is owned by that
+# screen's area (AGENTS.md)
 def window_screens(t, img):
     """The window around the screens and the device screens: the banner, the trial bar, Devices, Profiles,
     Settings, Set up, the tray menu, and the app's message boxes and input boxes (Windows 11's dialogs: the answer
@@ -356,8 +357,9 @@ def window_screens(t, img):
 def eq_screen(t, img):
     """Make an EQ: its cards, settings folds, result card, notices. Its own properties: eqtitle (the graph's title: a
     card's title, 16 px, in Windows 11's display type), eqname (the result's name: a title in a card, 14 px bold),
-    eqsub (a fold inside a card: body text, quieter than the card's title, as Windows 11's expanders); the graph
-    floating over the page as you edit (#liveGraph: a card with Windows 11's flyout border, eq_page_live).
+    errbig (the result's error, in display type); eqsub's rule is not used now (no code sets eqsub: a fold inside a card
+    is fold=true with sub=true, settings_boxes); the graph floating over the page as you edit (#liveGraph: a card with
+    Windows 11's flyout border, eq_page_live).
     (The menus its Guide draws, a submenu's chevron too, are the Guide's own: guide_and_help's #tourMock.)"""
     return f"""
     QLabel[eqtitle="true"] {{ font-family: "Segoe UI Variable Display"; font-size: {FONT + 1.5}pt; font-weight: 600; }}
@@ -371,13 +373,13 @@ def eq_screen(t, img):
 
 
 def eq_windows(t, img):
-    """Make an EQ's own windows: the filter editor, All results, Compare, Run several, History. Their controls by
-    object names of their own (eqw…): the filter table's boxes a little apart (the table has no grid lines) and its
-    headings 3 px further in, so Type's (at the left) starts where its drop-downs' words do, inside their border and
-    padding (the centred ones stay centred over their values); the Sliders view's gains in semibold (its sliders,
-    scale and pre-amp draw themselves in the theme's colours: filter_editor.py); the error grid's corner as its
-    headings; room at the left of the tables' cells, so their words start under their headings (Run
-    several's, All results' grid and table, Compare's numbers and filters: Windows 11's table look, no grid lines)."""
+    """Make an EQ's own windows: the filter editor, All results, Compare, Queue, History. Their controls by object names
+    of their own (eqw…): the filter table's boxes a little apart (the table has no grid lines) and its headings 3 px
+    further in, so Type's (at the left) starts where its drop-downs' words do, inside their border and padding (the
+    centred ones stay centred over their values); the Sliders view's gains in semibold (its sliders, scale and pre-amp
+    draw themselves in the theme's colours: filter_editor.py); the error grid's corner as its headings; room at the left
+    of the tables' cells, so their words start under their headings (Queue's, All results' grid and table, Compare's
+    numbers and filters: Windows 11's table look, no grid lines)."""
     return f"""
     QTableWidget#eqwFilters QLineEdit, QTableWidget#eqwFilters QComboBox {{ margin: 1px 2px; }}
     QTableWidget#eqwFilters QHeaderView::section {{ padding-left: 11px; padding-right: 11px; }}
@@ -390,15 +392,15 @@ def eq_windows(t, img):
 
 
 def find_windows(t, img):
-    """Find…, Sources and Which measurement (ui\\picker.py, sources_window.py, compare_window.py). Find…: its list's
-    rows without padding (Qt puts a row's widgets inside it: the lists' 7 px cut its buttons and names; headings and
-    notes keep a little at the sides), a result's name (semibold) and its download mark (Windows 11's symbol, from its
-    icon font; Segoe MDL2 Assets on Windows 10); a row's ✕ is every quiet button (buttons(): its fill laid over the
-    row's, so it shows on a pointed-at row).
+    """Find…, Sources and Other measurements of this model (ui\\picker.py, sources_window.py, compare_window.py). Find…:
+    its list's rows without padding (Qt puts a row's widgets inside it: the lists' 7 px cut its buttons and names;
+    headings and notes keep a little at the sides), a result's name (semibold) and its download mark (Windows 11's
+    symbol, from its icon font; Segoe MDL2 Assets on Windows 10); a row's ✕ is every quiet button (buttons(): its fill
+    laid over the row's, so it shows on a pointed-at row).
     Sources: its tree of databases as the lists (a card with rounded corners, whole rows filled when pointed at or
-    chosen; their ticks say which are on). Which measurement: the rank, a measurement's name, its reasons (+ good,
-    − not), its chart's card, and a box filled while the mouse is over it (its curve is the one on top); a note to
-    heed is every window's warning bar (window_parts.warning_card)."""
+    chosen; their ticks say which are on). Other measurements of this model: the rank, a measurement's name, its reasons
+    (+ good, − not), its chart's card, and a box filled while the mouse is over it (its curve is the one on top); a note
+    to heed is every window's warning bar (window_parts.warning_card)."""
     return f"""
     QListWidget#findList::item {{ padding: 0px; }}
     QListWidget#findList::item:disabled {{ padding: 0px 8px; }}
@@ -431,16 +433,15 @@ def listen(t, img):
 
 
 def tracer(t, img):
-    """The tracer's window (ui\\trace_window.py, by its objectNames and its own tr* properties): its title and the
-    empty picture's heading (Fluent's subtitle sizes), the Automatic settings switch (the card's heading) and its
-    Why these settings fold (flat inside that card), the tools as one group (trTool: only the group's two ends rounded),
-    the zoom bar's buttons and a curve's dot and ✕ a little smaller than other buttons (trCompact: they're the shared
-    quiet buttons, quiet=true; trIcon: a symbol without words, centred), the chosen curve's row (trRow="chosen": as a
-    chosen list row, the accent's bar beside it, its words in a chosen row's text colour, which a contrast theme
-    needs, its dot and ✕ too when pointed at or pressed: their fill is every quiet button's, laid over the row's), the
-    traced colour's frame, the zoom bar floating on the picture (as Windows 11's flyouts; its words in the text colour,
-    as its symbols: a quiet button's are greyer). The picture's card itself is drawn by the window in the same colours
-    (trace_window.Stage)."""
+    """The tracer's window (ui\\trace_window.py, by its objectNames and its own tr* properties): the empty picture's
+    heading (Fluent's subtitle size), the Automatic settings switch (the card's heading) and its About these settings
+    fold (flat inside that card), the tools as one group (trTool: only the group's two ends rounded), the zoom bar's
+    buttons and a curve's dot and ✕ a little smaller than other buttons (trCompact: they're the shared quiet buttons,
+    quiet=true; trIcon: a symbol without words, centred), the chosen curve's row (trRow="chosen": as a chosen list row,
+    the accent's bar beside it, its words in a chosen row's text colour, which a contrast theme needs, its dot and ✕ too
+    when pointed at or pressed: their fill is every quiet button's, laid over the row's), the traced colour's frame, the
+    zoom bar floating on the picture (as Windows 11's flyouts; its words in the text colour, as its symbols: a quiet
+    button's are greyer). The picture's card itself is drawn by the window in the same colours (trace_window.Stage)."""
     return f"""
     QLabel#trDropHead {{ font-family: "Segoe UI Variable Display"; font-size: 13.5pt; font-weight: 600; }}
     QCheckBox#trAutoOn {{ font-weight: 600; }}
@@ -465,16 +466,16 @@ def tracer(t, img):
 
 def guide_and_help(t, img):
     """The Guide's layer and card, and the Help window. The Guide (ui\\tour.py): its card (#tourCard: the step list's
-    button with Windows 11's chevron after its words, the theme's own picture given as its icon, which the tour draws
-    in the room kept at its right; the “Demo” tag as the settings' tags, the step's title, link-like buttons with
-    link=true), and what a demo shows inside it: a drop-down's list or a menu (#tourMock: as the real ones, kind="list"
-    or "menu": a list's rows and its chosen row, filled with the accent's bar beside it, the long list's search box
-    (#tourMockSearch) as the real one's as it opens, ready for typing: the accent's line under it, its grey words as
-    Qt draws a box's (the text colour at half), or words typed in it (typed=true) in the text's colour; a menu's rows,
-    square corners and separators, a submenu's chevron
-    (#tourMockArrow)), a message (#tourNote), a key (#tourKey), a window or a question with its title bar (#tourWin),
-    the step list (#tourSteps, as a menu), the graph kept in sight (#tourPin). Help (ui\\help_window.py): its contents
-    (#helpContents) and its page (#helpPage) as cards."""
+    button with Windows 11's chevron after its words, the theme's own picture given as its icon, which the tour draws in
+    the room kept at its right; the gray “Demo · your work does not change” line (#tourBadge), the step's title,
+    link-like buttons with link=true), and what a demo shows inside it: a drop-down's list or a menu (#tourMock: as the
+    real ones, kind="list" or "menu": a list's rows and its chosen row, filled with the accent's bar beside it, the long
+    list's search box (#tourMockSearch) as the real one's as it opens, ready for typing: the accent's line under it, its
+    grey words as Qt draws a box's (the text colour at half), or words typed in it (typed=true) in the text's colour; a
+    menu's rows, square corners and separators, a submenu's chevron (#tourMockArrow)), a message (#tourNote), a key
+    (#tourKey), a window or a question with its title bar (#tourWin), the step list (#tourSteps, as a menu), the graph
+    kept in sight (#tourPin). Help (ui\\help_window.py): its contents (#helpContents) and its page (#helpPage) as
+    cards."""
     return f"""
     QFrame#tourCard {{ padding: 0px; }}
     QFrame#tourCard QToolButton#tourCount {{ background: transparent; border: none; border-radius: 4px;
@@ -531,5 +532,4 @@ PARTS = [base_and_tooltips, cards_and_group_boxes, text_roles, buttons, top_bar,
 
 
 def sheet(t, img):
-    """The whole stylesheet: every part in order, as one text."""
     return "".join(part(t, img) for part in PARTS)

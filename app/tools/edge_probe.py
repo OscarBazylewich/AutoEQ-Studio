@@ -1,15 +1,14 @@
-"""Edge-case probe (AutoEQ Local's tools\\edge_probe.py, for AutoEQ Studio): odd files, names, settings, filters,
-presets and malformed requests, tried on a copy of the app (app_copy.py: your own files, settings and Equalizer APO
-are never used; it runs offline, so nothing is downloaded). Wider and slower than the self-test (a few minutes): run
-it after bigger changes. One line per case:
+"""Edge-case probe: odd files, names, settings, filters, presets and malformed requests, tried on a copy of the app
+(app_copy.py: your own files, settings and Equalizer APO are never used; it runs offline, so nothing is downloaded).
+Wider and slower than the self-test (a few minutes): run it after bigger changes. One line per case:
   ok     it worked (with a short note of what came out)
   msg    it refused with a clear message
   CRASH  a Python error, or a message that reads like one: fix it, then add a test for it (tests\\<area>\\)
 
     .venv\\Scripts\\python.exe app\\tools\\edge_probe.py [--keep]
 (Set PYTHONIOENCODING=utf-8 when writing the output to a file: some cases have non-English names.)
-Besides AutoEQ Local's cases: every eq.service request with malformed bodies (the old server's are direct calls
-here), the tracer on odd pictures, Listen's sound with odd filters, and EQ files the device part reads.
+Also: every eq.service request with malformed bodies, the tracer on odd pictures, Listen's sound with odd filters,
+and EQ files the device part reads.
 """
 import math
 import os
@@ -17,7 +16,7 @@ import subprocess
 import sys
 import time
 
-import app_copy  # (make_copy, use_copy, remove_copy)
+import app_copy
 
 TECHNICAL = ("Traceback", "NoneType", "object has no attribute", "could not convert", "index out of range",
              "unsupported operand", "not subscriptable", "Errno", "KeyError", "invalid literal", "list index",
@@ -244,7 +243,7 @@ def probe_studio_parts():
 def inner(top):
     app_copy.use_copy(top)
     import net
-    net.set_offline(True)  # (nothing fetched: a probe never downloads)
+    net.set_offline(True)
     probe_modules(top)
     probe_requests()
     probe_studio_parts()

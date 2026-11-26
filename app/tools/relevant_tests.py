@@ -46,7 +46,6 @@ import sys
 
 PROJECT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# (pattern, why) for the files that choose every test, and for those that choose none
 EVERYTHING = (
     ("pytest.ini", "pytest's own settings"),
     ("tests/conftest.py", "what every test is set up with"),
@@ -57,7 +56,6 @@ EVERYTHING = (
     ("app/requirements-any.txt", "the packages the app runs on"),
 )
 NO_TESTS = ((".github/**", "a file for GitHub (its CI)"), ("docs/**", "the GitHub page's words and pictures"))
-# (data the app reads, counted as a change to the module that reads it)
 BUILT_IN = (("app/eq/rigdata.json", "eq.rigconv"), ("app/eq/rigmap.json", "eq.rigmap"),
             ("app/eq/vendor/**", "eq.engines"))
 
@@ -295,7 +293,7 @@ class Project:
 
     # ---------------------------------------------------------------- the app side
     def _app_files(self):
-        """(module name, file) for every module of the app and every tool."""
+        """(module name, file, is it a package's __init__.py?) for every module of the app and every tool."""
         app = os.path.join(self.root, "app")
         found = []
         for here, dirs, files in os.walk(app):
@@ -463,7 +461,6 @@ class Project:
                 for m in h_roots:
                     roots.setdefault(m, f"from {h}")
                 files += [(p, f"{owner}") for p, owner in h_files]
-            # The fixtures it asks for, followed through the fixtures those ask for.
             sources = self._fixture_sources(test)
             root_conftest = self.conftests.get("tests")
             seen, todo = set(), sorted(source.uses)
@@ -499,7 +496,6 @@ class Project:
         return self._reach[test]
 
     def reaches(self, test) -> set:
-        """Every module of the app and its tools a test file reaches."""
         if test not in self._reaches:
             roots, _files = self.roots_of(test)
             out = set()
@@ -659,7 +655,6 @@ def _show(choice, command):
 
 
 def _run_tests_module():
-    """app\\tools\\run_tests.py, beside this file."""
     try:
         import run_tests
     except ImportError:
@@ -745,6 +740,6 @@ def main(argv=None, root=None) -> int:
 
 
 if __name__ == "__main__":
-    if hasattr(sys.stdout, "reconfigure"):  # (UTF-8 whatever the console)
+    if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.exit(main())

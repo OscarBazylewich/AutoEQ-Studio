@@ -1,5 +1,5 @@
 """Your EQs to compare, one list per IEM or headphone (the measurement's name), kept between sessions in
-data\\listen.json: each one's name, filters, a note on where it came from, whether it's drawn on the graph, and for
+data\\eq\\listen.json: each one's name, filters, a note on where it came from, whether it's drawn on the graph, and for
 a graphic EQ's result its engine ("graphic").
 
 The page adds to a list from the result card (Keep to compare), from History (Listen) or from an EQ file or pasted
@@ -16,7 +16,7 @@ import textfile
 PATH = os.path.join(paths.DATA, "listen.json")
 MAX_EQS = 12
 MAX_LISTS = 300
-_LOCK = threading.Lock()  # (the server answers requests in parallel: one change to the file at a time)
+_LOCK = threading.Lock()  # (service calls also run in worker threads, ui\tasks.py: one change to the file at a time)
 
 
 def _read_lists():
@@ -91,7 +91,7 @@ def _put(device, eqs):
     data.pop(device, None)
     if eqs:
         data[device] = {"used": time.time(), "eqs": eqs}
-    while len(data) > MAX_LISTS:  # (the list used longest ago goes)
+    while len(data) > MAX_LISTS:
         data.pop(min(data, key=lambda k: data[k].get("used", 0) if isinstance(data[k], dict) else 0))
     textfile.write_json(PATH, data, quiet=False)
     return eqs

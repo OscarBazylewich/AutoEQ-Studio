@@ -14,7 +14,7 @@ import time
 from . import inputs
 from . import paths
 import textfile
-from .inputs import CHANNEL_RE, EXTS, TARGET_RE  # noqa: F401 - (CHANNEL_RE: used here and by other modules)
+from .inputs import CHANNEL_RE, EXTS, TARGET_RE  # noqa: F401 - (all three are used here)
 
 CACHE_PATH = os.path.join(paths.CACHE, "library.json")
 MAX_BYTES = 3_000_000
@@ -30,7 +30,7 @@ SKIP_PATHS = {os.path.normcase(os.path.join(paths.PROGRAM, d))
               for d in ("output", "data", ".venv", "app", "presets", "releases", "downloads", "runtime")} \
     | {os.path.normcase(p) for p in (paths.OUTPUT_DIR, paths.PRESET_DIR, paths.DOWNLOAD_DIR, paths.STUDIO_DATA,
                                      paths.CACHE)}
-IN_APP = [os.path.normcase(paths.TARGET_DIR), os.path.normcase(paths.MEAS_DIR)]  # (your targets and measurements)
+IN_APP = [os.path.normcase(paths.TARGET_DIR), os.path.normcase(paths.MEAS_DIR)]
 
 _lock = threading.Lock()
 _state = {"scanning": False, "seen": 0, "found": 0, "cloud": 0, "folders": [], "finished": None, "items": [],
@@ -73,7 +73,7 @@ def sniff(path):
     except OSError:
         return None
     text = textfile.decode(raw)
-    if "\0" in text[:4096]:  # (a binary file)
+    if "\0" in text[:4096]:
         return None
     return sniff_text(textfile.normalize_fr(text))
 

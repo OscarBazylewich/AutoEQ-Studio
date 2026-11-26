@@ -1,9 +1,10 @@
-"""The settings: their defaults, the limits and choices each one allows, and reading and saving them (data\\settings.json
-and presets\\*.json). A settings dict ("cfg") always has every key of DEFAULTS, with values in range: load(),
-with_auto() and clamp() make sure of that, whatever a hand edit or an old preset left in the file.
+"""The settings: their defaults, the limits and choices each one allows, and reading and saving them
+(data\\eq\\settings.json and the Presets folder's *.json). A settings dict ("cfg") always has every key of DEFAULTS,
+with values in range: load(), with_auto() and clamp() make sure of that, whatever a hand edit or an old preset left
+in the file.
 
-Settings are addressed by dotted paths ("site_sweep.q_max", "scoring.band_hz.1": the second item of a list): the page
-binds its boxes to them (data-path), and LIMITS, CHOICES and the automatic settings use them too.
+Settings are addressed by dotted paths ("site_sweep.q_max", "scoring.band_hz.1": the second item of a list):
+ui\\forms.py binds its boxes to them, and LIMITS, CHOICES and the automatic settings use them too.
 """
 import copy
 import json
@@ -54,7 +55,7 @@ DEFAULTS = {
                  "fight_penalty": [0.003, 0.01],
                  # your own filters to start from (text: Equalizer APO lines or "freq gain Q" lines); keep: they stay
                  # as they are and the fit adds filters on top; else the fit may adjust them too; add: off = no
-                 # filters added, only yours fine-tuned (the result card's "Retry from these filters")
+                 # filters added, only yours fine-tuned (the result card's "Calculate from these filters")
                  "start_filters": "", "start_keep": True, "start_add": True,
                  # what the filters are for (layouts.py): "any" (a parametric EQ), fixed bands (a graphic EQ: only the
                  # gains are fitted, within its sliders' range and step; "bands": your own frequencies and Q) or a
@@ -108,8 +109,9 @@ SITE_PROFILES = {"listener800": {"treble_start_from": 15000, "scale_smoothing": 
 
 # ---------------------------------------------------------------- limits and choices
 # Floors and ceilings for every numeric setting: each one is a measured need, a hard limit of the code or file that
-# uses the value, or a standard's range (the tools named below keep their data next to them in tools\, so a limit
-# can be checked again). "int" rounds to whole numbers; "list" settings apply the limits to every value.
+# uses the value, or a standard's range (the tools named below are AutoEQ Local's, in Downloads\AutoEQ Local\app\tools\
+# with their data, so a limit can be checked again). "int" rounds to whole numbers; "list" settings apply the limits
+# to every value.
 # - Frequencies: 20 Hz-20 kHz, the range every curve in the app is on (a value outside it acts on no data).
 # - The website's AutoEQ (site_*): what its own code clamps its inputs to (graphtool_parts.js runAutoEQ: 20 Hz-20 kHz,
 #   whole dB from -20 to +20, Q 0.1-5), and 20 filter rows, what the site's EQ panel imports.
@@ -158,7 +160,6 @@ LIMITS = {
     "best_fit.treble_guard": {"min": 0, "max": 1},
     "best_fit.bands.freqs": {**_HZ, "list": True}, "best_fit.bands.q": _Q,
     "best_fit.bands.gain_min": _CUT, "best_fit.bands.gain_max": _BOOST,
-    # the audible limit: 0.05 dB (closer than any EQ app keeps its own numbers) to 2 dB (plainly audible)
     "scoring.ear_db": {"min": 0.05, "max": 2, "unit": "dB"},
     "scoring.band_hz.0": _HZ, "scoring.band_hz.1": _HZ,
     "site.norm_hz": _HZ, "site.norm_db": {"min": 20, "max": 90, "unit": "phon"},
@@ -239,7 +240,7 @@ def set_path(cfg, path, value):
 # ---------------------------------------------------------------- keeping values valid
 def _clamp_value(v, lim):
     v = min(max(v, lim["min"]), lim["max"])
-    return int(math.floor(v + 0.5)) if lim.get("int") else v  # rounds like the page (JS Math.round)
+    return int(math.floor(v + 0.5)) if lim.get("int") else v  # (halves up, not Python's round-half-to-even)
 
 
 def _is_number(x):

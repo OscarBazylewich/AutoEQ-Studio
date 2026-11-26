@@ -24,15 +24,14 @@ import os
 import winreg
 
 APP = os.path.dirname(os.path.abspath(__file__))
-PROGRAM = os.path.dirname(APP)  # (the program's own folder)
+PROGRAM = os.path.dirname(APP)
 INSTALLED = os.path.isfile(os.path.join(APP, "installed.txt"))
 # (make_installer.py --test-build: its own folders, running channel and mutex, and no Equalizer APO unless a test
 # folder is given, so trying the installer never reaches the user's own app, settings or EQs)
 TEST_BUILD = os.path.isfile(os.path.join(APP, "test-build.txt"))
 NAME = "AutoEQ Studio (test)" if TEST_BUILD else "AutoEQ Studio"
 VERSION = "1.6.8"  # (the one place it's set: the installer, Windows' list of apps and Settings read it from here)
-FILES_KEY = "files_folder"  # (settings.json: the folder you chose for your files; none: DEFAULT_FILES)
-# each kind of your files: its folder's name in your files' folder
+FILES_KEY = "files_folder"
 TARGETS_NAME, MEASUREMENTS_NAME, SAVED_EQS_NAME, PRESETS_NAME = "Targets", "Measurements", "Saved EQs", "Presets"
 
 
@@ -80,7 +79,7 @@ def locate():
     else:
         data, local = os.path.join(PROGRAM, "data"), None
     DATA = env_data or (os.path.join(env_root, "data") if env_root else data)
-    LOCAL = None if env_root or env_data else local  # (installed only: else in DATA and the program's folder)
+    LOCAL = None if env_root or env_data else local
     SETTINGS = os.path.join(DATA, "settings.json")
     LOG = os.path.join(DATA, "app.log")
     DEFAULT_FILES = os.path.join(_documents(), NAME)
@@ -145,7 +144,7 @@ def apo_folders():
     over = os.environ.get("AUTOEQSTUDIO_APO_CONFIG")
     if over:
         return os.environ.get("AUTOEQSTUDIO_APO_INSTALL") or os.path.dirname(over), over
-    if TEST_BUILD:  # (a test build without a test APO folder: as if APO weren't installed)
+    if TEST_BUILD:
         return None, None
     try:
         with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, APO_KEY) as k:

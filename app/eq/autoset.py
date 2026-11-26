@@ -45,7 +45,6 @@ def _setting_range(path):
 
 
 def _round_within(path, v, step=1):
-    """v rounded to a step (whole numbers by default) and kept within the setting's floor and ceiling."""
     lo, hi = _setting_range(path)
     r = min(max(round(v / step) * step, lo), hi)
     return int(r) if step == 1 else round(r, 3)
@@ -234,9 +233,9 @@ class _Plan:
 
     def __init__(self, cfg, an):
         self.cfg, self.an = cfg, an
-        self.L = SEARCH  # (how widely: 0 was Quick, 0.5 Standard, 1 Thorough)
+        self.L = SEARCH
         self.values, self.notes = {}, []
-        self.span = an.get("score_top", an["band_top"])  # the range actually scored (the user's own, if they set it)
+        self.span = an.get("score_top", an["band_top"])
         # How many filters the correction needs: calibrated on best fits of real measurements (the count that gets
         # within 0.1 dB of the best error was about 1.6 × the peaks and dips + 2, more when the curve is far off).
         self.n_need = int(min(N_ACCURACY, max(6, _round_half_up(1.6 * an["features"] + 2 + an["no_eq_rms"] / 3))))
@@ -247,9 +246,8 @@ class _Plan:
     # ---- limits from the analysis
     def counts(self, Ls, path):
         """The filter counts (or website rows) to try at search width Ls (SEARCH; the old Quick 0, Standard 0.5,
-        Thorough 1): up to the setting's ceiling (where fits stop improving, or the website's rows); every one from
-        0.67, every one to 16 then every other to 24 from 0.34, else every other to 12 then every 4th (the fits with
-        many filters take longest)."""
+        Thorough 1, the names BENCHMARKS.md uses), up to the setting's ceiling: every count for a wide search, fewer
+        at high counts for a narrow one (the fits with many filters take longest)."""
         top = int(_setting_range(path)[1])
         # Best fit: every count where the audible pick lands (11-21 filters in the tests: a count skipped there made
         # it take a bigger one, once 32) at every level, and every count when the EQs are grown (each count is made on
@@ -264,16 +262,16 @@ class _Plan:
             c = [*range(2, 13, 2), *range(13, 23), *range(24, top + 1, 4)] if dense else [*range(2, 13, 2), *range(16, top + 1, 4)]
         return sorted({n for n in c if n <= top} | {top})
 
-    def gain_want(self):  # boost: what the target needs + 2 dB (at least 4)
+    def gain_want(self):
         return math.ceil(max(4.0, self.an["need_boost"] + 2))
 
     def gain_top(self, path):
         return _round_within(path, self.gain_want())
 
-    def cut_floor(self, path):  # cut: what it needs + 2 dB (at least 6)
+    def cut_floor(self, path):
         return _round_within(path, -math.ceil(max(6.0, -self.an["need_cut"] + 2)))
 
-    def q_want(self):  # Q: the narrowest peak or dip's, plus a quarter (at least 2)
+    def q_want(self):
         return max(2.0, self.an["q_need"] * 1.25)
 
     def q_top(self, path):
@@ -297,7 +295,7 @@ class _Plan:
     # ---- the reasons
     def note_filters(self, n, path, single=False):
         # (each note says the value and the fact about your curves it comes from; why the app works this way is
-        # on the Help page: wiki.js "q-auto-why")
+        # on the Help page: ui\help_text_terms.py "q-auto-why")
         an = self.an
         need = f"{an['features']} peaks/dips to correct" if an["features"] else "overall shape only"
         s = "" if n == 1 else "s"
@@ -354,7 +352,6 @@ class _Plan:
                 "site_sweep.q_max": qm}, gt, qt, rows_top, qhi
 
     def site_single(self):
-        # (one run: the count the curve needs, found within 0.1 dB of the best)
         rows = _round_within("site_single.rows", self.n_need)
         gt, qt = self.gain_top("site_single.gain_max"), self.q_top("site_single.q_max")
         self.values.update({"site_single.rows": rows, "site_single.freq_high": _round_within("site_single.freq_high", self.span),
@@ -470,8 +467,7 @@ def plan(cfg, an, mode=None):
 
 
 def describe(cfg, mode=None):
-    """What a run with these settings will try, in words (each count with its own word: "1 filter", "3 filters",
-    _many)."""
+    """What a run with these settings will try, in words."""
     from . import engines
     mode = mode or cfg["mode"]
     if mode == "site_single":
@@ -522,7 +518,6 @@ def describe(cfg, mode=None):
 
 
 def _many(n, word):
-    """A count and its word, with an "s" for every count but 1 ("1 filter", "3 filters")."""
     return f"{n} {word}{'' if n == 1 else 's'}"
 
 
@@ -547,8 +542,7 @@ def describe_short(cfg, mode=None):
         n_mine = _count_mine(bf)
         if n_mine and bf.get("start_add") is False:
             return f"your {_many(n_mine, 'filter')}"
-        # (fit_count as the run counts them: growing, your own filters kept as they are are one EQ more; this text
-        # said one EQ too few then)
+        # (fit_count as the run counts them: growing, your own filters kept as they are are one EQ more)
         n = engines.fit_count(bf, n_mine)
         counts = bf["filter_counts"]
         if not counts:  # (settings that were not checked: no filter counts to say)
@@ -660,7 +654,6 @@ def _work_of_run(cfg, mode, cached=True):
     # measured per start: 0.15 s at 10 filters, 0.2 s at 12, 0.4 s at 14-16 (a few starts take many more steps)
     tasks = [0.0015 * n ** 2 + (engines.RANDOM_STARTS + 1) * (0.02 + 0.012 * (n + shelves) + 0.00003 * (n + shelves) ** 3)
              for n in bf["filter_counts"]]
-    # a lighter fighting-filter penalty takes longer (measured: 0.003 → 1.2×, 0.001 → 1.5×, 0 → 2.4×)
     n_mine, limits = _count_mine(bf), len(bf["q_max"]) * len(bf["gain_max"])
     if n_mine and not bf.get("start_add", True):
         tasks = []

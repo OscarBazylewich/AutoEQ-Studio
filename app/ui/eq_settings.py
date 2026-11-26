@@ -3,10 +3,10 @@ rows that open in the Make the EQ card, above Calculate and Start (the UI audit,
 settings that it uses, and the result 2,000 px below it).
 
 Settings (the ones used most):
-- Automatic settings: on or off; "Your values" (each one made automatic again with ↺, or all); About these settings
-  (n), a row that opens (closed at the start, kept as you left it): each value and the fact about your files it
-  comes from
-- the method's own values: Website AutoEQ's six; the website sweep's summary; Best fit's filter counts and shelves
+- Automatic settings: on or off; "Custom values" (each one made automatic again with "custom ↺", or all with Make all
+  automatic); About these settings (n), a row that opens (closed at the start, kept as you left it): each value and
+  the fact about your files it comes from
+- the method's own values: Website AutoEQ's seven; the website sweep's summary; Best fit's filter counts and shelves
 - Error and selection: the range the match is judged over, how a result is picked
 - Target: the rig conversion
 More settings, a tab for each section (less height; a method's tab only with its method): Best fit (its layout,
@@ -60,7 +60,7 @@ def _opts(values, names=None):
 
 
 class OwnFiltersWindow(QDialog):
-    """Your own filters' window: never shorter than its words and the view shown need at its width. Qt works out a
+    """The Your filters window: never shorter than its words and the view shown need at its width. Qt works out a
     window's smallest height with a wrapped line of words counted as one line, so the note's second line came out of
     the filter editor under it: in the Sliders view its bottom, the sideways scroll bar, was under OK and Cancel and
     filters past the fifth couldn't be reached (2026-10-23). The smallest height is worked out again as the view
@@ -99,9 +99,8 @@ class EqSettings:
     reset_adjust_btn, save_target_btn = _adjust_part("reset_btn"), _adjust_part("save_btn")
 
     def __init__(self, page):
-        """What the settings need (their limits, the paths the automatic settings fill in); build_parts() makes them."""
         self.page = page
-        self._adjust = None  # (Adjust…'s window: made at its first use, adjust())
+        self._adjust = None
         m = page.meta
         self.limits = Limits(m.get("limits", {}), m.get("limit_pairs", []))
         self.auto_paths = [p for ps in (m.get("auto_paths") or {}).values() for p in ps]
@@ -264,12 +263,9 @@ class EqSettings:
 
     # ---------------------------------------------------------------- the Target card's Adjust (AutoEQ Local's)
     def _adjust_panel(self, C, get, changed, make_auto, say, target_row, target_under):
-        """Adjust… (the UI audit, 2026-11-08: a button after Add… that opens a window): the target's tilt, bass,
-        half-tilt, ear gain, treble and air (listener800's Custom DF) as a table: Value with − and +, Hz and Q (gray
-        while the value is 0); a small graph of the target, which changes as you adjust it; Clear the adjustments and
-        Save as a target… (usable once adjusted); its own message line and Close (UI-RULES 1). adjust_btn on the
-        Target row (target_row), adjust_summary under it (target_under). The window is made at its first use (adjust():
-        with its graph it was most of this step's time), hidden, its parent the page."""
+        """Adjust… on the Target row (target_row) and its summary under it (target_under): a button after Add… that
+        opens the window (the UI audit, 2026-11-08), the target's adjustments as listener800's Custom DF has them. The
+        window is made at its first use (adjust(), make_adjust_window)."""
         self.adjust_btn = QPushButton("Adjust…")
         icons.put(self.adjust_btn, "eq")  # (every button in the row with its symbol, UI-RULES 9)
         self.adjust_btn.setToolTip("Fine-tune the target's tilt, bass, half-tilt, ear gain, treble, and air")
@@ -441,7 +437,6 @@ class EqSettings:
         self.redraw_adjust()
 
     def redraw_adjust(self):
-        """The window's graph, while it shows."""
         if self.adjust_open():
             import types
             self.draw_adjust(types.SimpleNamespace(plot=self.adjust_plot, curve=self.adjust_curve))
@@ -578,13 +573,14 @@ class EqSettings:
 
     @staticmethod
     def _apo_lines(filters):
-        """Filters as Equalizer APO lines (how "Start from your own filters" keeps them); switched-off ones left out."""
+        """Filters as Equalizer APO lines (how "Start from your filters" keeps them); switched-off ones left out."""
         return [f"Filter {i}: ON {({'PK': 'PK', 'LSQ': 'LSC', 'HSQ': 'HSC'}).get(x.get('type', 'PK'), 'PK')} "
                 f"Fc {x['freq']:g} Hz Gain {x['gain']:g} dB Q {x['q']:g}"
                 for i, x in enumerate([x for x in filters if x.get("enabled", True) is not False], 1)]
 
     def edit_your_filters(self):
-        """Your own filters in the filter editor (as AutoEQ Local's own-filters table and sliders): OK writes them back.
+        """The Your filters window, with the filter editor (as AutoEQ Local's own-filters table and sliders): OK writes
+        them back.
         It ends as every window does (.claude/notes/UI-RULES.md 1, 4, 6, 7): its own message line (what the editor
         changed: it was said in the main window's, behind it), OK (Enter's, in the accent; Enter in a box being typed in
         is the box's: it pressed OK and closed the window) and Cancel; it opens within the screen."""

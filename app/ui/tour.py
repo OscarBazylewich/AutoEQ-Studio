@@ -6,19 +6,19 @@ the window while a tour runs, and what a demo shows (a list opened, a value type
 when it ends: nothing of yours changes. When the tour ends, the focus goes back to the control that had it before
 (Tour.end_focus).
 
-The card: the step list ("1 · Choose · 3 of 27", Windows 11's chevron after it: go straight to any step; at its foot
-Play all steps, one after another, and the demos' speed, ¼× to 4×) and ✕ (close the Guide, Esc) at the top right, a
-progress bar, "Demo · your work does not change" in gray under it, the title and words, the demo's actions (while it
-plays, only the one playing now), Play demo / Replay, Pause (P), Skip demo, a step's own buttons (e.g. Open Help),
-Start again (the last step), Back / Next (← →). The card goes
-where it covers least of what's lit, what the demo uses and the pointer (and no marker, when it can), and stays put
-while that's as good as anywhere else.
+The card: the step list (e.g. "1 · Select · 3 of 31", Windows 11's chevron after it: go straight to any step; at its
+foot Play all steps, one after another, and the demos' speed, ¼× to 4×) and ✕ (close the Guide, Esc) at the top
+right, a progress bar, "Demo · your work does not change" in gray under it, the title and words, the demo's actions
+(while it plays, only the one playing now), Play demo / Play again (R; Show the steps with animation effects off),
+Wait (P), Complete the demo, a step's own buttons (e.g. Open Help), Start again (the last step), Back / Next (← →).
+The card goes where it covers least of what's lit, what the demo uses and the pointer (and no marker, when it can),
+and stays put while that's as good as anywhere else.
 The look is Windows 11's, as the rest of the app: the card and what a demo shows inside the tour are styled by name in
 ui\\theme_sheet.py's guide_and_help part (#tourCard, #tourMock, #tourNote …); what's drawn here by hand takes
 theme.tokens() as it's drawn: the accent (Windows' own colour) marks what's lit, what the pointer is on, a click and a
 drag; the card's symbols and its list of actions are drawn again when the theme changes.
 The page can be scrolled at any time (the wheel, Page Up/Down, Up/Down): the spotlight follows, and the keys still
-scroll the page once what was lit is out of sight; scrolling while a demo plays pauses it, and Resume scrolls back to
+scroll the page once what was lit is out of sight; scrolling while a demo plays pauses it, and Continue scrolls back to
 where the demo was and carries on.
 With Windows' animation effects off nothing plays: each action is a numbered marker on its control, with the list of
 actions in the card. As the markers show, the page moves once at most, to where the most of them show without
@@ -72,7 +72,6 @@ _themed = {"hooked": False, "tours": []}  # (the tours made, held weakly: drawn 
 
 
 def _retheme():
-    """The theme changed (light/dark, Windows' accent): every tour still open draws its own colours again."""
     import shiboken6
     for ref in list(_themed["tours"]):
         t = ref()
@@ -96,7 +95,6 @@ def _set_symbol(button, name):
 
 
 def scroll_into_view(w, ymargin=60):
-    """Every scroll area holding the widget scrolls so that it's in sight."""
     p = w.parentWidget()
     while p is not None:
         if isinstance(p, QScrollArea) and p.widget() is not None and p.widget().isAncestorOf(w):
@@ -141,7 +139,6 @@ def _settle():
 
 
 def _shown(t):
-    """The step's widgets that are on screen ([] for none)."""
     ws = t if isinstance(t, (list, tuple)) else [t] if t is not None else []
     return [w for w in ws if w is not None and _alive(w) and w.isVisible()]
 
@@ -222,7 +219,6 @@ ACTIONS = ("at", "click", "type", "drag", "note", "spot")
 
 
 def _control(a):
-    """The action's control (its function called), or None."""
     k = next((k for k in ACTIONS if k in a), None)
     if k is None:
         return None
@@ -283,8 +279,6 @@ class _Glass(QWidget):
 
 
 class _Follow(QObject):
-    """The window resized or moved: the tour placed again."""
-
     def __init__(self, tour):
         super().__init__(tour)
         self.tour = tour
@@ -351,11 +345,11 @@ class _Bar(QWidget):
 
 
 class _Count(QToolButton):
-    """The card's step list button (#tourCount): the chapter and the step ("1 · Choose  ·  3 of 28"), then Windows
-    11's chevron at its right, as a drop-down has it (it was a typed ▾ until 2026-10-23). The chevron is the theme's
-    own picture, which theme_sheet's guide_and_help gives the button as its icon, with 26 px of padding at its right
-    for it: the chevron (12 px) 8 px from the edge, 6 px after the words. The style draws the words (it would put an
-    icon before them), this the chevron after them."""
+    """The card's step list button (#tourCount): the chapter and the step (e.g. "1 · Select  ·  3 of 31"), then
+    Windows 11's chevron at its right, as a drop-down has it. The chevron is the theme's own picture, which
+    theme_sheet's guide_and_help gives the button as its icon, with 26 px of padding at its right for it: the chevron
+    (12 px) 8 px from the edge, 6 px after the words. The style draws the words (it would put an icon before them),
+    this the chevron after them."""
 
     def __init__(self):
         super().__init__()
@@ -393,7 +387,7 @@ class Mock(QFrame):
     (hover); a long list (search: its box's grey words) has its search box above its rows, as the real one (typed:
     the words typed in it, in the text's colour, the rows those left); a menu (kind "menu") marks only the row pointed
     at, filled, and a row whose words end in " ▸" opens a submenu: Windows 11's chevron at its right, as a real
-    menu's. (Before 2026-10-23 the chosen row was only semibold: the real list had the fill and the bar by then.)"""
+    menu's."""
 
     def __init__(self, tour, items, current=-1, width=None, kind="list", search=None, typed=False):
         super().__init__(tour)
@@ -411,7 +405,7 @@ class Mock(QFrame):
             v.addSpacing(4)
         self.rows = []
         for it in items:
-            if it is None:  # (a separator)
+            if it is None:
                 sep = QFrame()
                 sep.setObjectName("tourSep")
                 v.addWidget(sep)
@@ -683,16 +677,14 @@ class Api:
     def window(self, w, near=None, size=None):
         """A window of the app (a QDialog made for the demo) shown inside the tour as a window: a frame with its title,
         only looked at (clicks stop at the glass over it, the keys stay with the tour), at the left with the card's
-        room kept at the right, so the card is never over it. The window is made for the demo and thrown away, so its
-        own smallest size doesn't hold here: it's as wide as its frame, its parts shrinking into it (its lists
-        scroll), and the frame is as tall as its parts need when the tour has the room; when it hasn't (Which
-        measurement at the window's smallest size), the window keeps the height it needs and scrolls inside its frame,
-        what a demo points at scrolled into sight (at Windows 11's sizes Which measurement was cut off at the right
-        and the bottom, its Compare and Close hidden, and at the window's smallest size the card covered Find… and
-        History, 2026-10-23; squeezed into the frame instead, its words overlapped and its graph was a sliver). When
-        its parts come to need more room later (a list loaded, words grown), the frame grows with them, or the window
-        scrolls in it (_refit; before 2026-10-24 they were squeezed into the frame it opened with).
-        Closed when the demo ends; returns the dialog."""
+        room kept at the right, so the card is never over it. Its own smallest size doesn't hold here: it's as wide
+        as its frame, its parts shrinking into it (its lists scroll), and the frame is as tall as its parts need when
+        the tour has the room; else (Other measurements of this model at the window's smallest size) the window keeps
+        its height and scrolls inside its frame, what a demo points at scrolled into sight (2026-10-23: at Windows
+        11's sizes Other measurements of this model was cut off at the right and the bottom, and at the window's
+        smallest size the card covered Find… and History; squeezed into the frame, its words overlapped and its graph
+        was a sliver). Parts that need more room later grow the frame, or the window scrolls in it (_refit). Closed
+        when the demo ends; returns the dialog."""
         frame, v = self._frame(w.windowTitle())
         w.setMinimumSize(0, 0)  # (its own window's smallest size: the frame's room decides here)
         w.setParent(frame, Qt.Widget)
@@ -707,7 +699,7 @@ class Api:
         frame.ensurePolished()
         bar = frame.findChild(QFrame, "tourWinBar")
         extra = bar.sizeHint().height() + 8  # (the title bar, the frame's border and its room below)
-        need = _needed_height(w, width)  # (what its parts need at their smallest, their words wrapped at its width)
+        need = _needed_height(w, width)
         height = min(max(hint.height(), need) + extra, H - 16)
         if need + extra > height:  # (no room for it in the tour: it scrolls inside its frame)
             v.addWidget(_scroll_holder(w), 1)
@@ -799,7 +791,6 @@ class Api:
         return v
 
     def morph(self, page, item, a, b, ms=1300):
-        """A demo curve moving from one shape to another."""
         import numpy as np
         if item is None:
             yield ms
@@ -811,10 +802,10 @@ class Api:
 
 # ---------------------------------------------------------------- the step list
 class _Steps(QFrame):
-    """Every step, by chapter (the card's "3 of 27" button): click one to go straight to it (Play all steps is then
-    cleared). It opens as a menu does (#tourSteps), as wide as its longest step (up to the window's width) and as tall
-    as its rows, with Play all steps and the demos' speed at its foot: under the step button, or above it when there
-    is more room there, and never past the window's edges (its rows scroll; the foot stays in sight)."""
+    """Every step, by chapter (the card's step button, #tourCount): click one to go straight to it (Play all steps is
+    then cleared). It opens as a menu does (#tourSteps), as wide as its longest step (up to the window's width) and as
+    tall as its rows, with Play all steps and the demos' speed at its foot: under the step button, or above it when
+    there is more room there, and never past the window's edges (its rows scroll; the foot stays in sight)."""
 
     def __init__(self, tour):
         super().__init__(tour)
@@ -844,8 +835,7 @@ class _Steps(QFrame):
         for i, s in enumerate(tr.steps):
             if s.get("chapter") != ch:
                 ch = s.get("chapter")
-                # (a chapter's heading as Windows 11's group headings, and Find…'s: its words as written, in the
-                # list's own text, semibold; they were small capitals, greyed)
+                # (a chapter's heading as Windows 11's group headings and Find…'s: its words as written, semibold)
                 h = QListWidgetItem(ch or "")
                 h.setFlags(Qt.NoItemFlags)
                 f = QFont(base)
@@ -938,7 +928,7 @@ class Tour(QWidget):
         # the demo: its actions run one by one (a generator: each yield is how long to wait, in the demo's ms)
         self.gen, self.undos, self.demo_running, self.paused, self.paused_by_you = None, [], False, False, False
         self.demo_errors = []      # "step title: error" for each demo that ended on an error (the checks read it)
-        self.scrolled = {}         # paused by your scrolling: where every scrolling part was, for Resume
+        self.scrolled = {}         # paused by your scrolling: where every scrolling part was, for Continue
         self.cur = None            # the pointer (in the window), or None before a demo
         self.hot_w = None          # the control the pointer is on (ringed)
         self.ripple = None         # (x, y, 0-1)
@@ -996,8 +986,7 @@ class Tour(QWidget):
         self.count_btn.clicked.connect(self._toggle_list)
         top.addWidget(self.count_btn)
         top.addStretch(1)
-        # (✕ at the top right closes the Guide, as Windows 11's teaching tips (Esc too); "Close the Guide" at the foot
-        # went, and the Demo tag became a gray line under the bar. The UI audit, 2026-11-08)
+        # (✕ at the top right closes the Guide, as Windows 11's teaching tips (Esc too): the UI audit, 2026-11-08)
         self.end_btn = QToolButton()
         self.end_btn.setText("✕")
         self.end_btn.setToolTip("Close the Guide (Esc)")
@@ -1012,7 +1001,7 @@ class Tour(QWidget):
         self.badge.setObjectName("tourBadge")  # (gray words: theme_sheet's guide_and_help)
         b.addWidget(self.badge)
         b.addSpacing(4)
-        self.chapter = self.count_btn  # (older name: the chapter is in the step list button)
+        self.chapter = self.count_btn  # (an older name: nothing reads it now)
         self.title = QLabel()
         self.title.setObjectName("tourTitle")
         self.title.setWordWrap(True)
@@ -1020,11 +1009,11 @@ class Tour(QWidget):
         self.text = QLabel()
         self.text.setWordWrap(True)
         b.addWidget(self.text)
-        self.acts_lab = QLabel()  # (the demo's actions, numbered: while it plays, the one playing now)
+        self.acts_lab = QLabel()
         self.acts_lab.setWordWrap(True)
         self.acts_lab.setTextFormat(Qt.RichText)
         b.addWidget(self.acts_lab)
-        self.steps_list = self.acts_lab  # (older name)
+        self.steps_list = self.acts_lab  # (an older name: nothing reads it now)
         # (the demo's controls in one box, hidden on a step without a demo: the row of buttons was put in the card
         # first, so Qt kept it out of the box, and Play demo showed on the tracer's steps that have none, doing
         # nothing, 2026-10-23; the rows as far apart as they were)
@@ -1131,8 +1120,8 @@ class Tour(QWidget):
         if st.get("before"):
             st["before"]()
         # (a fold opened or closed, by this step or the one before, a list filled: the page laid out again before it's
-        # measured and scrolled. Not yet settled, at the window's smallest size going on from Fine-tune the target
-        # scrolled the page past the Measurement card, which wasn't in sight, 2026-10-23)
+        # measured and scrolled. Not yet settled, at the window's smallest size a step scrolled the page past a card
+        # that wasn't in sight, 2026-10-23)
         _settle()
         ws = _shown(st.get("target") and st["target"]())
         alt = False
@@ -1221,7 +1210,7 @@ class Tour(QWidget):
         self._show_acts()
 
     def _pause_label(self, text, tip="Wait or continue the demo (P)"):
-        """Pause, or Resume (paused): its words, symbol and tooltip."""
+        """Wait, or Continue (paused): its words, symbol and tooltip."""
         self.pause_btn.setText(text)
         self.pause_btn.setToolTip(tip)
         _set_symbol(self.pause_btn, "pause" if text == "Wait" else "play")
@@ -1457,7 +1446,6 @@ class Tour(QWidget):
         return n
 
     def drop(self, w):
-        """Something shown inside the tour taken away."""
         if w in self.inside:
             self.inside.remove(w)
         if w in self.avoid:
@@ -1691,7 +1679,6 @@ class Tour(QWidget):
 
     @staticmethod
     def _disc(pt, more=0):
-        """The square around a marker's disc at a point, `more` px wider on each side."""
         r = MARK_R + more
         return QRectF(pt.x() - r, pt.y() - r, 2 * r, 2 * r)
 
@@ -1748,14 +1735,15 @@ class Tour(QWidget):
         self._tick()
 
     def _pause_for_scroll(self):
-        """You scrolled while the demo plays: it pauses there; Resume scrolls back and carries on."""
+        """You scrolled while the demo plays: it pauses there; Continue scrolls back and carries on."""
         if not self.demo_running or self.paused:
             return
         from PySide6.QtWidgets import QScrollBar
         self.scrolled = {b: b.value() for b in self.win.findChildren(QScrollBar)}
         self.paused = self.paused_by_you = True
         self.timer.stop()
-        # (its tooltip says it scrolls back: "Resume (back to the demo)" was cut short at Windows 11's text size)
+        # (its tooltip says it scrolls back: a label that said so too, "Resume (back to the demo)", was cut short at
+        # Windows 11's text size)
         self._pause_label("Continue", "The demo waits while you scroll. Continue (P) scrolls the page to the demo, "
                                       "and the demo continues.")
         self._show_acts()
@@ -2265,9 +2253,9 @@ class Tour(QWidget):
 def problems(host, steps):
     """The steps whose control (or a demo action's) isn't there, can't be seen or lies outside the window:
     [(n, title, why)]. Each step's before and after are run, as the tour does; a step with a stand-in ("alt") is
-    checked with whichever is on screen. Each control is measured once the page has settled: straight after the step
-    before had closed Adjust the page wasn't laid out again yet, and at the window's smallest size scrolling to Choose
-    your IEM or headphone's card took it out of sight (2026-10-23)."""
+    checked with whichever is on screen. Each control is measured once the page has settled: straight after a step
+    that closed a fold the page wasn't laid out again yet, and at the window's smallest size a card scrolled to went
+    out of sight (2026-10-23)."""
     from PySide6.QtWidgets import QApplication
     out = []
     win = host.window()

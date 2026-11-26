@@ -28,7 +28,6 @@ COUNTS = {}
 # The devices this list had before the EQ apps (AutoEq's presets): a saved layout with one of these keys is the app's now
 OLD_KEYS = {k: "app:" + k for k in ("qudelix_5k", "poweramp", "uapp", "neutron", "minidsp_2x4hd", "minidsp_il_dsp",
                                      "moondrop_free_dsp", "aunbandeq")}
-# the EQ apps' own layouts
 for _k, _a in eq_apps.APPS.items():
     if eq_apps.layout_key(_k) != "app:" + _k:
         continue
@@ -100,7 +99,7 @@ def bands(bf, n=None):
 def sliders(bf):
     """(lowest, highest, step) of a fixed-band layout's sliders: best_fit.bands', kept within a graphic EQ app's stated
     range and in its steps (as device_settings keeps a parametric app's: a range left from another app, or set in
-    Advanced, can't go past what the app's sliders do)."""
+    More settings, can't go past what the app's sliders do)."""
     from . import settings  # (it imports this module)
     b, own = bf["bands"], SLIDERS.get(bf["layout"], {})
     lo, hi = own.get("gain", (-math.inf, math.inf))
@@ -183,7 +182,7 @@ def _hz(v):
 
 
 def listing():
-    """For the page: [{key, name, group, summary}] in the layout list's order."""
+    """For the page: [{key, name, group, summary, fixed, shelves}] in the layout list's order."""
     group = lambda k: "Any" if k == "any" else "EQ apps (Your EQ app)" if k.startswith("app:") else "Graphic EQ"
     return [{"key": k, "name": name(k), "group": group(k), "summary": summary(k), "fixed": is_fixed(k),
              "shelves": DEVICES[k]["shelves"] if k in DEVICES else not is_fixed(k)} for k in KEYS]

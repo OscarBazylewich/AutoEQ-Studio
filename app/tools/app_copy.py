@@ -1,7 +1,6 @@
 """A temporary copy of AutoEQ Studio for the tools that try the app on something other than your own files:
 edge_probe.py (odd files and requests) and the README pictures (.claude\\notes\\readme-pictures\\shots.py, on this
-PC only). Moved unchanged from the old EQ checks (eq_checks.py, retired 2026-10-22: the tests in tests\\ have their
-own copy, tests\\helpers\\session.py).
+PC only). The tests in tests\\ have their own copy (tests\\helpers\\session.py).
 
     base, top = make_copy()   # a new folder in TEMP: <base>\\AutoEQ Studio (top) holds the copy
     use_copy(top)             # this process works in it (call before the app's modules are imported)
@@ -23,8 +22,7 @@ APP = os.path.dirname(TOOLS)
 ROOT = os.path.dirname(APP)
 SAMPLE_TARGET = os.path.join("targets", "Diffuse field 5128 -1dB per octave (AutoEq).csv")
 SAMPLE_DEVICE = os.path.join("measurements", "Truthear GATe - B&K 5128, 10 seatings")
-# the database lists (8 MB, downloaded): AutoEQ Studio's own once it has them, else AutoEQ Local's (beside it, or in
-# Downloads since 2026-10-08)
+# (8 MB, downloaded; AutoEQ Local is beside the project, or in Downloads since 2026-10-08)
 DB_LISTS = [os.path.join(ROOT, "data", "eq", "cache"), os.path.join(os.path.dirname(ROOT), "AutoEQ Local", "data", "cache"),
             os.path.join(os.path.expanduser("~"), "Downloads", "AutoEQ Local", "data", "cache")]
 

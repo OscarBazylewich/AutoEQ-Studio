@@ -1,12 +1,4 @@
-"""The "Make an EQ" screen: AutoEQ Local's page, natively. One column, as there:
-- the graph: your measurement, the target and the measurement with the EQ; under it the EQ itself (0 dB = no change)
-- Target, then Measurement: what's in the app (your Targets and Measurements folders), and Add… for files on this PC
-- Make the EQ: your EQ app (its limits are kept, its file is what Save writes), the method, the search (what a run
-  tries and how long it takes), Run, and the run's progress
-- the result: its numbers, its filters (Fewer or more filters: the best result for each count), Save filters (the
-  files your EQ app needs, under the File name), and Use on device: the EQ becomes a device's profile, switched on
-- by the graph's title: Trace a graph image… (ui/trace_window.py: a picture of a graph becomes a measurement or
-  target) and History…; under the result, Listen (ui/listen.py)
+"""The "Make an EQ" screen (EqPage); its cards and their order are in ui/eq_page_cards.py.
 
 Everything it does goes through eq.service (AutoEQ Local's page's requests, called directly); slow ones run off the
 window's thread (ui.tasks). The EQ part is loaded when this screen is first opened, or ahead of that while the window
@@ -18,7 +10,7 @@ window's event loop, each a few ms, so the window never freezes (ui/eq_page_card
 is whole and its files are shown (the window, the Guide and Presets wait for it). Made ahead while you're on another
 screen, it says nothing (no message box, no status line) until you first see it: what it would have said then is
 said when it's first shown. This PC is searched once you've seen the page (Find… asks again as it opens).
-Its Guide: ui\\guide.py (the top bar's Guide); F1 on a control: its entry in Help.
+Its Guide: ui/guide_eq.py (through ui/guide.py, the top bar's Guide); F1 on a control: its entry in Help.
 
 The page is one object, EqPage, made of parts, one file each: plain classes (no __init__, no signals) that share the
 page's controls and data, joined here with QWidget last:
@@ -28,11 +20,14 @@ page's controls and data, joined here with QWidget last:
   Find…, Listen's marker
 - ui/eq_page_handles.py, EqHandles: the EQ graph's handles (drag a filter, the wheel for its Q, right-click, a
   double-click for a new one) and an EQ tried on a device following the edits
-- ui/eq_page_files.py, EqFiles: the files, Find…'s call-backs, a picture pasted, the tracer, Which measurement
+- ui/eq_page_files.py, EqFiles: the files, Find…'s call-backs, a picture pasted, the tracer, Other measurements of
+  this model…
 - ui/eq_page_result.py, EqResult: running, the result, this session's runs, editing, Save, Report, Use on device
 - ui/eq_page_history.py, EqHistory: History and presets
+- ui/eq_page_live.py, EqLive: the graph floating over the page while you edit the filters
 - ui/eq_page_parts.py: the names and small helpers they share
-This file keeps the opening, the settings and Qt's own handlers (a picture dropped, Listen's keys 1-9).
+This file keeps the opening, the settings and Qt's own handlers (a picture dropped, the EQ graph's words with no EQ,
+Listen's keys 1-9).
 """
 import gc
 import os
@@ -53,11 +48,11 @@ from ui.eq_page_parts import FORMAT_NAMES, MODE_HINT, Notices, label
 from ui.eq_page_result import EqResult
 from ui.window_parts import not_opened
 
-# (not used here: other files still import them from here, as before the split: listen.py MODE_SHORT, queue_window.py
-# and the tests (tests\eq_screen\test_run_and_result.py) file_base_name; TICKS too)
+# (not used here: listen.py imports MODE_SHORT from here, queue_window.py and tests\eq_screen\test_run_and_result.py
+# file_base_name; no file imports TICKS from here now)
 from ui.eq_page_parts import MODE_SHORT, TICKS, file_base_name  # noqa: F401
 
-_FROZEN = set()  # (the moments of the opening gc.freeze() has run at in this process: once each)
+_FROZEN = set()
 
 
 def _freeze(moment):
@@ -99,7 +94,7 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
         self.previews = []  # [(key, name, values)]: curves shown from the search, not in use
         self.preview_bodies = {}  # key: what /api/preview was asked (to work them out again with new settings)
         self.started = False
-        self.ready = False  # (built and its files shown: the Guide, Presets and the window wait for it)
+        self.ready = False
         self._seen = self._seeing = self._searched = False  # (first shown; This PC searched)
         self._kept = []  # what it would have said before it was first seen: ("status", text, ms, undo) or ("warning", text)
         self._hold = None
@@ -182,7 +177,7 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
         except OSError:  # (said in the log; the EQ part opens with what's there)
             import traceback
             traceback.print_exc()
-        held = self._hold = _Held()  # (ui.preload paused until the page is whole)
+        held = self._hold = _Held()
         self.destroyed.connect(lambda: held.release())  # (the page deleted half-way: let go too)
 
         def load():
@@ -216,8 +211,7 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
                 self._notices = Notices()
                 self._notices.said.connect(self._warn)
                 service.SET_ASIDE.append(self._notices.said.emit)
-                # (settings.json or history.json damaged, set aside as the state and History were read: said, as one
-                # box; History's went unsaid until 2026-10-24, its answer's notice dropped)
+                # (settings.json or history.json damaged, set aside as the state and History were read: said in one box)
                 aside = " ".join(t for t in (st.get("set_aside"), hist.get("set_aside")) if t)
                 if aside:
                     self._warn(aside)
@@ -251,14 +245,12 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
             self._built()
 
     def _built(self):
-        """The page whole and shown: the rest of the opening, then ready."""
         try:
             _freeze("built")  # (the page's controls too)
             if self._brought:
                 self.status(f"Imported {len(self._brought)} files from AutoEQ Local. Your original AutoEQ Local files "
                             "were kept.", 12000)
             self.load_curves()
-            # (the database lists, asked as the EQ part loaded: once they're in, the rig tags and the curves again)
             self._lists_timer = QTimer(self, interval=500, timeout=self._lists_loaded)
             self._lists_timer.start()
             self.ready = True
@@ -357,7 +349,6 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
                 "Choose your playback EQ app or device to match its band, gain, and Q limits and export format")
 
     def open_link(self, url):
-        """A website link (online only: offline the app never connects, net.py)."""
         import net
         if net.offline():
             self.status("Offline: switch to Online to open websites", 6000)

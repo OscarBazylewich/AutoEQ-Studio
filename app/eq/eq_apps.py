@@ -285,7 +285,8 @@ def summary(key):
 
 
 def listing():
-    """For the page: [{key, name, platforms, kind, layout, file, summary, note, source, approx}]."""
+    """For the page: [{key, name, platforms, kind, layout, file, summary, note, source, approx, bands_gain,
+    bands_step}]."""
     return [{"key": k, "name": a["name"], "platforms": a["platforms"], "kind": a["kind"], "layout": layout_key(k),
              "file": a.get("file"), "summary": summary(k), "note": a.get("note", ""),
              "source": a.get("source", ""), "approx": bool(a.get("approx")),

@@ -34,8 +34,6 @@ _RUNNING = None
 
 
 class _Stamped:
-    """The log: each line starts with the date and time it was written."""
-
     def __init__(self, f):
         self.f, self.at_start = f, True
 
@@ -48,13 +46,13 @@ class _Stamped:
             self.at_start = part.endswith("\n")
         return self.f.write("".join(out))
 
-    def __getattr__(self, name):  # (flush, fileno … as the file's)
+    def __getattr__(self, name):
         return getattr(self.f, name)
 
 
 def open_log():
     os.makedirs(paths.DATA, exist_ok=True)
-    if os.path.exists(paths.LOG) and os.path.getsize(paths.LOG) > 1_000_000:  # (keeps the log small)
+    if os.path.exists(paths.LOG) and os.path.getsize(paths.LOG) > 1_000_000:
         try:
             os.replace(paths.LOG, paths.LOG + ".old")
         except OSError:  # (held open, e.g. by another copy closing: this one just adds to it)
@@ -110,7 +108,7 @@ def ask_running(message, wait_gone=0.0):
         gone = _wait_process_gone(serving, wait_gone)
         if gone is not None:
             return gone
-    t = time.time()  # (its process can't be told or watched: wait until the channel has gone quiet, as before)
+    t = time.time()  # (its process can't be told or watched: wait until the channel has gone quiet)
     while wait_gone and time.time() - t < wait_gone:
         probe = QLocalSocket()
         probe.connectToServer(SERVER)
@@ -118,7 +116,7 @@ def ask_running(message, wait_gone=0.0):
             return True
         probe.abort()
         time.sleep(0.3)
-    return not wait_gone  # (True: sent; False: still running after wait_gone)
+    return not wait_gone
 
 
 def uninstall():

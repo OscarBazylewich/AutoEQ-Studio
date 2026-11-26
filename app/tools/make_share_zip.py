@@ -1,5 +1,4 @@
 """Makes a clean zip of AutoEQ Studio to give to other people (run by "Make share zip.bat" in the main folder).
-(AutoEQ Local's app\\tools\\make_share_zip.py, for this app.)
 
 In the zip, under one "AutoEQ Studio" folder:
   AutoEQ Studio.bat, README.txt and TESTING.txt (the testers' checklist, from this folder)
@@ -173,8 +172,7 @@ def development_files(sp=None):
 
 
 def launcher():
-    """runtime\\AutoEQ Studio.exe: pythonw.exe with AutoEQ Studio's name, version and icon (brand_exe.py: Windows
-    names a program by its description, so Task Manager's Startup apps said "Python")."""
+    """runtime\\AutoEQ Studio.exe: pythonw.exe with AutoEQ Studio's name, version and icon (brand_exe.py says why)."""
     import tempfile
     import brand_exe
     with tempfile.TemporaryDirectory(prefix="aeqs-ico-") as tmp:
@@ -198,7 +196,7 @@ def runtime_entries():
                     p = os.path.join(d, n)
                     out.append((f"{TOP}/runtime/" + os.path.relpath(p, base).replace(os.sep, "/"), p))
     sp = _site_packages()
-    dev = development_files(sp)  # (pytest, Ruff and what they need: for working on the app, never shipped)
+    dev = development_files(sp)
     for d, subs, names in os.walk(sp):
         rel = os.path.relpath(d, sp).replace(os.sep, "/")
         # (not the packages' own test suites, 23 MB and 1,180 files the app never loads, whose deepest compiled file
@@ -371,7 +369,7 @@ def main():
     out = os.path.join(ROOT, "releases", f"AutoEQ Studio ({stamp:%Y-%m-%d}).zip" if use else
                        f"AutoEQ Studio (test build {stamp:%Y-%m-%d}" + (", ready to run" if ready else "") + ").zip")
     entries = plan(stamp)
-    if use:  # (for people who use it: how to start it, not the testers' checklist; a version, not a test build)
+    if use:
         start_here = open(os.path.join(TOOLS, "START HERE.txt"), encoding="utf-8").read().replace("\r\n", "\n")
         entries = [(f"{TOP}/START HERE.txt", start_here.replace("\n", "\r\n").encode()) if a == f"{TOP}/TESTING.txt"
                    else (a, f"version {stamp:%Y-%m-%d}\r\n".encode()) if a == f"{TOP}/app/VERSION.txt" else (a, s)

@@ -2,11 +2,11 @@
 
 A target is made for one kind of ear simulator (B&K 5128, 711-type coupler, GRAS 43AG, HMS); a measurement from
 another rig differs from it in a systematic way, mostly above ~2 kHz, so EQing it to that target would also "correct"
-the difference between the rigs. rigdata.json (made by tools/build_rig_conversions.py from models measured on both
-rigs in the online databases) holds, per pair of rigs and kind of device, the average difference and how well it
-predicts a device it wasn't made from (the uncertainty). When the measurement and the target come from different
-rigs and there's data for that pair, the target is converted to the measurement's rig: the target's text gets the
-difference added, so every EQ method, the graph and the scores use the converted target.
+the difference between the rigs. rigdata.json (made by AutoEQ Local's app\\tools\\build_rig_conversions.py from models
+measured on both rigs in the online databases) holds, per pair of rigs and kind of device, the average difference
+and how well it predicts a device it wasn't made from (the uncertainty). When the measurement and the target come
+from different rigs and there's data for that pair, the target is converted to the measurement's rig: the target's
+text gets the difference added, so every EQ method, the graph and the scores use the converted target.
 """
 import json
 import os
@@ -55,8 +55,8 @@ def find(device, frm, to):
 
 
 def find_unit(unit, frm):
-    """A database's own conversion (tools/build_unit_conversions.py) from rig `frm` to its measurements, or None:
-    {"conversion", "uncertainty", "mismatch", "models", "bands", "device", "name", "rig"}."""
+    """A database's own conversion (AutoEQ Local's app\\tools\\build_unit_conversions.py) from rig `frm` to its
+    measurements, or None: {"conversion", "uncertainty", "mismatch", "models", "bands", "device", "name", "rig"}."""
     for u in data().get("units", []):
         if u["unit"] == unit and u["from"] == frm:
             return {k: u[k] for k in ("conversion", "uncertainty", "mismatch", "models", "bands", "device", "name", "rig")}
@@ -64,7 +64,8 @@ def find_unit(unit, frm):
 
 
 def example():
-    """For the Guide's demo: a 5128 target converted for an IEM measured on a 711 coupler (the commonest case)."""
+    """A 5128 target converted for an IEM measured on a 711 coupler (the commonest case): sent as state()'s
+    "rig_example", which nothing reads now."""
     c = find("iem", "5128", "711")
     if not c:
         return None

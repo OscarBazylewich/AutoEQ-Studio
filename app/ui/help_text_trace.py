@@ -1,6 +1,6 @@
-"""The help words for Trace image (the tracer): HELP_TRACE, each control's line by its key (the #tr-* keys: its
-tooltip, with the ids of its "See also" entries in Help), and SETTINGS_TRACE, the "Trace image" group in Help's
-"Every setting". help_texts.py joins them with the other screens'. Words only: nothing is imported here.
+"""The help words for Trace a graph image (the tracer): HELP_TRACE, each control's line by its key (the #tr-* keys:
+its tooltip, with the ids of its "See also" entries in Help), and SETTINGS_TRACE, the "Trace a graph image" group in
+Help's All settings. help_texts.py joins them with the other screens'. Words only: nothing is imported here.
 """
 # flake8: noqa
 

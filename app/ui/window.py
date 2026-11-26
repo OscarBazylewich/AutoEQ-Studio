@@ -1,35 +1,23 @@
-"""AutoEQ Studio's window: a top bar (the app's name, its screens, Online / Offline) over one screen at a time.
-- Make an EQ (ui\\eq_page.py): AutoEQ Local's part. Its code is loaded in a thread of its own (ui\\preload.py), never
-  on the window's: the first time it's opened ("Opening Make an EQ…" shows at once meanwhile), or, once you've used
-  it, ahead of the click while the window is open (made at the first quiet moment a second or more after the window
-  shows, or as soon as its tab is pointed at, hidden behind the screen you're on, so the click shows it at once).
-  Never while the app is only in the tray, which stays light.
-- Devices: your playback devices (connected ones first, A to Z), and for the one chosen: its profiles, the one on (or Off),
-  adding and taking off profiles, whether Equalizer APO is installed on it, your name for it (Rename…), and a line
-  saying whether its EQ really plays (Equalizer APO asked by itself, switcher\\check.py; again when something changes).
-A bar over every screen while an EQ is being tried on a device (Use on device › Try for 5 minutes): time left, Keep
-it, Stop now; and one in the same look while a device's EQ is off for now, to compare (the on/off hotkey): Switch it
-back on (.claude/notes/UI-RULES.md 23).
-- Profiles: every profile (a copy of an EQ file): import, rename, remove, where each is used.
-- Settings: starting with Windows, notices, the hotkey, online or offline, Equalizer APO (setting it up for
-  AutoEQ Studio, or taking AutoEQ Studio out of it), and Backup (everything of yours in one .zip, and back: backup.py).
-Online / Offline (top right, and in Settings): offline, the app never connects to the internet (net.py).
-Help (top right; F1 anywhere: at the entry of the setting under the pointer or being typed in): ui\\help_window.py.
-Guide (top right, on Make an EQ, beside Presets: both are that screen's): a tour of Make an EQ (ui\\guide.py, shown by
-ui\\tour.py); the tracer has its own.
-A banner over the device screens says when APO isn't installed or isn't using AutoEQ Studio yet. Messages show in a
-bubble near the control that you used (ui\\bubble.py). Closing the window leaves the app in the tray; Quit is in the
-tray icon's menu.
-Everything is drawn in the app's theme (ui\\theme.py: Windows 11's look, light or dark as Windows is, in Windows'
-accent colour); what only this window and its screens have is styled in ui\\theme_sheet.py's window_screens(), by the
-objectNames and properties set here (the banner's warning sign, the trial's clock…). On Windows 11
-(22H2 or later) the window's own background is Windows' Mica (ui\\winsys.mica: tinted by your desktop picture, as
-Windows' own apps; the user's choice from real pictures, 2026-10-23): the window is see-through where nothing is
-drawn, and property mica=true tells the stylesheet to leave its background clear; never in a contrast theme.
-Where the code is: this file has the shell (the top bar, switching screens, Guide, Help, closing to the tray, the
-trial bar) and the banner; each screen is a part of the window's class, in a file of its own: Devices
-(ui\\devices_screen.py), Profiles (ui\\profiles_screen.py), Settings (ui\\settings_screen.py; Set up…:
-ui\\setup_dialog.py). ui\\window_parts.py has the small helpers they share.
+"""AutoEQ Studio's window: a top bar (in the title bar: the app's name, its screens, Make an EQ's Presets and Guide,
+Help, Online / Offline) over one screen at a time, with the banner and two bars over the screens.
+- Make an EQ (ui\\eq_page.py): its code is loaded in a thread of its own (ui\\preload.py), never on the window's: the
+  first time it's opened ("Opening Make an EQ…" shows meanwhile), or, once you've used it, ahead of the click while
+  the window is open (at the first quiet moment a second or more after the window shows, or as soon as its tab is
+  pointed at or reached with Tab), hidden behind the screen you're on. Never while the app is only in the tray, which
+  stays light.
+- Devices, Profiles, Settings: each a part of the window's class in a file of its own (ui\\devices_screen.py,
+  ui\\profiles_screen.py, ui\\settings_screen.py; Add AutoEQ Studio to APO…: ui\\setup_dialog.py); ui\\window_parts.py
+  has the helpers they share.
+A bar over every screen while an EQ is being tried on a device (Use on device › Use for 5 minutes on): time left, Keep
+it, Do not keep it; one in the same look while a device's EQ is off for now, to compare (the on/off hotkey): Enable it
+again (.claude/notes/UI-RULES.md 23). The banner over the device screens says when APO isn't installed or isn't using
+AutoEQ Studio yet.
+Online / Offline: offline, the app never connects to the internet (net.py). Help: ui\\help_window.py (F1 anywhere:
+F1Anywhere). Guide: ui\\guide.py, shown by ui\\tour.py; the tracer has its own. Messages: ui\\bubble.py. Closing the
+window leaves the app in the tray; Quit is in the tray icon's menu (ui\\app.py).
+What only this window has is styled in ui\\theme_sheet.py's window_screens(), by the objectNames and properties set
+here. On Windows 11 22H2 or later the background is Mica (ui\\winsys.mica; the user's choice from real pictures,
+2026-10-23): property mica=true tells the stylesheet to leave it clear; never in a contrast theme.
 """
 import time
 
@@ -85,7 +73,7 @@ class F1Anywhere(QObject):
     one; Help open again as a window of its own; a window that blocks only a window of its own) are one F1:
     activatedAmbiguously does the same. A held F1 opens Help once."""
 
-    NAME = "f1Help"  # (the objectName of the shortcut of a window that blocks the others)
+    NAME = "f1Help"
 
     def __init__(self, window):
         super().__init__(window)
@@ -102,7 +90,6 @@ class F1Anywhere(QObject):
         return s
 
     def put(self, *_):
-        """The top window that blocks the others has its F1 (made once for each window)."""
         top = QApplication.activeModalWidget()
         if top is not None and top.findChild(QShortcut, self.NAME, Qt.FindDirectChildrenOnly) is None:
             self._shortcut(top)
@@ -128,7 +115,6 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         fit_to_screen(self, (1200, 760))
         self.selected = sw.playing_key or (sw.devices[0].key if sw.devices else None)
         self.eq_page = None
-        # Make an EQ made ahead and the memory given back in the tray: only when the app allows it (allow_preload)
         self._ahead_ok, self._eq_awaited, self._eq_error = None, False, None
         self._ahead_timer = QTimer(self, singleShot=True, interval=self.AHEAD_MS, timeout=self._make_eq_ahead)
         self._trim_timer = QTimer(self, singleShot=True, interval=self.TRIM_MS, timeout=self._trim)
@@ -151,7 +137,6 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(0)
         lay.addWidget(self._top_bar())
-        # the banner: Windows 11's warning bar (its sign, the words, the action)
         self.banner_btn = QPushButton()  # (plain, as every notice's action: Windows 11's info bar, UI-RULES 8)
         self.banner_btn.clicked.connect(self._banner_action)
         self.banner, self.banner_text = warning_card("", self.banner_btn)
@@ -163,7 +148,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         lay.addWidget(holder)
         # an EQ being tried on a device: the time that is left first (large), then a bold title and, below it in
         # gray, the EQ and the device; Keep it, Do not keep it (the UI audit, 2026-11-08: the time was in the middle of
-        # a long text); what occurs after the 5 minutes is in the bar's tooltip
+        # a long text)
         self.trial_bar = QFrame()
         theme.mark(self.trial_bar, card=True)
         tl = QHBoxLayout(self.trial_bar)
@@ -237,8 +222,6 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.status_text = self.message.text
 
         sw.listeners.append(self._changed)
-        # F1 in any of the app's windows, a modal one too: Help, at the setting under the pointer (or the one being
-        # typed in): F1Anywhere
         self._f1 = F1Anywhere(self)
         net.on_change(lambda _off: self.render_online())
         self.render_all()
@@ -267,14 +250,14 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
             b = QPushButton(name)
             b.setCheckable(True)
             theme.mark(b, nav=True)
-            icons.put(b, key)  # (Windows 11's symbol beside each screen's name: eq, devices, profiles, settings)
+            icons.put(b, key)
             b.clicked.connect(lambda _=False, k=key: self.show_page(k))
             group.addButton(b)
             h.addWidget(b)
             self.nav[key] = b
         h.addStretch(1)
 
-        def line():  # (a thin vertical line between groups of commands, as Windows 11's command bars have)
+        def line():
             f = QFrame()
             theme.mark(f, vline=True)
             f.setFixedWidth(1)
@@ -285,7 +268,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         self.cmd_lines = (line(), line())
         h.addWidget(self.cmd_lines[0])
         h.addSpacing(4)
-        self.presets_btn = QPushButton("Presets")  # (Make an EQ's settings: shown on that screen)
+        self.presets_btn = QPushButton("Presets")
         theme.mark(self.presets_btn, nav=True)
         icons.put(self.presets_btn, "presets")
         self.presets_btn.setToolTip("Save or load Make an EQ settings as a preset (settings only)")
@@ -305,7 +288,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         h.addSpacing(4)
         h.addWidget(self.cmd_lines[1])
         h.addSpacing(4)
-        self.help_btn = helpb = QPushButton("Help")  # (its symbol is the question mark it had in its words)
+        self.help_btn = helpb = QPushButton("Help")
         theme.mark(helpb, nav=True)
         icons.put(helpb, "help")
         helpb.clicked.connect(lambda: self.open_help())
@@ -410,14 +393,11 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
 
     # ---------------------------------------------------------------- Make an EQ's page: made when its code is in
     def _eq_when_code_in(self):
-        """The code loaded in the background (started now if it isn't yet), the page made when it's in."""
         if not self._eq_awaited:
             self._eq_awaited = True
             preload.when_ready(self._eq_code_in)
 
     def _eq_code_in(self):
-        """The code is in: the page made if Make an EQ is still the screen shown, or ahead while the window is open
-        and that's allowed (allow_preload); hidden in the tray, when the window shows."""
         import shiboken6
         if not shiboken6.isValid(self):  # (a window deleted meanwhile, as tests do)
             return
@@ -458,7 +438,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
     def allow_preload(self, worth_it):
         """The app's own (a test's window never preloads): Make an EQ made ahead while the window is open, about a
         second after it shows, when worth_it() says so (you've used it before, no files wait to be moved: ui\\app.py);
-        the Make an EQ tab pointed at or given the focus starts it at once. And 30 s after the window closes to the
+        the Make an EQ tab pointed at or reached with Tab starts it at once. And 30 s after the window closes to the
         tray, its memory given back to Windows (winsys.trim_memory)."""
         self._ahead_ok = worth_it
         self.nav["eq"].installEventFilter(self)
@@ -554,7 +534,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         if self.page() != "eq":  # (you went on to another screen meanwhile: the Guide is left, ready or not)
             self._guide_waiting = False
             return
-        if page is None or not getattr(page, "ready", False):  # (still opening: started when it's there)
+        if page is None or not getattr(page, "ready", False):
             if page is None:  # (its code still loading; given up when Make an EQ couldn't open)
                 self._guide_waiting = preload.error() is None and self._eq_error is None
             else:
@@ -583,8 +563,8 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         return next(k for k, w in self.pages.items() if w is self.stack.currentWidget())
 
     def status(self, text, ms=None, undo=None):
-        """A message in a bubble near the control that you used (ui\\bubble.Messages): for ms milliseconds (None: 6 s,
-        or 20 s with Undo; 0: until the next one); undo: what Undo in it does."""
+        """A message in a bubble near the control that you used (ui\\bubble.Messages): for at least ms milliseconds
+        (at least 6 s, 20 s with Undo, longer for a long text; 0: until the next one); undo: what Undo in it does."""
         self.message.say(text, ms, undo)
 
     def nativeEvent(self, kind, message):
@@ -626,7 +606,7 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
         if self.page() == "eq" and self.eq_page:
             self.eq_page.start()
         if self._ahead_ok is not None and self.eq_page is None:
-            self._ahead_timer.start(self.AHEAD_MS)  # (Make an EQ made ahead once the window has drawn itself, if worth it)
+            self._ahead_timer.start(self.AHEAD_MS)
 
     def _mica_on(self):
         """Mica behind the window, its title bar dark or light with the theme; in a contrast theme the window paints

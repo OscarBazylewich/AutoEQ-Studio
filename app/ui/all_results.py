@@ -13,8 +13,8 @@ words at the left (the cells' room at the left: ui\\theme_sheet.py's eq_windows,
 grid's rows told apart by a thin line under each (drawn in the theme's colour for lines, as each cell is: shading
 there means "sounds the same"), the table's by their shade. The window opens wide enough for its whole grid when
 the screen has room, and within the screen's room (window_parts.fit_to_screen: a laptop at 150 % has 672 px above
-the taskbar). It ends with every window's footer (window_parts.Footer: its Close; it had none, only the title bar's
-✕ and Esc), and Enter presses nothing (a cell or row is clicked).
+the taskbar). It ends with every window's footer (window_parts.Footer: its Close), and Enter presses nothing (a cell
+or row is clicked).
 """
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QFontMetrics, QPalette
@@ -29,7 +29,7 @@ HEAD = [("Error (dB)", "rms"), ("Filters", "n_filters"), ("Rows", "rows"), ("Ran
         ("Maximum Q", "q_max"), ("Maximum gain", "max_boost"), ("Pre-amp", "preamp")]
 SAME = Qt.UserRole + 1  # (a grid cell's mark: sounds the same as the target)
 LEFT = Qt.AlignLeft | Qt.AlignVCenter  # (Windows 11's tables: words at the left, under their heading)
-NBSP = chr(0xA0)  # (a space that never ends a line: the words it joins stay together)
+NBSP = chr(0xA0)
 # The room that a heading of the table has beside its words: the 8 px at each side of ui\theme_sheet.py's
 # "QHeaderView::section" and 2 px to spare; and the room of the sort arrow, in the one column that has it
 HEAD_PAD, HEAD_ARROW = 18, 16
@@ -66,7 +66,6 @@ def screen_room(widget):
 
 
 def _table_look(t):
-    """Windows 11's table look: no grid lines, each heading at the left over its words."""
     t.setShowGrid(False)
     t.horizontalHeader().setDefaultAlignment(LEFT)
     t.horizontalHeader().setHighlightSections(False)
@@ -78,8 +77,6 @@ def _is_num(v):
 
 
 class _Num(QTableWidgetItem):
-    """A cell that sorts by its number, not its text."""
-
     def __init__(self, text, value):
         super().__init__(text)
         self.value = value if value is not None else float("inf")
@@ -185,7 +182,7 @@ class AllResults(QDialog):
         need = (g.verticalHeader().sizeHint().width() + g.columnCount() * g.horizontalHeader().minimumSectionSize()
                 + 2 * g.frameWidth() + 2 * CARD + 4)
         room = screen_room(self) or need
-        if need > self.width():  # (never narrower than it opens)
+        if need > self.width():
             self.resize(max(self.width(), min(need, int(room * 0.9))), self.height())
 
     def select_result(self, rid):
@@ -196,8 +193,8 @@ class AllResults(QDialog):
     @staticmethod
     def tried(r):
         """How many filters Best fit tried for a result: those it added (its row in the grid, `rows`), with the
-        shelves it added and your own filters (kept, or fine-tuned by a Retry); your own alone (row 0): yours. A
-        result may keep fewer: filters too small to matter are left out."""
+        shelves it added and your own filters (kept, or fine-tuned by Calculate from these filters); your own
+        alone (row 0): yours. A result may keep fewer: filters too small to matter are left out."""
         added = r.get("rows") or 0
         shelves = bool(r.get("low_shelf")) + bool(r.get("high_shelf")) if added else 0
         return added + shelves + (r.get("yours") or 0)
@@ -213,11 +210,10 @@ class AllResults(QDialog):
     @classmethod
     def _row_words(cls, rv, cells, site):
         """A grid row's words. The website sweep's: its filter rows (what's typed into the site). Best fit's: how many
-        filters the run tried there, "6 filters", or "up to 7 filters" when a result kept fewer (each such cell says
-        its own count). Best fit's rows are the filters the run added, shelves and your own filters aside: they said
-        "9 filters" for results of 10 with their shelf, and a Retry's only row "0 filters"; then each row said the
-        counts its results had, and rows that all started at 6 looked alike: "6–7 filters" … "6–10 filters"
-        (2026-10-23). Which results share a row is unchanged."""
+        filters the run tried there (tried()), "6 filters", or "up to 7 filters" when a result kept fewer (each such
+        cell says its own count). Not `rows` alone: it leaves out the shelves and your own filters ("9 filters" for
+        results of 10 with a shelf, "0 filters" for the only row of Calculate from these filters). Not a range of
+        counts either: rows that all start at 6 look alike ("6–7 filters" … "6–10 filters") (2026-10-23)."""
         if site:
             return f"{rv} row{'' if rv == 1 else 's'}"
         most, every = cls.row_most(rv, cells)

@@ -1,7 +1,7 @@
 """Make an EQ's History and presets (a part of EqPage, ui/eq_page.py): what a result is in a line, an EQ kept in
-History (after a run, saved or copied), "You've EQ'd this before", History's window (ui/history_window.py) and an EQ
-from it shown again, Copy (the filters as Equalizer APO text), and the top bar's Presets menu (a preset loaded, saved
-or deleted; Reset all settings…).
+History (after a run, saved or copied), "Previously EQ'd" (under Measurement), History's window
+(ui/history_window.py) and an EQ from it shown again, Copy (the filters as Equalizer APO text), and the top bar's
+Presets menu (a preset loaded, saved or deleted; Reset all settings…).
 EqHistory is a plain class (no __init__, no signals); EqPage (ui/eq_page.py) joins it with the other parts.
 """
 import hashlib
@@ -17,8 +17,6 @@ NO_PRESETS = "No presets yet: presets save all settings, not files"
 
 
 class EqHistory:
-    """Make an EQ's History and presets."""
-
     # ---------------------------------------------------------------- History (history.js)
     def run_label(self, run, r):
         """What a result is, in a line (results.js runLabel)."""
@@ -71,7 +69,8 @@ class EqHistory:
                 "site": S["site"], "rig_convert": S["rig_convert"]["enabled"], "band": S["scoring"]["band_hz"]}
 
     def add_to_history(self, saved):
-        """Into History: after a run (saved False: only when Advanced › History keeps every run), or saved/copied."""
+        """Into History: after a run (saved False: only when More settings › History keeps every run), or
+        saved/copied."""
         run, r = self.current()
         if not r or not self.curves or (not saved and (self.S["history"]["keep"] != "all" or run.get("history"))):
             return
@@ -85,7 +84,7 @@ class EqHistory:
         self.history_note()
 
     def history_note(self):
-        """Under Measurement: when you've EQ'd it before (Advanced › History can turn it off)."""
+        """Under Measurement: when you've EQ'd it before (More settings › History can turn it off)."""
         mine = [e for e in self.history if self.curves and e.get("device") == self.curves["name"]]
         on = bool(self.S["history"].get("eqd_before")) and bool(mine)
         self.eqd_before.setVisible(on)

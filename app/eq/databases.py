@@ -22,7 +22,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from . import paths
 import net
-import paths as studio_paths  # (the app's own: its version for the downloads' User-Agent)
+import paths as studio_paths
 import textfile
 
 HERE = paths.APP
@@ -61,7 +61,7 @@ SITES = [
     {"group": "5128", "name": "listener800 5128 IEMs", "short": "L800 IEM", "url": "https://listener800.github.io/5128iem.html",
      "rig": ("5128", True)},
     {"group": "5128", "name": "listener800 5128 headphones", "short": "L800 HP", "url": "https://listener800.github.io/", "rig": ("5128", True)},
-    # smaller ones, off unless turned on in Settings
+    # smaller ones
     {"group": "iem", "name": "Precogvision", "short": "Precog", "url": "https://precog.squig.link/", "rig": ("711", False)},
     {"group": "iem", "name": "Audio Discourse IEMs", "short": "AD IEM", "url": "https://iems.audiodiscourse.com/", "rig": ("711", False)},
     {"group": "hp", "name": "Audio Discourse headphones", "short": "AD HP", "url": "https://headphones.audiodiscourse.com/"},
@@ -117,11 +117,10 @@ def _get(url, timeout=20, limit=20_000_000):
 @functools.lru_cache(maxsize=8192)  # (asked for every database for each file found: 2.9 million times a list)
 def folder_name(name):
     """The folder in the downloads folder for a database (or a file name part): a name Windows accepts, not too long."""
-    return textfile.safe_name(name, "file", max_len=110)  # (reserved names like CON, and Windows' path length)
+    return textfile.safe_name(name, "file", max_len=110)
 
 
 def norm_url(u):
-    """A site address as compared with others (no trailing /, lower case)."""
     return u.strip().rstrip("/").lower()
 
 
@@ -766,7 +765,7 @@ def refresh_now(sites, force=False):
                     n += 1
                     if not n % 1000:
                         time.sleep(0)  # (Python's lock let go now and then: the window's thread may wait for it)
-                if lo:  # (its targets: a list saved before 1.6.2 left them out)
+                if lo:
                     more = [dict(t, link=entry_link(site["url"], t, c.get("conf")))
                             for t in _site_targets(site, entries[len(entries) - n:], c.get("conf"))]
                     entries += more
@@ -800,7 +799,7 @@ def assign_ids(entries):
     for it in entries:
         names[(it["site_url"], it["kind"], it["name"])] = names.get((it["site_url"], it["kind"], it["name"]), 0) + 1
     for it in entries:
-        base = it.get("h") or entry_base(it["site_url"], it)  # (kept with the entry in the lists file)
+        base = it.get("h") or entry_base(it["site_url"], it)
         seen[base] = seen.get(base, 0) + 1
         it["id"] = base if seen[base] == 1 else f"{base}-{seen[base]}"
         if names[(it["site_url"], it["kind"], it["name"])] > 1:
@@ -869,7 +868,7 @@ def status(with_items=False, rig=None):
             made = _rows_made.get("rows") if _rows_made.get("of") is _state["items"] and _rows_made.get("rig") == bool(rig) else None
             if made is None:
                 for it in _state["items"]:
-                    if "form" not in it:  # (worked out once per list)
+                    if "form" not in it:
                         it["form"] = item_form(it)
                 made = [[it["id"], it["kind"][0], it["name"], it["sub"], it["site"], it.get("link"), rig(it) if rig else "",
                          it["form"]] for it in _state["items"]]
@@ -932,7 +931,8 @@ _found_in = {}  # site url -> the folder under its data folder its measurements 
 
 
 def download(item_id, count_points):
-    """Download one entry into downloads/<database>/. Returns the local file paths (existing copies are reused)."""
+    """Download one entry into downloads/<database>/. Returns (the local file paths, the entry); existing copies are
+    reused."""
     it = item(item_id)
     if it.get("link"):
         raise ListOnly(BROWSE_NOTE.format(site=it["site"]), it["id"])

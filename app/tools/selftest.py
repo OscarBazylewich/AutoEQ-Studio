@@ -55,7 +55,7 @@ def _minutes(text):
 def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     extra = []
-    if "--" in argv:  # (anything after -- goes to pytest as it is, e.g. -- -x)
+    if "--" in argv:
         at = argv.index("--")
         argv, extra = argv[:at], argv[at + 1:]
     parser = argparse.ArgumentParser(prog="selftest.py", description="AutoEQ Studio's self-test: every test, each "

@@ -69,7 +69,6 @@ def contrast(a, b):
 
 
 def build(dark, accent=DEFAULT_ACCENT):
-    """One theme's tokens: dark or light, with Windows' accent palette (seven shades, Light 3 to Dark 3)."""
     light3, light2, _light1, _base, dark1, dark2, _dark3 = accent
     t = dict(BASE_DARK if dark else BASE_LIGHT)
     t.update(GRAPH_DARK if dark else GRAPH_LIGHT)
@@ -82,7 +81,6 @@ def build(dark, accent=DEFAULT_ACCENT):
     t.update(accent=fill, on_accent=on, accent_hover=mix(fill, surface, 0.9), accent_press=mix(fill, surface, 0.8),
              accent_bottom=mix(fill, "#000000", 0.85 if dark else 0.75), accent_text=text,
              accent_soft=mix(fill, surface, 0.16), accent_soft_line=mix(fill, surface, 0.45))
-    # the older names the screens use, on the new colours
     t.update(c1=fill, btn=fill, on_btn=on, sel=t["subtle_sel"], on_sel=on, sel_ink=t["ink"], sel_accent=text,
              shade=t["subtle"])
     return t

@@ -37,7 +37,6 @@ class Abx:
 
     @property
     def trial(self):
-        """The trial being answered (from 0)."""
         return len(self.answers)
 
     @property
@@ -59,7 +58,6 @@ class Abx:
         return sum(1 for said, x in zip(self.answers, self.xs) if said == x)
 
     def verdict(self):
-        """The score and what it means, in words."""
         k, n = self.correct_count(), len(self.answers)
         if not n:
             return "No trials completed"

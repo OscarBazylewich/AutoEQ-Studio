@@ -5,13 +5,14 @@
   it was in the last minute; the online lists are loaded again only after half an hour)
 - Online databases: the measurers' lists (about 55,000 entries): Use downloads the curve into downloads\\ first
 
-Filters (kept for the next search, for targets and measurements apart): Rig (or "Fits your target's rig": on it, or
-its database has a conversion of its own for it), Type, Source, Stated rig (not the usual rig of a database, a "?"),
-Downloadable (not a list-only database's). Each choice says how many results it would leave.
+Filters (kept for the next search, for targets and measurements apart): Rig (or "Same rig as your target…": on it,
+or its database has a conversion of its own for it), Type, Source, Known rig (hides the unknown, guessed and mixed
+rigs), Available to download (not a list-only database's), and Clear the selections. Each choice says how many
+results it would leave.
 Each row's buttons at its right end, as every list's (.claude/notes/UI-RULES.md 18): Preview (its curve on the graph,
-dotted, without using it; Hide takes it off), the row's own (Files, Move to the other side), Use (the main one, last;
-double-click too), then the bin apart (your own files: deleted for good, asked first). A button a row hasn't got keeps
-its room, so every Use is in one column.
+dotted, without using it; Hide takes it off), Use (the main one; double-click too), then apart a row's ⋯ for a row
+in the app (Show files for a measurement or Move to Measurement for a target, then Delete…: your own files deleted
+for good, asked first). A button a row hasn't got keeps its room, so every Use is in one column.
 
 Offline (net.py): the lists the app has are searched as usual; a curve downloaded before is used from this PC, any
 other online one says it needs the internet. A list-only database's entry (a measurement or a target) opens on its
@@ -21,14 +22,14 @@ message in this window's line; the rows then get the links (website_refused).
 
 The look (Windows 11's, ui\\theme_sheet.py's find_windows part matches the names given here): a row's name in
 semibold (findRowName), ending in "…" when it's longer than its room (never cut mid-letter), the download mark as
-Windows 11's symbol (findMark, read as its tooltip "Downloads when you click Use or Preview"); only one Use has the accent, the one Enter presses (the
-chosen row's, or the first row's when none is chosen); a row's bin quiet (no fill until pointed at, as every row's ✕
-and bin); Files says Show files or Hide files (a chevron is a menu's: UI-RULES 12); the chosen and pointed-at rows as
-every list, laid out again whenever the window changes size. Narrower than its filters
-on one line (the Guide's frame for it), the filters take two lines, the ticks under the boxes (Lines); a box's choice
-too long for it ends in "…". How many there are where is said under the filters; the footer is every window's
-(window_parts.Footer: Sources… and Trace a graph image… at the left, the window's own message line, Close); a message
-longer than its line goes on to more lines, never cut.
+Windows 11's symbol (findMark, read as its tooltip "Downloads when you click Use or Preview"); only one Use has the
+accent, the one Enter presses (the chosen row's, or the first row's when none is chosen); a row's ⋯ quiet (no fill
+until pointed at; no chevron: its symbol says it); the chosen and pointed-at rows as every list, laid out again
+whenever the window changes size. Narrower than its filters on one line (the Guide's frame for it), the filters take
+two lines, the ticks under the boxes (Lines); a box's choice too long for it ends in "…". Each source tab says how
+many results it shows; the line under the filters says only that the online lists are loading or that the app is
+offline; the footer is every window's (window_parts.Footer: Sources… and Trace a graph image… at the left, the
+window's own message line, Close); a message longer than its line goes on to more lines, never cut.
 
 Find… is kept within the screen's free room (ui\\window_parts.fit_to_screen, as every window of the app: a laptop at
 150 % has about 672 px above the taskbar), so its bottom row is never out of reach.
@@ -220,8 +221,6 @@ class Lines(QLayout):
                     tall = max(0, tall - short)
                 x0 = r.x()
                 for x, w, h in zip(line, widths, own):
-                    # (words that wrap: as tall as they are, in the line's middle; when the line is shorter, as many
-                    # whole lines of them as it has room for)
                     if x[0].hasHeightForWidth():
                         if h > tall:
                             spacing = x[0].widget().fontMetrics().lineSpacing()
@@ -237,12 +236,12 @@ class Lines(QLayout):
 class FoundList(QListWidget):
     """Find…'s list (findList), its rows' widgets laid out again, as wide as the list, whenever it changes size: Qt
     places them before it takes the list's new width, so a window made narrower left every row as wide as before,
-    its rig tag, Files, ✕ and Use out of sight with no way to scroll to them, until the list was drawn again (the
+    its rig tag, Use and ⋯ out of sight with no way to scroll to them, until the list was drawn again (the
     recheck, 2026-10-23: from 900 px to its smallest, 680, each row's Use ended at 855 in a list 644 wide)."""
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
-        self.updateGeometries()  # (once more, the list's new width known now)
+        self.updateGeometries()
 
 
 class MoreButton(QPushButton):
@@ -275,12 +274,11 @@ class MoreButton(QPushButton):
 
 
 def more_button(fill):
-    """A row's ⋯ (MoreButton): fill(menu) puts its commands in its menu when the menu is first needed."""
     return MoreButton(fill)
 
 
 # Show files / Hide files, the first item of a measurement's ⋯ menu: its files under its row (to tick or untick one
-# by one), or hidden again. In words: a chevron on a button opens a menu (.claude/notes/UI-RULES.md 12)
+# by one), or hidden again
 FILES_WORDS = ("Show files", "Hide files")
 
 
@@ -291,8 +289,9 @@ class Picker(QDialog):
         self.svc, self.meta = page.svc, page.meta
         self.setWindowTitle("Find a target" if kind == "target" else "Find a measurement")
         # (its smallest: 680 wide, and four rows or so of the list in sight; both within the screen's free room. Its
-        # filters are on one line from about 710 px for a target and 790 for a measurement (two ticks, Clear filters
-        # always there), so at the 900 it opens at; narrower, as in the Guide's frame for it, they take two: Lines)
+        # filters are on one line from about 710 px for a target and 790 for a measurement (two ticks, Clear the
+        # selections always there), so at the 900 it opens at; narrower, as in the Guide's frame for it, they take
+        # two: Lines)
         fit_to_screen(self, (900, 720), (680, 420))
         saved = page.sw.s.get("picker") or {}
         self.filters = {k: dict(ANY, **(saved.get(k) or {})) for k in ("target", "measurement")}
@@ -330,7 +329,6 @@ class Picker(QDialog):
             self.src_btns.addButton(b)
             srcs.addWidget(b)
         srcs.addStretch(1)
-        # (on one line, or on two when the window is narrower than that: the boxes, then the ticks under them)
         self.filter_lines = fl = placed(v, Lines())
         # (the filters' lists open with a search box: the sources alone are over 150; a choice longer than its box
         # ends in "…")
@@ -341,10 +339,8 @@ class Picker(QDialog):
             box.activated.connect(lambda _i, box=box, key=key: self.set_filter(key, box.currentData()))
             fl.add(box, first=True, stretch=True, least=choice_room)
         self.f_sure = QCheckBox("Known rig")
-        # (no tooltip of its own: it shows the first line of its Help entry, #pk-f-sure, which is also its line for a
-        # screen reader. The text survey, 2026-11-24, gave two wordings (area 16 for the tooltip, area 22 for the Help
-        # line); the owner decided that the screen-reader line of a control is its tooltip, so one text, area 22's:
-        # the filter hides the unknown, guessed and mixed rigs, not only the ones marked with “?”)
+        # (no tooltip of its own: it shows the first line of its Help entry, #pk-f-sure, which is also its screen-reader
+        # line: the owner, 2026-11-24, one text for both)
         self.f_sure.toggled.connect(lambda on: self.set_filter("sure", on))
         self.f_dl = QCheckBox("Available to download")
         for w, key in ((self.anykind, "#pk-anykind"), (self.f_rig, "pk_filters"), (self.f_form, "pk_filters"),
@@ -357,20 +353,19 @@ class Picker(QDialog):
         self.f_clear.clicked.connect(self.clear_filters)
         for w in (self.f_sure, self.f_dl, self.f_clear):
             fl.add(w)
-        # (how many there are where, under the filters, over the list: UI-RULES 21; it was in the footer, where the
-        # window's messages go now)
+        # (the line that says the online lists are loading, or that the app is offline: under the filters, over the
+        # list)
         self.status = QLabel()
         self.status.setWordWrap(True)
         theme.mark(self.status, role="muted")
         v.addWidget(self.status)
-        self.list = FoundList()  # (its rows laid out again whenever it changes size)
+        self.list = FoundList()
         self.list.setObjectName("findList")  # (its rows' widgets get the whole row: theme_sheet's find_windows)
         self.list.setAccessibleName("Results")
         self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.list.itemDoubleClicked.connect(lambda it: it.data(Qt.UserRole) and self.use_row(it.data(Qt.UserRole)))
         self.list.currentItemChanged.connect(lambda *_: self._mark_use())
         v.addWidget(self.list, 1)
-        # (every window's footer, window_parts.Footer: its other actions at the left, its own message line, Close)
         sources = QPushButton("Sources…")
         icons.put(sources, "list")
         sources.setToolTip("Manage local folders and online databases")
@@ -401,7 +396,7 @@ class Picker(QDialog):
         if first:
             self.svc.call("/api/db/refresh", {"settings": self.page.S})
             self.svc.call("/api/library/scan", {"settings": self.page.S})
-        if self._fetching:  # (the last one still going: not another on top)
+        if self._fetching:
             return
         self._fetching = True
         # (its changes too: a database that refused a download gives its entries their links, not more entries)
@@ -707,9 +702,8 @@ class Picker(QDialog):
             QTimer.singleShot(0, lst, lambda v=place[1]: lst.verticalScrollBar().setValue(v))
         self._mark_use()
         lst.setUpdatesEnabled(True)
-        # (each source tab with the number of results it shows: for the words in the search box and the selections,
-        # as its heading in All. The UI audit, 2026-11-08; until the code's review, 2026-11-10, the counts were of
-        # every item, whatever the search, both types too)
+        # (each source tab with the number of results it shows: for the search and the selections, as its heading in
+        # All; the UI audit, 2026-11-08)
         n = {s: sum(1 for r in found if self.passes(r, f)) for s, _title, found in every}
         self._fails = {}  # (by id: only while these rows are alive)
         loading = self.db.get("loading")
@@ -792,7 +786,6 @@ class Picker(QDialog):
         if convs:
             short = lambda x: rigs.get(x, x).split(" (")[0]
             label += " ⇄"
-            # (each rig change of its database whole, one after the other: " · " between them)
             tip += "\n" + " · ".join(f"Database rig compensation for {short(c['from'])} targets: ~{c['error']:.1f} dB error "
                                      f"vs. {c['before']:.1f} dB without (1–10 kHz, {c['models']} models)" for c in convs)
         return label, tip
@@ -838,8 +831,8 @@ class Picker(QDialog):
             # (a screen reader read its symbol's character, as nothing)
             dl.setAccessibleName("Downloads when you click Use or Preview")
             h.addWidget(dl)
-        # (the row's buttons at its right end as every list's, UI-RULES 18: Preview, the row's own, Use (the main one)
-        # last, then the ✕ apart; a button a row hasn't got keeps its room, so every Use is in one column)
+        # (the row's buttons at its right end as every list's, UI-RULES 18: Preview, Use (the main one), then the ⋯
+        # apart; a button a row hasn't got keeps its room, so every Use is in one column)
         prev = self.page.has_preview(r["key"])
         eye = QPushButton("Hide" if prev else "Preview")  # ("Show" puts an EQ on the result card: UI-RULES 16)
         eye.setMinimumWidth(QFontMetrics(eye.font()).horizontalAdvance("Preview") + 2 * 12 + 2)
@@ -858,7 +851,7 @@ class Picker(QDialog):
         use.setEnabled(self.busy is None)
         use.clicked.connect(lambda _=False, r=r: self.use_row(r))
         h.addWidget(use)
-        h.addSpacing(12)  # (the bin apart from Use, the main action, as History's ✕: UI-RULES 14)
+        h.addSpacing(12)  # (the ⋯, with Delete… in it, apart from Use, the main action: UI-RULES 14)
         if r["src"] == "app":
             x = more_button(lambda m, r=r: self._fill_more(m, r))
             x.setAccessibleName(f"More actions for {r['device']['name'] if r.get('device') else r['name']}")
@@ -917,7 +910,7 @@ class Picker(QDialog):
         cb.toggled.connect(lambda on, n=fl["name"]: self.toggle_file(n, on))
         h.addWidget(cb, 1)
         h.addSpacing(12)  # (its ⋯ in the column of the rows' ⋯)
-        def fill(m, n=fl["name"]):  # (Move to Target and Delete…, as every row's other commands)
+        def fill(m, n=fl["name"]):
             m.addAction("Move to Target", lambda: self.move("measurement", n))
             m.addSeparator()
             m.addAction("Delete…", lambda: self.remove("measurement", [n], n))

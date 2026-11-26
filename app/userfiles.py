@@ -42,8 +42,8 @@ def same_folder(a, b):
 
 def old_places(bases=None):
     """[(old folder, its new folder)] that still hold files, and the old records of where they came from: where
-    older copies kept your files (bases: the program's folder and Documents\\AutoEQ Studio). None for a test (it has
-    its own folders) unless bases are given."""
+    older copies kept your files (bases: the program's folder, Documents\\AutoEQ Studio and your files' folder now).
+    Nothing ([], []) for a test copy (it has its own folders) unless bases are given."""
     if bases is None:
         if os.environ.get("AUTOEQSTUDIO_ROOT") or os.environ.get("AUTOEQSTUDIO_DATA"):
             return [], []
@@ -93,7 +93,7 @@ def move_tree(old, new):
             if os.path.exists(dest):
                 if os.path.samefile(src, dest):  # (the same file by another path: nothing to move, never removed)
                     continue
-                if filecmp.cmp(src, dest, shallow=False):  # (already there: the old copy goes)
+                if filecmp.cmp(src, dest, shallow=False):
                     os.remove(src)
                     continue
                 (dest, copy), renamed = _unused_path(dest), renamed + 1

@@ -1,7 +1,7 @@
 """Make an EQ's Guide (AutoEQ Local's guide.js STEPS, told for AutoEQ Studio's window; ui/tour.py shows it):
-eq_steps(page), every step in order (Overview, 1 · Choose, 2 · Settings, 3 · Run & review, More) with its words,
-the controls it lights and its demo, and start_eq(page), the tour that shows them. The demos' helpers are in
-guide_demos.py. Keep the steps in their order: the checks find steps by their titles.
+eq_steps(page), every step in order (The parts of AutoEQ Studio, 1 · Select, 2 · Settings, 3 · Calculate and
+examine, More) with its words, the controls it lights and its demo, and start_eq(page), the tour that shows them.
+The demos' helpers are in guide_demos.py. Keep the steps in their order: the checks find steps by their titles.
 """
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QPushButton
@@ -12,13 +12,9 @@ from ui.guide_demos import (adjust_demo, button, choose_row, point_at_menu_row, 
                             meas_with_eq, mock_combo, mock_menu, open_picker, picker_rows, plot_value, show_on_graph,
                             stage_manual, stage_result, type_search, wait_for_background, way_before_after)
 
-# (A menu a demo draws is the Guide's own, guide_demos.mock_menu: as wide as its longest row and drawn as a real menu;
-# a row ending in " ▸" is a submenu's, Windows 11's chevron at its right, as the app's menus draw it.)
-
 
 # ---------------------------------------------------------------- Make an EQ's Guide
 def eq_steps(page):
-    """Make an EQ's Guide."""
     win = page.window()
     st = page.settings
     has_curves = lambda: bool(page.curves)
@@ -37,7 +33,6 @@ def eq_steps(page):
         if "i" in was_tab:
             st.adv_form.show_tab(was_tab.pop("i"))
         more_close()
-    # (Make the EQ shows one way's steps: a step about the other's shows its tab, then the one that was shown)
     auto_on, auto_off = way_before_after(page, "auto")
     auto_settings_open, auto_settings_close = way_before_after(page, "auto", (best_fit_tab, tab_back))
     hand_on, hand_off = way_before_after(page, "hand")
@@ -136,7 +131,7 @@ def eq_steps(page):
         names = [pk.f_site.itemText(i) for i in range(1, pk.f_site.count())]
         word = "crin" if any("crin" in n.lower() for n in names) else (names[-1][:4].lower() if names else "")
         found = [n for n in names if word and word in n.lower()][:6]
-        if found:  # (the Source list as it opens: its search box, a word typed, what's left)
+        if found:
             api.say("Many sources? Their list has a search box. Type a part of a name")
             yield from api.move_to(pk.f_site, 0.3, 0.5)
             yield from api.ripple()
@@ -447,7 +442,6 @@ def eq_steps(page):
                  "say": "Double-click where there is no handle: a new filter"}]
 
     def way_demo(api):
-        """Each tab in turn: the card shows that way's steps; the way shown before, back after."""
         was = getattr(page, "way", "auto")
         api.undo(lambda: page.set_way(was, remember=False))
         for key, say in (("hand", "Manually: Start from, then Start"), ("auto", "Automatically: the method, then Calculate")):
@@ -463,8 +457,8 @@ def eq_steps(page):
         yield from mock_combo(api, page.hand_source, 0)
         page.manual_source_changed()
         yield from api.click(page.hand_start)
-        undo = stage_manual(page)  # (an EQ by hand on the result card, as Start empty makes it: put back after)
-        if undo is None:  # (an ABX test running: left as it is)
+        undo = stage_manual(page)
+        if undo is None:
             yield from api.note("A manual EQ on the result card: you add filters, then you save it or use it on a "
                                 "device. (Demo: your work does not change.)", page.hand_start, 1700)
             return
@@ -519,7 +513,7 @@ def eq_steps(page):
 
     def abx_demo(api):
         L = page.listen
-        if len(L.versions()) < 2 or L.abx is not None:  # (two versions to test: else nothing to show)
+        if len(L.versions()) < 2 or L.abx is not None:
             yield 300
             return
         before = (L.active, L.picked)

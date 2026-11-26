@@ -51,8 +51,6 @@ def _line_mark(colour):
 
 
 def _table_look(t):
-    """Windows 11's table look: no grid lines, each heading at the left over its words, rows told apart by their
-    shade."""
     t.setShowGrid(False)
     t.setAlternatingRowColors(True)
     t.horizontalHeader().setDefaultAlignment(LEFT)

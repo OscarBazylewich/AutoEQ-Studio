@@ -59,9 +59,10 @@ class _TickWords(QLabel):
 
 
 class SettingsScreen:
-    """The Settings screen's part of the window: AutoEQ Studio's own settings, Equalizer APO (its state, Set up…, Take
-    AutoEQ Studio out, its Configurator and folder: the banner and Profiles use these actions too), your files' folder
-    and Backup. A plain class (no __init__, no signals: the hotkey's signal is the window's)."""
+    """The Settings screen's part of the window: AutoEQ Studio's own settings, Equalizer APO (its state, Add AutoEQ
+    Studio to APO…, Remove AutoEQ Studio from APO…, its Configurator and folder: the banner and Profiles use these
+    actions too), your files' folder and Backup. A plain class (no __init__, no signals: the two hotkeys' signals are
+    the window's)."""
 
     # ---------------------------------------------------------------- Settings
     def _settings_tab(self):
@@ -136,7 +137,6 @@ class SettingsScreen:
         theme.mark(self.hotkey_note, role="warn")
         g.addWidget(self.hotkey_note, 1, 1, 1, 2)
         help_window.tag(self.hotkey_edit, "#hotkey")
-        # the on/off hotkey (2026-10-26): the playing device's EQ off for now, to compare, and back
         g.addWidget(QLabel("Disable and enable its EQ, to compare"), 2, 0)
         self.onoff_edit = key_box("Hotkey to disable the EQ and enable it again", self.onoff_hotkey_changed,
                                   "onoff_hotkey")
@@ -195,7 +195,7 @@ class SettingsScreen:
         self.btn_folder.clicked.connect(lambda: self.open_folder(self.sw.apo.config))
         for b in (self.btn_setup, self.btn_conf, self.btn_folder):
             row.addWidget(b)
-        row.addStretch(1)  # (taking it out last and apart, never first beside Set up…: UI-RULES 14)
+        row.addStretch(1)  # (Remove AutoEQ Studio from APO… last and apart: UI-RULES 14)
         row.addWidget(self.btn_unset)
         lay.addWidget(box)
 
@@ -323,7 +323,7 @@ class SettingsScreen:
             chk.blockSignals(False)
         if not self.hotkey_edit.hasFocus():
             self._show_key(self.hotkey_edit, self.sw.s.get("hotkey") or "")
-        self.hotkey_note.setText(self.app.hotkey_problem or "")  # (a problem with the hotkey: said under its box)
+        self.hotkey_note.setText(self.app.hotkey_problem or "")
         self.hotkey_note.setVisible(bool(self.app.hotkey_problem))
         if not self.onoff_edit.hasFocus():
             self._show_key(self.onoff_edit, self.sw.s.get("onoff_hotkey") or "")
@@ -380,10 +380,11 @@ class SettingsScreen:
         SetUpDialog(self.sw, self).exec()
 
     def remove_studio_from_apo(self):
+        # (Add AutoEQ Studio to APO… puts it back)
         if QMessageBox.question(
                 self, "Remove AutoEQ Studio from APO",
                 "Remove AutoEQ Studio from Equalizer APO?\n\nThis removes its line from config.txt and re-enables any "
-                "lines it disabled. Your profiles are kept.") == QMessageBox.Yes:  # (Set up… puts it back)
+                "lines it disabled. Your profiles are kept.") == QMessageBox.Yes:
             try:
                 self.sw.remove_from_apo()
             except OSError as e:

@@ -1,6 +1,6 @@
 """The help words for the window's own screens (Devices, Settings, and Presets in the top bar): HELP_DEVICES,
 each control's line by its key (its tooltip, with the ids of its "See also" entries in Help), and
-SETTINGS_DEVICES, the "Devices" group in Help's "Every setting". help_texts.py joins them with the other
+SETTINGS_DEVICES, the "Devices" group in Help's "All settings". help_texts.py joins them with the other
 screens'. Words only: nothing is imported here.
 """
 # flake8: noqa

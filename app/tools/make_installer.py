@@ -94,8 +94,6 @@ def build(stage, out_dir):
 
 
 def make_friends_zip(exe):
-    """The zip for friends ("Make zip for friends.bat"): the installer and READ ME FIRST.txt (how to install it, from
-    this folder, with the version filled in). Next to the installer: "AutoEQ Studio <version>.zip"."""
     import zipfile
     out = os.path.join(os.path.dirname(exe), f"AutoEQ Studio {paths.VERSION}.zip")
     with open(os.path.join(TOOLS, "READ ME FIRST.txt"), encoding="utf-8") as fh:
@@ -111,7 +109,7 @@ def make_friends_zip(exe):
 def main():
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     out_dir = sys.argv[sys.argv.index("--out") + 1] if "--out" in sys.argv else os.path.join(ROOT, "releases")
-    if "--zip-only" in sys.argv:  # (the installer of this version, made before: only zipped)
+    if "--zip-only" in sys.argv:
         exe = os.path.join(out_dir, f"AutoEQ Studio Setup {paths.VERSION}.exe")
         if not os.path.isfile(exe):
             raise SystemExit(f"There is no {exe}. Make the installer first (Make installer.bat).")

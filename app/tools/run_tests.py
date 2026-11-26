@@ -12,7 +12,7 @@ PATHS      test folders or files (default: the whole tests folder; one test, fil
 --jobs N   how many parts run at once (AUTOEQSTUDIO_TEST_JOBS when it's set; else a quarter of the cores, 1 to 4).
 --out DIR  keeps each part's check log (<part>.jsonl) and pytest's output (<part>.txt) in DIR. Without it they go in
            a temporary folder, deleted when everything passed and kept (its place printed) when not.
---all      also prints every check's own line, ok or FAIL, as the old self-test did.
+--all      also prints every check's own line, ok or FAIL.
 --timeout  a part still running after this many minutes (default 30; fractions too: 0.5 is half a minute) is ended,
            with everything it started.
 -- ...     anything after -- goes to pytest as it is (e.g. -- -k theme -x).
@@ -31,8 +31,7 @@ Each part's process goes in a Windows job object of its own, which ends everythi
 closes it when the part ends (or runs past --timeout), so no copy of the app, fitting worker or anything else a test
 started is left running, even when pytest's own time limit ended the process at once.
 
-For other tools: main(argv) and run(paths, quick=False, jobs=None, out=None, show_all=False, extra=(),
-say_left_out=False), each giving the exit code.
+For other tools: main(argv) and run(), each giving the exit code (run's own docstring lists its arguments).
 """
 import argparse
 import ctypes
@@ -49,7 +48,7 @@ import time
 from ctypes import wintypes
 
 PROJECT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-NOT_PARTS = ("helpers", "fixtures")  # (folders under tests\ that hold no tests: never a part)
+NOT_PARTS = ("helpers", "fixtures")
 INSTALL = r'".venv\Scripts\python.exe" -m pip install -r app\requirements-dev.txt'
 NO_PYTEST = f"FAIL pytest isn't installed here (the tests need it): {INSTALL}"
 NO_TIMEOUT_PLUGIN = f"FAIL pytest-timeout isn't installed here (the tests need it): {INSTALL}"
@@ -93,7 +92,7 @@ if sys.platform == "win32":
     _k32.OpenProcess.restype = wintypes.HANDLE
     _k32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
     _k32.CloseHandle.argtypes = [wintypes.HANDLE]
-else:  # (the app is Windows only; elsewhere a part is simply ended on its own, with taskkill's stand-in below)
+else:  # (the app is Windows only: no job objects elsewhere)
     _k32 = None
 
 
@@ -136,7 +135,6 @@ class Job:
             _k32.CloseHandle(process)
 
     def active(self) -> int:
-        """How many processes in the job are still running."""
         if not self.handle:
             return 0
         info = _Accounting()
@@ -146,7 +144,6 @@ class Job:
         return info.ActiveProcesses
 
     def close(self):
-        """Close the job: Windows ends everything still running in it."""
         if self.handle:
             _k32.CloseHandle(self.handle)
             self.handle = None
@@ -234,7 +231,6 @@ def _size(root, paths):
 
 
 def default_jobs():
-    """AUTOEQSTUDIO_TEST_JOBS when it's a number of 1 or more; else a quarter of the cores, 1 to 4."""
     try:
         jobs = int(os.environ.get("AUTOEQSTUDIO_TEST_JOBS", ""))
     except ValueError:

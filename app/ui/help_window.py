@@ -238,7 +238,7 @@ class HelpWindow(QWidget):
         self.view.setOpenLinks(False)
         self.view.anchorClicked.connect(lambda url: self.show_entry(url.fragment() or url.toString().lstrip("#")))
         h.addWidget(self.view, 1)
-        self.items = {}  # (an anchor: its item in the contents)
+        self.items = {}
         self._make_contents()
         theme.on_change(self._retheme)
         self.render()
@@ -315,7 +315,7 @@ class HelpWindow(QWidget):
             self.items["settings"].setHidden(bool(words) and all(self.items[sid].isHidden() for _t, sid, _e in
                                                                   self.sections[len(WIKI["groups"]) + 1:]))
             self.items["settings"].setExpanded(bool(words))
-            if not words and now in self.items:  # (the entry shown keeps its group open)
+            if not words and now in self.items:
                 p = self.items[now].parent()
                 while p is not None:
                     p.setExpanded(True)

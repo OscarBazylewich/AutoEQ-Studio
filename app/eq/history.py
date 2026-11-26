@@ -1,9 +1,10 @@
-"""Past EQs, kept between sessions in data\\history.json (oldest first): each one's IEM or headphone, target, method,
-filters and scores, and whether it was saved (Save filters or Copy).
+"""Past EQs, kept between sessions in data\\eq\\history.json (oldest first): each one's IEM or headphone, target,
+method, filters and scores, and whether it was saved (Save filters or Copy).
 
-The page adds an entry when an EQ is saved (and, if Settings › App says so, after every run). Its key names the
-result and its filters, so saving the same EQ again updates that entry, and an edited version gets its own. At most
-MAX entries are kept: past that, the oldest unsaved ones go first."""
+The page adds an entry when an EQ is saved (and, with More settings › History › History keeps: All results, and the
+EQs that you save, after every run). Its key names the result and its filters, so saving the same EQ again updates
+that entry, and an edited version gets its own. At most MAX entries are kept: past that, the oldest unsaved ones go
+first."""
 import os
 import threading
 import time
@@ -14,7 +15,7 @@ import textfile
 
 PATH = os.path.join(paths.DATA, "history.json")
 MAX = 1000
-_LOCK = threading.Lock()  # (the server answers requests in parallel: one change to the file at a time)
+_LOCK = threading.Lock()  # (service calls also run in worker threads, ui\tasks.py: one change to the file at a time)
 TEXT = ("key", "base", "device", "target", "target_file", "mode", "label")  # (the entry's words, each kept short)
 
 
@@ -58,7 +59,7 @@ def restore(back):
             e["when"] = when
             items.append(e)
             have.add(e["key"])
-        items.sort(key=lambda x: x.get("when") or 0)  # (oldest first, as they're kept: each back in its place)
+        items.sort(key=lambda x: x.get("when") or 0)
         _trim(items)  # (entries added meanwhile: still MAX at most, as after an add)
         textfile.write_json(PATH, items, quiet=False)
         return items
@@ -100,7 +101,6 @@ def _add(e):
 
 
 def _trim(items):
-    """MAX entries at most: the oldest unsaved one goes first, else the oldest."""
     while len(items) > MAX:
         items.remove(next((x for x in items if not x.get("saved")), items[0]))
 

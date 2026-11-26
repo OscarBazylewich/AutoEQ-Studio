@@ -16,7 +16,7 @@ import threading
 import warnings
 from concurrent.futures import FIRST_COMPLETED, wait
 
-from . import paths  # noqa: F401 - first: it sets the maths libraries' thread counts before numpy loads
+from . import paths  # noqa: F401 - (not used here: the package's __init__.py sets the maths libraries' thread counts)
 import numpy as np  # noqa: E402
 
 from . import settings  # noqa: E402
@@ -482,7 +482,6 @@ def _starting_points(t):
     """The peaking filters [(fc, gain, q)] each fit starts from: up to 3 site results with the closest filter count
     (not more than n, padded to n), AutoEq's optimizer, then random starts (seeded, so a fit is repeatable)."""
     n, qmin, qmax = t["n"], t["q_min"], t["q_max"]
-    # where starting filters go: the filter range up to 12 kHz (all of it when it starts above that)
     lo = t["freq_low"]
     top = min(t["freq_high"], 12000) if lo < 12000 else t["freq_high"]
     starts = []
@@ -534,7 +533,7 @@ def _mine_params(mine):
             np.array([[np.log10(f["freq"]), f["gain"], np.log(f["q"])] for f in mine]).reshape(-1, 3))
 
 
-FREQ_LO, FREQ_HI = (float(settings.UI_LIMITS["edit.freq"][k]) for k in ("min", "max"))  # (a filter's frequency range)
+FREQ_LO, FREQ_HI = (float(settings.UI_LIMITS["edit.freq"][k]) for k in ("min", "max"))
 
 
 def _mine_bounds(mine, t):
@@ -603,7 +602,7 @@ def _bf_worker_run(task):
 
 
 RANDOM_STARTS = 13  # starting points when each count is fitted on its own (your own filters adjusted): Standard's,
-# tools/starts_benchmark.py (16 within 0.02 dB of the best in 90% of fits; past 16 almost nothing more)
+# BENCHMARKS.md, "How many random starts" (16 within 0.02 dB of the best in 90% of fits; past 16 almost nothing more)
 GROW_TRIES = 2     # places tried for each new filter (the method test's)
 GROW_NFEV = 600    # the fit's steps after each new filter (it starts close: the filters before are fitted already)
 NO_BEST = 10 ** 6  # (the shared "fewest filters that reached the target" before any did)
@@ -667,8 +666,6 @@ def _grow_run(task):
     lo_t, hi_t = (["LSQ"] if sh["low"] else []), (["HSQ"] if sh["high"] else [])
     fb, nb = b["fb"], b["nb"]
     keep, top, stop_ear = set(task["counts"]), max(task["counts"]), task.get("stop_ear")
-    # where a new filter may go: the filter range within the scored range, up to 16 kHz (all of the scored range
-    # when they don't meet)
     where = (fb >= task["freq_low"]) & (fb <= min(task["freq_high"], 16000))
     if not where.any():
         where = np.ones(nb, bool)

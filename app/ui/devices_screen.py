@@ -310,8 +310,6 @@ class DevicesScreen:
         bl.addWidget(off)
 
         def two_lines(row, rb, data):
-            """A row's words at the start of the row: its name (the round button), and under the name its data in
-            small gray text."""
             col = placed(row, QVBoxLayout(), 1)
             col.setSpacing(0)
             col.addWidget(rb)
@@ -616,7 +614,7 @@ class DevicesScreen:
         tasks.background(work, done)
 
     def check_device(self, key):
-        """Check again: APO asked now, and all it found said (switcher\\check.py)."""
+        """Examine again: APO asked now, and all it found said (switcher\\check.py)."""
         rec = self.sw.record(key)
         if self._check_job(key) is None:
             bubble.tell(None, "Device not found in Windows. Connect it first.", near=self)

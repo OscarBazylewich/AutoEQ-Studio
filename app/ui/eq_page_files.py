@@ -1,8 +1,8 @@
 """Make an EQ's files (a part of EqPage, ui/eq_page.py): Target and Measurement filled from the app's files and
 chosen, Add… (files from this PC), Find… (ui/picker.py) and what it calls back (a file used or moved: said with
-Undo), a target saved as adjusted, a picture pasted or dropped (into the tracer, ui/trace_window.py) and Which
-measurement (ui/compare_window.py); an entry that the app cannot download traced from a picture of its website
-(trace_from_website: the browser, the wait for a picture, ui/picture_wait.py, then the tracer).
+Undo), a target saved as adjusted, a picture pasted or dropped (into the tracer, ui/trace_window.py) and Other
+measurements of this model… (ui/compare_window.py); an entry that the app cannot download traced from a picture of
+its website (trace_from_website: the browser, the wait for a picture, ui/picture_wait.py, then the tracer).
 EqFiles is a plain class (no __init__, no signals); EqPage (ui/eq_page.py) joins it with the other parts. (Qt's own
 handlers for a dropped picture stay in EqPage: they hand it to _picture_to_tracer here.)
 """
@@ -17,15 +17,13 @@ from ui.eq_page_parts import modal, set_note
 
 
 class EqFiles:
-    """Make an EQ's files."""
-
     # ---------------------------------------------------------------- the files
     def show_inputs(self, inputs):
         self.inputs = inputs
         t = self.target_combo
         t.clear()
         from ui.search_combo import natural_key
-        for n in sorted(inputs["targets"], key=lambda n: natural_key(os.path.splitext(n)[0])):  # (A to Z)
+        for n in sorted(inputs["targets"], key=lambda n: natural_key(os.path.splitext(n)[0])):
             t.addItem(os.path.splitext(n)[0], n)
         t.setCurrentIndex(max(0, t.findData(inputs["active_target"])))
         set_note(self.target_note, "" if inputs["targets"] else "No targets: click Find… or Add… to add a target")
@@ -33,7 +31,7 @@ class EqFiles:
         groups = {}
         for m in sorted(inputs["measurements"], key=lambda m: natural_key(m["name"])):
             groups.setdefault(eq_inputs.device_name([m["name"]]), []).append(m)
-        self.groups = groups = dict(sorted(groups.items(), key=lambda kv: natural_key(kv[0])))  # (A to Z)
+        self.groups = groups = dict(sorted(groups.items(), key=lambda kv: natural_key(kv[0])))
         mc = self.measurement_combo
         mc.clear()
         current = None
@@ -164,11 +162,11 @@ class EqFiles:
 
     # ---------------------------------------------------------------- a picture from a website (ui/picture_wait.py)
     def trace_from_website(self, entry_id, over, say, want=None):
-        """Find…'s Use (or Which measurement's link) on an entry that the app cannot download: the entry opens in the
-        user's browser, then the wait window on top of `over` waits for a picture of its graph, which goes to the
-        tracer. Returns whether the wait started. `say`: the message line of `over` (UI-RULES 7). `want`: "target"
-        or "measurement", the add that the user wants (Find…'s kind); else the kind of the entry (a target of a
-        website is a target for the tracer: 3 Save says Add as target)."""
+        """Find…'s Use (or the link of Other measurements of this model…) on an entry that the app cannot download: the
+        entry opens in the user's browser, then the wait window on top of `over` waits for a picture of its graph,
+        which goes to the tracer. Returns whether the wait started. `say`: the message line of `over` (UI-RULES 7).
+        `want`: "target" or "measurement", the add that the user wants (Find…'s kind); else the kind of the entry (a
+        target of a website is a target for the tracer: 3 Save says Add as target)."""
         wait = getattr(self, "picture_wait", None)
         if wait is not None and tasks.alive(wait) and wait.isVisible():  # (one wait at a time)
             wait.raise_()
@@ -350,6 +348,5 @@ class EqFiles:
 
     # ---------------------------------------------------------------- Which measurement (ui/compare_window.py)
     def open_other_measurements(self):
-        """Which measurement to use? (ui/compare_window.py)"""
         from ui.compare_window import CompareWindow
         modal(CompareWindow(self))

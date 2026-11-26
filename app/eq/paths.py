@@ -11,16 +11,17 @@ The program's data is next to these modules (app\\eq\\: rigdata.json, rigmap.jso
     DATA                     the EQ part's own files: settings.json, history.json, listen.json
     LOG_PATH                 AutoEQ Studio's log (shared with the rest of the app)
 
-Taken when the EQ part loads: a folder chosen later takes effect when the app starts again (userfiles.py restarts it).
+Taken when the EQ part loads: a folder chosen later takes effect when the app starts again (ui\\your_files.py's
+change_location restarts it).
 The maths libraries' thread counts are set by eq\\__init__.py, before numpy loads.
 """
 import os
 
-import paths as _studio  # (the app's own paths.py: where things are)
+import paths as _studio
 
-APP = os.path.dirname(os.path.abspath(__file__))           # (app\eq: the EQ part's program and data)
+APP = os.path.dirname(os.path.abspath(__file__))
 ROOT = _studio.ROOT  # (your files' folder)
-PROGRAM = _studio.PROGRAM  # (the program's own folder)
+PROGRAM = _studio.PROGRAM
 STUDIO_DATA = _studio.DATA
 DATA = os.path.join(STUDIO_DATA, "eq")
 CACHE = _studio.CACHE

@@ -52,8 +52,8 @@ class Sources(QDialog):
         self.page, self.svc = page, page.svc
         self.setWindowTitle("Sources: where Find… looks")
         # (Qt's own minimum counts each wrapped line of text once, and then pushed the databases' tree over the
-        # heading under it: room here for the notes on two lines. Both within the screen's free room: shorter, its
-        # parts scroll)
+        # heading under it: room here for the notes on two lines. Both within the screen's free room: on a smaller
+        # screen its lists are shorter, each on its own tab)
         fit_to_screen(self, (760, 820), (560, 700))
         S = page.S
         S["databases"].setdefault("enabled", [])
@@ -125,7 +125,7 @@ class Sources(QDialog):
         self.tree.setMinimumHeight(110)  # (the window's main list: a few rows, however small the window)
         self.tree.setHeaderLabels(["Database", "Curves", ""])
         self.tree.setAccessibleName("Online databases")
-        hd = self.tree.header()  # (the name takes the room; the counts and links their own width)
+        hd = self.tree.header()
         hd.setStretchLastSection(False)
         hd.setSectionResizeMode(0, QHeaderView.Stretch)
         hd.setSectionResizeMode(1, QHeaderView.ResizeToContents)
@@ -204,7 +204,6 @@ class Sources(QDialog):
         if st.get("error") and not st.get("folders"):
             self.lib_status.setText(f"Search failed: {st['error']}")
             return
-        # ("1 curve file", not "1 curve files")
         files = lambda n, what: f"{n} {what} file{'' if n == 1 else 's'}"
         if st.get("scanning"):
             self.lib_status.setText(f"Searching… {files(st.get('found', 0), 'curve')}")

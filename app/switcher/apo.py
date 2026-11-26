@@ -12,20 +12,20 @@ applies to every device again, as before. config.txt gets one line, "Include: Au
 an Include relative to the file it's in), and APO applies a change to a file in its config folder at once: switching
 is writing switcher.txt again.
 
-Lines already on in config.txt (an Include of an EQ file, filters, a pre-amp) apply to every device on top of EQ
-Switcher's. Setting up turns them off with "# (AutoEQ Studio) " in front, after keeping a copy of config.txt; removing
-AutoEQ Studio from APO turns them on again and takes its line out.
+Lines already on in config.txt (an Include of an EQ file, filters, a pre-amp) apply to every device on top of
+AutoEQ Studio's. Setting up turns them off with "# (AutoEQ Studio) " in front, after keeping a copy of config.txt;
+removing AutoEQ Studio from APO turns them on again and takes its line out.
 """
 import os
 import re
 
 import textfile
 
-OWN = "AutoEQ Studio"                       # its folder in APO's config folder
+OWN = "AutoEQ Studio"
 SWITCHER = "switcher.txt"
 PROFILES = "profiles"
 INCLUDE_LINE = "Include: AutoEQ Studio\\switcher.txt"
-OFF_MARK = "# (AutoEQ Studio) "             # in front of a line of config.txt that setting up turned off
+OFF_MARK = "# (AutoEQ Studio) "
 BACKUP = "config.txt.autoeq-studio-backup"
 _OURS = re.compile(r"^\s*Include\s*:\s*AutoEQ Studio[\\/]switcher\.txt\s*$", re.I)
 # an Include, on or off: "# Include: x.txt", and "# (EQ Switcher) Include: x.txt" (a line another app turned off)
@@ -58,8 +58,7 @@ class Apo:
     @property
     def configurator(self):
         """APO's Configurator (where you tick the devices APO is installed on), or None. Its file is DeviceSelector.exe
-        in APO 1.3 and later (the Start menu still calls it Configurator), Configurator.exe before: only the old name
-        was looked for, so its buttons never showed with a current APO (2026-10-21)."""
+        in APO 1.3 and later (the Start menu still calls it Configurator), Configurator.exe before."""
         for name in ("DeviceSelector.exe", "Configurator.exe"):
             exe = os.path.join(self.install or "", name)
             if self.install and os.path.isfile(exe):
@@ -82,7 +81,6 @@ class Apo:
         return textfile.read(self.config_txt) if self.found else ""
 
     def includes_studio(self):
-        """Is config.txt including AutoEQ Studio's file (the line on)?"""
         return any(_OURS.match(line) for line in self.read_config().splitlines())
 
     @staticmethod
@@ -138,7 +136,6 @@ class Apo:
         return off
 
     def remove_line(self):
-        """Take AutoEQ Studio out of config.txt: its line goes, the lines it turned off are on again."""
         text = self.read_config()
         nl = "\r\n" if "\r\n" in text else "\n"
         lines = [line[len(OFF_MARK):] if line.startswith(OFF_MARK) else line

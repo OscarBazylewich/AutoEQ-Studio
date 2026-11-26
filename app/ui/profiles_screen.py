@@ -106,7 +106,7 @@ class ProfilesScreen:
         for c in (0, 3):
             h.setSectionResizeMode(c, QHeaderView.Stretch)
         h.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        self.prof_used_by = UsedByWidth(self.prof_table)  # ("Used by": as wide as its words, to a limit)
+        self.prof_used_by = UsedByWidth(self.prof_table)
         # (no profiles: one gray line that tells the next step, as every empty list: UI-RULES 21)
         self.prof_empty = EmptyText(self.prof_table, "No profiles yet. Click Import EQ files…, or create one in Make an EQ "
                                     "and click Use on device.")
@@ -117,7 +117,6 @@ class ProfilesScreen:
         return w
 
     def _update_profile_commands(self):
-        """The chosen profile's commands on with a profile chosen, off without."""
         one = self._selected_profile() is not None
         for b in self.prof_needs_one:
             b.setEnabled(one)
