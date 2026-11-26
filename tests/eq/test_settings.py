@@ -57,6 +57,23 @@ def test_pairs_in_order(wrong_kinds, check):
     check("settings: from/to pairs in order", all(not settings.pair_wrong(c, lo, hi, s) for lo, hi, s in settings.LIMIT_PAIRS))
 
 
+def test_saved_gain_ranges_load_as_they_are(tmp_path, check):
+    # (feature 4, 2026-11-25: Gain ranges shown as rows of two boxes, stored as before, [[from, to], …]: no migration)
+    default = settings.DEFAULTS["site_sweep"]["gain_ranges"]
+    twelve = [[-x, x] for x in range(1, 13)]
+    cases = [(default, default), ([[-12, 6]], [[-12, 6]]), (twelve, twelve), ([[-12, 6], [-12, 6]], [[-12, 6], [-12, 6]]),
+             ([[3, 3]], [[3, 3]]), ([[9, -6]], [[-6, 9]]), ([[-30, 25]], [[-20, 20]]), ([], default), ("-12..6", default)]
+    got = []
+    for saved, _want in cases:
+        sp = os.path.join(tmp_path, "settings.json")
+        with open(sp, "w", encoding="utf-8") as fh:
+            json.dump({"site_sweep": {"gain_ranges": saved}}, fh)
+        got.append(settings.load(sp)["site_sweep"]["gain_ranges"])
+    check("settings: saved gain ranges load as they are (the default, one range, twelve, two equal ranges, an equal "
+          "pair); a reversed pair is put in order, a value past ±20 goes to the limit, an empty list or a text goes "
+          "back to the default", got == [want for _saved, want in cases], list(zip(cases, got)))
+
+
 def test_not_settings_at_all(check):
     # was eq_checks.py:127
     check("settings: something that isn't settings at all gives the defaults",

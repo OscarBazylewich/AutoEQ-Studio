@@ -213,7 +213,7 @@ class EqSettings:
                  mode("site_sweep")),
                 ("Frequency from", [("site_sweep.freq_low", "num")], mode("site_sweep")),
                 ("Frequency “to” values", [("site_sweep.freq_high", "numlist")], mode("site_sweep")),
-                ("Gain ranges", [("site_sweep.gain_ranges", "ranges", None, "e.g., -12..6, -12..9")], mode("site_sweep")),
+                ("Gain ranges", [("site_sweep.gain_ranges", "ranges")], mode("site_sweep")),  # (a row of two boxes each)
                 ("Q from", [("site_sweep.q_min", "num")], mode("site_sweep")),
                 ("Q “to” values", [("site_sweep.q_max", "numlist")], mode("site_sweep"))]),
             ("Website", [
@@ -702,7 +702,7 @@ class EqSettings:
         sw = S["site_sweep"]
         self.sweep_note.setText(f"Testing: filter rows {fmt_list(sw['filter_rows'])} · frequency to "
                                 f"{', '.join(f'{v / 1000:g} kHz' for v in sw['freq_high'])} · gain "
-                                f"{', '.join(f'{r[0]:g}..{r[1]:g}' for r in sw['gain_ranges'])} · Q to {fmt_list(sw['q_max'])}. "
+                                f"{', '.join(f'{r[0]:g} to {r[1]:g}' for r in sw['gain_ranges'])} · Q to {fmt_list(sw['q_max'])}. "
                                 "Edit in More settings › Website best settings.")
         lay = next((l for l in self.page.meta.get("layouts", []) if l["key"] == S["best_fit"]["layout"]), {})
         self.fixed_note.setText(f"{lay.get('name', '')}: Best fit adjusts band gains only. Edit range and step in "

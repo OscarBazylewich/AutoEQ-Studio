@@ -33,6 +33,14 @@ def eq_steps(page):
         if "i" in was_tab:
             st.adv_form.show_tab(was_tab.pop("i"))
         more_close()
+
+    ranges = lambda: st.adv_form.fields["site_sweep.gain_ranges"].box  # (Gain ranges' rows: forms.RangeRows)
+
+    def sweep_tab():  # (More settings, open on its Website best settings tab; returns what puts both back)
+        more_open()
+        was_tab["i"] = st.adv_form.pages.currentIndex()
+        st.adv_form.show_tab(next(i for i, b in st.adv_form.tab_btns.items() if b.text() == "Website best settings"))
+        return tab_back
     auto_on, auto_off = way_before_after(page, "auto")
     auto_settings_open, auto_settings_close = way_before_after(page, "auto", (best_fit_tab, tab_back))
     hand_on, hand_off = way_before_after(page, "hand")
@@ -246,7 +254,7 @@ def eq_steps(page):
 
     def _first_box():
         auto = set(st.auto_paths)
-        fields = [f for p, f in st.form.fields.items() if f.kind in ("num", "intlist", "numlist", "ranges")
+        fields = [f for p, f in st.form.fields.items() if f.kind in ("num", "intlist", "numlist")
                   and f.box.isVisible() and not p.startswith("scoring")]
         return next((f for f in fields if f.path in auto), None) or (fields[0] if fields else None)
 
@@ -838,11 +846,17 @@ def eq_steps(page):
         {"chapter": "More", "title": "Settings", "target": lambda: st.adv.btn,
          "text": "More settings (below Settings, in Make the EQ) has the settings that the app sets for you, with a tab "
                  "for each part. The Best fit tab has its layout, limits, penalties and your filters. The Website best "
-                 "settings tab has its lists (with that method only). The other tabs are the website settings, Saved "
+                 "settings tab has its lists (with that method only). Gain ranges has a row of two boxes for each "
+                 "range, with Add a range below the rows. The other tabs are the website settings, Saved "
                  "files, History and This PC. A list of more than 15 items, for example Layout, opens with a "
                  "search box. The Settings screen (top bar) has the location of your files, backups, Online / Offline "
                  "and Start with Windows.",
-         "demo": lambda: [{"at": lambda: st.adv.btn, "x": 0.1, "say": "More settings: the settings that the app sets for you"}]
+         # (with Website AutoEQ: find the best settings, More settings opens on its tab for Gain ranges' rows)
+         "demo": lambda: [{"at": lambda: st.adv.btn, "x": 0.1, "say": "More settings: the settings that the app sets for you",
+                           **({"then": sweep_tab} if page.S["mode"] == "site_sweep" else {})}]
+         + ([{"at": lambda: ranges().rows[0].lo, "say": "A gain range: the lowest value, then the highest"},
+             {"at": lambda: ranges().add_btn, "say": "Add a range adds a row. ✕ removes one"}]
+            if page.S["mode"] == "site_sweep" else [])
          + ([{"at": lambda: win.nav["settings"], "say": "The settings of the app"}] if hasattr(win, "nav") else [])},
         {"chapter": "More", "title": "Help, and the end of the Guide", "target": lambda: win.help_btn, "top bar": True,
          "text": "Help gives information about the words of the app (Q, shelf, rig, pre-amp…) and the solutions to "

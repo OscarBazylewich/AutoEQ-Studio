@@ -95,14 +95,21 @@ def test_screen_reader_line_is_the_tooltip(eq_screen, check):
           set(found) == set(want) and all(got == (want[k],) * 3 for k, ws in found.items() for got in ws), found)
 
 
-def test_gain_ranges_example_is_its_tooltips(eq_screen, check):
+def test_gain_ranges_texts_without_two_dots(eq_screen, check):
     # (the owner, 2026-11-24: the gray example in the Gain ranges box was "e.g. -12..6, -12..12", and its tooltip
-    # gave "e.g., -12..6, -12..9")
+    # gave "e.g., -12..6, -12..9". Since 2026-11-25 a row of two boxes for each range, with no example and no
+    # "low..high" text anywhere)
+    from PySide6.QtWidgets import QLineEdit, QWidget
+    from ui.help_texts import HELP, WIKI
     st = eq_screen.page.settings
-    box = {**st.form.fields, **st.adv_form.fields}["site_sweep.gain_ranges"].box
-    check("settings: the gray example in Gain ranges is the example of its tooltip",
-          box.placeholderText() == "e.g., -12..6, -12..9" and "(" + box.placeholderText() + ")" in box.toolTip(),
-          (box.placeholderText(), box.toolTip()))
+    rows = st.adv_form.fields["site_sweep.gain_ranges"].box
+    texts = [w.toolTip() for w in rows.findChildren(QWidget)] + [w.accessibleName() for w in rows.findChildren(QWidget)]
+    texts += [w.placeholderText() for w in rows.findChildren(QLineEdit)] + [str(HELP["site_sweep.gain_ranges"])]
+    texts += [str(e) for s in WIKI["settings"] for e in s.get("items", []) if e.get("key") == "site_sweep.gain_ranges"]
+    texts.append(st.sweep_note.text())
+    check("settings: no text of Gain ranges writes a range with “..” (its tooltips, names, Help and the gray line "
+          "of the ranges tried)", len(texts) > 10 and not [t for t in texts if ".." in t],
+          [t for t in texts if ".." in t] or len(texts))
 
 
 def test_controls_without_a_tooltip(eq_screen, check):
@@ -316,9 +323,12 @@ def test_buttons_named_in_help_as_they_read(eq_screen, check):
     page = eq_screen.page
     titles = {it["key"]: it["title"] for section in help_text_eq.SETTINGS_EQ for it in section["items"]}
     named = {}
+    # (a button that is a part of a setting's own control, Gain ranges' Add a range and ✕: F1 explains the setting, its
+    # entry named as the setting's label)
+    parts = {p for form in (page.settings.form, page.settings.adv_form) for p in form.fields}
     for b in page.findChildren(QAbstractButton):
         key = help_window.help_key(b.property("help_key") or "")
-        if key in titles and not isinstance(b, (QCheckBox, QRadioButton)):  # (a tick box's words say more)
+        if key in titles and not isinstance(b, (QCheckBox, QRadioButton)) and b.property("help_key") not in parts:
             named[b.text()] = titles[key]
     wrong = {words: title for words, title in named.items() if not title.startswith(words)}
     check("help: each button on Make an EQ that F1 explains has its entry in Help named as the button reads (“↻ Retry "
