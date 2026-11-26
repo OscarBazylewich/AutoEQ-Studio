@@ -28,7 +28,7 @@ import shutil
 import pytest
 
 from helpers import paths as project
-from helpers import qt, session, subproc
+from helpers import qt, session, stand_in_app, subproc, window_app
 
 COVERS = ("ui.window", "ui.preload", "ui.app", "ui.winsys", "ui.eq_page", "ui.guide", "ui.tour", "userfiles",
           "eq.service")
@@ -83,24 +83,7 @@ from switcher import core
 from switcher import devices as D
 from switcher.apo import Apo
 
-
-class Stub:  # (what the window asks of the app)
-    hotkey_problem = ""
-
-    def tray_message(self, title, text):
-        pass
-
-    @staticmethod
-    def autostart_on():
-        return False
-
-    def set_autostart(self, on):
-        pass
-
-    @staticmethod
-    def set_offline(on):
-        net.set_offline(on)
-
+''' + stand_in_app.STUB_APP + r'''
 
 eps = [D.Endpoint("{5}", "Headset", "EarPods", D.ACTIVE, False)]
 sw = core.Switcher(os.path.join(top, "s.json"), Apo(os.path.join(top, "no-apo")), endpoints=lambda: eps,
@@ -129,7 +112,7 @@ def device_changed():
 def make_window(page, show=True):
     from ui.window import Window
     sw.s["page"] = page
-    win = Window(sw, Stub())
+    win = Window(sw, StubApp())
     WIN[0] = win
     real_status = win.status
     win.status = lambda text, ms=6000: (statuses.append(text), real_status(text, ms))[1]
@@ -557,18 +540,12 @@ def test_trim_memory(check):
 
 
 def test_memory_given_back_in_the_tray(qapp, stub_app, tmp_path, monkeypatch, check):
-    from switcher import core
-    from switcher import devices as D
-    from switcher.apo import Apo
     from ui import winsys
     from ui.window import Window
     trims = []
     monkeypatch.setattr(winsys, "trim_memory", lambda: trims.append(1) or True)
     monkeypatch.setattr(Window, "TRIM_MS", 60)
-    eps = [D.Endpoint("{5}", "Headset", "EarPods", D.ACTIVE, False)]
-    sw = core.Switcher(str(tmp_path / "s.json"), Apo(str(tmp_path / "no-apo")), endpoints=lambda: eps,
-                       playing=lambda: "{5}")
-    sw.s["page"] = "devices"
+    sw = window_app.switcher(tmp_path)
     plain, own = Window(sw, stub_app), Window(sw, stub_app)
     own.allow_preload(lambda: False)  # (the app's own window, here never worth making Make an EQ ahead)
     seen = {}
@@ -947,19 +924,6 @@ def test_the_tests_decide_the_animation_effects(monkeypatch, check):
           and len(asked) == 3 and in_session == "1", (seen, len(asked), in_session))
 
 
-def _window(stub_app, tmp_path):
-    """A window of this test's own (on Devices, a stand-in device, no Equalizer APO folder), not shown."""
-    from switcher import core
-    from switcher import devices as D
-    from switcher.apo import Apo
-    from ui.window import Window
-    eps = [D.Endpoint("{5}", "Headset", "EarPods", D.ACTIVE, False)]
-    sw = core.Switcher(str(tmp_path / "s.json"), Apo(str(tmp_path / "no-apo")), endpoints=lambda: eps,
-                       playing=lambda: "{5}")
-    sw.s["page"] = "devices"
-    return Window(sw, stub_app)
-
-
 def test_made_ahead_at_a_quiet_moment_or_when_about_to_be_clicked(qapp, stub_app, tmp_path, monkeypatch, check):
     # (2026-10-24, the checkers: made ahead ~20 ms after the window showed, not a second after: Qt gives the Make an
     # EQ tab the focus as the window becomes active, and any focus was taken as "reached with Tab". Its work holds the
@@ -969,7 +933,7 @@ def test_made_ahead_at_a_quiet_moment_or_when_about_to_be_clicked(qapp, stub_app
     from PySide6.QtGui import QFocusEvent
     from PySide6.QtWidgets import QApplication
     from ui import theme, winsys
-    win = _window(stub_app, tmp_path)
+    win = window_app.window(stub_app, tmp_path)
     quiet, calls = [0], []
     monkeypatch.setattr(winsys, "idle_ms", lambda: quiet[0])
     monkeypatch.setattr(theme, "warm_symbols", lambda: calls.append("symbols"))
@@ -1010,7 +974,7 @@ def test_another_screen_asked_for_while_hidden(qapp, stub_app, tmp_path, monkeyp
     # (2026-10-24, the checkers: the tray's Add a profile… (shown when the playing device has none) opened Make an EQ
     # when Make an EQ had been asked for while the window was hidden: it stayed waiting to be made when it shows)
     from ui import preload
-    win = _window(stub_app, tmp_path)
+    win = window_app.window(stub_app, tmp_path)
     made = []
     monkeypatch.setattr(preload, "ready", lambda: False)
     monkeypatch.setattr(win, "_eq_when_code_in", lambda: made.append(1))
@@ -1033,7 +997,7 @@ def test_code_that_cant_load_is_said(qapp, stub_app, tmp_path, monkeypatch, chec
 
     from PySide6.QtWidgets import QLabel
     from ui import guide, preload, theme
-    win = _window(stub_app, tmp_path)
+    win = window_app.window(stub_app, tmp_path)
     tours = []
     monkeypatch.setattr(preload, "ready", lambda: True)
     monkeypatch.setattr(preload, "error", lambda: ImportError("stood in"))
@@ -1073,7 +1037,7 @@ def test_the_guide_left_when_you_go_on(qapp, stub_app, tmp_path, monkeypatch, ch
 
     from PySide6.QtWidgets import QLabel
     from ui import guide
-    win = _window(stub_app, tmp_path)
+    win = window_app.window(stub_app, tmp_path)
     tours = []
     monkeypatch.setattr(guide, "start_eq", lambda page: tours.append(page))
     loading = QLabel("Opening Make an EQ…")

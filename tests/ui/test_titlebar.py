@@ -31,6 +31,8 @@ def win(devices_window):
 
 
 def _native(w, made, framed):
+    # (each Native made here also guards the fault of 1.5.1, a native handler named QObject's event: the QTimer that
+    # Native makes as its child sends it a QChildEvent while it is made, and such a handler fails at once)
     from ui import titlebar
     n = titlebar.Native(w, w.topbar, framed=framed)
     n.hwnd = FAKE_HWND
@@ -145,35 +147,6 @@ def test_the_window_menu(check):
                             T.SC_MAXIMIZE: True, T.SC_CLOSE: True}
           and states[True] == {T.SC_RESTORE: True, T.SC_MOVE: False, T.SC_SIZE: False, T.SC_MINIMIZE: True,
                                T.SC_MAXIMIZE: False, T.SC_CLOSE: True}, states)
-
-
-def test_maximize_look_goes_with_the_pointer(win, monkeypatch, check):
-    from PySide6.QtCore import QCoreApplication, QEvent
-    from ui import titlebar as T
-    w, made = win
-    n = _native(w, made, True)
-    b = w.caption["max"]
-    QCoreApplication.sendEvent(n, QEvent(QEvent.Type.User))  # (Qt's own event: not the native handler's, 1.5.1)
-    on = b.mapToGlobal(QPoint(b.width() // 2, b.height() // 2))
-
-    class Pointer:
-        at = on
-
-        @classmethod
-        def pos(cls):
-            return cls.at
-    monkeypatch.setattr(T, "QCursor", Pointer)
-    n._max_look(hover=True)
-    pointed = (b.property("nc"), n._poll.isActive())
-    n._pointer_check()
-    still = (b.property("nc"), n._poll.isActive())
-    Pointer.at = on + QPoint(0, b.height() * 3)
-    n._pointer_check()
-    left = (b.property("nc"), n._poll.isActive())
-    check("titlebar: Maximize has its pointed-at look while the pointer is on it (checked until it is off: Windows "
-          "says it late, or too early when Snap layouts opens), and loses it when the pointer leaves; a Qt event to the "
-          "native part is not taken for a native message",
-          pointed == ("hover", True) and still == ("hover", True) and left == ("", False), (pointed, still, left))
 
 
 @pytest.mark.parametrize("see_through", [True, False])

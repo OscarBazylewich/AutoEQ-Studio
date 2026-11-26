@@ -46,15 +46,30 @@ real = theme.system_tokens()
 print(json.dumps({"on": on, "back": back, "real": real}))
 '''
 
+# (the fill of a checked and of a plain button, drawn: a point inside the button, left of its words and clear of the
+# rounded corners. Only the text of the style sheet was looked at before 2026-11-25, and that passed with the checked
+# colours broken.)
 CHECKED = r'''
 import json, sys
 sys.path.insert(0, sys.argv[1])
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QPushButton
 qapp = QApplication([])
 from ui import theme
-theme.apply(qapp, dark=True)
-theme.apply(qapp, dark=False)
-print(json.dumps({"checked": "QPushButton:checked" in qapp.styleSheet()}))
+out = {}
+for name, dark in (("dark", True), ("light", False)):
+    theme.apply(qapp, dark=dark)
+    fills = []
+    for on in (True, False):
+        b = QPushButton("Trace")
+        b.setCheckable(True)
+        b.setChecked(on)
+        b.resize(120, 32)
+        img = b.grab().toImage()
+        fills.append(img.pixelColor(6, img.height() // 2).name())
+        b.deleteLater()
+    out[name] = {"checked": fills[0], "plain": fills[1], "accent": theme.tokens()["accent"],
+                 "field": theme.tokens()["field"]}
+print(json.dumps(out))
 '''
 
 
@@ -73,12 +88,14 @@ def test_contrast_theme_followed_and_left(check):
 
 
 def test_checked_buttons_drawn_checked(check):
-    # (the light theme, as the old check found it after the EQ screen went dark and back: eq_checks.py lines 1805-1808)
+    # (dark, then light: the light theme as the old check found it after the EQ screen went dark and back,
+    # eq_checks.py lines 1805-1808. Each theme: a checked button is filled with the accent, a plain one is not.)
     out = subproc.run_python(CHECKED, session.SESSION.app)
     d = out.data or {}
+    drawn = bool(d) and all(v["checked"] == v["accent"] and v["plain"] != v["accent"] for v in d.values())
     # was eq_checks.py:1815
     check("review: checked buttons are drawn as checked (the tracer's tools, Listen's versions)",
-          d.get("checked") is True, d or out.stderr[-300:])
+          drawn, d or out.stderr[-300:])
 
 
 def test_text_keeps_contrast(check):

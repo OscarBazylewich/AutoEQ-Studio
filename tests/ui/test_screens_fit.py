@@ -5,7 +5,7 @@ line of every empty list; the line "Checking Equalizer APO…" is in a note's gr
 whose title bar Windows refused is drawn once when it shows, not twice."""
 import os
 
-from helpers import qt
+from helpers import qt, window_app
 
 KEY = "Headset|EarPods"
 OTHER = "Headphones|Buds"
@@ -209,19 +209,8 @@ def test_settings_keeps_the_smallest_width(devices_window, check):
           and found["name"].startswith("Same level: ") and "loudness" in found["name"], found)
 
 
-def _small_window(tmp_path, stub_app, eps):
-    from switcher import core
-    from switcher.apo import Apo
-    from ui.window import Window
-    # (no Equalizer APO folder: the window asks APO nothing in the background)
-    sw = core.Switcher(str(tmp_path / "s.json"), Apo(str(tmp_path / "no-apo")), endpoints=lambda: eps,
-                       playing=lambda: eps[0].guid if eps else None)
-    sw.s["page"] = "devices"
-    return Window(sw, stub_app)
-
-
 def test_the_empty_device_list(qapp, stub_app, tmp_path, check):
-    win = _small_window(tmp_path, stub_app, [])
+    win = window_app.window(stub_app, tmp_path, [])
     try:
         win.show()
         win.resize(1040, 760)
@@ -241,7 +230,7 @@ def test_the_empty_device_list(qapp, stub_app, tmp_path, check):
 
 def test_a_refused_title_bar_draws_the_window_once(qapp, stub_app, tmp_path, check, monkeypatch):
     from ui import titlebar
-    win = _small_window(tmp_path, stub_app, [])
+    win = window_app.window(stub_app, tmp_path, [])
     drawn = []
     try:
         monkeypatch.setattr(titlebar, "install", lambda *a, **k: None)  # (Windows refuses the title bar)

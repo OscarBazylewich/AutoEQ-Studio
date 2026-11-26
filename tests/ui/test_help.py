@@ -171,10 +171,13 @@ def test_help_has_a_smallest_size(qapp, check):
 
 def test_names_agree_with_their_controls(check):
     # (2026-11-10, the review: one name for one item: Help called the rig list “Target is made for”. The graph
-    # handle's tooltip and menu: tests/eq_screen/test_help_tags.py, as that part loads the EQ part)
+    # handle's tooltip and menu: tests/eq_screen/test_help_tags.py, as that part loads the EQ part. The control's name
+    # is read from the source, not from a CompareWindow, which needs the EQ part too. Since the test audit of
+    # 2026-11-25 only the words in quotes, not the code around them: a QLabel(...) of a name kept in a variable is the
+    # same control)
     from ui import help_window as hw
     with open(os.path.join(paths.PROJECT_APP, "ui", "compare_window.py"), encoding="utf-8") as fh:
-        control = 'QLabel("Rig of your target")' in fh.read()
+        control = '"Rig of your target"' in fh.read()
     title = hw._by_id()["set-cmp-rig"]["title"]
     check("help: the entry of Other measurements' rig list has the name of the control (“Rig of your target”)",
           control and title == "Rig of your target", (control, title))

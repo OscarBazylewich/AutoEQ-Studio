@@ -16,7 +16,8 @@ themed_window   the code that makes the same window, with the app's theme applie
                 checks of how the window and its screens look (THEMED_WINDOW below).
 shapes          a few lines for such a Python that read a shape off a picture: a pixel clearly not the background,
                 the box of those, whether a shape is open on a chevron's side, the runs of inked columns (SHAPES).
-stub_app        a stand-in for the app the window talks to, for a test that makes windows of its own (StubApp).
+stub_app        a stand-in for the app the window talks to, for a test that makes windows of its own
+                (helpers.stand_in_app.StubApp).
 
 Each window is closed and deleted when its file is done (helpers.qt.close), once the questions it asked APO (in the
 background) have their answers. No theme is applied here: the old self-test drew these screens unthemed, and the
@@ -31,7 +32,8 @@ import os
 
 import pytest
 
-from helpers import apo, qt
+from helpers import apo, qt, stand_in_app
+from helpers.stand_in_app import StubApp
 
 KEY = "Headset|EarPods"  # (the playing device, as the Switcher names it)
 
@@ -53,26 +55,7 @@ from ui import theme, theme_tokens
 theme.accent_palette = lambda: theme_tokens.DEFAULT_ACCENT
 theme.apply(qapp, dark=True, contrast=False)
 t = theme.tokens()
-
-
-class Stub:  # (what the window asks of the app)
-    hotkey_problem = ""
-
-    def tray_message(self, title, text):
-        pass
-
-    @staticmethod
-    def autostart_on():
-        return False
-
-    def set_autostart(self, on):
-        pass
-
-    @staticmethod
-    def set_offline(on):
-        import net
-        net.set_offline(on)
-
+''' + stand_in_app.STUB_APP + r'''
 
 KEY = "Headset|EarPods"
 conf = os.path.join(top, "apo", "config")
@@ -81,7 +64,7 @@ eps = [D.Endpoint("{5}", "Headset", "EarPods", D.ACTIVE, False),
 sw = core.Switcher(os.path.join(top, "s.json"), Apo(conf), endpoints=lambda: eps, playing=lambda: "{5}")
 sw.s["page"] = "devices"
 from ui.window import Window
-win = Window(sw, Stub())
+win = Window(sw, StubApp())
 win.resize(1180, 900)
 win.show()
 for _ in range(5):
@@ -125,31 +108,6 @@ def runs(img, x0, x1, y0, y1, bg):
             start = None
     return found
 '''
-
-
-class StubApp:
-    """What the window asks of the app (selftest.py's Stub, lines 340-357). Each one has its own list of what it
-    said in the tray (the old one's list belonged to the class, shared by every stand-in)."""
-
-    hotkey_problem = ""
-
-    def __init__(self):
-        self.said = []
-
-    def tray_message(self, title, text):
-        self.said.append(title)
-
-    @staticmethod
-    def autostart_on():
-        return False  # (never this PC's Run key)
-
-    def set_autostart(self, on):
-        pass
-
-    @staticmethod
-    def set_offline(on):
-        import net
-        net.set_offline(on)
 
 
 @dataclasses.dataclass
