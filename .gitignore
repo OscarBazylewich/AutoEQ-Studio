@@ -21,3 +21,4 @@ test-output/
 # Claude Code's files (its notes, settings and skills) and the git guide: on this PC only
 .claude/
 GIT-GUIDE.md
+.backups/
