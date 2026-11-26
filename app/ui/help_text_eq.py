@@ -61,7 +61,7 @@ HELP_EQ = {'slot:target': ['Desired frequency response for your IEM or headphone
  'site_sweep.filter_rows': ['Filter counts to test across every combination below', 'sweep'],
  'site_sweep.freq_low': '',
  'site_sweep.freq_high': ['', 'treble-limit'],
- 'site_sweep.gain_ranges': ['Min..max gain ranges to test (e.g., -12..6, -12..9)', 'sweep'],
+ 'site_sweep.gain_ranges': ['Min to max gain ranges to test, in whole dB', 'sweep'],
  'site_sweep.q_min': ['', 'q'],
  'site_sweep.q_max': ['', 'q'],
  'res.error': ['', 'error', 'q-error'],
@@ -390,8 +390,9 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'accurate.']},
                           {'key': 'site_sweep.gain_ranges',
                            'title': 'Gain ranges',
-                           'body': ['The gain ranges to try, each as the lowest and the highest value, for example '
-                                    '-12..6, -12..9. Each is a “Gain Range” to type on the website.']},
+                           'body': ['The gain ranges to try. Each row is one range: the lowest gain in the first box and '
+                                    'the highest in the second, in whole dB. Add a range adds a row, and ✕ removes '
+                                    'one. Each is a “Gain Range” to type on the website.']},
                           {'key': 'site_sweep.q_min',
                            'title': 'Q from',
                            'body': ['The start of the “Q Range”, for all the settings to try (the lowest permitted '

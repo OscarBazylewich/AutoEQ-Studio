@@ -119,26 +119,38 @@ def test_settings_and_advanced_line_up_and_head_their_sections(eq_screen, check)
     s.fold.btn.setChecked(True)
     s.adv.btn.setChecked(True)
     qt.pump(100)
+    kept = (page.S["mode"], s.adv_form.pages.currentIndex())
     try:
-        above, widths = [], set()
-        for form in (s.form, s.adv_form):
-            for path, f in form.fields.items():
-                if not f.isVisibleTo(page) or f.kind == "check":
+        above, widths, seen = [], set(), set()
+        # (with Website AutoEQ: find the best settings too: its tab has Gain ranges, rows of two boxes, feature 4)
+        for mode in ("best_fit", "site_sweep"):
+            page.set_mode(mode)
+            for i, b in s.adv_form.tab_btns.items():
+                if b.isHidden():
                     continue
-                cell = f.parentWidget().parentWidget()
-                lab = cell.findChildren(QLabel)[0]
-                above.append(lab.mapTo(page, QPoint(0, 0)).y() < f.box.mapTo(page, QPoint(0, 0)).y())
-                widths.add(f.box.width() if f.kind != "num" or not path.endswith((".0", ".1")) else "pair")
+                s.adv_form.show_tab(i)
+                qt.pump(50)
+                for form in (s.form, s.adv_form):
+                    for path, f in form.fields.items():
+                        if not f.isVisibleTo(page) or f.kind == "check":
+                            continue
+                        seen.add(path)
+                        cell = f.parentWidget().parentWidget()
+                        lab = cell.findChildren(QLabel)[0]
+                        above.append(lab.mapTo(page, QPoint(0, 0)).y() < f.box.mapTo(page, QPoint(0, 0)).y())
+                        widths.add(f.box.width() if f.kind != "num" or not path.endswith((".0", ".1")) else "pair")
         heads = [lab for lab in s.form.findChildren(QLabel) if lab.property("role") == "section"]
         weights = sorted({lab.font().weight() for lab in heads})
     finally:
+        page.set_mode(kept[0])
+        s.adv_form.show_tab(kept[1])
         s.fold.btn.setChecked(False)
         s.adv.btn.setChecked(False)
         qt.pump(50)
     check("page: in Settings and More settings each label is above its box, the boxes have two widths (a number's, "
           "every other box's), and Settings' sections' headings are semibold, as every section's heading",
-          above and all(above) and widths <= {SHORT, LONG, "pair"} and heads and weights == [QFont.DemiBold],
-          (above.count(False), widths, len(heads), weights))
+          above and all(above) and widths <= {SHORT, LONG, "pair"} and heads and weights == [QFont.DemiBold]
+          and "site_sweep.gain_ranges" in seen, (above.count(False), widths, len(heads), weights, len(seen)))
 
 
 def test_eq_app_box_as_wide_as_a_forms(eq_screen, check):
