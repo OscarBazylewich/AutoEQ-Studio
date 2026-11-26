@@ -423,8 +423,10 @@ TERMS = [{'title': 'Curves and sound',
                      'see': ['own-filters']},
                     {'id': 'by-hand',
                      'title': 'A manual EQ',
-                     'body': ['An EQ that you make (Make the EQ › Manually). You add the filters and set the '
-                              'frequency, gain and Q of each filter, in the table or with the sliders. If you start '
+                     'body': ['An EQ that you make (Make the EQ › Manually): Add filter starts an empty one, Import '
+                              'an EQ file… reads a file, and Start reads the lines pasted in the Filters box. You add '
+                              'the filters and set the frequency, gain and Q of each filter, in the table or with the '
+                              'sliders. If you start '
                               'from an EQ file, pasted lines or a profile, the app reads them as Equalizer APO '
                               'plays them. It moves a shelf at its corner frequency (“LS … Q”, “LS 6dB” of Room EQ '
                               'Wizard) to its center frequency. It changes a slope or a width in octaves to the Q with the '

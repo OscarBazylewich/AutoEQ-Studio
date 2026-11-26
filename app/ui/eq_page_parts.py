@@ -19,8 +19,8 @@ MODE_HINT = {"best_fit": "Closest match to the target for your EQ app or device"
              "site_sweep": "Matches the squig.link or listener800 web AutoEQ",
              "site_single": "Uses a single fixed set of web AutoEQ parameters"}
 TICKS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
-# (the gray words in the box of Paste filters, and the message for the items an EQ here can't have: one text for By
-# hand and for Listen's EQs to compare, which read pasted text the same way)
+# (what pasted text can be: the words over the box of Listen's Paste filters window and the ⓘ of Manually's Filters
+# box, which read pasted text the same way)
 PASTE_HINT = "Paste Equalizer APO lines, REW filters, or “frequency gain Q” (one per line)"
 
 
@@ -376,9 +376,10 @@ def modal(dlg):
 
 
 def paste_dialog(parent, title, name_hint, words, verb="OK"):
-    """A window to paste filters into, with a name: (name, text), or None when it's cancelled. Windows 11's dialog, as
-    Set up's (.claude/notes/UI-RULES.md 2): the words on the card's colour, its buttons on a band below
-    (window_parts.dialog_band): `verb` (what it does: Add, Start…) first, in the accent, then Cancel."""
+    """A window to paste filters into, with a name: (name, text), or None when it's cancelled (Listen's Paste
+    filters…; Manually has its Name and Filters boxes in the card since 2026-11-25). Windows 11's dialog, as Set up's
+    (.claude/notes/UI-RULES.md 2): the words on the card's colour, its buttons on a band below
+    (window_parts.dialog_band): `verb` (what it does: Add) first, in the accent, then Cancel."""
     from PySide6.QtWidgets import QDialog, QLineEdit, QPlainTextEdit, QVBoxLayout, QWidget
     from ui.window_parts import dialog_band
     dlg = QDialog(parent)

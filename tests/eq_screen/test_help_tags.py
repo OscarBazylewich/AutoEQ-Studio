@@ -12,6 +12,8 @@ from helpers import eqpage, qt
 # later is added here, and a line that becomes empty by accident fails test_controls_without_a_tooltip.
 NO_TOOLTIP = {"#opt-view", "#target-save", "#compare-results", "#make-way", "#by-hand", "#hand-start",
               "#use-device", "#use-try", "#use-update",
+              # (2026-11-25: Manually's Name and Filters boxes; their labels say what they take, the ⓘ the formats)
+              "#hand-paste",
               # (area 13 of the survey: the row Settings to try, and 10 settings boxes of Make an EQ)
               "sa", "best_fit.filter_counts", "best_fit.freq_range", "best_fit.gain_min", "best_fit.gain_max",
               "best_fit.q_min", "best_fit.q_max", "best_fit.low_shelf_freq", "best_fit.start_filters",

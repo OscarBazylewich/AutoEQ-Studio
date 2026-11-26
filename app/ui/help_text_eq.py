@@ -134,6 +134,8 @@ HELP_EQ = {'slot:target': ['Desired frequency response for your IEM or headphone
  '#make-way': ['', 'by-hand'],
  '#by-hand': ['', 'by-hand', 'peaking-filter', 'shelf'],
  '#hand-start': ['', 'by-hand'],
+ '#hand-add': ['Add a 1 kHz filter to the manual EQ on the result card (starts one if needed)', 'by-hand'],
+ '#hand-paste': ['', 'by-hand'],
  '#hand-close': ['Return to previous EQ (edits stay in the list)', 'by-hand'],
  '#use-device': ['', 'set-use-update', 'set-use-try'],
  '#use-try': ['', 'q-try', 'set-use-device', 'set-use-update'],
@@ -156,8 +158,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'body': ['The first selection in Make the EQ, as two tabs. Automatically: AutoEQ adjusts '
                                     'the filters to the target for your EQ app. You select the method and click '
                                     'Calculate (or Queue… for many EQs). Manually: you set the filters. You select the '
-                                    'start (Start from) and click Start. Then you change the filters on the EQ graph '
-                                    'or in the table.',
+                                    'start (Start from) and click Start (Import an EQ file… for an EQ file). Then you '
+                                    'change the filters on the EQ graph or in the table.',
                                     'Your EQ app, below the tabs, is for the two tabs: the EQ stays in its limits, and '
                                     'Save filters writes its file. The card opens on the tab that you selected last. A '
                                     'manual EQ from Profiles shows Manually, and Calculate shows Automatically.']},
@@ -459,8 +461,10 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'operate as for all results.',
                                     'You start from an empty EQ, a copy of the selected EQ, or an EQ that you have. '
                                     "This can be an EQ file (Equalizer APO, AutoEq, squig.link, Room EQ Wizard's "
-                                    "export, a Peace preset), pasted filters or a device's profile. Then you click "
-                                    'Start (with Start…, you select the file or paste the lines first).',
+                                    "export, a Peace preset), pasted filters or a device's profile.",
+                                    'An empty EQ: click Start, or Add filter for its first filter. An EQ file: click '
+                                    'Import an EQ file… and select the file. Pasted filters: paste the lines in the '
+                                    'Filters box of the card, then click Start. Other items: click Start.',
                                     'The app reads the files as Equalizer APO uses them. If a file has an item that an '
                                     'EQ here cannot have (other filter types, a graphic EQ…), the app tells you.',
                                     'A measurement and a target are optional: with them, the graph shows your IEM with '
@@ -468,14 +472,32 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'saves it into that profile. Close, on its result card, shows the result before '
                                     'it.']},
                           {'key': '#hand-start',
-                           'title': 'Start (Manually)',
+                           'title': 'Start and Import an EQ file… (Manually)',
                            'body': ['Below Start from on the Manually tab. It starts a manual EQ from the item in '
-                                    'Start from, and the result card shows it.',
+                                    'Start from, and the result card shows it. For an EQ file, the button is Import '
+                                    'an EQ file…: you select the file, and the EQ starts.',
                                     'An empty EQ: add filters on the EQ graph (double-click) or with Add filter. A '
                                     'copy of the selected EQ: the EQ on the result card, to change it and keep the '
-                                    'initial EQ. An EQ file or pasted filters: with Start…, you select the file or '
-                                    "paste the lines first. A device's profile: Use on device › Update saves your "
-                                    'changes into it.']},
+                                    'initial EQ. Pasted filters: paste the lines in the Filters box first. A '
+                                    "device's profile: Use on device › Update saves your changes into it."]},
+                          {'key': '#hand-add',
+                           'title': 'Add filter (Manually)',
+                           'body': ['Beside Start on the Manually tab, with An empty EQ in Start from. It adds a '
+                                    'filter (1 kHz, 0 dB, Q 1) to the manual EQ on the result card. With no manual EQ '
+                                    'there, it starts an empty one first; a calculated EQ shown stays in EQs that you '
+                                    'made.',
+                                    "If the calculated EQ shown has edits, it starts nothing, so the edits aren't "
+                                    'lost: use Add filter on the result card, or Undo all first. Add filter on the '
+                                    'result card adds a filter to the EQ shown.']},
+                          {'key': '#hand-paste',
+                           'title': 'Name and Filters (Pasted filters)',
+                           'body': ['Under Start from on the Manually tab, with Pasted filters. Paste the lines in '
+                                    'Filters: Equalizer APO lines, Room EQ Wizard filters, or one filter on each line '
+                                    'as frequency, gain and Q. Name is the name of the EQ (empty: “Pasted EQ”). Then '
+                                    'click Start.',
+                                    'With an empty Filters box, Start says to paste first. If the text has no '
+                                    'filters, a message tells the formats, and the text stays in the box. When the '
+                                    'EQ starts, the two boxes are emptied.']},
                           {'key': '#hand-close',
                            'title': 'Close (a manual EQ)',
                            'body': ['On the result card of a manual EQ, on the right side of its title. It shows the '

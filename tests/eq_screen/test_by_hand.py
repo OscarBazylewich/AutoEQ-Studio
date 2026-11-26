@@ -1,9 +1,12 @@
 """Make an EQ's By hand (ui\\eq_page_result.py, 2026-10-26): an EQ you make yourself, on the result card as a run of its
 own: begun empty, from an EQ file (a Room EQ Wizard export here: read as Equalizer APO plays it, what an EQ here can't
-have said in a box), from pasted lines, from a device's profile (Use on device › Update puts it back; refused for a
+have said in a box), from lines pasted in the card's Filters box (no window of its own since 2026-11-25), from a
+device's profile (Use on device › Update puts it back; refused for a
 profile with parts it can't show: test_update_a_profile.py) or as a copy of the EQ shown; saved, kept in History and listed in this session's
-runs as any result; with no measurement chosen, the EQ graph still shows it and Report says what it needs. One page
-for the file (the eq_screen fixture: a stand-in APO folder and one stand-in device)."""
+runs as any result; with no measurement chosen, the EQ graph still shows it and Report says what it needs. The card's
+Add filter (An empty EQ, 2026-11-25) begins one with its first filter, adds to the manual EQ shown, and never replaces
+a calculated EQ that has edits. One page for the file (the eq_screen fixture: a stand-in APO folder and one stand-in
+device)."""
 import os
 
 from helpers import eqpage
@@ -68,16 +71,100 @@ def test_from_a_room_eq_wizard_file(eq_screen, tmp_path, dialogs, check):
           (got, box, run.get("source"), page.res_sub.text()))
 
 
-def test_pasted_filters(eq_screen, check, monkeypatch):
-    from ui import eq_page_parts
+def _windows():
+    from PySide6.QtWidgets import QApplication
+    return {id(w) for w in QApplication.topLevelWidgets() if w.isVisible()}
+
+
+def test_pasted_filters(eq_screen, check):
     page = eq_screen.page
-    monkeypatch.setattr(eq_page_parts, "paste_dialog", lambda *a: ("Mine", "Filter 1: ON PK Fc 1000 Hz Gain 3 dB Q 1\n"
-                                                                     "Filter 2: OFF HSC Fc 8000 Hz Gain -2 dB Q 0.7"))
+    page.hand_paste_name.setText("Mine")
+    page.hand_paste.setPlainText("Filter 1: ON PK Fc 1000 Hz Gain 3 dB Q 1\nFilter 2: OFF HSC Fc 8000 Hz Gain -2 dB Q 0.7")
+    before = _windows()
     _start(page, "paste")
     run, _ = page.current()
-    check("by hand: Paste filters… takes Equalizer APO lines, a switched-off filter staying off",
-          [(f["type"], f["enabled"]) for f in page.EDIT] == [("PK", True), ("HSQ", False)] and run["source"] == "from pasted filters",
-          page.EDIT)
+    check("by hand: Pasted filters reads the Filters box of the card (Equalizer APO lines, a switched-off filter "
+          "staying off) with the name of its Name box, opens no window of its own, and empties the two boxes",
+          [(f["type"], f["enabled"]) for f in page.EDIT] == [("PK", True), ("HSQ", False)]
+          and run["source"] == "from pasted filters" and run["source_name"] == "Mine" and _windows() <= before
+          and page.hand_paste.toPlainText() == "" and page.hand_paste_name.text() == "",
+          (page.EDIT, run.get("source"), run.get("source_name"), page.hand_paste.toPlainText()))
+
+
+def test_pasted_filters_empty_or_unreadable(eq_screen, dialogs, check):
+    from ui.eq_page_result import PASTE_FIRST
+    page = eq_screen.page
+    page.session_runs = []
+    page.show_run(None)
+    page.hand_paste.setPlainText("  \n ")
+    n = len(dialogs.asked)
+    _start(page, "paste")
+    empty = (dialogs.asked[n:], page.current()[1], page.window().focusWidget() is page.hand_paste)
+    text = "my notes, no filters here"
+    page.hand_paste.setPlainText(text)
+    n = len(dialogs.asked)
+    page.hand_start.click()
+    unreadable = ([k for k, _t in dialogs.asked[n:]], page.current()[1], page.hand_paste.toPlainText())
+    page.hand_paste.setPlainText("Filter 1: ON PK Fc 500 Hz Gain -3 dB Q 2")
+    page.hand_paste_name.clear()
+    page.hand_start.click()
+    run, _ = page.current()
+    check("by hand: Start with an empty Filters box (spaces only) starts nothing, says to paste first in a bubble at "
+          "Start and gives the focus to the box; a text with no filters says so in a box and stays in the Filters box; "
+          "with no name the EQ is “Pasted EQ”",
+          empty == ([("bubble", PASTE_FIRST)], None, True) and unreadable[0] == ["information"]
+          and unreadable[1] is None and unreadable[2] == text and run is not None
+          and run["source_name"] == "Pasted EQ" and len(page.EDIT) == 1, (empty, unreadable, run and run["source_name"]))
+
+
+def test_add_filter_in_the_card(eq_screen, check):
+    page = eq_screen.page
+    page.session_runs = []
+    page.show_run(None)
+    page.set_way("hand", remember=False)
+    page.hand_source.setCurrentIndex(page.hand_source.findData("empty"))
+    page.hand_add.click()
+    first = (page.current()[0]["mode"], page.current()[0]["source"], list(page.EDIT), len(page.session_runs),
+             page.res_sub.text())
+    page.hand_add.click()
+    second = (len(page.EDIT), len(page.session_runs), page.res_sub.text())
+    check("by hand: Add filter in Make the EQ with no EQ shown starts a manual EQ with its first filter (a peak at "
+          "1 kHz, 0 dB, Q 1); a second click adds one more to the same EQ",
+          first[:4] == ("manual", "from scratch", [{"enabled": True, "type": "PK", "freq": 1000, "gain": 0.0, "q": 1.0}], 1)
+          and second[:2] == (2, 1), (first, second))
+    # (2026-11-25: the gray line under the title was written only when the EQ was shown, and kept "0 filters")
+    check("by hand: the gray line under a manual EQ's title follows its number of filters as they are added (it "
+          "kept “0 filters”)", "· 1 filter" in first[4] and "· 2 filters" in second[2], (first[4], second[2]))
+
+
+def test_add_filter_in_the_card_keeps_a_calculated_eq(eq_screen, dialogs, check):
+    from ui.eq_page_result import EDITS_SHOWN
+    page = eq_screen.page
+    calc = eqpage.quick_run(eq_screen)
+    shown = page.current()[1]
+    was = [dict(f) for f in shown["filters"]]
+    page.set_way("hand", remember=False)
+    page.hand_source.setCurrentIndex(page.hand_source.findData("empty"))
+    page.hand_add.click()
+    new = (page.run_result is not calc, page.current()[0]["mode"], len(page.EDIT),
+           any(x is calc for x in page.session_runs), [dict(f) for f in shown["filters"]])
+    page.hand_close.click()  # (the manual EQ has a filter: it stays in EQs that you made; the calculated one again)
+    shown_again = page.run_result is calc
+    page.EDIT[0]["gain"] += 1.5
+    page.live_update()
+    edited = [dict(f) for f in page.EDIT]
+    runs, n = len(page.session_runs), len(dialogs.asked)
+    page.hand_add.click()
+    told = dialogs.asked[n:]
+    page.set_way("hand", remember=False)
+    check("by hand: Add filter in Make the EQ with a calculated EQ shown starts a new manual EQ and leaves the "
+          "calculated one as it was, in this session's runs",
+          new[:4] == (True, "manual", 1, True) and new[4] == was
+          and shown_again, (new[:4], shown_again))
+    check("by hand: Add filter in Make the EQ with a calculated EQ that has edits starts nothing and says why in a "
+          "bubble at the button: the edits are still on the result card",
+          told == [("bubble", EDITS_SHOWN)] and page.run_result is calc and page.EDIT == edited
+          and len(page.session_runs) == runs and page.edited(), (told, page.EDIT == edited))
 
 
 def test_from_a_profile_then_update_it(eq_screen, tmp_path, check):

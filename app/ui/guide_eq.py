@@ -3,8 +3,8 @@ eq_steps(page), every step in order (The parts of AutoEQ Studio, 1 · Select, 2 
 examine, More) with its words, the controls it lights and its demo, and start_eq(page), the tour that shows them.
 The demos' helpers are in guide_demos.py. Keep the steps in their order: the checks find steps by their titles.
 """
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QPushButton
+from PySide6.QtCore import QEvent, Qt
+from PySide6.QtWidgets import QApplication, QLabel, QPushButton
 
 from ui import tasks, theme, tour
 from ui.eq_page_history import NO_PRESETS
@@ -460,17 +460,41 @@ def eq_steps(page):
             yield 1300
 
     def manual_demo(api):
-        api.undo(page.manual_source_changed)  # (put back last: the note and Start's words for the choice as it is again)
+        # (put back last: the note, the button's words and the parts of the choice as it is again. While it plays,
+        # the Name and Filters rows stay as they were (hand_rows_held): the card keeps its height, so the markers and
+        # the page stay where they are)
+        api.undo(page.manual_source_changed)
+        page.hand_rows_held = True
+        api.undo(lambda: setattr(page, "hand_rows_held", False))
         api.say("Start from: an empty EQ, or an EQ that you have (a file, pasted lines, a profile, a copy)")
-        yield from mock_combo(api, page.hand_source, 0)
+        source = lambda key: page.hand_source.findData(key)
+        yield from mock_combo(api, page.hand_source, source("paste"))
         page.manual_source_changed()
-        yield from api.click(page.hand_start)
+        yield from api.at(page.hand_src_note, 0.5, 0.5, 1700,
+                          say="Pasted filters: paste them in the Filters box under Start from, then click Start")
+        yield from mock_combo(api, page.hand_source, source("file"))
+        page.manual_source_changed()
+        yield from api.at(page.hand_start, 0.5, 0.5, 1500, say="An EQ file: Import an EQ file… opens the file window")
+        yield from mock_combo(api, page.hand_source, source("empty"))
+        page.manual_source_changed()
+        api.say("An empty EQ: Add filter starts it with its first filter")
+        yield from api.click(page.hand_add)
         undo = stage_manual(page)
         if undo is None:
             yield from api.note("A manual EQ on the result card: you add filters, then you save it or use it on a "
-                                "device. (Demo: your work does not change.)", page.hand_start, 1700)
+                                "device. (Demo: your work does not change.)", page.hand_add, 1700)
             return
         api.undo(undo)
+        # (as Add filter adds it, but no floating copy of the graph: it went over the lit Start from)
+        page.EDIT.append({"enabled": True, "type": "PK", "freq": 1000, "gain": 0.0, "q": 1.0})
+        page.editor.rebuild()
+        page.live_update()
+        # (the page laid out for the result card now, as _follow_result does: drawn before that, the page still had
+        # its height without the card, and Make the EQ with Pasted filters was 64 px shorter for a moment)
+        for _ in range(6):
+            QApplication.sendPostedEvents(None, QEvent.LayoutRequest)
+        yield from api.at(page.editor.table, 0.5, 0.75, 1500, say="The new filter (1 kHz, 0 dB) is in the table of the "
+                                                                  "result card")
         yield from api.at(page.res_title, 0.1, 0.5, 1500, say="A manual EQ on the result card: you add filters, then "
                                                               "you save it or use it on a device")
         yield from api.at(page.hand_close, 0.5, 0.5, 1500, say="Close: the result card shows the previous EQ again")
@@ -719,13 +743,16 @@ def eq_steps(page):
          "demo": [{"click": lambda: page.run_btn, "say": "Click Calculate", "then": run_demo},
                   {"at": lambda: page.queue_btn, "say": "Queue…: more than one IEM or target, one after the other"}]},
         {"chapter": "3 · Calculate and examine", "title": "Or make it manually",
-         "target": lambda: [page.way_btns["hand"], page.hand_source, page.hand_start],
+         # (Add filter only while it shows: with An empty EQ in Start from)
+         "target": lambda: [page.way_btns["hand"], page.hand_source, page.hand_start]
+         + ([page.hand_add] if page.hand_add.isVisible() else []),
          "before": hand_on, "after": hand_off,
          "text": "With Manually (the tab adjacent to Automatically), you make an EQ, and it shows as a result. Start from "
-                 "has an empty EQ, a copy of the selected EQ, an EQ file, pasted filters and profiles. The EQ file can "
-                 "be from Equalizer APO, AutoEq, Room EQ Wizard or Peace. After Start, you add and change its filters, "
-                 "and Save filters, Use on device and Listen operate as for a calculated EQ. A measurement and a "
-                 "target are optional. Close shows the previous EQ again.",
+                 "has an empty EQ, a copy of the selected EQ, an EQ file, pasted filters and profiles. An empty EQ: "
+                 "Add filter starts it with its first filter. An EQ file (Equalizer APO, AutoEq, Room EQ Wizard or "
+                 "Peace): click Import an EQ file… and select it. Pasted filters: paste them in the Filters box, then "
+                 "click Start. Then you add and change the filters, and Save filters, Use on device and Listen operate "
+                 "as for a calculated EQ. A measurement and a target are optional. Close shows the previous EQ again.",
          "demo": [{"click": lambda: page.way_btns["hand"], "say": "Click Manually", "then": manual_demo}]},
         {"chapter": "3 · Calculate and examine", "title": "Examine it on the graph", "target": lambda: page.plot,
          "ready": has_curves,

@@ -5,7 +5,7 @@ top were out of sight (a view of 768 px: Calculate at -71 px; 650 px: -130 px, t
 Now the page goes down as far as the card needs, but never past the card's top or past the control with the focus,
 when that control is in sight. Round 3 (2026-11-15): the page's last layout before the scroll, the room above a card
 higher than the view, a card all in sight that keeps the page where it is, and By hand's Start, which follows the same
-rule. One page for the file (the eq_screen fixture)."""
+rule, as Manually's Add filter does (2026-11-25), at each click. One page for the file (the eq_screen fixture)."""
 from PySide6.QtCore import QPoint, QRect, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
@@ -153,15 +153,13 @@ def _pasted(n):
     return "\n".join(f"Filter {i + 1}: ON PK Fc {100 + 400 * i} Hz Gain -2 dB Q 1" for i in range(n))
 
 
-def test_by_hand_keeps_start_and_the_cards_top_in_sight(eq_screen, monkeypatch, check):
+def test_by_hand_keeps_start_and_the_cards_top_in_sight(eq_screen, check):
     # (2026-11-15, round 3: By hand's Start centered a card higher than the view, as Calculate did, measured with 5
     # to 16 filters: Start, with the focus, at -57 px in a view of 768 px and at -116 px in 650 px, the card's top at
     # -22 px in 650 px. Now the rule of a run done: the card from its top, Start kept in sight)
-    from ui import eq_page_parts
     page = eq_screen.page
     area = page.page_area
     bar = area.verticalScrollBar()
-    monkeypatch.setattr(eq_page_parts, "paste_dialog", lambda *a, **k: ("Ten filters", _pasted(10)))
     seen = {}
     try:
         for size in ((1000, 768), (1000, 650)):
@@ -169,6 +167,8 @@ def test_by_hand_keeps_start_and_the_cards_top_in_sight(eq_screen, monkeypatch, 
             qt.pump(200)
             page.set_way("hand", remember=False)
             page.hand_source.setCurrentIndex(page.hand_source.findData("paste"))
+            page.hand_paste_name.setText("Ten filters")
+            page.hand_paste.setPlainText(_pasted(10))
             page.activateWindow()
             y = page.hand_start.mapTo(area.widget(), QPoint(0, 0)).y()
             bar.setValue(max(0, y - area.viewport().height() // 2))  # (Start in the middle of the view)
@@ -190,3 +190,44 @@ def test_by_hand_keeps_start_and_the_cards_top_in_sight(eq_screen, monkeypatch, 
     check("eq page: By hand's Start (10 pasted filters) shows the card from its top and keeps Start, with the focus, "
           "in sight, in views of 768 and 650 px (the card was centered: Start and the card's top out of sight)",
           all(all(v.values()) for v in seen.values()), seen)
+
+
+def test_add_filter_keeps_itself_and_the_cards_top_in_sight(eq_screen, check):
+    # (2026-11-25: Manually's Add filter, clicked again and again, as its first click starts a manual EQ the way Start
+    # does; each later click scrolls the same way, so the new rows come into sight as far as the button allows)
+    page = eq_screen.page
+    area = page.page_area
+    bar = area.verticalScrollBar()
+    seen = {}
+    try:
+        for size in ((1000, 768), (1000, 650)):
+            page.session_runs = []
+            page.show_run(None)
+            page.resize(*size)
+            qt.pump(200)
+            page.set_way("hand", remember=False)
+            page.hand_source.setCurrentIndex(page.hand_source.findData("empty"))
+            page.activateWindow()
+            y = page.hand_add.mapTo(area.widget(), QPoint(0, 0)).y()
+            bar.setValue(max(0, y - area.viewport().height() // 2))
+            qt.pump(60)
+            for n in range(1, 9):
+                QTest.mouseClick(page.hand_add, Qt.LeftButton, Qt.NoModifier, QPoint(10, 10))
+                qt.pump(200)
+                vp = area.viewport().rect()
+                f = QApplication.focusWidget()
+                card = _rect(page, page.result_box)
+                seen[(size, n)] = {"filters": len(page.EDIT) == n, "one manual EQ": len(page.session_runs) == 1,
+                                   "focus is Add filter": f is page.hand_add,
+                                   "Add filter in sight": f is not None and vp.contains(_rect(page, f)),
+                                   "card top in sight": 0 <= card.top() < vp.height()}
+            page.close_manual()
+            qt.pump(100)
+    finally:
+        page.set_way("auto", remember=False)
+        page.resize(1000, 900)
+        qt.pump(200)
+    bad = {k: v for k, v in seen.items() if not all(v.values())}
+    check("eq page: Manually's Add filter, clicked 8 times, adds a filter to one manual EQ each time, and keeps itself, "
+          "with the focus, and the result card's top in sight, in views of 768 and 650 px", not bad and len(seen) == 16,
+          bad or len(seen))

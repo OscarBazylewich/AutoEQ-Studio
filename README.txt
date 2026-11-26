@@ -173,8 +173,10 @@ One column, from the top to the bottom:
   History, and saves it when a file type is set in More settings › Saved files.
   Manually: you make the EQ. Start from: an empty EQ, a copy of the selected EQ, an EQ file, pasted filters or a
   device's profile. An EQ file can be from Equalizer APO, AutoEq, squig.link, Room EQ Wizard ("Export filter settings
-  as text") or Peace (a preset). Then click Start. The manual EQ is on the result card, the same as a calculated EQ.
-  Thus, all the parts of the result card operate for it.
+  as text") or Peace (a preset). An empty EQ: click Start, or Add filter (beside Start) for its first filter. An EQ
+  file: click Import an EQ file… and select the file. Pasted filters: paste the lines in the Filters box (below Start
+  from), then click Start. The other items: click Start. The manual EQ is on the result card, the same as a
+  calculated EQ. Thus, all the parts of the result card operate for it.
   A measurement and a target are optional (if you select them, the graph shows your IEM with the EQ, and its error).
   The app reads files as Equalizer APO plays them (a shelf at its corner frequency moves to its center frequency, a
   slope becomes its Q). An EQ here has peaking filters and shelf filters. Thus, the app removes other filter types, a
