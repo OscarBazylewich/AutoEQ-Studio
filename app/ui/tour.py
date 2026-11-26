@@ -1001,7 +1001,6 @@ class Tour(QWidget):
         self.badge.setObjectName("tourBadge")  # (gray words: theme_sheet's guide_and_help)
         b.addWidget(self.badge)
         b.addSpacing(4)
-        self.chapter = self.count_btn  # (an older name: nothing reads it now)
         self.title = QLabel()
         self.title.setObjectName("tourTitle")
         self.title.setWordWrap(True)
@@ -1013,7 +1012,6 @@ class Tour(QWidget):
         self.acts_lab.setWordWrap(True)
         self.acts_lab.setTextFormat(Qt.RichText)
         b.addWidget(self.acts_lab)
-        self.steps_list = self.acts_lab  # (an older name: nothing reads it now)
         # (the demo's controls in one box, hidden on a step without a demo: the row of buttons was put in the card
         # first, so Qt kept it out of the box, and Play demo showed on the tracer's steps that have none, doing
         # nothing, 2026-10-23; the rows as far apart as they were)

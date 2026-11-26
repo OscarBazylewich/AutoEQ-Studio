@@ -144,7 +144,7 @@ def state(body):
                                 "folder": databases.folder_name(s["name"])} for s in databases.all_sites()],
             "database_groups": list(databases.GROUPS.items()),  # (in the Sources window's order)
             "downloads_dir": databases.DOWNLOAD_DIR, "rigs": rigs.RIGS,
-            "rig_example": rigconv.example(), "rig_notes": rigmap.site_notes(), "unit_convs": rigconv.page_units()}
+            "rig_notes": rigmap.site_notes(), "unit_convs": rigconv.page_units()}
 
 
 @route("/api/settings")
@@ -584,15 +584,6 @@ def job(body):
 def cancel(body):
     CANCEL.set()
     return {"ok": True}
-
-
-def job_running():
-    return JOB.get("status") == "running"
-
-
-def result_waiting():
-    """A run has finished and the page hasn't taken its result yet. Nothing in the app calls it (nor job_running)."""
-    return JOB.get("status") == "done"
 
 
 # ---------------------------------------------------------------- saving

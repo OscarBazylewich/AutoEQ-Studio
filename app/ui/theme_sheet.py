@@ -357,15 +357,14 @@ def window_screens(t, img):
 def eq_screen(t, img):
     """Make an EQ: its cards, settings folds, result card, notices. Its own properties: eqtitle (the graph's title: a
     card's title, 16 px, in Windows 11's display type), eqname (the result's name: a title in a card, 14 px bold),
-    errbig (the result's error, in display type); eqsub's rule is not used now (no code sets eqsub: a fold inside a card
-    is fold=true with sub=true, settings_boxes); the graph floating over the page as you edit (#liveGraph: a card with
+    errbig (the result's error, in display type); a fold inside a card is fold=true with sub=true (settings_boxes);
+    the graph floating over the page as you edit (#liveGraph: a card with
     Windows 11's flyout border, eq_page_live).
     (The menus its Guide draws, a submenu's chevron too, are the Guide's own: guide_and_help's #tourMock.)"""
     return f"""
     QLabel[eqtitle="true"] {{ font-family: "Segoe UI Variable Display"; font-size: {FONT + 1.5}pt; font-weight: 600; }}
     QLabel[eqname="true"] {{ font-size: {FONT}pt; font-weight: 600; }}
     QLabel[errbig="true"] {{ font-family: "Segoe UI Variable Display"; font-size: {FONT + 4.5}pt; font-weight: 600; }}
-    QToolButton[eqsub="true"] {{ font-size: {FONT}pt; font-weight: 400; }}
     QFrame#liveGraph {{ background: {t['card']}; border: 1px solid {t['stroke']}; border-radius: 8px; }}
     QFrame#liveGraph QLabel {{ background: transparent; }}
     QLabel#liveTitle {{ font-weight: 600; }}

@@ -16,8 +16,7 @@ import threading
 import warnings
 from concurrent.futures import FIRST_COMPLETED, wait
 
-from . import paths  # noqa: F401 - (not used here: the package's __init__.py sets the maths libraries' thread counts)
-import numpy as np  # noqa: E402
+import numpy as np
 
 from . import settings  # noqa: E402
 

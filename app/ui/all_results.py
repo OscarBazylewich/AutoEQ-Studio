@@ -29,7 +29,6 @@ HEAD = [("Error (dB)", "rms"), ("Filters", "n_filters"), ("Rows", "rows"), ("Ran
         ("Maximum Q", "q_max"), ("Maximum gain", "max_boost"), ("Pre-amp", "preamp")]
 SAME = Qt.UserRole + 1  # (a grid cell's mark: sounds the same as the target)
 LEFT = Qt.AlignLeft | Qt.AlignVCenter  # (Windows 11's tables: words at the left, under their heading)
-NBSP = chr(0xA0)
 # The room that a heading of the table has beside its words: the 8 px at each side of ui\theme_sheet.py's
 # "QHeaderView::section" and 2 px to spare; and the room of the sort arrow, in the one column that has it
 HEAD_PAD, HEAD_ARROW = 18, 16

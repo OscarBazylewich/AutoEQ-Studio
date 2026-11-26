@@ -63,16 +63,6 @@ def find_unit(unit, frm):
     return None
 
 
-def example():
-    """A 5128 target converted for an IEM measured on a 711 coupler (the commonest case): sent as state()'s
-    "rig_example", which nothing reads now."""
-    c = find("iem", "5128", "711")
-    if not c:
-        return None
-    return {"grid": [round(float(x), 2) for x in data()["grid"]], "conversion": c["conversion"],
-            "uncertainty": c["uncertainty"], "models": c["models"], "bands": c["bands"], "from": "5128", "to": "711"}
-
-
 def devices_for(frm, to):
     return [p["device"] for p in data()["pairs"] if {p["from"], p["to"]} == {frm, to}]
 

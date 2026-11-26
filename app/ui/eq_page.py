@@ -49,8 +49,8 @@ from ui.eq_page_result import EqResult
 from ui.window_parts import not_opened
 
 # (not used here: listen.py imports MODE_SHORT from here, queue_window.py and tests\eq_screen\test_run_and_result.py
-# file_base_name; no file imports TICKS from here now)
-from ui.eq_page_parts import MODE_SHORT, TICKS, file_base_name  # noqa: F401
+# file_base_name)
+from ui.eq_page_parts import MODE_SHORT, file_base_name  # noqa: F401
 
 _FROZEN = set()
 
