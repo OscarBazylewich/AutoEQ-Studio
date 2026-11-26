@@ -259,6 +259,11 @@ def test_paste_with_nothing(eq_screen, flow, check):
     check("website flow: Paste the picture with no picture says so, and the wait continues",
           wait.isVisible() and "No image on clipboard" in wait.note.text() and wait.note.isVisible(),
           wait.note.text())
+    # (from test_window_in_front_of_the_graph, the test audit of 2026-11-25: the tooltip is read here, with the note
+    # shown; test_paste_takes_old_picture reads it only before a paste, so a tooltip set by the no-picture branch
+    # of paste() was caught by this check alone)
+    check("website flow: Paste the picture has no tooltip (its own and its Help line are removed)",
+          wait.paste_btn.toolTip() == "", wait.paste_btn.toolTip())
 
 
 def test_cancel(eq_screen, flow, check):
@@ -347,8 +352,9 @@ def test_no_browser_says_so(eq_screen, flow, monkeypatch, check):
 
 
 # (that the flow's messages are whole in Find…'s line, which wraps them, at 680, 900 and 1000 px in light and dark:
-# tests\eq_screen\test_picker_fit.py's test_messages_whole, with the same words; test_offline, test_time_limit and
-# test_no_browser_says_so pin the words that the flow gives. test_messages_fit_finds_line went, 2026-11-25)
+# tests\eq_screen\test_picker_fit.py's test_messages_whole, with the same words (its test_messages_are_the_apps_words
+# keeps them the app's); test_offline, test_time_limit and test_no_browser_says_so pin the words that the flow gives.
+# test_messages_fit_finds_line went, 2026-11-25)
 def test_tracer_with_curves_not_added(eq_screen, flow, check):
     page, pk = flow["page"], flow["pk"]
     page.open_trace()
@@ -1294,7 +1300,9 @@ def test_line_end_in_entry_name(eq_screen, flow, monkeypatch, check):
 
 def test_entry_words_on_one_line(eq_screen, flow, monkeypatch, check):
     """A tab, U+0085, a C1 and a C0 control character and spaces at the ends of an entry's words: one line, through
-    one_line, the wait window itself, and the flow from the route to the tray message."""
+    one_line, the wait window itself, and the flow from the route to the tray message. Also (_no_width_in_a_word): a
+    character with no width in a word goes with no space, a line end or U+2028 is a space, and a site's name is
+    cleaned in the window's words."""
     from PySide6.QtCore import Qt
     from PySide6.QtWidgets import QApplication
     from ui.picture_wait import PictureWait, one_line
@@ -1605,8 +1613,8 @@ def test_window_in_front_of_the_graph(eq_screen, flow, monkeypatch, check):
     """Step 1 tells the user to close a window of the website in front of the graph (at the first visit, a website
     shows "Welcome to Squiglink" on top of the graph: the screen copy then had no graph, 2026-11-11), and Help
     #pw-paste tells it too. The window is not wider for it, and no word is cut at 100 %, 125 %, 150 % and 175 % (the
-    room of each scale stood in). (That Paste the picture has no tooltip is test_paste_takes_old_picture's: the
-    tooltip is set once, as the window is made, so the scale and the step's words cannot change it.)"""
+    room of each scale stood in). (That Paste the picture has no tooltip is checked in test_paste_takes_old_picture
+    and test_paste_with_nothing: the scale and the step's words do not change it.)"""
     from PySide6.QtCore import QRect
     from PySide6.QtGui import QScreen
     from ui import help_window, picture_wait

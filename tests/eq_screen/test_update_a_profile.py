@@ -743,13 +743,17 @@ def test_the_message_gives_three_names_and_the_count(eq_screen, result, tmp_path
               text == "Update “Daily”\tactive on Dev 20 (Maker) and 2 more devices"
               and f"{names} use the new EQ immediately." in tip and f"{names} use the new EQ immediately." in now,
               (text, tip, now))
-    away, _, _ = _message_for(eq_screen, tmp_path, monkeypatch, _devices(n, D.UNPLUGGED))
-    check(f"update a profile: {n} devices that are not connected: up to 3 names and the count",
-          away == f"Updated “Daily”. {names} {verb} the new EQ when you connect {'it' if n == 1 else 'them'}",
-          away)
-    no_apo, _, _ = _message_for(eq_screen, tmp_path, monkeypatch, _devices(n, apo=False))
-    check(f"update a profile: {n} devices with no Equalizer APO: up to 3 names and the count",
-          no_apo == f"Updated “Daily”. Equalizer APO isn't installed on {names} (see Devices)", no_apo)
+    # (the tooltip halves of the next two checks are from test_the_message_of_twelve_devices, the test audit of
+    # 2026-11-25: only the message is short; a tooltip that also cut the not-connected or the no-APO group to 3 names
+    # was caught by that test alone)
+    away, away_tip, _ = _message_for(eq_screen, tmp_path, monkeypatch, _devices(n, D.UNPLUGGED))
+    check(f"update a profile: {n} devices that are not connected: up to 3 names and the count; the tooltip all",
+          away == f"Updated “Daily”. {names} {verb} the new EQ when you connect {'it' if n == 1 else 'them'}"
+          and all(x in away_tip for x in all_names), (away, away_tip))
+    no_apo, no_apo_tip, _ = _message_for(eq_screen, tmp_path, monkeypatch, _devices(n, apo=False))
+    check(f"update a profile: {n} devices with no Equalizer APO: up to 3 names and the count; the tooltip all",
+          no_apo == f"Updated “Daily”. Equalizer APO isn't installed on {names} (see Devices)"
+          and all(x in no_apo_tip for x in all_names), (no_apo, no_apo_tip))
     apo = "Equalizer APO isn't linked to AutoEQ Studio. Click Add AutoEQ Studio to APO… in Devices."
     later, later_tip, _ = _message_for(eq_screen, tmp_path, monkeypatch, _devices(n), unused=True)
     check(f"update a profile: {n} devices, Equalizer APO without the app: up to 3 names and the count",

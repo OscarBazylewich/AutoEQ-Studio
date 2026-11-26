@@ -510,12 +510,18 @@ def test_missing_field_named_without_quote_marks(check):
               service.call(path, {"src": "pc"}) == {"error": "Missing id"}, service.call(path, {"src": "pc"}))
 
 
-def test_body_not_a_dict(api, check):
+def test_body_not_a_dict(api, chain, check):
     # (straight to eq.service, as the old check sent it: not through JSON)
     # was eq_checks.py:1232
     check("requests: a body that isn't a dict is read as empty (a missing field is named)",
           api.call("/api/files/move", ["not", "a", "dict"]).get("error") == "Internal error: missing file type (target "
           "or measurement)")
+    # From test_missing_field_named (the test audit, 2026-11-25). The list above reaches the service as an empty
+    # body; this is a real body with fields but no kind, through JSON. It fails when only an empty body is refused
+    # and a body with fields is taken as a measurement.
+    # was eq_checks.py:1235
+    check("requests: missing field named", _ask(api, "/api/files/move", {"settings": _every_format(_small(chain["S"]))})[1].get("error")
+          == "Internal error: missing file type (target or measurement)")
 
 
 def test_preset_read_changes_no_file(api, chain, check):

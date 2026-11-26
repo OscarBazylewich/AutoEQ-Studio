@@ -231,3 +231,11 @@ def test_pasted_filters_read_the_same_way(check):
           and apo["freq"] > 200, got)
     check("eqtext: the strict reader still refuses a filter type an EQ here can't have, by its name",
           "“HP” filters aren't supported" in (raises(exports.parse_filters, "Filter 1: ON HP Fc 30 Hz") or ""))
+    # From test_exports.py::test_apo_width_and_slopes_read (the test audit, 2026-11-25). The only check that reads a
+    # width in octaves through exports.parse_filters: it fails when parse_filters hands filter_line another sample
+    # rate than 48 kHz. Equalizer APO reads the width at 48 kHz: Q 1.377 at 3 kHz, where the analog formula gives
+    # 1.414. The slope wins over the Q written after it (S 1 = Q 0.707).
+    read_apo = exports.parse_filters("Filter 1: ON PK Fc 3000 Hz Gain -2 dB BW Oct 1\n"
+                                     "Filter 2: ON LSC 12 dB Fc 100 Hz Gain 4 dB Q 0.7\nFilter 3: OFF LP Fc 18000 Hz")
+    check("formats: APO's \"BW Oct\" and shelf slopes are read (an OFF line of another type is skipped)",
+          [(f["type"], f["freq"], round(f["q"], 3)) for f in read_apo] == [("PK", 3000, 1.377), ("LSQ", 100, 0.707)], read_apo)

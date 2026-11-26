@@ -36,9 +36,14 @@ def test_guide_words_of_the_filters_and_the_files(eq_screen, check):
     # (by what each control does, not word for word: the owner did not decide these sentences, they are not in the
     # text survey; the test audit, 2026-11-25)
     sentences = re.split(r"(?<=[.)])\s+", texts)
+    # What the Guide says of Copy: from the word Copy to the clause of Open the Saved EQs folder, or to the end of
+    # the sentence. It must name the clipboard and no folder, whatever the words (the fault of 2026-11-12 said that
+    # Copy opens the folder; a reviewer's mutation "...clipboard and opens that folder" in other words got past a
+    # check of the literal words of 2026-11-12).
+    copy_parts = [re.split(r",? and Open the Saved EQs folder", s[re.search(r"\bCopy\b", s).start():])[0]
+                  for s in sentences if re.search(r"\bCopy\b[^.]*\bclipboard\b", s)]
     check("guide: On in the table disables a filter; Open the Saved EQs folder opens the folder, not Copy",
           any("On in the table" in s and "disables a filter" in s for s in sentences)
-          and any(re.search(r"\bCopy\b[^.]*\bclipboard\b", s) for s in sentences)
-          and any(re.search(r"Open the Saved EQs folder opens\b", s) for s in sentences)
-          and "and the folder opens" not in texts,  # (the words of 2026-11-12, after Copy)
-          [s for s in sentences if "Copy" in s or "On in the table" in s])
+          and bool(copy_parts) and all("clipboard" in p and "folder" not in p for p in copy_parts)
+          and any(re.search(r"Open the Saved EQs folder opens\b", s) for s in sentences),
+          (copy_parts, [s for s in sentences if "Copy" in s or "On in the table" in s]))
