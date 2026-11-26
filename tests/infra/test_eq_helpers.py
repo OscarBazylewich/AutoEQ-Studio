@@ -1,6 +1,7 @@
 """Make an EQ's helpers (helpers.eqpage, helpers.eq.file_reset; PLAN.md 3.4): each does what it says, in the old
-EQ screen checks' order (open, run, save, show from History, use on device, trace the sample, close), close_screen
-leaves nothing running, and file_reset() puts everything back as new. Slow: it opens Make an EQ (twice)."""
+EQ screen checks' order (open, run, save, show from History, use on device, trace the sample, close; the screen tests
+check what save, show and use did), close_screen leaves nothing running, and file_reset() puts everything back as
+new. Slow: it opens Make an EQ (twice)."""
 import json
 import multiprocessing
 import os
@@ -58,40 +59,28 @@ def test_quick_run(screen, check):
           and sorted({x["n_filters"] for x in r["results"]}) == [3, 5], [x.get("n_filters") for x in r["results"]])
 
 
-def test_save_result(screen, check):
+@pytest.fixture(scope="module")
+def saved_and_used(screen):
+    """The steps of the old order after the run: the result saved (save_result), shown again from History
+    (show_from_history) and used on the stand-in device (use_on_device), so the tracer and close_screen below work on
+    a page that did all of them, as before. Their own tests went in the test audit of 2026-11-25: the screen tests
+    that call the same helpers check what they did (tests/eq_screen/test_save_and_report.py, test_history_window.py,
+    test_use_on_device.py), and save_result raises when Save makes no History entry. The saved EQ's History entry."""
     entry = eqpage.save_result(screen)
-    saved = os.listdir(os.path.join(S.studio, "Saved EQs"))
-    check("eq helpers: save_result saves the result under its file name and gives its History entry",
-          entry["saved"] and "UI check - filters.txt" in saved and entry["filters"], saved)
-    screen.entry = entry
-
-
-def test_show_from_history(screen, check):
-    eqpage.show_from_history(screen, screen.entry)
-    page = screen.page
-    check("eq helpers: show_from_history brings the saved EQ back as a result of its own (“History (date)”)",
-          page.run_result.get("history") == screen.entry["base"] and page.res_sub.text().startswith("History ("),
-          page.res_sub.text())
-
-
-def test_use_on_device(screen, check):
-    rec = eqpage.use_on_device(screen)
-    with open(os.path.join(screen.apo_config, "AutoEQ Studio", "switcher.txt")) as fh:
-        text = fh.read()
-    check("eq helpers: use_on_device makes the result the stand-in device's profile, switched on, in APO's file",
-          rec["active"] and screen.sw.profile_name(rec["active"]) == "UI check"
-          and "Include: profiles\\UI check.txt" in text, rec)
+    eqpage.show_from_history(screen, entry)
+    eqpage.use_on_device(screen)
+    return entry
 
 
 @pytest.mark.timeout(400)
-def test_open_traced_sample(screen, check):
+def test_open_traced_sample(screen, saved_and_used, check):
     tw, truth, msgs = eqpage.open_traced_sample(screen)
     check("eq helpers: open_traced_sample opens the tracer on the sample graph and traces its three curves",
           [c["label"] for c in tw.t.curves] == ["L", "R", "L2"] and len(msgs) == 3 and "chans" in truth,
           ([c["label"] for c in tw.t.curves], msgs))
 
 
-def test_close_screen(screen, check):
+def test_close_screen(screen, saved_and_used, check):
     import sys
 
     import shiboken6

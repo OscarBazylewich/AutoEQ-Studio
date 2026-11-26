@@ -510,15 +510,15 @@ def test_missing_field_named_without_quote_marks(check):
               service.call(path, {"src": "pc"}) == {"error": "Missing id"}, service.call(path, {"src": "pc"}))
 
 
-def test_body_not_a_dict(api, check):
+def test_body_not_a_dict(api, chain, check):
     # (straight to eq.service, as the old check sent it: not through JSON)
     # was eq_checks.py:1232
     check("requests: a body that isn't a dict is read as empty (a missing field is named)",
           api.call("/api/files/move", ["not", "a", "dict"]).get("error") == "Internal error: missing file type (target "
           "or measurement)")
-
-
-def test_missing_field_named(api, chain, check):
+    # From test_missing_field_named (the test audit, 2026-11-25). The list above reaches the service as an empty
+    # body; this is a real body with fields but no kind, through JSON. It fails when only an empty body is refused
+    # and a body with fields is taken as a measurement.
     # was eq_checks.py:1235
     check("requests: missing field named", _ask(api, "/api/files/move", {"settings": _every_format(_small(chain["S"]))})[1].get("error")
           == "Internal error: missing file type (target or measurement)")
@@ -560,11 +560,8 @@ def test_wrong_kinds_of_values(api, check):
 def test_opens_nothing_outside_its_folder(api, check):
     # was eq_checks.py:1240
     check("requests: opens nothing outside its folder", _ask(api, "/api/open", {"path": "C:\\Windows"})[0] == 400)
-
-
-def test_opens_no_file_by_path(api, check):
     # only the app's folders by name, and only its own page (opening any file would also start programs: here, the
-    # session's copy of the app)
+    # session's copy of the app). (Its own test before the test audit of 2026-11-25: the same request and fixture.)
     inside = os.path.join(session.SESSION.studio, "app", "start.py")
     # was eq_checks.py:1243
     check("requests: opens no file by path (a program could start)", _ask(api, "/api/open", {"path": inside})[0] == 400)

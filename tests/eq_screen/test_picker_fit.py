@@ -1,7 +1,7 @@
 """Find… (ui\\picker.py) at its smallest width (680 px), at 1000 px and at the width it opens at (900 px): each source
 tab's label whole with 0, 12 and 3,456 results (also while This PC is searched: "…" after its number), and each
 message of its message line (the footer's) whole, in light and in dark (2026-11-11: "This PC  0…" was cut at 1000
-px, and the messages were cut at 680 px)."""
+px, and the messages were cut at 680 px). The website flow's messages measured are checked to be the app's words."""
 import os
 
 import pytest
@@ -74,6 +74,20 @@ def _messages(name):
             (f"Moved “{name}” to Measurement", lambda: None),
             (f"Moved “{name}” to Target", lambda: None),
             ("Couldn't apply selection: The file is not in the app. Select the file again in Find….", None)]
+
+
+def test_messages_are_the_apps_words(check):
+    # (from test_picture_wait.py::test_messages_fit_finds_line, the test audit of 2026-11-25: that test measured the
+    # messages that the website flow really gave; test_messages_whole measures fixed copies of them. This keeps the
+    # copies the app's words, so a longer message in the app cannot go unmeasured. The app says them inline, not as
+    # constants, so its source is read; no window is needed)
+    import inspect
+    from ui import eq_page_files
+    source = inspect.getsource(eq_page_files)
+    flow = [text for text, _undo in _messages("x")
+            if text.startswith(("Offline:", "Couldn't open the website", "No website link", "Timed out"))]
+    check("Find…: the website flow's messages measured here are the words that ui\\eq_page_files.py says",
+          len(flow) == 4 and all(f'"{t}"' in source for t in flow), [t for t in flow if f'"{t}"' not in source])
 
 
 @pytest.mark.parametrize("look", ["light", "dark"])

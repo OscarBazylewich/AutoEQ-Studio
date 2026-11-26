@@ -61,13 +61,6 @@ def _done(eq_screen):
     return eq_screen.wait_for(lambda: page.run_btn.isEnabled(), 180)
 
 
-def _result_in_sight(page):
-    area, box = page.page_area, page.result_box
-    top = box.mapTo(area.widget(), QPoint(0, 0)).y()
-    bar = area.verticalScrollBar()
-    return box.isVisible() and bar.value() <= top <= bar.value() + area.viewport().height()
-
-
 def test_a_click_on_calculate_keeps_the_page(eq_screen, check):
     page = eq_screen.page
     _quick(page)
@@ -92,8 +85,14 @@ def test_a_click_on_calculate_keeps_the_page(eq_screen, check):
     check("eq page: while a run goes on, the keyboard focus is on its Cancel, in sight (it went to the Target row's "
           "Adjust…)", focus is page.cancel_btn and cancel_seen, (_name(focus), cancel_seen))
     focus = QApplication.focusWidget()
+    # (all of the card in sight, not only its top: the page is at Calculate, 200 px above the view's bottom, and the
+    # card's top is under Calculate, so it was in sight with no scroll at all, and the check passed with the scroll to
+    # the result taken out; the test audit, 2026-11-25. All of the card fits in the view of 900 px:
+    # test_run_focus_in_sight.py)
     check("eq page: a run done, its result card is scrolled into sight, and the focus is on Calculate again",
-          _result_in_sight(page) and focus is page.run_btn, (bar.value(), _name(focus)))
+          _in_sight(page, page.result_box) and focus is page.run_btn,
+          (bar.value(), page.result_box.mapTo(page.page_area.viewport(), QPoint(0, 0)).y(), page.result_box.height(),
+           page.page_area.viewport().height(), _name(focus)))
 
 
 def test_space_on_calculate_keeps_the_page(eq_screen, check, tmp_path):

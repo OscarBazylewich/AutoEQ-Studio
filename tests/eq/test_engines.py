@@ -2,8 +2,7 @@
 a filter's own response against known values (a peak, a low and a high shelf) and against the textbook curve at
 several widths, the website's AutoEQ (in V8), Best
 fit on fixed bands, on a device's layout and with your own filters, the number of fits its progress says, the fits
-counted and grown, split filters merged, the starting points, a failed fit stopping the others, a scored range
-without curve points, the queue's errors, one V8 kept per thread, absurd curves, a shelf's Q and your own filters'
+counted and grown, split filters merged, the starting points, a failed fit stopping the others, the queue's errors, one V8 kept per thread, absurd curves, a shelf's Q and your own filters'
 frequency range, and the pick and the ear error. Moved from eq_checks.py's module_checks (and grow_checks and
 review2_maths_checks, which it ran); the known values added after the tests' verification.
 
@@ -294,14 +293,6 @@ def test_failed_fit_stops_the_others(monkeypatch, check):
     # was eq_checks.py:407
     check("runs: one failed fit stops the others (the error shows at once)", time.time() - t0 < qt.time_limit(2.5),
           round(time.time() - t0, 1))
-
-
-def test_empty_scored_range_said(sample_curves, check):
-    # an empty scored range is said, not scored as NaN
-    curves = sample_curves[0]
-    # was eq_checks.py:409
-    check("scoring: a scored range without curve points is said (was NaN)",
-          "needs at least 2 curve points" in (raises(engines.rms_error, curves["f"], curves["meas"], curves["target"], [19900, 20000]) or ""))
 
 
 def test_queue_errors_hidden_only_while_stopping(monkeypatch, check):

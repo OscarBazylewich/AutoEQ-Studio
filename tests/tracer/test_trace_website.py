@@ -611,8 +611,8 @@ def test_db_labels_each_by_itself(qapp, monkeypatch, check):
 
 
 def test_db_range(qapp, monkeypatch, check):
-    check("a usual dB axis: its smallest span, its lowest and highest values are constants",
-          trace_auto.DB_MIN_SPAN == 15 and (trace_auto.DB_LOWEST, trace_auto.DB_HIGHEST) == (10, 130))
+    # (no check of the values of DB_MIN_SPAN, DB_LOWEST and DB_HIGHEST: an estimate in trace_auto.py, no decision
+    # of the owner; the checks below hold the rule. The test audit of 2026-11-25)
     _t, _rgb, r = fresh(monkeypatch, words=lambda truth: _db(truth, {v: f"{v + 60}" for v in range(40, 81, 5)}))
     check("all dB labels read 60 dB too high (they agree): the dB range check fails, its highest value is not usual",
           reason(r, "axes_db_range") == "Detected dB range is 100 to 140 dB. Unusual range for an IEM or headphone graph."

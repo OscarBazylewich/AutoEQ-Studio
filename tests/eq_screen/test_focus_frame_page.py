@@ -2,20 +2,23 @@
 keys and clicks (QTest, on the window's native part, as Windows sends them) and what shows read from the pixels of the
 window's picture: Tab shows the frame on Calculate; Space on Calculate starts the job and the frame shows on Cancel,
 which the page gives the focus (UI-RULES 30), then on Calculate again when the job is done; after a click on Calculate
-none of that shows; a notch of the mouse wheel on the Target list gives the list the focus and no frame, and one on
-the page leaves the frame; a ✕ button and a drop-down list in the first row of the filter table have a whole frame
-(the table's view has no room above that row); a click outside the menu of Use on device takes the frame off; the
-filter editor's sliders keep their own ring; the graph that floats over the page is above the frame; the Guide shows
-no frame on the page under it, and the frame is back at its end when a key ended it; in each window of the page
-(Find…, Sources, History, Queue, All results, Compare, Which measurement, the wait for a picture, the tracer, a
-question) each control that gets the frame has it, whole, with the keyboard in use; Table and Sliders of Your filters
-are as far apart as on the result card, with the frame as far out at their sides; one move of the focus takes less
-than 1 ms. One page for the file (the eq_screen fixture)."""
+none of that shows; a ✕ button and a drop-down list in the first row of the filter table have a whole frame (the
+table's view has no room above that row); the filter editor's sliders keep their own ring; the graph that floats
+over the page is above the frame; the Guide shows no frame on the page under it, and the frame is back at its end
+when a key ended it; in each window of the page (Find…, Sources, History, Queue, All results, Compare, Which
+measurement, the wait for a picture, the tracer, a question) each control that gets the frame has it, whole, with the
+keyboard in use; Table and Sliders of Your filters are as far apart as on the result card, with the frame as far out
+at their sides; one move of the focus takes less than 1 ms. One page for the file (the eq_screen fixture).
+
+A click outside the menu of a button and a notch of the mouse wheel on a drop-down list: tests\\ui\\test_focus_frame.py
+(a QPushButton with its QMenu and a SearchCombo, as the page's Use on device and Target list, with the theme's own
+filter, in light and dark). Their copies on this page went in the test audit of 2026-11-25: the frame's code does not
+depend on where the control is, and the same faults failed both."""
 import statistics
 import time
 
 import pytest
-from PySide6.QtCore import QPoint, QPointF, QRect, Qt, QTimer
+from PySide6.QtCore import QPoint, QRect, Qt
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QPushButton, QSlider, QToolButton, QWidget
@@ -241,65 +244,6 @@ def test_tab_shows_it_on_calculate_and_space_on_cancel(eq_screen, qapp, check):
           "the keyboard was used: light and dark", seen == {"light": want, "dark": want}, seen)
 
 
-def _wheel(w, at=None, notch=-120):
-    """One notch of the mouse wheel (towards the person: -120), the pointer on w, sent to its window's native part."""
-    win = w.window()
-    QTest.wheelEvent(win.windowHandle(), QPointF(w.mapTo(win, at or w.rect().center())), QPoint(0, notch))
-    qt.pump(30)
-
-
-def test_the_mouse_wheel_on_the_target_list(eq_screen, monkeypatch, check):
-    # (the wheel gives a drop-down list the focus with no mouse button down: with the frame on Find…, the frame went
-    # to the Target list; found by a verifier, 2026-11-16)
-    page = eq_screen.page
-    _calculate_in_sight(page)
-    area, bar = page.page_area, page.page_area.verticalScrollBar()
-    find = next(b for b in page.target_box.findChildren(QPushButton) if b.text() == "Find…")
-    lst = page.target_combo
-    was, chosen = lst.currentIndex(), []
-    # (the notch also chooses the next target of the list: the page is kept from saving that and loading its curves)
-    monkeypatch.setattr(page, "_file_chosen", chosen.append)
-    mod = _frame_module()
-    try:
-        got = _tab_to(find)
-        area.ensureWidgetVisible(find, 0, 100)
-        qt.pump(60)
-        seen = {"Tab to Find… of Target": {"Tab got there": got, "frame on Find…": _frame_on(find)}}
-        _wheel(lst)
-        seen["a notch on the Target list"] = {"the list has the focus": QApplication.focusWidget() is lst,
-                                              "no frame": _no_frame(page),
-                                              "the keyboard is not in use": mod is not None
-                                              and not mod.keyboard_in_use()}
-        _key(page, Qt.Key_Tab)
-        f = QApplication.focusWidget()
-        seen["Tab after it"] = {"the focus went on": f is not None and f is not lst,
-                                "frame on the control with the focus": f is not None and _frame_on(f)}
-        got = _tab_to(page.run_btn)
-        top, view = bar.value(), area.viewport()
-        d = {"frame on Calculate before": got and _frame_on(page.run_btn)}
-        # (the pointer in the corner of the page's view, where no control is; the notch that takes Calculate towards
-        # the middle of the view, so that it stays whole in it)
-        low = page.run_btn.mapTo(view, QPoint(0, 0)).y() > view.height() // 2
-        _wheel(view, QPoint(2, 2), -120 if low else 120)
-        d.update({"the page moved": bar.value() != top, "Calculate keeps the focus":
-                  QApplication.focusWidget() is page.run_btn, "frame on Calculate": _frame_on(page.run_btn)})
-        seen["a notch on the page"] = d
-    finally:
-        lst.setCurrentIndex(was)
-        _mouse_in_use(page)
-    want = {"Tab to Find… of Target": {"Tab got there": True, "frame on Find…": True},
-            "a notch on the Target list": {"the list has the focus": True, "no frame": True,
-                                           "the keyboard is not in use": True},
-            "Tab after it": {"the focus went on": True, "frame on the control with the focus": True},
-            "a notch on the page": {"frame on Calculate before": True, "the page moved": True,
-                                    "Calculate keeps the focus": True, "frame on Calculate": True}}
-    check("eq page: with the focus frame on Find… of Target, a notch of the mouse wheel on the Target list gives the "
-          "list the focus and no frame (the wheel moves the focus with no mouse button down: the frame went to the "
-          "list), and Tab then shows the frame on the next control; a notch on the page, where no control is, moves "
-          "the page and the frame stays on Calculate", seen == want,
-          {k: v for k, v in seen.items() if v != want.get(k)})
-
-
 def test_the_first_row_of_the_filter_table(eq_screen, check):
     from ui.search_combo import SearchCombo
     page = eq_screen.page
@@ -335,55 +279,6 @@ def test_the_first_row_of_the_filter_table(eq_screen, check):
           "table get the focus frame, whole on its four sides, in the table's view (the view has no room above its "
           "first row: the frame's top line comes in to the view's edge)",
           seen == {"the ✕ of the first row": want, "the type of the first row": want}, seen)
-
-
-def test_a_click_outside_a_menu_takes_it_off(eq_screen, check):
-    # (a menu takes the clicks itself and moves no focus: the frame of its button stayed after a click in the menu,
-    # found with a made-up window, 2026-11-16; here the page's own Use on device, with the theme's own filter)
-    page = eq_screen.page
-    _quick(page)
-    if not page.current()[1]:
-        eqpage.quick_run(eq_screen)
-    page.resize(1000, 900)
-    qt.pump(150)
-    page.activateWindow()
-    _mouse_up(page)
-    btn, menu = page.use_btn, page.use_menu
-    seen = {}
-    for case in ("a click outside the menu", "Esc in the menu"):
-        got = _tab_to(btn)
-        page.page_area.ensureWidgetVisible(btn, 0, 150)
-        qt.pump(60)
-        d = {"frame on Use on device before": got and _frame_on(btn)}
-        acted = []
-
-        def act(n=0, case=case, acted=acted):
-            if menu.isVisible():
-                if case.startswith("a click"):
-                    QTest.mouseClick(menu.windowHandle(), Qt.LeftButton, Qt.NoModifier, QPoint(-30, -30))
-                else:
-                    QTest.keyClick(menu.windowHandle(), Qt.Key_Escape)
-                acted.append(True)
-            elif n < 200:
-                QTimer.singleShot(20, lambda: act(n + 1))
-            else:
-                acted.append(False)
-        QTimer.singleShot(20, act)
-        QTimer.singleShot(int(qt.time_limit(8) * 1000), menu.close)  # (never left open: Qt stays in an open menu)
-        _key(page, Qt.Key_Space)
-        qt.wait_for(lambda acted=acted: bool(acted) and not menu.isVisible(), 8)
-        qt.pump(60)
-        d["the menu showed and closed"] = acted == [True] and not menu.isVisible()
-        d["the focus is on Use on device"] = QApplication.focusWidget() is btn
-        if case.startswith("a click"):
-            d["no frame"] = _no_frame(page)
-        else:
-            d["the frame is on it"] = _frame_on(btn)
-        seen[case] = d
-    _mouse_in_use(page)
-    check("eq page: with the frame on Use on device and its menu opened with Space, a click outside the menu closes "
-          "the menu and takes the frame off (the focus stays on the button); after Esc in the menu, the frame is on "
-          "the button", all(all(d.values()) for d in seen.values()) and len(seen) == 2, seen)
 
 
 def test_sliders_keep_their_own_ring_and_the_floating_graph_is_above(eq_screen, check):

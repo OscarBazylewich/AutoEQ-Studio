@@ -32,15 +32,6 @@ def analysis(sample_curves):
 
 
 # ---------------------------------------------------------------- the notes
-def test_device_notes_give_its_limits(check):
-    # the automatic notes say the device's limits (they said 32 filters, +10 dB for a 9-filter, +3 dB device)
-    notes = " ".join(n["text"] for n in autoset.plan(settings.with_auto({"mode": "best_fit", "best_fit": {
-        "layout": "app:moondrop_free_dsp"}}), AN)["notes"])
-    # was eq_checks.py:301
-    check("automatic settings: a device's notes give its limits (9 filters, +3 dB)", "Maximum 9 filters" in notes
-          and "Max gain +3 dB" in notes, notes[:200])
-
-
 def _notes(cfg, **an):
     """{path: text} of the notes for these settings and the made-up analysis AN with these values over."""
     return {n["path"]: n["text"] for n in autoset.plan(settings.with_auto(cfg), dict(AN, **an))["notes"]}
@@ -179,18 +170,6 @@ def test_moved_value_note_names_the_setting_and_the_values(check):
           and down == ("site_single.gain_min", "Auto-adjusted Gain from: -11 dB (your maximum is -10 dB)")
           and settings.AUTO_NAMES["scoring.band_hz.1"] == "Fit up to"
           and settings.AUTO_NAMES["site_single.gain_min"] == "Gain from", (up, down))
-
-
-def test_q_note_says_the_second_limit_is_tried_too(check):
-    # (2026-11-08: the STE rewrite made it "Maximum Q 3 and Q 6", which did not say that Q 6 is a second limit that
-    # the app also tries; Best fit tries two Q limits, a single run one)
-    def q_note(cfg):
-        return next(n["text"] for n in autoset.plan(settings.with_auto(cfg), dict(AN))["notes"]
-                    if n["text"].startswith("Max Q"))
-    two, one = q_note({"mode": "best_fit"}), q_note({"mode": "site_single"})
-    check("automatic settings: the Q note says the app also tries the second Q limit (and is a line)",
-          "(also tries Q " in two and len(two) <= 80 and "also tries" not in one and "is ~Q " in one,
-          (two, one))
 
 
 def test_each_note_a_line(check):

@@ -1,7 +1,8 @@
 """Make an EQ's page as the UI rules have it (.claude\\notes\\UI-RULES.md, 2026-10-27, the user's ask: the same kind of
 thing done the same way everywhere): while a run goes on its Cancel shows at the Run row's end, where nothing moves for
 it (beside Run it pushed Run several… and By hand along); the line under Run takes no room until it says something;
-the result is scrolled into sight when the run is done, unless you scrolled meanwhile; Remove takes a run off this
+a run done while you scrolled elsewhere leaves the page where you put it (the result scrolled into sight otherwise:
+test_run_focus_in_sight.py); Remove takes a run off this
 session's runs with Undo; By hand's menu lists an EQ's sources in the order every such list has; the result card's
 labelled rows line up in one column, and an EQ by hand's Close sits on its title line. One page for the file."""
 import pytest
@@ -21,18 +22,18 @@ def _quick(page):
 
 @pytest.fixture(scope="module")
 def ran(eq_screen):
-    """A run made with the Run button, the page at its Run row first: what each part did while it went on."""
+    """A run made with the Run button, the page at its Run row first: what each part did while it went on. (Where the
+    page was before and after the run went with the test that read it: test_run_focus_in_sight.py caught the same
+    faults; the test audit, 2026-11-25.)"""
     page = eq_screen.page
     page.choose_app("apo")
     _quick(page)
     area = _area(page)
-    bar = area.verticalScrollBar()
     area.ensureWidgetVisible(page.run_btn, 0, 40)
     qt.pump(50)
     idle = (page.progress_text.isVisibleTo(page), page.progress_text.text())
     page.set_way("auto", remember=False)
     xs = [b.mapTo(page, b.rect().topLeft()).x() for b in (page.run_btn, page.queue_btn)]
-    at = bar.value()
     page.run_btn.click()
     qt.pump(30)
     during = {"cancel shown": page.cancel_btn.isVisibleTo(page), "line shown": page.progress_text.isVisibleTo(page),
@@ -41,22 +42,13 @@ def ran(eq_screen):
               "cancel after them": page.cancel_btn.mapTo(page, page.cancel_btn.rect().topLeft()).x() > xs[-1]}
     eq_screen.wait_for(lambda: page.run_btn.isEnabled(), 180)
     qt.pump(100)
-    return {"idle": idle, "during": during, "at": at, "after": bar.value(), "page": page, "area": area}
+    return {"idle": idle, "during": during}
 
 
 def test_cancel_at_the_rows_end(ran, check):
     check("eq page: while a run goes on its Cancel shows at the Run row's end and nothing before it moves; the line "
           "under Run takes no room until it says something",
           ran["idle"] == (False, "") and all(ran["during"].values()), (ran["idle"], ran["during"]))
-
-
-def test_result_scrolled_to(ran, check):
-    page, area = ran["page"], ran["area"]
-    box = page.result_box
-    top = box.mapTo(area.widget(), box.rect().topLeft()).y()
-    seen = area.verticalScrollBar().value() <= top <= area.verticalScrollBar().value() + area.viewport().height()
-    check("eq page: a run done, its result is scrolled into sight (it appeared below the folds, the page left at Run)",
-          ran["after"] != ran["at"] and seen, (ran["at"], ran["after"], top))
 
 
 def test_not_scrolled_when_you_moved(eq_screen, check):

@@ -19,6 +19,7 @@ from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QFileDialog
 
 from helpers import paths, qt
+from helpers.tracer_reads import ok_read, save_row
 from ui.trace_window import sample_image
 
 # (what the window reaches through Make an EQ: for app\tools\relevant_tests.py)
@@ -72,12 +73,6 @@ def _sample(eq_screen, curves):
     tw.show_tab(2)
     qt.pump(50)
     return page, tw
-
-
-def _row(tw):
-    """3 Save's buttons in their order, each with whether it is the accent button."""
-    return [(w.text(), w.property("primary") in (True, "true")) for w in qt.layout_parts(tw.save_btns)
-            if w is not None and w.isWidgetType()]
 
 
 def _tab_order(tw):
@@ -156,7 +151,7 @@ def test_four_types_one_add_button(eq_screen, tmp_path, check):
                 _select(tw.comp, TARGET)
             qt.pump(50)
             seen[(curves, kind)] = {
-                "row": _row(tw), "target list": (tw.comp_lab.isVisible(), tw.comp.isVisible()),
+                "row": save_row(tw), "target list": (tw.comp_lab.isVisible(), tw.comp.isVisible()),
                 "line": tw.save_what.text(), "line in sight": tw.save_what.isVisible(),
                 "described": qt.description(tw.save_btn), "add": tw.add_kind(),
                 "tab": _tab_order(tw), "unnamed": a11y.unnamed(card),
@@ -381,29 +376,6 @@ def test_difference_with_no_target(eq_screen, monkeypatch, check):
           (none_line, empty_line))
 
 
-def _stand_in_read(target_line=False, only=False):
-    """A stand-in for trace_core.auto_read: the picture as it is, the sample's dB values, a part of a curve, all
-    checks OK; target_line: also a target line, marked; only: the one curve is the target line (target_only)."""
-    def read(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None):
-        from ui import trace_core
-        from ui.trace_auto import AutoRead, Check
-        t = trace_core.Tracer()
-        t.load(np.array(rgb, np.uint8, copy=True), name, jpeg)
-        t.v.update(d1="90", d2="40")
-        t.curves[0]["ys"][100:200] = 300.0  # (a traced curve)
-        line = None
-        if only:
-            t.curves[0].update(label="Target", target=True)
-        elif target_line:
-            ys = np.full_like(t.curves[0]["ys"], np.nan)
-            ys[100:200] = 350.0
-            line = {"label": "Target", "colour": (136, 136, 136), "ys": ys, "target": True}
-            t.curves.append(line)
-        return AutoRead(True, t, [Check("axes_plot", True, "The app found the graph in the image.")], t.curves[0],
-                        line, None, None, None, 0.01, "", only)
-    return read
-
-
 def test_the_app_selects_the_type(eq_screen, monkeypatch, check):
     from ui import trace_core
     page = eq_screen.page
@@ -414,7 +386,7 @@ def test_the_app_selects_the_type(eq_screen, monkeypatch, check):
     state = lambda: (tw.shows.currentData(), tw.save_btn.text(), tw.comp.isVisible(), tw.users_work())  # noqa: E731
 
     def read(entry, **kw):
-        monkeypatch.setattr(trace_core, "auto_read", _stand_in_read(**kw))
+        monkeypatch.setattr(trace_core, "auto_read", ok_read(**kw))
         tw.load_image(img, entry=entry)
         at_once = tw.shows.currentData()  # (when the picture comes, before the read ends)
         qt.wait_for(lambda: not tw.loading and not tw.reading_graph and tw.read_ok is not None, 60)
@@ -440,6 +412,17 @@ def test_the_app_selects_the_type(eq_screen, monkeypatch, check):
     read(dict(ENTRY, **{"as": "target"}))
     tw.remove_image()
     seen["Remove image after Find a target"] = state()
+    # (from test_trace_save_row.py's test_accent_button_is_the_main_action, merged here by the test audit of
+    # 2026-11-25: the row of 3 Save with its accent after the app's "A target line", and an entry with no "as". The
+    # app's own entries always have an "as" (eq_page_files.py), so only this test reads the default of select_shows)
+    rows = {"Remove image after it": save_row(tw)}
+    read(dict(ENTRY, **{"as": "target"}))
+    mine(8)
+    rows["a picture of yours after it"] = save_row(tw)
+    tw.remove_image()
+    read(dict(ENTRY))
+    rows["Find a measurement"] = (save_row(tw), "Add as measurement." in tw.save_note.text())
+    tw.remove_image()
     at_once = read(dict(ENTRY, kind="target"), only=True)
     seen["a target line alone"] = (at_once, state())
     tw.remove_image()
@@ -506,6 +489,10 @@ def test_the_app_selects_the_type(eq_screen, monkeypatch, check):
           and seen["Remove image after Find a target"] == ("measurement", "Add as measurement", False, False)
           and seen["the user's target line, then a new picture"] == ("measurement", "Add as measurement", False,
                                                                      False), seen)
+    measurement = [("Add as measurement", True), ("Save .txt…", False)]
+    check("tracer: a new picture or Remove image makes the add button Add as measurement again, in the accent; an "
+          "entry from Find a measurement has it too", rows["a picture of yours after it"] == measurement
+          and rows["Remove image after it"] == measurement and rows["Find a measurement"] == (measurement, True), rows)
     check("tracer: a difference from a target and its target stay for the next picture of the user and after Remove "
           "image (not the user's work on the new picture)",
           seen["a difference, then a picture of the user"] == (("difference", "Add as measurement", True, False),
@@ -629,7 +616,7 @@ def test_save_txt_of_a_target_line_alone(eq_screen, monkeypatch, tmp_path, check
     page.open_trace()
     tw = page.tracer
     img, _s = sample_image()
-    monkeypatch.setattr(trace_core, "auto_read", _stand_in_read(only=True))
+    monkeypatch.setattr(trace_core, "auto_read", ok_read(only=True))
     tw.load_image(img, entry=dict(ENTRY, kind="target"))
     qt.wait_for(lambda: not tw.loading and not tw.reading_graph and tw.read_ok is not None, 60)
     boxes = _boxes(tw, monkeypatch)

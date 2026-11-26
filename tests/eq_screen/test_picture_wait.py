@@ -222,16 +222,6 @@ def test_text_does_not_end_wait(eq_screen, flow, check):
     check("website flow: new text on the clipboard does not end the wait", wait.isVisible() and wait.got is None)
 
 
-def test_small_picture_does_not_end_wait(eq_screen, flow, check):
-    from PySide6.QtGui import QColor, QImage
-    wait, _o = _use(flow)
-    small = QImage(299, 400, QImage.Format_RGB888)
-    small.fill(QColor("white"))
-    _copy(small)
-    qt.pump(400)
-    check("website flow: a picture smaller than 300 x 200 does not end the wait", wait.isVisible() and wait.got is None)
-
-
 def test_new_picture_ends_wait(eq_screen, flow, check):
     page, pk = flow["page"], flow["pk"]
     wait, _o = _use(flow)
@@ -269,6 +259,11 @@ def test_paste_with_nothing(eq_screen, flow, check):
     check("website flow: Paste the picture with no picture says so, and the wait continues",
           wait.isVisible() and "No image on clipboard" in wait.note.text() and wait.note.isVisible(),
           wait.note.text())
+    # (from test_window_in_front_of_the_graph, the test audit of 2026-11-25: the tooltip is read here, with the note
+    # shown; test_paste_takes_old_picture reads it only before a paste, so a tooltip set by the no-picture branch
+    # of paste() was caught by this check alone)
+    check("website flow: Paste the picture has no tooltip (its own and its Help line are removed)",
+          wait.paste_btn.toolTip() == "", wait.paste_btn.toolTip())
 
 
 def test_cancel(eq_screen, flow, check):
@@ -356,43 +351,10 @@ def test_no_browser_says_so(eq_screen, flow, monkeypatch, check):
           wait is None and _said(pk) == "Couldn't open the website for this entry", _said(pk))
 
 
-def test_messages_fit_finds_line(eq_screen, flow, monkeypatch, check):
-    """Each message of the flow in Find…'s line is whole at Find…'s opening width (900 px): the line wraps a longer
-    one to more lines (picker.py)."""
-    import net
-    from PySide6.QtGui import QDesktopServices
-    from ui import picture_wait
-    pk = flow["pk"]
-    pk.resize(900, pk.height())
-    qt.pump(100)
-    said = {}
-    monkeypatch.setattr(net, "offline", lambda: True)
-    _use(flow)
-    said["offline"] = _said(pk)
-    monkeypatch.setattr(net, "offline", lambda: False)
-    monkeypatch.setattr(picture_wait, "TIMEOUT_MS", 200)
-    wait, _o = _use(flow)
-    qt.wait_for(lambda: wait is not None and _closed(wait), 10)
-    said["time limit"] = _said(pk)
-    with monkeypatch.context() as m:
-        m.setattr(QDesktopServices, "openUrl", staticmethod(lambda url: False))
-        _use(flow)
-        said["no browser"] = _said(pk)
-    line = pk.footer.line.text
-    # (Find…'s line wraps a longer message to more lines, picker.py: a message is whole when the line is as high as
-    # its words need, as test_picker_fit.py's test_messages_whole measures it. The time-limit message of the text
-    # survey, 2026-11-24, is longer than one line at this width)
-    high = {}
-    for k, t in said.items():
-        pk.footer.say(t, 0)
-        qt.pump(50)
-        high[k] = (line.height(), line.heightForWidth(line.width()), line.wordWrap())
-    check("website flow: each message in Find…'s line is whole in it at Find…'s opening width (900 px): it wraps to "
-          "more lines when it is longer than the line",
-          pk.width() == 900 and all(t for t in said.values()) and all(w and h >= need for h, need, w in high.values()),
-          (said, high))
-
-
+# (that the flow's messages are whole in Find…'s line, which wraps them, at 680, 900 and 1000 px in light and dark:
+# tests\eq_screen\test_picker_fit.py's test_messages_whole, with the same words (its test_messages_are_the_apps_words
+# keeps them the app's); test_offline, test_time_limit and test_no_browser_says_so pin the words that the flow gives.
+# test_messages_fit_finds_line went, 2026-11-25)
 def test_tracer_with_curves_not_added(eq_screen, flow, check):
     page, pk = flow["page"], flow["pk"]
     page.open_trace()
@@ -838,6 +800,9 @@ def test_all_checks_ok(eq_screen, flow, monkeypatch, check):
     check("website flow: all checks OK, the tracer shows 3 Save and its note names the entry and the website",
           came and tw.pages.currentIndex() == 2 and tw.read_ok is True and f"“{ENTRY}”" in note and SITE in note
           and "Add as measurement" in note and not tw.save_line.isVisible(), (tw.pages.currentIndex(), note))
+    # (was test_no_target_line, 2026-11-25: the same picture with no target line; its note must not name one)
+    check("website flow: no target line, the button is not shown", came and not tw.save_line.isVisible()
+          and "target line" not in note, note)
     check("website flow: the automatic read gets the picture's pixels, the entry's name with its tag and Windows' "
           "text reader", calls and calls[0]["name"] == NAME and calls[0]["shape"][:2] == (SH, SW)
           and calls[0]["ocr"] is not None, calls)
@@ -858,13 +823,17 @@ def test_reading_takes_no_input(eq_screen, flow, monkeypatch, check):
     page = flow["page"]
     qt.wait_for(lambda: getattr(page, "tracer", None) is not None and page.tracer.reading_graph, 10)
     tw = page.tracer
-    during = (tw.reading_graph, tw.status.text(), tw.stage.isEnabled(), tw.side_scroll.isEnabled())
+    during = (tw.reading_graph, tw.status.text(), tw.stage.isEnabled(), tw.side_scroll.isEnabled(),
+              tw.guide_btn.isEnabled())
     came = _picture_came(page)
     check("website flow: while the automatic read runs, the status line says so, and the stage and the side panel "
           "do not accept input", during[0] and during[1] == "Analyzing graph…" and not during[2]
           and not during[3], during)
     check("website flow: after the automatic read, the stage and the side panel accept input again",
           came and tw.stage.isEnabled() and tw.side_scroll.isEnabled())
+    # (was test_guide_button_off_during_the_read, 2026-11-25: the same read, so one flow fewer)
+    check("website flow: while the automatic read runs, the Guide button does not accept input (and accepts it after)",
+          came and during[0] and not during[4] and tw.guide_btn.isEnabled(), during)
 
 
 def test_axes_check_failed(eq_screen, flow, monkeypatch, check):
@@ -915,23 +884,9 @@ def test_error_of_the_read(eq_screen, flow, monkeypatch, check):
           and "made-up failure" not in tw.status.text() + tw.axis_note.text(), tw.status.text())
 
 
-def test_paste_after_poor_picture_keeps_entry(eq_screen, flow, monkeypatch, check):
-    from ui import trace_core
-    came, tw = _traced(flow, monkeypatch, stand_in(ok=False, fail="axes_hz_labels"))
-    monkeypatch.setattr(trace_core, "auto_read", stand_in())
-    _copy(_one_pixel_changed())  # (a better picture: the same pixels again are not read again)
-    tw.paste()
-    again = _picture_came(flow["page"])
-    check("website flow: a picture pasted in the tracer after a poor one keeps the entry",
-          came and again and tw.entry and tw.entry["name"] == ENTRY and tw.t.src_name == NAME and tw.read_ok is True
-          and tw.pages.currentIndex() == 2, (tw.entry, tw.t.src_name, tw.read_ok))
-    _copy(_graph().copy(0, 0, 800, 500))
-    tw.paste()
-    qt.wait_for(lambda: not tw.reading_graph, 20)
-    check("website flow: after a read that was OK, a new picture pasted in the tracer is a picture of yours (no entry)",
-          tw.entry is None and tw.t.src_name != NAME, (tw.entry, tw.t.src_name))
-
-
+# (a picture pasted in the tracer after a poor read keeps the entry: test_ctrl_v_two_times_or_held_keeps_the_entry,
+# through the key that reaches the same paste(); after a read that was OK a different picture is a picture of yours:
+# test_same_picture_again_keeps_the_result. test_paste_after_poor_picture_keeps_entry went, 2026-11-25)
 class _Drop:
     """A stand-in for Qt's drop event: its data only."""
 
@@ -1250,24 +1205,35 @@ def test_target_line(eq_screen, fresh_studio, flow, monkeypatch, check):
           "measurement curve and how to keep it out of the measurement",
           not tw.save_line.isVisible() and tw.save_note.text() == CHANGED_LINE and len(tw.outputs()) == 2,
           tw.save_note.text())
+    # (was the second check of test_one_measurement_curve_and_a_target_line_have_no_note, 2026-11-25: the same change
+    # of the target line, through changed() and render_curves, not through a rename)
+    check("website flow: with two measurement curves the note of 2 Trace shows",
+          tw.curves_note.text().startswith("Saved as one measurement") and len(tw.outputs()) == 2,
+          tw.curves_note.text())
 
 
 def test_rename_of_target_line(eq_screen, flow, monkeypatch, check):
+    """2 Trace's note about one file for each curve: not for one measurement curve and the marked target line (Add as
+    measurement saves one file); a rename of the target line makes it a measurement curve, and the note shows at
+    once. (2026-11-25: with the checks of test_renamed_target_line_shows_the_note and the first check of
+    test_one_measurement_curve_and_a_target_line_have_no_note, which had the same picture; that test's second check,
+    the note after a change of the target line, is in test_target_line.)"""
     from PySide6.QtWidgets import QLineEdit
     came, tw = _traced(flow, monkeypatch, stand_in(target=True))
     tw.show_tab(1)
+    before = tw.curves_note.text()
+    files = [o["file"] for o in tw.outputs()]
+    check("website flow: 2 Trace has no note about one file for each curve with one measurement curve and a marked "
+          "target line", came and before == "" and files == [NAME + ".txt"], (before, files))
     box = next(b for b in tw.curves_box.findChildren(QLineEdit) if b.text() == "Target")
     box.setText("R")
     box.textEdited.emit("R")
     check("website flow: a rename of the target line removes its target mark (a measurement curve)",
           came and not any(c.get("target") for c in tw.t.curves) and not tw.save_line.isVisible(),
           [c.get("target") for c in tw.t.curves])
-
-
-def test_no_target_line(eq_screen, flow, monkeypatch, check):
-    came, tw = _traced(flow, monkeypatch, stand_in())
-    check("website flow: no target line, the button is not shown", came and not tw.save_line.isVisible()
-          and "target line" not in tw.save_note.text())
+    check("website flow: a renamed target line is a measurement curve: the note about one file for each curve shows "
+          "at once", came and before == "" and tw.curves_note.text().startswith("Saved as one measurement")
+          and len(tw.outputs()) == 2, (before, tw.curves_note.text()))
 
 
 def test_website_graph_is_not_compensated(eq_screen, flow, monkeypatch, check):
@@ -1334,7 +1300,9 @@ def test_line_end_in_entry_name(eq_screen, flow, monkeypatch, check):
 
 def test_entry_words_on_one_line(eq_screen, flow, monkeypatch, check):
     """A tab, U+0085, a C1 and a C0 control character and spaces at the ends of an entry's words: one line, through
-    one_line, the wait window itself, and the flow from the route to the tray message."""
+    one_line, the wait window itself, and the flow from the route to the tray message. Also (_no_width_in_a_word): a
+    character with no width in a word goes with no space, a line end or U+2028 is a space, and a site's name is
+    cleaned in the window's words."""
     from PySide6.QtCore import Qt
     from PySide6.QtWidgets import QApplication
     from ui.picture_wait import PictureWait, one_line
@@ -1349,6 +1317,7 @@ def test_entry_words_on_one_line(eq_screen, flow, monkeypatch, check):
     wait.deleteLater()
     check("website flow: the wait window puts the entry's words on one line (also when its caller did not)",
           head == "Waiting for a graph screenshot of “Gate X Y”…", ascii(head))
+    _no_width_in_a_word(flow, check)
     page = flow["page"]
     real = page.svc.call
 
@@ -1379,10 +1348,12 @@ def test_entry_words_on_one_line(eq_screen, flow, monkeypatch, check):
           and page.tracer.t.src_name == f"Gate X Y ({TAG})", (ascii(heading), [ascii(t) for t in trays]))
 
 
-def test_zero_width_character_in_a_word(eq_screen, flow, check):
+def _no_width_in_a_word(flow, check):
     """A character with no width in a word of an entry's name (a zero-width space, a joiner, a direction mark, the
     byte order mark, a soft hyphen) goes with no space: the name showed as "Ga te" (2026-11-11). A line end, a tab
-    and a control character still become one space."""
+    and a control character still become one space. (Was test_zero_width_character_in_a_word, 2026-11-25: now a
+    part of test_entry_words_on_one_line, so one flow fewer; the tracer is emptied and closed after it, so that Use
+    in that test is not stopped by this picture.)"""
     from ui.picture_wait import PictureWait, clean_entry, one_line
     no_width = [*FORMAT, chr(0xAD), chr(0x061C), chr(0x180E)]  # (also the soft hyphen, two marks of other scripts)
     words = {ascii(c): one_line(f"Ga{c}te") for c in no_width}
@@ -1408,6 +1379,10 @@ def test_zero_width_character_in_a_word(eq_screen, flow, check):
           "box and the file name show “Truthear Gate”", "“Truthear Gate”" in head and "Sites" in intro
           and shown[0] == shown[1] == f"Truthear Gate ({TAG})" and shown[2].startswith("Truthear Gate (")
           and shown[3] == "Truthear Gate", (ascii(head), [ascii(v) for v in shown]))
+    tw.remove_image()
+    tw.close()
+    flow["pk"].show()
+    qt.pump(50)
 
 
 def test_entry_words_are_plain_text(eq_screen, flow, check):
@@ -1492,17 +1467,20 @@ def test_long_entry_name(eq_screen, flow, check):
         wait.reject()
         wait.deleteLater()
     qt.pump(50)
-    long_ok = all(v[0] == 520 and not v[1] and v[2] <= NAME_MAX + 1 and v[3] for k, v in seen.items() if k != ENTRY[:5])
-    check("website flow: a name of 500 characters, with no space and with spaces: the window is 520 px wide, no label "
-          "is cut, the heading has 80 characters of the name at most and “…”, its tooltip has the whole name",
-          long_ok and seen["AAAAA"][4] == "A" * 500 and seen["Word "][4] == ("Word " * 100).strip(),
+    # (2026-11-25, the test audit: the window's width is compared with the width for a usual name, not with the
+    # number 520 (picture_wait.WIDTH, which no decision of the owner set): the fault was a window wider for a long name)
+    usual = seen[ENTRY[:5]][0]
+    long_ok = all(v[0] == usual and not v[1] and v[2] <= NAME_MAX + 1 and v[3] for k, v in seen.items()
+                  if k != ENTRY[:5])
+    check("website flow: a name of 500 characters, with no space and with spaces: the window is as wide as for a usual "
+          "name, no label is cut, the heading has 80 characters of the name at most and “…”, its tooltip has the "
+          "whole name", long_ok and seen["AAAAA"][4] == "A" * 500 and seen["Word "][4] == ("Word " * 100).strip(),
           {k: v[:4] for k, v in seen.items()})
     check("website flow: a usual name is whole in the heading, with no tooltip",
           seen[ENTRY[:5]][2] == len(ENTRY) and seen[ENTRY[:5]][4] == "", seen[ENTRY[:5]])
-    check("website flow: the heading has 80 characters of a long name at most and “…” (81 characters together); a "
-          "name of words has 79 characters (the 80th is a space) and “…”",
-          all(v[2] <= 81 and v[3] for k, v in seen.items() if k != ENTRY[:5]) and seen["Word "][2] == 80,
-          {k: v[2] for k, v in seen.items()})
+    # (the limit of 80 characters and the "…" of each long name: the first check)
+    check("website flow: a name of words has 79 characters (the 80th is a space) and “…” in the heading",
+          seen["Word "][2] == 80 and seen["Word "][3], {k: v[2] for k, v in seen.items()})
 
 
 def _side_on_save(tw):
@@ -1635,8 +1613,8 @@ def test_window_in_front_of_the_graph(eq_screen, flow, monkeypatch, check):
     """Step 1 tells the user to close a window of the website in front of the graph (at the first visit, a website
     shows "Welcome to Squiglink" on top of the graph: the screen copy then had no graph, 2026-11-11), and Help
     #pw-paste tells it too. The window is not wider for it, and no word is cut at 100 %, 125 %, 150 % and 175 % (the
-    room of each scale stood in). Also: Paste the picture has no tooltip: the owner removed the button's own tooltip
-    and the first line of its Help entry (the text survey, 2026-11-24)."""
+    room of each scale stood in). (That Paste the picture has no tooltip is checked in test_paste_takes_old_picture
+    and test_paste_with_nothing: the scale and the step's words do not change it.)"""
     from PySide6.QtCore import QRect
     from PySide6.QtGui import QScreen
     from ui import help_window, picture_wait
@@ -1654,8 +1632,7 @@ def test_window_in_front_of_the_graph(eq_screen, flow, monkeypatch, check):
                 wait.paste()  # (with its note: the highest form of the window)
                 qt.pump(100)
                 seen[(scale, bool(words))] = (wait.width(), _cut(wait), wait.steps()[0],
-                                              wait.height() + 32 <= wait.screen().availableGeometry().height(),
-                                              wait.paste_btn.toolTip())
+                                              wait.height() + 32 <= wait.screen().availableGeometry().height())
                 wait.reject()
                 wait.deleteLater()
     qt.pump(50)
@@ -1689,8 +1666,6 @@ def test_window_in_front_of_the_graph(eq_screen, flow, monkeypatch, check):
           "If a curve goes above or below the grid near an end of the frequency axis, the measurement does not "
           "include that part. The text on 3 Save gives the frequencies." in result
           and "starts or stops at that frequency" not in result, result)
-    check("website flow: Paste the picture has no tooltip (its own and its Help line are removed)",
-          all(v[4] == "" for v in seen.values()), {v[4] for v in seen.values()})
 
 
 def test_long_site_name(eq_screen, flow, monkeypatch, tmp_path, check):
@@ -2420,42 +2395,13 @@ def test_find_a_target_says_add_as_target(eq_screen, fresh_studio, flow, monkeyp
           and record.get("name") == NAME, (after, meas, body, record))
 
 
-def test_one_measurement_curve_and_a_target_line_have_no_note(eq_screen, flow, monkeypatch, check):
-    """2 Trace's note about one file for each curve: not for one measurement curve and the marked target line (Add as
-    measurement saves one file); with two measurement curves it shows."""
-    came, tw = _traced(flow, monkeypatch, stand_in(target=True))
-    tw.show_tab(1)
-    note = tw.curves_note.text()
-    files = [o["file"] for o in tw.outputs()]
-    check("website flow: 2 Trace has no note about one file for each curve with one measurement curve and a marked "
-          "target line", came and note == "" and files == [NAME + ".txt"], (note, files))
-    tw.t.cur = next(i for i, c in enumerate(tw.t.curves) if c.get("target"))
-    tw.t.smooth()  # (the target line becomes a measurement curve: two files)
-    tw.changed()
-    check("website flow: with two measurement curves the note of 2 Trace shows",
-          tw.curves_note.text().startswith("Saved as one measurement") and len(tw.outputs()) == 2,
-          tw.curves_note.text())
-
-
-def test_renamed_target_line_shows_the_note(eq_screen, flow, monkeypatch, check):
-    from PySide6.QtWidgets import QLineEdit
-    came, tw = _traced(flow, monkeypatch, stand_in(target=True))
-    tw.show_tab(1)
-    before = tw.curves_note.text()
-    box = next(b for b in tw.curves_box.findChildren(QLineEdit) if b.text() == "Target")
-    box.setText("R")
-    box.textEdited.emit("R")
-    check("website flow: a renamed target line is a measurement curve: the note about one file for each curve shows "
-          "at once", came and before == "" and tw.curves_note.text().startswith("Saved as one measurement")
-          and len(tw.outputs()) == 2, (before, tw.curves_note.text()))
-
-
 def test_time_values_of_the_wait(check):
+    # (2026-11-25, the test audit: only the time limit, which Find…'s message names ("Timed out after 10 minutes",
+    # eq_page_files.py). POLL_MS and SETTLE_MS are no longer pinned: no text names them, no decision of the owner set
+    # them, and the flow fixture sets both to 30 ms, so no other test depends on their values)
     from ui import picture_wait
-    check("website flow: the time values of the wait: a limit of 10 minutes (the messages say so), a look at the "
-          "Downloads folder each second, the clipboard read 150 ms after its signal",
-          (picture_wait.TIMEOUT_MS, picture_wait.POLL_MS, picture_wait.SETTLE_MS) == (10 * 60 * 1000, 1000, 150),
-          (picture_wait.TIMEOUT_MS, picture_wait.POLL_MS, picture_wait.SETTLE_MS))
+    check("website flow: the time limit of the wait is 10 minutes (the messages say so)",
+          picture_wait.TIMEOUT_MS == 10 * 60 * 1000, picture_wait.TIMEOUT_MS)
 
 
 def test_clipboard_that_gives_its_picture_late(eq_screen, flow, monkeypatch, check):
@@ -2518,19 +2464,6 @@ def test_jpeg_without_its_end_mark_is_not_taken(eq_screen, flow, check):
           and out["whole.jpg"][:2] == [False, True], out)
     check("website flow: a JPEG file that stays without its end mark is taken after READ_TRIES looks",
           out["half.jpg"] == [False] * (looks_n - 1) + [True], out)
-
-
-def test_guide_button_off_during_the_read(eq_screen, flow, monkeypatch, check):
-    monkeypatch.setattr(trace_core, "auto_read", stand_in(delay=1.0))
-    _use(flow)
-    _copy(_graph())
-    page = flow["page"]
-    qt.wait_for(lambda: getattr(page, "tracer", None) is not None and page.tracer.reading_graph, 10)
-    tw = page.tracer
-    during = tw.guide_btn.isEnabled()
-    came = _picture_came(page)
-    check("website flow: while the automatic read runs, the Guide button does not accept input (and accepts it after)",
-          came and not during and tw.guide_btn.isEnabled(), during)
 
 
 def test_guide_save_step_keeps_off_the_target_line(eq_screen, flow, monkeypatch, tmp_path, check):
@@ -2606,10 +2539,14 @@ def test_paste_the_picture_takes_a_small_picture(eq_screen, flow, check):
     small = QImage(299, 400, QImage.Format_RGB888)
     small.fill(QColor("white"))
     _copy(small)
-    qt.pump(300)
-    stays = wait.isVisible() and wait.got is None
-    wait.paste()
-    came = _picture_came(flow["page"])
+    qt.pump(300)  # (longer than SETTLE_MS, which the flow fixture sets to 30 ms: the clipboard was read)
+    # (_closed: a wait that the small picture ended is deleted, and its isVisible would raise in place of a FAIL line)
+    stays = not _closed(wait) and wait.got is None
+    # (was test_small_picture_does_not_end_wait, 2026-11-25: the same picture, a check of its own)
+    check("website flow: a picture smaller than 300 x 200 does not end the wait", stays)
+    if stays:
+        wait.paste()
+    came = stays and _picture_came(flow["page"])
     check("website flow: Paste the picture takes a picture smaller than 300 x 200 (the picture on the clipboard, old "
           "or new)", stays and came and _closed(wait) and flow["page"].tracer.t.W == 299 - 10,
           (stays, came, flow["page"].tracer.t.W))
@@ -3066,32 +3003,6 @@ def test_the_tracer_in_front_again_keeps_the_focus_of_the_user(eq_screen, check)
           (open_behind, after_close))
 
 
-def test_with_no_picture_the_tracer_leaves_the_focus_on_open_image(eq_screen, check):
-    # (2026-11-15, the verifier of round 3: with no picture, the tracer that opens gives no focus, and Open image…
-    # keeps it. Without the check of a picture, the empty picture took it, and Space did nothing. No test found that)
-    from PySide6.QtCore import Qt
-    from PySide6.QtWidgets import QApplication
-    page = eq_screen.page
-    page.open_trace()
-    tw = page.tracer
-    tw.remove_image()
-    tw.activateWindow()
-    qt.pump(30)
-    tw.open_btn.setFocus(Qt.OtherFocusReason)  # (as a new tracer has it)
-    qt.pump(30)
-    before = QApplication.focusWidget() is tw.open_btn
-    tw.close()
-    qt.pump(30)
-    page.activateWindow()
-    page.trace_btn.click()
-    qt.pump(100)
-    f = QApplication.focusWidget()
-    tw.close()
-    qt.pump(30)
-    check("tracer: with no picture, Trace a graph image… leaves the focus on Open image… (the empty picture took it)",
-          before and f is tw.open_btn, (before, f.text() if hasattr(f, "text") else f))
-
-
 def test_a_load_with_the_focus_on_guide_gives_the_focus_to_the_picture(eq_screen, monkeypatch, check):
     # (2026-11-15, the verifier of round 3: a load turns Guide off, and Qt then gives its focus to Open image… with the
     # reason of Tab. busy is set after that, so it is not a selection of the user. Set before, Open image… kept the
@@ -3206,6 +3117,9 @@ def test_after_remove_image_open_image_has_the_focus(eq_screen, dialogs, check):
         qt.pump(30)
         page.trace_btn.click()
         qt.pump(100)
+        # (2026-11-15, the verifier of round 3: with no picture, the tracer that opens gives no focus, and Open image…
+        # keeps it; without focus_picture's check of a picture, the empty picture took it, and Space did nothing.
+        # This case also stands for the former test_with_no_picture_the_tracer_leaves_the_focus_on_open_image)
         seen["Trace a graph image… after a removal and a close"] = focus()
     finally:
         tw.remove_image()

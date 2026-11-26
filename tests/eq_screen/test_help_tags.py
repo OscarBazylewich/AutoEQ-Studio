@@ -128,6 +128,18 @@ def test_controls_without_a_tooltip(eq_screen, check):
           got == {"View": ("", "View", "", "#opt-view"), "Start from": ("", "Start from", "", "#by-hand"),
                   "Start": ("", "Start (Manually)", "", "#hand-start"),
                   "Use on device": ("", "Use on device (Make an EQ)", "", "#use-device")}, got)
+    # (from test_use_on_device_has_its_own_help, the test audit of 2026-11-25: its tag and its empty tooltip are in the
+    # check above, its entry's title and links are only here. 2026-11-11: the button had the tag of Use for 5 minutes
+    # on, so its tooltip and F1 told only one of its 3 functions; since the text survey, 2026-11-24, it has no tooltip
+    # and its entry tells the 3)
+    btn = page.use_btn
+    entry = help_window.entry_for(btn.property("help_key") or "")
+    e = help_window._by_id().get(entry or "", {})  # (as tests/ui/test_help.py reads the entries)
+    check("help: Use on device has its own Help entry, which links to Update a profile and Use for 5 minutes on, and "
+          "no tooltip",
+          btn.property("help_key") == "#use-device" and entry == "set-use-device" and btn.toolTip() == ""
+          and e.get("title") == "Use on device (Make an EQ)" and e.get("see") == ["set-use-update", "set-use-try"],
+          (btn.property("help_key"), entry, btn.toolTip(), e.get("title"), e.get("see")))
     own = {"Compare…": page.cmp_btn, "Automatically": page.way_btns["auto"], "Manually": page.way_btns["hand"]}
     got = {n: (w.toolTip(), bool(w.accessibleName()), qt.description(w)) for n, w in own.items()}
     check("help: Compare… and the tabs Automatically and Manually keep the tooltip of their own, which a screen reader "
@@ -328,21 +340,6 @@ def test_handle_tooltip_names_its_menu(check):
           tip.endswith("\nDrag: freq & gain · Scroll: Q · Right-click: filter type or remove") and 'addAction("Remove"' in menu and '"On"' not in menu, tip)
 
 
-def test_use_on_device_has_its_own_help(eq_screen, check):
-    # (2026-11-11: the button had the tag of Use for 5 minutes on, so its tooltip and F1 told only one of its 3
-    # functions)
-    from ui import help_window
-    btn = eq_screen.page.use_btn
-    entry = help_window.entry_for(btn.property("help_key") or "")
-    e = help_window._by_id().get(entry or "", {})  # (as tests/ui/test_help.py reads the entries)
-    # (2026-11-24, the text survey: the button has no tooltip any more; its entry tells its 3 functions)
-    check("help: Use on device has its own Help entry, which links to Update a profile and Use for 5 minutes on, and "
-          "no tooltip",
-          btn.property("help_key") == "#use-device" and entry == "set-use-device" and btn.toolTip() == ""
-          and e.get("title") == "Use on device (Make an EQ)" and e.get("see") == ["set-use-update", "set-use-try"],
-          (btn.property("help_key"), entry, btn.toolTip(), e.get("title"), e.get("see")))
-
-
 def test_update_words_are_true_for_each_device(check):
     # (2026-11-11: the short help of Update and the Guide said that the devices that have the profile on use the new
     # EQ, with no condition: untrue for a device that is not connected or has no Equalizer APO)
@@ -362,21 +359,23 @@ def test_update_words_are_true_for_each_device(check):
     text = " ".join(p for p in body if isinstance(p, str))
     items = next(p for p in body if isinstance(p, list))
     late = [s for s in " ".join(items).split(". ") if "immediately" in s]
+    # (each item by the facts that were corrected, not word for word: the owner did not decide these words, the Help
+    # pages are not in the text survey; the test audit, 2026-11-25. 2026-11-12: Keep it makes the EQ for 5 minutes a
+    # new profile that is on, so that device does not use the new EQ after the 5 minutes: the two states are said
+    # apart, as switcher.core does. Do not keep it stops the EQ for 5 minutes before the 5 minutes: "when it stops",
+    # not "after")
+    facts = (("Equalizer APO does not use AutoEQ Studio", "no device uses the new EQ immediately",
+              "Add AutoEQ Studio to APO…"),
+             ("EQ for 5 minutes, it does not change", "Keep it", "a new profile of the device, and this profile is on",
+              "do not click Keep it", "the new EQ when the EQ for 5 minutes stops"),
+             ("EQ off to compare, it does not change", "When its EQ is on again", "the new EQ"),
+             ("not connected", "the new EQ when you connect it"),
+             ("Equalizer APO is not installed", "does not use the EQ", "Devices"),
+             ("In all other conditions, a connected device uses the new EQ immediately",))
+    missing = [[p for p in want if p not in item] for want, item in zip(facts, items)]
     check("help: the long help of Update a profile gives each condition first, and says “immediately” only with it",
-          items == ["If Equalizer APO does not use AutoEQ Studio, no device uses the new EQ immediately. The devices "
-                    "use it after you click Add AutoEQ Studio to APO… on the Devices screen.",
-                    # (2026-11-12: Keep it makes the EQ for 5 minutes a new profile that is on, so that device does
-                    # not use the new EQ after the 5 minutes: the two states are said apart, as switcher.core does.
-                    # Do not keep it stops the EQ for 5 minutes before the 5 minutes: "when it stops", not "after")
-                    "While a device uses an EQ for 5 minutes, it does not change. If you click Keep it, the EQ for 5 "
-                    "minutes becomes a new profile of the device, and this profile is on. If you do not click Keep "
-                    "it, the device uses the new EQ when the EQ for 5 minutes stops.",
-                    "While a device has its EQ off to compare, it does not change. When its EQ is on again, the "
-                    "device uses the new EQ.",
-                    "A device that is not connected uses the new EQ when you connect it.",
-                    "A device on which Equalizer APO is not installed does not use the EQ (refer to Devices).",
-                    "In all other conditions, a connected device uses the new EQ immediately."]
-          and all(s.startswith(("If ", "In all other conditions, ")) for s in late), (items, late))
+          len(items) == len(facts) and not any(missing) and "after the EQ for 5 minutes" not in " ".join(items)
+          and all(s.startswith(("If ", "In all other conditions, ")) for s in late), (items, missing, late))
     check("help: the long help of Update a profile tells the rule of the message (a maximum of 3 names for each group)",
           "The message after the update shows each group of devices with a maximum of 3 names, and the number of "
           "other devices." in text and "first device of each group" not in text, text)

@@ -10,7 +10,7 @@ them already (Make an EQ's tests, a helper): those make their window in a Python
 stand-in APO folder in the test's folder, and the test checks what it prints.
 """
 import net
-from helpers import qt, session, subproc
+from helpers import qt, session, stand_in_app, subproc, window_app
 
 COVERS = ("ui.window", "switcher.core", "switcher.apo", "switcher.devices", "net")
 
@@ -28,28 +28,7 @@ from switcher import core
 from switcher import devices as D
 from switcher.apo import Apo
 
-
-class Stub:  # (what the window asks of the app)
-    hotkey_problem = ""
-
-    def __init__(self):
-        self.said = []
-
-    def tray_message(self, title, text):
-        self.said.append(title)
-
-    @staticmethod
-    def autostart_on():
-        return False
-
-    def set_autostart(self, on):
-        pass
-
-    @staticmethod
-    def set_offline(on):
-        import net
-        net.set_offline(on)
-
+''' + stand_in_app.STUB_APP + r'''
 
 conf = os.path.join(top, "apo", "config")
 eps = [D.Endpoint("{5}", "Headset", "EarPods", D.ACTIVE, False),
@@ -57,7 +36,7 @@ eps = [D.Endpoint("{5}", "Headset", "EarPods", D.ACTIVE, False),
 sw = core.Switcher(os.path.join(top, "s.json"), Apo(conf), endpoints=lambda: eps, playing=lambda: "{5}")
 from ui.window import Window
 sw.s["page"] = page
-win = Window(sw, Stub())
+win = Window(sw, StubApp())
 win.resize(1040, 760)  # (its size on a PC: the off-screen screen is 800 px wide, with only the screens' symbols)
 if page == "devices":
     win.show()
@@ -398,25 +377,7 @@ from switcher import core
 from switcher import devices as D
 from switcher.apo import Apo
 
-
-class Stub:
-    hotkey_problem = ""
-
-    def tray_message(self, title, text):
-        pass
-
-    @staticmethod
-    def autostart_on():
-        return False
-
-    def set_autostart(self, on):
-        pass
-
-    @staticmethod
-    def set_offline(on):
-        import net
-        net.set_offline(on)
-
+''' + stand_in_app.STUB_APP + r'''
 
 eps = [D.Endpoint("{5}", "Headset", "EarPods", D.ACTIVE, False)]
 sw = core.Switcher(os.path.join(top, "s.json"), Apo(os.path.join(top, "apo", "config")), endpoints=lambda: eps,
@@ -430,7 +391,7 @@ def pump():
         qapp.processEvents()
 
 
-win = Window(sw, Stub())
+win = Window(sw, StubApp())
 win.show()
 pump()
 out = {"translucent": win.testAttribute(Qt.WA_TranslucentBackground), "dark": win.property("mica"),
@@ -486,14 +447,8 @@ def test_fits_a_small_screen(qapp, stub_app, tmp_path, monkeypatch, check):
     # (672 px above the taskbar) and 175 %: its status line under the taskbar. No Equalizer APO folder here, so the
     # window asks APO nothing in the background and closes at once)
     from helpers import qt
-    from switcher import core
-    from switcher import devices as D
-    from switcher.apo import Apo
     from ui.window import Window
-    eps = [D.Endpoint("{5}", "Headset", "EarPods", D.ACTIVE, False)]
-    sw = core.Switcher(str(tmp_path / "s.json"), Apo(str(tmp_path / "no-apo")), endpoints=lambda: eps,
-                       playing=lambda: "{5}")
-    sw.s["page"] = "devices"
+    sw = window_app.switcher(tmp_path)
     seen = qt.on_screens(monkeypatch, lambda: Window(sw, stub_app))
     big = seen[qt.BIG_SCREEN]
     check("window: opens within a laptop's screen at 150 % and 175 % (above the taskbar, its smallest size too), its "

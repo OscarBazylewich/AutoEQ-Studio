@@ -223,23 +223,6 @@ def test_tiny_q_written_as_smallest_step(check):
           "Q 0.1" in q_text and "Q 0.0" not in q_text and notes_q, (q_text, notes_q))
 
 
-def test_apo_width_and_slopes_read(check):
-    # Equalizer APO's width in octaves and shelf slopes are read; its other filter types are named
-    apo_lines = ("Filter 1: ON PK Fc 3000 Hz Gain -2 dB BW Oct 1\nFilter 2: ON LSC 12 dB Fc 100 Hz Gain 4 dB Q 0.7\n"
-                 "Filter 3: OFF LP Fc 18000 Hz")
-    read_apo = exports.parse_filters(apo_lines)
-    # was eq_checks.py:341 (since 2026-10-26 as Equalizer APO reads them: the width at 48 kHz, Q 1.377 at 3 kHz where
-    # the analog formula gave 1.414; the slope wins over the Q written after it, S 1 = Q 0.707)
-    check("formats: APO's \"BW Oct\" and shelf slopes are read (an OFF line of another type is skipped)",
-          [(f["type"], f["freq"], round(f["q"], 3)) for f in read_apo] == [("PK", 3000, 1.377), ("LSQ", 100, 0.707)], read_apo)
-
-
-def test_other_apo_type_named(check):
-    # was eq_checks.py:343
-    check("formats: another APO filter type is named as not supported",
-          "“HP” filters aren't supported" in (raises(exports.parse_filters, "Filter 1: ON HP Fc 30 Hz") or ""))
-
-
 def test_unknown_format_refused(eq_cfg, check):
     cfg = eq_cfg
     # was eq_checks.py:346

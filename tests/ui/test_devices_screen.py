@@ -988,21 +988,26 @@ def test_the_button_on_with_its_tooltip(devices_window, qapp, check):
 
 
 def test_the_help_of_remove_says_from_devices(check):
-    # (2026-11-12: a source line of 121 characters)
+    # (2026-11-12: a source line of 121 characters. The 120-character limit stays: the commit c611474 of 2026-11-23
+    # kept it. The test audit of 2026-11-25 took out two parts: the lines were cut at the text {'key': '#use-device'
+    # (the next entry, with these quotes), so a change of the quotes or of the order of the entries broke the check;
+    # they are now the lines from the entry's key to the next key, in either quotes. And the empty line of
+    # "#dev-remove" in HELP: tests\eq_screen\test_help_tags.py's test_controls_without_a_tooltip checks it with the
+    # other empty lines, NO_TOOLTIP)
+    import re
     from ui import help_text_devices as H
     entry = next(i for s in H.SETTINGS_DEVICES for i in s["items"] if i["key"] == "#dev-remove")
     texts = entry["body"] + [H.HELP_DEVICES["#dev-remove"]]
     with open(H.__file__, encoding="utf-8") as fh:
-        source = fh.read()
-    part = source[source.index("'#dev-remove'"):]
-    part = part[:part.index("\n")] + "\n" + part[part.index("{'key': '#dev-remove'"):part.index("{'key': '#use-device'")]
-    wide = [line for line in part.split("\n") if len(line) > 120]
+        lines = fh.read().split("\n")
+    key = re.compile(r"""["']key["']\s*:""")
+    first = next(i for i, line in enumerate(lines) if key.search(line) and "#dev-remove" in line)
+    end = next((i for i in range(first + 1, len(lines)) if key.search(lines[i])), len(lines))
+    part = lines[first:end] + [line for line in lines[:first] if "#dev-remove" in line]  # (and its line in HELP)
+    wide = [line for line in part if len(line) > 120]
     check("devices: the source lines of the Help of Remove have 120 characters or fewer; the words say \"from "
           "Devices\" (one name), not \"from the list\"",
-          not wide and "from the list" not in " ".join(texts)
-          # (2026-11-24: its line is empty, as Remove shows its own tooltip of the survey's area 27)
-          and H.HELP_DEVICES["#dev-remove"] == "",
-          (wide, texts))
+          not wide and "from the list" not in " ".join(texts), (wide, texts))
 
 
 def test_rename_and_examine_again_without_a_help_line(apo_on, check, monkeypatch):
@@ -1042,7 +1047,9 @@ def test_rename_and_examine_again_without_a_help_line(apo_on, check, monkeypatch
 def test_every_tagged_control_reads_its_tooltip(apo_on, check):
     # (the owner's rule of 2026-11-24: the line a screen reader reads after a control's name is its tooltip. A review
     # of the text survey found help_window.tag giving the Help line as the description, which stayed when the
-    # control's own code gave it a different tooltip. Every control of the window tagged for F1, on each screen)
+    # control's own code gave it a different tooltip: Remove (a device) was the first case found, and its own test
+    # went in the test audit of 2026-11-25, as this one fails for it too. Every control of the window tagged for F1,
+    # on each screen)
     from PySide6.QtWidgets import QWidget
     win = apo_on.win
     tagged = [w for w in win.findChildren(QWidget) if w.property("help_key")]
@@ -1050,19 +1057,6 @@ def test_every_tagged_control_reads_its_tooltip(apo_on, check):
               if qt.description(w) != w.toolTip()]
     check("devices: a screen reader reads the tooltip of each control of the window tagged for F1",
           len(tagged) > 10 and not differ, (len(tagged), differ))
-
-
-def test_remove_reads_its_tooltip_to_a_screen_reader(set_up_window, check):
-    # (the line for a screen reader is the tooltip, the owner's rule of 2026-11-24: Remove has a tooltip of its own,
-    # and tag() gave it the different first line of "#dev-remove" in HELP as its description)
-    from PySide6.QtWidgets import QPushButton
-    win = set_up_window.win
-    win.render_device_panel()
-    rem = next(b for b in win.dev_panel.findChildren(QPushButton) if b.text() == "Remove")
-    got = (rem.toolTip(), qt.description(rem), rem.property("help_key"))
-    check("devices: a screen reader reads Remove's tooltip as its description; F1 still opens its Help entry",
-          got == ("Remove from Devices. Its profiles stay in Profiles.",
-                  "Remove from Devices. Its profiles stay in Profiles.", "#dev-remove"), got)
 
 
 def test_a_connected_device_stays_and_a_bubble_tells_why(devices_window, qapp, check):

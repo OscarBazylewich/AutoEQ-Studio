@@ -2,10 +2,10 @@
 minimized tracer is not minimized after Trace a graph image…, a picture pasted on the Make an EQ page and a picture
 from a website, and a maximized tracer comes back maximized. (2026-11-11, a trial on the real desktop: the minimized
 tracer stayed minimized when a new picture from a website came.)"""
-import numpy as np
 from PySide6.QtCore import Qt
 
 from helpers import qt
+from helpers.tracer_reads import not_ok_read
 from ui import trace_core
 from ui.trace_window import sample_image
 
@@ -13,20 +13,11 @@ from ui.trace_window import sample_image
 COVERS = ("ui.trace_core", "ui.ocr", "ui.eq_page", "ui.eq_page_files", "eq.service", "eq.inputs")
 
 
-def _stand_in_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
-    """The automatic read stood in: a read that was not OK (fast, with no text reader)."""
-    from ui import trace_auto
-    t = trace_core.Tracer()
-    t.load(np.array(rgb, np.uint8, copy=True), name, jpeg)
-    return trace_auto.AutoRead(False, t, [trace_auto.Check("trace_curve", False, "No curve.")], None, None, None,
-                               None, None, 0.01)
-
-
 def _ways(page, monkeypatch):
     """The three ways that bring the tracer to the front: Trace a graph image…, a picture pasted on the page, a
     picture from a website (after the wait window)."""
     from PySide6.QtWidgets import QApplication
-    monkeypatch.setattr(trace_core, "auto_read", _stand_in_read)
+    monkeypatch.setattr(trace_core, "auto_read", not_ok_read)
     img, _s = sample_image()
 
     def button():

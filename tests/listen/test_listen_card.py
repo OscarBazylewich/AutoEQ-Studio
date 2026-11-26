@@ -20,7 +20,7 @@ from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import QPushButton
 
-from helpers import eqpage
+from helpers import eqpage, qt
 from ui.history_window import HistoryWindow
 
 # (what the card reaches through the page: for app\tools\relevant_tests.py)
@@ -336,11 +336,22 @@ def test_volume_saved_a_moment_later(card, check):
         sw.listeners.remove(listener)  # (the old check left it there for the rest of its run)
 
 
-def test_tone_shown_pasted_eq_and_undo(card, check):
+def test_tone_shown_pasted_eq_and_undo(card, monkeypatch, check):
+    from PySide6.QtWidgets import QLabel
+
+    from ui import eq_page_parts
     lis = card.lis
     tone_text = lis.tone_lab.text()
-    lis._add_text("Filter 1: ON PK Fc 333 Hz Gain 2 dB Q 1", "Pasted check", "pasted")
+    # (Paste filters… as a click on it adds the EQ: its window answered with a name and a filter. The test audit of
+    # 2026-11-25: the check before called _add_text with the note "pasted" itself, so it passed with any note of
+    # add_paste, and it did not look at the row)
+    monkeypatch.setattr(eq_page_parts, "paste_dialog", lambda *a, **k: ("Pasted check", "Filter 1: ON PK Fc 333 Hz Gain 2 dB Q 1"))
+    lis.add_paste()
+    monkeypatch.undo()
     pasted_note = lis.pins[-1]["note"] if lis.pins else ""
+    qt.pump(50)  # (the layout shows the new rows a moment later; the old rows are hidden at once)
+    row_notes = [lab.text() for lab in lis.pins_box.findChildren(QLabel)
+                 if lab.isVisibleTo(lis.pins_box) and lab.text().endswith(" · pasted")]
     added_said = card.said[-1]
     lis._remove(lis.pins[-1])
     removed_said = card.said[-1]
@@ -352,8 +363,8 @@ def test_tone_shown_pasted_eq_and_undo(card, check):
           and removed_said == "Removed “Pasted check” from EQs to compare", (added_said, removed_said))
     # was eq_checks.py:1921
     check("review: Listen: the tone's frequency shown from the start; a pasted EQ says so; ✕ offers Undo, which puts it back",
-          tone_text.endswith("Hz") and pasted_note == "pasted" and undo_shown and len(lis.pins) == n + 1,
-          (tone_text, pasted_note, undo_shown, len(lis.pins), n))
+          tone_text.endswith("Hz") and pasted_note == "pasted" and row_notes == ["1 filter · pasted"] and undo_shown
+          and len(lis.pins) == n + 1, (tone_text, pasted_note, row_notes, undo_shown, len(lis.pins), n))
 
 
 def test_tone_range_values_used_and_kept(card, check):

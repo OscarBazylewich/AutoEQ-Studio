@@ -234,6 +234,8 @@ def _iscc_places():
 
 
 def test_iscc_looked_for_in_the_real_places(check):
+    # (the first place is the install for the user only, under the real LOCALAPPDATA, as on this PC: a test of that
+    # place alone gave the same check, and went in the test audit of 2026-11-25)
     expected = next((p for p in _iscc_places() if os.path.isfile(p)), None)
     found = capabilities.iscc_path()
     check("isolation: capabilities.iscc_path() looks for Inno Setup in the real LOCALAPPDATA and Program Files, not "
@@ -250,12 +252,3 @@ def test_capabilities_answer(check):
                                                       and isinstance(v[1], str) and v[1])}
     check("isolation: each capability answers (found or not, and what was found or why not, in words)", not wrong,
           wrong or {k: v[0] for k, v in answers.items()})
-
-
-def test_iscc_found_for_the_user_only(check):
-    name = ("isolation: Inno Setup installed for the user only (under the real LOCALAPPDATA, which the session "
-            "replaces) is found from inside a session")
-    mine = _iscc_places()[0] if S.real_env.get("LOCALAPPDATA") else None
-    if not (mine and os.path.isfile(mine)):
-        check.skipped("Inno Setup isn't installed for the user only here (not under LOCALAPPDATA)", name)
-    check(name, capabilities.iscc_path() == mine, (capabilities.iscc_path(), mine))

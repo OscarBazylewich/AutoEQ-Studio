@@ -156,29 +156,6 @@ def test_chart_in_the_graphs_colours(eq_screen, monkeypatch, check):
           (light, dark, t_light["accent"], t_dark["accent"]))
 
 
-def test_smallest_size_fits(eq_screen, monkeypatch, check):
-    # (Qt's own smallest size counts each wrapped line of text once: at it, the chart's card was squeezed and its
-    # scale cut off, and the model's box was a few letters wide beside a long target name)
-    from PySide6.QtWidgets import QWidget
-    cw = _shown_with(eq_screen.page, monkeypatch)
-    try:
-        cw.resize(1, 1)  # (to its smallest)
-        qt.pump(300)
-        size = (cw.width(), cw.height())
-        parts = [w for w in cw.findChildren(QWidget) if w.parentWidget() is cw and w.isVisible()]
-        name = lambda w: f"{type(w).__name__} “{(w.text() if hasattr(w, 'text') else w.objectName())[:20]}”"
-        over = [(name(a), name(b)) for i, a in enumerate(parts) for b in parts[i + 1:]
-                if a.geometry().intersects(b.geometry())]
-        card = cw.chart.parentWidget()
-        chart = (cw.chart.height(), cw.chart.minimumHeight(), card.rect().contains(cw.chart.geometry()))
-        box = (cw.q.width(), cw.q.sizeHint().width())
-    finally:
-        qt.close(cw)
-    check("restyle: Which measurement at its smallest gives every part its room (the chart whole with its scale, the "
-          "model's box its own width, nothing over another)",
-          parts and not over and chart[0] >= chart[1] and chart[2] and box[0] >= box[1], (size, chart, box, over[:3]))
-
-
 def test_one_main_action(eq_screen, monkeypatch, check):
     # (Compare, the first Use and every "Average N and use" had the accent: two to four at once. Windows 11 keeps it
     # for the one main action)
@@ -243,7 +220,8 @@ def test_fits_a_small_screen(eq_screen, monkeypatch, check):
                 and max(opens[0], cw.width()) <= width,
                 "Close in sight": close.isVisible() and cw.rect().contains(close.geometry()), "over": over,
                 "chart": (cw.chart.height(), cw.chart.minimumHeight(), card.rect().contains(cw.chart.geometry())),
-                "list": (cw.scroll.height(), cw.scroll.minimumHeight())}
+                "list": (cw.scroll.height(), cw.scroll.minimumHeight()),
+                "model's box": (cw.q.width(), cw.q.sizeHint().width())}
         finally:
             qt.close(cw)
     small, big = [seen[h] for _w, h in SMALL_SCREENS], seen[1032]
@@ -254,6 +232,14 @@ def test_fits_a_small_screen(eq_screen, monkeypatch, check):
               and s["list"][0] >= s["list"][1] for s in small)
           and big["opens"] == (940, 860) and big["smallest"] == (700, 660) and big["chart"][1:] == (150, True)
           and big["list"][1] == 120 and big["Close in sight"] and not big["over"], seen)
+    # (from test_smallest_size_fits, the test audit of 2026-11-25, whose other parts this test has: Qt's own smallest
+    # size counts each wrapped line of text once, and at it the model's box was a few letters wide beside a long
+    # target name. On every screen here: the window's smallest width is 700 px on each)
+    check("restyle: Which measurement at its smallest gives every part its room (the chart whole with its scale, the "
+          "model's box its own width, nothing over another)",
+          all(not s["over"] and s["chart"][0] >= s["chart"][1] and s["chart"][2]
+              and s["model's box"][0] >= s["model's box"][1] for s in seen.values()),
+          {h: (s["chart"], s["model's box"], s["over"][:3]) for h, s in seen.items()})
 
 
 def test_boxes_words_start_as_a_cards(eq_screen, monkeypatch, check):

@@ -97,14 +97,6 @@ def test_notes_of_peace_and_neutron(check):
 
 
 # ---------------------------------------------------------------- FxSound's band counts
-def test_fxsound_ten_bands_are_those_of_fxsound(check):
-    # (a repair: the app had 10 bands from 20 Hz to 20 kHz with Q 1.0; FxSound 1.2.14.0 and later has 62.5 Hz to
-    # 16 kHz with Q 1.598: GraphicEqSet.cpp, the source in eq_apps.py)
-    freqs, q = layouts.bands({"layout": "app:fxsound"})
-    check("FxSound: its 10 bands start at 62.5 Hz and end at 16 kHz, with Q 1.598",
-          len(freqs) == 10 and (freqs[0], freqs[-1]) == (62.5, 16000) and q == 1.598, (freqs, q))
-
-
 def test_fxsound_offers_its_five_counts(check):
     sets = eq_apps.band_sets("fxsound")
     # the Q of FxSound for a count: max(1, sqrt(r) / (r - 1)), r the ratio of two bands next to each other
@@ -119,10 +111,6 @@ def test_fxsound_offers_its_five_counts(check):
           [sets[n][1] for n in sorted(sets)] == [1.0, 1.598, 2.148, 2.828, 4.333]
           and all(abs(fx_q(f) - q) < 0.0006 for f, q in sets.values()),
           [(sets[n][1], round(fx_q(sets[n][0]), 4)) for n in sorted(sets)])
-    check("FxSound: the ends of each set (5 and 10: 62.5 Hz to 16 kHz; 15: 25 Hz; 20: 20 Hz; 31: 20 Hz to 20 kHz)",
-          {n: (f[0], f[-1]) for n, (f, _q) in sets.items()} == {5: (62.5, 16000), 10: (62.5, 16000), 15: (25, 16000),
-                                                                20: (20, 16000), 31: (20, 20000)},
-          {n: (f[0], f[-1]) for n, (f, _q) in sets.items()})
     check("FxSound: bands() gives the set of a count, and the default set with no count",
           all(layouts.bands({"layout": "app:fxsound"}, n) == (sets[n][0], sets[n][1]) for n in sets)
           and layouts.bands({"layout": "app:fxsound"}) == (sets[10][0], sets[10][1]))
@@ -135,9 +123,10 @@ def test_fxsound_offers_its_five_counts(check):
 
 
 def test_fxsound_bands_are_the_tables_of_its_source(check):
-    # The tables a second time, from the source: GraphicEqSet.cpp lines 118-250 and 430-492 of fxsound-app (main,
+    # The tables of FxSound, from the source: GraphicEqSet.cpp lines 118-250 and 430-492 of fxsound-app (main,
     # file commit 5246dbd9 of 2026-08-22, fetched 2026-11-24): a changed inner frequency of eq_apps.py (115.734 ->
-    # 120 Hz) passed every other check, which look at the number of bands, the two ends and the Q
+    # 120 Hz) passed the checks of that time, which looked only at the number of bands, the two ends and the Q. These
+    # tables also fix the two ends of each set (their own check went in the test audit of 2026-11-25)
     iso_31 = [20, 25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000,
               2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000]  # (the ISO 1/3-octave centres)
     source = {5: [62.5, 250, 1000, 4000, 16000],

@@ -8,12 +8,13 @@ import types
 
 import pytest
 
-from switcher import core
-
 KEY = "Headset|EarPods"
 
 
 def test_settings_row(devices_window, check):
+    # (the first test of the file, on the window's new settings file: so it also holds the defaults of a new copy,
+    # switcher.core.DEFAULTS. A test of DEFAULTS alone went in the test audit of 2026-11-25: a default changed fails
+    # this one too. A test put before it must leave the hotkey and Level-matched as it found them)
     from PySide6.QtWidgets import QLineEdit
     from ui import help_window
     w = devices_window
@@ -175,8 +176,3 @@ def test_the_tray_menu_item(on_device, qapp, check):
     check("onoff: the tray menu has “EQ off for now, to compare” with the key beside it; chosen, the device's EQ is off "
           "for now and the item ticked",
           before == ("EQ off, to compare\tCtrl+Alt+Space", True, False) and after, (before, after))
-
-
-def test_defaults(check):
-    check("onoff: a new copy's on/off hotkey is Ctrl+Alt+Space, level-matched",
-          core.DEFAULTS["onoff_hotkey"] == "Ctrl+Alt+Space" and core.DEFAULTS["onoff_matched"] is True)
