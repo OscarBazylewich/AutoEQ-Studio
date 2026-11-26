@@ -5,9 +5,10 @@ Use on device (a new profile of a device; Update a profile: into a profile you h
 on).
 Manually (Make the EQ's second way, set_way: its tab beside Automatically): an EQ of your own, begun empty, from an EQ
 file (Equalizer APO's lines, a Room EQ Wizard export, a Peace preset: read as Equalizer APO plays them,
-eq\\eqtext.py), from pasted lines, from a device's profile or as a copy of the EQ shown (Start from, then Start). It's a
-run of its own ("manual", one result), so everything a result has works for it; begun from a profile, Use on device
-can update that profile.
+eq\\eqtext.py), from lines pasted in the card's Filters box, from a device's profile or as a copy of the EQ shown
+(Start from, then Start; for an EQ file, Import an EQ file…; for an empty EQ, also Add filter). It's a run of its own
+("manual", one result), so everything a result has works for it; begun from a profile, Use on device can update that
+profile.
 EqResult is a plain class (no __init__, no signals); EqPage (ui/eq_page.py) joins it with the other parts.
 """
 import os
@@ -16,12 +17,12 @@ import tempfile
 import numpy as np
 import paths
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
 import textfile
-from ui import bubble
-from ui.eq_page_parts import (MESSAGE_NAMES, MODE_SHORT, PASTE_HINT, and_list, count_words, file_base_name, first_names,
-                              modal, row_name, skipped_words, update_row_words, use_menu_order)
+from ui import bubble, icons
+from ui.eq_page_parts import (MESSAGE_NAMES, MODE_SHORT, and_list, count_words, file_base_name, first_names, modal,
+                              row_name, skipped_words, update_row_words, use_menu_order)
 from ui.search_combo import natural_key
 
 # Manually's Start from: an EQ's sources in the order every such list has (.claude/notes/UI-RULES.md 16), each with the
@@ -30,10 +31,15 @@ HAND_SOURCES = (("empty", "An empty EQ", "Double-click the graph or click Add fi
                  "or edit the table below"),
                 ("copy", "A copy of the selected EQ", "Edits a copy of the current result (original stays unchanged). "
                  "Adjust filters on the graph or in the table below."),
-                ("file", "An EQ file", "Click Start… to import an Equalizer APO, AutoEq, REW, or Peace file, then edit "
-                 "filters on the graph or table below"),
-                ("paste", "Pasted filters", "Click Start… to paste Equalizer APO, REW, or line-by-line filters, then "
-                 "edit them on the graph or table below"))
+                ("file", "An EQ file", "Click Import an EQ file… to import an Equalizer APO, AutoEq, REW, or Peace "
+                 "file, then edit filters on the graph or table below"),
+                ("paste", "Pasted filters", "Paste Equalizer APO, REW, or line-by-line filters in the Filters box and "
+                 "click Start, then edit them on the graph or table below"))
+# (Start with Pasted filters and an empty Filters box: the bubble at Start)
+PASTE_FIRST = "Paste filters in the Filters box first"
+# (the card's Add filter while a calculated EQ with edits is shown: a new manual EQ there would lose the edits, which
+# are kept only in the filters shown, so nothing starts and this bubble at Add filter says why)
+EDITS_SHOWN = "Can't start an empty EQ: the EQ shown has edits. Use Add filter on the result card, or Undo all first."
 # (Start from with no profile: the bubble at Start says these words, and the ⓘ adds the sentence about the filters)
 NO_PROFILES = "No device profiles yet. Add one in Devices first, then select it here."
 # (Calculate with no curves: no files, or files that gave no curves, whose cause is in the line below the EQ graph)
@@ -171,8 +177,7 @@ class EqResult:
         self.EDIT = same(r["filters"])
         made_for = f" · {run.get('device')} → {run.get('target_name')}"  # (the IEM and the target it was made for)
         if manual:
-            self.res_sub.setText((f"History ({run['when']}) · " if run.get("history") else "")
-                                 + self.run_label(run, r) + (made_for if run.get("device") and run.get("target_name") else ""))
+            self.manual_sub(run, r)
         else:
             self.res_sub.setText((f"History ({run['when']})" if run.get("history") else f"#{run.get('n', 1)}")
                                  + f" · {self.run_label(run, r)}" + made_for)
@@ -210,6 +215,14 @@ class EqResult:
         self.render_runs()
         self.set_view(self.sw.s.get("filters_view", "table"), remember=False)
         self.live_update()
+
+    def manual_sub(self, run, r):
+        """The gray line under a manual EQ's title: History's date, where it began and its number of filters, the IEM
+        and target. Written again after each edit (live_update): it kept "0 filters" after Add filter."""
+        both = run.get("device") and run.get("target_name")
+        made_for = f" · {run.get('device')} → {run.get('target_name')}" if both else ""
+        self.res_sub.setText((f"History ({run['when']}) · " if run.get("history") else "") + self.run_label(run, r)
+                             + made_for)
 
     @staticmethod
     def pick_note(run, r):
@@ -406,6 +419,7 @@ class EqResult:
                                + ("  ·  edited" if ed else ""))
         if manual:  # (its filters as they are now: kept when another run is shown, and on its lines in the lists)
             r["filters"], r["n_filters"] = [dict(f) for f in self.EDIT], st["n"]
+            self.manual_sub(run, r)
             note = self.manual_note(st)
         elif ed:  # (the run's line was about the filters before the edit)
             note = (f"Edited: within {st['ear']:.2f} dB of target (limit: {run.get('ear_db') or 0.25:g} dB)"
@@ -593,6 +607,8 @@ class EqResult:
         self.go_stack.setCurrentIndex(0 if way == "auto" else 1)
         if way == "hand":
             self.fill_manual_sources()  # (the profiles as they are now)
+        else:
+            self.show_hand_rows()
         if remember and self.sw is not None and self.sw.s.get("make_way") != way:
             self.sw.set("make_way", way, tell=False)
 
@@ -622,8 +638,9 @@ class EqResult:
         self.manual_source_changed()
 
     def manual_source_changed(self):
-        """The words about the source chosen (behind the ⓘ after Start from), and Start's words ("Start…" when it asks
-        first: a file, pasted lines, UI-RULES 11)."""
+        """The words about the source chosen (behind the ⓘ after Start from), the main button's words ("Import an EQ
+        file…" for an EQ file: it asks for the file first, UI-RULES 11; else "Start"), and the parts of the chosen
+        source (show_hand_rows)."""
         key = self.hand_source.currentData() or "empty"
         note = next((n for k, _w, n in HAND_SOURCES if k == key), "")
         if key == "profile:":
@@ -633,7 +650,38 @@ class EqResult:
             note = ("Edit a device profile's filters on the graph or table below, then click Use on device › Update "
                     "to save back to it")
         self.hand_src_note.setText(note)
-        self.hand_start.setText("Start…" if key in ("file", "paste") else "Start")
+        words = "Import an EQ file…" if key == "file" else "Start"
+        self.hand_start.setText(words)
+        icons.put(self.hand_start, "import" if key == "file" else "edit")
+        self.hand_start.setAccessibleName(f"{words} (Manually)")
+        self.show_hand_rows()
+
+    def show_hand_rows(self):
+        """Manually's parts for the chosen source: the Name and Filters rows only on Manually with Pasted filters (a
+        hidden row takes no height: the card keeps its height on Automatically and with the other sources), Add filter
+        only with An empty EQ. A control with the focus that goes is first replaced by the one beside it (UI-RULES 30,
+        as forms.RangeRows does: hidden first, Qt gave the focus to the next control of the page).
+        hand_rows_held (the Guide's demo of Manually, while it plays): the Name and Filters rows stay as they are, so
+        the card keeps its height and the Guide's markers their places."""
+        key = self.hand_source.currentData() or "empty"
+        hand = getattr(self, "way", "auto") == "hand"  # (fill_manual_sources runs before set_way's first call)
+        f = QApplication.focusWidget()
+        if not getattr(self, "hand_rows_held", False):
+            paste = hand and key == "paste"
+            if not paste and hand and f is not None and any(f is w for w in self.hand_paste_rows):
+                self.hand_source.setFocus(Qt.OtherFocusReason)
+            if any(w.isHidden() == paste for w in self.hand_paste_rows):
+                for w in self.hand_paste_rows:
+                    w.setVisible(paste)
+                # (on Automatically the Manually page is hidden, and Qt doesn't work out a hidden page's height again
+                # by itself: the stack, as high as its highest page, kept the rows' height, 126 px, measured)
+                self.hand_w.layout().invalidate()
+                self.way_stack.layout().invalidate()
+                self.way_stack.updateGeometry()
+        add = key == "empty"
+        if not add and f is self.hand_add:
+            self.hand_start.setFocus(Qt.OtherFocusReason)
+        self.hand_add.setVisible(add)
 
     def start_from_source(self):
         """Start (Manually): an EQ by hand from the source chosen in Start from. What's needed first is said in a
@@ -746,10 +794,33 @@ class EqResult:
         self._manual_from_text(text, f"from {os.path.basename(f)}", os.path.splitext(os.path.basename(f))[0])
 
     def manual_from_paste(self):
-        from ui.eq_page_parts import paste_dialog
-        got = paste_dialog(self, "Paste filters", "e.g., New EQ", PASTE_HINT, "Start")
-        if got:
-            self._manual_from_text(got[1], "from pasted filters", got[0] or "Pasted EQ")
+        """Start with Pasted filters: the lines of the card's Filters box, named by its Name box ("Pasted EQ" when it's
+        empty). An empty box: a bubble at Start, and the focus to the box (UI-RULES 25). A text with no filters: the
+        message, and the text stays in the box to be corrected. Started, the two boxes are emptied."""
+        text = self.hand_paste.toPlainText()
+        if not text.strip():
+            bubble.tell(None, PASTE_FIRST, near=self.hand_start)
+            self.hand_paste.setFocus(Qt.OtherFocusReason)
+            return
+        if self._manual_from_text(text, "from pasted filters", self.hand_paste_name.text().strip() or "Pasted EQ"):
+            self.hand_paste.clear()
+            self.hand_paste_name.clear()
+
+    def add_filter_here(self):
+        """Add filter in Make the EQ (Manually, An empty EQ): a filter (1 kHz, 0 dB, Q 1) in the manual EQ on the
+        result card; with none there, a manual EQ begun empty first (as Start), then the filter. A calculated EQ shown
+        with edits is never replaced: its edits are only in the filters shown (live_update keeps a manual EQ's
+        filters only), so nothing starts and a bubble says why. The page follows as after Start (_follow_result): the
+        result card in sight, the button with the focus kept in sight."""
+        run, r = self.current()
+        if r and run.get("mode") != "manual" and self.EDIT and self.edited():
+            bubble.tell(None, EDITS_SHOWN, near=self.hand_add)
+            return
+        if not r or run.get("mode") != "manual":
+            self.start_manual([], "from scratch")
+        else:
+            QTimer.singleShot(0, self, self._follow_result)
+        self.add_filter()
 
     def manual_from_profile(self, pid):
         """A device's profile as an EQ by hand (Profiles' Edit in Make an EQ too); Use on device can update it."""
@@ -774,11 +845,12 @@ class EqResult:
 
     def _manual_from_text(self, text, source, name, profile=None):
         """An EQ by hand from a file's or pasted text, read as Equalizer APO plays it (eq\\eqtext.py): what it has that
-        an EQ here can't (other filter types, a graphic EQ …) is said, never dropped without a word."""
+        an EQ here can't (other filter types, a graphic EQ …) is said, never dropped without a word. True when the EQ
+        started (False: a message said why not)."""
         r = self.svc.call("/api/filters/read", {"text": text, "settings": self.S})
         if r.get("error"):
             QMessageBox.warning(self, "Manually", r["error"])
-            return
+            return False
         left = r.get("left_out") or []
         if not r.get("filters"):
             QMessageBox.information(self, "Manually", (f"No editable filters found ({' · '.join(left)})."
@@ -788,7 +860,7 @@ class EqResult:
                                     "• Room EQ Wizard filters\n• Peace presets\n"
                                     "• One filter per line: frequency, gain, Q") + "\n\nOnly peaking and shelf filters "
                                     "are supported here.")
-            return
+            return False
         self.start_manual(r["filters"], source, name, profile, left)
         if left:
             QMessageBox.information(self, "Manually", skipped_words(name, left))
@@ -796,6 +868,7 @@ class EqResult:
             n = len(r["filters"])
             self.status(f"Loaded “{name}” ({n} filter{'' if n == 1 else 's'}) and calculated pre-amp for "
                         f"{'it' if n == 1 else 'them'}", 8000)
+        return True
 
     # ---------------------------------------------------------------- Use on device
     def _fill_use_menu(self):

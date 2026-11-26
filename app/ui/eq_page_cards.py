@@ -1,8 +1,9 @@
 """Make an EQ's cards (a part of EqPage, ui/eq_page.py): the page laid out once the EQ part has opened, top to
 bottom (the UI audit, 2026-11-08): Target and Measurement in one card (a row each, Find…, Add…, the Target's
 Adjust…), the graph (its title, Trace a graph image…, History…, View, Y range, Channels, Hide previews), Make the EQ
-(Your EQ app, then the tabs Automatically and Manually: Method and Settings to try, or Start from; then the rows that
-open, Settings and More settings (ui/eq_settings.py); then Calculate or Start), Your result (its numbers, the
+(Your EQ app, then the tabs Automatically and Manually: Method and Settings to try, or Start from, with Name and
+Filters for Pasted filters; then the rows that open, Settings and More settings (ui/eq_settings.py); then Calculate,
+or Start (Import an EQ file… for An EQ file) and, for An empty EQ, Add filter), Your result (its numbers, the
 filters, File name, Save filters, Use on device) and Listen (ui/listen.py). This is the file to restyle Make an EQ in.
 The look is Windows 11's (the restyle, 2026-10-23): Windows 11's symbols beside the main actions' words
 (ui/icons.py), and every card as wide as the window and no wider (a long
@@ -25,14 +26,14 @@ import pyqtgraph as pg
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontMetrics
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFrame, QGridLayout, QGroupBox, QHBoxLayout,
-                               QLabel, QLineEdit, QMenu, QProgressBar, QPushButton, QScrollArea, QStackedWidget,
-                               QVBoxLayout, QWidget)
+                               QLabel, QLineEdit, QMenu, QPlainTextEdit, QProgressBar, QPushButton, QScrollArea,
+                               QStackedWidget, QVBoxLayout, QWidget)
 
 from ui import help_window, icons, placed, theme
 from ui.bubble import InfoMark
-from ui.eq_page_parts import (TICKS, CurveNames, Elided, NameCombo, PairTitle, SameWidth, WrapRow, combo_width, hz,
-                              label)
-from ui.forms import CHOICE_MOST
+from ui.eq_page_parts import (PASTE_HINT, TICKS, CurveNames, Elided, NameCombo, PairTitle, SameWidth, WrapRow,
+                              combo_width, hz, label)
+from ui.forms import CHOICE_MOST, LONG
 from ui.search_combo import SearchCombo
 
 
@@ -40,6 +41,9 @@ from ui.search_combo import SearchCombo
 # "bands" (a graphic EQ's result, eq_page_parts.count_words), not "filters": in Segoe UI 9 pt "00 bands" is 47 px
 # and "00 filters" 44 px (measured with QFontMetrics, 2026-11-24)
 COUNT_LONGEST = "00 bands  ·  00.00 dB  ✓ recommended"
+# (px: the height of Manually's Filters box, as the height of the box of Best fit's Start from your filters, the same
+# kind of box: forms.Field's "block")
+BLOCK_H = 110
 
 
 class EqCards:
@@ -286,9 +290,10 @@ class EqCards:
     def _eq_card(self):
         """Make the EQ (the UI audit, 2026-11-08): Your EQ app first, as it is for the 2 ways; then the tabs
         Automatically and Manually (their words lined up with the labels; the card as high with either tab: nothing
-        under it moves); then only that way's steps (Method and Settings to try, or Start from); then the rows that
-        open, Settings and More settings (eq_settings: for the 2 ways, above the button that uses them); then the way's
-        main button (Calculate with Queue…, or Start), so the result card comes directly after it. The gray notes are
+        under it moves, but for Manually with Pasted filters, whose Name and Filters boxes are in the card); then only
+        that way's steps (Method and Settings to try, or Start from); then the rows that open, Settings and More
+        settings (eq_settings: for the 2 ways, above the button that uses them); then the way's main button (Calculate
+        with Queue…, or Start with Add filter), so the result card comes directly after it. The gray notes are
         behind an ⓘ after their labels (bubble.InfoMark). Its grids keep one label column (_line_up_ways)."""
         self.eq_box = box = QGroupBox("Make the EQ")
         v = QVBoxLayout(box)
@@ -385,7 +390,32 @@ class EqCards:
         self.hand_source.currentIndexChanged.connect(lambda _i: self.manual_source_changed())
         help_window.tag(self.hand_source, "#by-hand")
         g.addWidget(self.hand_source, 0, 1, 1, 3, Qt.AlignLeft)
-        g.setRowStretch(1, 1)
+        # Pasted filters: the name and the lines in the card (they were in a window of their own, Paste filters, which
+        # Listen still has). Shown only on Manually with Pasted filters (show_hand_rows): hidden, a row takes no
+        # height, so the card keeps its height on Automatically and with the other items
+        name_lab = name("Name")
+        g.addWidget(name_lab, 1, 0)
+        # (no gray example: a screen reader reads a box's gray text as its description, and the line a screen reader
+        # reads is the tooltip, which this box has none of: the owner, 2026-11-24. Empty, the EQ is "Pasted EQ": Help)
+        self.hand_paste_name = QLineEdit(self.hand_w)
+        self.hand_paste_name.setAccessibleName("Name")
+        self.hand_paste_name.setFixedWidth(LONG)
+        help_window.tag(self.hand_paste_name, "#hand-paste")
+        g.addWidget(self.hand_paste_name, 1, 1, 1, 3, Qt.AlignLeft)
+        self.hand_paste_note = InfoMark(PASTE_HINT, "Filters")
+        filters_lab = name("Filters", self.hand_paste_note)
+        g.addWidget(filters_lab, 2, 0, Qt.AlignTop)
+        self.hand_paste = QPlainTextEdit(self.hand_w)
+        self.hand_paste.setPlaceholderText("e.g., Filter 1: ON PK Fc 100 Hz Gain 3 dB Q 1")
+        self.hand_paste.setAccessibleName("Filters")
+        self.hand_paste.setTabChangesFocus(True)  # (Tab goes on to the next control, as in Start from your filters)
+        self.hand_paste.setFixedSize(LONG, BLOCK_H)  # (as Best fit's Start from your filters: UI-RULES 26)
+        help_window.tag(self.hand_paste, "#hand-paste")
+        g.addWidget(self.hand_paste, 2, 1, 1, 3, Qt.AlignLeft)
+        self.hand_paste_rows = (name_lab, self.hand_paste_name, filters_lab, self.hand_paste)
+        for w in self.hand_paste_rows:
+            w.hide()
+        g.setRowStretch(3, 1)
         self.way_stack.addWidget(self.hand_w)
         v.addWidget(self.way_stack)
 
@@ -440,6 +470,13 @@ class EqCards:
         self.hand_start.clicked.connect(self.start_from_source)
         help_window.tag(self.hand_start, "#hand-start")
         gh.addWidget(self.hand_start, 0, Qt.AlignTop)
+        # (An empty EQ: a manual EQ with its first filter from here, without going down to the result card or up to
+        # the EQ graph; shown only with An empty EQ: show_hand_rows)
+        self.hand_add = QPushButton("Add filter", go_hand)
+        icons.put(self.hand_add, "add")
+        self.hand_add.clicked.connect(self.add_filter_here)
+        help_window.tag(self.hand_add, "#hand-add")
+        gh.addWidget(self.hand_add, 0, Qt.AlignTop)
         gh.addStretch(1)
         self.go_stack.addWidget(go_hand)
         v.addWidget(self.go_stack)

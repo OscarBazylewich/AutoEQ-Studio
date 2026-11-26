@@ -230,6 +230,42 @@ def test_tab_sequence_with_no_result(eq_screen, check):
           (repr(text), repr(typed), _name(after_block)))
 
 
+def test_tab_sequence_with_pasted_filters(eq_screen, check):
+    # (2026-11-25: Manually's Name and Filters boxes, in the card with Pasted filters, and Add filter beside Start)
+    page = _open(eq_screen)
+    c = page.hand_source
+    was = c.currentIndex()
+    wrong = {}
+    try:
+        page.set_way("hand", remember=False)
+        c.setCurrentIndex(c.findData("paste"))
+        bad, seq = _wrong(page)
+        if bad:
+            wrong["Pasted filters"] = bad
+        keys = [_key(w) for w in seq]
+        order = [keys.index(_key(w)) if _key(w) in keys else -1 for w in (c, page.hand_paste_name, page.hand_paste)]
+        page.hand_paste.setPlainText("Filter 1: ON PK Fc 100 Hz Gain 3 dB Q 1")
+        after = _tab(page, page.hand_paste)[0]
+        typed, under = page.hand_paste.toPlainText(), _under(page, page.hand_paste, after)
+        c.setCurrentIndex(c.findData("empty"))
+        bad, seq = _wrong(page)
+        if bad:
+            wrong["An empty EQ"] = bad
+        keys = [_key(w) for w in seq]
+        add_after_start = _key(page.hand_add) in keys and keys.index(_key(page.hand_add)) ==             keys.index(_key(page.hand_start)) + 1
+    finally:
+        page.hand_paste.clear()
+        c.setCurrentIndex(was)
+        page.set_way("auto", remember=False)
+    check("eq page: on Manually with Pasted filters and with An empty EQ, the Tab sequence goes down the page, stops at "
+          "every control that shows, and Shift+Tab goes the opposite way: Start from, Name, then Filters; Add filter "
+          "right after Start", not wrong and -1 not in order and order == sorted(order) and add_after_start,
+          (wrong, order, add_after_start))
+    check("eq page: Tab in Manually's Filters box goes to the next control and does not change the text (no tab "
+          "character)", typed == "Filter 1: ON PK Fc 100 Hz Gain 3 dB Q 1" and after is not page.hand_paste
+          and under, (repr(typed), _name(after)))
+
+
 @pytest.mark.timeout(900)  # (a Best fit run, allowed 180 s times the time factor)
 def test_tab_sequence_while_a_run_goes_on(eq_screen, check):
     page = _open(eq_screen)
