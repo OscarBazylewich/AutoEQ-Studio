@@ -1,8 +1,8 @@
 """The app itself: the tray icon and its menu, the window, the hotkey, watching the devices, Online / Offline.
 
-It lives in the tray: the icon's menu switches the playing device's EQ (its profiles, Off, "EQ off for now") and
-opens the window or quits; a click on the icon opens the window. Every 1.5 s it reads the devices again (plugged in
-or out, another one playing): the window, the menu and the icon follow, and a notice says the EQ of a device that
+It lives in the tray: the icon's menu switches the playing device's EQ (its profiles, Off, "EQ off, to compare")
+and opens the window or quits; a click on the icon opens the window. Every 1.5 s it reads the devices again (plugged
+in or out, another one playing): the window, the menu and the icon follow, and a notice says the EQ of a device that
 starts playing. The hotkey goes through the playing device's EQs; the on/off hotkey (2026-10-26) switches its EQ off
 for now, to compare, and back (level-matched unless Settings says otherwise: switcher\\core.py's compare_toggle).
 start.py makes one (one copy runs at a time).
@@ -59,7 +59,7 @@ class App:
         self.win = Window(self.sw, self)
         self.win.hotkey_changed.connect(self.set_hotkey)
         self.win.onoff_hotkey_changed.connect(self.set_onoff_hotkey)
-        if os.environ.get("AUTOEQSTUDIO_PRELOAD") != "0":  # (the tests' copies of the app: 0, never ahead)
+        if os.environ.get("AUTOEQSTUDIO_PRELOAD") != "0":
             self.win.allow_preload(self.preload_worth_it)
 
         self.tray = QSystemTrayIcon(icons.app_icon(), qapp)
@@ -113,7 +113,7 @@ class App:
             self.sw.refresh()
         except Exception:
             traceback.print_exc()
-        if self.sw.trial and time.time() >= self.sw.trial["until"]:  # (a trial's time up: its device's own EQ back)
+        if self.sw.trial and time.time() >= self.sw.trial["until"]:
             self.end_trial(False)
         # a hotkey Windows refused (EQ Switcher still running has it, say) is tried again until it's free
         # (only the saved one, while it isn't registered: a new one refused keeps its note, the saved one still works)
@@ -146,7 +146,7 @@ class App:
         return f"EQ: {name}" if name else "EQ off"
 
     def end_trial(self, keep=False):
-        """A trial over (its time up, or Keep it / Stop now): kept as a profile, or the device's own EQ back."""
+        """A trial over (its time up, or Keep it / Do not keep it): kept as a profile, or the device's own EQ back."""
         t = self.sw.trial
         if not t:
             return
@@ -184,8 +184,7 @@ class App:
         t = self.sw.trial
         key, rec = self.sw.playing()
         self._trial_line = None
-        if t:  # (a short line, its time changing each second: _menu_time; the device's name when it isn't the
-            # active one, as the list below is the active device's)
+        if t:
             self._trial_line = m.addAction(trial_words(self.sw, key))
             self._trial_line.setEnabled(False)
             m.addAction("Keep it", lambda: self.end_trial(True))
@@ -255,8 +254,8 @@ class App:
             self.tray_message(shown(rec), self.eq_text(rec))
 
     def on_onoff(self):
-        """The on/off hotkey (and the tray's "EQ off for now"): the playing device's EQ off for now, to compare, and
-        back; a notice says which (and how much quieter "off" plays, level-matched)."""
+        """The on/off hotkey (and the tray's "EQ off, to compare"): the playing device's EQ off for now, and back; a
+        notice says which (and how much quieter "off" plays, level-matched)."""
         key, rec = self.sw.playing()
         if not rec:
             return
@@ -279,8 +278,8 @@ class App:
         if not c["matched"]:
             return f"EQ off to compare. {back}"
         # (level-matched: how much lower "off" plays. An EQ louder than none isn't matched (switcher\core.py: "off"
-        # never plays louder), so no number then, only the sentence about clipping: the owner, 2026-11-25; the
-        # notice said "0.0 dB lower" while the window's compare bar (window.py render_compare) said "same level")
+        # never plays louder), so no number then (it read "0.0 dB lower"), only the sentence about clipping: the
+        # owner, 2026-11-25)
         extra = (" Level match skipped to avoid clipping." if c["louder"] else "") \
             + (" (Approximate level match: some filters couldn't be measured.)" if not c["complete"] else "")
         lower = "" if c["louder"] else f" ({abs(c['db'] or 0):.1f} dB lower)"

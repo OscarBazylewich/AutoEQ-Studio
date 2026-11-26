@@ -15,14 +15,13 @@ import re
 import threading
 import time
 
-_DATA = re.compile(r"\s*[-+]?(\d|\.\d)")                        # a line that starts with a number
+_DATA = re.compile(r"\s*[-+]?(\d|\.\d)")
 _COMMA_DECIMAL = re.compile(r"\s*[-+]?\d+,\d+\s*[;\t ]\s*[-+]?\d")  # "20,5;85,3", "20,5<tab>85,3", "20,5 85,3"
 RESERVED = {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$", *(f"COM{i}" for i in range(1, 10)),
             *(f"LPT{i}" for i in range(1, 10))}
 
 
 def decode(raw):
-    """The text in a file's bytes."""
     if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
         return raw[2:].decode("utf-16-le" if raw[:2] == b"\xff\xfe" else "utf-16-be", "replace")
     head = raw[:512]
@@ -163,7 +162,9 @@ def read_json_kept(path, kind):
     return kind()
 
 
-_SET_ASIDE = []  # (file, copy) of each set_aside(), until the page is told (api.handle adds it to the next answer)
+# (file, copy) of each set_aside() until taken: eq\service.handle adds them to its next answer; the Switcher takes
+# its own (core._load)
+_SET_ASIDE = []
 
 
 def set_aside(path):

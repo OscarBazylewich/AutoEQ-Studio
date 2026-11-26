@@ -89,7 +89,6 @@ def clean_filters(filters):
 # their centre, a slope or a width in octaves as the Q that draws the same curve)
 _FILTER_LINE = re.compile(r"^\s*filter\s*\d*\s*:\s*(.*)$", re.I)
 _TYPE_WORD = re.compile(r"^\s*(?:on|off)\s+([a-z]+)", re.I)
-# (the end of the message for a line that parse_filters can't read, with or without its cause)
 _FORMATS_HINT = ("Use Equalizer APO format (Filter 1: ON PK Fc 100 Hz Gain 3 dB Q 1) or frequency, gain, Q per line "
                  "(100 3 1).")
 
@@ -131,7 +130,7 @@ def parse_filters(text, fs=eqtext.FS):
 
 def filters_text(filters):
     """Filters as Equalizer APO lines exactly as they are (none of an app's rounding: apo_text rounds Q to the Q
-    decimals setting and gains to 0.1 dB), for Best fit's own filters (Retry from these filters)."""
+    decimals setting and gains to 0.1 dB), for Best fit's own filters (Calculate from these filters)."""
     num = lambda v: f"{float(v):.6f}".rstrip("0").rstrip(".")
     kind = {"PK": "PK", "LSQ": "LSC", "HSQ": "HSC"}
     return "\n".join(f"Filter {i}: {'ON' if f.get('enabled', True) else 'OFF'} {kind[f.get('type', 'PK')]} Fc {num(f['freq'])} Hz "
@@ -231,7 +230,6 @@ def _fmt_hz(hz):
 
 
 def _num(v, digits):
-    """A number with at most this many decimals, and none it doesn't need (105, 105.5)."""
     return f"{v:.{digits}f}".rstrip("0").rstrip(".") if digits else f"{v:.0f}"
 
 
@@ -290,10 +288,10 @@ def uapp_xml(filters, preamp, name, notes=None):
     def num(v):
         return repr(round(float(v), 8))
 
-    def position(v, lo, hi):  # 0..1 within the range
+    def position(v, lo, hi):
         return (min(max(float(v), lo), hi) - lo) / (hi - lo)
 
-    applied, past = for_app("uapp", on)  # (its ranges: APPS["uapp"])
+    applied, past = for_app("uapp", on)
     pre = max(-UAPP_GAIN, min(UAPP_GAIN, float(preamp)))
     note_change("uapp", on, applied, past, pre, notes)
     if float(preamp) < -UAPP_GAIN:  # (as Rockbox's: said, not silently clipped)
@@ -582,8 +580,7 @@ def report_name(device, target_name, name=""):
 
 
 def write_report(curves, band, device, target_name, n_files, cards, grids=(), out_dir=OUTPUT_DIR, name=""):
-    """The HTML report for a measurement and target (report.py): "<device> to <target> - report.html", or your own
-    name (the result card's File name) + " - report.html". Returns its path."""
+    """The HTML report for a measurement and target (report.py), named by report_name(). Returns its path."""
     from . import engines
     from . import report
     no_eq = engines.rms_error(curves["f"], curves["meas"], curves["target"], band)

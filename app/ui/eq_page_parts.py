@@ -1,25 +1,6 @@
-"""Make an EQ's shared names and small helpers: ui/eq_page.py and its parts use them, and FORMAT_NAMES, MODE_SHORT,
-MODE_HINT, TICKS and file_base_name still import from ui/eq_page.py too.
-- FORMAT_NAMES: the files Save filters can write, by key; MODE_SHORT: each method's short name; MODE_HINT: the line
-  beside Method; TICKS: the graph's frequencies
-- PASTE_HINT, skipped_words(name, items): Paste filters' gray words, and the message for the items an EQ can't have
-- and_list(names): "A, B, and C" in a sentence; first_names(names, shown): "A and 2 more devices" (the on words),
-  "A, B, C, and 9 more devices" (Update's message); on_words(names): where a profile is on, for a menu's keys'
-  column; row_name(fm, name): a device's or a profile's name cut to a row's room; update_row_words(fm, name,
-  names): an update row's two texts, cut to their room (the menu and the Guide);
-  use_menu_order(sw, own): Use on device's device rows and Update rows, in one sequence (the menu and the Guide)
-- count_words(n, engine): one result's count in a line, "6 filters", or "10 bands" for a graphic EQ's result
-- label(text, role, wrap): a label, in one of the theme's text roles; set_note(lab, text): a note's words, the note
-  hidden while it has none (so an empty one takes no room); hz(v): a frequency in Hz or kHz
-- combo_width(combo, text): the width a drop-down needs for text; SameWidth: empty room as wide as another widget;
-  WrapRow: a row of controls that takes more lines when its card has less room than the row needs on one;
-  tab_order(*parts): the Tab sequence through parts of the page, one after the other (a part made later, or again)
-- Elided: a one-line label that never makes its row wider than the window (the values under the pointer); NameCombo:
-  a drop-down whose name, when longer than its room, ends in "…" as Windows 11's own do (Target, Measurement, Runs
-  this session); PairTitle: "A  →  B" on one line, or B under A when the window is narrow (the graph's title)
-- file_base_name(...): a saved EQ's name, "<IEM> to <target> - <layout or method> <n>f"
-- Notices: a message from a worker thread, said on the window's thread; modal(dlg): a window over the page until it's
-  closed; paste_dialog(...): a window to paste filters into, with a name (By hand, Listen's EQs to compare)
+"""Make an EQ's shared names and small helpers: ui/eq_page.py and its parts use them (guide_eq.py's MODE_HINT, the
+words of the ⓘ after Method; listen.py's MODE_SHORT; and queue_window.py's and tests/eq_screen/test_run_and_result.py's
+file_base_name are imported through ui/eq_page.py).
 """
 from PySide6.QtCore import QObject, QRect, QSize, Qt, Signal
 from PySide6.QtWidgets import QLabel, QLayout, QStyle, QStyleOptionComboBox, QStylePainter, QWidget
@@ -58,7 +39,6 @@ def label(text="", role=None, wrap=True):
 
 
 def set_note(lab, text):
-    """A note's words; the note hidden while it has none, so an empty one leaves no gap."""
     lab.setText(text)
     lab.setVisible(bool(text))
 

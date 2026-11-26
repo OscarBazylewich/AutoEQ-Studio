@@ -1,6 +1,6 @@
 """Asking about your files' folder (userfiles.py moves them; paths.py says where they are):
-- offer_move(): your targets, measurements, saved EQs and presets still where an older copy kept them (the program's
-  folder): move them into your files' folder (Documents\\AutoEQ Studio), or choose another, or not now (asked again
+- offer_move(): your targets, measurements, saved EQs and presets still where an older copy kept them
+  (userfiles.old_places): move them into your files' folder (paths.ROOT), or choose another, or not now (asked again
   next time). Asked when Make an EQ first opens, before the EQ part loads (it takes the folders then)
 - change_location(): Settings > Your files > Change…: another folder; your files moved there if you like; the app starts again
 """
@@ -17,7 +17,6 @@ TITLE = "Your AutoEQ Studio files"
 
 
 def files(n):
-    """The count with its noun: "1 file", "2 files"."""
     return f"{n} file" + ("" if n == 1 else "s")
 
 
@@ -51,7 +50,8 @@ def _tell_moved(parent, moved, renamed, highest):
 
 
 def offer_move(parent, save):
-    """The one-time offer (save(key, value): the app's settings). True when files were moved."""
+    """The offer to move files from an older copy's folders (asked again next time when declined; save(key, value):
+    the app's settings). True when a move was tried."""
     pairs, sources = userfiles.old_places()
     if not pairs and not sources:
         return False

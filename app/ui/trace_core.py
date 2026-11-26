@@ -4,13 +4,13 @@ a picture of a frequency-response graph becomes a curve file.
 1. The picture's gridlines are found and the frequencies of the vertical ones worked out from the spacing of a log
    axis (20, 30, 40 … 100, 200 …); four calibration lines (two red: dB, two blue: Hz) are placed on gridlines.
    The axis labels are read (ui/ocr.py: Windows' text reader) to fill in their values.
-2. A click on a curve follows pixels of its colour column by column (skipping gridlines; dashed curves bridged); Auto
-   trace finds one by itself. Draw, erase, smooth, undo and redo fix the result. Several curves (L and R) make one
-   device.
+2. A click on a curve follows pixels of its colour column by column (skipping gridlines; dashed curves bridged);
+   Trace automatically finds one by itself. Draw, erase, smooth, undo and redo fix the result. Several curves (L and
+   R) make one device.
 3. The trace is resampled at so many points per octave and saved (a graph drawn relative to a target gets it added
    back).
 Automatic settings fit the colour tolerance, points per octave and the range to save to the picture; a value you
-change is yours until handed back. It always works carefully (accuracy_settings(): a speed-accuracy slider until 1.0.13).
+change is yours until handed back. It always works carefully (accuracy_settings()).
 The workflow follows UsyTrace (usyless.uk/trace); the code is AutoEQ Local's own.
 
 Everything is in picture pixels: x a column, y a row. A trace is a float per column (NaN: none there).
@@ -24,13 +24,13 @@ import numpy as np
 INK = 60          # how far from the background colour a pixel must be to count as drawn
 FAINT = 16        # (pale gridlines that run unbroken across most of the picture still count)
 MAX_PIXELS = 16e6  # bigger pictures are scaled down
-DISTANCE_ROWS = 256  # (squared_colour_distance of a large area: strips of this many rows)
+DISTANCE_ROWS = 256
 GREY = 20  # a pixel whose channels differ by less than this is grey (measured on the sample graph as a JPEG of quality
 # 50 and 75: 99% of the grey target's pixels under 14, 1% of the orange and green lines' under 33). A curve's colour
 # picked from a JPEG may be tinted more: under GREY + 25 it's a grey curve, matched as plain grey
 LABELS = ["L", "R", "L2", "R2", "L3", "R3"]
 MAX_CURVES = len(LABELS)
-MIN_POINTS = 32  # (the fewest points a saved curve has: points() refuses fewer, and its message names the number)
+MIN_POINTS = 32
 NBSP = "\N{NO-BREAK SPACE}"  # (between a tab's number and its name in a message: "2 Trace" stays on one line)
 NICE = [math.log10(v) for v in (1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 7, 8, 9, 10)]
 LOG_DIGITS = np.log10(np.arange(1, 11))
@@ -288,7 +288,6 @@ def hz_num(s):
 
 
 def pairs_on_one_line(pairs):
-    """The largest set of (position, value) pairs on one straight line."""
     if len(pairs) < 2:
         return None
     gaps = [abs(pairs[n + 1]["p"] - pairs[n]["p"]) or math.inf for n in range(len(pairs) - 1)]
@@ -422,7 +421,6 @@ class Tracer:
         count = np.bincount(keys)
         k = count.argmax()
         here = keys == k
-        # (each channel's sum in bin k, a whole number: the mean is the same as the mean of those pixels)
         return tuple(int(_js_round(int(np.add.reduce(ch[i], where=here, dtype=np.int64)) / count[k]))
                      for i in range(3))
 
@@ -489,7 +487,7 @@ class Tracer:
 
     # ---------------------------------------------------------------- calibration
     def anchors_x(self, f1, f2):
-        """The two blue lines, plus (with "Follow every gridline") every gridline with a known frequency between them:
+        """The two blue lines, plus (with "Follow all grid lines") every gridline with a known frequency between them:
         values in between are interpolated from the nearest gridlines, so unevenly drawn axes are read correctly."""
         cal, gx = self.cal, self.grid_x
         base = [{"p": cal["x1"], "v": f1}, {"p": cal["x2"], "v": f2}]
@@ -517,7 +515,7 @@ class Tracer:
         n = len(mid) + 1
         gap = (hi - lo) / n
         if any(abs(p - (lo + (i + 1) * gap)) > gap * 0.25 for i, p in enumerate(mid)):
-            return base  # (not evenly spaced values)
+            return base
         top, bot = (d1, d2v) if cal["y1"] < cal["y2"] else (d2v, d1)
         return base + [{"p": p, "v": top + (bot - top) * (i + 1) / n} for i, p in enumerate(mid)]
 
@@ -562,7 +560,7 @@ class Tracer:
     # ---------------------------------------------------------------- tracing
     def pick_colour(self, x, y, hue=None):
         """The strongest drawn colour within 4 px of a click (None: nothing drawn there); hue: only pixels of that hue
-        (Auto trace: where its curve crosses another, the other's colour may be the stronger one there)."""
+        (Trace automatically: where its curve crosses another, the other's colour may be the stronger one there)."""
         x0, x1, y0, y1 = max(0, x - 4), min(self.W, x + 5), max(0, y - 4), min(self.H, y + 5)
         if x0 >= x1 or y0 >= y1:
             return None
@@ -586,14 +584,13 @@ class Tracer:
             b = self.box
             ys, xs = slice(b["y0"], b["y1"] + 1), slice(b["x0"], b["x1"] + 1)
             grey = max(c) - min(c) < GREY + 25
-            if grey:  # (a grey curve picked a little tinted from a JPEG: matched as the plain grey it is)
+            if grey:
                 c = (round(sum(c) / 3),) * 3
             ok = self.squared_colour_distance(ys, xs, c) <= tol2
             if grey:
                 # a grey curve (most targets): only greyish pixels are it. The soft edge of an orange or green curve,
                 # or a JPEG's smeared colour around one, is close to grey in levels and still tinted; where a curve
                 # crossed or neared a dashed grey target, the trace went off along it (7 dB at a dip; 2026-10-13)
-                # (a JPEG's grey curve can be picked a little tinted: its own tint and some more allowed)
                 p = self.px[ys, xs].astype(np.int16)
                 ok &= (p.max(-1) - p.min(-1)) < GREY
             m = {"ok": ok, "cols": {}}
@@ -720,7 +717,7 @@ class Tracer:
                 best, bd = None, math.inf
                 for r0 in cand:
                     if others and not mine_at(x, r0):
-                        continue  # (another curve's)
+                        continue
                     if (t > 2 or grid_same) and self.on_grid_only(r0, math.inf if grid_same else t, same):
                         continue  # just the gridline: the curve is elsewhere
                     if t >= 2 and r0[1] == r0[0] and self.between_lines(x, r0):
@@ -743,8 +740,8 @@ class Tracer:
         return got
 
     def trace_at(self, x, y, hue=None):
-        """A click on the curve: followed and added to the selected curve (hue: Auto trace's colour). Returns the
-        message for the status line."""
+        """A click on the curve: followed and added to the selected curve (hue: Trace automatically's colour). Returns
+        the message for the status line."""
         x, y = _js_round(x), _js_round(y)
         box = self.box
         if not self.has_image or x < box["x0"] or x > box["x1"] or y < box["y0"] - 6 or y > box["y1"] + 6:
@@ -773,7 +770,6 @@ class Tracer:
         full = (box["x1"] - box["x0"]) * 0.6
         retried = ""
         ta = self.ta
-        # a trace that stops early: tried again as a dashed line, then (accuracy) with more colour tolerance
         if ta["enabled"] and got and span(got) < full:
             n, dashed_now, tries = self.accuracy_settings()["retries"], self.v["dashed"], []
             if n >= 1 and not dashed_now and not self.is_your_value("dashed"):
@@ -824,8 +820,8 @@ class Tracer:
         return np.floor(np.arctan2(np.sqrt(3) * (g - b), 2 * r - g - b) / (np.pi / 6) + 0.5).astype(int) % 12
 
     def auto_seed(self, skip=None):
-        """A place to start Auto trace: the most common strong colour, or else the drawn line near the middle that
-        crosses the most of the graph (skip: the curve being traced into; -1 when a new one is to be added)."""
+        """A place to start Trace automatically: the most common strong colour, or else the drawn line near the middle
+        that crosses the most of the graph (skip: the curve being traced into; -1 when a new one is to be added)."""
         skip = self.cur if skip is None else skip
         box = self.box
         mid = (box["x0"] + box["x1"]) >> 1
@@ -948,7 +944,7 @@ class Tracer:
         else:
             del self.curves[i]
             if i < self.cur:
-                self.cur -= 1  # (one before the selected: the selected moves up one)
+                self.cur -= 1
         self.cur = min(self.cur, len(self.curves) - 1)
 
     # ---------------------------------------------------------------- the labels (read off the window's thread)
@@ -1004,7 +1000,7 @@ class Tracer:
             pairs = [{"p": w["xc"], "v": w["v"], "w": w} for w in labs]
         pairs.sort(key=lambda p: p["p"])
         n = len(pairs)
-        ln, prev = [1] * n, [-1] * n  # (the longest increasing run of values)
+        ln, prev = [1] * n, [-1] * n
         for i in range(n):
             for j in range(i):
                 if pairs[j]["v"] < pairs[i]["v"] and ln[j] + 1 > ln[i]:
@@ -1017,8 +1013,8 @@ class Tracer:
         return run if len(run) >= 2 else None
 
     def read_labels(self, ocr_words):
-        """The axis labels read (blocking: run it off the window's thread). Returns {token, hz, db, seconds}; apply it
-        with use_labels() on the window's thread."""
+        """The axis labels read (blocking: run it off the window's thread). Returns {token, hz, db, seconds, scale};
+        apply it with use_labels() on the window's thread."""
         token, cr, box, W, H = self.label_token, self.accuracy_settings(), self.box, self.W, self.H
         t0 = time.perf_counter()
         pad = _js_round(min(W, H) * 0.03)
@@ -1039,7 +1035,7 @@ class Tracer:
             return self.hz_pairs([w for w in rows if w["y0"] < top + row_h * 1.2]), db
         try:
             hz, db = read(cr["ocr_scale"])
-            if cr["ocr_retry"] and (not hz or not db) and token == self.label_token:  # accuracy: a second try
+            if cr["ocr_retry"] and (not hz or not db) and token == self.label_token:
                 hz2, db2 = read(2 if cr["ocr_scale"] == 4 else 4)
                 hz, db = hz or hz2, db or db2
         except Exception:
@@ -1172,7 +1168,8 @@ class Tracer:
 
     # ---------------------------------------------------------------- saving
     def points(self, ys, comp=None):
-        """The trace as [(Hz, dB)] at the points per octave, within the range to save; .gaps: parts over 40 px untraced."""
+        """The trace as ([(Hz, dB)], gaps) at the points per octave, within the range to save; gaps: the (Hz, Hz) ends
+        of parts over 40 px untraced."""
         k = self.calib()
         if not k:
             raise ValueError("Enter all 4 axis line values first (2 dB and 2 Hz)")
@@ -1193,7 +1190,7 @@ class Tracer:
             if f > hi * (1 + 1e-9):
                 break
             x = k.x_at(f)
-            y = float(np.interp(x, vx, vy))  # (a straight line between the nearest traced columns)
+            y = float(np.interp(x, vx, vy))
             out.append((f, k.db_at(y) + (comp(f) if comp else 0)))
             n += 1
         if len(out) < MIN_POINTS:

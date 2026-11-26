@@ -15,15 +15,13 @@ import paths as studio_paths  # (the app's own: installed or not)
 import textfile
 
 CACHE_FILES = ["databases.json", "squigsites.json", "library.json", "timing.json"]
-# (AutoEQ Local's folder -> AutoEQ Studio's)
 FOLDERS = [(r"inputs\target", paths.TARGET_DIR), (r"inputs\measurement", paths.MEAS_DIR), ("output", paths.OUTPUT_DIR),
            ("presets", paths.PRESET_DIR), ("downloads", paths.DOWNLOAD_DIR)]
 
 
 def default_source():
-    """AutoEQ Local's folder: beside AutoEQ Studio (the same project folder), else in Downloads (where the user keeps
-    it since 2026-10-08; never for a test copy, AUTOEQSTUDIO_ROOT); None without its settings, and when installed
-    (an installed copy starts fresh: the user's choice, 2026-10-11)."""
+    """AutoEQ Local's folder (paths.old_app); None without its settings, and when installed (an installed copy starts
+    fresh: the user's choice, 2026-10-11)."""
     if studio_paths.INSTALLED:
         return None
     p = studio_paths.old_app("AutoEQ Local")  # (beside the program, not your files' folder: review 2)
@@ -73,7 +71,7 @@ def bring_over(source=None):
             for n in names:
                 src = os.path.join(d, n)
                 _copy_file(src, os.path.join(dst_root, os.path.relpath(src, src_root)), done)
-    theirs = os.path.join(source, "inputs", "sources.json")  # (where AutoEQ Local's files came from: added to ours)
+    theirs = os.path.join(source, "inputs", "sources.json")
     if os.path.isfile(theirs):
         if os.path.exists(paths.SOURCES_PATH):
             _merge_sources(theirs, paths.SOURCES_PATH, done)

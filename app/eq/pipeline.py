@@ -142,9 +142,8 @@ def check_run(mode, cfg, curves):
                          f"or on the result card.")
 
 
-# The last few site sweeps' results, by their inputs and settings. The site's AutoEQ gives the same result for the
-# same curves and settings every time, so a sweep that was just run isn't run again: running the same sweep again is
-# instant. (Best fit took its starting points from a sweep until 1.0.9: it starts from none now.)
+# The last few site sweeps' results, by their inputs and settings: the site's AutoEQ gives the same result for the
+# same curves and settings every time, so a sweep just run isn't run again.
 _SWEEPS = {}
 _SWEEPS_KEPT = 4
 

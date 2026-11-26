@@ -1,7 +1,7 @@
 """Which rig each database (and each AutoEq source) measures on, as worked out from the measurements themselves by
-tools/build_rig_map.py (rigmap.json): each database's models compared with the same models from sources whose rig
-is certain. rigs.source_rig asks here first; without an answer here it falls back to what the source states or
-the usual rig for that kind of database.
+AutoEQ Local's app\\tools\\build_rig_map.py (Downloads\\AutoEQ Local; rigmap.json): each database's models compared
+with the same models from sources whose rig is certain. rigs.source_rig asks here first; without an answer here it
+falls back to what the source states or the usual rig for that kind of database.
 """
 import os
 

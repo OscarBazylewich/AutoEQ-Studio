@@ -1,25 +1,26 @@
 """Listen: hear the EQ through your own IEM or headphone (AutoEQ Local's Listen card and its EQs to compare, natively).
 
-- Play / Stop; the sound (music, pink or white noise, a sweep, a tone, your own file); volume; level matching
-- the versions: EQ off, the selected EQ (as edited) and this IEM's EQs to compare; click one or press 1-9; Blind
-  test hides which is which until Reveal; Ears: both the same, or a different version in each ear (Swap)
+- Play / Stop; the sound (music, pink or white noise, a sweep, a tone, your own file); volume; Same level
+- the versions: EQ off, the selected EQ (as edited) and this IEM's EQs to compare; click one or press 1-9; Hide the
+  names hides which is which until Show the names; Ears: the same version in each ear, or a different one
+  (Interchange)
 - the ABX test (2026-10-26, ui/abx.py): A and B from the versions and how many trials; each trial X is one of them
   at random, heard with Listen to A, B and X, answered with X is A or X is B; at the end the score and how often
-  guessing alone does as well (kept for the session). Level-matched and both ears the same while it runs, the
+  guessing alone does as well (kept for the session). Same level and both ears the same while it runs, the
   version buttons hidden and keys 1-9 off (either would give X away); Listen's own choices put back after
 - the tone's frequency slider (and its range); the sweep's and the tone's frequency shown on the graph
 - your EQs to compare (eq.service /api/listen: one list per IEM, kept between sessions, 12 at most): The selected
-  EQ, An EQ file…, Paste filters… (each with Windows 11's add symbol); each renamed in place, on the graph or not, ✕
-  removed
+  EQ, From an EQ file…, Paste filters… (each with Windows 11's add symbol); each renamed in place, on the graph or
+  not, ✕ removed
 - the device's own EQ (Devices) plays on top of what you hear here: said, with a button to switch it off
 
-The look is Windows 11's (2026-10-23): Windows' symbols beside Play / Stop, Undo, Choose a file…, Swap and the three
-that add an EQ to compare (its add symbol, as every other Add has, where they began with a typed "+"); each version
-marked on its left in its curve's colour on the graph, and the same colour beside each EQ to compare (the property
-listen_mark, matched in ui\\theme_sheet.py's listen part, so light, dark and Windows' accent change them live); the
-versions in as many rows as the card needs; your EQs to compare in columns, each ✕ quiet (no fill until pointed at)
-and each name box named for a screen reader; the device's own EQ said in Windows 11's warning card
-(window_parts.warning_card: its symbol, the words, Switch it off at the right), as the banner.
+The look is Windows 11's (2026-10-23): Windows' symbols beside Play / Stop, Undo, Select a file…, Interchange and the
+three that add an EQ to compare (its add symbol, as every other Add has, where they began with a typed "+"); each
+version marked on its left in its curve's colour on the graph, and the same colour beside each EQ to compare (the
+property listen_mark, matched in ui\\theme_sheet.py's listen part, so light, dark and Windows' accent change them
+live); the versions in as many rows as the card needs; your EQs to compare in columns, each ✕ quiet (no fill until
+pointed at) and each name box named for a screen reader; the device's own EQ said in Windows 11's warning card
+(window_parts.warning_card: its symbol, the words, Disable it at the right), as the banner.
 
 The sound itself is ui/audio.py (sounddevice); nothing plays until Play.
 """
@@ -239,7 +240,7 @@ class Listen(QGroupBox):
         v.addWidget(self.file_row)
         # the versions: right under Play, the most used control after it (keys 1-9); in each ear: Left and Right
         self.ab_box = QWidget()
-        self.ab = _Rows(self.ab_box)  # (in as many rows as the card needs)
+        self.ab = _Rows(self.ab_box)
         self.version_group = QButtonGroup(self)  # (one of them chosen; the same group however often they're redrawn)
         v.addWidget(self.ab_box)
         self.split_row = QWidget()
@@ -258,7 +259,8 @@ class Listen(QGroupBox):
         swap.clicked.connect(self.interchange_sides)
         sr.addWidget(swap)
         v.addWidget(self.split_row)
-        # how they're heard: both ears the same version or one each, Blind test (under the versions it changes)
+        # how they're heard: the same version in each ear or a different one, Hide the names (under the versions they
+        # change)
         ears = QHBoxLayout()
         self.ears = SearchCombo()
         self.ears.addItem("The same version in each ear", "both")
@@ -296,9 +298,9 @@ class Listen(QGroupBox):
         v.addWidget(self.pins_box)
         help_window.tag(head, "snd_list")
         add = placed(v, QHBoxLayout())
-        # (Windows 11's add symbol before their words, as every other Add: they began with a typed "+"; a screen reader
-        # reads what each does, the symbol being read as nothing)
-        # (an EQ's sources named and ordered as By hand's: UI-RULES 16)
+        # (the add symbol, as every other Add; each one's screen-reader name starts with "Add": the symbol is read as
+        # nothing)
+        # (an EQ's sources in the order of Manually's Start from: UI-RULES 16)
         for text, name, fn in (("The selected EQ", "Add the selected EQ", self.add_selected),
                                ("From an EQ file…", "Add from an EQ file…", self.add_file),
                                ("Paste filters…", "Add filters that you paste…", self.add_paste)):
@@ -317,7 +319,7 @@ class Listen(QGroupBox):
         self._names_timer = QTimer(self, interval=20, timeout=self._show_new_names)
         self.source_changed(save=False)
         self.volume_changed()
-        self.tone_lab.setText(self._tone_text(self.tone_hz()))  # (the tone's frequency shown from the start)
+        self.tone_lab.setText(self._tone_text(self.tone_hz()))
         self.refresh()
 
     # ---------------------------------------------------------------- the ABX test (ui\abx.py)
@@ -439,12 +441,11 @@ class Listen(QGroupBox):
         if f is not None and self.abx_row.isAncestorOf(f):  # (the test's rows first, with the focus: hidden with it,
             self.abx_box.show()  # Start ABX gave it to the next control in the page's order, 2026-11-13)
             self.abx_hear["A"].setFocus(Qt.OtherFocusReason)
-        self.abx_row.hide()  # (the test's own rows in its place)
+        self.abx_row.hide()
         self.abx_said.hide()
         self.abx_listen("X")
 
     def abx_listen(self, which):
-        """Hear A, B or the trial's X."""
         if self.abx is None:
             return
         self.choose(self.abx.key(which))
@@ -452,7 +453,6 @@ class Listen(QGroupBox):
         self.abx_render()
 
     def abx_answer(self, says):
-        """X is A or B: the next trial (X heard first), or the result once the last is answered."""
         if self.abx is None:
             return
         self.abx.answer(says)
@@ -462,9 +462,9 @@ class Listen(QGroupBox):
             self.abx_listen("X")
 
     def _abx_set_options(self, lm, ears, blind):
-        """Level-matched, the ears and Blind test as an ABX test needs them, or back as they were: what's heard
-        changes, your Listen settings don't (they're the test's for its while, not choices of yours to keep), and a
-        blind test you had keeps its letters."""
+        """Same level, the ears and Hide the names as an ABX test needs them, or back as they were: what's heard
+        changes, your Listen settings don't (they're the test's for its while, not choices of yours to keep), and
+        hidden names that you had keep their letters."""
         for w, set_it in ((self.lm, lambda: self.lm.setChecked(lm)),
                           (self.ears, lambda: self.ears.setCurrentIndex(max(0, self.ears.findData(ears)))),
                           (self.blind, lambda: self.blind.setChecked(blind))):
@@ -586,7 +586,7 @@ class Listen(QGroupBox):
             self.shuffle_blind_order()
         stops = self._abx_stop_reason(vs) if self.abx is not None else ""
         if stops:
-            self.abx_end(finished=False, why=stops)  # (what was answered is said, and why it stopped)
+            self.abx_end(finished=False, why=stops)
         self._apply_to_engine()
         self.render_versions()
         if rows and not self._rows_show_the_list():
@@ -689,7 +689,6 @@ class Listen(QGroupBox):
         self.note.setText(note)
 
     def _fill_sides(self):
-        """Left's and Right's lists: the versions, what was selected kept."""
         for box, key in ((self.left, self.left_key), (self.right, self.right_key)):
             box.blockSignals(True)
             box.clear()
@@ -757,7 +756,7 @@ class Listen(QGroupBox):
         kind = self.src.currentData()
         sr = self.engine.sr
         if kind == "file":
-            if self.file_data is None:  # (chosen first, then played once it's read)
+            if self.file_data is None:
                 self.select_file(play_after=True)
                 return
             data = self.file_data
@@ -939,8 +938,7 @@ class Listen(QGroupBox):
         return True
 
     def _store_pins(self):
-        """This IEM's list written to its file: the list as kept, or None when it was refused (said; the list is
-        then read back as it's kept: the change undone)."""
+        """This IEM's list written to its file: the list as kept, or None when it was refused (said, and read back)."""
         if not self.pins_for:
             return None
         r = self.page.svc.call("/api/listen/save", {"device": self.pins_for, "eqs": self.pins})
@@ -999,7 +997,7 @@ class Listen(QGroupBox):
                  f"error {st['rms']:.2f} dB" if st["rms"] is not None else "", engine=r.get("engine"))
 
     def add_file(self):
-        """From an EQ file…: as By hand's (its files, from your Saved EQs folder, read the same way)."""
+        """From an EQ file…: as Manually's An EQ file (its files, from your Saved EQs folder, read the same way)."""
         import paths
         start = paths.SAVED_EQS if os.path.isdir(paths.SAVED_EQS) else os.path.expanduser("~")
         f, _ = QFileDialog.getOpenFileName(self, "An EQ file", start, "EQ files (*.txt *.peace *.cfg *.csv);;All files (*)")
@@ -1019,9 +1017,8 @@ class Listen(QGroupBox):
             self._add_text(got[1], got[0] or "Pasted EQ", "pasted")
 
     def _add_text(self, text, name, note):
-        """An EQ file's or pasted text read as By hand reads it (Equalizer APO's lines, a Room EQ Wizard export, a Peace
-        preset, as Equalizer APO plays them: eq\\eqtext.py), what an EQ here can't have said; it read Equalizer APO's
-        lines only, so a Peace or Room EQ Wizard file worked in By hand but not here."""
+        """An EQ file's or pasted text read as Manually's Start from reads it (eq\\eqtext.py: Equalizer APO's lines, a
+        Room EQ Wizard export, a Peace preset, as Equalizer APO plays them); what an EQ here can't have is said."""
         r = self.page.svc.call("/api/filters/read", {"text": text, "settings": self.page.S})
         left = r.get("left_out") or []
         if r.get("error") or not r.get("filters"):
@@ -1196,8 +1193,7 @@ class Listen(QGroupBox):
     def _put_back(self, device, p):
         """Undo of ✕ (eqlist.js undoRemove): back in the list it came from, also after another IEM was chosen."""
         if device == self.pins_for:
-            # (add says nothing by itself here, only a refusal through say: the Undo has one message for the two
-            # cases, the "Restored" one below; it said "Added …" for this case before 2026-11-24)
+            # (say given: add says only a refusal, so the Undo has one message for both cases, the "Restored" one below)
             if self.add(p["name"], p["filters"], p.get("note", ""), say=self.page.status, engine=p.get("engine")):
                 self.page.status(f"Restored “{p['name']}” to EQs to compare for {device}", 6000)
             return

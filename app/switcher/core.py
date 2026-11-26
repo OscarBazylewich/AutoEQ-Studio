@@ -1,7 +1,7 @@
 """What AutoEQ Studio knows and does, without any window: your profiles, the devices and the profiles each one has,
 the one switched on for each, and keeping APO's file (apo.py) in step with them.
 
-Settings (data\\settings.json):
+Settings (settings.json in the data folder: paths.SETTINGS):
 - profiles: {id: {"name", "file" (its copy in APO's "AutoEQ Studio\\profiles"), "filters", "preamp", "source"}}
 - devices: {key ("Headset|EarPods"): {"label" (Windows' name), "nickname" (yours, or none: shown(rec) is the name
   to show), "guids" (every endpoint seen for it), "profiles" [ids], "active" id or None}}. A device is remembered once seen, so its EQ is in APO's file even while it's not plugged in: plugging
@@ -38,12 +38,11 @@ from . import level
 from .apo import Apo
 
 TRIAL_FILE = "_trying.txt"
-COMPARE_FILE = "_compare.txt"  # (the on/off hotkey's "off": a pre-amp alone, the EQ's loudness)
-_UPDATED = ("filters", "preamp", "graphic", "changed", "source")  # (what update_profile changes in a profile's record)
+COMPARE_FILE = "_compare.txt"
+_UPDATED = ("filters", "preamp", "graphic", "changed", "source")
 
 
 def shown(rec):
-    """A device's name to show: your nickname, or Windows' name."""
     return (rec.get("nickname") or rec["label"]) if rec else ""
 
 
@@ -70,7 +69,7 @@ class Switcher:
         self.trial = None  # {"key", "name", "until"}: an EQ being tried on a device (try_eq)
         self.compare = None  # {"key", "matched", "db", "louder", "complete"}: a device's EQ off for now (compare_toggle)
         self.refresh(quiet=True)
-        if os.path.isfile(self.trial_path()) and not self.hold:  # (a trial the app didn't end: APO's file without it, the file gone)
+        if os.path.isfile(self.trial_path()) and not self.hold:
             self.apply()
             try:
                 os.remove(self.trial_path())
@@ -128,7 +127,7 @@ class Switcher:
         return out
 
     def save(self):
-        if self.read_only:  # (the file couldn't be read: never written over)
+        if self.read_only:
             return
         textfile.write_json(self.path, self.s, indent=1, quiet=False)
 
@@ -180,8 +179,7 @@ class Switcher:
 
     def device_sort_key(self, key):
         """A device's place in the lists of devices (the Devices screen, Use on device): connected ones first, then A to
-        Z by the name shown, your name for it or Windows' (numbers as numbers: .claude/notes/UI-RULES.md 22; it was by
-        Windows' name, so a device you'd renamed sat out of order)."""
+        Z by the name shown, your name for it or Windows' (numbers as numbers: .claude/notes/UI-RULES.md 22)."""
         d = self.device(key)
         name = " ".join(shown(self.record(key) or {"label": key}).casefold().split())
         return (not (d and d.connected), [float(t) if i % 2 else t for i, t in enumerate(re.split(r"(\d+)", name))])
@@ -267,7 +265,6 @@ class Switcher:
         return next((now.index(k) for k in order[at + 1:] if k in now), len(now))
 
     def set_nickname(self, key, name):
-        """Your name for a device (empty: Windows' name again)."""
         rec = self.record(key)
         if not rec:
             return
@@ -280,7 +277,6 @@ class Switcher:
         self._tell("devices")
 
     def playing(self):
-        """(device key, its record) of the device playing now, or (None, None)."""
         return (self.playing_key, self.record(self.playing_key)) if self.playing_key else (None, None)
 
     # ---------------------------------------------------------------- profiles
@@ -413,7 +409,6 @@ class Switcher:
         return True
 
     def remove_profile(self, pid):
-        """Remove a profile everywhere (its copy in APO's folder too). A device that had it on is off."""
         p = self.s["profiles"].pop(pid, None)
         if not p:
             return
@@ -500,11 +495,10 @@ class Switcher:
         self._tell("active", key=key)
 
     def set_active(self, key, pid):
-        """Switch a device's EQ to one of its profiles, or off (None)."""
         d = self.record(key)
         if self.trial and self.trial["key"] == key:  # (an EQ chosen by hand ends a trial on that device)
             self.end_trial()
-        ended = self._clear_compare(key)  # (and its "off for now")
+        ended = self._clear_compare(key)
         if not d or (pid is not None and pid not in d["profiles"]) or d["active"] == pid:
             if ended:
                 self.apply()
@@ -584,7 +578,6 @@ class Switcher:
         return os.path.join(self.apo.profiles, COMPARE_FILE)
 
     def eq_file(self, key):
-        """The file of the EQ a device plays (the one being tried there, else its profile on), or None."""
         if self.trial and self.trial["key"] == key:
             return self.trial_path()
         d = self.record(key)
@@ -592,7 +585,6 @@ class Switcher:
         return os.path.join(self.apo.profiles, p["file"]) if p else None
 
     def eq_name(self, key):
-        """The name of the EQ a device plays (the one being tried there, else its profile on), or None."""
         if self.trial and self.trial["key"] == key:
             return self.trial["name"]
         d = self.record(key)
@@ -656,7 +648,7 @@ class Switcher:
         for key, d in self.s["devices"].items():
             p = self.s["profiles"].get(d["active"])
             file = TRIAL_FILE if self.trial and self.trial["key"] == key else p["file"] if p else None
-            if self.compare and self.compare["key"] == key:  # (off for now: a pre-amp alone, or nothing)
+            if self.compare and self.compare["key"] == key:
                 file = COMPARE_FILE if self.compare["matched"] else None
             out.append((d["label"], d["guids"], file))
         return out

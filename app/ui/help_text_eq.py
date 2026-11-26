@@ -1,6 +1,6 @@
-"""The help words for Make an EQ and its windows (Find…, Which measurement, Listen, History, Run several,
+"""The help words for Make an EQ and its windows (Find…, Other measurements of this model, Listen, History, Queue,
 Compare…, the target's Adjust): HELP_EQ, each setting's or control's line by its key (its tooltip, with the ids
-of its "See also" entries in Help), and SETTINGS_EQ, their groups in Help's "Every setting" (the first 18, in the
+of its "See also" entries in Help), and SETTINGS_EQ, their groups in Help's All settings (the first 18, in the
 page's order). help_texts.py joins them with the other screens'. Words only: nothing is imported here.
 """
 # flake8: noqa

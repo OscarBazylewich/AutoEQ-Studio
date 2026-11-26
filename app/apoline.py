@@ -46,8 +46,7 @@ def number(text):
 
 
 def read_freq(text):
-    """A frequency as APO reads it: a non-breaking space dropped; "8.000" (a dot 4th from the end, no exponent) is
-    8000."""
+    """A frequency as APO reads it (APO's rules in the module docstring), a non-breaking space dropped."""
     s = text.replace("\u00a0", "")
     v = number(s)
     if v is not None and len(s) >= 5 and "e" not in s.lower() and s[-4] == ".":
@@ -167,7 +166,7 @@ def coefficients(b, fs):
         c = (alpha, 0.0, -alpha, 1 + alpha, -2 * cs, 1 - alpha)
     elif kind == "NO":
         c = (1.0, -2 * cs, 1.0, 1 + alpha, -2 * cs, 1 - alpha)
-    else:  # (AP)
+    else:
         c = (1 - alpha, -2 * cs, 1 + alpha, 1 + alpha, -2 * cs, 1 - alpha)
     a0 = c[3]
     return c[0] / a0, c[1] / a0, c[2] / a0, c[4] / a0, c[5] / a0

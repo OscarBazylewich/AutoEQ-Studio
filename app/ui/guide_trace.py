@@ -1,8 +1,9 @@
-"""Trace image's Guide (AutoEQ Local's tracer TOUR, told for AutoEQ Studio's window; ui/tour.py shows it):
+"""Trace a graph image's Guide (AutoEQ Local's tracer TOUR, told for AutoEQ Studio's window; ui/tour.py shows it):
 trace_steps(tw), every step in order, and start_trace(tw), the tour, on the sample graph when no picture is
-open. The chapters have the names of the window's tabs (1 · Axes, 2 · Trace, 3 · Save), and a step shows its tab
-first ("before"); the tab that you had comes back when the Guide closes. The steps of 2 · Trace go in the card's
-order: Trace automatically first, Trace manually last.
+open. The chapters: The parts of this window, Picture, then one for each of the window's tabs (1 · Axes, 2 · Trace,
+3 · Save); a step in a tab's chapter shows its tab first ("before"); the tab that you had comes back when the Guide
+closes. The steps of 2 · Trace go in the card's order: Trace automatically first, Trace manually and Correct the
+curve last.
 """
 from ui import tour
 
@@ -13,16 +14,15 @@ TOOL_DEMO = {"trace": "Click a curve to follow it (T)", "draw": "Drag along the 
 
 # ---------------------------------------------------------------- the tracer's own Guide
 def trace_steps(tw):
-    """Trace image's Guide (on the sample graph when no picture is open: start_trace opens it)."""
     t = tw.t
     traced = lambda: any(t.has_data(c) for c in t.curves)
 
-    def show_traces():  # (the sample: its curves traced for the steps that show them)
+    def show_traces():
         if getattr(tw, "sample_open", False) and not traced():
             t.auto_trace()
             t.auto_trace()
             tw.changed()
-    def tab(i):  # (a step's tab shown first: the side shows one step's card at a time)
+    def tab(i):
         return lambda: tw.show_tab(i)
 
     def trace_tab_traced():
@@ -45,7 +45,6 @@ def trace_steps(tw):
         else:
             api.spot_on(tw.save_btn)
             yield from api.at(tw.save_btn, 0.5, 0.5, 1500, say="The add button has the name of the type")
-    # (on the sample graph only: one more sentence at the end of the first step's text)
     sample = " This sample graph closes at the end of the Guide." if getattr(tw, "sample_open", False) else ""
     steps = [
         {"chapter": "The parts of this window", "title": "How to trace a graph", "target": lambda: tw.stage,
@@ -105,8 +104,7 @@ def trace_steps(tw):
          "before": tab(1),
          "text": "Click curve: click a curve to follow it. Make a line: drag along the curve to make a line manually. "
                  "Erase: drag a box around an incorrect part. Move: drag the picture. The keys are T, D, E and H.",
-         # (the demo's words for each tool: the step's words and the tool's key. It said each tool's tooltip, and
-         # Click curve, Make a line and Erase have none since the text survey, 2026-11-24)
+         # (not the tools' tooltips: Click curve, Make a line and Erase have none since the text survey, 2026-11-24)
          "demo": lambda: [{"at": (lambda b=b: b), "say": TOOL_DEMO[k]} for k, b in tw.tool_btns.items()]},
         {"chapter": "2 · Trace", "title": "Correct the curve", "target": lambda: list(tw.edit_btns.values()),
          "before": tab(1),

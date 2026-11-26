@@ -36,7 +36,7 @@ import threading
 
 from PySide6.QtCore import QObject, QTimer, Signal
 
-THREAD_NAME = "Make an EQ's code"  # (the background import's thread, by this name)
+THREAD_NAME = "Make an EQ's code"
 PER_TURN = 40                      # (Qt's class names made in one turn of the window's event loop)
 SCREEN = ("numpy", "pyqtgraph", "ui.eq_page", "ui.eq_settings", "ui.listen", "ui.filter_editor", "ui.your_files")
 EQ_PART = ("eq.bring_over", "eq.databases", "eq.library", "eq.settings", "eq.service")
@@ -60,8 +60,8 @@ class _Messenger(QObject):
 
 
 def start(delay_ms=0):
-    """Begin after delay_ms (the window's thread only). Again: nothing more, except that a start still waiting
-    begins sooner when asked for sooner (Make an EQ clicked while the window's own wait runs)."""
+    """Begin after delay_ms. Called again: only a shorter delay changes anything, a start still waiting then begins
+    sooner (Make an EQ clicked while the window's own wait runs)."""
     delay = max(0, int(delay_ms))
     if _state["started"]:
         timer = _qt.get("timer")

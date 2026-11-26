@@ -1,11 +1,7 @@
-"""Small helpers the window's screens share (ui\\window.py and its parts: ui\\devices_screen.py,
-ui\\profiles_screen.py, ui\\settings_screen.py, ui\\setup_dialog.py): a line of words in the muted colour, a profile's
-EQ in a few words, a warning card as Windows 11 draws one (its sign, its words, its action), and Windows 11's symbol
-in front of words. And the parts every window of the app uses, so each kind of thing is done one way everywhere
-(.claude\\notes\\UI-RULES.md): fit_to_screen (its size kept within the screen's room), MessageLine (what was just done,
-with Undo), Footer (a window's last row: its extras, its message line, Close), dialog_band (a dialog's decision:
-Windows 11's band of buttons), enter_presses (what Enter does in a window) and ScreenArea (a part that scrolls up and
-down only, never narrower than its content: Settings, a device's card)."""
+"""Small helpers the window's screens share (ui\\window.py and its parts), and the parts every window of the app uses,
+so each kind of thing is done one way everywhere (.claude\\notes\\UI-RULES.md): fit_to_screen, MessageLine, Footer,
+dialog_band, ask_text, focused_button, enter_presses, EmptyText, scroll_bar_in_margin, ScreenArea; and glyph_label,
+warning_card, muted, profile_line, not_opened (the message in the place of Make an EQ when it could not open)."""
 from PySide6.QtCore import QEvent, QObject, QSize, Qt, QTimer
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSizePolicy, QWidget
 
@@ -28,7 +24,6 @@ def not_opened(error):
 
 
 def is_not_opened(text):
-    """True when the words in the place of Make an EQ are the message above (the page failed to open)."""
     return text.startswith(NOT_OPENED)
 
 
@@ -61,10 +56,10 @@ def fit_to_screen(window, size, smallest=None):
 
 
 class MessageLine(QWidget):
-    """A window's message line (UI-RULES 24): what was just done, for SAID_MS, or with Undo beside it for UNDO_MS
-    (clicked: the act put back, the line cleared). The main window's is at its bottom; another window's is in its
-    Footer. A long message never widens the window: it's cut at the edge, its tooltip whole (Find…'s line wraps to
-    more lines in place of the cut: picker.py)."""
+    """A window's message line (UI-RULES 24), in its Footer: what was just done, for SAID_MS, or with Undo beside it
+    for UNDO_MS (clicked: the act put back, the line cleared); the main window's messages are bubbles
+    (ui\\bubble.Messages). A long message never widens the window: it's cut at the edge, its tooltip whole (Find…'s
+    line wraps to more lines in place of the cut: picker.py)."""
 
     def __init__(self, role="muted"):
         super().__init__()
@@ -113,7 +108,7 @@ class MessageLine(QWidget):
 
 class Footer(QWidget):
     """A window's last row (UI-RULES 1): its extra actions at the left, then its message line (self.line: say()), then
-    its main action when it has one (main: Run several's Start, as a Windows dialog's OK), then Close at the right: no
+    its main action when it has one (main: Queue's Start, as a Windows dialog's OK), then Close at the right: no
     accent, no symbol; Esc does the same (a dialog's own). close=False: no Close."""
 
     def __init__(self, window, extras=(), close=True, main=()):
@@ -212,7 +207,7 @@ class _EnterOnly(QObject):
             from PySide6.QtWidgets import QAbstractSpinBox, QKeySequenceEdit, QLineEdit, QPlainTextEdit
             pressed = focused_button(obj)
             if pressed is not None:  # (a focused button takes Enter, as in Windows: Cancel, Undo, Close; it pressed
-                pressed.click()      # the accent one: Close pressed Run several's Start)
+                pressed.click()      # the accent one: Close pressed Queue's Start)
                 return True
             # (the window's own focus, not the app's: the same whether or not it's the active window)
             typing = isinstance(obj.focusWidget(), (QLineEdit, QPlainTextEdit, QKeySequenceEdit, QAbstractSpinBox))
@@ -244,7 +239,6 @@ def enter_presses(window, button=None):
 
 
 def muted(text=""):
-    """A line of words in the theme's muted colour, wrapping."""
     lab = QLabel(text)
     lab.setWordWrap(True)
     theme.mark(lab, role="muted")

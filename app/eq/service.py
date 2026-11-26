@@ -2,10 +2,8 @@
 answering one. Most take the current settings in body["settings"] (cfg_from()). call() runs one and turns an error
 into {"error": message}; handle() lets it raise.
 
-This was AutoEQ Local's page's API (its /api/... addresses, over its own web server); the addresses are kept as the
-names, so the behaviour, its checks and AutoEQ Local's code stay comparable. What only the browser page needed is
-gone: the heartbeat and "bye" (the window telling the server it's open), opening a browser window, the list of
-browsers.
+The route names are AutoEQ Local's /api/... addresses, kept so the behaviour, its checks and AutoEQ Local's code stay
+comparable.
 
 Groups: state and settings · the app's files · this PC and the online databases · which measurement to use ·
 runs · saving (files, report) · presets · history (past EQs) · opening the app's folders.
@@ -79,8 +77,8 @@ SET_ASIDE = []  # fn(text) for each file set aside (the window says it: called f
 
 
 def call(path, body=None):
-    """handle(), with an error as the answer {"error": message} (as AutoEQ Local's server answered the page): a
-    missing field says which, anything else its own message. The details go to the log."""
+    """handle(), with an error as the answer {"error": message}; a traceback goes to the log (none for an unknown
+    route or Offline)."""
     try:
         return handle(path, body if isinstance(body, dict) else {})
     except UnknownApi as e:
@@ -112,7 +110,6 @@ def text_of(body, key):
 
 
 def names_of(body):
-    """The file names a request is about: "names" (a list) or one "name"."""
     names = body.get("names") or [text_of(body, "name")]
     if not (isinstance(names, list) and all(isinstance(n, str) for n in names)):
         raise ValueError("Missing names")
@@ -145,7 +142,7 @@ def state(body):
                                 "browse": databases.list_only(s),
                                 "group": s.get("group", "added"), "short": s["short"], "form": databases.site_form(s),
                                 "folder": databases.folder_name(s["name"])} for s in databases.all_sites()],
-            "database_groups": list(databases.GROUPS.items()),  # in order ("5128" would sort first in a JS object)
+            "database_groups": list(databases.GROUPS.items()),  # (in the Sources window's order)
             "downloads_dir": databases.DOWNLOAD_DIR, "rigs": rigs.RIGS,
             "rig_example": rigconv.example(), "rig_notes": rigmap.site_notes(), "unit_convs": rigconv.page_units()}
 
@@ -159,7 +156,6 @@ def save_settings(body):
 
 @route("/api/reset")
 def reset(body):
-    """Every setting back to its default; the files stay as they are."""
     cfg = settings.load()
     new = settings.merge(settings.DEFAULTS, {"files": cfg["files"]})
     settings.save(new)
@@ -187,7 +183,6 @@ def curves(body):
 
 @route("/api/analysis")
 def analysis(body):
-    """What the automatic settings make of the chosen measurement and target (autoset.analyse)."""
     cfg = cfg_from(body)
     target, meas = inputs.selected(cfg)
     c, meas_texts, target_text = pipeline.load(cfg, target, meas)
@@ -596,8 +591,7 @@ def job_running():
 
 
 def result_waiting():
-    """A run has finished and the page hasn't taken its result yet: e.g. the window was minimised during a long run
-    and the browser put the page to sleep (it stops asking until it's looked at again)."""
+    """A run has finished and the page hasn't taken its result yet. Nothing in the app calls it (nor job_running)."""
     return JOB.get("status") == "done"
 
 
@@ -646,7 +640,7 @@ def make_report(body):
     name = text_of(body, "name") if body.get("name") else ""
     there = exports.report_name(device, target_name, name)
     if not body.get("replace") and os.path.exists(os.path.join(exports.OUTPUT_DIR, there)):
-        return {"exists": [there]}  # (only replaced with "replace", as the EQ files: the page asks first)
+        return {"exists": [there]}
     c, _, _ = pipeline.load(cfg, target, meas)
     band, fs = cfg["scoring"]["band_hz"], cfg["site"]["sample_rate"]
     problem = pipeline.band_problem(c, band)
@@ -672,7 +666,7 @@ def make_report(body):
 
 
 @route("/api/filters/parse")
-def filters_parse(body):  # (an EQ file's filters, for Best fit's "Start from your own filters")
+def filters_parse(body):  # (an EQ file's filters, for Best fit's "Start from your filters")
     return {"filters": exports.parse_filters(text_of(body, "text"))}
 
 

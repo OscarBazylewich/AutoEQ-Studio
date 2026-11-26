@@ -12,8 +12,8 @@ limits, as a list or a text box, has no tooltip then), and the label of the box 
 
 The words themselves are kept per screen and joined here: help_text_terms.py (what every screen shares: the
 introduction, the steps, the terms, the questions), help_text_eq.py (Make an EQ and its windows),
-help_text_devices.py (Devices, Settings, Presets) and help_text_trace.py (Trace image). WIKI keeps the Help
-page's order; HELP is only ever looked up by key, so its order doesn't matter.
+help_text_devices.py (Devices, Settings, Presets) and help_text_trace.py (Trace a graph image). WIKI keeps the
+Help page's order; HELP is only ever looked up by key, so its order doesn't matter.
 """
 from ui.help_text_devices import HELP_DEVICES, SETTINGS_DEVICES
 from ui.help_text_eq import HELP_EQ, SETTINGS_EQ

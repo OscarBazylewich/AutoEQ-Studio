@@ -60,9 +60,9 @@ def _files(apo_profiles):
                 out.append((arc + "/" + os.path.relpath(p, base).replace(os.sep, "/"), p))
     out.append((SOURCES, paths.SOURCES))
     if apo_profiles and os.path.isdir(apo_profiles):
+        # ("_Aux.txt" is a profile, not a file to leave out: safe_name's reserved names)
         out += [(PROFILES + "/" + n, os.path.join(apo_profiles, n)) for n in sorted(os.listdir(apo_profiles))
-                if n.lower().endswith(".txt") and n.lower() != TRIAL_FILE]  # (not a trial's file; "_Aux.txt" is a
-    #                                                                             profile: safe_name's reserved names)
+                if n.lower().endswith(".txt") and n.lower() != TRIAL_FILE]
     return [(a, p) for a, p in out if os.path.isfile(p)]
 
 

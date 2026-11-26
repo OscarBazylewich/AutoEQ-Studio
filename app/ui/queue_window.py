@@ -1,11 +1,11 @@
-"""Several EQs in one go (Make an EQ › Run several…): tick IEMs (measurements in the app) and targets, and each pair
-is run in turn with the settings and method you have now (the automatic settings worked out for each pair), the
-picked result saved into your Saved EQs folder under its automatic name (never over a file: " (2)" …), kept in History
-and in "Runs this session". Cancel (beside Start, there all along and off until it runs: nothing moves) stops the
-run going on and the rest; closing the window does too. Your own choice of files is put back after: the runs use
-their own copy of the settings. Its buttons are every window's footer (window_parts.Footer: how many are queued at
-the left, its own message line, where it says how many it completed, Start in the accent with Cancel, Close at the bottom
-right; they sat in a row over the table, Close mid-window).
+"""Several EQs in one go (Make an EQ › Queue…): tick IEMs (measurements in the app) and targets, and each pair is
+run in turn with the settings and method you have now (the automatic settings worked out for each pair), the picked
+result kept in History and in "EQs that you made", and saved into your Saved EQs folder under its automatic name when
+More settings › Saved files has a file type (never over a file: " (2)" …). Cancel (beside Start, there all along and
+off until it runs: nothing moves) stops the run going on and the rest; closing the window does too. Your own choice
+of files is put back after: the runs use their own copy of the settings. Its buttons are every window's footer
+(window_parts.Footer: its own message line, where it says how many it completed, then how many are queued, Start in
+the accent with Cancel, and Close at the bottom right).
 """
 import copy
 import os
@@ -277,11 +277,11 @@ class QueueWindow(QDialog):
         done = sum(1 for i in range(self.table.rowCount())
                    if (self.table.item(i, 2) or QTableWidgetItem("")).text().startswith("Done"))
         self.footer.say(f"Completed {done} of {len(self.jobs)} EQ{'' if len(self.jobs) == 1 else 's'}", 0)  # (its own line, kept until the next)
-        if page.run_result is None and page.session_runs:  # (the result card was hidden: Runs this session out of reach)
+        if page.run_result is None and page.session_runs:  # (result card hidden: EQs that you made out of reach)
             page.choose_run(id(page.session_runs[-1]))
 
     def _stop_if_running(self):
-        if self.running:  # (closing while it runs: the run going on is cancelled and the queue stops)
+        if self.running:
             self.cancel()
             self.timer.stop()
             self.page.svc.call("/api/settings", {"settings": self.page.S})

@@ -1,7 +1,7 @@
-"""Set up Equalizer APO for AutoEQ Studio (Set up… in Settings and in the window's banner: ui\\settings_screen.py,
-ui\\window.py): the one line it adds to APO's config.txt (the lines on now can be turned off), EQ Switcher's Start
-with Windows turned off and EQ Switcher asked to quit (AutoEQ Studio takes over from it), and the EQ files config.txt
-uses offered as profiles (the one on now becomes the playing device's)."""
+"""Add AutoEQ Studio to Equalizer APO (the dialog of Add AutoEQ Studio to APO… in Settings and in the window's banner:
+ui\\settings_screen.py, ui\\window.py): the one line it adds to APO's config.txt (the lines on now can be turned off),
+EQ Switcher's Start with Windows turned off and EQ Switcher asked to quit (AutoEQ Studio takes over from it), and the
+EQ files config.txt uses offered as profiles (the one on now becomes the playing device's)."""
 import os
 
 from PySide6.QtCore import Qt
@@ -66,7 +66,7 @@ class SetUpDialog(QDialog):
             lay.addWidget(_words("Enabled lines in config.txt (these apply to all devices alongside each device's "
                                  "EQ):"))
             lst = QListWidget()
-            lst.setAccessibleName("Enabled lines in config.txt")  # (what a screen reader says for it)
+            lst.setAccessibleName("Enabled lines in config.txt")
             lst.addItems(self.others)
             lay.addWidget(lst)
             _fit(lst, 3)
@@ -119,8 +119,6 @@ class SetUpDialog(QDialog):
             key, _ = sw.playing()
             if key:
                 lay.addWidget(muted(f"The enabled EQ file becomes the active EQ for {shown(sw.record(key))}"))
-        # the buttons, as Windows 11's dialogs have them: on a band in the window's colour, the main one (Set up,
-        # Enter's) in the accent, sharing the width
         footer, self.go_btn = dialog_band(self, "Add to APO", self._add_to_apo)  # (every such dialog's: window_parts)
         outer.addWidget(footer)
         # its size, fixed as Windows 11's dialogs are: as wide as its widest tick box's words (a tick box gives way

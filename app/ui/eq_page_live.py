@@ -6,7 +6,7 @@ changing: at the top of what the page shows, or at its bottom when the control i
 It comes with an edit of the filters (the table, the sliders, Add filter, Sort) and follows each one (the page's draw,
 and a handle held on the EQ graph: follow); it goes when the graph comes back into sight, when the filters scroll out
 of it, or with its ✕. While a job runs it makes way for Cancel: hidden while its place is over Cancel, back at the
-job's end. The editor's tick box "Show the graph while editing" (next to its tools) turns it off and on,
+job's end. The tick box "Show the graph while you edit" (in the filters' tools row) turns it off and on,
 kept for the next start (the switcher's "live_graph"); its ✕ turns it off too. Drawn as the graph is (its colours,
 log frequency axis) on a card with Windows 11's flyout border."""
 import numpy as np
@@ -26,7 +26,7 @@ class LiveGraph(QFrame):
 
     def __init__(self, parent, on_close):
         super().__init__(parent)
-        self.setObjectName("liveGraph")  # (its card and border: theme_sheet's eq_page part)
+        self.setObjectName("liveGraph")  # (its card and border: theme_sheet's eq_screen part)
         v = QVBoxLayout(self)
         v.setContentsMargins(12, 6, 6, 8)
         v.setSpacing(2)

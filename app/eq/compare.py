@@ -48,12 +48,9 @@ def clean_query(name):
 
 def files_rig(group, recorded):
     """(rig key or None, sure) of your own files of a measurement (in the app or on this PC), worked out as Make an
-    EQ's Measurement card and Find…'s rig tags work it out (rigs.file_rig: where the app downloaded a file, else its
-    database's download folder or "(database)" tag in its name, else a rig its name says): the one rig its files have
-    (any not known left out), or none when they have more than one. recorded: rigs.sources().
-    (The recheck, 2026-10-23: only the record of where the app downloaded a file counted here, so the app's own
-    sample measurement, from listener800's 5128 IEMs, was "rig not known", and Which measurement warned that none was
-    measured on the B&K 5128 while the Measurement card said "measured on 5128".)"""
+    EQ's Measurement card and Find…'s rig tags work it out (rigs.file_rig; the download record alone left the app's
+    own 5128 sample "rig not known", 2026-10-23): the one rig its files have (any not known left out), or none when
+    they have more than one. recorded: rigs.sources()."""
     found = [rigs.file_rig(os.path.basename(f), group["folder"], recorded) for f in group.get("files") or []]
     known = {rig for rig, _sure in found if rig}
     if len(known) != 1:
@@ -70,7 +67,7 @@ def candidates(query, limit=40, links=None):
     out = []
     for it in databases.items():
         if it["kind"] == "measurement" and matches(query, it["name"]):
-            if it.get("link"):  # can't be downloaded: listed with its page link instead
+            if it.get("link"):
                 if links is not None:
                     links.append({"id": it["id"], "name": it["name"], "site": it["site"],
                                   "rig": RIGS.get(rigs.source_rig(it)[0]), "link": it["link"]})
@@ -90,7 +87,7 @@ def candidates(query, limit=40, links=None):
         if g["kind"] != "measurement" or not matches(query, g["name"]):
             continue
         if textfile.inside(g["folder"], databases.DOWNLOAD_DIR):
-            continue  # copies of database entries, found above
+            continue
         rig, sure = files_rig(g, recorded)
         unit = rigs.file_unit(os.path.basename(g["files"][0]), g["folder"], recorded) if g.get("files") else None
         local.append({"src": "pc", "id": g["id"], "name": g["name"], "source": "in the app" if g.get("in_app") else "this PC",

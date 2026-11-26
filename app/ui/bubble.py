@@ -296,7 +296,6 @@ def _press_in(b, obj, e):
 
 
 def _window_shows(win):
-    """The window shows on the screen (not minimized, not hidden in the tray)."""
     return win is not None and win.isVisible() and not win.isMinimized()
 
 

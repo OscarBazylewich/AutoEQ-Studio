@@ -1,8 +1,8 @@
 """The Help page's words that every screen shares (help_window.py shows them; help_texts.py joins them into
 WIKI with the screens' own): INTRO, the line at the top of the page; STEPS, an EQ job in five steps; TERMS, the
-five groups of terms (Curves and sound, EQ and filters, Rigs and measurements, Fitting and scoring, Apps, files
-and listening); QUESTIONS, the answers to the questions that come up most. Words only: the one import is the
-entry with the steps to load an EQ in each EQ app (help_text_apps.py, words only too).
+five groups of terms (Curves and sound, EQ and filters, Rigs and measurements, Best fit and the error, Apps, files
+and Listen); QUESTIONS, the answers to the questions that come up most. Words only: the one import is the entry
+with the steps to load an EQ in each EQ app (help_text_apps.py, words only too).
 """
 # flake8: noqa
 from ui.help_text_apps import LOAD_EQ_TERM

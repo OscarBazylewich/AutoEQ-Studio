@@ -5,7 +5,7 @@ device screens match:
 
 - a card: a QGroupBox (its title the card's heading) or a QFrame with the property card=true
 - text roles (QLabel property "role"): "title" (a screen's big heading), "muted" (secondary text), "warn", "good"
-- buttons: the property primary=true for the one main action of a card or window (Run, Set up's Set up: the
+- buttons: the property primary=true for the one main action of a card or window (Calculate, Set up's Set up: the
   accent); others plain (.claude/notes/UI-RULES.md 8)
 - chips (QLabel role "chip"): a small value with its name ("Error 0.31 dB")
 - graph colours: graph_colours() (measurement, target, with EQ, the EQ itself) for pyqtgraph: fixed, never the accent
@@ -20,11 +20,8 @@ followed when it's switched while the app runs.
 The colours themselves are in theme_tokens.py (build(): one theme's, with an accent), the stylesheet's rules in
 theme_sheet.py (in parts, by kind of control; _stylesheet() joins them with the pictures _pictures() draws).
 
-building(*roots): a screen's controls being made (Make an EQ's build, in steps): the app-wide event filter that
-names controls for a screen reader is taken off meanwhile (Qt sends it tens of thousands of events then, each a call
-into Python: 43 % of that build's time, 2026-10-24) and put back after, even on an error.
-warm_symbols(): the symbols the app's font lacks (SYMBOLS: ✕ ✓ ▶ ↺ …) looked up ahead, once per run: Windows finds
-them in another font, and the first time took 150-250 ms (2026-10-24); the window does it at a quiet moment.
+building(*roots): the screen-reader filter off while a screen is built (its events were 43 % of Make an EQ's build,
+2026-10-24). warm_symbols(): the other font for SYMBOLS found ahead (150-250 ms the first time, 2026-10-24).
 """
 import re
 from contextlib import contextmanager
@@ -59,7 +56,6 @@ def tokens():
 
 
 def high_contrast():
-    """Is one of Windows' contrast themes on?"""
     try:
         import ctypes
 
@@ -122,7 +118,6 @@ def on_change(fn):
 
 
 def _stylesheet(t):
-    """The whole app's stylesheet in the colours t: theme_sheet.py's parts, with the pictures' paths."""
     return theme_sheet.sheet(t, _pictures(t))
 
 
@@ -143,7 +138,7 @@ def _pictures(t):
         p.drawPolyline([QPointF(7, 14.5), QPointF(11.5, 19), QPointF(21, 9)])
 
     def chevron(way):
-        def draw(p):  # (the same chevron each way: down's turned up, or to the right)
+        def draw(p):
             p.setPen(QPen(QColor(t["ink2"]), 2.2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
             points = {"down": ((5, 9), (12, 16), (19, 9)), "up": ((5, 16), (12, 9), (19, 16)),
                       "right": ((9, 5), (16, 12), (9, 19))}[way]
@@ -156,7 +151,7 @@ def _pictures(t):
             p.setBrush(QColor(colour))
             p.drawRoundedRect(QRectF(0, 0, w, h), min(w, h) / 2, min(w, h) / 2)
         return draw
-    beside = t["accent"] if theme_tokens.contrast(t["accent"], t["sel"]) >= 3 else t["sel_ink"]  # (a chosen row's)
+    beside = t["accent"] if theme_tokens.contrast(t["accent"], t["sel"]) >= 3 else t["sel_ink"]
     out = {}
     for name, colour, (w, h), draw in (("tick", t["on_accent"], (28, 28), tick),
                                         ("chevron", t["ink2"], (24, 24), chevron("down")),
@@ -242,8 +237,8 @@ class _Names(QObject):
 
 
 def _reader_name(obj):
-    """A control's name for a screen reader, when the code gave it none: a button showing only a symbol is named by
-    its tooltip, a text box by its grey placeholder (_Names, as each control is first drawn)."""
+    """A control's name for a screen reader when the code gave it none (called by _Names as each control is first
+    drawn)."""
     if obj.accessibleName():
         return
     if isinstance(obj, QAbstractButton) and len(re.sub(r"[^\w]", "", obj.text())) < 2 and obj.toolTip():
@@ -312,8 +307,8 @@ def apply(app, dark=None, contrast=None):
         _state["names"] = _Names(app)
         app.installEventFilter(_state["names"])
     from ui import focus_frame
-    _state["frame"] = focus_frame.install(app)  # (the frame round the control with the focus, for the keyboard)
-    for fn in list(_state["listeners"]):  # (what draws its own colours: the graph, Help's page, the icons)
+    _state["frame"] = focus_frame.install(app)
+    for fn in list(_state["listeners"]):
         try:
             fn()
         except RuntimeError:  # (its window is gone)

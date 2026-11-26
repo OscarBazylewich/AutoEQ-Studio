@@ -54,7 +54,7 @@ WM_WINDOWPOSCHANGING, MONITOR_DEFAULTTONEAREST = 0x0046, 2
 GLYPHS = {"min": "E921", "max": "E922", "restore": "E923", "close": "E8BB"}  # (Segoe Fluent Icons' caption symbols)
 
 
-_api = []  # (user32 with the argument types of the calls below, made once: see user32())
+_api = []
 
 
 def user32():
@@ -94,8 +94,6 @@ def window_menu_states(maximized):
 
 
 def _window_menu(hwnd, x, y, maximized):
-    """Windows' window menu (Restore, Move, Size, Minimize, Maximize, Close) at the screen point x, y: the command
-    chosen goes to the window as the menu of Windows' own title bar sends it (WM_SYSCOMMAND)."""
     u = user32()
     menu = u.GetSystemMenu(wintypes.HWND(hwnd), False)
     if not menu:
@@ -150,7 +148,6 @@ def title_mode(platform, see_through):
 
 
 def flags_for(mode):
-    """The window flags of a title mode (None: Qt's own window, with Windows' title bar)."""
     if mode == "frame":
         return Qt.Window | Qt.CustomizeWindowHint
     if mode == "frameless":
@@ -159,8 +156,6 @@ def flags_for(mode):
 
 
 def caption_buttons(win):
-    """Minimize, Maximize / Restore and Close in a row (no space between them), for the top bar's right end. They
-    are win's: win.caption = {"min", "max", "close"}."""
     holder = QWidget()
     row = QHBoxLayout(holder)
     row.setContentsMargins(0, 0, 0, 0)
@@ -191,7 +186,6 @@ def toggle_maximized(win):
 
 
 def follow_state(win):
-    """Maximize's symbol and name after the window's state: Restore when it is maximized."""
     b = getattr(win, "caption", {}).get("max")
     if b is None:
         return
@@ -223,7 +217,6 @@ class Native(QObject):
         return WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | (0 if self.framed else WS_CAPTION)
 
     def attach(self):
-        """The frame styles put on the native window: once it exists."""
         try:
             self.hwnd = int(self.win.winId())
             u = ctypes.windll.user32
@@ -416,7 +409,6 @@ class Native(QObject):
         self._poll.start() if state else self._poll.stop()
 
     def _pointer_check(self):
-        """Maximize's look taken off once the pointer is off it."""
         b = getattr(self.win, "caption", {}).get("max")
         if b is None or not b.isVisible() or not b.rect().contains(b.mapFromGlobal(QCursor.pos())):
             self._down = False

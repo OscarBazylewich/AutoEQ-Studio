@@ -1,8 +1,9 @@
-"""Make an EQ's run and result (a part of EqPage, ui/eq_page.py): Run (Retry, Cancel) and its progress, the result
-shown (its numbers, Number of filters, All results…, Compare…; Queue… on Make the EQ), the EQs that you made, the
-filters being edited (Table, Sliders, Add filter, Sort, Undo all), Save filters, Report, and Use on device (a new
-profile of a device; Update a profile: into a profile you have, with Undo; or Use for 5 minutes on).
-By hand (Make the EQ's second way, set_way: its tab beside Automatically): an EQ of your own, begun empty, from an EQ
+"""Make an EQ's run and result (a part of EqPage, ui/eq_page.py): Calculate (Calculate from these filters, Cancel) and
+its progress, the result shown (its numbers, Number of filters, All results…, Compare…; Queue… on Make the EQ), the
+EQs that you made, the filters being edited (Table, Sliders, Add filter, Sort, Undo all), Save filters, Report, and
+Use on device (a new profile of a device; Update a profile: into a profile you have, with Undo; or Use for 5 minutes
+on).
+Manually (Make the EQ's second way, set_way: its tab beside Automatically): an EQ of your own, begun empty, from an EQ
 file (Equalizer APO's lines, a Room EQ Wizard export, a Peace preset: read as Equalizer APO plays them,
 eq\\eqtext.py), from pasted lines, from a device's profile or as a copy of the EQ shown (Start from, then Start). It's a
 run of its own ("manual", one result), so everything a result has works for it; begun from a profile, Use on device
@@ -23,7 +24,7 @@ from ui.eq_page_parts import (MESSAGE_NAMES, MODE_SHORT, PASTE_HINT, and_list, c
                               modal, row_name, skipped_words, update_row_words, use_menu_order)
 from ui.search_combo import natural_key
 
-# By hand's Start from: an EQ's sources in the order every such list has (.claude/notes/UI-RULES.md 16), each with the
+# Manually's Start from: an EQ's sources in the order every such list has (.claude/notes/UI-RULES.md 16), each with the
 # whole note behind the ⓘ; then each device's profile ("profile:<id>"; "profile:" when there's none yet)
 HAND_SOURCES = (("empty", "An empty EQ", "Double-click the graph or click Add filter to add bands, then drag handles "
                  "or edit the table below"),
@@ -54,16 +55,15 @@ def sentences(parts):
 
 def saved_line(written, notes=(), kept=False):
     """The message line after Save filters: the files' names, then each note of the files (eq\\exports.py), then the
-    sentence about a report that was kept (sentences: a note with no period gets one when more comes after it)."""
+    sentence about a report that was kept."""
     return sentences([f"Saved {', '.join(written)} to Saved EQs.", *notes] + ([REPORT_KEPT] if kept else []))
 
 
 class EqResult:
-    """Make an EQ's run and result."""
-
     # ---------------------------------------------------------------- running
     def run(self, retry=None):
-        """Run with the settings; retry: {"filters", "add"} (Best fit from the filters shown, this run only)."""
+        """Calculate with the settings; retry: retry_from_card's {"filters", "add", "card"} (Best fit from the filters
+        shown, this run only)."""
         if not self.curves:
             bubble.tell(None, self.no_curves_words(), near=self.run_btn)
             return
@@ -73,7 +73,8 @@ class EqResult:
             return
         if self.S["auto"]["enabled"]:
             self.refresh_auto()  # (the values for exactly these settings)
-        self.set_way("auto", remember=False)  # (its progress and Cancel are Automatically's: a Retry from an EQ by hand)
+        # (its progress and Cancel are Automatically's: Calculate from these filters on an EQ made by hand)
+        self.set_way("auto", remember=False)
         body = {"settings": self.S, "mode": "best_fit" if retry else self.S["mode"], "analysis": self.analysis}
         if retry:
             body["retry"] = retry
@@ -95,7 +96,9 @@ class EqResult:
         self.progress.setValue(0)
         self.progress.show()
         self.say_progress("In progress…")
-        if retry:  # (the page follows the job, UI-RULES 30: Retry is on the result card, its progress under Run)
+        # (the page follows the job, UI-RULES 30: Calculate from these filters is on the result card, its progress
+        # under Calculate)
+        if retry:
             self._scroll_to(self.progress)
         self._run_view = self._scroll_value()  # (moved from here meanwhile: the result isn't scrolled to after)
         QTimer.singleShot(0, self, self.live_graph_as_a_job_starts)  # (the floating graph never over Cancel)
@@ -109,7 +112,8 @@ class EqResult:
         return NO_CURVES if files and self.graph_note.text() else NO_FILES
 
     def say_progress(self, text):
-        """The line under Run: shown only while it says something (empty, it was a band of room under Run)."""
+        """The line under Calculate: shown only while it says something (empty, it was a band of room under
+        Calculate)."""
         self.progress_text.setText(text)
         self.progress_text.setVisible(bool(text))
 
@@ -160,7 +164,7 @@ class EqResult:
         r = next(x for x in run["results"] if x["id"] == rid)
         manual = run.get("mode") == "manual"
         # (a filter switched off stays off: an EQ by hand can begin with some, from its file or a copy. An EQ by hand
-        # keeps its filters as you left them, shown again from Runs this session; Revert goes back to how it began)
+        # keeps its filters as you left them, shown again from EQs that you made; Undo all goes back to how it began)
         same = lambda fs: [{"enabled": f.get("enabled", True) is not False, "type": f.get("type") or "PK",
                             "freq": f["freq"], "gain": f["gain"], "q": f["q"]} for f in fs]
         self.ORIG = same(r.get("start", r["filters"]) if manual else r["filters"])
@@ -260,7 +264,6 @@ class EqResult:
         modal(QueueWindow(self))
 
     def open_compare(self):
-        """Two EQs side by side (ui/compare_results.py)."""
         from ui.compare_results import CompareResults, options
         if len(options(self)) < 2:  # (what's needed first: a bubble at the button, as Calculate's, UI-RULES 25)
             bubble.tell(None, "No other EQ to compare. Calculate another, pick a different filter count, or load one "
@@ -269,7 +272,7 @@ class EqResult:
         modal(CompareResults(self))
 
     def keep_run(self, run):
-        self.session_runs = [x for x in self.session_runs if x is not run][-19:] + [run]  # (the last 20)
+        self.session_runs = [x for x in self.session_runs if x is not run][-19:] + [run]
 
     def render_runs(self):
         c = self.runs_combo
@@ -327,7 +330,7 @@ class EqResult:
 
     def close_manual(self):
         """Close, on an EQ by hand: back to what was shown when it began (that run, else the last one left, else none:
-        the page as it was). Changed, it stays in Runs this session to come back to; empty, it goes (nothing in it to
+        the page as it was). Changed, it stays in EQs that you made to come back to; empty, it goes (nothing in it to
         lose); as it began (pasted, from a file, a profile or a copy), it goes with Undo in the window's line, as
         Remove's (UI-RULES 20: pasted filters were gone for good)."""
         run, _r = self.current()
@@ -472,7 +475,8 @@ class EqResult:
 
     def auto_name(self):
         run, r = self.current()
-        if run.get("mode") == "manual":  # ("<IEM> to <target> - by hand 5f", or what it began from: "KZ ZSN - by hand 5f")
+        # ("<IEM> to <target> - manual 5f", or what it began from: "KZ ZSN - manual 5f")
+        if run.get("mode") == "manual":
             base = (f"{run['device']} to {run['target_name']}" if run.get("device") and run.get("target_name")
                     else run.get("source_name") or "New EQ")
             return f"{base} - manual {len(self.enabled_filters())}f"
@@ -577,9 +581,10 @@ class EqResult:
     # ---------------------------------------------------------------- an EQ made by hand
     # ---------------------------------------------------------------- Make the EQ's two ways
     def set_way(self, way, remember=True):
-        """Make the EQ's way: "auto" (Automatically: Method, Search, Run) or "hand" (By hand: Start from, Start), its
-        tab marked and only its steps shown. remember: kept for the next start (a tab you click; not a switch the app
-        makes as it shows what you did: an EQ by hand begun elsewhere, a run started from the result card)."""
+        """Make the EQ's way: "auto" (Automatically: Method, Settings to try, Calculate) or "hand" (Manually: Start
+        from, Start), its tab marked and only its steps shown. remember: kept for the next start (a tab you click; not
+        a switch the app makes as it shows what you did: an EQ by hand begun elsewhere, a run started from the result
+        card)."""
         way = way if way in ("auto", "hand") else "auto"
         self.way = way
         for key, b in self.way_btns.items():
@@ -592,7 +597,7 @@ class EqResult:
             self.sw.set("make_way", way, tell=False)
 
     def fill_manual_sources(self):
-        """By hand's Start from: HAND_SOURCES, then each device's profile, A to Z, with the devices that have it (one
+        """Manually's Start from: HAND_SOURCES, then each device's profile, A to Z, with the devices that have it (one
         line saying there's none yet when there isn't). The choice stays when it's still there."""
         c = self.hand_source
         keep = c.currentData()
@@ -631,8 +636,8 @@ class EqResult:
         self.hand_start.setText("Start…" if key in ("file", "paste") else "Start")
 
     def start_from_source(self):
-        """Start (By hand): an EQ by hand from the source chosen in Start from. What's needed first is said in a box
-        (UI-RULES 25: no EQ on the result card to copy, no profile yet)."""
+        """Start (Manually): an EQ by hand from the source chosen in Start from. What's needed first is said in a
+        bubble at Start (UI-RULES 25: no EQ on the result card to copy, no profile yet)."""
         key = self.hand_source.currentData() or "empty"
         if key == "empty":
             self.start_manual([], "from scratch")
@@ -687,7 +692,7 @@ class EqResult:
     def _follow_result(self):
         """A run done (UI-RULES 30) or an EQ by hand begun (start_manual): the result card into sight, as much of it
         as the view holds, but never past its top or past the control with the focus when that control is in sight
-        (Calculate, Calculate from these filters, or By hand's Start). _scroll_to put the center of a card higher
+        (Calculate, Calculate from these filters, or Manually's Start). _scroll_to put the center of a card higher
         than the view at the view's center: the card's top (its title and error) and Calculate, with the focus, out of
         sight in a view of 768 px or less (Calculate at -71 px at 768 px, at -130 px at 650 px; the card 665 to 704 px
         high: measured by the verifier, 2026-11-15).
@@ -714,7 +719,6 @@ class EqResult:
         bar.setValue(max(0, min(low, high) if v < low else min(v, high)))
 
     def _scroll_value(self):
-        """Where the page is scrolled to now (None before it's made)."""
         from PySide6.QtWidgets import QScrollArea
         area = next(iter(self.findChildren(QScrollArea)), None)
         return area.verticalScrollBar().value() if area is not None else None

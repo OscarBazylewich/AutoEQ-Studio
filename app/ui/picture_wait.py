@@ -1,42 +1,26 @@
-"""The wait for a picture from a website: Find…'s Use, or a link of Which measurement, on an entry of a database that
-does not let other programs download its files (Hangout.Audio, or a website that refused a download), a measurement
-or a target. The page (ui/eq_page_files.py's trace_from_website) opens the entry in the user's browser (or the page of
-the database when the app knows no link to the entry: "site_page", and step 1 then tells the user to select it; else
-step 1 tells what to do when the website does not show it: its share link is not verified on each website), then this
-small dialog on top of the window that asked (window modal, opened with open(): nothing blocks). For a target entry
-it also says that the website can change a target with its settings (TARGET_SETTINGS). The app has no
-browser in it and asks the website for nothing.
+"""The wait for a picture from a website: Find…'s Use, or a link of Other measurements of this model, on an entry of
+a database that does not let other programs download its files (Hangout.Audio, or a website that refused a
+download), a measurement or a target. The page (ui/eq_page_files.py's trace_from_website) opens the entry in the
+user's browser (or the page of the database when the app knows no link to the entry: "site_page", and step 1 then
+tells the user to select it; else step 1 tells what to do when the website does not show it: its share link is not
+verified on each website), then this small dialog on top of the window that asked (window modal, opened with open():
+nothing blocks). For a target entry it also says that the website can change a target with its settings
+(TARGET_SETTINGS). The app has no browser in it and asks the website for nothing.
 
 While it shows, it waits for the first new picture:
-- the clipboard (Windows + Shift + S copies a part of the screen): QClipboard.dataChanged, which Qt sends for a copy by
-  any program; a picture that was there before it opened sends nothing, so it does not count. The clipboard is read
-  SETTLE_MS after the signal (the other program can still hold it), up to SETTLE_TRIES times while it says "picture"
-  but gives none. A picture smaller than MIN_SIZE (an icon) does not count.
-- the Downloads folder (the website's Screenshot button saves a file there): downloads_folder() gives it, and each
-  POLL_MS one look in a thread (ui.tasks.background; a look that is not complete stops the next one from a start)
-  only reads it: os.scandir, stat, an open for reading and QImage, never a write, a rename or a delete. The first
-  successful look lists the old picture files {name: (time of change, size)}: until then (no folder yet, an error)
-  no file is new, so an old picture never ends the wait. A new file (a new name, or a new time or size) is read only
-  when two looks in sequence gave the same time and size, and the size is more than 0 (browsers write to a
-  .crdownload or .part name first: not picture suffixes). A file that another program holds (it does not open) is
-  read again at the next look; one that opens and does not read as a picture is tried again, READ_TRIES looks at
-  most; then it is old. A JPEG file without its end mark (a program still writes it: Qt reads the part as a
-  picture) is tried again too, and after READ_TRIES looks it is taken as it is. More than one new file: the newest
-  first. No folder, or an error: no message, the clipboard still works. A test copy (AUTOEQSTUDIO_ROOT or
-  AUTOEQSTUDIO_DATA set, as userfiles.py's) with no AUTOEQSTUDIO_DOWNLOADS looks at no folder. The folder shows in a
-  line of its own, cut in its middle with "…" when it is longer than the line (its tooltip has all of it).
+- the clipboard (Windows + Shift + S): QClipboard.dataChanged, which Qt sends for a copy by any program, so a picture
+  that was there before does not count; read SETTLE_MS after the signal (the other program can still hold it), up to
+  SETTLE_TRIES times; smaller than MIN_SIZE does not count.
+- the Downloads folder (the website's Screenshot button saves a file there; downloads_folder(): a test copy looks at
+  none): one look each POLL_MS in a thread, read only (folder_pictures, new_picture give the rules for a new file;
+  browsers write to a .crdownload or .part name first, not a picture suffix, so a download in progress is not read).
+  No folder, or an error: no message, the clipboard still works.
 - "Paste the picture" (Enter, Ctrl+V): the picture that is on the clipboard at that time, old or new.
 - TIMEOUT_MS: the wait stops (timed_out).
-`got` is (QImage, jpeg) when a picture came; the dialog then closes with accept(). done() stops everything first (the
-signal disconnected, the timers stopped), so a late copy does nothing. Its parent is the window that asked: given
-before it shows (the tests' stray watch). A screen reader reads the heading and the steps as the dialog's description.
-one_line() and clean_entry(): an entry's words come from a website's list, so a line end or a control character in
-them becomes a space, and a format character (a direction mark, a zero-width space) goes, before they go into a
-window or a file's first line. They show as plain text (never rich text; in a tooltip too: plain_tip), and the
-heading shows NAME_MAX characters of the name at most (heading_name: also the tracer's note on 3 Save), and the
-intro the same of the site (short_words without a font: the tray message), the whole words in a tooltip. The
-window is as high as its words need (fit_height: also on a small screen at 150 %), never higher than the room of its
-screen, and moved up when its bottom is past that room.
+`got` is (QImage, jpeg) when a picture came (accept()). done() stops everything first, so a late copy does nothing.
+Its parent is the window that asked, given before it shows (the tests' stray watch). An entry's words come from a
+website's list: one_line/clean_entry clean them, short_words/heading_name shorten them, and they always show as
+plain text (plain_tip). The window is as high as its words need (fit_height).
 """
 import html
 import os
@@ -71,7 +55,6 @@ SELECT = "Select this entry from the site's list."
 # (a target entry: the website changes a target with its settings, "(Tilt: -0.4dB/Oct, Bass: 8dB)" in its legend,
 # seen by the owner on graph.hangout.audio, 2026-11-12; the app does not read or change them)
 TARGET_SETTINGS = "Site target adjustments (like tilt or bass) are captured in the screenshot"
-# (line ends, tabs and the other control characters: each run becomes one space)
 _CONTROL = re.compile(r"[\s\x00-\x1f\x7f-\x9f]+")
 
 
@@ -204,7 +187,7 @@ def new_picture(folder, old, pending, tries):
             tries.pop(name, None)  # (it changed: a new try)
     for name in [n for n in pending if n not in now]:
         del pending[name]
-    for _t, name in sorted(ready, reverse=True):  # (the newest first)
+    for _t, name in sorted(ready, reverse=True):
         path = os.path.join(folder, name)
         if not _opens(path):  # (held by a different program: read again at the next look, not a try)
             continue
@@ -289,7 +272,7 @@ class PictureWait(QDialog):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
         body = QWidget()
-        body.setMinimumWidth(WIDTH)  # (the words wrap at this width at least)
+        body.setMinimumWidth(WIDTH)
         v = QVBoxLayout(body)
         v.setContentsMargins(PAD, PAD, PAD, 20)  # (Windows 11's dialog padding)
         v.setSpacing(8)
@@ -299,7 +282,7 @@ class PictureWait(QDialog):
         self.head = head = self._words("")
         theme.mark(head, role="heading")
         v.addWidget(head)
-        self.intro = self._words("")  # (its words below, with the heading's)
+        self.intro = self._words("")
         v.addWidget(self.intro)
         steps = placed(v, QGridLayout())  # (a step's number in a column of its own: its words wrap under its words)
         steps.setHorizontalSpacing(6)
@@ -315,11 +298,11 @@ class PictureWait(QDialog):
         self.where = muted(self.where_text())
         v.addWidget(self.where)
         self.path = None
-        if self.folder:  # (the folder in a line of its own: a long path with no space is cut in its middle)
+        if self.folder:
             self.path = PathLine(os.path.normpath(self.folder))
             theme.mark(self.path, role="muted")
             v.addWidget(self.path)
-        self.note = QLabel("")  # (M2: no picture on the clipboard)
+        self.note = QLabel("")  # (paste()'s message when the clipboard has no picture)
         self.note.setWordWrap(True)
         self.note.hide()
         v.addWidget(self.note)

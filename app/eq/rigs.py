@@ -67,7 +67,7 @@ SOURCES_PATH = paths.SOURCES_PATH
 # (eq.service records it; target_rig shows it after "from"). OLD_ADJUSTED: the words in records made before
 # 2026-11-24, which stay in the file as they are and show with the words of today.
 ADJUSTED, OLD_ADJUSTED = "your adjusted ", "your adjustments of "
-_SOURCES_LOCK = threading.Lock()  # (the server answers requests in parallel: one change to the file at a time)
+_SOURCES_LOCK = threading.Lock()  # (worker threads write the file too, ui\tasks.py: one change at a time)
 
 
 def sources():

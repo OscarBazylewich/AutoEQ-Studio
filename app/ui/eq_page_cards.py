@@ -7,13 +7,13 @@ filters, File name, Save filters, Use on device) and Listen (ui/listen.py). This
 The look is Windows 11's (the restyle, 2026-10-23): Windows 11's symbols beside the main actions' words
 (ui/icons.py), and every card as wide as the window and no wider (a long
 title wraps, a long name ends in "…"; Target and Measurement one above the other, so their names fit). Its own
-style rules are theme_sheet.py's eq_screen part (the properties eqtitle, and eqsub in ui/eq_settings.py).
+style rules are theme_sheet.py's eq_screen part (the property eqtitle).
 EqCards is a plain class (no __init__, no signals); EqPage (ui/eq_page.py) joins it with the other parts. What it
 makes is the page's (self.run_btn, self.plot …), and the other parts use it.
 
 The page is made in steps (_build_steps, 2026-10-24: made in one go it froze the window for ~0.45 s), one per turn of
 the window's event loop, so the window answers in between (each step a few ms; EqPage runs them): the page's frame
-first (its scroll area and column, in the page, hidden), then the graph, Target and Measurement, Make
+first (its scroll area and column, in the page, hidden), then Target and Measurement, the graph, Make
 the EQ, the settings in four parts (ui/eq_settings.py), the result, Listen, the files in their lists, and last the
 whole page shown at once ("Opening Make an EQ…" until then: never seen half-made). The rule for every step: each part
 goes into its final place in the step that makes it, never in a later one. Qt styles what it made between steps, and
@@ -43,8 +43,6 @@ COUNT_LONGEST = "00 bands  ·  00.00 dB  ✓ recommended"
 
 
 class EqCards:
-    """Make an EQ's cards, made once, in this order, by _build_steps."""
-
     # ---------------------------------------------------------------- building
     def _build_steps(self):
         """The page, a step at a time (each yield ends one: EqPage runs the next in the next turn of the event loop).
@@ -133,7 +131,7 @@ class EqCards:
         self.yrange_combo = SearchCombo()
         for k, name in (("auto", "Automatic"), ("30", "30 dB"), ("40", "40 dB"), ("50", "50 dB"), ("60", "60 dB")):
             self.yrange_combo.addItem(name, k)
-        self.yrange_combo.sort_items(pinned=1)  # ("Auto" on top, the user's ask)
+        self.yrange_combo.sort_items(pinned=1)  # ("Automatic" on top, the user's ask)
         self.yrange_combo.setCurrentIndex(max(0, self.yrange_combo.findData(g.get("y", "auto"))))
         self.yrange_combo.activated.connect(lambda _i: self.set_graph_option(y=self.yrange_combo.currentData()))
         help_window.tag(self.yrange_combo, "#opt-y")
@@ -151,7 +149,7 @@ class EqCards:
         self.clear_prev_btn.hide()
         opts.addWidget(self.clear_prev_btn)
         opts.addStretch(1)
-        self.hover_lab = Elided("")  # (never wider than its room: "…" at its end on a narrow window)
+        self.hover_lab = Elided("")
         theme.mark(self.hover_lab, role="muted")
         opts.addWidget(self.hover_lab)
         # (the curves' names in a line between the views and the graph, not on the curves: the UI audit, 2026-11-08;
@@ -188,10 +186,10 @@ class EqCards:
         self.eqplot.setToolTip("Drag handle: frequency & gain · Scroll on handle: Q · Right-click: filter type or "
                                "remove · Double-click graph: add filter")
         help_window.tag(self.eqplot, "#eq-graph")
-        # (both graphs' value axes one width, room for three characters ("-12", "100") in the font pyqtgraph draws
-        # them in: left to themselves, each took the width of the first numbers it drew, so a page made ahead, first
-        # drawn with its curves, had a narrower one than the EQ graph under it (their edges 4 px apart), and each
-        # jumped wider once its curves came, 2026-10-24)
+        # (both graphs' value axes one width: the width of "-188" + 1 px, room for their labels ("-12", "100") in the
+        # font pyqtgraph draws them in: left to themselves, each took the width of the first numbers it drew, so a page
+        # made ahead, first drawn with its curves, had a narrower one than the EQ graph under it (their edges 4 px
+        # apart), and each jumped wider once its curves came, 2026-10-24)
         room = QFontMetrics(QApplication.font()).horizontalAdvance("-188") + 1
         for p in (self.plot, self.eqplot):
             p.getAxis("left").setStyle(autoExpandTextSpace=False, tickTextWidth=room)
@@ -256,7 +254,7 @@ class EqCards:
         box = QWidget()
         row = QHBoxLayout(box)
         row.setContentsMargins(0, 0, 0, 0)
-        combo = NameCombo()  # (a name longer than its room ends in "…": never cut off)
+        combo = NameCombo()
         combo.setMinimumContentsLength(20)
         combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
         combo.setAccessibleName("Target" if kind == "target" else "Measurement")
@@ -306,7 +304,6 @@ class EqCards:
             return g
 
         def name(words, info=None):
-            """A label of the column, with its ⓘ after it when it has one."""
             if info is None:
                 lab = label(words, wrap=False)
                 self._way_labels.append(lab)
@@ -373,7 +370,7 @@ class EqCards:
         self.estimate = label("", wrap=False)
         theme.mark(self.estimate, role="section")
         sa.addWidget(self.estimate)
-        self.sa_what = self.estimate  # (the Guide's name for it)
+        self.sa_what = self.estimate  # (the name tests\eq_screen\test_guide.py reads)
         self.sa.setAccessibleName("Settings to try")
         help_window.tag(self.sa, "sa")
         g.addWidget(self.sa, 1, 1, 1, 3)
@@ -396,7 +393,6 @@ class EqCards:
         self.settings_slot = placed(v, QVBoxLayout())
         self.settings_slot.setSpacing(2)
 
-        # the way's main button: Calculate (with Queue…, and Cancel while it runs) or Start
         self.go_stack = QStackedWidget()
         go_auto = QWidget()
         ga = QVBoxLayout(go_auto)
@@ -429,7 +425,7 @@ class EqCards:
         self.progress.hide()
         ga.addWidget(self.progress)
         self.progress_text = label("", "muted")
-        self.progress_text.hide()  # (shown with words only: an empty band under Run before any run, say_progress)
+        self.progress_text.hide()  # (shown with words only: an empty band under Calculate before any run, say_progress)
         ga.addWidget(self.progress_text)
         ga.addStretch(1)
         self.go_stack.addWidget(go_auto)
@@ -469,8 +465,8 @@ class EqCards:
         theme.mark(self.res_title, eqname=True)  # (a title in a card: 14 px bold)
         head = placed(v, QHBoxLayout())
         head.addWidget(self.res_title, 1)
-        # (an EQ by hand's Close, on the card's title line, as a card closed from its top: under Runs this session's
-        # Remove, at the same edge, the two read as one, UI-RULES 14)
+        # (a manual EQ's Close, on the card's title line, as a card closed from its top: under the Remove of EQs that
+        # you made, at the same edge, the two read as one, UI-RULES 14)
         self.hand_close = QPushButton("Close")
         icons.put(self.hand_close, "close")
         self.hand_close.setToolTip("Return to previous EQ (edits stay in the list)")
@@ -647,7 +643,7 @@ class EqCards:
         icons.put(folder, "folder")  # (Windows' folder symbol, as every button that opens a folder has)
         folder.clicked.connect(lambda: self.svc.call("/api/open", {"what": "output"}))
         keep = QPushButton("Keep to compare")
-        icons.put(keep, "pin")  # (Windows 11's pin, where the words had 📌)
+        icons.put(keep, "pin")
         keep.setToolTip("Add this EQ to compare on the graph and in Listen")
         keep.clicked.connect(lambda: self.listen.add_selected())
         copy = QPushButton("Copy")

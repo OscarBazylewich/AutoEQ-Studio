@@ -42,9 +42,9 @@ def fold_before_after(btn, before):
 
 
 def way_before_after(page, which, also=None):
-    """A step's before/after that show Make the EQ's way `which` ("auto": Method, Search, Run; "hand": Start from,
-    Start) for it, then the way that was shown (never kept as yours: remember=False). also: a (before, after) pair run
-    with them (a fold the step opens too)."""
+    """A step's before/after that show Make the EQ's way `which` ("auto": Method, Settings to try, Calculate; "hand":
+    Start from, Start) for it, then the way that was shown (never kept as yours: remember=False). also: a (before,
+    after) pair run with them (a fold the step opens too)."""
     was = {}
 
     def b():

@@ -22,10 +22,10 @@ HANDS_FREE = " Hands-Free"
 @dataclass
 class Endpoint:
     guid: str            # "{d3bfcd09-14ce-41c7-b4f5-e83278716021}" (lower case, as Windows names its key)
-    name: str            # "Headset"
-    conn: str            # "EarPods"
+    name: str
+    conn: str
     state: int           # ACTIVE, NOT_PRESENT, UNPLUGGED (DISABLED ones aren't listed)
-    apo: bool = False    # Equalizer APO is installed on it
+    apo: bool = False
 
 
 @dataclass
@@ -65,7 +65,6 @@ def _value(key, name):
 
 
 def apo_endpoints():
-    """The endpoint guids Equalizer APO is installed on (lower case)."""
     out = set()
     try:
         with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, APO_CHILDREN) as k:

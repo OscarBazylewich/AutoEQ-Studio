@@ -149,7 +149,6 @@ EQ_SWITCHER_SERVER = "EQSwitcher-" + os.environ.get("USERNAME", "user")  # (its 
 
 
 def eq_switcher_autostart():
-    """Does EQ Switcher start with Windows?"""
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as k:
             winreg.QueryValueEx(k, EQ_SWITCHER_RUN)

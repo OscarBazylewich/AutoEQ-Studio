@@ -2,12 +2,14 @@
 
 Table: per filter on/off, type (Peak, Low shelf, High shelf), frequency, gain and Q (checked as typed against the EQ
 part's limits for edits: edit.freq, edit.gain, edit.q; red and not used when wrong, moved to the limit on leaving),
-and ✕ to delete it; Tab goes through each row's controls, then to the control after the table. Sliders: one per filter
-(Poweramp's look): its gain by dragging, arrow keys or the wheel (0.1 dB steps), double-click for 0 dB; its frequency
-and Q under it; the pre-amp in its own column (set for you).
-changed() is called after every edit (the caller works out the error, pre-amp and graph again); rebuilt() after a
-filter is added or deleted; show_values() puts the values back in the boxes and sliders without making anything again
-or saying it changed (a filter dragged on the EQ graph, ui/eq_page_handles.py). The editor is as tall as the view shown (a short table leaves no empty band under it).
+and ✕ to delete it; Tab goes through each row's controls, then to the control after the table. Sliders: one per
+filter: its gain by dragging, arrow keys or the wheel (0.1 dB steps), double-click for 0 dB; its frequency and Q under
+it; the pre-amp in its own column (set for you).
+changed is emitted after every edit (the caller works out the error, pre-amp and graph again); the caller calls
+rebuild() after it changes the list itself (adds, removes or sorts filters; delete() rebuilds by itself);
+show_values() puts the values back in the boxes and sliders without making anything again or saying it changed (a
+filter dragged on the EQ graph, ui/eq_page_handles.py). The editor is as tall as the view shown (a short table leaves
+no empty band under it).
 Its look is the theme's (ui\\theme_sheet.py's eq_windows, by the object names eqw…): the table's boxes a little apart
 without grid lines, Type's heading at the left over its drop-downs' words (the numbers' headings centred over them),
 ✕ as Windows 11's subtle buttons. The Sliders view is a graphic EQ's (2026-10-27): its sliders (_Slider), the
@@ -93,7 +95,7 @@ class FilterEditor(QWidget):
         self.sliders_scroll.setWidgetResizable(True)
         self.sliders_scroll.setFixedHeight(SLIDERS_HEIGHT)
         self.stack.addWidget(self.sliders_scroll)
-        lay.addWidget(self.stack, 0, Qt.AlignTop)  # (in a taller window, Your own filters: at the top)
+        lay.addWidget(self.stack, 0, Qt.AlignTop)  # (in a taller window, Your filters: at the top)
 
     # ---------------------------------------------------------------- the list
     def set_filters(self, filters, preamp_text="0.0"):
@@ -228,7 +230,6 @@ class FilterEditor(QWidget):
         t.setFixedWidth(t.horizontalHeader().length() + 2 * t.frameWidth() + 2 + bar)
 
     def _dim(self, i):
-        """A switched-off filter's row shows paler."""
         off = self.filters[i].get("enabled", True) is False
         for c in range(1, 6):
             w = self.table.cellWidget(i, c)
@@ -364,7 +365,7 @@ class FilterEditor(QWidget):
             typ = _TypeBox()
             for k, name in TYPES:
                 typ.addItem(name, k)
-            typ.sort_items(pinned=1)  # ("Peak" on top)
+            typ.sort_items(pinned=1)
             typ.setCurrentIndex(max(0, typ.findData(f.get("type", "PK"))))
             # (the type, the tick box and the ✕ of a column have no tooltip: the text survey, 2026-11-24. The labels
             # at the left end of the rows name them. Their accessible names stay)

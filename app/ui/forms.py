@@ -2,10 +2,10 @@
 
 A Field shows and edits one setting (a dotted path in the EQ part's settings: "best_fit.filter_counts",
 "scoring.band_hz.1"). Kinds: num, intlist ("4-10" or "4, 6, 8"), numlist, ranges ("-12..6, -10..20"), lines (one
-per line), check, choice ([(value, label)]), text. A value is checked as it's typed against the EQ part's own limits
-(eq.settings LIMITS and LIMIT_PAIRS: a "from" below its "to"): a wrong one turns the box red with the reason (and
-isn't used); leaving a box with a value past a limit moves it to the limit and says so. Every box has its tooltip
-(help_texts.HELP; a "to" box shares its "from" box's).
+per line), block (one text of many lines), check, choice ([(value, label)]), text. A value is checked as it's typed
+against the EQ part's own limits (eq.settings LIMITS and LIMIT_PAIRS: a "from" below its "to"): a wrong one turns
+the box red with the reason (and isn't used); leaving a box with a value past a limit moves it to the limit and says
+so. A box's tooltip is its Help line and its limits (help_texts.HELP; a "to" box shares its "from" box's).
 
 The automatic settings: a box they fill in has a tag beside it, "automatic", or "custom ↺" once you've changed it
 (the tag hands it back). A Form is a list of rows in sections; show(predicate) hides a row when it doesn't apply.

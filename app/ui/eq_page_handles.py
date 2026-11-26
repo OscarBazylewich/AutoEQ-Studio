@@ -6,7 +6,7 @@ Double-click the graph where there's no handle: a new peak there (with no EQ sho
 handle is held only what follows it changes (the EQ's curves, the numbers, the table's values, Listen's sound) and the
 graph's scale stays as it was until it's let go: a scale that moved under the pointer made the handle run away from
 it. A full draw asked for meanwhile (curves loaded in the background, a timer) waits for the let-go too: it would take
-the handle away from under the pointer. An EQ being tried on a device (Try for 5 minutes on) plays each change there
+the handle away from under the pointer. An EQ being tried on a device (Use for 5 minutes on) plays each change there
 too, in every app. The table and the sliders stay the way in by keyboard.
 EqHandles is a plain class (no __init__, no signals); EqPage (ui/eq_page.py) joins it with the other parts.
 """
@@ -82,8 +82,6 @@ class FilterHandle(pg.TargetItem):
 
 
 class EqHandles:
-    """The EQ graph's handles."""
-
     def draw_handles(self):
         """The handles of the EQ shown, drawn again with the EQ graph (draw)."""
         self._handles = []
@@ -165,7 +163,6 @@ class EqHandles:
         self.live_update()
 
     def holding_handle(self):
-        """A filter's handle in hand (dragged, not yet let go)."""
         return any(h.moving for h in getattr(self, "_handles", ()))
 
     def draw_after_drag(self):
@@ -258,7 +255,7 @@ class EqHandles:
 
     # ---------------------------------------------------------------- an EQ tried on a device follows the edits
     def sync_trial(self):
-        """The EQ shown is the one being tried on a device (Try for 5 minutes on): each change written for Equalizer
+        """The EQ shown is the one being tried on a device (Use for 5 minutes on): each change written for Equalizer
         APO there too (TRY_MS at most), so it plays in every app as you edit."""
         t, sw = getattr(self, "_trying", None), self.sw
         if getattr(self, "no_trial", False):  # (the Guide's demo dragging a handle: never heard on a device)

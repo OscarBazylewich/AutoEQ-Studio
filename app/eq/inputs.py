@@ -13,7 +13,6 @@ EXTS = (".txt", ".csv", ".tsv", ".frd")  # frequency-response files (text)
 MIN_POINTS = 32  # a file with fewer frequency/dB points is refused (the message of add_files gives this number)
 # "GATe Wide L1", "HD600_R", "X (Left)": (device, channel, seating number)
 CHANNEL_RE = re.compile(r"^(.*?)[\s_-]+(?:\(|\[)?(L|R|Left|Right)(?:\)|\])?[\s_-]*(\d{0,2})$", re.IGNORECASE)
-# a file name that says it's a target
 TARGET_RE = re.compile(r"target|\btgt\b|harman|diffuse|\bdf\b|preference|\bjm-?1\b|\bise\b|\bksi\b|\biso\s*11904",
                        re.IGNORECASE)
 
@@ -66,7 +65,7 @@ def device_name(names):
 
 
 def selected(cfg, target=None, measurements=None):
-    """Paths of the active target and the included measurements (or explicit paths from the command line)."""
+    """Paths of the active target and the included measurements (or the target and measurements given)."""
     if target is None or measurements is None:
         st = state(cfg)
         if target is None:

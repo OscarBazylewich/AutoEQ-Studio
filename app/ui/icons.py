@@ -28,7 +28,7 @@ GLYPHS = {"eq": "E9E9", "devices": "E7F6", "profiles": "E8FD", "settings": "E713
 # changes. A dict, not a list scanned at each put() (that cost grew with the square of the buttons: 150 buttons took
 # ~12 ms, now <1 ms, 2026-11-10); a button's entry goes as Qt deletes the button (its destroyed signal)
 _shown = {}
-_told = []  # (not empty once the theme tells put()'s symbols of a change: asked once)
+_told = []
 
 
 def glyph(name, colour, size=16, on_colour=None, off_colour=None):
@@ -69,10 +69,10 @@ def put(button, name):
         theme.on_change(_redraw)
     key = id(button)
     old = _shown.get(key)
-    if old is not None and old[0]() is button:  # (another symbol for the same button: only the new one is kept)
+    if old is not None and old[0]() is button:
         _shown[key] = (old[0], name)
     else:  # (a new button, or a dead one's id used again: its entry replaced)
-        ref = weakref.ref(button)  # (held weakly: a symbol never keeps its button)
+        ref = weakref.ref(button)
         _shown[key] = (ref, name)
         button.destroyed.connect(lambda *_, key=key, ref=ref: _forget(key, ref))
     _draw(button, name)
@@ -156,7 +156,7 @@ def _sliders(size, colour):
     p.drawRoundedRect(QRectF(0, 0, size, size), size * 0.22, size * 0.22)
     line = QPen(QColor("white"), max(1.0, size * 0.08), Qt.SolidLine, Qt.RoundCap)
     knob = size * 0.13
-    for i, level in enumerate((0.62, 0.32, 0.52)):  # (three sliders at different heights)
+    for i, level in enumerate((0.62, 0.32, 0.52)):
         x = size * (0.28 + 0.22 * i)
         p.setPen(line)
         p.drawLine(QPointF(x, size * 0.2), QPointF(x, size * 0.8))

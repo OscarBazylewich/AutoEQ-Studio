@@ -171,7 +171,7 @@ hit.addEventListener('mousemove', ev => {{
 hit.addEventListener('mouseleave',()=>{{tip.style.display='none';cross.style.display='none';}});
 </script>
 </body></html>"""
-    textfile.write_atomic(path, page)  # (in one step, like the EQ files)
+    textfile.write_atomic(path, page)
 
 
 def site_fields(r):
@@ -183,7 +183,7 @@ def grids_for(mode, results, ear_db, best_rms):
     """The error grid for the report; shaded: the results that sound the same as the target (ear error within
     ear_db, the audible pick's rule). No grid for the results of a graphic EQ (one for each band count of an EQ
     app such as FxSound): each count has its own Q, so the grid by count and maximum Q would be one filled cell in
-    each row and column, on a diagonal. (A result with no "engine", sent by an older page: a grid, as before.)"""
+    each row and column, on a diagonal."""
     if results and all(r.get("engine") == "graphic" for r in results):
         return []
     same = (f"Cells with a color: the same sound as the target (a difference of {ear_db:g} dB or less for the ear). The "

@@ -2,7 +2,7 @@
 with no help from the user: no Qt here (NumPy and SciPy), so it runs in any thread. trace_core.auto_read() imports
 this module the first time it is used (the app's start and the tray stay light).
 
-auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph") does it all:
+auto_read(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None) does it all:
 1. find_plot: the grid of the graph in the picture (the whole page or the graph only). The website's 25 frequency
    grid lines (2, 3, 4, 5, 6, 8, 10, 15 in each decade, and 20 kHz) are found by their pattern; the dB grid lines by
    their constant distance.
@@ -187,8 +187,9 @@ TICKS = [20, 30, 40, 50, 60, 80, 100, 150, 200, 300, 400, 500, 600, 800, 1000, 1
 LOGT = np.log10(np.array(TICKS, float) / 20.0)  # 0 .. 3
 MIN_TRACED = 0.97   # of the grid's width: the curve must be on this much of it
 MAX_GAP = 0.01      # of the grid's width: the longest part with no curve
-# of the grid's width: the curve must have values on this much of it, also where it goes out of the grid (a curve
-# to 7.7 kHz only is not a measurement for an EQ; see trace_curve in auto_read)
+# of the grid's width: the curve must have values on this much of it, also where it goes out of the grid (approved
+# by the user 2026-11-12: real forms have 93 to 98 %, a curve to 7.6 kHz only passed before; BENCHMARKS.md; see
+# trace_curve in auto_read)
 MIN_IN_GRID = 0.9
 MAX_BAND_DB = 6.0   # the difference between the two channels that 9 of 10 columns must stay under
 STEP_TEXT = 4.0     # a short rise of the band's height, in line widths (height_steps; real pictures: under 3)
@@ -262,9 +263,6 @@ LOOSE = str.maketrans({"e": "0", "o": "0", "O": "0", "Q": "0", "@": "0", "ø": "
                        "S": "5", "t": "1", "l": "1", "I": "1", "i": "1", "|": "1", "B": "8"})
 
 Check = collections.namedtuple("Check", "name ok reason")
-# (out_words: the sentences of trace_curve about the ends of the curve out of the grid, or "": 3 Save's note shows
-# them too; for a target line alone with no end out of the grid, the first and the last traced frequency;
-# target_only: the curve is the target line alone)
 AutoRead = collections.namedtuple("AutoRead", "ok tracer checks curve target points target_points plot seconds "
                                   "out_words target_only", defaults=("", False))
 
@@ -339,7 +337,6 @@ def tick_fit(xs, min_span):
                 best = {"score": score, "i": i, "j": j, "hits": hits, "extra": extra}
     if not best or best["hits"] < 15:
         return None
-    # least squares over the ticks found
     a, b = xs[best["i"]], (xs[best["j"]] - xs[best["i"]]) / 3
     for _ in range(2):
         pred = a + b * LOGT
@@ -589,7 +586,6 @@ def read_hz(rgb, ocr_words, plot):
 
 
 def labels_ok(agree, against):
-    """The rule for the labels of one axis: 3 or more agree, and at most one for each 3 that agree does not."""
     return agree >= MIN_LABELS and against <= agree / 3
 
 
@@ -637,7 +633,6 @@ def db_fit(cands, gap):
         return {"pairs": [], "single": one[0] if len(one) == 1 else None, "against": 0, "rows": len(rows),
                 "wrong": cands}
     pr = best["pairs"]
-    # least squares of dB against the row over the labels that agree
     k, v0 = np.polyfit(np.array([q["p"] for q in pr]), np.array([q["v"] for q in pr]), 1)
     best.update(k=float(k), v0=float(v0), rows=len(rows), wrong=[q for q in cands if q not in pr])
     return best
@@ -1379,7 +1374,7 @@ def average_rows(top, bot, nruns, c1, c2, lw, steep=None):
         if 0 < a and b < n and nruns[a - 1] >= 2 and nruns[b] >= 2:
             out[a:b] = out[a - 1] + (out[b] - out[a - 1]) * (np.arange(a, b) - a + 1) / (b - a + 1)
         else:
-            out[a:b] = np.nan  # (two lines on one side only: no value)
+            out[a:b] = np.nan
     return out
 
 

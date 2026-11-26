@@ -1,6 +1,6 @@
 """Make an EQ's curves and graph (a part of EqPage, ui/eq_page.py): the curves for the settings now (worked out off
-the window's thread: an older answer arriving late is dropped), the analysis and the automatic settings (the Search
-line), the graph drawn in its views (View, Y range, Channels) with the values under the pointer, the curves shown
+the window's thread: an older answer arriving late is dropped), the analysis and the automatic settings (Settings to
+try's line), the graph drawn in its views (View, Y range, Channels) with the values under the pointer, the curves shown
 from Find… (dotted: not in use) and Listen's marker.
 EqGraph is a plain class (no __init__, no signals); EqPage (ui/eq_page.py) joins it with the other parts.
 """
@@ -15,14 +15,12 @@ from PySide6.QtGui import QColor, QFontMetrics
 from ui import tasks, theme
 from ui.eq_page_parts import set_note
 
-# The Search line's room for a message, in average characters: its label does not wrap, so a long message from
+# Settings to try's room for a message, in average characters: its label does not wrap, so a long message from
 # /api/auto made the whole page wider. A longer one ends in "…" there, its whole text in the tooltip.
 ESTIMATE_CHARS = 60
 
 
 class EqGraph:
-    """Make an EQ's curves and graph."""
-
     # ---------------------------------------------------------------- the curves and the graph
     def load_curves(self):
         """The curves for the settings now, worked out off the window's thread (an older answer arriving after a
@@ -37,8 +35,6 @@ class EqGraph:
         tasks.background(lambda: self.svc.call("/api/curves", {"settings": s}), done, owner=self)
 
     def curves_loaded(self, c):
-        """New curves: the graph, its title and note, the shown curves, History's note, Listen's list, the result's
-        numbers, then the analysis and automatic settings."""
         if not c or c.get("error"):
             self.curves, self.rig_note = None, ""
             self.graph_title.setText("")
@@ -80,16 +76,15 @@ class EqGraph:
         tasks.background(lambda: self.svc.call("/api/analysis", {"settings": s}), done, owner=self)
 
     def show_estimate_error(self, text):
-        """A message from the automatic settings on the Search line: cut to its room with "…" at the end (the line
-        does not wrap: a long one made the page wider), its whole text in the tooltip."""
+        """A message from /api/auto in Settings to try (self.estimate), cut to ESTIMATE_CHARS."""
         self.estimate.ensurePolished()  # (the theme's text size)
         fm = QFontMetrics(self.estimate.font())
         self.estimate.setText(fm.elidedText(text, Qt.ElideRight, fm.averageCharWidth() * ESTIMATE_CHARS))
         self.estimate.setToolTip(text)
 
     def refresh_auto(self):
-        """The automatic settings for these curves: their values go into the settings (not yours), and the Search
-        line says what a run tries and how long it takes."""
+        """The automatic settings for these curves: their values go into the settings (not yours), and Settings
+        to try's line says what a run tries and how long it takes."""
         if self.svc is None:
             return
         a = self.svc.call("/api/auto", {"settings": self.S, "analysis": self.analysis})
@@ -116,7 +111,7 @@ class EqGraph:
                                                         # the name of an app, "foobar2000", which keeps its letters)
                                                         f"Est. time: {a['time']}" if a.get("time") else "") if x))
         if hasattr(self, "settings"):
-            self.settings.refresh()  # (the values filled in, "Why these settings")
+            self.settings.refresh()  # (the values filled in, "About these settings")
 
     def _recolour(self, draw=True):
         """The theme changed (light or dark, Windows' accent): what the page draws in its own colours, again."""
@@ -144,7 +139,7 @@ class EqGraph:
                 self.settings.refresh()
 
     def your_filters(self):
-        """Best fit's “Start from your own filters”, read (for the graph's “With your filters”): [] when none."""
+        """Best fit's “Start from your filters”, read (for the graph's “With your filters”): [] when none."""
         if self.S["mode"] != "best_fit" or not self.S["best_fit"].get("start_filters", "").strip():
             return []
         text = self.S["best_fit"]["start_filters"]
