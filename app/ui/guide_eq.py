@@ -682,7 +682,7 @@ def eq_steps(page):
                  "settings that the app tries.",
          "demo": [{"at": lambda: page.estimate, "x": 0.2, "say": "The number of EQs, and how long the app calculates"},
                   {"at": lambda: page.estimate, "x": 0.6, "say": "Its tooltip gives the settings that the app tries"}]},
-        {"chapter": "2 · Settings", "title": "Your values", "target": lambda: [st.form],
+        {"chapter": "2 · Settings", "title": "Custom values", "target": lambda: [st.form],
          "before": settings_open, "after": settings_close,
          "text": "If you change a setting, it shows “custom”, and new files do not change it. Click “custom ↺” "
                  "to make it automatic again, or disable Automatic settings.",

@@ -154,10 +154,13 @@ def test_settings_whole_at_the_smallest_width(devices_window, check):
           "is at least as wide as the Hotkeys card needs)", not cut, (width, height, cut))
 
 
-def test_settings_keeps_the_smallest_width(devices_window, check):
+def test_settings_keeps_the_smallest_width(devices_window, qapp, check):
     # (2026-11-10: Same level's words on one line made the Hotkeys card about 777 px wide, so the window's smallest
     # width went from 788 to 805 px once Settings showed; now its words wrap)
+    # (measured in the app's light theme, as a person sees the window: with no theme every control is narrower,
+    # and the check passed whatever the theme's font and padding did. The user, 2026-11-25)
     win = devices_window.win
+    qt.light(qapp)
     win.show()
     widths = {}
     try:
@@ -197,6 +200,7 @@ def test_settings_keeps_the_smallest_width(devices_window, check):
                  "name": box.accessibleName(), "Hotkeys card needs": need, "the words on one line": one_line,
                  "card": card.title()}
     finally:
+        qt.no_theme(qapp)
         win.resize(1040, 760)
         win.show_page("devices", remember=False)
         qt.pump(10)

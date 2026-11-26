@@ -627,7 +627,7 @@ GUIDE_END = GUIDE_START + "pump(0.5)\n" + GUIDE_ESC + GUIDE_SEEN
 # demo is numbered markers, about half a second after the step shows. One window for all of it. On the first step, at
 # 1000x768: what shows with the markers; the Guide's scroll keys, and Show the steps with the page scrolled away; the
 # card, then the open step list, put over the first marker; Esc. Then, the window resized and the Guide started
-# again for each: "Your values" at 1000x600 and at the smallest size, "Your EQs to compare" at the smallest size, the
+# again for each: "Custom values" at 1000x600 and at the smallest size, "Your EQs to compare" at the smallest size, the
 # last step at 1400x900. Each part's findings are printed as it ends (the tests read the last line printed), so a part
 # that stops on an error keeps what it had found, and the other parts theirs.
 GUIDE_MARKERS = GUIDE_START + r'''
@@ -673,7 +673,7 @@ def controls(title):
     """The controls of a step's markers, by number (None: that line of the card's list has no control)."""
     if title == "How to make an EQ":
         return [page.target_combo, page.measurement_combo, page.sa, page.run_btn, page.plot]
-    if title == "Your values":
+    if title == "Custom values":
         return [None, page.settings.auto_on]
     if title == "Your EQs to compare":
         return [button("The selected EQ"), button("From an EQ file"), button("Paste filters")]
@@ -769,8 +769,8 @@ part("keys", keys)
 part("covered", covered)
 ''' + GUIDE_ESC + r'''
 smallest = (1, 1)  # (the window stops at its own smallest size)
-part("values", started_again, "Your values", (1000, 600))
-part("values, smallest", started_again, "Your values", smallest)
+part("values", started_again, "Custom values", (1000, 600))
+part("values, smallest", started_again, "Custom values", smallest)
 part("compare, smallest", started_again, "Your EQs to compare", smallest)
 part("last", started_again, "Help, and the end of the Guide", (1400, 900))
 '''
@@ -814,7 +814,7 @@ def test_the_guide_markers_with_what_the_step_lights(markers, check):
     # Windows' animation effects taken as off: each marker of a demo was a point measured after the page scrolled to
     # its control. In a window of 1000x768 the page of the first step ended at the graph, the step's two cards out of
     # sight, 4 of the 5 markers where their controls had been, and Esc then gave the focus to the graph. A page that
-    # never moved, tried first the same day, lost the only marker of "Your values" in a window 670 px high or less,
+    # never moved, tried first the same day, lost the only marker of "Custom values" in a window 670 px high or less,
     # and the smallest window cut the 3 markers of "Your EQs to compare". Now the page moves once at most, to where
     # the most markers show with what is lit, and a marker is drawn on its control while its disc is whole in sight)
     d, err = markers
@@ -836,11 +836,11 @@ def test_the_guide_markers_with_what_the_step_lights(markers, check):
           "to the Target box at the top of the page, in sight (it went to the graph)",
           d.get("closed") is True and d.get("on_target") is True and d.get("in_view") is True, d or err)
     low, small = d.get("values") or {}, d.get("values, smallest") or {}
-    check("window: with Windows' animation effects off, the step Your values in a window 1000x600 and in the smallest "
+    check("window: with Windows' animation effects off, the step Custom values in a window 1000x600 and in the smallest "
           "window has the marker of its second line on the tick box Automatic settings, the tick box all in sight: "
           "the page moves once at most, and the lit settings keep 60 % or more of what they showed (with a page that "
           "never moved, no marker showed there)",
-          all(x.get("step") == "Your values" and x.get("shown") is True and _drawn_right(x, 2, whole_controls=True)
+          all(x.get("step") == "Custom values" and x.get("shown") is True and _drawn_right(x, 2, whole_controls=True)
               and len(x.get("moves") or []) <= 1 and _lit_kept(x, 0.6) for x in (low, small)),
           (low, small) if low or small else err)
     eqs = d.get("compare, smallest") or {}

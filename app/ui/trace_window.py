@@ -983,7 +983,7 @@ class TraceWindow(QWidget):
         self.auto_manual.setTextFormat(Qt.RichText)
         self.auto_manual.linkActivated.connect(lambda k: self.make_auto(None if k == "*" else k))
         why.body_lay.addWidget(self.auto_manual)
-        why.body_lay.addWidget(_label("Settings auto-adjust per image. Edited values are marked “Custom” and kept.",
+        why.body_lay.addWidget(_label("Settings auto-adjust per image. Edited values are marked “custom” and kept.",
                                       "muted"))
         v.addWidget(why)
         return box
@@ -1248,7 +1248,7 @@ class TraceWindow(QWidget):
         esc = lambda s: s.replace("&", "&amp;").replace("<", "&lt;")
         notes = [(k, x) for k, x in ta["notes"].items() if x]
         if on:
-            items = "".join(f"<li><i>Custom</i> · Auto: {esc(x)}</li>" if t.is_custom(k)
+            items = "".join(f"<li><i>custom</i> · Auto: {esc(x)}</li>" if t.is_custom(k)
                             else f"<li>{esc(x)}</li>" for k, x in notes) or "<li>Open an image to auto-adjust settings</li>"
         else:
             items = "<li>Auto settings are off</li>"
@@ -1727,7 +1727,7 @@ class TraceWindow(QWidget):
         """The part of a traced file's first line that names the website and the entry's link (on one line: a line
         end in a list's words would make data lines)."""
         e = clean_entry_of(self.entry)
-        return f" (a picture from {e.get('site')}: {e.get('link')})" if e and e.get("link") else ""
+        return f" (an image from {e.get('site')}: {e.get('link')})" if e and e.get("link") else ""
 
     def _reading_graph(self, on):
         """While the automatic read runs, the picture and the side take no input (take() then replaces the tracer's

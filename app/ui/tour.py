@@ -1576,7 +1576,7 @@ class Tour(QWidget):
         Show the steps), then to where the most markers show (_page_to_markers); the card then goes off the markers.
         (2026-11-22. Each marker was a point, measured after the page scrolled to its control: the page ended at the
         last control, what was lit could be out of sight, and the markers before the last were where their controls
-        had been. A page that never moved was tried first and taken out the same day: "Your values" then had no
+        had been. A page that never moved was tried first and taken out the same day: "Custom values" then had no
         marker in a window 1000 px wide and 670 px or less high, where it had one before.)"""
         scroll_all_into_view(self.target or [])
         self.markers = []
@@ -1608,7 +1608,7 @@ class Tour(QWidget):
         where its control is all in the page's view, MARK_EDGE px from its top and bottom (of a control taller than
         MARK_STRIP px that much is enough), and its disc is whole in sight. The page goes only where what the step
         lights on it is as much in sight as now; when no marker shows at such a place, where the lit part keeps 60 %
-        of what it shows now ("Your values" in a low window: the tick box of its second marker is above the lit
+        of what it shows now ("Custom values" in a low window: the tick box of its second marker is above the lit
         settings, and they can't be all in sight together). Of the places with as many markers: the most of the lit
         part, then the nearest. The page stays when no place shows more markers than it does now."""
         bar, vp = area.verticalScrollBar(), area.viewport()

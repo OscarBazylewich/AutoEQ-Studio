@@ -127,7 +127,7 @@ def test_f1_in_the_wait_window(eq_screen, f1, check):
             wait.reject()
             qt.close(wait)
     seen = _during(Picker(eq_screen.page, "measurement"), steps)
-    check("F1: in the wait for a picture (over Find…), F1 on Paste the picture opens its entry in Help, which is in "
+    check("F1: in the wait for a picture (over Find…), F1 on Paste the image opens its entry in Help, which is in "
           "front and takes input; the wait stays open", seen.get("ok"), seen)
 
 

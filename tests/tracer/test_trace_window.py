@@ -359,5 +359,5 @@ def test_range_custom_when_only_its_end_is_set(eq_screen, check):
         tw.close()
     # (the words of the range note: test_trace_messages.py's test_range_note_follows_the_range)
     check("tracer: the range to save is custom in About these settings and in Active settings when only its “to” box "
-          "is set by hand", seen["yours"] == ["fmax"] and "<i>Custom</i> · Auto: Save " in seen["notes"]
+          "is set by hand", seen["yours"] == ["fmax"] and "<i>custom</i> · Auto: Save " in seen["notes"]
           and "Save range: <b>" in seen["active"] and "Hz</b> <i>custom</i>" in seen["active"], seen)

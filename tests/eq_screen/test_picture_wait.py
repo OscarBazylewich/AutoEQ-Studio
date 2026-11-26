@@ -197,7 +197,7 @@ def test_use_opens_link_and_waits(eq_screen, flow, check):
     words = " ".join(lab.text() for lab in wait.findChildren(QLabel)) if wait is not None else ""
     check("website flow: Use on a website entry opens its link in the browser and shows the wait window with the "
           "entry's name", flow["row"] is not None and opened == [LINK] and shown and f"“{ENTRY}”" in words
-          and wait.windowTitle() == "Picture from the website" and wait.parent() is flow["pk"],
+          and wait.windowTitle() == "Image from the website" and wait.parent() is flow["pk"],
           (opened, shown, words[:200]))
     check("website flow: the wait window is window modal on Find… and does not block (Find… stays open)",
           shown and wait.isModal() and flow["pk"].isVisible(), shown)
@@ -244,25 +244,25 @@ def test_paste_takes_old_picture(eq_screen, flow, check):
     main = (btn.isDefault(), btn.property("help_key"), btn.text(), btn.toolTip())
     btn.click()
     came = _picture_came(page)
-    check("website flow: Paste the picture takes the picture that was there before", came and _closed(wait)
+    check("website flow: Paste the image takes the picture that was there before", came and _closed(wait)
           and page.tracer.entry["name"] == ENTRY, came)
     # (2026-11-24, the text survey: the owner removed the button's own tooltip and then its Help line, so it has no
     # tooltip; its tag stays, and F1 still opens Help in this window)
-    check("website flow: Paste the picture is the main button (the accent, Enter's) and has its help tag, with no "
-          "tooltip", main == (True, "#pw-paste", "Paste the picture", ""), main)
+    check("website flow: Paste the image is the main button (the accent, Enter's) and has its help tag, with no "
+          "tooltip", main == (True, "#pw-paste", "Paste the image", ""), main)
 
 
 def test_paste_with_nothing(eq_screen, flow, check):
     wait, _o = _use(flow)
     wait.paste()
     qt.pump(100)
-    check("website flow: Paste the picture with no picture says so, and the wait continues",
+    check("website flow: Paste the image with no picture says so, and the wait continues",
           wait.isVisible() and "No image on clipboard" in wait.note.text() and wait.note.isVisible(),
           wait.note.text())
     # (from test_window_in_front_of_the_graph, the test audit of 2026-11-25: the tooltip is read here, with the note
     # shown; test_paste_takes_old_picture reads it only before a paste, so a tooltip set by the no-picture branch
     # of paste() was caught by this check alone)
-    check("website flow: Paste the picture has no tooltip (its own and its Help line are removed)",
+    check("website flow: Paste the image has no tooltip (its own and its Help line are removed)",
           wait.paste_btn.toolTip() == "", wait.paste_btn.toolTip())
 
 
@@ -748,13 +748,13 @@ def test_screen_reader(eq_screen, flow, monkeypatch, check):
     first = wait.focusWidget() or wait.paste_btn
     order = tab_order(wait, first)
     check("website flow: a screen reader reads the wait window's heading and steps (its description), each control "
-          "has a name, and Tab goes from Paste the picture to Cancel",
+          "has a name, and Tab goes from Paste the image to Cancel",
           f"“{ENTRY}”" in desc and "Win+Shift+S" in desc and "Maximize your browser" in desc
           and not a11y.unnamed(wait) and not a11y.unreachable(wait)
-          and order[:2] == ["Paste the picture (a picture from the website)", "Cancel"], (desc, order))
+          and order[:2] == ["Paste the image (an image from the website)", "Cancel"], (desc, order))
     check("website flow: the wait window's description has the folder words and the folder's path, and the window "
           "has its name for a screen reader", f"{WHERE} {os.path.normpath(_downloads())}" in desc
-          and wait.accessibleName() == "Picture from the website", (desc, wait.accessibleName()))
+          and wait.accessibleName() == "Image from the website", (desc, wait.accessibleName()))
     # (2026-11-24: the words of the text survey have no period after some lines; the two lines of step 2 ran together
     # in the description, "drag over the graph Or click …")
     check("website flow: in the wait window's description, each line of a step ends with a period, also where the "
@@ -953,7 +953,7 @@ def test_close_keeps_the_entry(eq_screen, fresh_studio, flow, monkeypatch, check
     rec = rigs.sources().get("My IEM.txt") or {}
     check("website flow: the tracer closed and opened again: Add as measurement still names the website and the link, "
           "and records the source (the rig, also with a name that the user typed)",
-          came and first == f"* Traced from {NAME} with AutoEQ Studio (a picture from {SITE}: {LINK})"
+          came and first == f"* Traced from {NAME} with AutoEQ Studio (an image from {SITE}: {LINK})"
           and rec.get("name") == ENTRY and rigs.file_rig("My IEM.txt") == ("5128", True), (first, rec))
     monkeypatch.setattr(trace_core, "auto_read", stand_in(delay=1.0))
     flow["pk"].show()
@@ -1114,7 +1114,7 @@ def test_add_as_measurement(eq_screen, fresh_studio, flow, monkeypatch, check):
     with open(os.path.join(eq_paths.MEAS_DIR, NAME + ".txt"), encoding="utf-8") as fh:
         first = fh.readline().strip()
     check("website flow: the file's first line names the website and the link",
-          first == f"* Traced from {NAME} with AutoEQ Studio (a picture from {SITE}: {LINK})", first)
+          first == f"* Traced from {NAME} with AutoEQ Studio (an image from {SITE}: {LINK})", first)
     rec = rigs.sources().get(NAME + ".txt") or {}
     check("website flow: the add records the entry's source (its database's website and the entry's name)",
           rec.get("site_url") == "https://graph.hangout.audio/iem/5128/" and rec.get("name") == ENTRY, rec)
@@ -1613,7 +1613,7 @@ def test_window_in_front_of_the_graph(eq_screen, flow, monkeypatch, check):
     """Step 1 tells the user to close a window of the website in front of the graph (at the first visit, a website
     shows "Welcome to Squiglink" on top of the graph: the screen copy then had no graph, 2026-11-11), and Help
     #pw-paste tells it too. The window is not wider for it, and no word is cut at 100 %, 125 %, 150 % and 175 % (the
-    room of each scale stood in). (That Paste the picture has no tooltip is checked in test_paste_takes_old_picture
+    room of each scale stood in). (That Paste the image has no tooltip is checked in test_paste_takes_old_picture
     and test_paste_with_nothing: the scale and the step's words do not change it.)"""
     from PySide6.QtCore import QRect
     from PySide6.QtGui import QScreen
@@ -1652,7 +1652,7 @@ def test_window_in_front_of_the_graph(eq_screen, flow, monkeypatch, check):
     # (2026-11-12: the instruction was in the paragraph that tells what the app does not do: one subject in each
     # paragraph, so it is a paragraph of its own)
     # (2026-11-25, the owner: Help has the words of the window's two steps, in a paragraph of their own)
-    check("website flow: Help of Paste the picture tells it too, with the words of the window's two steps, in a "
+    check("website flow: Help of Paste the image tells it too, with the words of the window's two steps, in a "
           "paragraph of its own",
           para == FRONT_WINDOW + " Press Win+Shift+S and drag over the graph, or click Screenshot on the site to "
           "save it to Downloads." and len(sentences) == 2
@@ -1661,7 +1661,7 @@ def test_window_in_front_of_the_graph(eq_screen, flow, monkeypatch, check):
     # before that end, trace_auto.out_parts: Help did not tell it. "Starts or stops at that frequency" was not exact
     # (a curve out at 18.6 kHz gave points to 17.45 kHz): the part is not included, and 3 Save's text gives the values)
     result = next((p for p in body if isinstance(p, str) and p.startswith("The tracer finds the axes")), "")
-    check("website flow: Help of Paste the picture tells that the measurement does not include the part where a curve "
+    check("website flow: Help of Paste the image tells that the measurement does not include the part where a curve "
           "goes out of the grid, and that 3 Save gives the frequencies",
           "If a curve goes above or below the grid near an end of the frequency axis, the measurement does not "
           "include that part. The text on 3 Save gives the frequencies." in result
@@ -2220,7 +2220,7 @@ def test_real_read_from_the_clipboard(eq_screen, fresh_studio, flow, monkeypatch
           "in use, its first line names the website and the link, the source record and the rig, and its values agree "
           "with the graph (mean error 0.1 dB or less, largest 0.5 dB or less)",
           loaded and used == [NAME + ".txt"]
-          and first == f"* Traced from {NAME} with AutoEQ Studio (a picture from {SITE}: {LINK})"
+          and first == f"* Traced from {NAME} with AutoEQ Studio (an image from {SITE}: {LINK})"
           and rec.get("name") == ENTRY and rigs.file_rig(NAME + ".txt") == ("5128", True)
           and err[0] <= 0.1 and err[1] <= 0.5, (loaded, used, first, rec, err))
 
@@ -2547,7 +2547,7 @@ def test_paste_the_picture_takes_a_small_picture(eq_screen, flow, check):
     if stays:
         wait.paste()
     came = stays and _picture_came(flow["page"])
-    check("website flow: Paste the picture takes a picture smaller than 300 x 200 (the picture on the clipboard, old "
+    check("website flow: Paste the image takes a picture smaller than 300 x 200 (the picture on the clipboard, old "
           "or new)", stays and came and _closed(wait) and flow["page"].tracer.t.W == 299 - 10,
           (stays, came, flow["page"].tracer.t.W))
 

@@ -651,7 +651,7 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'body': ['Hides the entries that the app cannot download. The app traces those entries from '
                                     'a picture of their website.']},
                           {'key': '#pw-paste',
-                           'title': 'Paste the picture (a picture from the website)',
+                           'title': 'Paste the image (an image from the website)',
                            'body': ['Some websites do not let other programs download their files, and the app obeys '
                                     'that limit. The app has no browser in it and does not get the data of the '
                                     'website. Your browser shows the graph, and the app reads only a picture of it.',
@@ -667,7 +667,7 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'save it to Downloads.',
                                     'While the app waits, it looks at the clipboard and at the names of the picture '
                                     'files in your Downloads folder. It uses only a picture that is new after it '
-                                    'started to wait. It does not change or delete a file. Paste the picture uses the '
+                                    'started to wait. It does not change or delete a file. Paste the image uses the '
                                     'picture that is on the clipboard at this time. The app waits for a maximum of 10 '
                                     'minutes, or until you click Cancel.',
                                     'The tracer finds the axes and the curve automatically and opens on 3 Save. For a '

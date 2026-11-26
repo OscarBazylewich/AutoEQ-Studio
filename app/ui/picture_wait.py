@@ -15,7 +15,7 @@ While it shows, it waits for the first new picture:
   none): one look each POLL_MS in a thread, read only (folder_pictures, new_picture give the rules for a new file;
   browsers write to a .crdownload or .part name first, not a picture suffix, so a download in progress is not read).
   No folder, or an error: no message, the clipboard still works.
-- "Paste the picture" (Enter, Ctrl+V): the picture that is on the clipboard at that time, old or new.
+- "Paste the image" (Enter, Ctrl+V): the picture that is on the clipboard at that time, old or new.
 - TIMEOUT_MS: the wait stops (timed_out).
 `got` is (QImage, jpeg) when a picture came (accept()). done() stops everything first, so a late copy does nothing.
 Its parent is the window that asked, given before it shows (the tests' stray watch). An entry's words come from a
@@ -266,7 +266,7 @@ class PictureWait(QDialog):
         self.folder = downloads_folder()
         self._old, self._pending, self._read_tries = None, {}, {}  # (the looks' lists: new_picture)
         self._looking = False
-        self.setWindowTitle("Picture from the website")
+        self.setWindowTitle("Image from the website")
         theme.mark(self, dialog=True)  # (Windows 11's dialog: the words on the card's colour, UI-RULES 2)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -326,13 +326,13 @@ class PictureWait(QDialog):
         self.intro.setText(intro)
         if site and shown_site != f"“{site}”":
             self.intro.setToolTip(plain_tip(site))
-        band, self.paste_btn = dialog_band(self, "Paste the picture", self.paste)
+        band, self.paste_btn = dialog_band(self, "Paste the image", self.paste)
         # (no tooltip: the owner removed the button's own tooltip and the first line of its Help entry, the text
         # survey, 2026-11-24; the tag stays for F1 and the button's name for a screen reader. F1 opens Help in a window that blocks the others, as this one does, since such
         # a window gets an F1 shortcut of its own (ui\window.py's F1Anywhere), 2026-11-12)
         help_window.tag(self.paste_btn, "#pw-paste")
         outer.addWidget(band)
-        # (a screen reader: the focus is on Paste the picture when the window opens, and the words are labels only)
+        # (a screen reader: the focus is on Paste the image when the window opens, and the words are labels only)
         self.setAccessibleName(self.windowTitle())
         # (the owner's words of the text survey, 2026-11-24, have no period at the end of some lines (step 2, the
         # target note): on the screen each is a line of its own, but in one description they ran together, "drag
@@ -475,7 +475,7 @@ class PictureWait(QDialog):
         self.reject()
 
     def paste(self):
-        """Paste the picture (Enter, Ctrl+V): the picture on the clipboard at this time, old or new."""
+        """Paste the image (Enter, Ctrl+V): the picture on the clipboard at this time, old or new."""
         img, jpeg = clipboard_picture()
         if img is None:
             # (the tracer's words)
