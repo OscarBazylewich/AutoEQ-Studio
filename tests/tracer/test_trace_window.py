@@ -308,26 +308,9 @@ def test_picture_with_no_entry(eq_screen, monkeypatch, check):
           started == (0, True, False, None) and not calls and tw.t.src_name == "Sample IEM", (started, calls))
 
 
-def test_outputs_name_and_target_mark(eq_screen, check):
-    # (2026-11-11: outputs with a name in place of the Name box's; the target line that the automatic read marks is
-    # not in the measurement's files, unless it is the one curve asked for)
-    tw, _truth, _msgs = eqpage.open_traced_sample(eq_screen)
-    t = tw.t
-    t.v.update(d1="90", d2="40")
-    named = [o["file"] for o in tw.outputs(name="Another name")]
-    t.curves[1]["target"] = True
-    marked = [o["file"] for o in tw.outputs()]
-    t.cur = 1
-    one = [o["label"] for o in tw.outputs(True)]
-    tw.update_ui()
-    button = not tw.save_line.isHidden()  # (on 3 Save, a tab not in sight here)
-    t.curves[1].pop("target")
-    tw.update_ui()
-    tw.close()
-    check("tracer: outputs with a name use it", named and all(n.startswith("Another name ") for n in named), named)
-    check("tracer: a curve marked as target is not in the measurement's files (Add as target of that curve has it), "
-          "and Add the target line as target… shows for it",
-          len(marked) == len(named) - 1 and one == [t.curves[1]["label"]] and button, (marked, one, button))
+# (the window's outputs with a name, and a target line left out of the measurement's files: the website flow's
+# tests\eq_screen\test_picture_wait.py test_target_line; a copy of it on the sample here went, the test audit of
+# 2026-11-25)
 
 
 def test_value_box_tooltip_after_a_bad_value(eq_screen, check):
@@ -366,7 +349,6 @@ def test_range_custom_when_only_its_end_is_set(eq_screen, check):
     tw, _truth, _msgs = eqpage.open_traced_sample(eq_screen)
     t = tw.t
     try:
-        auto_note = t.ta["notes"]["fmin"]
         b = tw.boxes["fmax"]
         b.setText("15000")
         tw.value_typed("fmax", BOX_LIMITS["fmax"])
@@ -375,8 +357,7 @@ def test_range_custom_when_only_its_end_is_set(eq_screen, check):
         tw.render_auto_settings()
     finally:
         tw.close()
-    check("tracer: the sample graph's range note says the audible range", auto_note.endswith(
-          "audible range (covered by graph)"), auto_note)
+    # (the words of the range note: test_trace_messages.py's test_range_note_follows_the_range)
     check("tracer: the range to save is custom in About these settings and in Active settings when only its “to” box "
           "is set by hand", seen["yours"] == ["fmax"] and "<i>Custom</i> · Auto: Save " in seen["notes"]
           and "Save range: <b>" in seen["active"] and "Hz</b> <i>custom</i>" in seen["active"], seen)

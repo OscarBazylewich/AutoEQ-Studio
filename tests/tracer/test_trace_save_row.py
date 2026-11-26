@@ -1,7 +1,8 @@
 """3 Save of the tracer (ui\\trace_window.py's _save_box): the "Save from (Hz)" boxes show their whole values at the
-usual and the smallest size of the window (the "to" box cut the first pixels of "20000" at 964 x 393, 2026-11-11), and
-the one add button of the row, in the accent, has the name of the picture's type (Add as target for an entry from Find
-a target: "The graph shows" then has "A target line"). The 4 types of "The graph shows": test_trace_graph_type.py."""
+usual and the smallest size of the window (the "to" box cut the first pixels of "20000" at 964 x 393, 2026-11-11).
+The one add button of the row, in the accent, with the name of the picture's type: test_trace_graph_type.py
+(test_the_app_selects_the_type) and test_trace_target_save.py (its pictures); the test of it here went there (the
+test audit, 2026-11-25)."""
 from PySide6.QtWidgets import QStyle, QStyleOptionFrame
 
 from helpers import qt
@@ -77,92 +78,3 @@ def test_save_range_boxes_show_their_values(eq_screen, tmp_path, check):
           seen[("usual", "past")] == [] and seen[("smallest", "past")] == []
           and seen[("smallest", "past with your values")] == ([], "custom ↺"), seen)
 
-
-def _stand_in_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
-    """A stand-in for trace_core.auto_read: the picture as it is, the sample's dB values, a part of a curve, all
-    checks OK, no target line."""
-    import numpy as np
-    from ui import trace_core
-    from ui.trace_auto import AutoRead, Check
-    t = trace_core.Tracer()
-    t.load(np.array(rgb, np.uint8, copy=True), name, jpeg)
-    t.v.update(d1="90", d2="40")
-    t.curves[0]["ys"][100:200] = 300.0  # (a traced curve)
-    return AutoRead(True, t, [Check("axes_plot", True, "The app found the graph in the image.")], t.curves[0],
-                    None, None, None, None, 0.01)
-
-
-ENTRY = {"name": "Truthear Gate", "tag": "Hangout 5128", "site": "Hangout.Audio", "link": "https://example.invalid/x"}
-
-
-def _row(tw):
-    """3 Save's buttons in their order, each with whether it is the accent button."""
-    # (found with indexOf, not itemAt: no Python object of a layout item is made, app\ui\__init__.py)
-    return [(w.text(), w.property("primary") in (True, "true")) for w in qt.layout_parts(tw.save_btns)
-            if w is not None and w.isWidgetType()]
-
-
-def test_accent_button_is_the_main_action(eq_screen, monkeypatch, tmp_path, check):
-    from PySide6.QtCore import QPoint
-    from PySide6.QtGui import QImage
-    from ui import trace_core
-    monkeypatch.setattr(trace_core, "auto_read", _stand_in_read)
-    page = eq_screen.page
-    page.open_trace()
-    tw = page.tracer
-    img, _s = sample_image()
-    # (one add button since 2026-11-16: its name follows "The graph shows"; before, two buttons in a changed order)
-    measurement = ([("Add as measurement", True), ("Save .txt…", False)], "measurement")
-    target = ([("Add as target", True), ("Save .txt…", False)], "target")
-    rows, pictures = {}, {}
-
-    def read(entry):
-        tw.load_image(img, entry=entry)
-        qt.wait_for(lambda: not tw.loading and not tw.reading_graph and tw.read_ok is not None, 60)
-
-    def row():
-        return _row(tw), tw.shows.currentData()
-
-    read(dict(ENTRY, **{"as": "target"}))
-    rows["Find a target"] = (row(), "Add as target." in tw.save_note.text())
-    tw.show_tab(2)
-    usual = tw.size()
-    for which, size in (("usual", usual), ("smallest", tw.minimumSize().expandedTo(tw.minimumSizeHint()))):
-        tw.resize(size)
-        for name, theme_on in (("light", qt.light), ("dark", qt.dark)):
-            theme_on(eq_screen.qapp)
-            qt.pump(100)
-            path = str(tmp_path / f"save-row-target-{which}-{name}.png")
-            tw.pages.currentWidget().grab().save(path)
-            pic = QImage(path)
-            # (a pixel of each button's fill, 5 px in from its left edge)
-            fill = [pic.pixelColor(b.mapTo(tw.pages.currentWidget(), QPoint(5, b.height() // 2))).saturation()
-                    for b in (tw.save_btn, tw.download_btn)]
-            pictures[(which, name)] = tuple(fill)
-    qt.light(eq_screen.qapp)
-    tw.resize(usual)
-    tw.load_image(img.copy(0, 0, 800, 500), "A picture of yours")  # (a different picture: the same one keeps all)
-    qt.wait_for(lambda: not tw.loading and not tw.reading, 60)
-    rows["a picture of yours after it"] = row()
-    read(dict(ENTRY, **{"as": "target"}))
-    tw.remove_image()
-    rows["Remove image after it"] = row()
-    read(dict(ENTRY))
-    rows["Find a measurement"] = (row(), "Add as measurement." in tw.save_note.text())
-    tw.show_tab(2)
-    for name, theme_on in (("light", qt.light), ("dark", qt.dark)):
-        theme_on(eq_screen.qapp)
-        qt.pump(100)
-        tw.pages.currentWidget().grab().save(str(tmp_path / f"save-row-measurement-usual-{name}.png"))
-    qt.light(eq_screen.qapp)
-    tw.remove_image()
-    tw.close()
-    check("tracer: for an entry from Find a target, “The graph shows” has “A target line”, and the add button of 3 "
-          "Save's row is Add as target, in the accent, the first one (its note says to click it)",
-          rows["Find a target"] == (target, True), rows)
-    check("tracer: a new picture or Remove image makes the add button Add as measurement again, in the accent; an "
-          "entry from Find a measurement has it too", rows["a picture of yours after it"] == measurement
-          and rows["Remove image after it"] == measurement and rows["Find a measurement"] == (measurement, True), rows)
-    check("tracer: the pictures of the row (light and dark, the usual and the smallest size): Add as target has the "
-          "accent color, Save .txt… has none", len(pictures) == 4
-          and all(t > 80 and m < 40 for t, m in pictures.values()), pictures)

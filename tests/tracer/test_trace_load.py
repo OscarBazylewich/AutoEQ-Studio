@@ -12,6 +12,7 @@ import numpy as np
 import paths
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QImage, QKeyEvent
+from PySide6.QtWidgets import QApplication, QComboBox, QLineEdit
 
 from helpers import qt
 from ui import trace_core, trace_window
@@ -84,8 +85,16 @@ def test_large_picture_loads_in_a_thread(eq_screen, monkeypatch, check):
     tw.load_image(img, "Large graph")
     during = (tw.loading, tw.status.text(), tw.stage.isEnabled(), tw.side_scroll.isEnabled(),
               tw.guide_btn.isEnabled(), tw.t.has_image)
-    tw.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_D, Qt.NoModifier))  # (a tool key: no change while it loads)
-    tool = tw.tool
+    # (Space, as the key: with no picture, a tool key such as D does nothing also without the load's stop in
+    # keyPressEvent, so that check could not fail (the test audit, 2026-11-25). Space holds the hand of the picture
+    # with no picture too: only the load's stop keeps it off here. A tool key over a picture:
+    # test_trace_load_more.py's test_tool_key_while_loading_over_a_picture)
+    tw.setFocus()  # (not in a text box: there Space types, and the check would pass also without the stop)
+    focus = QApplication.focusWidget()
+    tw.stage.space = False
+    tw.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_Space, Qt.NoModifier))
+    held = tw.stage.space
+    tw.stage.space = False
     came = _settled(tw)
     after = (tw.loading, tw.stage.isEnabled(), tw.side_scroll.isEnabled(), tw.guide_btn.isEnabled(),
              tw.t.has_image, tw.t.src_name, tw.file_lab.whole, tw.pages.currentIndex())
@@ -106,7 +115,7 @@ def test_large_picture_loads_in_a_thread(eq_screen, monkeypatch, check):
           all(k in threads and main not in threads[k] for k in slow), {k: main in v for k, v in threads.items()})
     check("tracer: while a large picture loads, the status line says so, and the picture, the side and Guide take "
           "no input (a key changes nothing)", during == (True, trace_window.LOADING, False, False, False, False)
-          and tool == "trace", (during, tool))
+          and held is False and not isinstance(focus, (QLineEdit, QComboBox)), (during, held, type(focus).__name__))
     check("tracer: after the load, the tracer has the picture (its name, 1 Axes) and takes input again",
           came and after == (False, True, True, True, True, "Large graph", "Large graph", 0), after)
     check("tracer: a picture loaded in a thread gives the same tracer as Tracer.load on the window's thread, with "
@@ -222,17 +231,14 @@ def test_picture_that_cannot_be_read(eq_screen, monkeypatch, tmp_path, check):
 def test_same_picture_again_during_and_after_a_load(eq_screen, monkeypatch, check):
     """A large picture from a website, its automatic read stood in: the same picture again gives the same message
     as a small one (the rule of picture_mark), after its load in a thread."""
-    from ui import trace_auto
+    from helpers.tracer_reads import not_ok_read
     tw = _tracer(eq_screen)
     img = _large()
     calls = []
 
-    def read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
+    def read(rgb, ocr_words=None, jpeg=False, name="Traced graph", want=None):
         calls.append(name)
-        t = trace_core.Tracer()
-        t.load(np.array(rgb, np.uint8, copy=True), name, jpeg)
-        return trace_auto.AutoRead(False, t, [trace_auto.Check("trace_curve", False, "No curve.")], None, None, None,
-                                   None, None, 0.01)
+        return not_ok_read(rgb, ocr_words, jpeg, name)
     monkeypatch.setattr(trace_core, "auto_read", read)
     entry = {"name": "Gate", "tag": "Site 1", "site": "Site", "link": "https://example.invalid/x"}
     tw.load_image(img, entry=entry)

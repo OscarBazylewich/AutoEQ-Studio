@@ -228,9 +228,8 @@ def test_entry_of_a_measurement(qapp, monkeypatch, check):
           "measurement and one sentence about the gray line; no curve in the tracer",
           not r.ok and not r.target_only and failed(r) == [("trace_curve", GREY_REASON)] and not has_curve(r),
           (failed(r), has_curve(r)))
-    _truth, r0 = read(monkeypatch, 1000, target="solid", curves=False)
-    check("the same picture with no entry: the target line alone, all checks pass", r0.ok and is_target(r0),
-          failed(r0))
+    # (the same picture with no entry, the target line alone: test_target_line_alone[1000], solid, PNG, the same
+    # call; its copy here went, the test audit of 2026-11-25)
     _truth, r = read(monkeypatch, 1000, want="measurement")
     check("an entry of a measurement, a picture with a measurement: all checks pass, no trace_kind (as before)",
           r.ok and "trace_kind" not in [c.name for c in r.checks], failed(r))

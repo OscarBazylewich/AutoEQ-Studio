@@ -8,6 +8,7 @@ went into its card with its items, PySide6 kept an object for each, and the test
 violation: a new Qt object got the object of an item that Qt had deleted. Find… and Make an EQ's page:
 tests\\eq_screen\\test_layout_items.py."""
 from helpers import qt
+from helpers.tracer_reads import ok_read
 
 # (what the window reaches through Make an EQ: for app\tools\relevant_tests.py)
 COVERS = ("ui.trace_window", "ui.trace_core", "ui.trace_auto", "ui.ocr", "ui.eq_page", "eq.service", "eq.inputs")
@@ -18,26 +19,12 @@ def _types(objs):
     return sorted({type(o).__name__ for o in objs})
 
 
-def _stand_in_read(rgb, ocr_words=None, jpeg=False, name="Traced graph"):
-    """A stand-in for trace_core.auto_read (as tests\\tracer\\test_trace_save_row.py's): the picture as it is, the
-    sample's dB values, a part of a curve, all checks OK, no target line."""
-    import numpy as np
-    from ui import trace_core
-    from ui.trace_auto import AutoRead, Check
-    t = trace_core.Tracer()
-    t.load(np.array(rgb, np.uint8, copy=True), name, jpeg)
-    t.v.update(d1="90", d2="40")
-    t.curves[0]["ys"][100:200] = 300.0  # (a traced curve)
-    return AutoRead(True, t, [Check("axes_plot", True, "The app found the graph in the image.")], t.curves[0],
-                    None, None, None, None, 0.01)
-
-
 def test_tracer_save_row_changed_again_and_again(eq_screen, monkeypatch, check):
     # (the file's page, open until after its last test: what the tracer and the page made is still there when the
     # check after each test (tests\conftest.py) looks)
     from ui import trace_core
     from ui.trace_window import sample_image
-    monkeypatch.setattr(trace_core, "auto_read", _stand_in_read)
+    monkeypatch.setattr(trace_core, "auto_read", ok_read())
     page = eq_screen.page
     page.open_trace()
     tw = page.tracer

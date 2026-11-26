@@ -9,6 +9,7 @@ from PySide6.QtCore import QPoint
 from PySide6.QtGui import QImage
 
 from helpers import qt
+from helpers.tracer_reads import save_row
 from helpers.website_graph import target_graph, truth_reader, website_graph
 from ui import trace_auto
 
@@ -22,13 +23,6 @@ END = "Verify it against the image, then click Add as target."
 # website fades it, 2026-11-13)
 NOTE = re.compile(re.escape(HEAD) + r" Target traced from \d+(\.\d)? Hz to \d+(\.\d)? kHz\n"
                   + re.escape(END) + "$")
-
-
-def _row(tw):
-    """3 Save's buttons in their order, each with whether it is the accent button."""
-    # (found with indexOf, not itemAt: no Python object of a layout item is made, app\ui\__init__.py)
-    return [(w.text(), w.property("primary") in (True, "true")) for w in qt.layout_parts(tw.save_btns)
-            if w is not None and w.isWidgetType()]
 
 
 def _read(tw, monkeypatch, img, truth, entry):
@@ -56,7 +50,7 @@ def test_target_alone_in_3_save(eq_screen, monkeypatch, tmp_path, check):
     _read(tw, monkeypatch, img, truth, ENTRY)
     target = [("Add as target", True), ("Save .txt…", False)]  # (one add button since 2026-11-16)
     seen = {"ok": tw.read_ok, "read_target": tw.read_target, "tab": tw.pages.currentIndex(),
-            "note": tw.save_note.text(), "row": _row(tw), "line button": tw.save_line.isVisible(),
+            "note": tw.save_note.text(), "row": save_row(tw), "line button": tw.save_line.isVisible(),
             "shows": tw.shows.currentData(),
             "curves": [(c["label"], c.get("target")) for c in tw.t.curves]}
     pictures = {}
@@ -90,13 +84,13 @@ def test_target_alone_in_3_save(eq_screen, monkeypatch, tmp_path, check):
     seen["as a measurement"] = (tw.save_btn.text(), tw.save_note.text().endswith("click Add as measurement."))
     tw.save_btn.click()
     tw.remove_image()
-    seen["after remove"] = (tw.read_target, _row(tw)[0])
+    seen["after remove"] = (tw.read_target, save_row(tw)[0])
     # (a new picture of the user after a target read: Add as measurement is the main action again)
     _read(tw, monkeypatch, img, truth, ENTRY)
     first = tw.read_target
     tw.load_image(website_graph(plot_w=1000)[0], "Mine")
     qt.wait_for(lambda: not tw.loading, 30)
-    seen["after a new picture"] = (first, tw.read_target, _row(tw)[0])
+    seen["after a new picture"] = (first, tw.read_target, save_row(tw)[0])
     tw.close()
     check("tracer: an entry of a target, a picture with only the target line: the read is OK, 3 Save is in sight, "
           "the one curve is the target line (\"Target\", marked)", seen["ok"] is True and seen["read_target"] is True
@@ -128,7 +122,7 @@ def test_kind_of_entry_and_picture_disagree(eq_screen, monkeypatch, tmp_path, ch
     tw = page.tracer
     img, truth = website_graph(plot_w=1000, target="solid", curves=False)
     _read(tw, monkeypatch, img, truth, dict(ENTRY, kind="measurement", name="Sample IEM"))
-    seen = {"measurement": (tw.read_ok, tw.read_target, tw.pages.currentIndex(), tw.status.text(), _row(tw)[0],
+    seen = {"measurement": (tw.read_ok, tw.read_target, tw.pages.currentIndex(), tw.status.text(), save_row(tw)[0],
                             any(tw.t.has_data(c) for c in tw.t.curves))}
     _pictures(eq_screen, tw, tmp_path, "measurement-entry")
     tw.remove_image()
@@ -140,14 +134,14 @@ def test_kind_of_entry_and_picture_disagree(eq_screen, monkeypatch, tmp_path, ch
     tw.remove_image()
     img, truth = website_graph(plot_w=1000, target="solid")
     _read(tw, monkeypatch, img, truth, ENTRY)
-    seen["target"] = (tw.read_ok, tw.read_target, tw.pages.currentIndex(), tw.status.text(), _row(tw)[0])
+    seen["target"] = (tw.read_ok, tw.read_target, tw.pages.currentIndex(), tw.status.text(), save_row(tw)[0])
     tw.remove_image()
     img, truth = website_graph(plot_w=1000, target="solid", curves=False)
     _read(tw, monkeypatch, img, truth, {k: v for k, v in ENTRY.items() if k != "kind"})
-    seen["no kind"] = (tw.read_ok, bool(NOTE.match(tw.save_note.text())), _row(tw)[0], tw.shows.currentData())
+    seen["no kind"] = (tw.read_ok, bool(NOTE.match(tw.save_note.text())), save_row(tw)[0], tw.shows.currentData())
     tw.remove_image()
     _read(tw, monkeypatch, img, truth, dict(ENTRY, **{"as": "measurement"}))
-    seen["as a measurement"] = (tw.read_ok, tw.save_note.text().endswith("click Add as measurement."), _row(tw)[0],
+    seen["as a measurement"] = (tw.read_ok, tw.save_note.text().endswith("click Add as measurement."), save_row(tw)[0],
                                 tw.shows.currentData())
     tw.remove_image()
     # (two target lines, 8 dB apart: trace_single of a target line alone, the verifier's M2)

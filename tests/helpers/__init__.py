@@ -4,7 +4,8 @@ Plain modules: session (the temporary folders and variables), paths (the project
 the check log), guard (blocks writes outside the test folders, the internet, the registry), dialogs (message boxes
 answered by themselves), qt (Qt off-screen), apo (a stand-in Equalizer APO folder), studio (the session's "your
 files" and the EQ part's data), eq (the EQ part's helpers), eqpage (Make an EQ on the session), subproc (other
-processes), capabilities (what this PC has). Three are pytest plugins (fixtures_core, fixtures_eq, fixtures_screen),
+processes), capabilities (what this PC has), website_graph (drawn look-alikes of a website's graph), tracer_reads
+(stand-ins for the tracer's automatic read). Three are pytest plugins (fixtures_core, fixtures_eq, fixtures_screen),
 loaded by tests\\conftest.py.
 
 None imports an app module at its top (only inside functions), so the session's variables are always set first.

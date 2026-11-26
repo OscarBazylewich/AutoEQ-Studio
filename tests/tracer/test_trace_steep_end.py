@@ -249,7 +249,7 @@ def test_curve_that_ends_early(qapp, monkeypatch, check):
     """A curve that goes out of the grid far before 20 kHz (the usual look-alike on a dB axis of 55 to 95 dB: out at
     9.2 kHz, values to 7.6 kHz, 85 % of the width) is not a measurement for an EQ: the curve check fails, with the
     words of the end (before: all checks passed). The curve on MIN_IN_GRID of the grid or more passes (the real
-    screen copy's form: 97 %)."""
+    screen copy's form, 97 %: test_real_form_is_read)."""
     truth, r = read(monkeypatch, 1000, chan_fns=None, clip_db=False, top_logo=False, colours=("#1a48a0", "#0d357d"),
                     db_range=(55, 95))
     words = reason(r, "trace_curve")
@@ -273,10 +273,8 @@ def test_curve_that_ends_early(qapp, monkeypatch, check):
     check("a curve out of the grid at 9.8 kHz on 88 % of the width (1000 px, a correct curve to there): the curve "
           "check fails, and only it (MIN_IN_GRID is 90 %)", e and e[1] <= 0.5 and failed(r) == ["trace_curve"]
           and words.startswith("Curve covers only 88% "), (failed(r), e, words))
-    _truth, r = read(monkeypatch)
-    check("the real screen copy's form (97 %): AutoRead's out_words are the end of the curve check's words",
-          r.ok and r.out_words.startswith("At 18.") and reason(r, "trace_curve").endswith(" " + r.out_words),
-          (r.out_words, reason(r, "trace_curve")))
+    # (the real screen copy's form, 97 %, that passes: its curve check's words, test_real_form_is_read; its
+    # out_words, test_save_note_tells_the_end. A copy of them here went, the test audit of 2026-11-25)
     _truth, r = read(monkeypatch, 1000, chan_fns=None, clip_db=False, top_logo=False)
     check("a curve that stays in the grid: out_words is empty", r.ok and r.out_words == "", r.out_words)
 
