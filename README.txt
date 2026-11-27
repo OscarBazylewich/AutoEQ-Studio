@@ -210,6 +210,7 @@ One column, from the top to the bottom:
       a dB scale. It also has Undo all and Calculate from these filters. ✕ removes a filter (Undo is in the
       message). When the graph is not on the screen, a copy of the graph is above the page while you edit. The copy
       is not on the control that you change. If you clear "Show the graph while you edit", the copy does not show.
+      The ✕ of the copy clears it too (Undo is in the message).
     - File name, then:
     Save filters       writes the files that your EQ app uses into the Saved EQs folder
     Copy               copies the filters to the clipboard, as Equalizer APO text

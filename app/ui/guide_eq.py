@@ -352,6 +352,7 @@ def eq_steps(page):
             api.spot_on(lg)
             api.keep_clear(lg)  # (the card off it: it sat over the floating graph)
             yield from api.at(lg, 0.5, 0.4, 1600, say="If you cannot see the graph, a copy of it shows on the page while you edit")
+            yield from api.at(lg.close_btn, 0.5, 0.5, 1200, say="Its ✕ hides it, with Undo in the message")
         else:
             yield 1400
         api.say("Or as sliders: a graphic EQ, with the gain of each filter filled from 0 dB")
@@ -800,9 +801,11 @@ def eq_steps(page):
          "target": lambda: [page.editor, page.live_check, page.retry_btn],
          "before": result_before, "after": result_after, "ready": has_curves,
          "text": lambda: "Change a filter in the table or with the sliders: the numbers and the graph change with it. "
-                         "✕ removes a filter, with Undo in the message. If you cannot see the graph, a copy of it shows on the page while you edit (“Show the graph "
-                         "while you edit” disables it). Undo all (enabled after you edit) shows the calculated filters again. Calculate from "
-                         "these filters starts Best fit again from your filters." + example(),
+                         "✕ removes a filter, with Undo in the message. If you cannot see the graph, a copy of it "
+                         "shows on the page while you edit (“Show the graph while you edit” disables it, and so does "
+                         "the copy's ✕, with Undo in the message). Undo all (enabled after you edit) shows the "
+                         "calculated filters again. Calculate from these filters starts Best fit again from your "
+                         "filters." + example(),
          "demo": [{"run": edit_demo, "say": "Change a value: the numbers and the graph change with it"},
                   {"at": lambda: page.editor.table.cellWidget(0, 6) or page.editor,
                    "say": "✕ removes a filter, with Undo in the message"},
