@@ -3826,13 +3826,21 @@ def test_a_message_box_shows_the_words_of_the_tool_in_place_of_a_message(eq_scre
         qt.pump(50)
         seen[case] = (names.get(before, before), [names.get(t, t) for t in behind],
                       names.get(tw.status.text(), tw.status.text()))
+    # (the control audit of 2026-11-27: what to do first, an error of the curves and the gaps are a bubble at the
+    # button, not a box; the status line keeps its message)
+    bubbles = ("Add as measurement, an error of the curves", "Add as measurement, gaps",
+               "Add the target line as target…, an error", "Save .txt…, an error of the curves", "Save .txt…, gaps")
     tool = ("no picture", ["empty"], "empty")
-    want = dict.fromkeys(seen, tool)
+    want = {k: tool for k in seen if k not in bubbles}
     want["no message: a file that is not a picture after Remove image"] = ("no picture", ["removed"], "removed")
     check("tracer: behind each message box, the status line is empty, not a message about a step "
           "that ended; other words stay (\"There is no picture on the clipboard. …\" showed behind \"The app cannot "
           "read this file as a picture (…).\")",
-          came and len(seen) == 11 and seen == want, {k[:45]: seen.get(k) for k in want if seen.get(k) != want[k]})
+          came and len(seen) == 11 and all(seen.get(k) == v for k, v in want.items()),
+          {k[:45]: seen.get(k) for k in want if seen.get(k) != want[k]})
+    check("tracer: an error of the curves and the gaps after an add or a save open no message box (a bubble at the "
+          "button), and the status line keeps its message",
+          all(seen.get(k) == ("no picture", [], "no picture") for k in bubbles), {k[:45]: seen.get(k) for k in bubbles})
 
 
 def test_a_message_box_during_a_load_or_a_read_shows_the_words_of_the_wait(eq_screen, flow, monkeypatch, dialogs,

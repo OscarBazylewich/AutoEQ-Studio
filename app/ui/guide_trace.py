@@ -51,8 +51,8 @@ def trace_steps(tw):
          "text": "You trace a graph in 4 steps: you open a picture, examine the axes that the app found, trace the "
                  "curve, and save it. Trace automatically traces the curve, and you save it as a measurement or a "
                  "target. The tabs 1 Axes, 2 Trace and 3 Save show one step at a time. The app shows its messages "
-                 "below the settings, at the bottom right. The list of steps (at the top of this box) has Play all "
-                 "steps and the speed of the demos." + sample},
+                 "below the settings, at the bottom right, and what to do first at the button that you clicked. The "
+                 "list of steps (at the top of this box) has Play all steps and the speed of the demos." + sample},
         {"chapter": "Picture", "title": "The picture", "target": lambda: tw.stage,
          "text": "Click Open image…, drag a picture of a graph here, or paste it (Ctrl+V). Its name shows at the top, "
                  "and Remove image removes an incorrect picture. Zoom in and out with the mouse wheel. Move the "

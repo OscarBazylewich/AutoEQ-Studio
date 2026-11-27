@@ -115,7 +115,8 @@ def _sent(page, monkeypatch):
 
 def _boxes(tw, monkeypatch):
     """Each message box of the tracer recorded as (kind, text) and not shown; a question gets Yes and is not
-    recorded (Remove image at the end of a test)."""
+    recorded (Remove image at the end of a test). Each bubble of tell() is recorded too, as ("bubble at <the
+    button's words>", text), and not shown."""
     from PySide6.QtWidgets import QMessageBox
     said = []
 
@@ -125,6 +126,7 @@ def _boxes(tw, monkeypatch):
         said.append((kind, text))
         return QMessageBox.Ok
     monkeypatch.setattr(tw, "box", box)
+    monkeypatch.setattr(tw, "tell", lambda button, text: said.append((f"bubble at {button.text()}", text)))
     return said
 
 
@@ -292,8 +294,8 @@ def test_each_type_sends_its_files(eq_screen, monkeypatch, tmp_path, check):
           txt["measurement"] == {o["file"]: o["text"] for o in plain} and txt["target"] == txt["measurement"]
           and txt["difference"] == {f["name"]: f["content"] for f in got["difference"]["files"]}
           and txt.get("target_difference") == txt["difference"]
-          # (the only box: the sample's curves cross, and a part of one curve has no traced line)
-          and all(kind == "information" and text.startswith("Saved a straight line across untraced gap")
+          # (the only bubble: the sample's curves cross, and a part of one curve has no traced line)
+          and all(kind == "bubble at Save .txt…" and text.startswith("Saved a straight line across untraced gap")
                   for kind, text in txt_boxes),
           ({k: sorted(v) for k, v in txt.items()}, txt_boxes))
 
@@ -350,10 +352,10 @@ def test_difference_with_no_target(eq_screen, monkeypatch, check):
     tw.remove_image()
     tw.close()
     check("tracer: a difference from a target with no target selected: “Target of the graph” has “Select target…” "
-          "first, the gray line tells to select the target, and the add and Save .txt… tell the same in a box (the "
-          "app adds no file)",
+          "first, the gray line tells to select the target, and the add and Save .txt… tell the same in a bubble at "
+          "the button (the app adds no file)",
           none["list"] == (FIRST_ROW, "", True, True) and none["line"] == SELECT
-          and none["button"] == ("Add as measurement", True) and none["boxes"] == [("warning", SELECT)] * 2
+          and none["button"] == ("Add as measurement", True) and none["boxes"] == [("bubble at Add as measurement", SELECT), ("bubble at Save .txt…", SELECT)]
           and none["sent"] == 0 and none["asked"] == 0, none)
     check("tracer: “Target of the graph” has the targets of the app from A to Z after “Select target…”; with a "
           "target selected, the gray line tells that the app adds it (the user's work)",
@@ -361,18 +363,21 @@ def test_difference_with_no_target(eq_screen, monkeypatch, check):
           and rows[1:] == sorted(rows[1:], key=str.casefold) and with_target == (WHAT["difference"], True),
           (rows, with_target))
     check("tracer: a difference from a target when the app has no target: the list is off with “No targets "
-          "available”, the gray line tells to add the target first, and the add tells the same in a box; with a target "
+          "available”, the gray line tells to add the target first, and the add tells the same in a bubble at it; with a "
+          "target "
           "in the app again, the list is on",
           empty["list"] == (NO_TARGET_ROW, "", False, 1) and empty["in sight"]
-          and empty["line"] == NO_TARGETS and empty["boxes"] == [("warning", NO_TARGETS)] and empty["sent"] == 0
+          and empty["line"] == NO_TARGETS and empty["boxes"] == [("bubble at Add as measurement", NO_TARGETS)] and empty["sent"] == 0
           and back, (empty, back))
     check("tracer: a target line as the difference from a target with no target selected, and when the app has no "
           "target: “Target of the graph” shows, the gray line tells the step to do first, and Add as target and "
-          "Save .txt… tell the same in a box (the app adds no file)",
+          "Save .txt… tell the same in a bubble at the button (the app adds no file)",
           none_line == {"list": (True, FIRST_ROW), "line": SELECT, "button": ("Add as target", True),
-                        "boxes": [("warning", SELECT)] * 2, "sent": 0, "asked": 0}
+                        "boxes": [("bubble at Add as target", SELECT), ("bubble at Save .txt…", SELECT)], "sent": 0,
+                        "asked": 0}
           and empty_line == {"list": (True, NO_TARGET_ROW, False), "line": NO_TARGETS,
-                             "button": "Add as target", "boxes": [("warning", NO_TARGETS)], "sent": 0},
+                             "button": "Add as target", "boxes": [("bubble at Add as target", NO_TARGETS)],
+                             "sent": 0},
           (none_line, empty_line))
 
 
@@ -713,10 +718,10 @@ def test_targets_that_change_while_the_tracer_is_open(eq_screen, monkeypatch, ch
     mine = [os.path.splitext(n)[0] for n in own]
     both = [FIRST_ROW] + sorted(names + mine, key=str.casefold)
     check("tracer: with no target in the app, “Target of the graph” is off with “No targets available”; after Add as "
-          "target in the open tracer, the list is on with the new target, and the gray line and the box of the add "
+          "target in the open tracer, the list is on with the new target, and the gray line and the bubble at the add "
           "button tell to select the target",
           none == (False, [NO_TARGET_ROW], "", NO_TARGETS) and len(own) == 1
-          and after_own == (True, [FIRST_ROW] + mine, "", SELECT) and own_boxes == [("warning", SELECT)],
+          and after_own == (True, [FIRST_ROW] + mine, "", SELECT) and own_boxes == [("bubble at Add as measurement", SELECT)],
           (none, own, after_own, own_boxes))
     check("tracer: a target that Add… on Make an EQ adds while the tracer is open is in “Target of the graph” at "
           "once (the targets from A to Z)", came == (True, both, "", SELECT), came)
