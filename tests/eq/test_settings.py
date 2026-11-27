@@ -222,3 +222,14 @@ def test_website_values_are_automatic_settings(check):
           and "site.profile" not in settings.ALL_AUTO_PATHS and cfg["auto"]["manual"] == ["site.smooth_level"]
           and settings.DEFAULTS["site"]["profile"] == "auto"
           and all(settings.DEFAULTS["site"][k] == v for k, v in L800.items()), cfg["auto"])
+
+
+def test_added_databases_off_mark(check):
+    # (the control audit, 2026-11-27, 4-1: an added database switched off in Sources is listed in "extra_off". Settings
+    # saved before have no such list: they load with an empty one; in a list with something that is not text, only the
+    # text stays, as in the other lists of databases)
+    old = settings.clamp(settings.with_auto({"databases": {"extra": ["https://a.example.org/"], "disabled": []}}))
+    odd = settings.clamp(settings.with_auto({"databases": {"extra_off": ["https://a.example.org/", 5, None]}}))
+    check("settings: settings from before the Off mark of added databases load, with no database off",
+          old["databases"]["extra"] == ["https://a.example.org/"] and old["databases"]["extra_off"] == []
+          and odd["databases"]["extra_off"] == ["https://a.example.org/"], (old["databases"], odd["databases"]))

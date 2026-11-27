@@ -329,7 +329,8 @@ def find_site(url):
 def sites_for(cfg):
     db = cfg.get("databases", {})
     known = all_sites()
-    have = {norm_url(s["url"]) for s in known}
+    # (an added page switched off in Sources stays in "extra" and is listed in "extra_off": only ✕ removes it)
+    have = {norm_url(s["url"]) for s in known} | {norm_url(u) for u in db.get("extra_off") or []}
     extra = [added_site(u) for u in (db.get("extra") or []) if u.strip().startswith(("http://", "https://"))
              and norm_url(u) not in have]
     return [s for s in known if site_on(s, cfg)] + extra

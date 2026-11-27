@@ -2,7 +2,8 @@
 - This PC: the folders searched for curve files (one per line; empty: Downloads, Documents, Desktop, Music), and
   "Search again"
 - Online databases: every database by kind of rig, each on or off (a group at once too), how many curves each list
-  has, a search and All / On / Off; ones you added taken off with their row's ✕ (Undo in the window's line)
+  has, a search and All / On / Off; ones you added switched off as the others (kept in the list), and taken off
+  only with their row's ✕ (Undo in the window's line)
 - Add a database: from squig.link's list (searched; one clicked fills the address box, double-clicked is added), or
   any squig.link-style page by its address; one Add, beside the box (Enter there too)
 Changes are saved at once and the lists load again a moment later (offline: the saved ones). The footer is every
@@ -18,7 +19,7 @@ import math
 from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QFontMetricsF
 from PySide6.QtWidgets import (QDialog, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem,
-                               QMessageBox, QPlainTextEdit, QPushButton, QStackedWidget, QTreeWidget, QTreeWidgetItem,
+                               QPlainTextEdit, QPushButton, QStackedWidget, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 
 import net
@@ -59,6 +60,7 @@ class Sources(QDialog):
         S["databases"].setdefault("enabled", [])
         S["databases"].setdefault("extra", [])
         S["databases"].setdefault("disabled", [])
+        S["databases"].setdefault("extra_off", [])
         self.st, self.dir = {"sites": []}, None
         outer = QVBoxLayout(self)
         outer.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as every window's)
@@ -223,21 +225,24 @@ class Sources(QDialog):
         rows = [dict(d, on=(d["name"] not in S["databases"]["disabled"]) if d.get("on", True)
                      else d["name"] in S["databases"]["enabled"], builtin=d.get("on", True), extra=False)
                 for d in meta.get("database_sites") or []]
-        # (only ones still yours: one just removed or unticked came straight back from the last status)
+        # (only ones still yours: one just removed came straight back from the last status. One switched off stays a
+        # row with no list loaded: named as the EQ part names it, its address without "https://")
         mine = {url_key(u) for u in S["databases"]["extra"]}
-        rows += [{"name": s["name"], "url": s["url"], "group": s.get("group") or "added", "on": True, "extra": True,
-                  "builtin": False} for s in self.st.get("sites") or [] if s.get("extra") and url_key(s["url"]) in mine]
+        off = {url_key(u) for u in S["databases"]["extra_off"]}
+        rows += [{"name": s["name"], "url": s["url"], "group": s.get("group") or "added",
+                  "on": url_key(s["url"]) not in off, "extra": True, "builtin": False}
+                 for s in self.st.get("sites") or [] if s.get("extra") and url_key(s["url"]) in mine]
         for u in S["databases"]["extra"]:
             if not any(url_key(r["url"]) == url_key(u) for r in rows):
-                rows.append({"name": u.split("://")[-1], "url": u, "group": "added", "on": True, "extra": True,
-                             "builtin": False})
+                rows.append({"name": u.split("://")[-1].rstrip("/"), "url": u, "group": "added",
+                             "on": url_key(u) not in off, "extra": True, "builtin": False})
         return rows, by_url
 
     def set_on(self, d, on):
         db = self.page.S["databases"]
-        if d["extra"]:
-            if not on:
-                db["extra"] = [u for u in db["extra"] if url_key(u) != url_key(d["url"])]
+        if d["extra"]:  # (a page you added stays in the list, switched off: only its ✕ removes it)
+            kept = [u for u in db["extra_off"] if url_key(u) != url_key(d["url"])]
+            db["extra_off"] = kept if on else kept + [d["url"]]
             return
         key = "disabled" if d["builtin"] else "enabled"
         names = set(db[key])
@@ -319,20 +324,13 @@ class Sources(QDialog):
             if state == Qt.PartiallyChecked:
                 return
             on = state == Qt.Checked
-            rows = [it.child(i).data(0, Qt.UserRole)[1] for i in range(it.childCount())]
-            # (titled by what's being done, No the default: the ones you added can't be had back here, UI-RULES 17)
-            if not on and any(r["extra"] for r in rows) and QMessageBox.question(
-                    self, "Disable them", "Disabling removes your added databases. Continue?",
-                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
-                # (not inside the item's own signal: render deletes it; the window its owner, so a window closed
-                # and deleted meanwhile drops it instead of reaching for its deleted tree)
-                QTimer.singleShot(0, self, self.render)
-                return
-            for r in rows:
+            for r in [it.child(i).data(0, Qt.UserRole)[1] for i in range(it.childCount())]:
                 self.set_on(r, on)
         else:
             self.set_on(d, it.checkState(0) == Qt.Checked)
         self.changed()
+        # (not inside the item's own signal: render deletes it; the window its owner, so a window closed and deleted
+        # meanwhile drops it instead of reaching for its deleted tree)
         QTimer.singleShot(0, self, self.render)
 
     def item_clicked(self, it, col):
@@ -345,11 +343,27 @@ class Sources(QDialog):
             QDesktopServices.openUrl(QUrl(d["url"]))
 
     def remove_added(self, d):
-        """A database you added, off the list (its ✕), with Undo in the window's line (UI-RULES 20)."""
-        self.set_on(d, False)
+        """A database you added, off the list (its ✕), with Undo in the window's line, which puts it back in its place,
+        on or off as it was (UI-RULES 20)."""
+        db = self.page.S["databases"]
+        key = url_key(d["url"])
+        at = next((i for i, u in enumerate(db["extra"]) if url_key(u) == key), len(db["extra"]))
+        was_off = any(url_key(u) == key for u in db["extra_off"])
+        db["extra"] = [u for u in db["extra"] if url_key(u) != key]
+        db["extra_off"] = [u for u in db["extra_off"] if url_key(u) != key]
         self.changed()
         QTimer.singleShot(0, self, self.render)  # (not inside its own button's click: render deletes the button)
-        self.footer.say(f"Removed “{d['name']}”", undo=lambda: self.add_database(d["url"]))
+
+        def undo():
+            if any(url_key(u) == key for u in db["extra"]):  # (added again meanwhile)
+                return
+            db["extra"].insert(min(at, len(db["extra"])), d["url"])
+            if was_off:
+                db["extra_off"].append(d["url"])
+            self.changed()
+            self.render()
+            self.render_squiglink_list()
+        self.footer.say(f"Removed “{d['name']}”", undo=undo)
 
     def refresh(self, force=False):
         self.svc.call("/api/db/refresh", {"settings": self.page.S, "force": force})

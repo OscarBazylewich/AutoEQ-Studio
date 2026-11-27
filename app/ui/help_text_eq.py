@@ -817,7 +817,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'title': 'Online databases',
                            'body': ['All the online databases that Find… uses. To remove one from Find…, disable it. '
                                     'The app updates the lists automatically at intervals of some days. Add a '
-                                    'database: one from the list of squig.link, or a page of the same type.']}]},
+                                    'database: one from the list of squig.link, or a page of the same type. A database '
+                                    'that you added stays in the list when disabled; its ✕ removes it (with Undo).']}]},
                {'title': 'Queue',
                 'items': [{'key': '#queue',
                            'title': 'Queue… (calculate EQs one after the other)',

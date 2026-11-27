@@ -55,23 +55,28 @@ def test_sources(eq_screen, monkeypatch, check):
         src.add_database("https://example.squig.link/")
         src.add_database("https://example.squig.link")
         added = S["databases"]["extra"] == kept_db.get("extra", []) + ["https://example.squig.link/"]
-        # (review 2) the added one's group switched off, answered No: nothing changes (it asked after removing them)
+        # (the control audit, 2026-11-27, 4-1: the added one's group switched off asked "Disabling removes your added
+        # databases. Continue?" and then removed them; now it asks nothing and they stay in the list, off)
         src.render()
         grp = next(src.tree.topLevelItem(i) for i in range(src.tree.topLevelItemCount())
                    if any("example.squig.link" in src.tree.topLevelItem(i).child(j).text(0).lower()
-                          or "example" in src.tree.topLevelItem(i).child(j).text(0).lower()
                           for j in range(src.tree.topLevelItem(i).childCount())))
+        asked = []
         with monkeypatch.context() as m:
-            m.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.No))
+            m.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: asked.append(a) or QMessageBox.No))
             grp.setCheckState(0, Qt.Unchecked)
         qapp.processEvents()
-        asked_first = "https://example.squig.link/" in S["databases"]["extra"]
-        # was eq_checks.py:2057
-        check("sources: switching off a group with ones you added asks first; No keeps them", asked_first,
-              S["databases"]["extra"])
         extra = next(r for r in src.rows()[0] if r["extra"] and "example.squig.link" in r["url"])
+        check("sources: switching off a group with ones you added asks nothing, and they stay in the list, off",
+              not asked and "https://example.squig.link/" in S["databases"]["extra"] and not extra["on"]
+              and "https://example.squig.link/" in S["databases"]["extra_off"], (asked, S["databases"]))
+        src.set_on(extra, True)
         src.set_on(extra, False)
-        removed = S["databases"]["extra"] == kept_db.get("extra", [])
+        removed = S["databases"]["extra"] == kept_db.get("extra", []) + ["https://example.squig.link/"] \
+            and S["databases"]["extra_off"] == ["https://example.squig.link/"]
+        src.set_on(extra, True)
+        removed = removed and S["databases"]["extra_off"] == []
+        S["databases"]["extra"] = kept_db.get("extra", [])
         src.folders.setPlainText("C:\\Music\n\n  D:\\Curves  ")
         folders = S["library"]["folders"]
         offline_note = "Offline" in src.dir_note.text()
@@ -84,10 +89,74 @@ def test_sources(eq_screen, monkeypatch, check):
         net.set_offline(was_off)
     # was eq_checks.py:2073
     check("sources: a database switched off and on, one added by its address (a wrong or repeated address said), "
-          "removed again, the folders one per line; offline, squig.link's list isn't fetched",
+          "switched off and on (kept in the list), the folders one per line; offline, squig.link's list isn't fetched",
           off and on and added and removed and folders == ["C:\\Music", "D:\\Curves"] and offline_note
           and len(said) == 2 and "https://" in said[0] and said[1] == "Database already added",
           (off, on, added, removed, folders, said))
+
+
+def test_added_database_off_then_removed(eq_screen, check):
+    # (the control audit, 2026-11-27, 4-1: unticking a database that you added deleted it at once, with no question and
+    # no Undo, so the Off list could never show one. Now its tick box only switches it off; its ✕ removes it, and Undo
+    # puts it back in its place, off as it was. Settings from before, with no "extra_off", still open)
+    from PySide6.QtCore import Qt
+    import net
+    from ui.sources_window import Sources
+    page = eq_screen.page
+    S = page.S
+    kept = json.loads(json.dumps(S["databases"]))
+    was_off = net.offline()
+    net.set_offline(True)
+    mine = ["https://first.example.org/", "https://second.example.org/", "https://third.example.org/"]
+    S["databases"]["extra"] = list(mine)
+    S["databases"].pop("extra_off", None)  # (settings saved before this change)
+    seen = {}
+    try:
+        src = Sources(page)
+        src._refresh_soon.stop()
+        rows = lambda: [src.tree.topLevelItem(i).child(j) for i in range(src.tree.topLevelItemCount())
+                        for j in range(src.tree.topLevelItem(i).childCount())]
+        row = lambda name: next((it for it in rows() if it.text(0) == name), None)
+        seen["opens with old settings"] = S["databases"].get("extra_off") == [] and row("second.example.org") is not None
+        row("second.example.org").setCheckState(0, Qt.Unchecked)  # (as a click on its tick box)
+        qt.pump(50)
+        src._refresh_soon.stop()
+        it = row("second.example.org")
+        seen["unticked"] = (list(S["databases"]["extra"]), list(S["databases"]["extra_off"]),
+                            it and (it.checkState(0) == Qt.Unchecked, it.text(1)))
+        src.show_box.setCurrentIndex(src.show_box.findData("off"))
+        src.render()
+        seen["Off shows it"] = [r.text(0) for r in rows() if r.text(0).endswith("example.org")]
+        src.show_box.setCurrentIndex(src.show_box.findData("all"))
+        src.render()
+        x = src.tree.itemWidget(row("second.example.org"), 2)
+        x.click()
+        qt.pump(50)
+        src._refresh_soon.stop()
+        seen["removed"] = (list(S["databases"]["extra"]), list(S["databases"]["extra_off"]),
+                           row("second.example.org") is None,
+                           src.footer.line.text.text())
+        src.footer.line.undo_btn.click()
+        qt.pump(50)
+        src._refresh_soon.stop()
+        it = row("second.example.org")
+        seen["undone"] = (S["databases"]["extra"], S["databases"]["extra_off"],
+                          it is not None and it.checkState(0) == Qt.Unchecked)
+        qt.close(src)
+    finally:
+        net.set_offline(was_off)
+        S["databases"].clear()
+        S["databases"].update(kept)
+        page.svc.call("/api/settings", {"settings": S})
+    check("sources: settings from before the Off mark of added databases open the window",
+          seen["opens with old settings"], seen)
+    check("sources: unticking a database that you added only switches it off: it stays in the list, unticked, “off”",
+          seen["unticked"] == (mine, [mine[1]], (True, "off")), seen["unticked"])
+    check("sources: the Off list shows a database that you added and switched off",
+          seen["Off shows it"] == ["second.example.org"], seen["Off shows it"])
+    check("sources: a database's ✕ removes it, with “Removed …” and Undo; Undo puts it back in its place, still off",
+          seen["removed"][:3] == ([mine[0], mine[2]], [], True) and seen["removed"][3] == "Removed “second.example.org”"
+          and seen["undone"] == (mine, [mine[1]], True), (seen["removed"], seen["undone"]))
 
 
 def test_squiglink_note_hidden_while_loading(eq_screen, monkeypatch, check):
