@@ -113,7 +113,7 @@ def test_settings_and_advanced_line_up_and_head_their_sections(eq_screen, check)
     from PySide6.QtCore import QPoint
     from PySide6.QtGui import QFont
     from PySide6.QtWidgets import QLabel
-    from ui.forms import LONG, SHORT
+    from ui.forms import LONG, SHORT, Field
     page = eq_screen.page
     s = page.settings
     s.fold.btn.setChecked(True)
@@ -138,7 +138,9 @@ def test_settings_and_advanced_line_up_and_head_their_sections(eq_screen, check)
                         cell = f.parentWidget().parentWidget()
                         lab = cell.findChildren(QLabel)[0]
                         above.append(lab.mapTo(page, QPoint(0, 0)).y() < f.box.mapTo(page, QPoint(0, 0)).y())
-                        widths.add(f.box.width() if f.kind != "num" or not path.endswith((".0", ".1")) else "pair")
+                        # (a pair: two boxes in a cell, together as wide as one long box; since 2026-11-27 also a
+                        # "from" number and its list of "to" values, forms.py)
+                        widths.add("pair" if len(cell.findChildren(Field)) == 2 else f.box.width())
         heads = [lab for lab in s.form.findChildren(QLabel) if lab.property("role") == "section"]
         weights = sorted({lab.font().weight() for lab in heads})
     finally:
