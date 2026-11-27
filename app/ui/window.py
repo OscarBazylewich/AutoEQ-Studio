@@ -716,7 +716,10 @@ class Window(DevicesScreen, ProfilesScreen, SettingsScreen, QMainWindow):
                                           "your Windows folder permissions, then restart AutoEQ Studio."), \
                 "Open APO's config folder", \
                 "folder"
-        elif not apo.includes_studio():
+        elif not apo.includes_studio() and not (hasattr(self, "stack") and self.page() == "settings"):
+            # (not on Settings: its Equalizer APO card says "Not connected to Equalizer APO", with the same button in
+            # the accent; the control audit, 2026-11-27, 1-2. "Cannot write" above stays there: the card has no word
+            # of it)
             text, btn, self._banner_do = "Equalizer APO isn't loading AutoEQ Studio. Check config.txt.", \
                 "Add AutoEQ Studio to APO…", "setup"
         else:

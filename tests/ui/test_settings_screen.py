@@ -8,9 +8,12 @@ on quit wrote the old settings over it); the devices' poll stops. The dialogs an
 """
 from helpers import session, subproc
 
-# (after tests\ui\conftest.py's THEMED_WINDOW: Settings in the window at its smallest, the banner showing)
+# (after tests\ui\conftest.py's THEMED_WINDOW: Settings in the window at its smallest, the banner showing. Settings
+# shows no banner for "isn't loading AutoEQ Studio" since the control audit (2026-11-27, 1-2): APO's config folder
+# stood in as one that cannot be written, a banner that Settings keeps)
 SMALL = r'''
 from PySide6.QtWidgets import QAbstractButton, QKeySequenceEdit, QLineEdit, QScrollArea
+sw.apo.writable = lambda: False
 win.show_page("settings", remember=False)
 qapp.processEvents()
 win.resize(win.minimumSizeHint())
@@ -332,11 +335,46 @@ print(json.dumps({"Remove in sight with the focus": there, "banner before": bann
 
 def test_remove_from_apo_keeps_add_in_sight_in_the_theme(themed_window, check, fake_apo, tmp_path):
     # (2026-11-15, the verifier: in the app's theme the banner that comes takes 71 px, and the button with the focus
-    # went under the screen's bottom when the screen kept its place: the screen moves as far as that button needs)
+    # went under the screen's bottom when the screen kept its place: the screen moves as far as that button needs.
+    # Since the control audit (2026-11-27, 1-2) no banner comes on Settings for "isn't loading AutoEQ Studio": the
+    # screen keeps all its room, and Add is in sight with the focus)
     out = subproc.run_python(themed_window + REMOVE_THEMED, session.SESSION.app, str(tmp_path))
     d = out.data or {}
     check("settings, in the app's theme: Remove AutoEQ Studio from APO… at the bottom of a small screen gives the "
-          "focus to Add AutoEQ Studio to APO…, in sight, when the banner comes and takes room",
+          "focus to Add AutoEQ Studio to APO…, in sight; no banner comes on Settings, so the screen keeps its room",
           d.get("Remove in sight with the focus") is True and d.get("banner before") is False
-          and d.get("banner after") is True and (d.get("room lost") or 0) > 0 and d.get("focus on Add") is True
+          and d.get("banner after") is False and d.get("room lost") == 0 and d.get("focus on Add") is True
           and d.get("Add in sight") is True, d or out.stderr[-400:])
+
+
+def test_no_banner_on_settings_for_what_its_card_says(devices_window, check, monkeypatch):
+    # (the control audit, 2026-11-27, 1-2: with Equalizer APO not loading AutoEQ Studio, Settings showed "Add
+    # AutoEQ Studio to APO…" twice, in the banner and in its Equalizer APO card, which says "Not connected to Equalizer
+    # APO". The banner stays on the other screens, and on Settings for a config folder that cannot be written: the
+    # card has no word of that)
+    w = devices_window
+    win, apo = w.win, w.sw.apo
+    seen = {}
+    was_set_up = apo.includes_studio()
+    try:
+        if was_set_up:
+            w.sw.remove_from_apo()
+        for page in ("devices", "profiles", "settings"):
+            win.show_page(page, remember=False)
+            seen[page] = (win.banner_holder.isVisible(), win.banner_btn.text())
+        monkeypatch.setattr(apo, "writable", lambda: False)
+        win.render_banner()
+        seen["settings, cannot write"] = (win.banner_holder.isVisible(), win.banner_btn.text())
+        win.show_page("devices", remember=False)
+        seen["devices, cannot write"] = (win.banner_holder.isVisible(), win.banner_btn.text())
+    finally:
+        monkeypatch.undo()
+        if was_set_up:
+            w.sw.add_to_apo()
+        win.show_page("devices", remember=False)
+    add ="Add AutoEQ Studio to APO…"
+    check("settings: no banner on Settings when APO isn't loading AutoEQ Studio (its card has the same button); the "
+          "banner stays on Devices and Profiles, and on Settings when APO's config folder cannot be written",
+          seen["devices"] == (True, add) and seen["profiles"] == (True, add) and seen["settings"][0] is False
+          and seen["settings, cannot write"] == (True, "Open APO's config folder")
+          and seen["devices, cannot write"] == (True, "Open APO's config folder"), seen)
