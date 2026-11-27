@@ -165,6 +165,23 @@ def test_right_click_menu(eq_screen, check):
           and len(page._handles) == 2 and page.editor.table.rowCount() == 2, (ticked, list(acts), shelf, page.EDIT))
 
 
+def test_remove_said_with_undo(eq_screen, check):
+    # (the control audit, 2026-11-27, 2-2: Remove took the filter with no word, and only Undo all brought it back)
+    from PySide6.QtCore import QPointF
+    page = eq_screen.page
+    _fresh(page)
+    was = [dict(f) for f in page.EDIT]
+    n = len(eq_screen.said)
+    page.handle_menu(1, QPointF(10, 10))
+    next(a for a in page.handle_menu_now.actions() if a.text() == "Remove").trigger()
+    said = (eq_screen.said[n:], eq_screen.undo_offered(), len(page.EDIT))
+    eq_screen.undo()
+    check("handles: Remove in a handle's menu says “Removed filter 2” with Undo, and Undo puts that filter back in its "
+          "place (the table and the handles follow)",
+          said == (["Removed filter 2"], True, len(was) - 1) and page.EDIT == was and len(page._handles) == len(was)
+          and page.editor.table.rowCount() == len(was), (said, page.EDIT, was))
+
+
 def test_double_click_adds_a_filter(eq_screen, check):
     from PySide6.QtCore import QEvent, Qt
     page, qapp = eq_screen.page, eq_screen.qapp

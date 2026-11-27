@@ -456,7 +456,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'Drag a handle horizontally to change its frequency. Drag it vertically to change '
                                     'its gain. Turn the mouse wheel on a handle to change its Q (up: a higher Q). '
                                     'Right-click a handle for Peak, Low shelf, High shelf and Remove (the On tick box of the '
-                                    'table turns a filter off). Double-click where there is no handle to add a filter. With '
+                                    'table turns a filter off). Remove, as ✕ in the table, says so with Undo, which puts '
+                                    'the filter back. Double-click where there is no handle to add a filter. With '
                                     'no EQ, a manual EQ starts with it (the EQ graph tells you this).',
                                     'While you drag, the curves, the values, the table and the sound of Listen change. '
                                     'The scale does not change until you release the handle. An EQ that you use on a '

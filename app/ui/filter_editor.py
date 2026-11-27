@@ -6,7 +6,8 @@ and ✕ to delete it; Tab goes through each row's controls, then to the control 
 filter: its gain by dragging, arrow keys or the wheel (0.1 dB steps), double-click for 0 dB; its frequency and Q under
 it; the pre-amp in its own column (set for you).
 changed is emitted after every edit (the caller works out the error, pre-amp and graph again); the caller calls
-rebuild() after it changes the list itself (adds, removes or sorts filters; delete() rebuilds by itself);
+rebuild() after it changes the list itself (adds or sorts filters; delete() rebuilds by itself, and says it with Undo
+through say(text, undo=…));
 show_values() puts the values back in the boxes and sliders without making anything again or saying it changed (a
 filter dragged on the EQ graph, ui/eq_page_handles.py). The editor is as tall as the view shown (a short table leaves
 no empty band under it).
@@ -40,7 +41,7 @@ def _hz(v):
 class FilterEditor(QWidget):
     changed = Signal()
 
-    def __init__(self, limits_map, say=lambda t: None):
+    def __init__(self, limits_map, say=lambda t, undo=None: None):
         super().__init__()
         self.limits = Limits(limits_map, [])
         self.say = say
@@ -146,10 +147,27 @@ class FilterEditor(QWidget):
     def _edited(self):
         self.changed.emit()
 
-    def delete(self, i):
-        del self.filters[i]
+    def delete(self, i, x=True):
+        """✕ (and the EQ graph's handle menu, Remove: x False): filter i off the list, said with Undo, which puts that
+        filter back in its place (UI-RULES 20: it came back only with Undo all, which also lost every other edit)."""
+        if x:  # (the focus on the ✕ clicked, which a click doesn't give a tool button: after the rebuild it is on the
+            # next filter's ✕ (rebuild), so the message shows at the filters, not at a control far from them)
+            w = next((c for c in self.findChildren(QToolButton) if c.accessibleName() == f"Remove filter {i + 1}"
+                      and c.isVisibleTo(self)), None)
+            if w is not None:
+                w.setFocus(Qt.MouseFocusReason)
+        filters = self.filters
+        f = filters.pop(i)
         self.rebuild()
         self._edited()
+
+        def put_back():
+            if self.filters is not filters:  # (another EQ shown since: this filter isn't one of its own)
+                return
+            filters.insert(min(i, len(filters)), f)
+            self.rebuild()
+            self._edited()
+        self.say(f"Removed filter {i + 1}", undo=put_back)
 
     # ---------------------------------------------------------------- the table
     def _build_table(self):

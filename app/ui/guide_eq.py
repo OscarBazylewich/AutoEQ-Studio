@@ -800,10 +800,12 @@ def eq_steps(page):
          "target": lambda: [page.editor, page.live_check, page.retry_btn],
          "before": result_before, "after": result_after, "ready": has_curves,
          "text": lambda: "Change a filter in the table or with the sliders: the numbers and the graph change with it. "
-                         "If you cannot see the graph, a copy of it shows on the page while you edit (“Show the graph "
+                         "✕ removes a filter, with Undo in the message. If you cannot see the graph, a copy of it shows on the page while you edit (“Show the graph "
                          "while you edit” disables it). Undo all (enabled after you edit) shows the calculated filters again. Calculate from "
                          "these filters starts Best fit again from your filters." + example(),
          "demo": [{"run": edit_demo, "say": "Change a value: the numbers and the graph change with it"},
+                  {"at": lambda: page.editor.table.cellWidget(0, 6) or page.editor,
+                   "say": "✕ removes a filter, with Undo in the message"},
                   {"at": lambda: page.retry_btn, "say": "Calculate from these filters: Best fit again, from your filters"}]},
         {"chapter": "3 · Calculate and examine", "title": "Edit on the EQ graph", "target": lambda: page.eqplot,
          "before": result_before, "after": result_after, "ready": has_curves,
