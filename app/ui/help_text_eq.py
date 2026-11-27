@@ -371,11 +371,15 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                           {'key': 'site_single.gain_min',
                            'title': 'Gain from … to (dB)',
                            'body': ['“Gain Range” on the website (from … to): the lowest and the highest gain of each '
-                                    'filter, in dB.']},
+                                    'filter, in dB.',
+                                    'A website with no gain boxes always uses its own range: the boxes are off and '
+                                    'show it (Which website to copy).']},
                           {'key': 'site_single.q_min',
                            'title': 'Q from … to',
                            'body': ['“Q Range” on the website (from … to): the lowest Q (the widest filter) and the '
-                                    'highest Q of its filters. The website stops at Q 5.']}]},
+                                    'highest Q of its filters. The website stops at Q 5.',
+                                    'A website with no Q boxes always uses its own range: the boxes are off and show '
+                                    'it (Which website to copy).']}]},
                {'title': 'Website AutoEQ: find the best settings',
                 'items': [{'key': 'site_sweep.filter_rows',
                            'title': 'Filter rows to try',
@@ -394,7 +398,9 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'title': 'Gain ranges',
                            'body': ['The gain ranges to try. Each row is one range: the lowest gain in the first box and '
                                     'the highest in the second, in whole dB. Add a range adds a row, and ✕ removes '
-                                    'one. Each is a “Gain Range” to type on the website.']},
+                                    'one. Each is a “Gain Range” to type on the website.',
+                                    'A website with no gain boxes always uses its own range: the app tries only that '
+                                    'one, and the rows are off.']},
                           {'key': 'site_sweep.q_min',
                            'title': 'Q from',
                            'body': ['The start of the “Q Range”, for all the settings to try (the lowest permitted '
@@ -402,7 +408,9 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                           {'key': 'site_sweep.q_max',
                            'title': 'Q “to” values',
                            'body': ['The ends of the “Q Range” to try, as a list (the highest permitted Q). The '
-                                    'website stops at Q 5.']}]},
+                                    'website stops at Q 5.',
+                                    'A website with no Q boxes always uses its own range: the app tries only that '
+                                    'one, and Q from and this box are off.']}]},
                {'title': 'The result',
                 'items': [{'key': 'res.error',
                            'title': 'Error',
@@ -740,10 +748,24 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                {'title': 'More settings › Website',
                 'items': [{'key': 'site.profile',
                            'title': 'Which website to copy',
-                           'body': ['The squiglink website with the graph tool that the app copies accurately (its '
-                                    'smoothing, normalization and AutoEQ settings). Select the website where you will '
-                                    'type the results: listener800 or squig.link.',
-                                    'If you change one of the settings below it, the selection changes to “Other”.']},
+                           'body': ['The graph website whose values the Website methods copy: its smoothing, '
+                                    'normalization, loudness tables and AutoEQ treble value. With other values, the '
+                                    'Website methods give other filters than the website.',
+                                    ['“The database of the measurement” (at first): the values of the website that '
+                                     'your measurement is from. The app has the values of about 155 websites, read on '
+                                     '2026-11-24. Online, it reads a website again when you use one of its entries and '
+                                     'its values are more than 30 days old.',
+                                     'A website by name: the values of that website, also for a measurement from a '
+                                     'file or from your own image. Select the website where you type the results.',
+                                     '“Other”: the app changes none of the values below.'],
+                                    'The gray line below the list says where the values come from. A measurement from '
+                                    'a file gets the usual values of squig.link websites. Best fit uses the app\'s own '
+                                    'values (those of listener800), whatever the list says.',
+                                    'A value that you type shows “custom ↺” and stays until you click it.',
+                                    'On most websites, the AutoEQ panel has no boxes for the gain or the Q: the '
+                                    'website always uses its own ranges (usually -12 to 12 dB and Q 0.5 to 2). For '
+                                    'such a website, the Website methods use them too, and their gain and Q boxes are '
+                                    'off and show those values.']},
                           {'key': 'site.normalization',
                            'title': 'Normalization',
                            'body': ['How the app gives the curves the same level before it compares them. Hz~: the '
@@ -760,8 +782,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                           {'key': 'site.treble_start_from',
                            'title': 'AutoEQ TrebleStartFrom (Hz)',
                            'body': ['A setting of the AutoEQ of the website that the website does not show. Its first '
-                                    'step uses no filters above this frequency (listener800 15000, squig.link 7000). '
-                                    'Change it only to copy a different website.']},
+                                    'step uses no filters above this frequency (most websites 7000, listener800 '
+                                    '15000). The app sets it from the website (Which website to copy).']},
                           {'key': 'site.sample_rate',
                            'title': 'Sample rate',
                            'body': ['The sample rate that the app uses to calculate the filters. The website uses '
@@ -769,15 +791,15 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                           {'key': 'site.smooth_level',
                            'title': 'Smoothing level',
                            'body': ['How much the website makes the curves smooth before the normalization. 0 = none. '
-                                    'Copy the value of your website.']},
+                                    'The app sets it from the website (Which website to copy).']},
                           {'key': 'site.scale_smoothing',
                            'title': 'Smoothing scale',
-                           'body': ['The smoothing scale of the website (listener800: 0.2). Copy the value of your '
-                                    'website.']},
+                           'body': ['The smoothing scale of the website (most websites 0.1, listener800 0.2). The app '
+                                    'sets it from the website (Which website to copy).']},
                           {'key': 'site.phon_table',
                            'title': 'Loudness tables',
-                           'body': ['The equal-loudness tables for dB mode: ISO 226:2023 for listener800, or ISO '
-                                    '226:2003 for squig.link.']}]},
+                           'body': ['The equal-loudness tables for dB mode: ISO 226:2003 (most websites) or ISO '
+                                    '226:2023 (listener800 and others).']}]},
                {'title': 'More settings › This PC',
                 'items': [{'key': 'performance.cores',
                            'title': 'CPU cores',

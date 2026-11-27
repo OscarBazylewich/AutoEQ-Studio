@@ -130,8 +130,11 @@ class EqHistory:
             for k in self.meta["defaults"]["target_adjust"]:
                 if e.get("adjust") and k in e["adjust"]:
                     S["target_adjust"][k] = e["adjust"][k]
+            # (the entry's Website values, not its Which website to copy: your choice stays, and an entry from before
+            # 2026-11-26 has a choice the list no longer has. The curves are made with the entry's values as they
+            # are, "site_as_is", until the curves change: the critique of feature 5)
             for k in self.meta["defaults"]["site"]:
-                if e.get("site") and k in e["site"]:
+                if e.get("site") and k in e["site"] and k != "profile":
                     S["site"][k] = e["site"][k]
             if isinstance(e.get("rig_convert"), bool):
                 S["rig_convert"]["enabled"] = e["rig_convert"]
@@ -139,7 +142,8 @@ class EqHistory:
             if res.get("inputs"):
                 self.show_inputs(res["inputs"])
             self._curves_seq = getattr(self, "_curves_seq", 0) + 1  # (any load still on its way is dropped)
-            curves = self.svc.call("/api/curves", {"settings": S})
+            self.site_as_is = bool(e.get("site"))
+            curves = self.svc.call("/api/curves", {"settings": S, "site_as_is": self.site_as_is})
             self.curves_loaded(curves)
             self.show_settings()
         elif self.curves:

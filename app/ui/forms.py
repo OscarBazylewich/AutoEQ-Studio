@@ -433,11 +433,12 @@ class Field(QWidget):
     committed = Signal(str, object)   # (path, value): a valid value the user set
     make_auto_clicked = Signal(str)         # (path): "custom ↺" clicked
 
-    def __init__(self, form, path, kind, options=None, placeholder="", pair=False):
+    def __init__(self, form, path, kind, options=None, placeholder="", pair=False, pinned=0):
         super().__init__()
         self.form, self.path, self.kind = form, path, kind
         self._focus_from_tag = False  # (the box got the focus of its tag, not typed in since: it shows each new value)
         self._state = None  # (the tag's: None, "auto" or "yours")
+        self._lock = None  # (set_lock's: None, or (value, reason))
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(6)
@@ -451,7 +452,7 @@ class Field(QWidget):
             self.box = SearchCombo()
             for value, label in options or []:
                 self.box.addItem(label, value)
-            self.box.sort_items()
+            self.box.sort_items(pinned)  # (the first `pinned` choices stay on top: UI-RULES 22)
             self.box.activated.connect(lambda _i: self._commit(self.box.currentData()))
         elif kind in ("lines", "block"):  # (lines: a list, one per line; block: one text, e.g. EQ file lines)
             self.box = QPlainTextEdit()
@@ -639,6 +640,23 @@ class Field(QWidget):
 
     def _commit(self, v):
         self.committed.emit(self.path, v)
+
+    def set_lock(self, lock):
+        """None: the box as usual. (value, reason): a value that can't be changed here (a website's fixed gain or Q,
+        eq.site_values): the box shows it and is off (gray, as Windows 11's), its tooltip the reason (a screen reader
+        reads it too); the setting's own value stays in the settings."""
+        if lock is None and self._lock is None:
+            return
+        self._lock = lock
+        if self.box.isEnabled() != (lock is None):
+            self.box.setEnabled(lock is None)
+        if lock is not None:
+            self.show_value(lock[0], force=True)
+        tip = lock[1] if lock is not None else self.base_tip
+        if self.kind == "ranges":
+            self.box.set_tip(tip)
+        else:
+            self.box.setToolTip(tip)
 
     def set_tag(self, state):
         """None (no tag), "auto" or "yours"."""
@@ -862,7 +880,7 @@ class Form(QWidget):
                         to.setAlignment(Qt.AlignCenter)
                         bl.addWidget(to)
                     f = Field(self, spec[0], spec[1], spec[2] if len(spec) > 2 else None,
-                              spec[3] if len(spec) > 3 else "", pair=pair)
+                              spec[3] if len(spec) > 3 else "", pair=pair, pinned=spec[4] if len(spec) > 4 else 0)
                     f.committed.connect(changed)
                     f.make_auto_clicked.connect(make_auto)
                     name = (label or "").strip() or spec[0]
@@ -912,10 +930,17 @@ class Form(QWidget):
         for k, b in self.tab_btns.items():
             b.setChecked(k == i)
 
-    def refresh(self, tags=None):
-        """Show the settings' values; hide what doesn't apply; the automatic settings' tags ({path: state}); the tabs
-        of the sections that apply."""
+    def refresh(self, tags=None, locks=None):
+        """Show the settings' values; hide what doesn't apply; the automatic settings' tags ({path: state}); the boxes
+        whose values can't be changed now ({path: (value, reason)}: Field.set_lock, no tag); the tabs of the sections
+        that apply."""
         for path, f in self.fields.items():
+            lock = (locks or {}).get(path)
+            if lock is not None:
+                f.set_tag(None)
+                f.set_lock(lock)
+                continue
+            f.set_lock(None)
             f.show_value(self.get(path))
             f.set_tag((tags or {}).get(path))
         for widgets, show in self.rows:

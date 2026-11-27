@@ -28,6 +28,7 @@ class EqGraph:
         s = json.loads(json.dumps(self.S))  # (a copy: the settings may change while it's worked out)
         self._curves_seq = getattr(self, "_curves_seq", 0) + 1
         seq = self._curves_seq
+        self.site_as_is = False  # (an EQ from History shown with its own Website values: until the curves change)
 
         def done(c, err):
             if seq == self._curves_seq:
@@ -35,6 +36,9 @@ class EqGraph:
         tasks.background(lambda: self.svc.call("/api/curves", {"settings": s}), done, owner=self)
 
     def curves_loaded(self, c):
+        # (which Website values the curves have and why: the gray line under Which website to copy, the automatic
+        # values, the fixed boxes; eq.site_values)
+        self.site_info = c.get("site_values") if isinstance(c, dict) and not c.get("error") else None
         if not c or c.get("error"):
             self.curves, self.rig_note = None, ""
             self.graph_title.setText("")
@@ -73,7 +77,8 @@ class EqGraph:
                 return
             self.analysis = None if err or (an or {}).get("error") else an
             self.refresh_auto()
-        tasks.background(lambda: self.svc.call("/api/analysis", {"settings": s}), done, owner=self)
+        as_is = bool(getattr(self, "site_as_is", False))  # (the curves' own Website values: as /api/curves had them)
+        tasks.background(lambda: self.svc.call("/api/analysis", {"settings": s, "site_as_is": as_is}), done, owner=self)
 
     def show_estimate_error(self, text):
         """A message from /api/auto in Settings to try (self.estimate), cut to ESTIMATE_CHARS."""
@@ -87,7 +92,8 @@ class EqGraph:
         to try's line says what a run tries and how long it takes."""
         if self.svc is None:
             return
-        a = self.svc.call("/api/auto", {"settings": self.S, "analysis": self.analysis})
+        a = self.svc.call("/api/auto", {"settings": self.S, "analysis": self.analysis,
+                                        "site_values": getattr(self, "site_info", None)})
         if a.get("error"):
             self.show_estimate_error(str(a["error"]))
             return
@@ -100,6 +106,7 @@ class EqGraph:
                 if p not in manual and eq_settings.get_path(self.S, p) != v:
                     eq_settings.set_path(self.S, p, v)
                     moved.append(p)
+        # (a Website value moved needs no new curves: they were made with it, /api/curves)
         if moved:  # (kept, and as auto.js applyValues: a new scored range is a new "Error without EQ")
             self._save_timer.start()
             if any(p.startswith("scoring.band_hz") for p in moved):

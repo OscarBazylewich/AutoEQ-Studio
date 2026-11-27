@@ -673,3 +673,40 @@ def test_ranges_names_for_a_screen_reader(ranges, check):
           and r.rows.add_btn.toolTip() == "Add another gain range to try" and tips == {r.f.base_tip}
           and r.f.base_tip.endswith("\nAllowed: each value -20 to 20 dB") and "F1" not in r.f.base_tip
           and ".." not in r.f.base_tip and keys == {GAIN}, (names, tips, keys))
+
+
+# ---------------------------------------------------------------- feature 5 (2026-11-26): a list's pinned choices, and
+# boxes whose value a website fixes (Field.set_lock)
+def test_a_choice_list_keeps_its_pinned_choices_on_top(qapp, check):
+    form = forms.Form([("Website", [("Which website to copy", [("site.profile", "choice", [
+        ("auto", "The database of the measurement"), ("custom", "Other"), ("site:b", "beta"), ("site:a", "Alpha 10"),
+        ("site:c", "Alpha 9")], "", 2)])])], forms.Limits({}, []), lambda p: "auto", lambda p, v: None, lambda p: None,
+        lambda s: None)
+    try:
+        box = form.fields["site.profile"].box
+        rows = [box.itemText(i) for i in range(box.count())]
+        check("settings boxes: a list's pinned choices stay on top, the others A to Z (numbers as numbers)",
+              rows == ["The database of the measurement", "Other", "Alpha 9", "Alpha 10", "beta"] and box.pinned == 2,
+              rows)
+    finally:
+        qt.close(form)
+
+
+def test_a_box_fixed_shows_the_value_off_with_its_reason(ranges, check):
+    r = ranges([[-12, 6], [-12, 9]])
+    q = r.form.fields["site_sweep.q_min"]
+    locks = {GAIN: ([[-12, 12]], "Fixed on HBB (no gain boxes on its AutoEQ panel)"),
+             "site_sweep.q_min": (0.5, "Fixed on HBB (no Q boxes on its AutoEQ panel)")}
+    r.form.refresh(r.tags, locks)
+    qt.pump(20)
+    fixed = (r.shown(), r.rows.isEnabled(), r.rows.add_btn.isEnabled(), r.rows.rows[0].lo.toolTip(), r.f.tag.isVisible(),
+             q.box.text(), q.box.isEnabled(), q.box.toolTip(), r.S[GAIN])
+    r.form.refresh(r.tags)
+    qt.pump(20)
+    free = (r.shown(), r.rows.isEnabled(), r.rows.rows[0].lo.toolTip() == r.f.base_tip, q.box.isEnabled(),
+            q.box.toolTip() == q.base_tip, r.f.tag.text())
+    check("settings boxes: a fixed value shows in its boxes, off (gray), with no tag and the reason as its tooltip; the "
+          "setting's own value stays; without the lock the boxes are as before",
+          fixed == ([["-12", "12"]], False, False, "Fixed on HBB (no gain boxes on its AutoEQ panel)", False, "0.5",
+                    False, "Fixed on HBB (no Q boxes on its AutoEQ panel)", [[-12, 6], [-12, 9]])
+          and free == ([["-12", "6"], ["-12", "9"]], True, True, True, True, "automatic"), (fixed, free))

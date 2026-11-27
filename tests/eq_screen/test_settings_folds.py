@@ -60,14 +60,19 @@ def test_handing_a_value_back(eq_screen, fold, check):
 
 
 def test_website_profile(eq_screen, fold, check):
+    # (feature 5, 2026-11-26: the list has every website, and the values come with the curves, eq.site_values: a
+    # choice copies no preset, and a value typed is yours, the choice kept)
     page, st = eq_screen.page, fold["st"]
-    st.changed("site.profile", "squig.link lab")
-    sq = dict(page.S["site"])
-    st.changed("site.smooth_level", sq["smooth_level"] + 1)
-    # was eq_checks.py:1522
-    check("ui: settings: a website's profile sets its values (a change makes it custom)",
-          sq["profile"] == "squig.link lab" and sq["smooth_level"] == page.meta["profiles"]["squig.link lab"]["smooth_level"]
-          and page.S["site"]["profile"] == "custom", (sq, page.S["site"]["profile"]))
+    before = dict(page.S["site"])
+    st.changed("site.profile", "site:https://hbb.squig.link/")
+    chosen = dict(page.S["site"])
+    st.changed("site.smooth_level", chosen["smooth_level"] + 1)
+    check("ui: settings: Which website to copy changes no value itself; a Website value typed is yours and the choice "
+          "stays", chosen == dict(before, profile="site:https://hbb.squig.link/")
+          and page.S["site"]["profile"] == "site:https://hbb.squig.link/"
+          and "site.smooth_level" in page.S["auto"]["manual"], (chosen, page.S["site"]["profile"]))
+    st.make_auto("site.smooth_level")
+    st.changed("site.profile", before["profile"])
 
 
 def test_automatic_settings_off(eq_screen, fold, check):

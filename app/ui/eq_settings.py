@@ -216,9 +216,14 @@ class EqSettings:
                 ("Gain ranges", [("site_sweep.gain_ranges", "ranges")], mode("site_sweep")),  # (a row of two boxes each)
                 ("Q from", [("site_sweep.q_min", "num")], mode("site_sweep")),
                 ("Q “to” values", [("site_sweep.q_max", "numlist")], mode("site_sweep"))]),
-            ("Website", [
-                ("Which website to copy", [("site.profile", "choice", [("listener800", "listener800 (5128 databases)"),
-                                                                        ("squig.link lab", "squig.link"), ("custom", "Other")])]),
+            ("Website", lambda: [  # (made in the second half's step, which places it: its gray line too)
+                # (the two special choices pinned on top, then every graph website A to Z: UI-RULES 22; the list has
+                # its search box, search_combo)
+                ("Which website to copy", [("site.profile", "choice", [("auto", "The database of the measurement"),
+                                                                        ("custom", "Other"),
+                                                                        *[tuple(c) for c in m.get("site_choices", [])]],
+                                            "", 2)]),
+                (self.site_note, [], lambda: bool(self.site_note.text())),  # (where the values come from: in sight)
                 ("Normalization", [("site.normalization", "choice", [("Hz~", "Hz~ (average across 4 octaves)"),
                                                                       ("Hz", "Hz (one frequency)"), ("dB", "dB (equal loudness, phon)")])]),
                 ("Around (Hz)", [("site.norm_hz", "num")], lambda: S()["site"]["normalization"] != "dB"),
@@ -227,8 +232,8 @@ class EqSettings:
                 ("Sample rate", [("site.sample_rate", "choice", _opts(C["site.sample_rate"]))]),
                 ("Smoothing level", [("site.smooth_level", "num")]),
                 ("Smoothing scale", [("site.scale_smoothing", "num")]),
-                ("Loudness tables", [("site.phon_table", "choice", [("ISO 226:2023", "ISO 226:2023 (listener800)"),
-                                                                   ("ISO 226:2003", "ISO 226:2003 (squig.link)")])])]),
+                ("Loudness tables", [("site.phon_table", "choice", [("ISO 226:2023", "ISO 226:2023"),
+                                                                   ("ISO 226:2003", "ISO 226:2003")])])]),
             ("Saved files", [("", [("export." + k, "check")]) for k, name in FORMATS] + [
                 ("Impulse response sample rate", [("export.convolution_rate", "choice", _opts(C["export.convolution_rate"]))],
                  lambda: S()["export"]["convolution"]),
@@ -254,7 +259,13 @@ class EqSettings:
         # after its own tab's settings)
         tab_order(self.fold, self.adv.btn, *self.adv_form.tab_btns.values(), self.adv_form.pages)
         yield "advanced, first half"
-        self.adv_form.add_sections(sections[2:])  # (Website, Saved files, History, This PC)
+        # (under Which website to copy: where the Website values come from, eq.site_values' words; a condition, so
+        # in sight, not behind an ⓘ: UI-RULES 26. A screen reader reads its words: no tooltip of its own)
+        self.site_note = QLabel()
+        self.site_note.setWordWrap(True)
+        theme.mark(self.site_note, role="muted")
+        rest = [(t, rows() if callable(rows) else rows) for t, rows in sections[2:]]
+        self.adv_form.add_sections(rest)  # (Website, Saved files, History, This PC)
         self._label_checks(self.adv_form)
         tab_order(self.adv.btn, *self.adv_form.tab_btns.values(), self.adv_form.pages)  # (the new tabs with the others)
         # (no refresh() here: the page's next step, the result card's, shows the settings (show_settings), which
@@ -531,14 +542,10 @@ class EqSettings:
         if self.get(path) == value:
             return
         self.eq_settings.set_path(S, path, value)
+        # (a Website value typed is yours, "custom ↺", with every choice of Which website to copy; the choice itself
+        # changes no value: the curves loaded again bring the website's, eq.site_values)
         if self.is_auto_path(path) and path not in self.your_values():
             self.your_values().append(path)
-        if path == "site.profile" and value in self.page.meta.get("profiles", {}):
-            S["site"].update(self.page.meta["profiles"][value])
-        elif path.startswith("site.") and path != "site.sample_rate":
-            match = next((k for k, p in self.page.meta.get("profiles", {}).items()
-                          if all(S["site"].get(a) == b for a, b in p.items())), None)
-            S["site"]["profile"] = match or "custom"
         if path == "best_fit.layout":  # (a graphic EQ app's layout chosen here: its sliders too)
             a = next((x for x in self.page.meta.get("eq_apps", []) if x["kind"] == "graphic" and x["layout"] == value), None)
             if a:
@@ -549,13 +556,15 @@ class EqSettings:
     def make_auto(self, path):
         S = self.page.S
         S["auto"]["manual"] = [p for p in self.your_values() if p != path] if path else []
-        self.page.changed()
+        # (a Website value made automatic: the curves again, with the website's value: the critique of feature 5)
+        self.page.changed(curves=path is None or path.startswith("site."))
         self.page.refresh_auto()
         self.refresh()
 
     def auto_switched(self, on):
         self.page.S["auto"]["enabled"] = bool(on)
-        self.page.changed()
+        # (the curves again: the Website values are filled in, or stay, only with the automatic settings on)
+        self.page.changed(curves=True)
         self.refresh()  # (no message: the tick box and the Settings row's summary show the change, the text survey)
 
     def load_your_filters(self):
@@ -674,7 +683,9 @@ class EqSettings:
         items = []
         for n in notes:
             text = n["text"].replace("&", "&amp;").replace("<", "&lt;")
-            if n.get("path") in mine:  # ("custom" in the accent as text: 4.5:1 on the card, light or dark)
+            # ("custom" in the accent as text: 4.5:1 on the card, light or dark. A website's fixed value is used
+            # over yours: its line as it is)
+            if n.get("path") in mine and not n.get("lock"):
                 # (a note that is a sentence, as the limits of an EQ app, loses its last period here: "(overridden)"
                 # follows it as the last word of the line)
                 text = text[:-1] if text.endswith(".") and not text.endswith("..") else text
@@ -692,14 +703,19 @@ class EqSettings:
         self.mine_text.setText("Custom values: " + ", ".join(self.eq_settings.AUTO_NAMES.get(p, p) for p in mine)
                                + " (click “custom ↺” to reset)")
         tags = {p: ("yours" if p in mine else "auto") for p in self.auto_paths} if on else {}
-        self.form.refresh(tags)
-        self.adv_form.refresh(tags)
+        if S["site"].get("profile") == "custom":  # (Other: the app fills none of the Website values)
+            tags = {p: t for p, t in tags.items() if not p.startswith("site.")}
+        locks = self.site_locks()
+        self._site_parts()
+        self.form.refresh(tags, locks)
+        self.adv_form.refresh(tags, locks)
         if self._adjust is not None:  # (not made yet: adjust() shows the values as it makes it)
             self._show_adjust_values()
         adj = self.adjusted()
         self.adjust_summary.setText(("Adjusted: " + self._adjust_summary_text()) if adj else "")
         self.adjust_summary.setVisible(adj)
-        sw = S["site_sweep"]
+        # (what the sweep tries: a website's fixed values in place of the boxes')
+        sw = dict(S["site_sweep"], **{p.split(".", 1)[1]: v for p, (v, _tip) in locks.items() if p.startswith("site_sweep.")})
         self.sweep_note.setText(f"Testing: filter rows {fmt_list(sw['filter_rows'])} · frequency to "
                                 f"{', '.join(f'{v / 1000:g} kHz' for v in sw['freq_high'])} · gain "
                                 f"{', '.join(f'{r[0]:g} to {r[1]:g}' for r in sw['gain_ranges'])} · Q to {fmt_list(sw['q_max'])}. "
@@ -719,6 +735,26 @@ class EqSettings:
         own = {"best_fit": "layout, limits, ", "site_sweep": "search ranges, "}.get(S["mode"], "")
         words = own + "website values, saved files, history, and CPU"
         self.adv.summary.setText(words[0].upper() + words[1:])
+
+    def site_locks(self):
+        """{path: (value, reason)}: the Website methods' boxes that the website of the curves fixes (no gain boxes or no
+        Q boxes on its AutoEQ panel: eq.site_values), with a Website method; else {}."""
+        S, info = self.page.S, getattr(self.page, "site_info", None) or {}
+        if S["mode"] not in ("site_single", "site_sweep") or S["site"].get("profile") == "custom":
+            return {}
+        return {p: (x["value"], x["tip"]) for p, x in (info.get("locks") or {}).items()
+                if isinstance(x, dict) and "value" in x and "tip" in x}
+
+    def _site_parts(self):
+        """Which website to copy has the choice in use (a website no list has any longer: by its name or address), and
+        the gray line under it says where the values come from (the curves' answer, eq.site_values)."""
+        info = getattr(self.page, "site_info", None) or {}
+        self.site_note.setText(info.get("note") or "")
+        f = self.adv_form.fields.get("site.profile")
+        prof = self.page.S["site"].get("profile")
+        if f is not None and isinstance(prof, str) and f.box.findData(prof) < 0:
+            name = info.get("site") if info.get("site_url") and "site:" + info["site_url"] == prof else None
+            f.box.addItem(name or prof[5:] or prof, prof)
 
     def _show_adjust_values(self):
         """Adjust…'s window (once made) with the values as they are: its boxes, a gain's Hz and Q greyed while it's 0
