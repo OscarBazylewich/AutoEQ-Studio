@@ -1,0 +1,5349 @@
+{
+ "read": "2026-11-24",
+ "sites": {
+  "https://achoreviews.squig.link": {
+   "name": "Acho Reviews",
+   "url": "https://achoreviews.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://aden.squig.link": {
+   "name": "aden (IEMs)",
+   "url": "https://aden.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://aden.squig.link/headphones": {
+   "name": "aden (Headphones)",
+   "url": "https://aden.squig.link/headphones/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://adri-n.squig.link": {
+   "name": "Adri-N",
+   "url": "https://adri-n.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://aftersound.squig.link": {
+   "name": "Aftersound IEMs",
+   "url": "https://aftersound.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://animagus.squig.link": {
+   "name": "Animagus",
+   "url": "https://animagus.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "Hz",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://ankramutt.squig.link": {
+   "name": "Ankramutt",
+   "url": "https://ankramutt.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 10,
+    "normalization": "Hz",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "other",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     8000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://arc.squig.link": {
+   "name": "Arc",
+   "url": "https://arc.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://arn.squig.link": {
+   "name": "audioAI",
+   "url": "https://arn.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://atechreviews.squig.link": {
+   "name": "ATechReviews",
+   "url": "https://atechreviews.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://audioamigo.squig.link": {
+   "name": "Audio Amigo IEMs",
+   "url": "https://audioamigo.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://audioamigo.squig.link/headphones": {
+   "name": "Audio Amigo (Headphones)",
+   "url": "https://audioamigo.squig.link/headphones/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://auricularesargentina.squig.link": {
+   "name": "Auriculares Argentina",
+   "url": "https://auricularesargentina.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://awsmdanny.squig.link": {
+   "name": "AWSMDanny",
+   "url": "https://awsmdanny.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://bakkwatan.squig.link": {
+   "name": "Bakkwatan",
+   "url": "https://bakkwatan.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "Hz",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://banzai1122.squig.link": {
+   "name": "banzai1122",
+   "url": "https://banzai1122.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://bassaudio.squig.link": {
+   "name": "Bass Audio",
+   "url": "https://bassaudio.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://bassyalexander.squig.link": {
+   "name": "bassy Alexander",
+   "url": "https://bassyalexander.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://bedrock.squig.link": {
+   "name": "Bedrock Reviews",
+   "url": "https://bedrock.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://bloomaudio.squig.link": {
+   "name": "Bloom Audio",
+   "url": "https://bloomaudio.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://boizoff.squig.link": {
+   "name": "boizoff (IEMs)",
+   "url": "https://boizoff.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://boizoff.squig.link/headphones": {
+   "name": "boizoff (Headphones)",
+   "url": "https://boizoff.squig.link/headphones/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://breampike.squig.link": {
+   "name": "breampike",
+   "url": "https://breampike.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://bryaudioreviews.squig.link": {
+   "name": "Bry Audio Reviews",
+   "url": "https://bryaudioreviews.squig.link/",
+   "values": {
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [
+    "treble_start_from"
+   ],
+   "code": "none",
+   "panel": null,
+   "panel_missing": []
+  },
+  "https://bukanaudiophile.squig.link": {
+   "name": "BukanAudiophile",
+   "url": "https://bukanaudiophile.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://cammyfi.squig.link/headphones-clone": {
+   "name": "CammyFi (Headphones)",
+   "url": "https://cammyfi.squig.link/headphones-clone/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "Hz",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://cammyfi.squig.link/iems": {
+   "name": "CammyFi (IEMs)",
+   "url": "https://cammyfi.squig.link/iems/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "Hz",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://capraaudio.squig.link/headphones": {
+   "name": "Capra Audio",
+   "url": "https://capraaudio.squig.link/Headphones/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "Hz",
+    "norm_hz": 630,
+    "norm_db": 35,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://cqtek.squig.link": {
+   "name": "Hi End Portable",
+   "url": "https://cqtek.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://csi-zone.squig.link": {
+   "name": "CSI-ZONE",
+   "url": "https://csi-zone.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "other",
+   "panel": null,
+   "panel_missing": []
+  },
+  "https://daemonxar.squig.link": {
+   "name": "DaemonXar",
+   "url": "https://daemonxar.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://dchpgall.squig.link": {
+   "name": "Dcinside Headphone Gallery",
+   "url": "https://dchpgall.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 50,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://dentreviews.squig.link": {
+   "name": "dentReviews",
+   "url": "https://dentreviews.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": null,
+   "panel_missing": []
+  },
+  "https://dhrme.squig.link": {
+   "name": "DHRME (IEMs)",
+   "url": "https://dhrme.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://dhrme.squig.link/headphones": {
+   "name": "DHRME (Headphones)",
+   "url": "https://dhrme.squig.link/headphones/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://digaoreviews.squig.link": {
+   "name": "Digão Reviews",
+   "url": "https://digaoreviews.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://dl.squig.link": {
+   "name": "Dung Le (IEMs)",
+   "url": "https://dl.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://dl.squig.link/headphones": {
+   "name": "Dung Le (Headphones)",
+   "url": "https://dl.squig.link/headphones/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://doltonius.squig.link": {
+   "name": "Doltonius",
+   "url": "https://doltonius.squig.link/",
+   "values": {
+    "norm_hz": 500
+   },
+   "missing": [
+    "treble_start_from",
+    "scale_smoothing",
+    "smooth_level",
+    "normalization",
+    "norm_db",
+    "phon_table"
+   ],
+   "code": "unknown",
+   "panel": null,
+   "panel_missing": []
+  },
+  "https://ducbloke.squig.link": {
+   "name": "DucBloke",
+   "url": "https://ducbloke.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://dvewlsh.squig.link": {
+   "name": "dvewlsh",
+   "url": "https://dvewlsh.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://earphonesarchive.squig.link": {
+   "name": "Earphones Archive IEMs (5128)",
+   "url": "https://earphonesarchive.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://earphonesarchive.squig.link/headphones": {
+   "name": "Earphones Archive headphones (5128)",
+   "url": "https://earphonesarchive.squig.link/headphones/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://ekaudio.squig.link": {
+   "name": "EKaudio",
+   "url": "https://ekaudio.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://eliseaudio.squig.link": {
+   "name": "Elise Audio",
+   "url": "https://eliseaudio.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://enemyspider.squig.link": {
+   "name": "EnemySpider",
+   "url": "https://enemyspider.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://eplv.squig.link": {
+   "name": "EPLV",
+   "url": "https://eplv.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://fahryst.squig.link": {
+   "name": "Fahryst",
+   "url": "https://fahryst.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "Hz",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://faxepremium.squig.link": {
+   "name": "faxepremium",
+   "url": "https://faxepremium.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://filk.squig.link": {
+   "name": "Filk (Headphones)",
+   "url": "https://filk.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 50,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://filk.squig.link/iems": {
+   "name": "Filk (IEMs)",
+   "url": "https://filk.squig.link/iems/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 50,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://flare.squig.link": {
+   "name": "Flare",
+   "url": "https://flare.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://foxtoldmeso.squig.link": {
+   "name": "Fox Told Me So (IEMs)",
+   "url": "https://foxtoldmeso.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://foxtoldmeso.squig.link/headphones": {
+   "name": "Fox Told Me So (headphones)",
+   "url": "https://foxtoldmeso.squig.link/headphones/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://freeryder05.squig.link": {
+   "name": "freeryder05",
+   "url": "https://freeryder05.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://gadgetgenerations.squig.link": {
+   "name": "Gadget Generations",
+   "url": "https://gadgetgenerations.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://gadgetrytech.squig.link": {
+   "name": "Gadgetry Tech (IEMs)",
+   "url": "https://gadgetrytech.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     7500
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     10
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://gadgetrytech.squig.link/headsets": {
+   "name": "Gadgetry Tech headphones",
+   "url": "https://gadgetrytech.squig.link/headsets/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     8400
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     10
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://graph.hangout.audio/headphones": {
+   "name": "Hangout.Audio headphones (Crinacle)",
+   "url": "https://graph.hangout.audio/headphones/",
+   "values": {
+    "treble_start_from": 7000,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60
+   },
+   "missing": [
+    "scale_smoothing",
+    "smooth_level",
+    "phon_table"
+   ],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://graph.hangout.audio/iem/5128": {
+   "name": "Hangout.Audio IEMs (Crinacle, 5128)",
+   "url": "https://graph.hangout.audio/iem/5128/",
+   "values": {
+    "treble_start_from": 7000,
+    "normalization": "dB",
+    "norm_hz": 800,
+    "norm_db": 60
+   },
+   "missing": [
+    "scale_smoothing",
+    "smooth_level",
+    "phon_table"
+   ],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://graph.hangout.audio/iem/711": {
+   "name": "Hangout.Audio IEMs (Crinacle, 711)",
+   "url": "https://graph.hangout.audio/iem/711/",
+   "values": {
+    "treble_start_from": 7000,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60
+   },
+   "missing": [
+    "scale_smoothing",
+    "smooth_level",
+    "phon_table"
+   ],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://hadoe.squig.link": {
+   "name": "Hadoe (IEMs)",
+   "url": "https://hadoe.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://hadoe.squig.link/earbuds": {
+   "name": "Hadoe (Earbuds)",
+   "url": "https://hadoe.squig.link/earbuds/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.02,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://hadoe.squig.link/headphones": {
+   "name": "Hadoe (Headphones)",
+   "url": "https://hadoe.squig.link/headphones/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.02,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://harpo.squig.link": {
+   "name": "Harpo",
+   "url": "https://harpo.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://hbb.squig.link": {
+   "name": "HBB",
+   "url": "https://hbb.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "Hz",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://headphones.audiodiscourse.com": {
+   "name": "Audio Discourse headphones",
+   "url": "https://headphones.audiodiscourse.com/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://headphonezone.squig.link": {
+   "name": "Headphone Zone",
+   "url": "https://headphonezone.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://hobbytalk.squig.link": {
+   "name": "Hobby Talk",
+   "url": "https://hobbytalk.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://hore.squig.link": {
+   "name": "Hore",
+   "url": "https://hore.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://hu-fi.squig.link": {
+   "name": "Hu-Fi",
+   "url": "https://hu-fi.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "Hz",
+    "norm_hz": 440,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://ianfann.squig.link": {
+   "name": "ianfann",
+   "url": "https://ianfann.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://ideru.squig.link": {
+   "name": "Ideru",
+   "url": "https://ideru.squig.link/",
+   "values": {
+    "normalization": "Hz",
+    "norm_hz": 800,
+    "norm_db": 75
+   },
+   "missing": [
+    "treble_start_from",
+    "scale_smoothing",
+    "smooth_level",
+    "phon_table"
+   ],
+   "code": "other",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     10000
+    ],
+    "gain_range": [
+     -12,
+     9
+    ],
+    "q_range": [
+     0.5,
+     3
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://iemocean.squig.link": {
+   "name": "IEM Ocean",
+   "url": "https://iemocean.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://iems.audiodiscourse.com": {
+   "name": "Audio Discourse IEMs",
+   "url": "https://iems.audiodiscourse.com/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://iemworld.squig.link": {
+   "name": "IEM World (IEMs)",
+   "url": "https://iemworld.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://iemworld.squig.link/headphones": {
+   "name": "IEM World (Headphones)",
+   "url": "https://iemworld.squig.link/headphones/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://isaiahse.squig.link": {
+   "name": "Isaiah SE",
+   "url": "https://isaiahse.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://ish.squig.link": {
+   "name": "Kyle @ Den-Fi",
+   "url": "https://ish.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://jacstone.squig.link": {
+   "name": "Jacstone",
+   "url": "https://jacstone.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "Hz",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://jaytiss.squig.link": {
+   "name": "Jaytiss IEMs",
+   "url": "https://jaytiss.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://joshtbvo.squig.link": {
+   "name": "JoshTBVO",
+   "url": "https://joshtbvo.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://kazi.squig.link": {
+   "name": "Kazi",
+   "url": "https://kazi.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://kr0mka.squig.link": {
+   "name": "kr0mka (IEMs)",
+   "url": "https://kr0mka.squig.link/",
+   "values": {
+    "treble_start_from": 6000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 1,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     6000
+    ],
+    "gain_range": [
+     -20,
+     20
+    ],
+    "q_range": [
+     0.4,
+     9.9
+    ],
+    "rows_max": 50,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://kr0mka.squig.link/headphones": {
+   "name": "kr0mka (Headphones)",
+   "url": "https://kr0mka.squig.link/headphones/",
+   "values": {
+    "treble_start_from": 6000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 1,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     6000
+    ],
+    "gain_range": [
+     -20,
+     20
+    ],
+    "q_range": [
+     0.4,
+     9.9
+    ],
+    "rows_max": 50,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://kuping-sensi.squig.link": {
+   "name": "Kuping Sensi",
+   "url": "https://kuping-sensi.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://kuulokenurkka.squig.link": {
+   "name": "Kuulokenurkka",
+   "url": "https://kuulokenurkka.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://lestat.squig.link": {
+   "name": "Lestat",
+   "url": "https://lestat.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://listener.squig.link": {
+   "name": "listener (Headphones)",
+   "url": "https://listener.squig.link/",
+   "values": {
+    "treble_start_from": 15000,
+    "scale_smoothing": 0.2,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     3000
+    ],
+    "gain_range": [
+     -20,
+     20
+    ],
+    "q_range": [
+     0.1,
+     10
+    ],
+    "rows_max": 50,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://listener.squig.link/5128": {
+   "name": "listener (5128)",
+   "url": "https://listener.squig.link/5128/",
+   "values": {
+    "treble_start_from": 15000,
+    "scale_smoothing": 0.2,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     3000
+    ],
+    "gain_range": [
+     -20,
+     20
+    ],
+    "q_range": [
+     0.1,
+     10
+    ],
+    "rows_max": 50,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://listener.squig.link/iems": {
+   "name": "listener (IEMs)",
+   "url": "https://listener.squig.link/iems/",
+   "values": {
+    "treble_start_from": 15000,
+    "scale_smoothing": 0.2,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     3000
+    ],
+    "gain_range": [
+     -20,
+     20
+    ],
+    "q_range": [
+     0.1,
+     10
+    ],
+    "rows_max": 50,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://listener800.github.io": {
+   "name": "listener800 5128 headphones",
+   "url": "https://listener800.github.io/",
+   "values": {
+    "treble_start_from": 15000,
+    "scale_smoothing": 0.2,
+    "smooth_level": 3,
+    "normalization": "Hz~",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     3000
+    ],
+    "gain_range": [
+     -20,
+     20
+    ],
+    "q_range": [
+     0.1,
+     10
+    ],
+    "rows_max": 50,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://listener800.github.io/5128iem.html": {
+   "name": "listener800 5128 IEMs",
+   "url": "https://listener800.github.io/5128iem.html",
+   "values": {
+    "treble_start_from": 15000,
+    "scale_smoothing": 0.2,
+    "smooth_level": 3,
+    "normalization": "Hz~",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     3000
+    ],
+    "gain_range": [
+     -20,
+     20
+    ],
+    "q_range": [
+     0.1,
+     10
+    ],
+    "rows_max": 50,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://loomynarty.squig.link": {
+   "name": "Loomynarty",
+   "url": "https://loomynarty.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 1,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     6000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.1,
+     3
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://lown-fi.squig.link": {
+   "name": "lown-fi",
+   "url": "https://lown-fi.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://lumerion.squig.link": {
+   "name": "Lumerion",
+   "url": "https://lumerion.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://melatonin.squig.link": {
+   "name": "Melatonin",
+   "url": "https://melatonin.squig.link/",
+   "values": {
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [
+    "treble_start_from"
+   ],
+   "code": "none",
+   "panel": null,
+   "panel_missing": []
+  },
+  "https://mmagtech.squig.link": {
+   "name": "MMagTech",
+   "url": "https://mmagtech.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://musicafe.squig.link": {
+   "name": "MusiCafé",
+   "url": "https://musicafe.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://nymz.squig.link": {
+   "name": "nymz",
+   "url": "https://nymz.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "Hz",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://obodio.squig.link": {
+   "name": "OB Odio",
+   "url": "https://obodio.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://practiphile.squig.link": {
+   "name": "Practiphile",
+   "url": "https://practiphile.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://precog.squig.link": {
+   "name": "Precogvision",
+   "url": "https://precog.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://pw.squig.link": {
+   "name": "Paul Wasabi IEMs",
+   "url": "https://pw.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://ragnarok.squig.link": {
+   "name": "Ragnarok (IEMs)",
+   "url": "https://ragnarok.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "Hz",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://ragnarok.squig.link/headphones": {
+   "name": "Ragnarok (Headphones)",
+   "url": "https://ragnarok.squig.link/headphones/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "Hz",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://recode.squig.link": {
+   "name": "Recode",
+   "url": "https://recode.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://regancipher.squig.link": {
+   "name": "Regan Cipher",
+   "url": "https://regancipher.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://rg.squig.link": {
+   "name": "RikudouGoku",
+   "url": "https://rg.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "Hz",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://riz.squig.link": {
+   "name": "Riz",
+   "url": "https://riz.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://sai.squig.link": {
+   "name": "Unheard Lab headphones",
+   "url": "https://sai.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 2,
+    "normalization": "dB",
+    "norm_hz": 440,
+    "norm_db": 85,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     3
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://samreviews.squig.link": {
+   "name": "Sam Reviews",
+   "url": "https://samreviews.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://scboy.squig.link": {
+   "name": "SCBoy",
+   "url": "https://scboy.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://seanwee.squig.link": {
+   "name": "Sean Wee",
+   "url": "https://seanwee.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://silicagel.squig.link": {
+   "name": "SilicaGel (IEMs)",
+   "url": "https://silicagel.squig.link/",
+   "values": {
+    "norm_hz": 500
+   },
+   "missing": [
+    "treble_start_from",
+    "scale_smoothing",
+    "smooth_level",
+    "normalization",
+    "norm_db",
+    "phon_table"
+   ],
+   "code": "unknown",
+   "panel": null,
+   "panel_missing": []
+  },
+  "https://silicagel.squig.link/earbuds": {
+   "name": "SilicaGel (Earbuds)",
+   "url": "https://silicagel.squig.link/earbuds/",
+   "values": {
+    "norm_hz": 500
+   },
+   "missing": [
+    "treble_start_from",
+    "scale_smoothing",
+    "smooth_level",
+    "normalization",
+    "norm_db",
+    "phon_table"
+   ],
+   "code": "unknown",
+   "panel": null,
+   "panel_missing": []
+  },
+  "https://silicagel.squig.link/headphones": {
+   "name": "SilicaGel (Headphones)",
+   "url": "https://silicagel.squig.link/headphones/",
+   "values": {
+    "norm_hz": 500
+   },
+   "missing": [
+    "treble_start_from",
+    "scale_smoothing",
+    "smooth_level",
+    "normalization",
+    "norm_db",
+    "phon_table"
+   ],
+   "code": "unknown",
+   "panel": null,
+   "panel_missing": []
+  },
+  "https://sl0the.squig.link": {
+   "name": "sl0the",
+   "url": "https://sl0the.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "Hz",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://smirk.squig.link": {
+   "name": "Smirk",
+   "url": "https://smirk.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://soundcheck39.squig.link": {
+   "name": "Soundcheck39",
+   "url": "https://soundcheck39.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "Hz",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://soundignity.squig.link": {
+   "name": "Soundignity",
+   "url": "https://soundignity.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://squig.link": {
+   "name": "Super* Review IEMs",
+   "url": "https://squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "other",
+   "panel": null,
+   "panel_missing": []
+  },
+  "https://squig.link/earbuds": {
+   "name": "Super* Review (Earbuds)",
+   "url": "https://squig.link/earbuds/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://squig.link/headphones": {
+   "name": "Super* Review (Headphones)",
+   "url": "https://squig.link/headphones/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "other",
+   "panel": null,
+   "panel_missing": []
+  },
+  "https://squig.link/hp.html": {
+   "name": "Super* Review headphones",
+   "url": "https://squig.link/hp.html",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "other",
+   "panel": null,
+   "panel_missing": []
+  },
+  "https://squig.link/lab/aquaphobic": {
+   "name": "Aquaphobic",
+   "url": "https://squig.link/lab/aquaphobic/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 10,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://squig.link/lab/avishai": {
+   "name": "avishai",
+   "url": "https://squig.link/lab/avishai/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://squig.link/lab/elrics": {
+   "name": "Elrics (IEMs)",
+   "url": "https://squig.link/lab/elrics/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://squig.link/lab/elrics/headphones": {
+   "name": "Elrics (Headphones)",
+   "url": "https://squig.link/lab/elrics/headphones/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.02,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://squig.link/lab/fernandagunsan": {
+   "name": "Fernanda Gunsan",
+   "url": "https://squig.link/lab/fernandagunsan/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "other",
+   "panel": null,
+   "panel_missing": []
+  },
+  "https://squig.link/lab/hana": {
+   "name": "Hana",
+   "url": "https://squig.link/lab/hana/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://squig.link/lab/harutohiroki": {
+   "name": "HarutoHiroki",
+   "url": "https://squig.link/lab/harutohiroki/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://squig.link/lab/hoods": {
+   "name": "Hoods",
+   "url": "https://squig.link/lab/hoods/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://squig.link/lab/jaraba": {
+   "name": "JaRaBa",
+   "url": "https://squig.link/lab/jaraba/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 40,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://squig.link/lab/joycesreview": {
+   "name": "Joyce's Review",
+   "url": "https://squig.link/lab/joycesreview/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://squig.link/lab/koi": {
+   "name": "KOI",
+   "url": "https://squig.link/lab/koi/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://squig.link/lab/tdl": {
+   "name": "TDL",
+   "url": "https://squig.link/lab/tdl/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://squig.link/lab/zerostresslevel": {
+   "name": "zerostresslevel",
+   "url": "https://squig.link/lab/zerostresslevel/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://suporsalad.squig.link": {
+   "name": "Side Salad Audio (IEMs)",
+   "url": "https://suporsalad.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://suporsalad.squig.link/headphones": {
+   "name": "Side Salad Audio (Headphones)",
+   "url": "https://suporsalad.squig.link/headphones/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://takeitslow7.squig.link": {
+   "name": "takeitslow7",
+   "url": "https://takeitslow7.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://tanchjim.squig.link": {
+   "name": "Tanchjim",
+   "url": "https://tanchjim.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://tedthepraimortis.squig.link": {
+   "name": "Ted's Squig Hoard",
+   "url": "https://tedthepraimortis.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "Hz",
+    "norm_hz": 630,
+    "norm_db": 35,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://tgx78.squig.link": {
+   "name": "tgx78",
+   "url": "https://tgx78.squig.link/",
+   "values": {
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [
+    "treble_start_from"
+   ],
+   "code": "none",
+   "panel": null,
+   "panel_missing": []
+  },
+  "https://theaudiostore.squig.link": {
+   "name": "The Audio Store",
+   "url": "https://theaudiostore.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://therollo9.squig.link": {
+   "name": "therollo9 (IEMs)",
+   "url": "https://therollo9.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://therollo9.squig.link/headphones": {
+   "name": "therollo9 (Headphones)",
+   "url": "https://therollo9.squig.link/headphones/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.02,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://timmyv.squig.link": {
+   "name": "TimTuned",
+   "url": "https://timmyv.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 630,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2023"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": true,
+    "q_boxes": true,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": 20,
+    "q_cap": 5
+   },
+   "panel_missing": []
+  },
+  "https://tonedeafmonk.squig.link": {
+   "name": "ToneDeafMonk",
+   "url": "https://tonedeafmonk.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://treblewellxtended.squig.link": {
+   "name": "Treble Well Xtended",
+   "url": "https://treblewellxtended.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 1000,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://vortexreviews.squig.link": {
+   "name": "Vortex Reviews",
+   "url": "https://vortexreviews.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://vsg.squig.link": {
+   "name": "VSG (IEMs)",
+   "url": "https://vsg.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://vsg.squig.link/headphones": {
+   "name": "VSG (Headphones)",
+   "url": "https://vsg.squig.link/headphones/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://yanyin.squig.link": {
+   "name": "Yanyin",
+   "url": "https://yanyin.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  },
+  "https://yoshiultra.squig.link": {
+   "name": "yoshi ultra",
+   "url": "https://yoshiultra.squig.link/",
+   "values": {
+    "treble_start_from": 7000,
+    "scale_smoothing": 0.1,
+    "smooth_level": 5,
+    "normalization": "dB",
+    "norm_hz": 500,
+    "norm_db": 60,
+    "phon_table": "ISO 226:2003"
+   },
+   "missing": [],
+   "code": "usual",
+   "panel": {
+    "freq_boxes": true,
+    "gain_boxes": false,
+    "q_boxes": false,
+    "freq_range": [
+     20,
+     15000
+    ],
+    "gain_range": [
+     -12,
+     12
+    ],
+    "q_range": [
+     0.5,
+     2
+    ],
+    "rows_max": 20,
+    "gain_cap": null,
+    "q_cap": null
+   },
+   "panel_missing": []
+  }
+ }
+}

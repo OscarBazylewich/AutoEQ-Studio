@@ -174,3 +174,51 @@ def test_removed_settings_leave_older_copies(check):
           "ones still work",
           not any(gone) and old["scoring"]["pick"] == "audible" and kept["best_fit"]["gain_penalty"] == 0.001
           and kept["best_fit"]["high_shelf"] is True and kept["scoring"]["priority"][0] == "max_q", (gone, old["scoring"]))
+
+
+# ---------------------------------------------------------------- Which website to copy (feature 5, 2026-11-26)
+L800 = settings.OLD_PROFILES["listener800"]
+SQUIG = settings.OLD_PROFILES["squig.link lab"]
+
+
+def test_old_website_choices_in_todays_terms(check):
+    def site(profile, **values):
+        return settings.with_auto({"auto": {"enabled": True, "manual": []},
+                                   "site": dict(L800 if profile != "squig.link lab" else SQUIG, profile=profile,
+                                                **values)})["site"]
+    got = {"old default": site("listener800")["profile"], "old default edited": site("listener800", smooth_level=4),
+           "squig.link": site("squig.link lab"), "custom": site("custom")["profile"], "auto": site("auto")["profile"],
+           "a website": site("site:https://hbb.squig.link/")["profile"], "unknown": site("x")["profile"],
+           "not a web address": site("site:hbb")["profile"]}
+    check("settings: the old default listener800 becomes the database of the measurement (auto)",
+          got["old default"] == "auto", got)
+    check("settings: listener800 with an edited value becomes Other (custom), the value kept",
+          got["old default edited"]["profile"] == "custom" and got["old default edited"]["smooth_level"] == 4, got)
+    check("settings: the old preset squig.link becomes Other (custom) with the same 7 values",
+          got["squig.link"]["profile"] == "custom" and all(got["squig.link"][k] == v for k, v in SQUIG.items()), got)
+    check("settings: custom, auto and a website's address stay; anything else is auto",
+          (got["custom"], got["auto"], got["a website"], got["unknown"], got["not a web address"])
+          == ("custom", "auto", "site:https://hbb.squig.link/", "auto", "auto"), got)
+
+
+def test_old_preset_with_a_website_choice(tmp_path, monkeypatch, check):
+    monkeypatch.setattr(settings, "PRESET_DIR", str(tmp_path))
+    monkeypatch.setattr(settings, "load", lambda path=None: settings.with_auto({}))
+    for name, prof, values in (("Old default", "listener800", L800), ("Old squig", "squig.link lab", SQUIG)):
+        with open(settings.preset_path(name), "w", encoding="utf-8") as fh:
+            json.dump({"mode": "site_sweep", "site": dict(values, profile=prof)}, fh)
+    a, b = settings.read_preset("Old default"), settings.read_preset("Old squig")
+    check("presets: an old preset's website choice loads in today's terms (listener800: auto; squig.link: Other with its "
+          "values)", a["site"]["profile"] == "auto" and b["site"]["profile"] == "custom"
+          and all(b["site"][k] == v for k, v in SQUIG.items()), (a["site"], b["site"]))
+
+
+def test_website_values_are_automatic_settings(check):
+    paths = ["site." + k for k in L800]
+    cfg = settings.with_auto({"auto": {"enabled": True, "manual": ["site.smooth_level", "site.profile"]}})
+    check("settings: the 7 Website values are automatic settings for every method (with their names), the list itself "
+          "is not; a value that you typed stays yours",
+          all(p in settings.AUTO_PATHS["all"] and p in settings.AUTO_NAMES for p in paths)
+          and "site.profile" not in settings.ALL_AUTO_PATHS and cfg["auto"]["manual"] == ["site.smooth_level"]
+          and settings.DEFAULTS["site"]["profile"] == "auto"
+          and all(settings.DEFAULTS["site"][k] == v for k, v in L800.items()), cfg["auto"])
