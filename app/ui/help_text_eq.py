@@ -306,7 +306,14 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'title': 'Keep them as they are (your filters)',
                            'body': ['On: your filters do not change, and Best fit adds filters to them. Off: Best fit '
                                     'starts from your filters, and it can move them. In the two conditions, one more '
-                                    'result shows only your filters.']}]},
+                                    'result shows only your filters.']},
+                          {'key': 'performance.cores',
+                           'title': 'CPU cores',
+                           'body': ['How many CPU threads the app uses when it calculates. 0 = all the cores minus 1, '
+                                    'and not more than the free memory can hold. If the PC becomes slow while the app '
+                                    'calculates, use a lower value.',
+                                    'Last in More settings › Best fit, or › Website best settings with that method: '
+                                    'only these two methods use more than one core.']}]},
                {'title': 'More settings › Layout and the bands of a graphic EQ',
                 'items': [{'key': 'best_fit.layout',
                            'title': 'Layout',
@@ -801,12 +808,6 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'title': 'Loudness tables',
                            'body': ['The equal-loudness tables for dB mode: ISO 226:2003 (most websites) or ISO '
                                     '226:2023 (listener800 and others).']}]},
-               {'title': 'More settings › This PC',
-                'items': [{'key': 'performance.cores',
-                           'title': 'CPU cores',
-                           'body': ['How many CPU threads the app uses when it calculates. 0 = all the cores minus 1, '
-                                    'and not more than the free memory can hold. If the PC becomes slow while the app '
-                                    'calculates, use a lower value.']}]},
                {'title': 'Find… › Sources',
                 'items': [{'key': 'library.folders',
                            'title': 'Folders to search',

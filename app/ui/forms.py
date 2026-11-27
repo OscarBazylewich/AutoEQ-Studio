@@ -812,8 +812,10 @@ class TabPages(QWidget):
 
 # ---------------------------------------------------------------- a form: sections of rows
 class Form(QWidget):
-    """Rows of settings in sections. Each row: (label, [Field spec…], show, ends_row) where a spec is (path, kind,
-    options), and ends_row (optional) makes the next cell start a row (the last of a group);
+    """Rows of settings in sections. Each row: (label, [Field spec…], show, options) where a spec is (path, kind,
+    options); the row's options (optional): "ends_row" makes the next cell start a row (the last of a group),
+    "follows" (section titles) puts the cell in the first of those sections that shows (one box for a setting that two
+    methods' tabs share: refresh moves it);
     two specs in a row are a "from … to …" pair. changed(path, value) is called with each valid value set;
     make_auto(path) for "custom ↺"; steps {path: step} gives a number box − and + (and ↑ ↓). Each row is a cell,
     its label above its box, the cells in columns (FlowLayout); a widget as the label is a note across the form; a
@@ -828,6 +830,7 @@ class Form(QWidget):
         self._changed, self._make_auto = changed, make_auto
         self.fields, self.rows, self._show_of = {}, [], {}
         self.tabs, self.tab_btns, self._sections = tabs, {}, []
+        self._flows, self._whole, self._followers = {}, {}, []  # (each section's flow and show; the rows that move)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(10)
@@ -917,19 +920,43 @@ class Form(QWidget):
                     second.layout().addStretch(1)
                 bl.addStretch(1)
                 cl.addWidget(box)
-                if len(row) > 3 and row[3]:  # (the last of a group: the next cell starts a row)
+                opts = row[3] if len(row) > 3 else {}
+                if opts.get("ends_row"):  # (the last of a group: the next cell starts a row)
                     cell.setProperty("ends_row", True)
                 flow.addWidget(cell)
                 last = cell
                 self.rows.append(([cell], show))
-            shows = [r[2] if len(r) > 2 else None for r in rows]
+                if opts.get("follows"):
+                    self._followers.append((cell, tuple(opts["follows"])))
+            # (a row that follows other sections never shows its own section's tab by itself)
+            shows = [r[2] if len(r) > 2 else None for r in rows if not (len(r) > 3 and r[3].get("follows"))]
             whole = (lambda shows=shows: any(s() for s in shows)) if shows and all(shows) else None
+            self._flows[title], self._whole[title] = flow, whole
             if self.tabs:
                 self._add_tab(title, sec, whole)
             else:
                 lay.addWidget(sec)
                 if whole is not None:  # (a section whose rows all may hide: hidden with them, its heading too)
                     self.rows.append(([sec], whole))
+
+    def _move_followers(self):
+        """Each row that follows sections into the first of them that shows now (none shows: it stays where it is),
+        last in that section, and in the Tab sequence after the section's last control."""
+        for cell, titles in self._followers:
+            home = next((t for t in titles if t in self._flows and (self._whole[t] is None or self._whole[t]())), None)
+            flow = self._flows.get(home)
+            if flow is None or flow.indexOf(cell) >= 0:
+                continue
+            for other in self._flows.values():
+                if other.indexOf(cell) >= 0:
+                    other.removeWidget(cell)
+            flow.addWidget(cell)
+            stop = lambda w: w.focusPolicy() != Qt.NoFocus and w.focusProxy() is None
+            mine = [w for w in cell.findChildren(QWidget) if stop(w)]
+            before = [w for w in flow.parentWidget().findChildren(QWidget)
+                      if stop(w) and w is not cell and not cell.isAncestorOf(w)]
+            for a, b in zip(before[-1:] + mine, mine):
+                QWidget.setTabOrder(a, b)
 
     def applies(self, path):
         """The form has a box for this setting, and its row shows now (its show predicate)."""
@@ -985,6 +1012,7 @@ class Form(QWidget):
             f.set_lock(None)
             f.show_value((shown or {}).get(path, self.get(path)))
             f.set_tag((tags or {}).get(path))
+        self._move_followers()
         for widgets, show in self.rows:
             if show is not None:
                 on = bool(show())

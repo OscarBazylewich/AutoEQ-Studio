@@ -40,6 +40,9 @@ def eq_steps(page):
     tab_named = lambda name: lambda: st.adv_form.show_tab(next(i for i, b in st.adv_form.tab_btns.items()
                                                                if b.text() == name))
 
+    # (the tab of the method shown that has CPU cores, or None: Website AutoEQ: one set uses one core)
+    own_tab = lambda: {"best_fit": "Best fit", "site_sweep": "Website best settings"}.get(page.S["mode"])
+
     def website_open():  # (the step "Settings": More settings open on its Website tab; tab_back puts both back)
         more_open()
         was_tab["i"] = st.adv_form.pages.currentIndex()
@@ -877,20 +880,21 @@ def eq_steps(page):
          "text": "More settings (below Settings, in Make the EQ) has the settings that the app sets for you, with a tab "
                  "for each part. The Best fit tab has its layout, limits, penalties and your filters. The Website best "
                  "settings tab has its lists (with that method only). Gain ranges has a row of two boxes for each "
-                 "range, with Add a range below the rows. The other tabs are Website, Saved files, History and This "
-                 "PC. On Website, Which website to copy is “The database of the measurement” at first: the Website "
+                 "range, with Add a range below the rows. CPU cores is last in the tab of Best fit or Website best "
+                 "settings. The other tabs are Website, Saved files and History. On Website, Which website to copy is “The database of the measurement” at first: the Website "
                  "methods use the values of your measurement's website, and a gray line says where they come from. "
                  "A website with no gain or Q boxes fixes those values, so their boxes are off. A list of more than 15 "
                  "items, for example Layout or Which website to copy, opens with a search box. The Settings screen "
                  "(top bar) has the location of your files, backups, Online / Offline and Start with Windows.",
-         # (More settings open on its Website tab for the step; with Website AutoEQ: find the best settings, the demo
-         # shows its tab for Gain ranges' rows first, then Website again)
+         # (More settings open on its Website tab for the step; with Best fit or Website AutoEQ: find the best
+         # settings, the demo shows the method's tab first (Gain ranges' rows, CPU cores), then Website again)
          "demo": lambda: [{"at": lambda: st.adv.btn, "x": 0.1, "say": "More settings: the settings that the app sets for you",
-                           **({"then": tab_named("Website best settings")} if page.S["mode"] == "site_sweep" else {})}]
+                           **({"then": tab_named(own_tab())} if own_tab() else {})}]
          + ([{"at": lambda: ranges().rows[0].lo, "say": "A gain range: the lowest value, then the highest"},
-             {"at": lambda: ranges().add_btn, "say": "Add a range adds a row. ✕ removes one"},
-             {"at": website, "say": "The Website tab", "then": tab_named("Website")}]
+             {"at": lambda: ranges().add_btn, "say": "Add a range adds a row. ✕ removes one"}]
             if page.S["mode"] == "site_sweep" else [])
+         + ([{"at": lambda: st.adv_form.fields["performance.cores"].box, "say": "CPU cores: last in the tab of the method"},
+             {"at": website, "say": "The Website tab", "then": tab_named("Website")}] if own_tab() else [])
          + [{"at": lambda: st.adv_form.fields["site.profile"].box, "x": 0.3,
              "say": "Which website to copy: at first, the database of the measurement"}]
          + ([{"at": lambda: st.site_note, "x": 0.2, "say": "Where the values come from"}] if st.site_note.text() else [])

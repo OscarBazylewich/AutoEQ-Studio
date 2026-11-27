@@ -340,7 +340,7 @@ def test_a_group_ends_its_row_and_a_number_with_its_list(qapp, check):
     from PySide6.QtCore import QPoint
     from helpers import qt
     dlg, fold, form = _tab_form([("Saved files", [("", [("export.apo", "check")]),
-                                                  ("", [("export.report", "check")], None, True),
+                                                  ("", [("export.report", "check")], None, {"ends_row": True}),
                                                   ("More headroom (dB)", [("export.extra_headroom", "num")]),
                                                   ("Q from", [("best_fit.q_min", "num"), ("best_fit.q_max", "numlist")])])])
     try:

@@ -93,6 +93,42 @@ def test_a_from_and_its_to_values_in_one_cell(places, check):
                     "best_fit.q_max": "Q “to” values"}, names)
 
 
+def test_cpu_cores_in_the_tab_of_the_method(places, check):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    page, st = places.page, places.page.settings
+    form = st.adv_form
+    pages = {b.text(): form.pages.widget(i) for i, b in form.tab_btns.items()}
+    f = form.fields["performance.cores"]
+    seen, tab_to = {}, None
+    try:
+        for mode in ("best_fit", "site_sweep", "site_single"):
+            _mode(places, mode)
+            seen[mode] = (next((t for t, p in pages.items() if p.isAncestorOf(f)), None), form.applies(f.path))
+        _mode(places, "site_sweep")
+        st.adv.btn.setChecked(True)
+        form.show_tab(next(i for i, b in form.tab_btns.items() if b.text() == "Website best settings"))
+        qt.pump(100)
+        last = form.fields["site_sweep.q_max"].box
+        page.page_area.ensureWidgetVisible(last, 0, 120)
+        last.setFocus(Qt.TabFocusReason)
+        qt.pump(50)
+        QTest.keyClick(QApplication.focusWidget(), Qt.Key_Tab)
+        qt.pump(50)
+        tab_to = QApplication.focusWidget()
+    finally:
+        st.adv.btn.setChecked(False)
+        _mode(places, "best_fit")
+    # (CPU cores had a tab of its own, This PC, for one box; only Best fit and the sweep use more than one core)
+    check("settings: CPU cores is one box, last in the tab of the method shown (Best fit, or Website best settings for "
+          "the sweep), not shown with Website AutoEQ: one set, and no tab This PC",
+          seen["best_fit"] == ("Best fit", True) and seen["site_sweep"] == ("Website best settings", True)
+          and not seen["site_single"][1] and "This PC" not in pages, seen)
+    check("settings: in Website best settings, Tab goes from Q “to” values to CPU cores (its place in the Tab sequence "
+          "follows the box)", tab_to is f.box, type(tab_to).__name__ if tab_to is not None else None)
+
+
 def test_saved_files_file_types_as_a_group(places, check):
     from PySide6.QtCore import QPoint
     from PySide6.QtWidgets import QLabel

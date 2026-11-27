@@ -12,7 +12,7 @@ Settings (the ones used most):
 - Target: the rig conversion
 More settings, a tab for each section (less height; a method's tab only with its method): Best fit (its layout,
 bands, shelves, limits, penalties, and your own filters to start from), Website best settings, Website, Saved files,
-History, This PC.
+History. CPU cores is last in the tab of the method shown (Best fit's or Website best settings').
 The Target's Adjust… (AutoEQ Local's Adjust): a window with tilt, bass, half-tilt, ear gain, treble and air, each
 with − and +, a small graph of the target, Clear the adjustments and Save as a target… (the UI audit: in the page,
 the graph was out of view while you adjusted).
@@ -218,7 +218,11 @@ class EqSettings:
                  mode("best_fit")),
                 (None, mine_row, mode("best_fit")),  # (under the box that it fills: UI-RULES 27)
                 ("", [("best_fit.start_keep", "check")],
-                 lambda: S()["mode"] == "best_fit" and S()["best_fit"]["start_filters"].strip())]),
+                 lambda: S()["mode"] == "best_fit" and S()["best_fit"]["start_filters"].strip()),
+                # (only the two methods that run many fits use it, pipeline.py: one box, last in the tab of the method
+                # shown; it had a tab of its own, This PC: the control audit, 2026-11-27)
+                ("CPU cores (0 = all the cores minus 1)", [("performance.cores", "num")], multi,
+                 {"follows": ("Best fit", "Website best settings")})]),
             ("Website best settings", [
                 ("Frequency from", [("site_sweep.freq_low", "num"), ("site_sweep.freq_high", "numlist")],
                  mode("site_sweep")),
@@ -247,7 +251,7 @@ class EqSettings:
             # (the file types as a group of their own, under a heading, the other settings on the rows under them: the
             # control audit, 2026-11-27. Made in the second half's step, which places it)
             ("Saved files", lambda: [(_section_label("File types"), [])]
-             + [("", [("export." + k, "check")], None, k == FORMATS[-1][0]) for k, name in FORMATS] + [
+             + [("", [("export." + k, "check")], None, {"ends_row": k == FORMATS[-1][0]}) for k, name in FORMATS] + [
                 ("Impulse response sample rate", [("export.convolution_rate", "choice", _opts(C["export.convolution_rate"]))],
                  lambda: S()["export"]["convolution"]),
                 ("Pre-amp rounding", [("export.preamp_rounding", "choice", [("safe", "Safe (lower value)"), ("site", "Same as squiglink")])]),
@@ -257,7 +261,6 @@ class EqSettings:
                 ("History keeps", [("history.keep", "choice", [("saved", "EQs that you save or copy"),
                                                                ("all", "All results, and the EQs that you save")])]),
                 ("", [("history.eqd_before", "check")])]),
-            ("This PC", [("CPU cores (0 = all the cores minus 1)", [("performance.cores", "num")])]),
         ]
         self.adv_form = Form(sections[:2], self.limits, get, changed, make_auto, say, tabs=True)  # (Best fit, sweep)
         # (a tick box's words in the step that makes it: a screen reader's name is its words, and a box without words
@@ -278,7 +281,7 @@ class EqSettings:
         self.site_note.setWordWrap(True)
         theme.mark(self.site_note, role="muted")
         rest = [(t, rows() if callable(rows) else rows) for t, rows in sections[2:]]
-        self.adv_form.add_sections(rest)  # (Website, Saved files, History, This PC)
+        self.adv_form.add_sections(rest)  # (Website, Saved files, History)
         self._label_checks(self.adv_form)
         tab_order(self.adv.btn, *self.adv_form.tab_btns.values(), self.adv_form.pages)  # (the new tabs with the others)
         # (no refresh() here: the page's next step, the result card's, shows the settings (show_settings), which
@@ -757,9 +760,9 @@ class EqSettings:
         self.fold.summary.setText(f"{'automatic' if on else 'manual'} · error range "
                                   f"{hz(S['scoring']['band_hz'][0])}–{hz(S['scoring']['band_hz'][1])}")
         # (only what the method in use has in More settings: the layout and the limits are Best fit's, the search
-        # ranges are Website AutoEQ: find the best settings'; the first item with a capital letter)
-        own = {"best_fit": "layout, limits, ", "site_sweep": "search ranges, "}.get(S["mode"], "")
-        words = own + "website values, saved files, history, and CPU"
+        # ranges are Website AutoEQ: find the best settings', CPU cores both's; the first item with a capital letter)
+        own = {"best_fit": "layout, limits, CPU, ", "site_sweep": "search ranges, CPU, "}.get(S["mode"], "")
+        words = own + "website values, saved files, and history"
         self.adv.summary.setText(words[0].upper() + words[1:])
 
     def forms(self):
