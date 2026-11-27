@@ -276,10 +276,10 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'body': ['Where the app can put peaking filters (from … to). The app calculates the error '
                                     'only in the error range. Thus, this range usually continues above it.']},
                           {'key': 'best_fit.gain_min',
-                           'title': 'Minimum gain (dB)',
+                           'title': 'Gain from (dB)',
                            'body': ['The lowest gain that a filter can have, in dB.']},
                           {'key': 'best_fit.gain_max',
-                           'title': 'Maximum gain values (dB)',
+                           'title': 'Gain “to” values (dB)',
                            'body': ['The highest gain that a filter can have, in dB. The app tries each value in the '
                                     'list, for example 6, 9. With a lower gain, a smaller pre-amp is necessary.']},
                           {'key': 'best_fit.q_min',
@@ -287,7 +287,7 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'body': ['The lowest permitted Q (the widest filter). A filter with Q 0.5 is more than two '
                                     'octaves wide.']},
                           {'key': 'best_fit.q_max',
-                           'title': 'Maximum Q values',
+                           'title': 'Q “to” values',
                            'body': ['The highest permitted Q. The app tries each value in the list, for example 3, 5. '
                                     'A high Q can correct a sharp peak. But if the position of your IEM in your '
                                     'ear is different from the measurement, the filter can be at an incorrect '

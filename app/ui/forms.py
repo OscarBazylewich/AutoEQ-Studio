@@ -14,7 +14,8 @@ The automatic settings: a box they fill in has a tag beside it, "automatic", or 
 The layout (the UI audit, 2026-11-08, the user's selections): each setting is a cell with its label above its box
 (+ its tag), and the cells go side by side in columns of one width (CELL), as many as the width holds (FlowLayout):
 the label is directly above its box, and on a wide window the settings use less height. Two widths of box: a number
-SHORT (110 px), every other box, list and "from … to" pair LONG (360 px), so their tags are in one column (a list of
+SHORT (110 px), every other box, list and "from … to" pair LONG (360 px; a "from" number and its list of "to" values
+too: the number SHORT, the list the rest), so their tags are in one column (a list of
 ranges: each row LONG wide with its ✕ in it, Add a range under the rows, the tag at the first row). A form
 with tabs=True shows each section as a tab (More settings: less height; a section whose rows all hide has no tab).
 A Fold is a part that opens and closes: a card (the tracer's About these settings), or a row in a card (sub=True:
@@ -142,6 +143,7 @@ CHOICE_MOST = LONG       # (a drop-down's width outside a form: Your EQ app, Sta
 CELL = 470               # (px: a setting's cell, its box and its tag: the columns of a form)
 PAIR_GAP, PAIR_TO = 8, 24  # (px: a "from … to" pair's gaps, and its "to")
 PAIR_BOX = (LONG - PAIR_TO - 2 * PAIR_GAP) // 2  # (px: a pair's first box; the second has the rest of LONG)
+LISTS = ("intlist", "numlist")  # (the kinds of a box of several values: a pair's "to" list)
 
 
 RANGE_X = 30  # (px: a range row's ✕, as wide as a number box's − and +)
@@ -869,6 +871,7 @@ class Form(QWidget):
                     lab.setToolTip(help_of(specs[0][0]) if specs else "")
                     cl.addWidget(lab)
                 pair = len(specs) == 2
+                kinds = [sp[1] for sp in specs]
                 box = QWidget()  # (the boxes' row: a pair's boxes and "to", then their tags)
                 bl = QHBoxLayout(box)
                 bl.setContentsMargins(0, 0, 0, 0)
@@ -893,8 +896,12 @@ class Form(QWidget):
                         f.plus.setAccessibleName(name + " higher")
                     self.fields[spec[0]] = f
                     self._show_of[spec[0]] = show
-                    if pair and spec[1] == "num":  # (its two boxes and "to" exactly as wide as one LONG box: UI-RULES 26)
+                    # (its two boxes and "to" exactly as wide as one LONG box: UI-RULES 26. A "from" number and a list
+                    # of "to" values: the number SHORT, the list the rest)
+                    if pair and spec[1] == "num" and kinds[1] == "num":
                         f.box.setFixedWidth(PAIR_BOX if not j else LONG - PAIR_BOX - PAIR_TO - 2 * PAIR_GAP)
+                    elif pair and kinds[1] in LISTS:
+                        f.box.setFixedWidth(SHORT if not j else LONG - SHORT - PAIR_TO - 2 * PAIR_GAP)
                     bl.addWidget(f)
                 if pair:  # (both tags after the second box, so they are in the tags' column and never on a box)
                     first, second = (self.fields[sp[0]] for sp in specs)

@@ -61,3 +61,33 @@ def test_filter_rows_to_try_in_settings(places, check):
     check("settings: with Website AutoEQ: find the best settings, Filter rows to try is in Settings (as Best fit's "
           "Filter counts to try), not in More settings, and the gray line no longer repeats it",
           got[0] and not got[1] and got[2].startswith("Testing: frequency to ") and "filter rows" not in got[2], got)
+
+
+PAIRS = {"best_fit.gain_min": ("best_fit.gain_max", "Gain from (dB)"), "best_fit.q_min": ("best_fit.q_max", "Q from"),
+         "site_sweep.freq_low": ("site_sweep.freq_high", "Frequency from"),
+         "site_sweep.q_min": ("site_sweep.q_max", "Q from")}
+
+
+def test_a_from_and_its_to_values_in_one_cell(places, check):
+    from PySide6.QtWidgets import QLabel
+    from ui import forms
+    f = places.page.settings.adv_form.fields
+    seen = {}
+    for lo, (hi, label) in PAIRS.items():
+        a, b = f[lo], f[hi]
+        cell = a.parentWidget().parentWidget()  # (the boxes' row, then the cell: its label above it)
+        words = [w.text() for w in cell.findChildren(QLabel) if w.parentWidget() is cell]
+        seen[lo] = {"one cell": b.parentWidget().parentWidget() is cell, "label": words[:1] == [label],
+                    "widths": a.box.width() + b.box.width() + forms.PAIR_TO + 2 * forms.PAIR_GAP == forms.LONG,
+                    "own tooltips": bool(b.box.toolTip()) and b.box.toolTip() != a.box.toolTip(),
+                    "own Help": (a.box.property("help_key"), b.box.property("help_key")) == (lo, hi)}
+    bad = {p: [k for k, v in s.items() if not v] for p, s in seen.items() if not all(s.values())}
+    # (each "from" was a cell, and its list of "to" values another one in the next row of the other column)
+    check("settings: Best fit's gain and Q, and the sweep's frequency and Q: the “from” number and its list of “to” "
+          "values in one cell (one label, the pair as wide as one long box), each box with its own tooltip and Help",
+          not bad, bad)
+    from eq import settings
+    names = {p: settings.AUTO_NAMES[p] for p in ("best_fit.gain_min", "best_fit.gain_max", "best_fit.q_max")}
+    check("settings: the names that Custom values and the automatic notes use follow the cell's words",
+          names == {"best_fit.gain_min": "Gain from", "best_fit.gain_max": "Gain “to” values",
+                    "best_fit.q_max": "Q “to” values"}, names)

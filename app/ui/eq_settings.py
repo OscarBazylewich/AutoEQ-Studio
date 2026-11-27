@@ -202,10 +202,9 @@ class EqSettings:
                 ("Low shelf (Hz)", [("best_fit.low_shelf_freq.0", "num"), ("best_fit.low_shelf_freq.1", "num")],
                  lambda: shelves() and S()["best_fit"]["low_shelf"]),
                 ("Filters from (Hz)", [("best_fit.freq_range.0", "num"), ("best_fit.freq_range.1", "num")], free),
-                ("Minimum gain (dB)", [("best_fit.gain_min", "num")], free),
-                ("Maximum gain values (dB)", [("best_fit.gain_max", "numlist")], free),
-                ("Q from", [("best_fit.q_min", "num")], free),
-                ("Maximum Q values", [("best_fit.q_max", "numlist")], free),
+                # (a "from" and its list of "to" values in one cell, as every range: the control audit, 2026-11-27)
+                ("Gain from (dB)", [("best_fit.gain_min", "num"), ("best_fit.gain_max", "numlist")], free),
+                ("Q from", [("best_fit.q_min", "num"), ("best_fit.q_max", "numlist")], free),
                 ("Penalties for opposite filters", [("best_fit.fight_penalty", "numlist")], free),
                 # (your own filters to start from: here, not in Settings, as they are used less: the UI audit)
                 ("Start from your filters", [("best_fit.start_filters", "block", None,
@@ -215,11 +214,10 @@ class EqSettings:
                 ("", [("best_fit.start_keep", "check")],
                  lambda: S()["mode"] == "best_fit" and S()["best_fit"]["start_filters"].strip())]),
             ("Website best settings", [
-                ("Frequency from", [("site_sweep.freq_low", "num")], mode("site_sweep")),
-                ("Frequency “to” values", [("site_sweep.freq_high", "numlist")], mode("site_sweep")),
+                ("Frequency from", [("site_sweep.freq_low", "num"), ("site_sweep.freq_high", "numlist")],
+                 mode("site_sweep")),
                 ("Gain ranges", [("site_sweep.gain_ranges", "ranges")], mode("site_sweep")),  # (a row of two boxes each)
-                ("Q from", [("site_sweep.q_min", "num")], mode("site_sweep")),
-                ("Q “to” values", [("site_sweep.q_max", "numlist")], mode("site_sweep"))]),
+                ("Q from", [("site_sweep.q_min", "num"), ("site_sweep.q_max", "numlist")], mode("site_sweep"))]),
             ("Website", lambda: [  # (made in the second half's step, which places it: its gray line too)
                 # (the two special choices pinned on top, then every graph website A to Z: UI-RULES 22; the list has
                 # its search box, search_combo)
