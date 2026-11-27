@@ -6,9 +6,9 @@
 - Online databases: the measurers' lists (about 55,000 entries): Use downloads the curve into downloads\\ first
 
 Filters (kept for the next search, for targets and measurements apart): Rig (or "Same rig as your target…": on it,
-or its database has a conversion of its own for it), Type, Source, Known rig (hides the unknown, guessed and mixed
-rigs), Available to download (not a list-only database's), and Clear the selections. Each choice says how many
-results it would leave.
+or its database has a conversion of its own for it), Type, Source (a database: the tabs choose the app or this PC),
+Known rig (hides the unknown, guessed and mixed rigs), Available to download (not a list-only database's), and Clear
+the selections. Each choice says how many results it would leave.
 Each row's buttons at its right end, as every list's (.claude/notes/UI-RULES.md 18): Preview (its curve on the graph,
 dotted, without using it; Hide takes it off), Use (the main one; double-click too), then apart a row's ⋯ for a row
 in the app (Show files for a measurement or Move to Measurement for a target, then Delete…: your own files deleted
@@ -55,6 +55,7 @@ CHOICE_MOST = 220   # (px: a filter's box asks for at most this much to show its
 FORMS = {"iem": "IEM", "hp": "Headphone", "earbud": "Earbud"}
 SOURCES = [("", "All"), ("app", "In the app"), ("pc", "This PC"), ("db", "Online databases")]
 ANY = {"rig": "", "form": "", "site": "", "sure": False, "dl": False}
+OWN_SOURCES = ("app", "pc")  # (a row's "site" for the app's files and this PC's: the tabs, not the Source list)
 _DB_MADE = {}  # (kind, any kind) -> (the online list, the page's meta, its rows): kept from one Find… to the next
 _DB_SORTED = {}  # "items" -> (the online list as it came, the same A to Z): sorted once, off the window's thread
 
@@ -295,6 +296,9 @@ class Picker(QDialog):
         fit_to_screen(self, (900, 720), (680, 420))
         saved = page.sw.s.get("picker") or {}
         self.filters = {k: dict(ANY, **(saved.get(k) or {})) for k in ("target", "measurement")}
+        for f in self.filters.values():  # (a Source saved as "In the app" or "Your files on this PC": the tabs do it now)
+            if f["site"] in OWN_SOURCES:
+                f["site"] = ""
         self.src, self.expanded, self.busy, self._fetching = "", set(), None, False
         self._fails, self._tr, self._more_w = {}, "", None
         self.db, self.lib = {"items": [], "loading": True}, {"items": [], "scanning": True}
@@ -591,12 +595,14 @@ class Picker(QDialog):
     def _render_filters(self, rows, f):
         rigs = self.meta.get("rigs") or {}
         rig_name = lambda v: "Rig not known" if v == "-" else "Mixed rigs" if v == "mixed" else rigs.get(v, v).split(" (")[0]
-        site_name = lambda v: "In the app" if v == "app" else "Your files on this PC" if v == "pc" else v
+        # (Source lists the databases only: its rows "In the app" and "Your files on this PC" did what the tabs do, and a
+        # tab and a Source that disagreed gave an empty list; the control audit, 2026-11-27, 4-5)
         facets = [(self.f_rig, "rig", self.rig_of, rig_name, "All rigs"),
                   (self.f_form, "form", lambda r: r["form"] or "-",
                    lambda v: "Type not known" if v == "-" else FORMS.get(v, v),
                    "Made for all types" if self.kind == "target" else "All types"),
-                  (self.f_site, "site", lambda r: r["site"], site_name, "All sources")]
+                  (self.f_site, "site", lambda r: None if r["site"] in OWN_SOURCES else r["site"], lambda v: v,
+                   "All sources")]
         # each box counts what the other filters leave, all three in one pass (a row failing two filters counts in
         # none; failing one, only in that one's box)
         tr = self._tr
@@ -609,7 +615,8 @@ class Picker(QDialog):
             for _b, key, value_of, *_r in facets:
                 if not fl or fl[0] == key:
                     v = value_of(r)
-                    tally[key][v] = tally[key].get(v, 0) + 1
+                    if v is not None:
+                        tally[key][v] = tally[key].get(v, 0) + 1
             if want_fits and (not fl or fl[0] == "rig") and self.fits(r, tr):
                 fits_n += 1
         for box, key, _value_of, name_of, any_ in facets:
@@ -617,10 +624,8 @@ class Picker(QDialog):
             if f[key] and f[key] not in counts and f[key] != "fits":
                 counts[f[key]] = 0
             # A to Z (numbers as numbers), the special choices on top (UI-RULES 22, as Which measurement's "Don't
-            # know"): "In the app" and "Your files on this PC", then "not known" and "Mixed rigs" (they were last)
-            first = {"app": 0, "pc": 1} if key == "site" else {}
-            values = sorted(counts.items(), key=lambda kv: (first.get(kv[0], 2), kv[0] not in ("-", "mixed"),
-                                                             natural_key(name_of(kv[0]))))
+            # know"): "not known" and "Mixed rigs" (they were last)
+            values = sorted(counts.items(), key=lambda kv: (kv[0] not in ("-", "mixed"), natural_key(name_of(kv[0]))))
             box.blockSignals(True)
             box.clear()
             box.addItem(any_, "")

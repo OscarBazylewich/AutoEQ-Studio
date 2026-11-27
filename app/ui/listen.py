@@ -30,8 +30,8 @@ import os
 from PySide6.QtCore import QPoint, QRect, QSignalBlocker, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QFileDialog, QGridLayout, QGroupBox,
-                               QHBoxLayout, QLabel, QLayout, QLineEdit, QMessageBox, QPushButton, QSlider,
-                               QVBoxLayout, QWidget)
+                               QHBoxLayout, QLabel, QLayout, QLineEdit, QMessageBox, QPushButton, QRadioButton,
+                               QSlider, QVBoxLayout, QWidget)
 
 import textfile
 from ui import bubble, help_window, icons, own_items, placed, tasks, theme, window_parts
@@ -143,6 +143,33 @@ class _Rows(QLayout):
         return y + row - rect.y()
 
 
+class _Ears(QWidget):
+    """Ears: two round buttons, "The same version in each ear" (the default, first) and "A different version in each
+    ear" (the control audit, 2026-11-27, 4-9: a drop-down hid the other of two choices; its A to Z put the default
+    second). changed: a click on one. currentData() is "both" or "split"; set_data() changes it, telling nothing."""
+    changed = Signal()
+
+    def __init__(self, on="both"):
+        super().__init__()
+        self.setAccessibleName("Ears")
+        row = QHBoxLayout(self)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(12)  # (as the row it is in: _Rows' gap)
+        self.both = QRadioButton("The same version in each ear")
+        self.split = QRadioButton("A different version in each ear")
+        for b in (self.both, self.split):  # (one of the two on: round buttons of one parent are exclusive)
+            row.addWidget(b)
+            b.toggled.connect(lambda checked: checked and self.changed.emit())
+        self.set_data(on)
+
+    def currentData(self):
+        return "split" if self.split.isChecked() else "both"
+
+    def set_data(self, key):
+        with QSignalBlocker(self.both), QSignalBlocker(self.split):
+            (self.split if key == "split" else self.both).setChecked(True)
+
+
 class Listen(QGroupBox):
     def __init__(self, page):
         super().__init__("Listen")
@@ -214,12 +241,18 @@ class Listen(QGroupBox):
         tr.addWidget(QLabel("from"))
         # (the range as you left it: kept with the slider's place, which is a fraction of it)
         saved = [st.get(k) for k in ("tone_from", "tone_to")]
-        saved = [int(v) if isinstance(v, (int, float)) and math.isfinite(v) else d for v, d in zip(saved, (20, 20000))]
+        saved = [min(max(int(v), 20), 20000) if isinstance(v, (int, float)) and math.isfinite(v) else d
+                 for v, d in zip(saved, (20, 20000))]
+        self.tone_vals = {"tone.from": saved[0], "tone.to": saved[1]}  # (the values in use: the boxes' last valid)
         self.tone_from = QLineEdit(str(saved[0]))
         self.tone_to = QLineEdit(str(saved[1]))
-        for b in (self.tone_from, self.tone_to):
+        # (as the app's other number boxes: red with the reason in its tooltip while it's wrong, and a value past a
+        # limit moved to it on leaving, said; the control audit, 2026-11-27, 4-4: "abc" went back and 5 became 20
+        # with no word)
+        for b, key in ((self.tone_from, "tone.from"), (self.tone_to, "tone.to")):
             b.setFixedWidth(70)
-            b.editingFinished.connect(self.tone_range_done)
+            b.textEdited.connect(lambda _t, b=b, key=key: self.tone_typed(b, key))
+            b.editingFinished.connect(lambda b=b, key=key: self.tone_left(b, key))
         tr.addWidget(self.tone_from)
         tr.addWidget(QLabel("to"))
         tr.addWidget(self.tone_to)
@@ -261,13 +294,11 @@ class Listen(QGroupBox):
         v.addWidget(self.split_row)
         # how they're heard: the same version in each ear or a different one, Hide the names (under the versions they
         # change)
-        ears = QHBoxLayout()
-        self.ears = SearchCombo()
-        self.ears.addItem("The same version in each ear", "both")
-        self.ears.addItem("A different version in each ear", "split")
-        self.ears.sort_items()
-        self.ears.setCurrentIndex(max(0, self.ears.findData("split" if st.get("ears") == "split" else "both")))
-        self.ears.activated.connect(lambda _i: self.ears_changed())
+        # (in a row that goes on to a second line when the card is narrow: the round buttons' words are long)
+        self.compare_row = QWidget()
+        ears = _Rows(self.compare_row, gap=12)
+        self.ears = _Ears("split" if st.get("ears") == "split" else "both")
+        self.ears.changed.connect(self.ears_changed)
         ears.addWidget(self.ears)
         # (Same level here, with the ears and Hide the names: the 3 settings of how you compare, in one row, which an
         # ABX test disables as one; the Play row stays enabled. The UI audit, 2026-11-08)
@@ -279,11 +310,8 @@ class Listen(QGroupBox):
         self.reveal_btn = QPushButton("Show the names")
         self.reveal_btn.clicked.connect(self.show_names)
         ears.addWidget(self.reveal_btn)
-        ears.addStretch(1)
-        self.compare_row = QWidget()
-        self.compare_row.setLayout(ears)
-        ears.setContentsMargins(0, 0, 0, 0)
         v.addWidget(self.compare_row)
+        # (Ears' round buttons reach its entry through it: a tag of their own named them "Ears" for a screen reader)
         for w, key in ((self.ears, "#snd-ears"), (self.blind, "#snd-blind"), (self.left, "#snd-left"),
                        (self.right, "#snd-right")):
             help_window.tag(w, key)
@@ -301,6 +329,7 @@ class Listen(QGroupBox):
         # (the add symbol, as every other Add; each one's screen-reader name starts with "Add": the symbol is read as
         # nothing)
         # (an EQ's sources in the order of Manually's Start from: UI-RULES 16)
+        self.add_btns = {}
         for text, name, fn in (("The selected EQ", "Add the selected EQ", self.add_selected),
                                ("From an EQ file…", "Add from an EQ file…", self.add_file),
                                ("Paste filters…", "Add filters that you paste…", self.add_paste)):
@@ -309,6 +338,7 @@ class Listen(QGroupBox):
             b.setAccessibleName(name)
             b.clicked.connect(fn)
             add.addWidget(b)
+            self.add_btns[text] = b
             if text == "The selected EQ":
                 self.add_sel_btn = b
         add.addStretch(1)
@@ -466,7 +496,7 @@ class Listen(QGroupBox):
         changes, your Listen settings don't (they're the test's for its while, not choices of yours to keep), and
         hidden names that you had keep their letters."""
         for w, set_it in ((self.lm, lambda: self.lm.setChecked(lm)),
-                          (self.ears, lambda: self.ears.setCurrentIndex(max(0, self.ears.findData(ears)))),
+                          (self.ears, lambda: self.ears.set_data(ears)),
                           (self.blind, lambda: self.blind.setChecked(blind))):
             with QSignalBlocker(w):
                 set_it()
@@ -824,29 +854,70 @@ class Listen(QGroupBox):
         self.render_versions()
 
     def tone_range(self):
-        """The tone's From and To as used: numbers (not "nan"), within 20 Hz to 20 kHz and the sound card's top, To
-        not below From."""
-        def num(box, d):
-            try:
-                v = float(box.text())
-            except ValueError:
-                return d
-            return v if math.isfinite(v) else d  # ("nan" or "inf" typed: Play stopped working for every sound)
+        """The tone's From and To as used: the boxes' last valid values, within the sound card's top, To not below
+        From."""
         top = min(20000, (self.engine.sr if self.engine else 48000) / 2 - 1)
-        lo = min(max(num(self.tone_from, 20), 20), top)
-        return lo, min(max(num(self.tone_to, 20000), lo), top)
+        lo = min(max(self.tone_vals["tone.from"], 20), top)
+        return lo, min(max(self.tone_vals["tone.to"], lo), top)
 
     def tone_hz(self):
         lo, hi = self.tone_range()
         return lo * (hi / lo) ** (self.tone.value() / 10000)
 
-    def tone_range_done(self):
-        """A From or To typed: the boxes show the values used (5 Hz shows as 20), kept for the next start."""
-        lo, hi = self.tone_range()
-        self.tone_from.setText(f"{round(lo)}")
-        self.tone_to.setText(f"{round(hi)}")
-        self._save_listen_settings(tone_from=round(lo), tone_to=round(hi))
+    def _tone_limits(self):
+        """The limits of From and To (eq.settings.UI_LIMITS: 20 to 20,000 Hz, whole numbers), From at most To."""
+        from ui.forms import Limits
+        return Limits((self.page.meta or {}).get("limits", {}), [("tone.from", "tone.to", False)])
+
+    def _tone_check(self, box, key):
+        """The box's value, or None: then the box is red, with the reason as its tooltip (as forms.py's boxes)."""
+        text = box.text().strip().replace(",", ".")
+        try:
+            v = float(text)
+        except ValueError:
+            v = None
+        if v is not None and not math.isfinite(v):  # ("nan" or "inf": Play stopped working for every sound)
+            v = None
+        bad = ("bad", "Enter a number") if v is None else self._tone_limits().check(key, v, self.tone_vals.get)
+        theme.mark(box, bad=bool(bad))
+        box.setToolTip(bad[1] if bad else "")
+        return None if bad else int(v)
+
+    def tone_typed(self, box, key):
+        """A From or To typed: used and kept for the next start when it's valid (the other box checked again: a
+        From above To is a problem of both)."""
+        other, other_key = (self.tone_to, "tone.to") if key == "tone.from" else (self.tone_from, "tone.from")
+        v = self._tone_check(box, key)
+        if v is None:
+            return
+        self.tone_vals[key] = v
+        w = self._tone_check(other, other_key)
+        if w is not None:
+            self.tone_vals[other_key] = w
+        self._save_listen_settings(tone_from=self.tone_vals["tone.from"], tone_to=self.tone_vals["tone.to"])
         self.tone_changed()
+
+    def tone_left(self, box, key):
+        """Leaving a From or To box: a value past a limit moves to the limit (said, "Adjusted to …"); an emptied box
+        shows the value in use."""
+        from ui.forms import number_text
+        text = box.text().strip().replace(",", ".")
+        if text == "":
+            box.setText(str(self.tone_vals[key]))
+            self._tone_check(box, key)
+            return
+        try:
+            v = float(text)
+        except ValueError:
+            return
+        lim = self._tone_limits()
+        problem = lim.check(key, v, self.tone_vals.get) if math.isfinite(v) else None
+        if problem and problem[0] == "range":
+            c = lim.clamp(key, v)
+            if not lim.check(key, c, self.tone_vals.get):
+                box.setText(number_text(c))
+                self.tone_typed(box, key)
+                self.page.status(f"Adjusted to {number_text(c)} (allowed: {lim.text(key)})")
 
     @staticmethod
     def _tone_text(f):
@@ -1008,22 +1079,28 @@ class Listen(QGroupBox):
         except OSError as e:  # (no rights, an offline OneDrive file, one another program holds)
             QMessageBox.warning(self, "EQs to compare", f"Couldn't read file: {e}")
             return
-        self._add_text(text, os.path.splitext(os.path.basename(f))[0], f"from {os.path.basename(f)}")
+        self._add_text(text, os.path.splitext(os.path.basename(f))[0], f"from {os.path.basename(f)}",
+                       at=self.add_btns.get("From an EQ file…"))
 
     def add_paste(self):
         from ui.eq_page_parts import PASTE_HINT, paste_dialog
         got = paste_dialog(self, "Paste filters", "e.g., Crinacle's EQ", PASTE_HINT, "Add")
         if got:
-            self._add_text(got[1], got[0] or "Pasted EQ", "pasted")
+            self._add_text(got[1], got[0] or "Pasted EQ", "pasted", at=self.add_btns.get("Paste filters…"))
 
-    def _add_text(self, text, name, note):
+    def _add_text(self, text, name, note, at=None):
         """An EQ file's or pasted text read as Manually's Start from reads it (eq\\eqtext.py: Equalizer APO's lines, a
-        Room EQ Wizard export, a Peace preset, as Equalizer APO plays them); what an EQ here can't have is said."""
+        Room EQ Wizard export, a Peace preset, as Equalizer APO plays them); what an EQ here can't have is said. at:
+        the button that asked (From an EQ file…, Paste filters…), where a refusal's bubble points."""
         r = self.page.svc.call("/api/filters/read", {"text": text, "settings": self.page.S})
         left = r.get("left_out") or []
-        if r.get("error") or not r.get("filters"):
-            QMessageBox.warning(self, "EQs to compare", r.get("error") or (
-                f"Unsupported items: {' · '.join(left)}" if left else "No filters found in this text"))
+        if r.get("error"):
+            QMessageBox.warning(self, "EQs to compare", r["error"])
+            return
+        if not r.get("filters"):  # (a bubble at the button, as its other refusals: UI-RULES 25; the control audit,
+            # 2026-11-27, 4-3: it was a box that waited for OK)
+            bubble.tell(at, f"Unsupported items: {' · '.join(left)}" if left else "No filters found in this text",
+                        near=self)
             return
         added = self.add(name, [dict(f, enabled=f.get("enabled", True) is not False) for f in r["filters"]], note)
         if added and left:  # (refused, there or full: what was left out of an EQ never added isn't said)

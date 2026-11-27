@@ -78,7 +78,8 @@ DEFAULTS = {
     # measurement's rig when rigdata.json has that pair (rigconv.py)
     "rig_convert": {"enabled": True},
     "library": {"folders": []},  # folders the search box indexes; empty = Downloads, Documents, Desktop, Music
-    "databases": {"disabled": [], "enabled": [], "extra": []},  # databases turned off / optional ones turned on / extra pages
+    # databases turned off / optional ones turned on / pages you added / the added pages turned off
+    "databases": {"disabled": [], "enabled": [], "extra": [], "extra_off": []},
     # past EQs (history.py): keep the saved ones or every run's; say under Measurement when it was EQ'd before
     "history": {"keep": "saved", "eqd_before": True},
     # settings fitted to the measurement and target (autoset.py); manual: settings the user changed, which keep
@@ -213,7 +214,7 @@ CHOICES = {"mode": list(MODES), "eq_app": ["", eq_apps.OTHER, *eq_apps.APPS], "s
            "target_adjust.bass_q": [0.4, 0.5, 0.6, 0.707, 0.8], "target_adjust.ear_q": [0.4, 0.707, 1, 1.414, 2],
            "target_adjust.treble_q": [0.42, 0.5, 0.6, 0.707, 0.8], "target_adjust.air_q": [0.4, 0.707, 1, 1.414, 2]}
 TEXT_LISTS = ("files.excluded", "library.folders", "databases.disabled", "databases.enabled", "databases.extra",
-              "auto.manual")
+              "databases.extra_off", "auto.manual")
 PRIORITIES = ["n_filters", "max_q", "max_boost"]
 # Number boxes outside the settings (the filter editor, the Listen tone, the tracer), for the same hints and checks.
 # The filter editor takes what Best fit makes and every EQ app's range (Voicemeeter cuts to -36 dB). The tracer's

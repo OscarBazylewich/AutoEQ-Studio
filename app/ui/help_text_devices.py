@@ -25,7 +25,8 @@ SETTINGS_DEVICES = [{'title': 'Devices',
                                          'AutoEQ Studio gets the information again each time the EQ, config.txt or the '
                                          'device changes. On a device without Equalizer APO, the warning bar at the '
                                          'top of its card says so, and the line shows the other results, with no ✓.',
-                                         'Examine again gets the information and shows all of it. It shows if APO reads '
+                                         'Examine again gets the information and shows all of it in a bubble at the '
+                                         'button (a click elsewhere, ✕ or Esc closes it). It shows if APO reads '
                                          'the file of AutoEQ Studio and finds the part for this device. It shows if APO '
                                          'loads the EQ that you selected for this device, and the lines that config.txt '
                                          'also loads for all devices.']},

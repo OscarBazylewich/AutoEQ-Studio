@@ -1,24 +1,26 @@
 """Sources (AutoEQ Local's Settings › Sources, natively; sources.js): where Find… looks.
-- This PC: the folders searched for curve files (one per line; empty: Downloads, Documents, Desktop, Music), and
-  "Search again"
+- This PC: the folders searched for curve files, a list with "Add a folder…" (Windows' folder dialog) and a ✕ on each
+  row (Undo in the window's line); empty, it says that Downloads, Documents, Desktop and Music are searched; and
+  "Search again" (the same folders searched again for new files)
 - Online databases: every database by kind of rig, each on or off (a group at once too), how many curves each list
-  has, a search and All / On / Off; ones you added taken off with their row's ✕ (Undo in the window's line)
+  has, a search and All / On / Off; ones you added switched off as the others (kept in the list), and taken off
+  only with their row's ✕ (Undo in the window's line)
 - Add a database: from squig.link's list (searched; one clicked fills the address box, double-clicked is added), or
   any squig.link-style page by its address; one Add, beside the box (Enter there too)
 Changes are saved at once and the lists load again a moment later (offline: the saved ones). The footer is every
 window's (window_parts.Footer): Update the lists (online only) and Open the downloads folder at the left, its own
 message line, Close; a list with nothing to show says so.
-The look: Windows 11's; the databases' tree is styled as the lists by theme_sheet's find_windows (sourcesTree); the
-folders' box as tall as four lines of its text (the four usual folders whole). Its size kept within the screen's free
+The look: Windows 11's; the folders' and the databases' lists are styled as the lists by theme_sheet's find_windows
+(sourcesTree). Its size kept within the screen's free
 room (window_parts.fit_to_screen). A tab for each part (This PC, Online databases, Add a database: the UI audit,
 2026-11-08), so each list has the full height of the window; its footer stays in sight.
 """
-import math
+import os
 
 from PySide6.QtCore import Qt, QTimer, QUrl
-from PySide6.QtGui import QDesktopServices, QFontMetricsF
-from PySide6.QtWidgets import (QDialog, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem,
-                               QMessageBox, QPlainTextEdit, QPushButton, QStackedWidget, QTreeWidget, QTreeWidgetItem,
+from PySide6.QtGui import QDesktopServices
+from PySide6.QtWidgets import (QDialog, QFileDialog, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget,
+                               QListWidgetItem, QPushButton, QStackedWidget, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 
 import net
@@ -37,15 +39,6 @@ def _muted(text=""):
     return lab
 
 
-def lines_high(box, n):
-    """The height of a many-line text box that shows n whole lines of its text: the lines in its text size, the
-    document's margin above and below them, and the box's frame and padding (the stylesheet's). A fixed 80 px held
-    three and a half lines at 10.5 pt: the fourth of the usual folders was cut in half."""
-    box.ensurePolished()  # (the stylesheet's text size and padding)
-    frame = box.height() - box.contentsRect().height()
-    return frame + math.ceil(2 * box.document().documentMargin() + n * QFontMetricsF(box.font()).lineSpacing()) + 1
-
-
 class Sources(QDialog):
     def __init__(self, page):
         super().__init__(page)
@@ -59,6 +52,7 @@ class Sources(QDialog):
         S["databases"].setdefault("enabled", [])
         S["databases"].setdefault("extra", [])
         S["databases"].setdefault("disabled", [])
+        S["databases"].setdefault("extra_off", [])
         self.st, self.dir = {"sites": []}, None
         outer = QVBoxLayout(self)
         outer.setContentsMargins(CARD, CARD, CARD, CARD)  # (Windows 11's roomier edges, as every window's)
@@ -86,21 +80,39 @@ class Sources(QDialog):
             self.pages.addWidget(w)
             return lay
         v = page_of()
-        v.addWidget(QLabel("Folders to search (one on each line, with the folders in them)"))
-        self.folders = QPlainTextEdit("\n".join(S["library"].get("folders") or []))
-        self.folders.setPlaceholderText("\n".join(page.meta.get("library_defaults") or []) or "Downloads, Documents, …")
-        self.folders.setFixedHeight(lines_high(self.folders, 4))  # (the four usual folders, whole)
+        v.addWidget(QLabel("Folders to search (with the folders in them)"))
+        # (a list with Windows' folder dialog, a ✕ on each row: the control audit, 2026-11-27, 4-6; a box of typed
+        # paths, one on each line, took a wrong path with no word)
+        self.folders = QTreeWidget()
+        self.folders.setObjectName("sourcesTree")  # (as the databases' list: theme_sheet's find_windows)
+        self.folders.setHeaderHidden(True)
+        self.folders.setRootIsDecorated(False)
+        self.folders.setColumnCount(2)
+        self.folders.setAccessibleName("Folders to search")
+        fh = self.folders.header()
+        fh.setStretchLastSection(False)
+        fh.setSectionResizeMode(0, QHeaderView.Stretch)
+        fh.setSectionResizeMode(1, QHeaderView.ResizeToContents)
         help_window.tag(self.folders, "library.folders")
-        self.folders.textChanged.connect(self.folders_changed)
-        v.addWidget(self.folders)
+        # (an empty list says what is searched then, in its middle: UI-RULES 21)
+        usual = [f.replace("\\", "/").rstrip("/").split("/")[-1] for f in page.meta.get("library_defaults") or []]
+        usual = usual or ["Downloads", "Documents", "Desktop", "Music"]
+        names = ", ".join(usual[:-1]) + " and " + usual[-1] if len(usual) > 1 else usual[0]
+        self.folders_empty = EmptyText(self.folders, f"No folders added, so {names} are searched")
+        v.addWidget(self.folders, 1)
         row = placed(v, QHBoxLayout())
+        self.add_folder_btn = QPushButton("Add a folder…")
+        icons.put(self.add_folder_btn, "add")
+        self.add_folder_btn.clicked.connect(self.add_folder)
+        help_window.tag(self.add_folder_btn, "library.folders")
+        row.addWidget(self.add_folder_btn)
         rescan = QPushButton("Search again")
         icons.put(rescan, "find")
         rescan.clicked.connect(self.rescan)
         row.addWidget(rescan)
         self.lib_status = _muted()
         row.addWidget(self.lib_status, 1)
-        v.addStretch(1)
+        self.render_folders()
         v = page_of()
         # ("3 days": databases.MAX_AGE, the age at which a saved list is downloaded again)
         v.addWidget(_muted("Lists update every 3 days. Curves download when you click Use or Preview."))
@@ -189,9 +201,62 @@ class Sources(QDialog):
             b.setChecked(k == i)
 
     # ---------------------------------------------------------------- this PC
+    def folder_list(self):
+        return self.page.S["library"].setdefault("folders", [])
+
+    def render_folders(self):
+        """A row for each folder to search, as saved (a path with %VAR% or ~ too), with its ✕ (UI-RULES 18)."""
+        self.folders.clear()
+        for path in self.folder_list():
+            it = QTreeWidgetItem([path, ""])
+            it.setToolTip(0, path)
+            self.folders.addTopLevelItem(it)
+            x = QPushButton("✕")
+            theme.mark(x, quiet=True)
+            x.setToolTip("Remove folder")
+            x.setAccessibleName(f"Remove {path} from the list")
+            x.setAutoDefault(False)
+            x.clicked.connect(lambda _=False, p=path: self.remove_folder(p))
+            self.folders.setItemWidget(it, 1, x)
+        self.folders_empty.refresh()
+
     def folders_changed(self):
-        self.page.S["library"]["folders"] = [l.strip() for l in self.folders.toPlainText().splitlines() if l.strip()]
         self.page.save_settings_soon()
+        # (not inside a row's own button's click: drawing the list again deletes the button)
+        QTimer.singleShot(0, self, self.render_folders)
+
+    def add_folder(self):
+        """Windows' folder dialog; the folder chosen goes at the end of the list (one already there is said)."""
+        have = self.folder_list()
+        start = os.path.expandvars(os.path.expanduser(have[-1])) if have else os.path.expanduser("~")
+        got = QFileDialog.getExistingDirectory(self, "Add a folder", start)
+        if not got:
+            return
+        got = os.path.normpath(got)
+        same = lambda p: os.path.normcase(os.path.normpath(os.path.expandvars(os.path.expanduser(p))))
+        if any(same(p) == same(got) for p in have):
+            bubble.tell(self.add_folder_btn, "Folder already added")
+            return
+        have.append(got)
+        self.folders_changed()
+
+    def remove_folder(self, path):
+        """A folder off the list (its ✕), with Undo in the window's line, which puts it back in its place (UI-RULES
+        20). With no folder left, the usual folders are searched: the empty list says so."""
+        have = self.folder_list()
+        if path not in have:
+            return
+        at = have.index(path)
+        have.remove(path)
+        self.folders_changed()
+
+        def undo():
+            now = self.folder_list()
+            if path not in now:
+                now.insert(min(at, len(now)), path)
+                self.folders_changed()
+        name = path.replace("\\", "/").rstrip("/").split("/")[-1] or path
+        self.footer.say(f"Removed “{name}”", undo=undo)
 
     def rescan(self):
         self.svc.call("/api/settings", {"settings": self.page.S})
@@ -223,21 +288,24 @@ class Sources(QDialog):
         rows = [dict(d, on=(d["name"] not in S["databases"]["disabled"]) if d.get("on", True)
                      else d["name"] in S["databases"]["enabled"], builtin=d.get("on", True), extra=False)
                 for d in meta.get("database_sites") or []]
-        # (only ones still yours: one just removed or unticked came straight back from the last status)
+        # (only ones still yours: one just removed came straight back from the last status. One switched off stays a
+        # row with no list loaded: named as the EQ part names it, its address without "https://")
         mine = {url_key(u) for u in S["databases"]["extra"]}
-        rows += [{"name": s["name"], "url": s["url"], "group": s.get("group") or "added", "on": True, "extra": True,
-                  "builtin": False} for s in self.st.get("sites") or [] if s.get("extra") and url_key(s["url"]) in mine]
+        off = {url_key(u) for u in S["databases"]["extra_off"]}
+        rows += [{"name": s["name"], "url": s["url"], "group": s.get("group") or "added",
+                  "on": url_key(s["url"]) not in off, "extra": True, "builtin": False}
+                 for s in self.st.get("sites") or [] if s.get("extra") and url_key(s["url"]) in mine]
         for u in S["databases"]["extra"]:
             if not any(url_key(r["url"]) == url_key(u) for r in rows):
-                rows.append({"name": u.split("://")[-1], "url": u, "group": "added", "on": True, "extra": True,
-                             "builtin": False})
+                rows.append({"name": u.split("://")[-1].rstrip("/"), "url": u, "group": "added",
+                             "on": url_key(u) not in off, "extra": True, "builtin": False})
         return rows, by_url
 
     def set_on(self, d, on):
         db = self.page.S["databases"]
-        if d["extra"]:
-            if not on:
-                db["extra"] = [u for u in db["extra"] if url_key(u) != url_key(d["url"])]
+        if d["extra"]:  # (a page you added stays in the list, switched off: only its ✕ removes it)
+            kept = [u for u in db["extra_off"] if url_key(u) != url_key(d["url"])]
+            db["extra_off"] = kept if on else kept + [d["url"]]
             return
         key = "disabled" if d["builtin"] else "enabled"
         names = set(db[key])
@@ -319,20 +387,13 @@ class Sources(QDialog):
             if state == Qt.PartiallyChecked:
                 return
             on = state == Qt.Checked
-            rows = [it.child(i).data(0, Qt.UserRole)[1] for i in range(it.childCount())]
-            # (titled by what's being done, No the default: the ones you added can't be had back here, UI-RULES 17)
-            if not on and any(r["extra"] for r in rows) and QMessageBox.question(
-                    self, "Disable them", "Disabling removes your added databases. Continue?",
-                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
-                # (not inside the item's own signal: render deletes it; the window its owner, so a window closed
-                # and deleted meanwhile drops it instead of reaching for its deleted tree)
-                QTimer.singleShot(0, self, self.render)
-                return
-            for r in rows:
+            for r in [it.child(i).data(0, Qt.UserRole)[1] for i in range(it.childCount())]:
                 self.set_on(r, on)
         else:
             self.set_on(d, it.checkState(0) == Qt.Checked)
         self.changed()
+        # (not inside the item's own signal: render deletes it; the window its owner, so a window closed and deleted
+        # meanwhile drops it instead of reaching for its deleted tree)
         QTimer.singleShot(0, self, self.render)
 
     def item_clicked(self, it, col):
@@ -345,11 +406,27 @@ class Sources(QDialog):
             QDesktopServices.openUrl(QUrl(d["url"]))
 
     def remove_added(self, d):
-        """A database you added, off the list (its ✕), with Undo in the window's line (UI-RULES 20)."""
-        self.set_on(d, False)
+        """A database you added, off the list (its ✕), with Undo in the window's line, which puts it back in its place,
+        on or off as it was (UI-RULES 20)."""
+        db = self.page.S["databases"]
+        key = url_key(d["url"])
+        at = next((i for i, u in enumerate(db["extra"]) if url_key(u) == key), len(db["extra"]))
+        was_off = any(url_key(u) == key for u in db["extra_off"])
+        db["extra"] = [u for u in db["extra"] if url_key(u) != key]
+        db["extra_off"] = [u for u in db["extra_off"] if url_key(u) != key]
         self.changed()
         QTimer.singleShot(0, self, self.render)  # (not inside its own button's click: render deletes the button)
-        self.footer.say(f"Removed “{d['name']}”", undo=lambda: self.add_database(d["url"]))
+
+        def undo():
+            if any(url_key(u) == key for u in db["extra"]):  # (added again meanwhile)
+                return
+            db["extra"].insert(min(at, len(db["extra"])), d["url"])
+            if was_off:
+                db["extra_off"].append(d["url"])
+            self.changed()
+            self.render()
+            self.render_squiglink_list()
+        self.footer.say(f"Removed “{d['name']}”", undo=undo)
 
     def refresh(self, force=False):
         self.svc.call("/api/db/refresh", {"settings": self.page.S, "force": force})

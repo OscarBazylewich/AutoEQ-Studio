@@ -424,3 +424,14 @@ def test_list_error_of_the_code_keeps_its_type_name(db_guard, monkeypatch, tmp_p
           said == {"key": ["KeyError: 'items'"], "type": ["TypeError: string indices must be integers"],
                    "index": ["IndexError"], "http": ["HTTP Error 404: Not Found"],
                    "connection": ["<urlopen error no answer>"], "offline": ["Offline."]}, said)
+
+
+def test_added_database_switched_off_not_loaded(db_guard, check):
+    # (the control audit, 2026-11-27, 4-1: an added database switched off in Sources stays in "extra" and is listed in
+    # "extra_off": its list is not loaded, so Find… does not show its entries. Nothing is downloaded: sites_for only
+    # names the databases)
+    cfg = settings.clamp(settings.with_auto({"databases": {
+        "extra": ["https://on.example.org/", "https://off.example.org/"], "extra_off": ["https://off.example.org"]}}))
+    urls = [s["url"] for s in databases.sites_for(cfg) if s.get("extra")]
+    check("databases: an added database that is switched off is not loaded; the other added one is",
+          urls == ["https://on.example.org/"], urls)

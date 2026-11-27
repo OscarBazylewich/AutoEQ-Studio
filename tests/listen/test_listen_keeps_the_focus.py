@@ -174,8 +174,12 @@ def test_the_versions_keep_the_focus(eq_screen, listen, check):
           "and the next Right selects the version after it (the first Right gave the focus to Ears, and the second "
           "Right selected no version); then Tab goes to Ears, and Shift+Tab back to the lit version's button; with "
           "Ears and the versions' buttons all in sight before the keys, the page does not move",
-          [ok for _n, ok in right] == [True, True] and out is lis.ears and back is _at(_versions(lis), 2)
-          and seen and bar.value() == at, (right, _name(out), _name(back), seen, at, bar.value()))
+          # (one of Ears' round buttons: Ears is two round buttons since the control audit, 2026-11-27, 4-9; each is
+          # a Tab stop, as every control: test_eq_accessibility.py)
+          [ok for _n, ok in right] == [True, True] and out in (lis.ears.both, lis.ears.split)
+          and back is _at(_versions(lis), 2)
+          and seen and bar.value() == at, (right, _name(out), out is lis.ears.both, out is lis.ears.split,
+                                           lis.ears.currentData(), _name(back), seen, at, bar.value()))
     f = _key(Qt.Key_1)[0]
     check("listen: the key 1 while a version's button has the focus selects version 1 and gives its button the focus "
           "(the focus went to Ears)",

@@ -165,10 +165,23 @@ def apo_on(set_up_window):
         yield set_up_window
 
 
+def _bubbles_told(monkeypatch, told):
+    """Examine again's answer: a bubble at its button since the control audit (2026-11-27, 1-3), recorded in told as
+    ("bubble", the button, the words); it was a message box that waited for OK."""
+    from ui import bubble
+    monkeypatch.setattr(bubble, "tell", lambda anchor, text, *a, **k: told.append(("bubble", anchor, text)))
+
+
+def _at_examine_again(win, x):
+    """x was told in a bubble at an Examine again that shows."""
+    return isinstance(x, tuple) and x[0] == "bubble" and x[1] is not None and x[1].text() == "Examine again" \
+        and x[1].isVisibleTo(win)
+
+
 def test_check_again(set_up_window, check, monkeypatch):
     # Is the EQ playing? Benchmark's answer (a stand-in for it here) on the device's line and, with Check again, said
     # in full
-    from PySide6.QtWidgets import QMessageBox, QPushButton
+    from PySide6.QtWidgets import QPushButton
     from switcher import check as apo_check
     w = set_up_window
     win, sw = w.win, w.sw
@@ -180,11 +193,11 @@ def test_check_again(set_up_window, check, monkeypatch):
     monkeypatch.setattr(apo_check, "run", lambda apo, guid, timeout=60: (told.append(guid), {
         "loaded": [apo.config_txt, os.path.join(apo.config, "AutoEQ Studio", "switcher.txt"), pfile],
         "matched": ["{5}"]})[1])
-    monkeypatch.setattr(QMessageBox, "information", staticmethod(lambda *a, **k: told.append(("ok", a[2]))))
-    monkeypatch.setattr(QMessageBox, "warning", staticmethod(lambda *a, **k: told.append(("not", a[2]))))
+    _bubbles_told(monkeypatch, told)
     if chk:
         chk[0].click()
         qt.wait_for(lambda: len(told) >= 2, 10)
+    told = [(x[0], x[2]) if _at_examine_again(win, x) else x for x in told]
     monkeypatch.undo()  # (put back before the line is read, as the old check did)
     line = win.check_label.text() if win.check_label is not None else ""
     bar = (win.check_warn is not None and win.check_warn.isVisibleTo(win), win.check_warn_text.text()
@@ -192,9 +205,9 @@ def test_check_again(set_up_window, check, monkeypatch):
     name = sw.profiles()[rec["active"]]["name"]
     # was selftest.py:424. (The owner, 2026-11-25: the card's own warning bar says that APO isn't installed on the
     # device, so the line shows the rest of the answer, a gray note with no ✓, not a second warning bar)
-    check("window: Check again asks APO for the device's endpoint and says all it found (its EQ applies, but APO "
-          "isn't on the device); the device's line shows the rest, not a second warning bar",
-          len(chk) == 1 and "{5}" in told and any(isinstance(x, tuple) and x[0] == "not" and "device section found and EQ file loaded"
+    check("window: Check again asks APO for the device's endpoint and says all it found in a bubble at Examine again "
+          "(its EQ applies, but APO isn't on the device); the device's line shows the rest, not a second warning bar",
+          len(chk) == 1 and "{5}" in told and any(x[0] == "bubble" and "device section found and EQ file loaded"
                                                    in x[1] and "isn't installed on this device" in x[1] for x in told)
           and line == f"APO is using “{name}”" and win.check_label.property("role") == "muted"
           and "device section found and EQ file loaded" in win.check_label.toolTip()
@@ -211,8 +224,7 @@ def _visible_not_installed(win):
 def test_one_not_installed_sentence_on_a_device_without_apo(set_up_window, check, monkeypatch):
     # (the owner, 2026-11-25: on a device without Equalizer APO, the card's warning bar says so; a problem of the
     # configuration still shows as the line's warning bar, with Examine again, but without "Also, Equalizer APO isn't
-    # installed …", and every other finding stays; the message box of Examine again has all of the answer)
-    from PySide6.QtWidgets import QMessageBox
+    # installed …", and every other finding stays; the bubble of Examine again has all of the answer)
     from switcher import check as apo_check
     w = set_up_window
     win, sw = w.win, w.sw
@@ -222,13 +234,13 @@ def test_one_not_installed_sentence_on_a_device_without_apo(set_up_window, check
     monkeypatch.setattr(apo_check, "run", lambda apo, guid, timeout=60: {
         "loaded": [apo.config_txt, other, os.path.join(apo.config, "AutoEQ Studio", "switcher.txt")],
         "matched": ["{5}"]})
-    for kind in ("information", "warning"):
-        monkeypatch.setattr(QMessageBox, kind, staticmethod(lambda *a, **k: told.append(a[2])))
+    _bubbles_told(monkeypatch, told)
     try:
         win._checks.clear()
         win.check_device(KEY)
         qt.wait_for(lambda: told, 10)
     finally:
+        told = [x[2] for x in told]
         monkeypatch.undo()
     bar_text, tip = win.check_warn_text.text(), win.check_warn_text.toolTip()
     shown = (win.check_warn.isVisibleTo(win), win.check_row.isVisibleTo(win), _visible_not_installed(win))
@@ -243,7 +255,7 @@ def test_one_not_installed_sentence_on_a_device_without_apo(set_up_window, check
 
 def test_check_again_on_a_device_with_apo(apo_on, check, monkeypatch):
     # (as test_check_again, with Equalizer APO on the device; its answer is bad: the profile's file is not loaded)
-    from PySide6.QtWidgets import QMessageBox, QPushButton
+    from PySide6.QtWidgets import QPushButton
     from switcher import check as apo_check
     w = apo_on
     win, sw = w.win, w.sw
@@ -255,19 +267,21 @@ def test_check_again_on_a_device_with_apo(apo_on, check, monkeypatch):
     monkeypatch.setattr(apo_check, "run", lambda apo, guid, timeout=60: (told.append(guid), {
         "loaded": [apo.config_txt, os.path.join(apo.config, "AutoEQ Studio", "switcher.txt")],
         "matched": ["{5}"]})[1])
-    monkeypatch.setattr(QMessageBox, "information", staticmethod(lambda *a, **k: told.append(("ok", a[2]))))
-    monkeypatch.setattr(QMessageBox, "warning", staticmethod(lambda *a, **k: told.append(("not", a[2]))))
+    _bubbles_told(monkeypatch, told)
     if chk:
         chk[0].click()
         qt.wait_for(lambda: len(told) >= 2, 10)
+    # (the line's Examine again went with the bad answer: the bubble is at the warning bar's, which shows)
+    told = [(x[0], x[2], x[1] is not chk[0]) if _at_examine_again(win, x) else x for x in told]
     monkeypatch.undo()  # (put back before the line is read, as the old check did)
     line = win.check_label.text() if win.check_label is not None else ""
     bar = (win.check_warn is not None and win.check_warn.isVisibleTo(win), win.check_warn_text.text()
            if win.check_warn is not None else "", win.check_row is not None and win.check_row.isVisibleTo(win))
     # was selftest.py:424 (the UI audit, 2026-11-08: a bad answer is Windows 11's warning bar, with Examine again in it)
-    check("window: Check again asks APO for the device's endpoint and says all it found (the profile is selected, but "
-          "APO isn't loading its file); the device's line says it too, as a warning bar in the line's place",
-          len(chk) == 1 and "{5}" in told and any(isinstance(x, tuple) and x[0] == "not"
+    check("window: Check again asks APO for the device's endpoint and says all it found in a bubble at the Examine "
+          "again that shows (the profile is selected, but APO isn't loading its file); the device's line says it too, "
+          "as a warning bar in the line's place",
+          len(chk) == 1 and "{5}" in told and any(isinstance(x, tuple) and x[0] == "bubble" and x[2]
                                                   and f"“{name}” is selected, but APO isn't loading it" in x[1]
                                                   for x in told)
           and line == f"“{name}” is selected, but APO isn't loading it" and bar[0] and bar[1] == line
@@ -276,24 +290,53 @@ def test_check_again_on_a_device_with_apo(apo_on, check, monkeypatch):
 
 def test_examine_again_shows_no_wait_message(apo_on, check, monkeypatch):
     # (the text survey, area 27, 2026-11-24: Examine again shows no message while it waits; the line beside it says
-    # "Checking Equalizer APO…", and then the message box shows all the results)
-    from PySide6.QtWidgets import QMessageBox
+    # "Checking Equalizer APO…", and then a bubble at Examine again shows all the results)
     from switcher import check as apo_check
     win = apo_on.win
     win._checks.clear()
     said, boxes, line = [], [], []
     monkeypatch.setattr(win, "status", lambda *a, **k: said.append(a[0] if a else k))
     monkeypatch.setattr(apo_check, "run", lambda apo, guid, timeout=60: {"loaded": [], "matched": []})
-    for kind in ("information", "warning"):
-        monkeypatch.setattr(QMessageBox, kind, staticmethod(lambda *a, **k: boxes.append(a[2])))
+    _bubbles_told(monkeypatch, boxes)
     real = win._show_check
     monkeypatch.setattr(win, "_show_check", lambda key: (real(key), line.append(win.check_label.text()))[0])
     win.check_device(KEY)
     qt.wait_for(lambda: boxes, 10)
+    boxes = [x[2] for x in boxes if _at_examine_again(win, x)]
     monkeypatch.undo()
-    check("devices: Examine again shows no message while it waits; the line says “Checking Equalizer APO…”, then the "
-          "message box shows the result", said == [] and "Checking Equalizer APO…" in line and len(boxes) == 1
-          and boxes[0].startswith("Equalizer APO isn't loading AutoEQ Studio"), (said, line, boxes))
+    check("devices: Examine again shows no message while it waits; the line says “Checking Equalizer APO…”, then a "
+          "bubble at Examine again shows the result", said == [] and "Checking Equalizer APO…" in line
+          and len(boxes) == 1 and boxes[0].startswith("Equalizer APO isn't loading AutoEQ Studio"), (said, line, boxes))
+
+
+def test_examine_again_answer_after_leaving_the_card(apo_on, check, monkeypatch):
+    # (the control audit, 2026-11-27, 1-3: Benchmark may answer up to 60 s later. With the device's card no longer in
+    # sight (another screen), no bubble points at a hidden button: the window's message says the answer, with the
+    # device's name; it was a message box on any screen)
+    from switcher import check as apo_check
+    from switcher.core import shown
+    win, sw = apo_on.win, apo_on.sw
+    win._checks.clear()
+    said, told, answer = [], [], threading.Event()
+    monkeypatch.setattr(win, "status", lambda *a, **k: said.append(a[0] if a else k))
+    # (Benchmark, stood in, answers only after the screen changed: it runs in a thread of its own)
+    monkeypatch.setattr(apo_check, "run", lambda apo, guid, timeout=60: (answer.wait(10),
+                                                                         {"loaded": [], "matched": []})[1])
+    _bubbles_told(monkeypatch, told)
+    try:
+        win.check_device(KEY)
+        win.show_page("settings")  # (while Equalizer APO is asked)
+        qt.pump(50)
+        answer.set()
+        qt.wait_for(lambda: said, 10)
+    finally:
+        monkeypatch.undo()
+        win.show_page("devices")
+        qt.pump(50)
+    want = f"{shown(sw.record(KEY))}: Equalizer APO isn't loading AutoEQ Studio"
+    check("devices: an answer of Examine again that comes with the device's card out of sight is the window's message, "
+          "with the device's name, not a bubble at a hidden button",
+          told == [] and len(said) == 1 and said[0].startswith(want), (told, said))
 
 
 def test_line_asked_once_per_change(apo_on, check, monkeypatch, qapp):

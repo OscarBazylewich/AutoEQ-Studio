@@ -14,7 +14,7 @@ import subprocess
 from PySide6.QtCore import QRect, QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QIcon, QPainter
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QGroupBox, QHBoxLayout, QLabel,
-                               QListWidget, QListWidgetItem, QMenu, QMessageBox, QPushButton, QRadioButton,
+                               QListWidget, QListWidgetItem, QMenu, QPushButton, QRadioButton,
                                QSizePolicy, QSplitter, QStyle, QStyledItemDelegate, QStyleOptionButton,
                                QStyleOptionViewItem, QStylePainter, QToolButton, QVBoxLayout, QWidget)
 
@@ -495,7 +495,7 @@ class DevicesScreen:
 
     def _check_job(self, key):
         """What asking APO about a device needs: (the work, a function giving (ok, text, line) from its answer), or
-        None when Windows doesn't list the device now. ok and text: all of the answer (Examine again's message box);
+        None when Windows doesn't list the device now. ok and text: all of the answer (Examine again's bubble);
         line: what the device's line shows when it differs from (ok, text), see device_line."""
         from switcher import check
         from switcher import devices as D
@@ -619,9 +619,30 @@ class DevicesScreen:
         if self._check_job(key) is None:
             bubble.tell(None, "Device not found in Windows. Connect it first.", near=self)
             return
-        # (no message while it waits: the line beside Examine again says "Checking Equalizer APO…", and a message
-        # box then shows all the results; the message went with the text survey, 2026-11-24)
+        # (no message while it waits: the line beside Examine again says "Checking Equalizer APO…", and a bubble then
+        # shows all the results; the message went with the text survey, 2026-11-24)
 
         def said(got):
-            (QMessageBox.information if got[1] else QMessageBox.warning)(self, f"Examine: {shown(rec)}", got[2])
+            """All of the answer, in a bubble at the Examine again in sight (the line and the warning bar swap, each
+            with its own), which stays until a click elsewhere, ✕ or Esc. It was a message box that waited for OK
+            (the control audit, 2026-11-27, 1-3). The answer can come up to 60 s later (Benchmark): with this
+            device's card no longer in sight, the window's message says it, with the device's name (UI-RULES 24)."""
+            btn = self.examine_button(key)
+            if btn is not None:
+                bubble.tell(btn, got[2])
+            else:
+                self.status(f"{shown(rec)}: {got[2]}")
         self._auto_check(key, force=True, then=said)
+
+    def examine_button(self, key):
+        """The Examine again of this device's card that is in sight, or None (another device, another screen)."""
+        try:
+            if key != self.selected:
+                return None
+            for part in (self.check_warn, self.check_row):
+                btn = part.findChild(QPushButton) if part is not None else None
+                if btn is not None and btn.isVisibleTo(btn.window()) and bubble.in_view(btn, btn.window()):
+                    return btn
+        except RuntimeError:  # (the card was drawn again meanwhile)
+            pass
+        return None

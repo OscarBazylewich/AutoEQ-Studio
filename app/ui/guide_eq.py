@@ -153,6 +153,10 @@ def eq_steps(page):
             m.hover(0)
             yield 2200
             api.close(m)
+        sources = button(pk, "Sources…")
+        if sources is not None:  # (where Find… looks: the folders of this PC, a list with Add a folder…, 4-6)
+            yield from api.at(sources, 0.5, 0.5, 1500,
+                              say="Sources…: the folders of this PC (Add a folder…) and the online databases")
 
     def compare_window_demo(api):
         """Which measurement to use?, shown (its search isn't run: that would download measurements)."""
@@ -542,13 +546,13 @@ def eq_steps(page):
         with QSignalBlocker(L.blind):
             L.blind.setChecked(False)
         L.render_versions()
-        k = L.ears.findData("split")
-        if k >= 0:
-            api.say("Or a different version in each ear (also interchange them, because your ears are different)")
-            yield from mock_combo(api, L.ears, k)
-            L.render_versions()
-            api.spot_on(L.split_row)
-            yield 1500
+        # (Ears: two round buttons since the control audit, 2026-11-27, 4-9; a drop-down before)
+        api.say("Or a different version in each ear (also interchange them, because your ears are different)")
+        yield from api.click(L.ears.split, 0.1)
+        api.stage_blocked(L.ears.currentData, L.ears.set_data, "split", L.ears)
+        L.render_versions()
+        api.spot_on(L.split_row)
+        yield 1500
 
     def abx_demo(api):
         L = page.listen
@@ -667,7 +671,8 @@ def eq_steps(page):
         {"chapter": "1 · Select", "title": "Many results?", "target": lambda: page.measurement_box,
          "text": "The rig tag of each result shows the rig of the measurement. A ⇄ after it: a rig change by its "
                  "database. The lists above the results show only one rig, type or source (“Same rig as your target” "
-                 "first). Their items are from A to Z, with a search box that finds a source from a part of its name.",
+                 "first). Their items are from A to Z, with a search box that finds a source from a part of its name. "
+                 "Sources… sets where Find… looks: the folders of this PC (Add a folder…) and the online databases.",
          "demo": [{"click": lambda: button(page.measurement_box, "Find…"), "say": "Search again",
                    "then": many_results_demo}]},
         {"chapter": "1 · Select", "title": "More than one measurement of the same model?",

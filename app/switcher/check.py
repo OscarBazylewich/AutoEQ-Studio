@@ -50,8 +50,8 @@ def explain(apo, found, profile_name=None, profile_file=None, apo_on_device=True
         lines.append("config.txt also loads these files for this device: "
                      + ", ".join(os.path.basename(f) for f in others))
     if not apo_on_device and not said_on_card:
-        # (for all of the answer, Examine again's message box: first when the configuration is right, so that the
-        # box opens with the reason EQ won't apply; after a problem with the configuration itself, which comes first)
+        # (for all of the answer, Examine again's bubble: first when the configuration is right, so that the
+        # bubble opens with the reason EQ won't apply; after a problem with the configuration itself, which comes first)
         missing = ("Equalizer APO isn't installed on this device, so EQ won't apply. Enable it in APO Configurator, "
                    "then restart Windows.")
         if ok:
@@ -63,7 +63,7 @@ def explain(apo, found, profile_name=None, profile_file=None, apo_on_device=True
 
 
 def join(lines):
-    """explain's sentences as one text (the tooltip and the message box Examine show all of it). The owner's words of
+    """explain's sentences as one text (the tooltip and Examine again's bubble show all of it). The owner's words of
     the text survey (2026-11-24) end some sentences without a full stop; one is put between two sentences, so that
     the next does not run on ("… to this device config.txt also loads …"), and the last keeps the owner's end."""
     return " ".join(s if i == len(lines) - 1 or s.endswith((".", "!", "?")) else s + "."

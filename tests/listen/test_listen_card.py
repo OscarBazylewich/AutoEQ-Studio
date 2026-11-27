@@ -48,7 +48,7 @@ def test_versions_and_play(card, check):
     # first choice, meant to be "both"; since the drop-downs are A to Z that's "A different version in each ear", so
     # the keys and Blind test below ran with the ears split: Blind greyed out, and the keys changing a version that
     # wasn't heard)
-    lis.ears.setCurrentIndex(lis.ears.findData("both"))
+    lis.ears.set_data("both")
     lis.ears_changed()
     keys = [k for k, *_ in lis.versions()]
     lis.play()
@@ -160,7 +160,7 @@ def test_blind_test(card, check):
 def test_version_in_each_ear_and_swap(card, check):
     lis = card.lis
     lis.blind.setChecked(False)
-    lis.ears.setCurrentIndex(lis.ears.findData("split"))
+    lis.ears.set_data("split")
     lis.ears_changed()
     # was eq_checks.py:2964
     check("listen: a different version in each ear (EQ off left, the EQ right; Swap)",
@@ -169,6 +169,30 @@ def test_version_in_each_ear_and_swap(card, check):
     # (the text survey, 2026-11-24: the line had one more sentence with a version in each ear, and the volume)
     check("listen: with a different version in each ear, the gray line at the top is the same one sentence",
           lis.note.text() == f"Listen with {card.page.curves['name']}.", lis.note.text())
+
+
+def test_ears_are_two_round_buttons(card, check):
+    # (the control audit, 2026-11-27, 4-9: Ears was a drop-down of two choices, A to Z, so the default came second.
+    # Now two round buttons, the default first; a click on one switches the ears and is kept for the next start)
+    from PySide6.QtCore import QPoint
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QComboBox, QRadioButton
+    lis, sw = card.lis, card.sw
+    lis.blind.setChecked(False)
+    lis.ears.set_data("both")
+    lis.ears_changed()
+    radios = [b for b in lis.compare_row.findChildren(QRadioButton)]
+    seen = {"buttons": [b.text() for b in radios], "no list": not lis.ears.findChildren(QComboBox),
+            "on": [b.isChecked() for b in radios]}
+    QTest.mouseClick(lis.ears.split, Qt.LeftButton, Qt.NoModifier, QPoint(8, lis.ears.split.height() // 2))
+    seen["clicked"] = (lis.engine.ears, (sw.s.get("listen") or {}).get("ears"), lis.split_row.isVisibleTo(lis))
+    QTest.mouseClick(lis.ears.both, Qt.LeftButton, Qt.NoModifier, QPoint(8, lis.ears.both.height() // 2))
+    seen["back"] = (lis.engine.ears, (sw.s.get("listen") or {}).get("ears"), lis.ab_box.isVisibleTo(lis))
+    check("listen: Ears is two round buttons, “The same version in each ear” (the default, on) first, then “A "
+          "different version in each ear”; a click on one switches the ears and is kept",
+          seen["buttons"] == ["The same version in each ear", "A different version in each ear"]
+          and seen["no list"] and seen["on"] == [True, False]
+          and seen["clicked"] == ("split", "split", True) and seen["back"] == ("both", "both", True), seen)
 
 
 def test_one_version_tells_how_to_get_a_second(card, monkeypatch, check):
@@ -367,19 +391,49 @@ def test_tone_shown_pasted_eq_and_undo(card, monkeypatch, check):
           and len(lis.pins) == n + 1, (tone_text, pasted_note, row_notes, undo_shown, len(lis.pins), n))
 
 
-def test_tone_range_values_used_and_kept(card, check):
+def _type_in(box, text):
+    """A box emptied and text typed in it, as keys (Qt's textEdited comes as with a person's typing)."""
+    from PySide6.QtTest import QTest
+    box.selectAll()
+    QTest.keyClick(box, Qt.Key_Delete)
+    QTest.keyClicks(box, text)
+
+
+def test_tone_range_values_used_and_kept(card, monkeypatch, check):
+    # (the control audit, 2026-11-27, 4-4: Tone from and to said nothing: "nan" or "abc" went back to the value
+    # before and 5 became 20 with no word. Now as the app's other number boxes: red with the reason in its tooltip,
+    # and a value past a limit moved to the limit on leaving, with "Adjusted to … (allowed: …)")
+    from PySide6.QtTest import QTest
     page, lis = card.page, card.lis
-    lis.tone_from.setText("nan")
-    lis.tone_to.setText("5")
-    lis.tone_range_done()
+    said = []
+    monkeypatch.setattr(page, "status", lambda text, *a, **k: said.append(text))
+    red = lambda b: b.property("bad") == "true"
+    _type_in(lis.tone_to, "50")
+    _type_in(lis.tone_from, "100")  # (above To)
+    seen = {"above To": (red(lis.tone_from), lis.tone_from.toolTip(), lis.tone_vals["tone.from"])}
+    _type_in(lis.tone_from, "nan")
+    seen["nan"] = (red(lis.tone_from), lis.tone_from.toolTip(), lis.tone_vals["tone.from"])
+    _type_in(lis.tone_from, "20")
+    seen["20"] = (red(lis.tone_from), lis.tone_from.toolTip(), lis.tone_vals["tone.from"])
+    _type_in(lis.tone_to, "5")
+    seen["5"] = (red(lis.tone_to), lis.tone_to.toolTip())
+    QTest.keyClick(lis.tone_to, Qt.Key_Return)  # (as leaving the box)
+    seen["left"] = (lis.tone_to.text(), red(lis.tone_to), list(said))
     kept = {k: (page.sw.s.get("listen") or {}).get(k) for k in ("tone_from", "tone_to")}
     # was eq_checks.py:1929
     check("listen: the tone's From and To show the values used (\"nan\", 5 Hz) and are kept for the next start",
           (lis.tone_from.text(), lis.tone_to.text()) == ("20", "20") and kept == {"tone_from": 20, "tone_to": 20}
           and lis.tone_lab.text().endswith("Hz"), (lis.tone_from.text(), lis.tone_to.text(), kept))
-    lis.tone_from.setText("20")  # (back to the whole range, as the old check left it: lines 1932-1934)
-    lis.tone_to.setText("20000")
-    lis.tone_range_done()
+    check("listen: Tone from and to as the other number boxes: a value that isn't a number is red with “Enter a "
+          "number”, From above To red with “Must be at most …”, neither used; a value past a limit is red with "
+          "“Allowed: 20 to 20000 Hz”, and on leaving moves to the limit with “Adjusted to 20 (allowed: 20 to 20000 "
+          "Hz)”",
+          seen["above To"] == (True, "Must be at most 50 Hz", 20) and seen["nan"] == (True, "Enter a number", 20)
+          and seen["20"] == (False, "", 20) and seen["5"] == (True, "Allowed: 20 to 20000 Hz")
+          and seen["left"][:2] == ("20", False) and "Adjusted to 20 (allowed: 20 to 20000 Hz)" in seen["left"][2], seen)
+    for box, text in ((lis.tone_to, "20000"), (lis.tone_from, "20")):  # (back to the whole range, as the old check
+        _type_in(box, text)  # left it: lines 1932-1934)
+    monkeypatch.undo()
 
 
 # ---------------------------------------------------------------- the Windows 11 look (2026-10-23)
@@ -430,7 +484,7 @@ def test_version_marks_follow_the_theme(card, check):
     from ui.listen import COLOURS
     s, lis = card.s, card.lis
     lis.blind.setChecked(False)
-    lis.ears.setCurrentIndex(lis.ears.findData("both"))
+    lis.ears.set_data("both")
     lis.ears_changed()
     want = ["meas", "with_eq"] + [COLOURS[p.get("color", i) % len(COLOURS)] for i, p in enumerate(lis.pins)]
     seen = {}
@@ -565,7 +619,7 @@ def test_paste_ok_is_the_main_action(card, monkeypatch, check):
           (seen, len(lis.pins), n, left))
 
 
-def test_eq_file_read_as_by_hand_reads_it(card, dialogs, check):
+def test_eq_file_read_as_by_hand_reads_it(card, dialogs, monkeypatch, check):
     # (2026-10-27, UI-RULES 16: one reader for an EQ's file: Listen's read Equalizer APO's lines only, so a Room EQ
     # Wizard export or a Peace preset worked in By hand but not here)
     lis = card.lis
@@ -580,13 +634,24 @@ def test_eq_file_read_as_by_hand_reads_it(card, dialogs, check):
     if len(lis.pins) > n:  # (the list as it was, for the checks after this one)
         lis.pins = lis.pins[:n]
         lis.save_pins()
-    lis._add_text("Filter  1: ON  LP       Fc   18000 Hz\n", "Low-pass only", "pasted")
-    lis._add_text("no EQ here", "Nothing", "pasted")
-    refused = [t for kind, t in dialogs.asked if kind == "warning"][-2:]
+    # (the control audit, 2026-11-27, 4-3: these two refusals were message boxes; now a bubble at the button, as the
+    # same buttons' other refusals)
+    from ui import bubble
+    paste, told_at = lis.add_btns["Paste filters…"], []
+    with monkeypatch.context() as m:
+        m.setattr(bubble, "tell", lambda anchor, text, *a, **k: told_at.append((anchor, text)))
+        lis._add_text("Filter  1: ON  LP       Fc   18000 Hz\n", "Low-pass only", "pasted", at=paste)
+        lis._add_text("no EQ here", "Nothing", "pasted", at=paste)
+    refused = [t for _a, t in told_at]
+    at = {a for a, _t in told_at}
+    at = at.pop() if len(at) == 1 else at
+    boxes = [t for kind, t in dialogs.asked if kind == "warning" and t in refused]
     check("listen: text with only items that an EQ here can't have, and text with no filters: each is refused with "
           "its own words, and no EQ is added",
           len(lis.pins) == n and len(refused) == 2 and refused[0].startswith("Unsupported items: ")
           and not refused[0].endswith(".") and refused[1] == "No filters found in this text", refused)
+    check("listen: those two refusals are a bubble at the button (Paste filters…), not a message box",
+          at is paste and not boxes, (at, boxes))
     check("listen: an EQ file or pasted text is read as By hand reads it (a Room EQ Wizard export: its peak and its "
           "shelf), and what an EQ here can't have (its low-pass) is said",
           added.get("name") == "REW check" and len(added.get("filters", [])) == 2 and told

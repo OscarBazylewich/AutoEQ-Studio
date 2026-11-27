@@ -163,6 +163,16 @@ def test_choices(check):
           len(urls))
 
 
+def test_choices_keep_a_switched_off_page(check):
+    # (the control audit, 2026-11-27, 4-1: an added page switched off in Sources stays in the list "Which website to
+    # copy", as a built-in database switched off does: off means not in Find…'s lists; its ✕ takes it out of the app)
+    cfg = {"databases": {"extra": ["https://my-own.squig.link/"], "extra_off": ["https://my-own.squig.link/"],
+                         "disabled": [databases.SITES[1]["name"]]}}
+    urls = [databases.norm_url(v[5:]) for v, _ in site_values.choices(settings.with_auto(cfg))]
+    check("site values: a page that you added and switched off stays in the list, as a built-in database switched off",
+          "https://my-own.squig.link" in urls and databases.norm_url(databases.SITES[1]["url"]) in urls, len(urls))
+
+
 # ---------------------------------------------------------------- which database a measurement is from
 def test_site_of(fresh_studio, check):
     rigs.record_source(["A L.txt", "A R.txt"], {"site_url": HBB, "site": "HBB"})

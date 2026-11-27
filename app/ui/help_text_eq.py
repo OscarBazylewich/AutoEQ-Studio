@@ -677,8 +677,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                           {'key': 'pk_filters',
                            'title': 'Rig, Type and Source lists',
                            'body': ['They make a long list shorter. Rig: one rig (for a measurement, first “Same rig '
-                                    'as your target”). Type: IEM, headphone or earbud. Source: one database, the app '
-                                    'or this PC. Each item shows how many results it gives. The app keeps your '
+                                    'as your target”). Type: IEM, headphone or earbud. Source: one database (the tabs '
+                                    'show the app or this PC). Each item shows how many results it gives. The app keeps your '
                                     'selections.',
                                     'The items are from A to Z, and each list opens with a search box. Type a part of '
                                     'a name (each word must be in the name). Then click the item or press Enter.']},
@@ -813,15 +813,18 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                {'title': 'Find… › Sources',
                 'items': [{'key': 'library.folders',
                            'title': 'Folders to search',
-                           'body': ['The folders in which the app searches for curve files, one on each line, with the '
-                                    'folders in them. Empty: your Downloads, Documents, Desktop and Music folders. The '
+                           'body': ['The folders in which the app searches for curve files, with the folders in them. '
+                                    'Add a folder… opens Windows\' folder dialog; a folder\'s ✕ removes it (with Undo). '
+                                    'With no folders added: your Downloads, Documents, Desktop and Music folders. '
+                                    'Search again searches the folders again for new files. The '
                                     'app does not search its downloads folder: its curves are the copies of the online '
                                     'databases on this PC (also offline).']},
                           {'key': 'databases',
                            'title': 'Online databases',
                            'body': ['All the online databases that Find… uses. To remove one from Find…, disable it. '
                                     'The app updates the lists automatically at intervals of some days. Add a '
-                                    'database: one from the list of squig.link, or a page of the same type.']}]},
+                                    'database: one from the list of squig.link, or a page of the same type. A database '
+                                    'that you added stays in the list when disabled; its ✕ removes it (with Undo).']}]},
                {'title': 'Queue',
                 'items': [{'key': '#queue',
                            'title': 'Queue… (calculate EQs one after the other)',
