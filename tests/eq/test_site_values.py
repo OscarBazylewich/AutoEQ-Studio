@@ -232,7 +232,7 @@ def test_the_gray_line_of_odd_websites(check):
     hang = site_values.resolve(_cfg("site:" + HANGOUT), "site_sweep", [])
     check("site values: values that couldn't be read are named, and the usual ones used",
           hang["note"] == "Hangout.Audio IEMs (Crinacle, 711): values from its website (read 2026-11-24). Couldn't read "
-                          "Smoothing scale, Smoothing level and Loudness tables, so these use the usual squig.link "
+                          "Smoothing scale, Smoothing level, and Loudness tables, so these use the usual squig.link "
                           "values." and hang["values"]["site.smooth_level"] == 5 and not hang["locks"], hang)
     sq = site_values.resolve(_cfg("site:" + SQUIG), "site_sweep", [])
     check("site values: a website with changed AutoEQ code: the warning line, nothing fixed (its panel is another)",

@@ -368,7 +368,8 @@ def resolve(cfg, mode, names, as_is=False):
         missing = [NAMES[k] for k in (entry or {}).get("missing", [])
                    if not (code == "none" and k == "treble_start_from")] if entry else []
         if missing:
-            listed = ", ".join(missing[:-1]) + " and " + missing[-1] if len(missing) > 1 else missing[0]
+            listed = (missing[0] if len(missing) == 1 else " and ".join(missing) if len(missing) == 2
+                      else ", ".join(missing[:-1]) + ", and " + missing[-1])  # (a comma before "and": the owner's)
             parts.append(f"Couldn't read {listed}, so {'these use' if len(missing) > 1 else 'it uses'} the usual "
                          "squig.link values")
         if code == "other":
