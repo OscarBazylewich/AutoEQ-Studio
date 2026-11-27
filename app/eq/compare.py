@@ -273,8 +273,8 @@ def score(c, tgt_rig):
         with_ = c["source"] if x["how"] == "own" else f"rig average, {x['models']} models"
         head = ("Same rig as target, with a slight source offset." if c["rig"] == tgt_rig
                 else f"Measured on {RIGS[c['rig']] if c['rig'] else 'an unknown rig'}.")
-        # (Settings › Target › Rig change off: the target is not changed, so no "adjusted via" and no error of the
-        # change; the owner's words, 2026-11-25)
+        # (Rig change off (its row below the Target row): the target is not changed, so no "adjusted via" and no
+        # error of the change; the owner's words, 2026-11-25)
         done = (f"Target adjusted via {with_} (~{x['error']:.1f} dB error, 1–10 kHz)." if x["enabled"]
                 else "Target not adjusted (rig change off).")
         r.append(("+" if p >= 30 else "·" if p >= 15 else "−", f"{head} {done}"))

@@ -191,10 +191,9 @@ One column, from the top to the bottom:
   your values. Each label is above its box. "About these settings" (click to open it) tells you how the app adjusts
   each value. A value that you change shows "custom", and ↺ makes it automatic again. More settings has a tab for
   each part (the tab of a method shows only with that method).
-  All lists are from A to Z (numbers in their sequence, and a "Select…" item stays at the top). A list with more than
-  15 items (More settings › Layout, the Source list of Find…, …) opens with a search box at the top. Best fit can
-  start from your filters (More settings › Best fit). Type them, or use "Edit as a table…" or "Load an EQ file…".
-  The graph shows them as "With your filters".
+  All lists are from A to Z (numbers in their sequence). A list with more than 15 items (More settings › Layout, the
+  Source list of Find…, …) opens with a search box at the top. Best fit can start from your filters (More settings ›
+  Best fit). Type them, or use "Edit as a table…" or "Load an EQ file…". The graph shows them as "With your filters".
   More settings › Website › "Which website to copy" is "The database of the measurement" at first: the Website
   methods use the values (smoothing, normalization, loudness tables) of the website that your measurement is from,
   and a gray line below the list tells where they come from. You can also select a website by name, or "Other" (the

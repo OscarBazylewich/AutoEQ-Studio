@@ -188,7 +188,7 @@ LIMIT_PAIRS = [
 # What each pair is called, for the message when a run can't use it
 PAIR_NAMES = {"site_single.freq_low": "Frequency range", "site_single.gain_min": "Gain range",
               "site_single.q_min": "Q range", "site_sweep.freq_low": "Frequency range", "site_sweep.q_min": "Q range",
-              "best_fit.freq_range.0": "Filter frequency range", "best_fit.gain_min": "Minimum and maximum gain",
+              "best_fit.freq_range.0": "Filter frequency range", "best_fit.gain_min": "Gain range",
               "best_fit.q_min": "Q range", "best_fit.low_shelf_freq.0": "Low shelf frequencies",
               "best_fit.high_shelf_freq.0": "High shelf frequencies", "best_fit.bands.gain_min": "The sliders' range",
               "scoring.band_hz.0": "Fit range"}

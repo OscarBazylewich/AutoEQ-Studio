@@ -466,8 +466,8 @@ def tracer(t, img):
 def guide_and_help(t, img):
     """The Guide's layer and card, and the Help window. The Guide (ui\\tour.py): its card (#tourCard: the step list's
     button with Windows 11's chevron after its words, the theme's own picture given as its icon, which the tour draws in
-    the room kept at its right; the gray “Demo · your work does not change” line (#tourBadge), the step's title,
-    link-like buttons with link=true), and what a demo shows inside it: a drop-down's list or a menu (#tourMock: as the
+    the room kept at its right; the gray “Demo · your work does not change” line (#tourBadge), the step's title), and
+    what a demo shows inside it: a drop-down's list or a menu (#tourMock: as the
     real ones, kind="list" or "menu": a list's rows and its chosen row, filled with the accent's bar beside it, the long
     list's search box (#tourMockSearch) as the real one's as it opens, ready for typing: the accent's line under it, its
     grey words as Qt draws a box's (the text colour at half), or words typed in it (typed=true) in the text's colour; a
@@ -483,10 +483,6 @@ def guide_and_help(t, img):
     QFrame#tourCard QToolButton#tourCount:pressed {{ background: {t['subtle_press']}; }}
     QFrame#tourCard QLabel#tourBadge {{ color: {t['muted']}; }}
     QFrame#tourCard QLabel#tourTitle {{ font-size: {FONT + 1.5}pt; font-weight: 600; }}
-    QFrame#tourCard QPushButton[link="true"] {{ background: transparent; border: none; border-radius: 4px;
-        color: {t['accent_text']}; padding: {PAD[0]}px 8px; }}
-    QFrame#tourCard QPushButton[link="true"]:hover {{ background: {t['subtle_hover']}; }}
-    QFrame#tourCard QPushButton[link="true"]:pressed {{ background: {t['subtle_press']}; }}
     QFrame#tourMock {{ background: {t['menu']}; border: 1px solid {t['stroke']}; border-radius: 8px; }}
     QFrame#tourMock[kind="menu"] {{ border-radius: 0px; }}
     QFrame#tourMock QLabel {{ padding: 7px 8px 7px 11px; border-radius: 4px; background: transparent; color: {t['ink']};

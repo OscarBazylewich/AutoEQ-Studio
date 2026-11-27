@@ -248,7 +248,7 @@ def test_long_choice_of_any_drop_down_ends_in_dots(eq_screen, check):
     combo = eq_screen.page.app_combo
     was = combo.currentIndex()
     longest = max(range(combo.count()), key=lambda k: combo.fontMetrics().horizontalAdvance(combo.itemText(k)))
-    short = min(range(2, combo.count()), key=lambda k: len(combo.itemText(k)))
+    short = min(range(1, combo.count()), key=lambda k: len(combo.itemText(k)))  # (after its one row on top)
     try:
         combo.setCurrentIndex(longest)
         long_shown = combo.shown_text()

@@ -120,8 +120,8 @@ def check_run(mode, cfg, curves):
         raise ValueError(problem)
     if "site_sweep" in used and engines.sweep_size(cfg["site_sweep"]) > engines.MAX_SITE_RUNS:
         raise ValueError(f"Too many website EQs to calculate: {engines.sweep_size(cfg['site_sweep']):,} (max "
-                         f"{engines.MAX_SITE_RUNS:,}). Reduce the number of values in More settings › Website best "
-                         f"settings.")
+                         f"{engines.MAX_SITE_RUNS:,}). Reduce the number of values in Settings › Filter rows to try "
+                         f"and More settings › Website best settings.")
     fixed = mode == "best_fit" and layouts.is_fixed(cfg["best_fit"]["layout"])
     if fixed:
         freqs = layouts.bands(cfg["best_fit"])[0]
