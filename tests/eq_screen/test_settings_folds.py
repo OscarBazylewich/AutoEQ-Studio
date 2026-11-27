@@ -109,9 +109,10 @@ def test_rows_say_the_condition_and_the_tick_box_says_nothing(eq_screen, check, 
           "message in the status line", rows == {True: "automatic", False: "manual"} and said == [], (rows, said))
     check("ui: settings: the More settings row lists the layout and the limits only with Best fit, and the search "
           "ranges only with Website AutoEQ: find the best settings",
-          more == {"best_fit": "Layout, limits, website values, saved files, history, and CPU",
-                   "site_sweep": "Search ranges, website values, saved files, history, and CPU",
-                   "site_single": "Website values, saved files, history, and CPU"}, more)
+          # (CPU cores only with the two methods that use it, in their tabs: 2026-11-27)
+          more == {"best_fit": "Layout, limits, CPU, website values, saved files, and history",
+                   "site_sweep": "Search ranges, CPU, website values, saved files, and history",
+                   "site_single": "Website values, saved files, and history"}, more)
     check("ui: Adjust…: the column title Value has no tooltip (the ⓘ after it has the words); Hz and Q have theirs",
           tips == {"Value": "", "Hz": "Shelf start frequency, or center frequency for half-tilt and ear gain",
                    "Q": "Shelf slope, or ear gain width"}, tips)
