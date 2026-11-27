@@ -278,8 +278,10 @@ class _Plan:
         return _round_within(path, self.q_want(), 0.5)
 
     def site_caps(self):
-        """(for the gain note, for the Q note): " (website limit)" when the website's own ceiling (+20 dB, Q 5) is
-        below what the curves ask for, so the note's value is lower than its fact; else ""."""
+        """(for the gain note, for the Q note): " (website limit)" when the website's own ceiling (+20 dB, Q 5: the
+        clamp of every AutoEQ panel with gain or Q boxes, read on 2026-11-24) is below what the curves ask for, so the
+        note's value is lower than its fact; else "". A website without those boxes has fixed values instead
+        (eq.site_values: their own notes)."""
         cap = " (website limit)"
         return (cap if _over_ceiling("site_single.gain_max", self.gain_want()) else "",
                 cap if _over_ceiling("site_single.q_max", self.q_want(), 0.5) else "")
@@ -692,18 +694,38 @@ def fmt_time(s):
             f"~{s / 60:.1f} min" if s < 5400 else f"~{s / 3600:.1f} h")
 
 
-def auto_result(cfg, an):
-    """What /api/auto returns: the values (when automatic), the notes, the effective search and its time."""
+def auto_result(cfg, an, site=None):
+    """What /api/auto returns: the values (when automatic), the notes, the effective search and its time. site: what
+    /api/curves said of the Website values of the curves (eq.site_values.resolve): with the automatic settings on,
+    their values (made with the curves, so also without an analysis) and, for a Website method, the gray line's
+    words; for a Website method, the website's fixed values in place of the automatic ones (their notes, and the
+    search and its time with them)."""
+    from . import site_values
     out = {"enabled": cfg["auto"]["enabled"]}
     eff = cfg
+    manual = set(cfg["auto"].get("manual") or [])
     if an and cfg["auto"]["enabled"]:
         p = plan(cfg, an)
         eff = apply(copy.deepcopy(cfg), p["values"])
-        manual = set(cfg["auto"].get("manual") or [])
         out.update(values=p["values"], notes=p["notes"],
                    manual=[k for k in p["values"] if k in manual])
     else:
         out.update(values={}, notes=[], manual=[])
+    mode = cfg["mode"]
+    if isinstance(site, dict):
+        vals = site.get("values") if site.get("applied") and cfg["auto"]["enabled"] else None
+        if isinstance(vals, dict):
+            vals = {k: v for k, v in vals.items() if k in site_values.PATHS}
+            out["values"] = {**out["values"], **vals}
+            out["manual"] += [k for k in vals if k in manual]
+            if mode in site_values.SITE_MODES and isinstance(site.get("note"), str) and site["note"]:
+                out["notes"] = out["notes"] + [{"path": "site.profile", "text": site["note"]}]
+        fixed = site_values.notes(site, mode)
+        if fixed:
+            # (a fixed value's line in place of the automatic one: the run uses the website's)
+            gone = {n["path"] for n in fixed if not n["path"].endswith("rows")}  # (the rows' own line stays)
+            out["notes"] = [n for n in out["notes"] if n["path"] not in gone] + fixed
+        eff = site_values.lock(copy.deepcopy(eff), site, mode)
     s = estimate(eff)
     out["seconds"], out["time"], out["search"] = round(s, 1), fmt_time(s), describe(eff)
     out["short"] = describe_short(eff)

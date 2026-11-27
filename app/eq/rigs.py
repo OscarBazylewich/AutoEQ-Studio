@@ -71,7 +71,8 @@ _SOURCES_LOCK = threading.Lock()  # (worker threads write the file too, ui\tasks
 
 
 def sources():
-    """{file name in the app: where it came from (site_url, site, sub, name, rig, of)}."""
+    """{file name in the app: where it came from (site_url, site, sub, name, rig, of; an average's of_sites: the
+    website of each of its measurements, eq.site_values)}."""
     return textfile.read_json(SOURCES_PATH, {})
 
 
@@ -80,7 +81,8 @@ def record_source(names, it):
     with _SOURCES_LOCK:
         d = sources()
         for n in names:
-            d[n] = {k: it.get(k) for k in ("site_url", "site", "sub", "name", "rig", "of") if it.get(k) is not None}
+            d[n] = {k: it.get(k) for k in ("site_url", "site", "sub", "name", "rig", "of", "of_sites")
+                    if it.get(k) is not None}
         textfile.write_json(SOURCES_PATH, d, indent=1)
 
 

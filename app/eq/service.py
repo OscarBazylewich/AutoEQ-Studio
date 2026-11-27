@@ -37,6 +37,7 @@ from . import rigconv
 from . import rigmap
 from . import rigs
 from . import settings
+from . import site_values
 import textfile
 
 # What /api/compare answers while the database lists load (Which measurement waits and tries again when it gets
@@ -132,7 +133,8 @@ def state(body):
     """Everything the page needs to start: the settings and their limits, the files, the choices it offers."""
     cfg = settings.load()
     return {"settings": cfg, "defaults": settings.DEFAULTS, "inputs": inputs.state(cfg),
-            "modes": settings.MODES, "presets": settings.list_presets(), "profiles": settings.SITE_PROFILES,
+            "modes": settings.MODES, "presets": settings.list_presets(),
+            "site_choices": site_values.choices(cfg),  # (Which website to copy: every graph website, A to Z there)
             "layouts": layouts.listing(), "eq_apps": eq_apps.listing(), "cpu_count": pipeline.cpu_threads(),
             "limits": {**settings.LIMITS, **settings.UI_LIMITS}, "limit_pairs": settings.LIMIT_PAIRS,
             "auto_paths": settings.AUTO_PATHS,
@@ -166,9 +168,12 @@ def reset(body):
 def curves(body):
     """The measurement and target as the graph shows them, the error without EQ and the rig note. What the automatic
     settings make of them comes from /api/analysis: it needs SciPy, slow to load at the app's start, and the graph
-    mustn't wait for it."""
+    mustn't wait for it. The Website values the curves are made with come first (site_values: the answer's
+    "site_values" says which and why, for the page's gray line and its automatic values); "site_as_is": the values
+    as they are (an EQ from History shown)."""
     cfg = cfg_from(body)
     target, meas = inputs.selected(cfg)
+    info = _site_values(cfg, cfg["mode"], meas, body)
     c, _, _ = pipeline.load(cfg, target, meas)
     band = cfg["scoring"]["band_hz"]
     problem = pipeline.band_problem(c, band)
@@ -178,13 +183,20 @@ def curves(body):
             "name": inputs.device_name([os.path.basename(p) for p in meas]),
             "target_name": os.path.splitext(os.path.basename(target))[0],
             "no_eq_rms": None if problem else engines.rms_error(c["f"], c["meas"], c["target"], band),
-            "band_problem": problem, "rig": _rig_note(c)}
+            "band_problem": problem, "rig": _rig_note(c), "site_values": info}
+
+
+def _site_values(cfg, mode, meas, body=None):
+    """site_values.apply for these measurement files (their paths): the values into cfg, and what it says."""
+    as_is = bool((body or {}).get("site_as_is"))
+    return site_values.apply(cfg, mode, [os.path.basename(p) for p in meas], as_is=as_is)
 
 
 @route("/api/analysis")
 def analysis(body):
     cfg = cfg_from(body)
     target, meas = inputs.selected(cfg)
+    _site_values(cfg, cfg["mode"], meas, body)  # (the curves of /api/curves, so the key is the run's)
     c, meas_texts, target_text = pipeline.load(cfg, target, meas)
     an = autoset.analyse(cfg, c, meas_texts)
     an["key"] = autoset.analysis_key(cfg, meas_texts, target_text)  # (a run checks it's for its own curves)
@@ -204,8 +216,10 @@ def _rig_note(c):
 
 @route("/api/auto")
 def auto(body):
-    """The automatic values, their reasons, and the run-time estimate."""
-    return autoset.auto_result(cfg_from(body), body.get("analysis"))
+    """The automatic values, their reasons, and the run-time estimate. "site_values": what /api/curves said of the
+    Website values of the curves on the graph (no file is read here: the window waits for this answer)."""
+    info = body.get("site_values") if isinstance(body.get("site_values"), dict) else None
+    return autoset.auto_result(cfg_from(body), body.get("analysis"), site=info)
 
 
 # ---------------------------------------------------------------- the app's files
@@ -243,6 +257,8 @@ def files_add(body):
     if src:
         # (its rig is known later, also for a name that the user changed or "… (2).txt")
         rigs.record_source(names, src)
+        if kind == "measurement":
+            _refresh_site_values(src["site_url"])
     else:
         # (new files: not the database a file of that name once came from; one the app already had keeps its record)
         rigs.forget_source([n for n in names if n not in had])
@@ -356,7 +372,10 @@ def use(body):
     names = inputs.add_files(kind, [(os.path.basename(f), inputs.read_text(f)) for f in files])
     created = [n for n in names if n not in there]  # (Undo removes only these)
     if body.get("src") == "db":
-        rigs.record_source(names, databases.item(body["id"]))
+        it = databases.item(body["id"])
+        rigs.record_source(names, it)
+        if kind == "measurement":
+            _refresh_site_values(it.get("site_url"))
     elif created:
         rigs.forget_source(created)
     if kind == "target":
@@ -367,6 +386,15 @@ def use(body):
     library.refresh_app()
     return {"kind": kind, "name": name, "names": names, "created": created, "before": before, "settings": cfg,
             "inputs": inputs.state(cfg)}
+
+
+def _refresh_site_values(url):
+    """The database's Website values read again when they are due (Online, older than 30 days), in a thread of their
+    own: the answer never waits for the website (site_values.refresh_soon)."""
+    try:
+        site_values.refresh_soon(url)
+    except Exception:  # noqa: BLE001 - the values in the app stay: nothing to tell
+        traceback.print_exc()
 
 
 @route("/api/preview")
@@ -475,7 +503,8 @@ def compare_average(body):
     there = set(os.listdir(inputs.MEAS_DIR)) if os.path.isdir(inputs.MEAS_DIR) else set()
     name = inputs.add_file("measurement", fname, text)
     created = [] if name in there else [name]  # (it may be "… (2)": a different average had that name)
-    rigs.record_source([name], {"name": name, "site": "average", "rig": rig, "of": of})
+    rigs.record_source([name], {"name": name, "site": "average", "rig": rig, "of": of,
+                                "of_sites": compare.average_sites(keys)})
     _use_measurements(cfg, [name])
     settings.save(cfg)
     library.refresh_app()
@@ -497,12 +526,17 @@ def _run_job(job_id, mode, cfg, analysis=None, counts=None):
     try:
         target, meas = inputs.selected(cfg)
         progress(0, 1, "Loading files…")
+        # (the Website values of the curves on the graph: those of the settings' method, so Calculate from these
+        # filters, Best fit while a Website method is selected, fits the curves the graph shows)
+        info = _site_values(cfg, cfg["mode"], meas)
         curves, meas_texts, target_text = pipeline.load(cfg, target, meas)
         if cfg["auto"]["enabled"]:  # the same automatic values the window showed (in case it hadn't caught up)
             key = autoset.analysis_key(cfg, meas_texts, target_text)
             # (the page's analysis only when it's of these curves: files just changed, it's the IEM before's)
             an = analysis if isinstance(analysis, dict) and analysis.get("key") == key else autoset.analyse(cfg, curves, meas_texts)
             autoset.apply(cfg, autoset.plan(cfg, an, mode)["values"])
+        # (a Website run: the website's fixed gain and Q, its panel's clamps and its most rows, over any other value)
+        site_values.lock(cfg, info, mode)
         t0 = time.time()
         out = pipeline.run_mode(mode, cfg, curves, meas_texts, target_text, progress, CANCEL, counts=counts)
         if not out.get("reused_sweep"):  # (a run that reused recent site runs says little about this PC's speed)
@@ -515,7 +549,7 @@ def _run_job(job_id, mode, cfg, analysis=None, counts=None):
                    "pick": out["pick"]["id"], "best": out["best"]["id"], "seconds": round(time.time() - t0, 1),
                    # (the audible pick: did the EQ reach the target inaudibly, or only as close as the limits allow)
                    "pick_case": out.get("pick_case"), "ear_db": cfg["scoring"].get("ear_db"),
-                   "settings": cfg}
+                   "settings": {k: v for k, v in cfg.items() if k != "panel"}}  # (the clamps: the run's own)
         with JOB_LOCK:
             if JOB["id"] == job_id:
                 JOB.update(status="done", result=payload)
