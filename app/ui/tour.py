@@ -1032,7 +1032,7 @@ class Tour(QWidget):
         self.pause_btn.clicked.connect(self.toggle_pause)
         demo_row.addWidget(self.pause_btn)
         self.skip_btn = QPushButton("Complete the demo")
-        theme.mark(self.skip_btn, link=True)
+        theme.mark(self.skip_btn, quiet=True)  # (a less used action: the app's quiet button, not a link's look)
         self.skip_btn.clicked.connect(self.skip_demo)
         demo_row.addWidget(self.skip_btn)
         demo_row.addStretch(1)

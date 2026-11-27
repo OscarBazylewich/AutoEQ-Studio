@@ -6,6 +6,8 @@ trace_checks.
 The last two were the end of the old trace checks' chain on one picture (test_trace_core.py has the rest): each test
 here traces the sample again and takes the old chain's steps up to it (tracing it takes about half a second). Add as
 measurement changes the studio's Measurements: the studio is new again after it (fresh_studio)."""
+import os
+
 import pytest
 from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, Qt
 from PySide6.QtGui import QFocusEvent, QKeyEvent, QMouseEvent
@@ -124,9 +126,7 @@ def test_add_as_measurement(eq_screen, fresh_studio, monkeypatch, check):
     t.v.update(d1="90", d2="40")
     t.auto_trace()
     t.auto_trace()
-    with monkeypatch.context() as mp:
-        mp.setattr(QMessageBox, "information", staticmethod(lambda *a, **k: None))  # (as eq_checks.py lines 2870-2875)
-        tw.save("measurement")
+    tw.save("measurement")  # (the gaps of the sample's curves: a bubble at the add button, no box to answer)
     loaded = eq_screen.wait_for(lambda: page.curves is not None and page.curves.get("name") == "Sample IEM", 60)
     # was eq_checks.py:2877
     check("trace: Add as measurement puts the curves in the app as one device, in use (on the graph)",
@@ -361,3 +361,76 @@ def test_range_custom_when_only_its_end_is_set(eq_screen, check):
     check("tracer: the range to save is custom in About these settings and in Active settings when only its “to” box "
           "is set by hand", seen["yours"] == ["fmax"] and "<i>custom</i> · Auto: Save " in seen["notes"]
           and "Save range: <b>" in seen["active"] and "Hz</b> <i>custom</i>" in seen["active"], seen)
+
+
+def test_find_axes_again_off_with_no_picture(eq_screen, monkeypatch, check):
+    # (the control audit of 2026-11-27: with no picture, Find axes again was on and a click did nothing, while Read
+    # labels beside it and the rest of the side were off)
+    page = eq_screen.page
+    page.open_trace()
+    tw = page.tracer
+    monkeypatch.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.Yes))
+    tw.remove_image()
+    eq_screen.qapp.processEvents()
+    empty = (tw.detect_btn.isEnabled(), tw.ocr_btn.isEnabled())
+    img, _s = sample_image()
+    tw.load_image(img, "Sample IEM")
+    eq_screen.wait_for(lambda: not tw.reading, 60)
+    loaded = (tw.detect_btn.isEnabled(), tw.ocr_btn.isEnabled())
+    tw.close()
+    check("tracer: with no picture, Find axes again is off, as Read labels beside it; with a picture, both are on",
+          empty == (False, False) and loaded == (True, True), (empty, loaded))
+
+
+def test_do_this_first_and_gaps_in_a_bubble(eq_screen, monkeypatch, tmp_path, check):
+    # (the control audit of 2026-11-27: "Trace a curve first", "Enter all 4 axis line values first" and the gaps
+    # after a save came in message boxes that waited for OK; now in a bubble at the button that was clicked)
+    from ui import bubble
+    boxes = []
+    for kind in ("warning", "information"):
+        monkeypatch.setattr(QMessageBox, kind, staticmethod(lambda *a, kind=kind, **k: boxes.append((kind, a[2]))))
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(QFileDialog, "getExistingDirectory", staticmethod(lambda *a, **k: str(tmp_path)))
+    monkeypatch.setattr(QFileDialog, "getSaveFileName",
+                        staticmethod(lambda *a, **k: (str(tmp_path / "one.txt"), "")))
+    tw = _sample_open(eq_screen)
+    t = tw.t
+    seen = {}
+
+    def shown(button):
+        b = bubble.last("tell")
+        return (b is not None and b.isVisible() and b.anchor is button, b.text.text() if b else None)
+    try:
+        t.v.update(d1="90", d2="40")
+        tw.update_ui()
+        tw.show_tab(2)
+        eq_screen.qapp.processEvents()
+        for name, button in (("add", tw.save_btn), ("save", tw.download_btn)):
+            button.click()
+            eq_screen.qapp.processEvents()
+            seen[f"{name}, no curve"] = shown(button)
+        t.auto_trace()
+        t.auto_trace()
+        t.v["d1"] = ""
+        tw.update_ui()
+        tw.download_btn.click()
+        eq_screen.qapp.processEvents()
+        seen["save, a dB value missing"] = shown(tw.download_btn)
+        t.v["d1"] = "90"
+        tw.update_ui()
+        gaps = t.gaps_text(tw.outputs())
+        tw.download_btn.click()
+        eq_screen.qapp.processEvents()
+        seen["save, the gaps"] = shown(tw.download_btn)
+        seen["files"] = sorted(os.listdir(tmp_path))
+    finally:
+        tw.close()
+    check("tracer: Add as measurement and Save .txt… with no curve say “Trace a curve first” in a bubble at the "
+          "button that was clicked, with no message box",
+          seen["add, no curve"] == seen["save, no curve"] == (True, "Trace a curve first") and not boxes, (seen, boxes))
+    check("tracer: Save .txt… with a dB value missing says “Enter all 4 axis line values first” in a bubble at it, "
+          "and the gaps that a save drew straight are in a bubble at it too, with no message box",
+          seen["save, a dB value missing"][0]
+          and "Enter all 4 axis line values first" in (seen["save, a dB value missing"][1] or "")
+          and bool(gaps) and seen["save, the gaps"] == (True, gaps) and len(seen["files"]) == 2 and not boxes,
+          (seen, gaps, boxes))

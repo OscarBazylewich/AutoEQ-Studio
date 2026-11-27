@@ -17,7 +17,9 @@ frequency-response graph (a maker's sheet, a review's screenshot) becomes a meas
   changes the tracer (only Ctrl+V: a new picture), and the picture and the side take no input.
 - the message line (what the tracer did; empty otherwise) under the side, in sight on every tab; a message about a
   step that ended (say) while a picture loads or the automatic read runs ends with the words of that wait; behind a
-  message box (box), nothing or the wait's words show in place of such a message
+  message box (box: an error of the picture, the disk or the service, and a question), nothing or the wait's words
+  show in place of such a message; what to do first before an add or a save, and the gaps after one, in a bubble at
+  the button (tell)
 - the load of a picture (load_image): one of SYNC_PIXELS or less at once; a larger one in a thread (prepared: the scale,
   picture_mark, the stage's QImage and Tracer.load in a new Tracer, which Tracer.take then takes), while `loading` is
   True: the status line says so, and the picture, the side and Guide take no input. A load that Remove image drops
@@ -60,6 +62,7 @@ The look is Windows 11's, as the rest of the app (2026-10-23): the picture on a 
 objectNames and the tr* properties set here). The tracer's marks on the picture keep their colours (the red and blue
 lines, the green boxes: the Guide and Help name them): they're drawn on the graph's own picture, not on the app.
 """
+import html
 import math
 import os
 
@@ -1282,7 +1285,8 @@ class TraceWindow(QWidget):
         self.edit_btns["smooth"].setEnabled(has)
         self.edit_btns["clear"].setEnabled(has)
         img = t.has_image
-        for b in (self.add_btn, self.auto_btn, self.save_btn, self.save_line, self.download_btn, self.ocr_btn):
+        for b in (self.add_btn, self.auto_btn, self.save_btn, self.save_line, self.download_btn, self.detect_btn,
+                  self.ocr_btn):
             b.setEnabled(img and (b is not self.ocr_btn or not getattr(self, "reading", False)))
         self.remove_btn.setVisible(img)
         need = "" if not img else f"To save, enter the red dB line values on 1{NBSP}Axes and check the blue Hz values" \
@@ -1324,7 +1328,7 @@ class TraceWindow(QWidget):
         as_target = e.get("as") == "target" or (self.read_target and e.get("as") != "measurement")
         now = self.shows.currentData()
         if self.entry:
-            self.comp.setCurrentIndex(0)
+            self.comp.setCurrentIndex(-1)  # (no target: its gray placeholder)
         mine = {"target": "measurement", "target_difference": "difference"}.get(now, now)
         self.set_shows("target" if as_target else "measurement" if self.entry else mine)
 
@@ -1357,7 +1361,7 @@ class TraceWindow(QWidget):
         t = self.t
         kind = self.shows.currentData()
         if kind in DIFFERENCES and not self.comp.currentData():
-            return SELECT_TARGET if self.comp.count() > 1 else NO_TARGETS
+            return SELECT_TARGET if self.comp.count() > 0 else NO_TARGETS
         if kind in AS_TARGET:
             one = sum(map(t.has_data, t.curves)) <= 1
             if kind == "target_difference":
@@ -1489,14 +1493,22 @@ class TraceWindow(QWidget):
             self.status.setText(self.said)
 
     def box(self, kind, title, text, *buttons):
-        """Each message box of the tracer (kind: "warning", "information" or "question"; buttons: the buttons of a
-        question and its default). Behind the box, the status line does not show a message of say() about a step that
-        ended: it is empty, or it shows the words of the load or of the read while one operates. HAS_PICTURE showed next
-        to a box that says the file is not a picture, and a person can think that the message is about the file (the
-        verifier of round 8, 2026-11-16)."""
+        """Each message box of the tracer, for an error or a question (kind: "warning" or "question"; buttons:
+        the buttons of a question and its default). Behind the box, the status line does not show a message of
+        say() about a step that ended: it is empty, or it shows the words of the load or of the read while one operates.
+        HAS_PICTURE showed next to a box that says the file is not a picture, and a person can think that the message is
+        about the file (the verifier of round 8, 2026-11-16)."""
         if self.status.text() == self.said:
             self.status.setText(LOADING if self.loading else READING if self.reading_graph else IDLE)
         return getattr(QMessageBox, kind)(self, title, text, *buttons)
+
+    def tell(self, button, text):
+        """What to do first before an add or a save, a problem of the traced curves, or the gaps that a good add or
+        save drew straight: in a bubble at the button that was clicked (UI-RULES 25), not in a box that waits for OK.
+        The words can name a curve or a website's entry: never read as rich text."""
+        from PySide6 import QtGui
+        from ui import bubble
+        bubble.tell(button, f"<span>{html.escape(text)}</span>" if QtGui.Qt.mightBeRichText(text) else text)
 
     def start_guide(self):
         from ui import guide
@@ -2210,17 +2222,18 @@ class TraceWindow(QWidget):
 
     # ---------------------------------------------------------------- save
     def fill_comp(self):
-        """"Target of the graph": the targets of the app, one of which a graph may show the difference from. The
-        first row has no target: the app does not know the target of a graph, so the user selects it (the first
-        target of the list would go into the curve with no selection). With no target in the app, the list is off."""
+        """"Target of the graph": the targets of the app, one of which a graph may show the difference from. Nothing
+        is selected at first, and the box shows its gray placeholder "Select target…" (not a row of the list): the app
+        does not know the target of a graph, so the user selects it (the first target of the list would go into the
+        curve with no selection). With no target in the app, the list is off and its placeholder says so."""
         was = self.comp.currentData()
         targets = (getattr(self.page, "inputs", None) or {}).get("targets", [])
         self.comp.clear()
-        self.comp.addItem("Select target…" if targets else "No targets available", "")
+        self.comp.setPlaceholderText("Select target…" if targets else "No targets available")
         for n in targets:
             self.comp.addItem(os.path.splitext(n)[0], n)
-        self.comp.sort_items(pinned=1)  # (the row with no target on top: 22)
-        self.comp.setCurrentIndex(max(0, self.comp.findData(was)))
+        self.comp.sort_items()
+        self.comp.setCurrentIndex(self.comp.findData(was) if was else -1)
         self.comp.setEnabled(bool(targets))
         self.shows_value = self.save_value("shows")  # (not a selection of the user: shows_selected)
         self.show_graph_type()
@@ -2231,7 +2244,7 @@ class TraceWindow(QWidget):
         change nothing: filled again, an open list lost the row that the arrow keys had marked (measured,
         2026-11-17; Make an EQ also shows its files again when the database lists come)."""
         targets = (getattr(self.page, "inputs", None) or {}).get("targets", [])
-        if sorted(targets) != sorted(self.comp.itemData(i) for i in range(1, self.comp.count())):
+        if sorted(targets) != sorted(self.comp.itemData(i) for i in range(self.comp.count())):
             self.fill_comp()
 
     def compensation(self):
@@ -2242,7 +2255,7 @@ class TraceWindow(QWidget):
             return None, ""
         name = self.comp.currentData()
         if not name:
-            raise ValueError(SELECT_TARGET if self.comp.count() > 1 else NO_TARGETS)
+            raise ValueError(SELECT_TARGET if self.comp.count() > 0 else NO_TARGETS)
         S = self.page.S
         # (as it is: the site's graph smoothing off, which would round off its peaks; its level is evened out later)
         r = self.page.svc.call("/api/preview", {"src": "app", "kind": "target", "names": [name],
@@ -2268,10 +2281,12 @@ class TraceWindow(QWidget):
         e = self.entry
         return dict({k: v for k, v in e.items() if k != "as"}, name=name) if e and e.get("site_url") else None
 
-    def save(self, kind, outs=None, title=None):
+    def save(self, kind, outs=None, title=None, at=None):
         """Into the app: a measurement (the traced curves as one device, made the one in use) or a target. outs: the
-        files to add (none: the window's curves, as outputs() makes them); title: the message boxes' title."""
+        files to add (none: the window's curves, as outputs() makes them); title: the title of the service's error
+        box; at: the button that was clicked (its bubble's place; none: the add button)."""
         page = self.page
+        at = at or self.save_btn
         title = title or f"Add as {kind}"
         # (a target line alone, as a measurement: outputs() leaves out a curve with the "target" mark, unless it is the
         # selected one and the only one to save)
@@ -2279,7 +2294,7 @@ class TraceWindow(QWidget):
         try:
             outs = outs if outs is not None else self.outputs(kind == "target" or alone)
         except (ValueError, ArithmeticError) as e:
-            self.box("warning", "Trace", str(e))
+            self.tell(at, str(e))
             return
         # (all channels in one go: one number for the set when names are taken, so they stay one device)
         body = {"kind": kind, "files": [{"name": o["file"], "content": o["text"]} for o in outs], "settings": page.S}
@@ -2311,7 +2326,7 @@ class TraceWindow(QWidget):
                                   and sum(map(self.t.has_data, self.t.curves)) > 1 else ""))
         gaps = self.t.gaps_text(outs)
         if gaps:
-            self.box("information", "Trace", gaps)
+            self.tell(at, gaps)
 
     def add_target_line(self):
         """Add the target line as target…: the curve that the automatic read marked as the target line, added as a
@@ -2330,11 +2345,11 @@ class TraceWindow(QWidget):
         try:
             outs = self.outputs(True, name=name.strip())
         except (ValueError, ArithmeticError) as e:
-            self.box("warning", title, str(e))
+            self.tell(self.save_line, str(e))
             return
         finally:
             t.cur = was
-        self.save("target", outs, title)
+        self.save("target", outs, title, self.save_line)
 
     def save_txt(self):
         """The traced curves as .txt files wherever you choose: the measurement curves, or a target line alone (as
@@ -2343,7 +2358,7 @@ class TraceWindow(QWidget):
         try:
             outs = self.outputs(alone)
         except (ValueError, ArithmeticError) as e:
-            self.box("warning", "Trace", str(e))
+            self.tell(self.download_btn, str(e))
             return
         start = os.path.join(os.path.expanduser("~"), "Downloads")
         if len(outs) == 1:
@@ -2372,7 +2387,7 @@ class TraceWindow(QWidget):
             self.saved_note = True  # (kept until something changes, as "Added …": the next redraw wiped it at once)
             gaps = self.t.gaps_text(outs)
             if gaps:
-                self.box("information", "Trace", gaps)
+                self.tell(self.download_btn, gaps)
 
     # ---------------------------------------------------------------- keys
     def keyPressEvent(self, e):
