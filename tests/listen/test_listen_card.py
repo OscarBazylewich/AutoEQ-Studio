@@ -565,7 +565,7 @@ def test_paste_ok_is_the_main_action(card, monkeypatch, check):
           (seen, len(lis.pins), n, left))
 
 
-def test_eq_file_read_as_by_hand_reads_it(card, dialogs, check):
+def test_eq_file_read_as_by_hand_reads_it(card, dialogs, monkeypatch, check):
     # (2026-10-27, UI-RULES 16: one reader for an EQ's file: Listen's read Equalizer APO's lines only, so a Room EQ
     # Wizard export or a Peace preset worked in By hand but not here)
     lis = card.lis
@@ -580,13 +580,24 @@ def test_eq_file_read_as_by_hand_reads_it(card, dialogs, check):
     if len(lis.pins) > n:  # (the list as it was, for the checks after this one)
         lis.pins = lis.pins[:n]
         lis.save_pins()
-    lis._add_text("Filter  1: ON  LP       Fc   18000 Hz\n", "Low-pass only", "pasted")
-    lis._add_text("no EQ here", "Nothing", "pasted")
-    refused = [t for kind, t in dialogs.asked if kind == "warning"][-2:]
+    # (the control audit, 2026-11-27, 4-3: these two refusals were message boxes; now a bubble at the button, as the
+    # same buttons' other refusals)
+    from ui import bubble
+    paste, told_at = lis.add_btns["Paste filters…"], []
+    with monkeypatch.context() as m:
+        m.setattr(bubble, "tell", lambda anchor, text, *a, **k: told_at.append((anchor, text)))
+        lis._add_text("Filter  1: ON  LP       Fc   18000 Hz\n", "Low-pass only", "pasted", at=paste)
+        lis._add_text("no EQ here", "Nothing", "pasted", at=paste)
+    refused = [t for _a, t in told_at]
+    at = {a for a, _t in told_at}
+    at = at.pop() if len(at) == 1 else at
+    boxes = [t for kind, t in dialogs.asked if kind == "warning" and t in refused]
     check("listen: text with only items that an EQ here can't have, and text with no filters: each is refused with "
           "its own words, and no EQ is added",
           len(lis.pins) == n and len(refused) == 2 and refused[0].startswith("Unsupported items: ")
           and not refused[0].endswith(".") and refused[1] == "No filters found in this text", refused)
+    check("listen: those two refusals are a bubble at the button (Paste filters…), not a message box",
+          at is paste and not boxes, (at, boxes))
     check("listen: an EQ file or pasted text is read as By hand reads it (a Room EQ Wizard export: its peak and its "
           "shelf), and what an EQ here can't have (its low-pass) is said",
           added.get("name") == "REW check" and len(added.get("filters", [])) == 2 and told

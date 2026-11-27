@@ -301,6 +301,7 @@ class Listen(QGroupBox):
         # (the add symbol, as every other Add; each one's screen-reader name starts with "Add": the symbol is read as
         # nothing)
         # (an EQ's sources in the order of Manually's Start from: UI-RULES 16)
+        self.add_btns = {}
         for text, name, fn in (("The selected EQ", "Add the selected EQ", self.add_selected),
                                ("From an EQ file…", "Add from an EQ file…", self.add_file),
                                ("Paste filters…", "Add filters that you paste…", self.add_paste)):
@@ -309,6 +310,7 @@ class Listen(QGroupBox):
             b.setAccessibleName(name)
             b.clicked.connect(fn)
             add.addWidget(b)
+            self.add_btns[text] = b
             if text == "The selected EQ":
                 self.add_sel_btn = b
         add.addStretch(1)
@@ -1008,22 +1010,28 @@ class Listen(QGroupBox):
         except OSError as e:  # (no rights, an offline OneDrive file, one another program holds)
             QMessageBox.warning(self, "EQs to compare", f"Couldn't read file: {e}")
             return
-        self._add_text(text, os.path.splitext(os.path.basename(f))[0], f"from {os.path.basename(f)}")
+        self._add_text(text, os.path.splitext(os.path.basename(f))[0], f"from {os.path.basename(f)}",
+                       at=self.add_btns.get("From an EQ file…"))
 
     def add_paste(self):
         from ui.eq_page_parts import PASTE_HINT, paste_dialog
         got = paste_dialog(self, "Paste filters", "e.g., Crinacle's EQ", PASTE_HINT, "Add")
         if got:
-            self._add_text(got[1], got[0] or "Pasted EQ", "pasted")
+            self._add_text(got[1], got[0] or "Pasted EQ", "pasted", at=self.add_btns.get("Paste filters…"))
 
-    def _add_text(self, text, name, note):
+    def _add_text(self, text, name, note, at=None):
         """An EQ file's or pasted text read as Manually's Start from reads it (eq\\eqtext.py: Equalizer APO's lines, a
-        Room EQ Wizard export, a Peace preset, as Equalizer APO plays them); what an EQ here can't have is said."""
+        Room EQ Wizard export, a Peace preset, as Equalizer APO plays them); what an EQ here can't have is said. at:
+        the button that asked (From an EQ file…, Paste filters…), where a refusal's bubble points."""
         r = self.page.svc.call("/api/filters/read", {"text": text, "settings": self.page.S})
         left = r.get("left_out") or []
-        if r.get("error") or not r.get("filters"):
-            QMessageBox.warning(self, "EQs to compare", r.get("error") or (
-                f"Unsupported items: {' · '.join(left)}" if left else "No filters found in this text"))
+        if r.get("error"):
+            QMessageBox.warning(self, "EQs to compare", r["error"])
+            return
+        if not r.get("filters"):  # (a bubble at the button, as its other refusals: UI-RULES 25; the control audit,
+            # 2026-11-27, 4-3: it was a box that waited for OK)
+            bubble.tell(at, f"Unsupported items: {' · '.join(left)}" if left else "No filters found in this text",
+                        near=self)
             return
         added = self.add(name, [dict(f, enabled=f.get("enabled", True) is not False) for f in r["filters"]], note)
         if added and left:  # (refused, there or full: what was left out of an EQ never added isn't said)
