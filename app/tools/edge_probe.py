@@ -196,7 +196,8 @@ def probe_studio_parts():
     for label, img in [("1x1", np.zeros((1, 1, 3), np.uint8)), ("all white", np.full((300, 400, 3), 255, np.uint8)),
                        ("all black", np.zeros((300, 400, 3), np.uint8)),
                        ("noise", rng.integers(0, 256, (300, 400, 3), dtype=np.uint8)),
-                       ("one line", np.where(np.arange(400)[None, :, None] == 200, 0, 255).repeat(300, 0).astype(np.uint8)),
+                       ("one line", np.where(np.arange(400)[None, :, None] == 200, 0, 255).repeat(300, 0).repeat(3, 2)
+                        .astype(np.uint8)),  # (three colour channels, as every picture the app loads)
                        ("tall 4000x20", np.full((4000, 20, 3), 255, np.uint8))]:
         def trace(img=img):
             t = trace_core.Tracer()

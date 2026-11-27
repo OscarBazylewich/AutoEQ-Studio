@@ -898,11 +898,9 @@ def eq_steps(page):
         {"chapter": "More", "title": "Help, and the end of the Guide", "target": lambda: win.help_btn, "top bar": True,
          "text": "Help gives information about the words of the app (Q, shelf, rig, pre-amp…) and the solutions to "
                  "frequent problems. Move the "
-                 "mouse to a setting to see its function. F1 opens its entry in Help. You can open the Guide again to "
-                 "see a step.",
+                 "mouse to a setting to see its function. You can open the Guide again to see a step.",
          "demo": [{"at": lambda: win.help_btn, "say": "Help: information about the app, and the frequent problems"},
-                  {"at": lambda: page.sa, "say": "Move the mouse to a setting to see its function. F1 opens its entry "
-                                                 "in Help"}],
+                  {"at": lambda: page.sa, "say": "Move the mouse to a setting to see its function"}],
          "buttons": [("Open Help", lambda: win.open_help())] if hasattr(win, "open_help") else []},
     ]
     # (the steps about the app window's top bar: only when the screen is in it, not on its own as in the checks)
