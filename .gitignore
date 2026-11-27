@@ -22,3 +22,5 @@ test-output/
 .claude/
 GIT-GUIDE.md
 .backups/
+GEMINI.md
+.gemini/
