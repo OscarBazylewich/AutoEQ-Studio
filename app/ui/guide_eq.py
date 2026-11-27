@@ -209,7 +209,7 @@ def eq_steps(page):
         api.say("Rig change off: the target for its rig")
         yield from api.morph(page, item, conv, made, 1200)
         yield 1300
-        api.say("On (Settings › Target): the target for the rig of your measurement")
+        api.say("On (Rig change, below the Target row): the target for the rig of your measurement")
         yield from api.morph(page, item, made, conv, 1200)
         yield 900
 
@@ -677,17 +677,20 @@ def eq_steps(page):
         {"chapter": "1 · Select", "title": "Measured on a different rig?",
          "target": lambda: page.graph_note if getattr(page, "rig_note", "") else page.measurement_note,
          "text": lambda: ("The line below the graph tells you: " + page.rig_note.rstrip(".") + ". The app then "
-                          "changes the target for the rig of your measurement (Settings › Target › Rig change). The "
+                          "changes the target for the rig of your measurement (Rig change, below the Target row). The "
                           "band around the target shows how large the error can be after this change."
                           if getattr(page, "rig_note", "") else
                           "The line below Measurement shows the rig of the measurement of your IEM (B&K 5128, 711 "
                           "coupler…). A target is for one rig. If the rigs are different, the line below the graph "
-                          "tells you. The app then changes the target for the rig of your measurement (Settings › "
-                          "Target › Rig change)."),
-         "demo": lambda: [{"at": lambda: page.graph_note, "x": 0.3, "hold": 1300, "say": "The line: the rig of each curve"},
-                          {"run": rig_demo, "say": "Without and with the rig change"}]
-         if getattr(page, "rig_note", "") and ((page.curves or {}).get("rig") or {}).get("applied") else
-         [{"at": lambda: page.measurement_note, "x": 0.3, "hold": 1500, "say": "The rig of the measurement"}]},
+                          "tells you. The app then changes the target for the rig of your measurement (Rig change, "
+                          "below the Target row)."),
+         "demo": lambda: ([{"at": lambda: page.graph_note, "x": 0.3, "hold": 1300,
+                            "say": "The line: the rig of each curve"},
+                           {"run": rig_demo, "say": "Without and with the rig change"}]
+                          if getattr(page, "rig_note", "") and ((page.curves or {}).get("rig") or {}).get("applied") else
+                          [{"at": lambda: page.measurement_note, "x": 0.3, "hold": 1500,
+                            "say": "The rig of the measurement"}])
+         + [{"at": lambda: st.rig_box, "x": 0.1, "say": "Rig change: on or off, below the Target row"}]},
         {"chapter": "2 · Settings", "title": "Automatically or manually", "target": lambda: list(page.way_btns.values()),
          "text": "Make the EQ has two tabs, below Your EQ app. Automatically: AutoEQ adjusts the filters to the target "
                  "for your EQ app (select the method, then click Calculate). Manually: you set the filters, from an "

@@ -1,6 +1,8 @@
 """Where Make an EQ's settings are (the control audit of 2026-11-27): AutoEQ TrebleStartFrom only with the Website
-methods, and "Custom values" naming only the settings whose boxes show. A page of its own, offline, opened with Best
-fit."""
+methods, and "Custom values" naming only the settings whose boxes show; the sweep's Filter rows to try in Settings; a
+"from" box and its list of "to" values in one cell; CPU cores in the tab of the method; History keeps in the History
+window; Rig change in the Target and Measurement card; Saved files' file types as a group. A page of its own,
+offline, opened with Best fit."""
 import pytest
 
 from helpers import eqpage, qt
@@ -157,10 +159,46 @@ def test_history_keeps_in_the_history_window(places, check):
           sorted(p for p in st.adv_form.fields if p.startswith("history.")))
 
 
+def test_rig_change_in_the_target_card(places, check):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    page, st = places.page, places.page.settings
+    box = st.rig_box
+    where = {"in the card": page.select_box.isAncestorOf(box), "not in Settings": not st.fold.isAncestorOf(box),
+             "its label": page.rig_label.text() == "Rig change" and page.select_box.isAncestorOf(page.rig_label)
+             and bool(page.rig_label.toolTip()),
+             "its words": box.text() == "Change the target for the measurement's rig",
+             "under the Target row": box.mapTo(page.select_box, box.rect().topLeft()).y()
+             > page.target_box.mapTo(page.select_box, page.target_box.rect().topLeft()).y()
+             and box.mapTo(page.select_box, box.rect().topLeft()).y()
+             < page.measurement_box.mapTo(page.select_box, page.measurement_box.rect().topLeft()).y(),
+             "shows the setting": box.isChecked() == bool(page.S["rig_convert"]["enabled"])}
+    was = page.S["rig_convert"]["enabled"]
+    try:
+        box.click()
+        qt.settle(0.5, 60)
+        where["a click is the setting"] = page.S["rig_convert"]["enabled"] is (not was)
+    finally:
+        if page.S["rig_convert"]["enabled"] is not was:
+            box.click()
+            qt.settle(0.5, 60)
+    page.page_area.ensureWidgetVisible(st.adjust_btn, 0, 120)
+    st.adjust_btn.setFocus(Qt.TabFocusReason)
+    qt.pump(50)
+    QTest.keyClick(QApplication.focusWidget(), Qt.Key_Tab)
+    qt.pump(50)
+    where["Tab from Adjust…"] = QApplication.focusWidget() is box
+    # (it was the only setting of Settings › Target, far from the target it changes on the graph)
+    check("settings: Rig change is a row of the Target and Measurement card, under the Target row (its label in the "
+          "label column, with its Help line), its tick box the setting; Tab goes to it from Adjust…",
+          all(where.values()), [k for k, v in where.items() if not v])
+
+
 def test_saved_files_file_types_as_a_group(places, check):
     from PySide6.QtCore import QPoint
     from PySide6.QtWidgets import QLabel
-    page, st = places.page, places.page.settings
+    st = places.page.settings
     form = st.adv_form
     i = next(k for k, b in form.tab_btns.items() if b.text() == "Saved files")
     was = form.pages.currentIndex()

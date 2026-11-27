@@ -147,6 +147,14 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'body': ['The sound that you want for your IEM or headphone: a target curve (Harman, '
                                     "diffuse field, a person's target). Select one from the app, this PC or the online "
                                     'databases. The app adjusts the EQ to this target.']},
+                          {'key': 'rig_convert.enabled',
+                           'title': "Change the target for the measurement's rig",
+                           'body': ['Rig change, below the Target row. Your measurement and target come from different '
+                                    'rigs, and different rigs measure '
+                                    'the same IEM or headphone differently (usually above 2 kHz). On: the app changes '
+                                    'the target for the rig of the measurement. Thus, the EQ corrects the IEM or '
+                                    'headphone, not the difference between the rigs. Off: the app uses the target as '
+                                    'it is.']},
                           {'key': 'slot:measurement',
                            'title': 'Measurement',
                            'body': ['The frequency response of your IEM or headphone, from the app, this PC or the '
@@ -190,14 +198,7 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'error range, the filter counts, the minimum and maximum gain, the Q limits and '
                                     'the shelves. A setting that you change shows “custom”, and the app keeps it. '
                                     'Off: the app uses each setting as it is.',
-                                    'More settings has the other settings, and the app sets them for you too.']},
-                          {'key': 'rig_convert.enabled',
-                           'title': "Change the target for the measurement's rig",
-                           'body': ['Your measurement and target come from different rigs, and different rigs measure '
-                                    'the same IEM or headphone differently (usually above 2 kHz). On: the app changes '
-                                    'the target for the rig of the measurement. Thus, the EQ corrects the IEM or '
-                                    'headphone, not the difference between the rigs. Off: the app uses the target as '
-                                    'it is.']}]},
+                                    'More settings has the other settings, and the app sets them for you too.']}]},
                {'title': 'Target › Adjust',
                 'items': [{'key': 'target_adjust.tilt',
                            'title': 'Tilt (dB/oct)',

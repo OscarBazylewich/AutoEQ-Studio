@@ -9,21 +9,21 @@ Settings (the ones used most):
 - the method's own values: Website AutoEQ's seven; the website sweep's filter rows and the summary of its ranges;
   Best fit's filter counts and shelves
 - Error and selection: the range the match is judged over, how a result is picked
-- Target: the rig conversion
 More settings, a tab for each section (less height; a method's tab only with its method): Best fit (its layout,
 bands, shelves, limits, penalties, and your own filters to start from), Website best settings, Website, Saved files,
 History. CPU cores is last in the tab of the method shown (Best fit's or Website best settings').
 The Target's Adjust… (AutoEQ Local's Adjust): a window with tilt, bass, half-tilt, ear gain, treble and air, each
 with − and +, a small graph of the target, Clear the adjustments and Save as a target… (the UI audit: in the page,
-the graph was out of view while you adjusted).
+the graph was out of view while you adjusted). Rig change (the rig conversion) is a row of the Target and
+Measurement card, under the Target's rows: it changes the target on the graph at once.
 
 A value the automatic settings fill in becomes "yours" once you change it (kept through new files
 until made automatic again); with them off nothing changes by itself. Settings that change the curves (target adjustments,
 the scored range, the website's levelling, the rig conversion) draw the graph again.
 
-EqSettings(page) keeps what the settings need; build_parts(slot, above, target_row, target_under) makes them in four
-parts, one per step of the page's build (ui/eq_page_cards.py: each a few ms, so the window answers in between):
-Adjust… (its button on the Target row), the Settings fold, More settings' first half, its second half
+EqSettings(page) keeps what the settings need; build_parts(slot, above, target_row, target_under, rig_slot) makes
+them in four parts, one per step of the page's build (ui/eq_page_cards.py: each a few ms, so the window answers in
+between): Adjust… (its button on the Target row) with Rig change, the Settings fold, More settings' first half, its second half
 (Form.add_sections). Each part goes into its place in the step that makes it, on the page and in the Tab sequence
 (tab_order: Qt puts a part made later at the sequence's end). Adjust…'s window is made at its first use (adjust()),
 not in the build: with its graph it was most of the build's "adjust" step (34 ms, now under 1 ms, offscreen,
@@ -36,7 +36,7 @@ from PySide6.QtWidgets import (QCheckBox, QDialog, QFileDialog, QGridLayout, QHB
 from ui import help_window, icons, placed, theme
 from ui.bubble import InfoMark
 from ui.eq_page_parts import tab_order
-from ui.forms import Field, Fold, Form, Limits, fmt_list
+from ui.forms import Field, Fold, Form, Limits, fmt_list, help_of
 
 ADJUST_GAINS = ("tilt", "bass_gain", "halftilt_gain", "ear_gain", "treble_gain", "air_gain")  # (eq.service's)
 CURVE_KEYS = ("target_adjust.","site.", "scoring.band_hz", "files.", "rig_convert.")  # (settings.js)
@@ -115,10 +115,11 @@ class EqSettings:
         from eq import settings as eq_settings
         self.eq_settings = eq_settings
 
-    def build_parts(self, slot, above, target_row, target_under):
+    def build_parts(self, slot, above, target_row, target_under, rig_slot):
         """The settings made in four parts, each put in its place in the same step (yield: the step ends there):
-        Adjust… on the Target row (target_row; its summary in target_under, its window), the Settings fold into slot
-        (the Make the EQ card's), More settings' first half into slot, its second half into More settings' form.
+        Adjust… on the Target row (target_row; its summary in target_under, its window) and Rig change's tick box
+        under it (rig_slot: its row in the Target and Measurement card), the Settings fold into slot (the Make the EQ
+        card's), More settings' first half into slot, its second half into More settings' form.
         above: the part of the card directly above slot (Tab goes from its last control to Settings)."""
         page, m = self.page, self.page.meta
         C = self.eq_settings.CHOICES
@@ -136,7 +137,16 @@ class EqSettings:
         # it after the row's Find… and Add… (made after the cards under the row, it came after Queue… in the Tab
         # sequence: Tab on Queue… gave it the focus, and the page scrolled to its top, 2026-11-16)
         self._adjust_panel(C, get, changed, make_auto, say, target_row, target_under)
-        tab_order(target_row.parentWidget())
+        # (Rig change in the Target and Measurement card, as it changes the target on the graph at once: it was
+        # Settings › Target, the control audit, 2026-11-27. A form of its own: its box's tooltip, Help and value)
+        self.rig_form = Form([("", [("", [("rig_convert.enabled", "check")])])], self.limits, get, changed, make_auto,
+                             say)
+        self._label_checks(self.rig_form)
+        self.rig_box = self.rig_form.fields["rig_convert.enabled"].box
+        rig_slot.addWidget(self.rig_form)
+        if getattr(page, "rig_label", None) is not None:  # (the card's label: the setting's Help line, as a form's)
+            page.rig_label.setToolTip(help_of("rig_convert.enabled"))
+        tab_order(target_row.parentWidget(), self.rig_form)  # (after Adjust…, before the Measurement row)
         yield "adjust"
 
         # ---------------------------------------------------------------- Settings (a row that opens, in Make the EQ)
@@ -172,8 +182,6 @@ class EqSettings:
                                    ("lowest", "Lowest error")])], multi),
                 ("Same sound below (dB)", [("scoring.ear_db", "num")], audible),
 ]),
-            ("Target", [
-                ("Rig change", [("rig_convert.enabled", "check")])]),
         ], self.limits, get, changed, make_auto, say)
         self.fold.add(self.form)
         self._label_checks()
@@ -735,8 +743,8 @@ class EqSettings:
         self._site_parts()
         # (the Website values the curves have, shown in their boxes; never saved: page.site_shown)
         shown = self.page.site_shown() if hasattr(self.page, "site_shown") else {}
-        self.form.refresh(tags, locks, shown)
-        self.adv_form.refresh(tags, locks, shown)
+        for form in self.forms():
+            form.refresh(tags, locks, shown)
         if self._adjust is not None:  # (not made yet: adjust() shows the values as it makes it)
             self._show_adjust_values()
         adj = self.adjusted()
@@ -766,8 +774,10 @@ class EqSettings:
         self.adv.summary.setText(words[0].upper() + words[1:])
 
     def forms(self):
-        """The forms of the settings' boxes made so far: Settings' and More settings'."""
-        return [f for f in (getattr(self, "form", None), getattr(self, "adv_form", None)) if f is not None]
+        """The forms of the settings' boxes made so far: Rig change's (in the Target and Measurement card), Settings'
+        and More settings'."""
+        return [f for f in (getattr(self, "rig_form", None), getattr(self, "form", None),
+                            getattr(self, "adv_form", None)) if f is not None]
 
     def site_locks(self):
         """{path: (value, reason)}: the Website methods' boxes that the website of the curves fixes (no gain boxes or no

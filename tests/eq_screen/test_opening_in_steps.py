@@ -248,7 +248,7 @@ def test_each_part_placed_in_the_step_that_makes_it(ahead, check):
           seen["cards in order"] and seen["a stretch last"] and seen["Adjust… last on the Target row"]
           and seen["Settings and More settings in Make the EQ"]
           and seen["Settings' sections"] == ["Website AutoEQ: one set", "Website AutoEQ: find the best settings",
-                                             "Best fit", "Error and selection", "Target"]
+                                             "Best fit", "Error and selection"]
           and seen["More settings' tabs"] == ["Best fit", "Website best settings", "Website", "Saved files", "History"]
           and seen["a label above its box"]
           and names == {"best_fit.layout": "Layout", "site.profile": "Which website to copy",
