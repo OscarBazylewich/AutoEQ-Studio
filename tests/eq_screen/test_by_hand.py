@@ -103,18 +103,60 @@ def test_pasted_filters_empty_or_unreadable(eq_screen, dialogs, check):
     text = "my notes, no filters here"
     page.hand_paste.setPlainText(text)
     n = len(dialogs.asked)
+    page.page_area.ensureWidgetVisible(page.hand_start, 0, 120)  # (in sight, as when you click it)
+    page.hand_start.setFocus()
     page.hand_start.click()
-    unreadable = ([k for k, _t in dialogs.asked[n:]], page.current()[1], page.hand_paste.toPlainText())
+    from ui import bubble
+    told = bubble.last("tell")
+    unreadable = ([k for k, _t in dialogs.asked[n:]], page.current()[1], page.hand_paste.toPlainText(),
+                  told is not None and told.anchor is page.hand_start and told.isVisible(),
+                  page.window().focusWidget() is page.hand_paste)
     page.hand_paste.setPlainText("Filter 1: ON PK Fc 500 Hz Gain -3 dB Q 2")
     page.hand_paste_name.clear()
     page.hand_start.click()
     run, _ = page.current()
+    # (the control audit, 2026-11-27, 2-1: a text with no filters was a box that waited for OK; now a bubble at Start,
+    # as the empty box's)
     check("by hand: Start with an empty Filters box (spaces only) starts nothing, says to paste first in a bubble at "
-          "Start and gives the focus to the box; a text with no filters says so in a box and stays in the Filters box; "
-          "with no name the EQ is “Pasted EQ”",
-          empty == ([("bubble", PASTE_FIRST)], None, True) and unreadable[0] == ["information"]
+          "Start and gives the focus to the box; a text with no filters says so in a bubble at Start (no box), stays "
+          "in the Filters box and gets the focus; with no name the EQ is “Pasted EQ”",
+          empty == ([("bubble", PASTE_FIRST)], None, True) and unreadable[0] == ["bubble"] and unreadable[3]
+          and unreadable[4]
           and unreadable[1] is None and unreadable[2] == text and run is not None
           and run["source_name"] == "Pasted EQ" and len(page.EDIT) == 1, (empty, unreadable, run and run["source_name"]))
+
+
+def test_no_filters_said_where_you_look(eq_screen, tmp_path, dialogs, check):
+    # (the control audit, 2026-11-27, 2-1: "No filters found" was a box that waited for OK. From Start: a bubble at
+    # Start. From Profiles' Edit in Make an EQ, where Start wasn't clicked (and may be out of sight): the window's
+    # message, which shows near what you used or at the window's bottom)
+    from ui import bubble
+    page = eq_screen.page
+    page.session_runs = []
+    page.show_run(None)
+    path = _write(os.path.join(str(tmp_path), "Notes.txt"), "my notes, no filters here\n")
+    dialogs.answer("getOpenFileName", (path, ""))
+    n = len(dialogs.asked)
+    page.set_way("hand", remember=False)
+    page.page_area.ensureWidgetVisible(page.hand_start, 0, 120)  # (in sight, as when you click it)
+    _start(page, "file")
+    told, b = dialogs.asked[n:], bubble.last("tell")
+    from_file = ([k for k, _t in told], told and told[-1][1].startswith("No filters found. Supported formats:\n"),
+                 b is not None and b.anchor is page.hand_start and b.isVisible(), page.current()[1])
+    if b is not None:
+        b.close_now()
+    pid = eq_screen.sw.import_profile(_write(os.path.join(str(tmp_path), "Empty.txt"), "Preamp: -3 dB\n"), "Empty")
+    n, m = len(dialogs.asked), len(eq_screen.said)
+    page.manual_from_profile(pid)  # (as Profiles' Edit in Make an EQ calls it: no button of the page clicked)
+    from_profiles = (dialogs.asked[n:], eq_screen.said[m:], page.current()[1])
+    check("by hand: an EQ file with no filters says “No filters found” and its formats in a bubble at Start (no box "
+          "that waits for OK), and starts nothing",
+          from_file[0][-1:] == ["bubble"] and "information" not in from_file[0] and from_file[1] and from_file[2] and from_file[3] is None,
+          from_file)
+    check("by hand: a profile with no filters opened from Profiles' Edit says “No filters found” in the window's "
+          "message (Start wasn't clicked), with no box, and starts nothing",
+          from_profiles[0] == [] and len(from_profiles[1]) == 1 and from_profiles[1][0].startswith("No filters found")
+          and from_profiles[2] is None, from_profiles)
 
 
 def test_add_filter_in_the_card(eq_screen, check):

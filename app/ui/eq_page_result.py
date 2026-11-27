@@ -705,7 +705,7 @@ class EqResult:
         elif key == "profile:":
             bubble.tell(None, NO_PROFILES, near=self.hand_start)
         else:
-            self.manual_from_profile(key.split(":", 1)[1])
+            self.manual_from_profile(key.split(":", 1)[1], at=self.hand_start)
 
     def start_manual(self, filters, source, name="", profile=None, left_out=()):
         """An EQ of your own on the result card, made by hand from these filters (none: start empty), as a run of its
@@ -794,20 +794,24 @@ class EqResult:
         except OSError as e:  # (no rights, an offline OneDrive file, one another program holds)
             QMessageBox.warning(self, "Manually", f"Couldn't read the file: {e}")
             return
-        self._manual_from_text(text, f"from {os.path.basename(f)}", os.path.splitext(os.path.basename(f))[0])
+        self._manual_from_text(text, f"from {os.path.basename(f)}", os.path.splitext(os.path.basename(f))[0],
+                               at=self.hand_start)
 
     def manual_from_paste(self):
         """Start with Pasted filters: the lines of the card's Filters box, named by its Name box ("Pasted EQ" when it's
-        empty). An empty box: a bubble at Start, and the focus to the box (UI-RULES 25). A text with no filters: the
-        message, and the text stays in the box to be corrected. Started, the two boxes are emptied."""
+        empty). An empty box: a bubble at Start, and the focus to the box (UI-RULES 25). A text with no filters: a
+        bubble at Start too, and the text stays in the box to be corrected. Started, the two boxes are emptied."""
         text = self.hand_paste.toPlainText()
         if not text.strip():
             bubble.tell(None, PASTE_FIRST, near=self.hand_start)
             self.hand_paste.setFocus(Qt.OtherFocusReason)
             return
-        if self._manual_from_text(text, "from pasted filters", self.hand_paste_name.text().strip() or "Pasted EQ"):
+        if self._manual_from_text(text, "from pasted filters", self.hand_paste_name.text().strip() or "Pasted EQ",
+                                  at=self.hand_start):
             self.hand_paste.clear()
             self.hand_paste_name.clear()
+        else:  # (the text stays, to be corrected: the focus there, as with an empty box)
+            self.hand_paste.setFocus(Qt.OtherFocusReason)
 
     def add_filter_here(self):
         """Add filter in Make the EQ (Manually, An empty EQ): a filter (1 kHz, 0 dB, Q 1) in the manual EQ on the
@@ -825,8 +829,9 @@ class EqResult:
             QTimer.singleShot(0, self, self._follow_result)
         self.add_filter()
 
-    def manual_from_profile(self, pid):
-        """A device's profile as an EQ by hand (Profiles' Edit in Make an EQ too); Use on device can update it."""
+    def manual_from_profile(self, pid, at=None):
+        """A device's profile as an EQ by hand (Profiles' Edit in Make an EQ too); Use on device can update it. at:
+        Start, when it was clicked."""
         p = self.sw.profiles().get(pid)
         if not p:
             return
@@ -835,7 +840,7 @@ class EqResult:
         except OSError as e:
             QMessageBox.warning(self, "Manually", f"Couldn't read the profile file: {e}")
             return
-        self._manual_from_text(text, f"from “{p['name']}”", p["name"], profile=pid)
+        self._manual_from_text(text, f"from “{p['name']}”", p["name"], profile=pid, at=at)
 
     def manual_from_shown(self):
         run, r = self.current()
@@ -846,23 +851,30 @@ class EqResult:
         own = self.name_edit.text().strip() if self.name_edit.property("auto") is False else ""
         self.start_manual([dict(f) for f in self.EDIT], f"copy of {what}", own or (run.get("source_name") or ""))
 
-    def _manual_from_text(self, text, source, name, profile=None):
+    def _manual_from_text(self, text, source, name, profile=None, at=None):
         """An EQ by hand from a file's or pasted text, read as Equalizer APO plays it (eq\\eqtext.py): what it has that
         an EQ here can't (other filter types, a graphic EQ …) is said, never dropped without a word. True when the EQ
-        started (False: a message said why not)."""
+        started (False: a message said why not). at: the button that started it (Start), where a text with no filters
+        is said."""
         r = self.svc.call("/api/filters/read", {"text": text, "settings": self.S})
         if r.get("error"):
             QMessageBox.warning(self, "Manually", r["error"])
             return False
         left = r.get("left_out") or []
         if not r.get("filters"):
-            QMessageBox.information(self, "Manually", (f"No editable filters found ({' · '.join(left)})."
-                                    if left else
-                                    "No filters found. Supported formats:\n"
-                                    "• Equalizer APO lines (Filter 1: ON PK Fc 100 Hz Gain 3 dB Q 1)\n"
-                                    "• Room EQ Wizard filters\n• Peace presets\n"
-                                    "• One filter per line: frequency, gain, Q") + "\n\nOnly peaking and shelf filters "
-                                    "are supported here.")
+            words = (f"No editable filters found ({' · '.join(left)})." if left else
+                     "No filters found. Supported formats:\n"
+                     "• Equalizer APO lines (Filter 1: ON PK Fc 100 Hz Gain 3 dB Q 1)\n"
+                     "• Room EQ Wizard filters\n• Peace presets\n"
+                     "• One filter per line: frequency, gain, Q") \
+                + "\n\nOnly peaking and shelf filters are supported here."
+            # (a bubble, not a box that waits for OK: UI-RULES 25. At Start, the button you clicked; from Profiles'
+            # Edit in Make an EQ nothing on the page was clicked, so the window's message says it, where you look. A
+            # bubble at a button out of sight would not show at all)
+            if at is not None and at.isVisible() and bubble.in_view(at, at.window()):
+                bubble.tell(at, words)
+            else:
+                self.status(words)
             return False
         self.start_manual(r["filters"], source, name, profile, left)
         if left:
