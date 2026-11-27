@@ -402,7 +402,8 @@ def test_the_guides_look_follows_the_theme(s, check):
                 found["dark" if dark else "light"] = {
                     "trail": px(140, y) == tok["accent"], "ring": tok["accent"] in ring, "lit": tok["accent"] in lit,
                     "tag": t.badge.palette().color(t.badge.foregroundRole()).name() == tok["muted"],
-                    "links": t.skip_btn.palette().color(QPalette.ButtonText).name() == tok["accent_text"]}
+                    "quiet": t.skip_btn.property("quiet") == "true" and not t.skip_btn.property("link")
+                    and t.skip_btn.palette().color(QPalette.ButtonText).name() == tok["ink2"]}
             finally:
                 t.hot_w = t.trail = None
                 t.end()
@@ -418,7 +419,8 @@ def test_the_guides_look_follows_the_theme(s, check):
         qt.light(qapp)  # (the light theme back, whatever happened: every later test runs light)
         qapp.processEvents()
     check("guide: what's lit, what a demo points at and a drag's trail are drawn in the accent (Windows' own colour, no "
-          "longer the graph's pink), the card's “Demo” tag and links in the accent's text colour, light and dark",
+          "longer the graph's pink), the card's “Demo” tag in gray, and Complete the demo a quiet button as the app's others "
+          "(no longer a link's look, the control audit of 2026-11-27), light and dark",
           len(found) == 2 and all(all(v.values()) for v in found.values()), found)
     check("guide: the card's buttons have Windows 11's symbols beside their words (Play demo …), drawn again in the "
           "theme's text colour when the theme changes while the Guide is open",
