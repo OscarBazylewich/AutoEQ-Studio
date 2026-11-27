@@ -361,3 +361,22 @@ def test_range_custom_when_only_its_end_is_set(eq_screen, check):
     check("tracer: the range to save is custom in About these settings and in Active settings when only its “to” box "
           "is set by hand", seen["yours"] == ["fmax"] and "<i>custom</i> · Auto: Save " in seen["notes"]
           and "Save range: <b>" in seen["active"] and "Hz</b> <i>custom</i>" in seen["active"], seen)
+
+def test_find_axes_again_off_with_no_picture(eq_screen, monkeypatch, check):
+    # (the control audit of 2026-11-27: with no picture, Find axes again was on and a click did nothing, while Read
+    # labels beside it and the rest of the side were off)
+    page = eq_screen.page
+    page.open_trace()
+    tw = page.tracer
+    monkeypatch.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.Yes))
+    tw.remove_image()
+    eq_screen.qapp.processEvents()
+    empty = (tw.detect_btn.isEnabled(), tw.ocr_btn.isEnabled())
+    img, _s = sample_image()
+    tw.load_image(img, "Sample IEM")
+    eq_screen.wait_for(lambda: not tw.reading, 60)
+    loaded = (tw.detect_btn.isEnabled(), tw.ocr_btn.isEnabled())
+    tw.close()
+    check("tracer: with no picture, Find axes again is off, as Read labels beside it; with a picture, both are on",
+          empty == (False, False) and loaded == (True, True), (empty, loaded))
+

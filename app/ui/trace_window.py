@@ -1282,7 +1282,8 @@ class TraceWindow(QWidget):
         self.edit_btns["smooth"].setEnabled(has)
         self.edit_btns["clear"].setEnabled(has)
         img = t.has_image
-        for b in (self.add_btn, self.auto_btn, self.save_btn, self.save_line, self.download_btn, self.ocr_btn):
+        for b in (self.add_btn, self.auto_btn, self.save_btn, self.save_line, self.download_btn, self.detect_btn,
+                  self.ocr_btn):
             b.setEnabled(img and (b is not self.ocr_btn or not getattr(self, "reading", False)))
         self.remove_btn.setVisible(img)
         need = "" if not img else f"To save, enter the red dB line values on 1{NBSP}Axes and check the blue Hz values" \
