@@ -47,3 +47,17 @@ def test_treble_start_from_only_with_the_website_methods(places, check):
     # (Custom values named AutoEQ TrebleStartFrom with Best fit, with no box in sight to reset it)
     check("settings: Custom values names AutoEQ TrebleStartFrom only while its box shows (a Website method)",
           not with_bf[0] and with_site[0] and "AutoEQ TrebleStartFrom" in with_site[1], (with_bf, with_site))
+
+
+def test_filter_rows_to_try_in_settings(places, check):
+    st = places.page.settings
+    try:
+        _mode(places, "site_sweep")
+        got = (st.form.applies("site_sweep.filter_rows"), "site_sweep.filter_rows" in st.adv_form.fields,
+               st.sweep_note.text())
+    finally:
+        _mode(places, "best_fit")
+    # (it was in More settings › Website best settings, with a gray line in Settings that repeated it)
+    check("settings: with Website AutoEQ: find the best settings, Filter rows to try is in Settings (as Best fit's "
+          "Filter counts to try), not in More settings, and the gray line no longer repeats it",
+          got[0] and not got[1] and got[2].startswith("Testing: frequency to ") and "filter rows" not in got[2], got)

@@ -384,8 +384,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                 'items': [{'key': 'site_sweep.filter_rows',
                            'title': 'Filter rows to try',
                            'body': ['The numbers of filter rows to try, for example 4-10 or 4, 6, 8. The app tries '
-                                    'each number with each set of values from the lists that follow. Error and '
-                                    'selection selects the best result.']},
+                                    'each number with each set of values from the lists in More settings › Website '
+                                    'best settings. Error and selection selects the best result.']},
                           {'key': 'site_sweep.freq_low',
                            'title': 'Frequency from',
                            'body': ['The start of the “Frequency Range”, for all the settings to try.']},

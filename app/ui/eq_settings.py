@@ -6,7 +6,8 @@ Settings (the ones used most):
 - Automatic settings: on or off; "Custom values" (each one made automatic again with "custom ↺", or all with Make all
   automatic); About these settings (n), a row that opens (closed at the start, kept as you left it): each value and
   the fact about your files it comes from
-- the method's own values: Website AutoEQ's seven; the website sweep's summary; Best fit's filter counts and shelves
+- the method's own values: Website AutoEQ's seven; the website sweep's filter rows and the summary of its ranges;
+  Best fit's filter counts and shelves
 - Error and selection: the range the match is judged over, how a result is picked
 - Target: the rig conversion
 More settings, a tab for each section (less height; a method's tab only with its method): Best fit (its layout,
@@ -147,7 +148,12 @@ class EqSettings:
                 ("Frequency from", [("site_single.freq_low", "num"), ("site_single.freq_high", "num")], mode("site_single")),
                 ("Gain from (dB)", [("site_single.gain_min", "num"), ("site_single.gain_max", "num")], mode("site_single")),
                 ("Q from", [("site_single.q_min", "num"), ("site_single.q_max", "num")], mode("site_single"))]),
-            ("Website AutoEQ: find the best settings", [(self.sweep_note, [], mode("site_sweep"))]),
+            # (its main value here, as Best fit's Filter counts to try; its ranges in More settings: the control audit,
+            # 2026-11-27)
+            ("Website AutoEQ: find the best settings", [
+                ("Filter rows to try", [("site_sweep.filter_rows", "intlist", None, "e.g. 4-10 or 4, 6, 8")],
+                 mode("site_sweep")),
+                (self.sweep_note, [], mode("site_sweep"))]),
             ("Best fit", [
                 ("Filter counts to try", [("best_fit.filter_counts", "intlist", None, "e.g. 1-10")], free),
                 ("Shelf", [("best_fit.low_shelf", "check")], shelves),
@@ -209,8 +215,6 @@ class EqSettings:
                 ("", [("best_fit.start_keep", "check")],
                  lambda: S()["mode"] == "best_fit" and S()["best_fit"]["start_filters"].strip())]),
             ("Website best settings", [
-                ("Filter rows to try", [("site_sweep.filter_rows", "intlist", None, "e.g. 4-10 or 4, 6, 8")],
-                 mode("site_sweep")),
                 ("Frequency from", [("site_sweep.freq_low", "num")], mode("site_sweep")),
                 ("Frequency “to” values", [("site_sweep.freq_high", "numlist")], mode("site_sweep")),
                 ("Gain ranges", [("site_sweep.gain_ranges", "ranges")], mode("site_sweep")),  # (a row of two boxes each)
@@ -730,7 +734,8 @@ class EqSettings:
         self.adjust_summary.setVisible(adj)
         # (what the sweep tries: a website's fixed values in place of the boxes')
         sw = dict(S["site_sweep"], **{p.split(".", 1)[1]: v for p, (v, _tip) in locks.items() if p.startswith("site_sweep.")})
-        self.sweep_note.setText(f"Testing: filter rows {fmt_list(sw['filter_rows'])} · frequency to "
+        # (no filter rows: their box is above the line)
+        self.sweep_note.setText("Testing: frequency to "
                                 f"{', '.join(f'{v / 1000:g} kHz' for v in sw['freq_high'])} · gain "
                                 f"{', '.join(f'{r[0]:g} to {r[1]:g}' for r in sw['gain_ranges'])} · Q to {fmt_list(sw['q_max'])}. "
                                 "Edit in More settings › Website best settings.")
