@@ -174,6 +174,106 @@ print(json.dumps(out))
 '''
 
 
+# A drop-down with a gray placeholder and nothing chosen (Your EQ app's "Select your EQ app"; the control audit,
+# 2026-11-27): a short one and a long one (its list with the search box), each read back as drawn (the darkest, or in
+# dark the lightest, pixel of the words), then sorted, opened, a row chosen and nothing chosen again
+PLACEHOLDER = r'''
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from PySide6.QtCore import QRect
+from PySide6.QtWidgets import QApplication, QStyle, QStyleOptionComboBox, QVBoxLayout, QWidget
+qapp = QApplication([])
+from ui import theme, theme_tokens
+from ui.search_combo import SearchCombo
+theme.accent_palette = lambda: theme_tokens.DEFAULT_ACCENT
+
+
+def pump():
+    for _ in range(5):
+        qapp.processEvents()
+
+
+def words(c, dark):
+    """The words' strongest pixel: the darkest in light, the lightest in dark (a channel's value)."""
+    opt = QStyleOptionComboBox()
+    c.initStyleOption(opt)
+    r = c.style().subControlRect(QStyle.CC_ComboBox, opt, QStyle.SC_ComboBoxEditField, c)
+    r = r.intersected(QRect(0, 0, c.width(), c.height()))
+    img = c.grab().toImage()
+    vals = [min(img.pixelColor(x, y).getRgb()[:3]) if not dark else max(img.pixelColor(x, y).getRgb()[:3])
+            for x in range(r.left(), r.right()) for y in range(r.top(), r.bottom())]
+    return min(vals) if not dark else max(vals)
+
+
+out = {}
+for mode, dark in (("dark", True), ("light", False)):
+    theme.apply(qapp, dark=dark)
+    host = QWidget()
+    lay = QVBoxLayout(host)
+    res = out[mode] = {}
+    for kind, n in (("short", 3), ("long", 20)):
+        c = SearchCombo(host)
+        c.setFixedWidth(300)
+        c.setPlaceholderText("Select your EQ app")
+        c.addItem("Not in the list", "other")
+        c.addItems([f"App {i}" for i in range(n, 0, -1)])
+        lay.addWidget(c)
+        host.show()
+        pump()
+        first = (c.currentIndex(), c.shown_text(), words(c, dark))
+        c.sort_items(pinned=1)
+        sorted_ = (c.currentIndex(), c.itemText(1))
+        chosen = []
+        c.activated.connect(lambda i, c=c: chosen.append(c.currentText()))
+        c.showPopup()
+        pump()
+        marked = None
+        if kind == "long":
+            p = c._popup
+            marked = p.list.currentItem() is not None  # (no row marked: nothing is chosen)
+            p.choose(p.rows()[2])
+        else:
+            c.hidePopup()
+            c.setCurrentIndex(2)
+            c.activated.emit(2)
+        pump()
+        picked = (c.currentIndex(), c.shown_text(), words(c, dark), chosen)
+        c.setCurrentIndex(-1)
+        pump()
+        again = (c.currentIndex(), c.shown_text(), c.currentData())
+        res[kind] = {"first": first, "sorted": sorted_, "picked": picked, "again": again,
+                     "search": c.has_search_box(), "marked": marked}
+    res["tokens"] = [int(theme.tokens()[k][1:3], 16) for k in ("ink", "muted")]
+    host.close()
+print(json.dumps(out))
+'''
+
+
+def test_placeholder_while_nothing_is_chosen(check):
+    out = subproc.run_python(PLACEHOLDER, session.SESSION.app)
+    d = out.data or {}
+
+    def ok(m, dark):
+        ink, muted = m["tokens"]
+        for kind in ("short", "long"):
+            k = m[kind]
+            gray, black = k["first"][2], k["picked"][2]
+            if not (k["first"][:2] == [-1, "Select your EQ app"] and k["sorted"] == [-1, "App 1"]
+                    and k["picked"][:2] == [2, "App 2"] and k["picked"][3] == ["App 2"]
+                    and k["again"] == [-1, "Select your EQ app", None] and k["search"] == (kind == "long")
+                    and k["marked"] is (False if kind == "long" else None)):
+                return False
+            # (the words' colour: nearer the placeholder colour than the text's, then the text's own)
+            if abs(gray - muted) >= abs(gray - ink) or abs(black - ink) > 24:
+                return False
+        return True
+    check("drop-down lists: with a placeholder and nothing chosen, a drop-down (short, or long with its search box) "
+          "shows the placeholder in gray (the text boxes' placeholder colour), keeps nothing chosen when sorted, "
+          "opens its list with no row marked as chosen, "
+          "shows a chosen row in the text's colour, and shows the placeholder again with nothing chosen; light and "
+          "dark", set(d) == {"dark", "light"} and all(ok(d[m], m == "dark") for m in d), d or out.stderr[-300:])
+
+
 def test_choice_whole_at_the_drop_downs_own_size(check):
     # (2026-11-11, seen in a picture of the tracer: Points per octave showed "…", not "48". At its own size a
     # drop-down's room is just its widest choice's width, and the "…" rule kept 4 pixels free)

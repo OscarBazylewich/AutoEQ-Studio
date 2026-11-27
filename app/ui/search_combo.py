@@ -4,7 +4,8 @@ box at its top when it holds more than SEARCH_FROM choices (type part of a name:
 ↑ ↓ and Enter choose, Esc closes); a shorter list opens as any drop-down.
 
 SearchCombo is a QComboBox (addItem, findData, setCurrentIndex, currentData and activated work as usual): only its
-long list is its own. Every drop-down in the app is one (the user's ask, 2026-10-13: a list over some number of
+long list is its own, and its gray placeholder (setPlaceholderText) while nothing is chosen (index -1), drawn as Qt's
+own drop-down draws it. Every drop-down in the app is one (the user's ask, 2026-10-13: a list over some number of
 choices gets the search box, as Find…'s filters had; Advanced's Layout was the one asked for), and each is A to Z
 (sort_items, where it's filled; the user's ask too).
 
@@ -17,6 +18,7 @@ parent is a drop-down: #searchPopup is a plain widget for that; as a frame it ne
 import re
 
 from PySide6.QtCore import QEvent, QPoint, Qt
+from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import (QComboBox, QFrame, QLineEdit, QListWidget, QListWidgetItem, QStyle,
                                QStyledItemDelegate, QStyleOptionComboBox, QStylePainter, QVBoxLayout, QWidget)
 
@@ -102,7 +104,8 @@ class _Popup(QWidget):
                 first = it
         self.none.setHidden(first is not None)
         cur = self.list.currentItem()
-        if cur is None or cur.isHidden() or cur is self.none:
+        # (nothing chosen and nothing typed: no row marked, as the box shows its placeholder; ↓ marks the first)
+        if (cur is None or cur.isHidden() or cur is self.none) and (words or self.combo.currentIndex() >= 0):
             self.list.setCurrentItem(first)
         if self.list.currentItem() is not None:
             self.list.scrollToItem(self.list.currentItem())
@@ -168,8 +171,12 @@ class SearchCombo(QComboBox):
                 self.addItem(text, data)
                 if tip:
                     self.setItemData(self.count() - 1, tip, Qt.ToolTipRole)
-            i = self.findData(keep) if keep is not None else self.findText(keep_text or "")
-            self.setCurrentIndex(i if i >= 0 else (0 if self.count() else -1))
+            if cur < 0 and self.placeholderText():  # (nothing chosen: its gray placeholder stays)
+                i = -1
+            else:
+                i = self.findData(keep) if keep is not None else self.findText(keep_text or "")
+                i = i if i >= 0 else (0 if self.count() else -1)
+            self.setCurrentIndex(i)
         finally:
             self.blockSignals(blocked)
 
@@ -180,17 +187,30 @@ class SearchCombo(QComboBox):
         Points per octave showed "…" for "48")."""
         opt = QStyleOptionComboBox()
         self.initStyleOption(opt)
+        text = self.placeholderText() if self.shows_placeholder() else opt.currentText
         room = self.style().subControlRect(QStyle.CC_ComboBox, opt, QStyle.SC_ComboBoxEditField, self).width()
-        if self.fontMetrics().horizontalAdvance(opt.currentText) <= room:
-            return opt.currentText
-        return self.fontMetrics().elidedText(opt.currentText, Qt.ElideRight, max(0, room - 4))
+        if self.fontMetrics().horizontalAdvance(text) <= room:
+            return text
+        return self.fontMetrics().elidedText(text, Qt.ElideRight, max(0, room - 4))
+
+    def shows_placeholder(self):
+        """Nothing chosen, and the box shows its gray placeholder (setPlaceholderText: what to choose, not a row of
+        the list; UI-RULES 38)."""
+        return self.currentIndex() < 0 and bool(self.placeholderText())
 
     def paintEvent(self, e):
         p = QStylePainter(self)
-        p.setPen(self.palette().color(self.foregroundRole()))
         opt = QStyleOptionComboBox()
         self.initStyleOption(opt)
+        p.setPen(self.palette().color(self.foregroundRole()))
         p.drawComplexControl(QStyle.CC_ComboBox, opt)
+        if self.shows_placeholder():
+            # (in the placeholder colour, as a text box's: the theme's stylesheet gives a drop-down's words the text
+            # colour, whatever the palette given to its label says, so the words are drawn here, where the label's go)
+            r = self.style().subControlRect(QStyle.CC_ComboBox, opt, QStyle.SC_ComboBoxEditField, self)
+            self.style().drawItemText(p, r.adjusted(1, 0, -1, 0), Qt.AlignLeft | Qt.AlignVCenter, opt.palette,
+                                      self.isEnabled(), self.shown_text(), QPalette.PlaceholderText)
+            return
         opt.currentText = self.shown_text()
         p.drawControl(QStyle.CE_ComboBoxLabel, opt)
 

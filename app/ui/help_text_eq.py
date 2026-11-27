@@ -446,7 +446,7 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'error and the pre-amp. It is not on the control that you change. It is at the top '
                                     'of the window, or at the bottom if the control is at the top. It follows each '
                                     'change. It closes when you scroll to the graph or to a part with no filters. Its '
-                                    '✕ or this tick box disables it.',
+                                    '✕ (with Undo in the message) or this tick box disables it.',
                                     'While the app calculates, the copy does not show if it is on Cancel.']},
                           {'key': '#eq-graph',
                            'title': 'The EQ graph: edit on the curve',
@@ -456,7 +456,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'Drag a handle horizontally to change its frequency. Drag it vertically to change '
                                     'its gain. Turn the mouse wheel on a handle to change its Q (up: a higher Q). '
                                     'Right-click a handle for Peak, Low shelf, High shelf and Remove (the On tick box of the '
-                                    'table turns a filter off). Double-click where there is no handle to add a filter. With '
+                                    'table turns a filter off). Remove, as ✕ in the table, says so with Undo, which puts '
+                                    'the filter back. Double-click where there is no handle to add a filter. With '
                                     'no EQ, a manual EQ starts with it (the EQ graph tells you this).',
                                     'While you drag, the curves, the values, the table and the sound of Listen change. '
                                     'The scale does not change until you release the handle. An EQ that you use on a '

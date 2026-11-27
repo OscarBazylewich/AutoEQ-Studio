@@ -327,11 +327,14 @@ class EqCards:
         self.app_note = InfoMark("", "Your EQ app", links=self.open_link)
         g.addWidget(name("Your EQ app", self.app_note), 0, 0)
         self.app_combo = SearchCombo()
-        self.app_combo.addItem("Select your EQ app", "")
+        # (what to choose, in gray while nothing is: no row of the list, which had it as a choice that did the same as
+        # "Not in the list"; the control audit, 2026-11-27, UI-RULES 38. Reset all settings… shows it again)
+        self.app_combo.setPlaceholderText("Select your EQ app")
         self.app_combo.addItem("Not in the list, or not sure: no limits, an Equalizer APO file", "other")
         for a in sorted(self.meta.get("eq_apps", []), key=lambda a: a["name"].lower()):
             self.app_combo.addItem(f"{a['name']}  ·  {', '.join(a['platforms'])}", a["key"])
-        self.app_combo.sort_items(pinned=2)  # ("Select your EQ app" and "Not in the list" on top: it was among the apps)
+        self.app_combo.setCurrentIndex(-1)
+        self.app_combo.sort_items(pinned=1)  # ("Not in the list" on top: it was among the apps)
         self.app_combo.activated.connect(lambda _i: self.choose_app(self.app_combo.currentData()))
         help_window.tag(self.app_combo, "eq_app")
         self.app_combo.setFixedWidth(CHOICE_MOST)  # (one width for the drop-downs: their edges on one line, UI-RULES 26)
@@ -638,7 +641,7 @@ class EqCards:
         self.retry_btn.setMenu(retry_menu)
         tools.addWidget(self.retry_btn)
         from ui.filter_editor import FilterEditor
-        self.editor = FilterEditor(self.meta.get("limits", {}), lambda t: self.status(t, 6000))
+        self.editor = FilterEditor(self.meta.get("limits", {}), lambda t, undo=None: self.status(t, 6000, undo))
         self.editor.empty_focus = add_btn  # (the last filter's ✕ pressed: the focus on Add filter, in sight above it)
         self.editor.changed.connect(self.live_update)
         self.editor.changed.connect(self.request_live_graph)  # (after the page has drawn the change: its curves current)

@@ -228,9 +228,7 @@ class EqHandles:
 
     def _remove_filter(self, i):
         if i < len(self.EDIT):
-            del self.EDIT[i]
-            self.editor.rebuild()
-            self.live_update()
+            self.editor.delete(i, x=False)  # (as the table's ✕: said with Undo)
 
     def eq_graph_clicked(self, ev):
         """A double-click on the EQ graph where there's no handle: a new peak there."""
