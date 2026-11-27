@@ -56,6 +56,12 @@ def _muted_label(text):
     return lab
 
 
+def _section_label(text):
+    lab = QLabel(text)
+    theme.mark(lab, role="section")
+    return lab
+
+
 def _opts(values, names=None):
     return [(v, (names or {}).get(v, f"{v:g}" if isinstance(v, float) else str(v))) for v in values]
 
@@ -238,7 +244,10 @@ class EqSettings:
                 ("Smoothing scale", [("site.scale_smoothing", "num")]),
                 ("Loudness tables", [("site.phon_table", "choice", [("ISO 226:2023", "ISO 226:2023"),
                                                                    ("ISO 226:2003", "ISO 226:2003")])])]),
-            ("Saved files", [("", [("export." + k, "check")]) for k, name in FORMATS] + [
+            # (the file types as a group of their own, under a heading, the other settings on the rows under them: the
+            # control audit, 2026-11-27. Made in the second half's step, which places it)
+            ("Saved files", lambda: [(_section_label("File types"), [])]
+             + [("", [("export." + k, "check")], None, k == FORMATS[-1][0]) for k, name in FORMATS] + [
                 ("Impulse response sample rate", [("export.convolution_rate", "choice", _opts(C["export.convolution_rate"]))],
                  lambda: S()["export"]["convolution"]),
                 ("Pre-amp rounding", [("export.preamp_rounding", "choice", [("safe", "Safe (lower value)"), ("site", "Same as squiglink")])]),

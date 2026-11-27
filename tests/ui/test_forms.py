@@ -336,6 +336,33 @@ def test_pairs_and_long_words(qapp, check):
         qt.close(dlg)
 
 
+def test_a_group_ends_its_row_and_a_number_with_its_list(qapp, check):
+    from PySide6.QtCore import QPoint
+    from helpers import qt
+    dlg, fold, form = _tab_form([("Saved files", [("", [("export.apo", "check")]),
+                                                  ("", [("export.report", "check")], None, True),
+                                                  ("More headroom (dB)", [("export.extra_headroom", "num")]),
+                                                  ("Q from", [("best_fit.q_min", "num"), ("best_fit.q_max", "numlist")])])])
+    try:
+        form.refresh()
+        fold.btn.setChecked(True)
+        dlg.resize(1600, 400)
+        dlg.show()
+        qt.pump(50)
+        pos = lambda p: form.fields[p].mapTo(form, QPoint(0, 0))
+        apo, report, head = pos("export.apo"), pos("export.report"), pos("export.extra_headroom")
+        lo, hi = form.fields["best_fit.q_min"].box, form.fields["best_fit.q_max"].box
+        # (the control audit, 2026-11-27: the settings of the files sat beside the last file type, in its row)
+        check("settings boxes: after a cell that ends its group's row, the next cell starts a row at the left, though "
+              "the width holds more cells", apo.y() == report.y() and head.y() > report.y() and head.x() == apo.x(),
+              (apo, report, head))
+        check("settings boxes: a “from” number and its list of “to” values are one pair as wide as one long box (the "
+              "number short)", lo.width() == forms.SHORT
+              and lo.width() + hi.width() + forms.PAIR_TO + 2 * forms.PAIR_GAP == forms.LONG, (lo.width(), hi.width()))
+    finally:
+        qt.close(dlg)
+
+
 def test_a_box_is_described_by_its_tooltip(qapp, check):
     # (the owner's rule of 2026-11-24: a screen reader reads a control's tooltip after its name. A box of the settings
     # had its line of Help as the description, without the limits of its tooltip, a review of the text survey found.

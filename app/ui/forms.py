@@ -687,7 +687,8 @@ class Field(QWidget):
 
 class FlowLayout(QLayout):
     """Cells side by side, as many as the width holds, then the next row (Qt's flow layout): each cell CELL px wide,
-    so they make columns; a widget with the property full_row takes a row of its own. Hidden cells take no room."""
+    so they make columns; a widget with the property full_row takes a row of its own, and after one with ends_row
+    the next cell starts a row. Hidden cells take no room."""
 
     def __init__(self, parent=None, cell=CELL, hspace=16, vspace=12):
         super().__init__(parent)
@@ -746,7 +747,7 @@ class FlowLayout(QLayout):
             x += w + self.hspace
             line = max(line, h)
             first = False
-            if full:  # (the next cell starts a new row)
+            if full or _ends_row(it):  # (the next cell starts a new row)
                 x = rect.right() + 2
         return y + line - rect.y()
 
@@ -754,6 +755,11 @@ class FlowLayout(QLayout):
 def _full(item):
     w = item.widget()
     return w is not None and bool(w.property("full_row"))
+
+
+def _ends_row(item):
+    w = item.widget()
+    return w is not None and bool(w.property("ends_row"))
 
 
 class TabPages(QWidget):
@@ -806,7 +812,8 @@ class TabPages(QWidget):
 
 # ---------------------------------------------------------------- a form: sections of rows
 class Form(QWidget):
-    """Rows of settings in sections. Each row: (label, [Field spec…], show) where a spec is (path, kind, options);
+    """Rows of settings in sections. Each row: (label, [Field spec…], show, ends_row) where a spec is (path, kind,
+    options), and ends_row (optional) makes the next cell start a row (the last of a group);
     two specs in a row are a "from … to …" pair. changed(path, value) is called with each valid value set;
     make_auto(path) for "custom ↺"; steps {path: step} gives a number box − and + (and ↑ ↓). Each row is a cell,
     its label above its box, the cells in columns (FlowLayout); a widget as the label is a note across the form; a
@@ -910,6 +917,8 @@ class Form(QWidget):
                     second.layout().addStretch(1)
                 bl.addStretch(1)
                 cl.addWidget(box)
+                if len(row) > 3 and row[3]:  # (the last of a group: the next cell starts a row)
+                    cell.setProperty("ends_row", True)
                 flow.addWidget(cell)
                 last = cell
                 self.rows.append(([cell], show))

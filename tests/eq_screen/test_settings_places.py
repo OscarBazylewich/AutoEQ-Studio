@@ -91,3 +91,27 @@ def test_a_from_and_its_to_values_in_one_cell(places, check):
     check("settings: the names that Custom values and the automatic notes use follow the cell's words",
           names == {"best_fit.gain_min": "Gain from", "best_fit.gain_max": "Gain “to” values",
                     "best_fit.q_max": "Q “to” values"}, names)
+
+
+def test_saved_files_file_types_as_a_group(places, check):
+    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QLabel
+    page, st = places.page, places.page.settings
+    form = st.adv_form
+    i = next(k for k, b in form.tab_btns.items() if b.text() == "Saved files")
+    was = form.pages.currentIndex()
+    st.adv.btn.setChecked(True)
+    form.show_tab(i)
+    qt.pump(100)
+    try:
+        tab = form.pages.currentWidget()
+        heads = [w.text() for w in tab.findChildren(QLabel) if w.property("role") == "section" and w.isVisible()]
+        y = lambda p: form.fields[p].mapTo(tab, QPoint(0, 0)).y()
+        last = max(y("export." + k) for k in ("apo", "report", "convolution"))
+        after = y("export.preamp_rounding")
+    finally:
+        form.show_tab(was)
+        st.adv.btn.setChecked(False)
+    # (Pre-amp rounding sat beside “An HTML report”, in the flow of the file types)
+    check("settings: More settings › Saved files has the heading “File types” over the tick boxes, and its other "
+          "settings start on a row under them", heads == ["File types"] and after > last, (heads, last, after))
