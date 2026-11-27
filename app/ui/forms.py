@@ -817,7 +817,7 @@ class Form(QWidget):
         super().__init__()
         self.limits, self.get, self.say, self.steps = limits, get, say, steps
         self._changed, self._make_auto = changed, make_auto
-        self.fields, self.rows = {}, []
+        self.fields, self.rows, self._show_of = {}, [], {}
         self.tabs, self.tab_btns, self._sections = tabs, {}, []
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -892,6 +892,7 @@ class Form(QWidget):
                         f.minus.setAccessibleName(name + " lower")
                         f.plus.setAccessibleName(name + " higher")
                     self.fields[spec[0]] = f
+                    self._show_of[spec[0]] = show
                     if pair and spec[1] == "num":  # (its two boxes and "to" exactly as wide as one LONG box: UI-RULES 26)
                         f.box.setFixedWidth(PAIR_BOX if not j else LONG - PAIR_BOX - PAIR_TO - 2 * PAIR_GAP)
                     bl.addWidget(f)
@@ -913,6 +914,11 @@ class Form(QWidget):
                 lay.addWidget(sec)
                 if whole is not None:  # (a section whose rows all may hide: hidden with them, its heading too)
                     self.rows.append(([sec], whole))
+
+    def applies(self, path):
+        """The form has a box for this setting, and its row shows now (its show predicate)."""
+        show = self._show_of.get(path)
+        return path in self.fields and (show is None or bool(show()))
 
     def _focus_off_locked(self, locks):
         """A box with the focus that becomes fixed now (locks) first gives the focus to the nearest setting that stays

@@ -783,7 +783,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'title': 'AutoEQ TrebleStartFrom (Hz)',
                            'body': ['A setting of the AutoEQ of the website that the website does not show. Its first '
                                     'step uses no filters above this frequency (most websites 7000, listener800 '
-                                    '15000). The app sets it from the website (Which website to copy).']},
+                                    '15000). The app sets it from the website (Which website to copy).',
+                                    "Shows only with the Website methods (Best fit doesn't use it)."]},
                           {'key': 'site.sample_rate',
                            'title': 'Sample rate',
                            'body': ['The sample rate that the app uses to calculate the filters. The website uses '

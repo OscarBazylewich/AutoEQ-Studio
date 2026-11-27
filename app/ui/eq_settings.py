@@ -229,7 +229,8 @@ class EqSettings:
                 # (by the levelling the curves have: the one shown, page.site_now)
                 ("Around (Hz)", [("site.norm_hz", "num")], lambda: page.site_now()["normalization"] != "dB"),
                 ("Loudness (phon)", [("site.norm_db", "num")], lambda: page.site_now()["normalization"] == "dB"),
-                ("AutoEQ TrebleStartFrom (Hz)", [("site.treble_start_from", "num")]),
+                # (only the website's own AutoEQ reads it: engines.js_site_cfg, for the two Website methods)
+                ("AutoEQ TrebleStartFrom (Hz)", [("site.treble_start_from", "num")], mode("site_single", "site_sweep")),
                 ("Sample rate", [("site.sample_rate", "choice", _opts(C["site.sample_rate"]))]),
                 ("Smoothing level", [("site.smooth_level", "num")]),
                 ("Smoothing scale", [("site.scale_smoothing", "num")]),
@@ -704,9 +705,12 @@ class EqSettings:
                           else "Automatic settings are off."))
         self.why_head.setText(f"About these settings ({len(notes)})" if notes else "About these settings")
         self.redraw_adjust()
-        self.mine_box.setVisible(on and bool(mine))
+        # (only the custom values whose boxes show now: one of another method, or AutoEQ TrebleStartFrom with Best
+        # fit, was named with no box in sight to reset it)
+        seen = [p for p in mine if any(f.applies(p) for f in self.forms())]
+        self.mine_box.setVisible(on and bool(seen))
         # (eq.settings' names for these settings: the automatic notes that name a setting use them too)
-        self.mine_text.setText("Custom values: " + ", ".join(self.eq_settings.AUTO_NAMES.get(p, p) for p in mine)
+        self.mine_text.setText("Custom values: " + ", ".join(self.eq_settings.AUTO_NAMES.get(p, p) for p in seen)
                                + " (click “custom ↺” to reset)")
         tags = {p: ("yours" if p in mine else "auto") for p in self.auto_paths} if on else {}
         if S["site"].get("profile") == "custom":  # (Other: the app fills none of the Website values)
@@ -745,6 +749,10 @@ class EqSettings:
         own = {"best_fit": "layout, limits, ", "site_sweep": "search ranges, "}.get(S["mode"], "")
         words = own + "website values, saved files, history, and CPU"
         self.adv.summary.setText(words[0].upper() + words[1:])
+
+    def forms(self):
+        """The forms of the settings' boxes made so far: Settings' and More settings'."""
+        return [f for f in (getattr(self, "form", None), getattr(self, "adv_form", None)) if f is not None]
 
     def site_locks(self):
         """{path: (value, reason)}: the Website methods' boxes that the website of the curves fixes (no gain boxes or no
