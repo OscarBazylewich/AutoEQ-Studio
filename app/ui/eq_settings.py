@@ -226,8 +226,9 @@ class EqSettings:
                 (self.site_note, [], lambda: bool(self.site_note.text())),  # (where the values come from: in sight)
                 ("Normalization", [("site.normalization", "choice", [("Hz~", "Hz~ (average across 4 octaves)"),
                                                                       ("Hz", "Hz (one frequency)"), ("dB", "dB (equal loudness, phon)")])]),
-                ("Around (Hz)", [("site.norm_hz", "num")], lambda: S()["site"]["normalization"] != "dB"),
-                ("Loudness (phon)", [("site.norm_db", "num")], lambda: S()["site"]["normalization"] == "dB"),
+                # (by the levelling the curves have: the one shown, page.site_now)
+                ("Around (Hz)", [("site.norm_hz", "num")], lambda: page.site_now()["normalization"] != "dB"),
+                ("Loudness (phon)", [("site.norm_db", "num")], lambda: page.site_now()["normalization"] == "dB"),
                 ("AutoEQ TrebleStartFrom (Hz)", [("site.treble_start_from", "num")]),
                 ("Sample rate", [("site.sample_rate", "choice", _opts(C["site.sample_rate"]))]),
                 ("Smoothing level", [("site.smooth_level", "num")]),
@@ -539,7 +540,8 @@ class EqSettings:
         """A valid value set in a box: into the settings, yours (when the automatic settings fill it), its side
         effects (settings.js onSettingSideEffects), then saved, and the curves or the automatic settings again."""
         S = self.page.S
-        if self.get(path) == value:
+        shown = self.page.site_shown() if hasattr(self.page, "site_shown") else {}
+        if shown.get(path, self.get(path)) == value:  # (a Website value: against the one its box shows)
             return
         self.eq_settings.set_path(S, path, value)
         # (a Website value typed is yours, "custom ↺", with every choice of Which website to copy; the choice itself
@@ -555,7 +557,11 @@ class EqSettings:
 
     def make_auto(self, path):
         S = self.page.S
+        back = [p for p in self.your_values() if p == path or not path]
         S["auto"]["manual"] = [p for p in self.your_values() if p != path] if path else []
+        for p in back:  # (a Website value made automatic: the app's own in the settings, as at the start)
+            if p.startswith("site."):
+                self.eq_settings.set_path(S, p, self.eq_settings.get_path(self.page.meta["defaults"], p))
         # (a Website value made automatic: the curves again, with the website's value: the critique of feature 5)
         self.page.changed(curves=path is None or path.startswith("site."))
         self.page.refresh_auto()
@@ -705,10 +711,14 @@ class EqSettings:
         tags = {p: ("yours" if p in mine else "auto") for p in self.auto_paths} if on else {}
         if S["site"].get("profile") == "custom":  # (Other: the app fills none of the Website values)
             tags = {p: t for p, t in tags.items() if not p.startswith("site.")}
+        elif getattr(self.page, "site_as_is", False):  # (an EQ from History's values, as they are: not automatic)
+            tags = {p: t for p, t in tags.items() if not (p.startswith("site.") and t == "auto")}
         locks = self.site_locks()
         self._site_parts()
-        self.form.refresh(tags, locks)
-        self.adv_form.refresh(tags, locks)
+        # (the Website values the curves have, shown in their boxes; never saved: page.site_shown)
+        shown = self.page.site_shown() if hasattr(self.page, "site_shown") else {}
+        self.form.refresh(tags, locks, shown)
+        self.adv_form.refresh(tags, locks, shown)
         if self._adjust is not None:  # (not made yet: adjust() shows the values as it makes it)
             self._show_adjust_values()
         adj = self.adjusted()

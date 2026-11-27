@@ -644,7 +644,7 @@ class Field(QWidget):
     def set_lock(self, lock):
         """None: the box as usual. (value, reason): a value that can't be changed here (a website's fixed gain or Q,
         eq.site_values): the box shows it and is off (gray, as Windows 11's), its tooltip the reason (a screen reader
-        reads it too); the setting's own value stays in the settings."""
+        reads it too); the setting's own value stays in the settings. Form.refresh moves the focus off it first."""
         if lock is None and self._lock is None:
             return
         self._lock = lock
@@ -914,6 +914,25 @@ class Form(QWidget):
                 if whole is not None:  # (a section whose rows all may hide: hidden with them, its heading too)
                     self.rows.append(([sec], whole))
 
+    def _focus_off_locked(self, locks):
+        """A box with the focus that becomes fixed now (locks) first gives the focus to the nearest setting that stays
+        on, the one before it, else the one after it (UI-RULES 30, as RangeRows.remove does): disabled with the focus,
+        Qt gave the focus to the next control in the page's order, and the page could scroll to it (the review of
+        feature 5)."""
+        w = QApplication.focusWidget()
+        if w is None:
+            return
+        order = list(self.fields.items())
+        at = next((i for i, (path, f) in enumerate(order) if path in locks and f.box.isEnabled()
+                   and (w is f.box or f.box.isAncestorOf(w))), None)
+        if at is None:
+            return
+        near = [order[i] for i in range(at - 1, -1, -1)] + order[at + 1:]
+        for path, f in near:
+            if path not in locks and f.box.isEnabled() and f.isVisible() and f.box.focusPolicy() != Qt.NoFocus:
+                f.box.setFocus(Qt.OtherFocusReason)
+                return
+
     def _add_tab(self, title, page, show):
         b = QPushButton(title)
         b.setCheckable(True)
@@ -930,10 +949,11 @@ class Form(QWidget):
         for k, b in self.tab_btns.items():
             b.setChecked(k == i)
 
-    def refresh(self, tags=None, locks=None):
-        """Show the settings' values; hide what doesn't apply; the automatic settings' tags ({path: state}); the boxes
-        whose values can't be changed now ({path: (value, reason)}: Field.set_lock, no tag); the tabs of the sections
-        that apply."""
+    def refresh(self, tags=None, locks=None, shown=None):
+        """Show the settings' values (shown: {path: value} shown in place of the setting's own, which stays as it is);
+        hide what doesn't apply; the automatic settings' tags ({path: state}); the boxes whose values can't be changed
+        now ({path: (value, reason)}: Field.set_lock, no tag); the tabs of the sections that apply."""
+        self._focus_off_locked(locks or {})
         for path, f in self.fields.items():
             lock = (locks or {}).get(path)
             if lock is not None:
@@ -941,7 +961,7 @@ class Form(QWidget):
                 f.set_lock(lock)
                 continue
             f.set_lock(None)
-            f.show_value(self.get(path))
+            f.show_value((shown or {}).get(path, self.get(path)))
             f.set_tag((tags or {}).get(path))
         for widgets, show in self.rows:
             if show is not None:

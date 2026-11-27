@@ -16,7 +16,10 @@ has the counts).
   website by name ("site:<url>") give that website's values to the two Website methods only; Best fit (and a manual
   EQ) keep the app's own values (APP_VALUES: what every Best fit test used). With no website (a file, your own
   image, several databases) the Website methods use USUAL (the set of 80 of 144 websites). A missing value is taken
-  from USUAL. Only with Automatic settings on, and never over a value that you typed (auto.manual).
+  from USUAL. Only with Automatic settings on, and never over a value that you typed (auto.manual). They are written
+  only into a request's own copy of the settings (the curves, the analysis, a run, a report, a preview), never
+  into the saved settings: these keep your or the app's own values, which Best fit, Other and Automatic settings off
+  use as 1.6.8 did (the review of feature 5, 2026-11-26).
 - The fixed values (lock): a website with the classic AutoEQ panel but no gain boxes or no Q boxes always uses its
   own ranges, so a Website run uses them too, whatever the boxes hold; the boxes show them, off (ui\\eq_settings).
   The panel's own clamps (gain 20 dB, Q 5 on every website with those boxes) and its most filter rows apply too.
@@ -331,10 +334,7 @@ def resolve(cfg, mode, names, as_is=False):
     prof = cfg["site"].get("profile", "auto")
     on = bool(cfg["auto"].get("enabled", True))
     info = {"profile": prof, "site_url": None, "site": None, "values": {}, "applied": False, "locks": {}, "caps": None,
-            "rows_max": None, "note": ""}
-    if as_is:
-        info["note"] = HISTORY_NOTE
-        return info
+            "rows_max": None, "note": "", "as_is": False}
     if prof == "custom":
         info["note"] = OTHER_NOTE
         return info
@@ -382,6 +382,8 @@ def resolve(cfg, mode, names, as_is=False):
         info["note"] = _sentences(parts)
     else:
         info["note"] = MIXED_NOTE if why == "mixed" else FILE_NOTE if why == "file" else ""
+    if as_is:  # (the values of the settings as they are, for the graph and a run alike; the fixed values stay)
+        info.update(values={}, applied=False, note=HISTORY_NOTE, as_is=True)
     return info
 
 
@@ -489,6 +491,25 @@ def due(url, now=None):
     return True
 
 
+def _facts(row):
+    """(how many of the 7 values, how many panel facts) a row has: the panel itself, then each of its ranges read."""
+    p = row.get("panel") if isinstance(row, dict) else None
+    panel = 0 if not isinstance(p, dict) else 1 + sum(p.get(k) is not None for k in ("freq_range", "gain_range", "q_range"))
+    values = row.get("values") if isinstance(row, dict) else None
+    return len(values) if isinstance(values, dict) else 0, panel
+
+
+def complete_enough(new, old):
+    """May a row just read replace old (the newest row before, or None)? Only when it found the graph tool (at least
+    one value) and has at least as many of the 7 values and of the panel's facts as old: a read that knows less is
+    a failed one."""
+    nv, np_ = _facts(new)
+    if nv == 0:
+        return False
+    ov, op = _facts(old) if old else (0, 0)
+    return nv >= ov and np_ >= op
+
+
 def refresh(url, get=None, now=None):
     """Read a website's values again when due(): its page and three scripts (databases.graph_tool_files, through
     net.check), kept in the cache. Returns "read", "failed", "refused" or "skipped"; never raises."""
@@ -503,6 +524,10 @@ def refresh(url, get=None, now=None):
         row.update(name=site.get("name") or url, url=site.get("url") or url, time=now,
                    read=datetime.date.fromtimestamp(now).isoformat())
         result = "read"
+        # (a page that answers but is not the graph tool, a maintenance or login page, a redesign: a failed try, the
+        # row before stays. The review of feature 5: it replaced the values and fixed ranges with nothing for 30 days)
+        if not complete_enough(row, table_entry(url)):
+            row, result = {"failed": now, "refused": False}, "failed"
     except urllib.error.HTTPError as e:
         row = {"failed": now, "refused": e.code in databases.REFUSED}
         result = "refused" if row["refused"] else "failed"

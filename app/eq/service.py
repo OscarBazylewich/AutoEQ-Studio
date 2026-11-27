@@ -187,9 +187,22 @@ def curves(body):
 
 
 def _site_values(cfg, mode, meas, body=None):
-    """site_values.apply for these measurement files (their paths): the values into cfg, and what it says."""
+    """site_values.apply for these measurement files (their paths): the values into cfg (the request's own copy:
+    never saved), and what it says. body's "site_as_is": the settings' values as they are (History's Show)."""
     as_is = bool((body or {}).get("site_as_is"))
     return site_values.apply(cfg, mode, [os.path.basename(p) for p in meas], as_is=as_is)
+
+
+def _graph_cfg(body):
+    """The request's settings with the Website values of the graph's curves (a preview or a comparison drawn beside
+    them is levelled the same way)."""
+    cfg = cfg_from(body)
+    try:
+        _target, meas = inputs.selected(cfg)
+    except (OSError, ValueError, KeyError):  # (no measurement selected: the values for no files)
+        meas = []
+    _site_values(cfg, cfg["mode"], meas, body)
+    return cfg
 
 
 @route("/api/analysis")
@@ -288,6 +301,7 @@ def target_save(body):
         raise ValueError("No target adjustments to save")
     plain = copy.deepcopy(cfg)
     plain["rig_convert"]["enabled"] = False
+    _site_values(plain, plain["mode"], meas, body)  # (the target as the graph shows it)
     c, _, _ = pipeline.load(plain, target, meas)
     text = "frequency,raw\n" + "".join(f"{f:.2f},{v:.3f}\n" for f, v in zip(c["f"], c["target"]))
     before = copy.deepcopy(cfg)
@@ -405,7 +419,7 @@ def preview(body):
     except databases.ListOnly as e:  # (its database refused the download: Find… shows its row again, with Use only)
         it = databases.item(e.entry_id)
         return {"list_only": {"id": e.entry_id, "message": databases.BROWSE_NOTE.format(site=it["site"])}}
-    vals = engines.preview_curve(cfg_from(body), [inputs.read_text(f) for f in files])
+    vals = engines.preview_curve(_graph_cfg(body), [inputs.read_text(f) for f in files])
     return {"name": name, "kind": kind, "vals": vals}
 
 
@@ -471,7 +485,7 @@ def compare_query(body):
 
 @route("/api/compare")
 def compare_run(body):
-    cfg = cfg_from(body)
+    cfg = _graph_cfg(body)
     st = inputs.state(cfg)
     q = body.get("query")  # (not text: as if none was typed)
     query = (q if isinstance(q, str) else "").strip() or compare.clean_query(st["device"] or "")
@@ -518,7 +532,7 @@ JOB = {"id": None, "status": "idle"}  # id, status (idle, running, done, error, 
 CANCEL = threading.Event()
 
 
-def _run_job(job_id, mode, cfg, analysis=None, counts=None):
+def _run_job(job_id, mode, cfg, analysis=None, counts=None, site_as_is=False):
     def progress(done, total, msg=""):
         with JOB_LOCK:
             if JOB["id"] == job_id:
@@ -527,8 +541,9 @@ def _run_job(job_id, mode, cfg, analysis=None, counts=None):
         target, meas = inputs.selected(cfg)
         progress(0, 1, "Loading files…")
         # (the Website values of the curves on the graph: those of the settings' method, so Calculate from these
-        # filters, Best fit while a Website method is selected, fits the curves the graph shows)
-        info = _site_values(cfg, cfg["mode"], meas)
+        # filters, Best fit while a Website method is selected, fits the curves the graph shows; after History's
+        # Show, the values as they are, as the graph has them)
+        info = _site_values(cfg, cfg["mode"], meas, {"site_as_is": site_as_is})
         curves, meas_texts, target_text = pipeline.load(cfg, target, meas)
         if cfg["auto"]["enabled"]:  # the same automatic values the window showed (in case it hadn't caught up)
             key = autoset.analysis_key(cfg, meas_texts, target_text)
@@ -598,7 +613,8 @@ def run(body):
         JOB.clear()
         JOB.update(id=job_id, status="running", mode=body["mode"], done=0, total=1, message="In progress…",
                    started=time.time())
-    threading.Thread(target=_run_job, args=(job_id, body["mode"], cfg, body.get("analysis"), counts), daemon=True).start()
+    threading.Thread(target=_run_job, args=(job_id, body["mode"], cfg, body.get("analysis"), counts,
+                                            bool(body.get("site_as_is"))), daemon=True).start()
     return {"id": job_id}
 
 
@@ -666,6 +682,7 @@ def make_report(body):
     there = exports.report_name(device, target_name, name)
     if not body.get("replace") and os.path.exists(os.path.join(exports.OUTPUT_DIR, there)):
         return {"exists": [there]}
+    _site_values(cfg, cfg["mode"], meas, body)  # (the curves of the graph)
     c, _, _ = pipeline.load(cfg, target, meas)
     band, fs = cfg["scoring"]["band_hz"], cfg["site"]["sample_rate"]
     problem = pipeline.band_problem(c, band)

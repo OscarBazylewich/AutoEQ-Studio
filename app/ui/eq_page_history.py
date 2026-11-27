@@ -66,7 +66,9 @@ class EqHistory:
                 "adjust": S["target_adjust"], "mode": run["mode"],
                 "label": self.run_label(run, r) + (" (edited)" if self.edited() else ""), "result": result,
                 "filters": filters, "rms": st["rms"], "preamp": st["preamp_raw"], "n_filters": st["n"],
-                "site": S["site"], "rig_convert": S["rig_convert"]["enabled"], "band": S["scoring"]["band_hz"]}
+                # (the Website values the EQ was made with: a run's own, else those of the curves: eq.site_values)
+                "site": (run.get("settings") or {}).get("site") or self.site_now(),
+                "rig_convert": S["rig_convert"]["enabled"], "band": S["scoring"]["band_hz"]}
 
     def add_to_history(self, saved):
         """Into History: after a run (saved False: only when More settings › History keeps every run), or

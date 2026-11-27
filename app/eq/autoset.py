@@ -696,10 +696,9 @@ def fmt_time(s):
 
 def auto_result(cfg, an, site=None):
     """What /api/auto returns: the values (when automatic), the notes, the effective search and its time. site: what
-    /api/curves said of the Website values of the curves (eq.site_values.resolve): with the automatic settings on,
-    their values (made with the curves, so also without an analysis) and, for a Website method, the gray line's
-    words; for a Website method, the website's fixed values in place of the automatic ones (their notes, and the
-    search and its time with them)."""
+    /api/curves said of the Website values of the curves (eq.site_values.resolve): for a Website method, the gray
+    line's words and the website's fixed values in place of the automatic ones (their notes, and the search and its
+    time with them)."""
     from . import site_values
     out = {"enabled": cfg["auto"]["enabled"]}
     eff = cfg
@@ -713,13 +712,15 @@ def auto_result(cfg, an, site=None):
         out.update(values={}, notes=[], manual=[])
     mode = cfg["mode"]
     if isinstance(site, dict):
+        # (the Website values themselves are not in "values": they are never written into the settings, so a
+        # database's values can't stay there for Best fit; the page shows them from /api/curves' answer. The review
+        # of feature 5, 2026-11-26)
+        if site.get("applied") and cfg["auto"]["enabled"] and mode in site_values.SITE_MODES \
+                and isinstance(site.get("note"), str) and site["note"]:
+            out["notes"] = out["notes"] + [{"path": "site.profile", "text": site["note"]}]
         vals = site.get("values") if site.get("applied") and cfg["auto"]["enabled"] else None
-        if isinstance(vals, dict):
-            vals = {k: v for k, v in vals.items() if k in site_values.PATHS}
-            out["values"] = {**out["values"], **vals}
-            out["manual"] += [k for k in vals if k in manual]
-            if mode in site_values.SITE_MODES and isinstance(site.get("note"), str) and site["note"]:
-                out["notes"] = out["notes"] + [{"path": "site.profile", "text": site["note"]}]
+        if isinstance(vals, dict):  # (the estimate with them: a sweep just run is known by its values)
+            eff = apply(copy.deepcopy(eff), {k: v for k, v in vals.items() if k in site_values.PATHS})
         fixed = site_values.notes(site, mode)
         if fixed:
             # (a fixed value's line in place of the automatic one: the run uses the website's)

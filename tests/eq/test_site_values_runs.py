@@ -100,3 +100,93 @@ def test_calculate_from_these_filters_fits_the_graphs_curves(hbb_measurement, ch
           "curves on the graph, and nothing is fixed", r.get("status") == "done"
           and all(used["site"][k] == v for k, v in hbb.items()) and "panel" not in used
           and used["site_single"]["gain_min"] == -6, (r.get("status"), r.get("message")))
+
+
+# ---------------------------------------------------------------- the review of feature 5 (2026-11-26)
+OWN = {"treble_start_from": 9000, "scale_smoothing": 0.15, "smooth_level": 4, "normalization": "Hz", "norm_hz": 800,
+       "norm_db": 70, "phon_table": "ISO 226:2003"}
+
+
+def _website_then(saved, state, meas_names):
+    """A settings file of 1.6.8 (saved) used as the page uses it: a Website method on HBB's measurement with the
+    automatic settings on (the curves, then the automatic values written into the settings as refresh_auto writes
+    them, then saved), then `state`; the 7 values a Best fit run then uses (as _run_job works them out)."""
+    from eq import paths as eq_paths
+    S = settings.with_auto(json.loads(json.dumps(saved)))
+    S["mode"] = "site_single"
+    S["auto"]["enabled"] = True
+    info = service.curves({"settings": S})["site_values"]
+    a = service.auto({"settings": S, "site_values": info})
+    manual = set(S["auto"]["manual"])
+    for p, v in a["values"].items():
+        if p not in manual:
+            settings.set_path(S, p, v)
+    service.save_settings({"settings": S})
+    S = settings.load(eq_paths.SETTINGS_PATH)
+    S["mode"] = "best_fit"
+    if state == "automatic settings off":
+        S["auto"]["enabled"] = False
+    elif state == "Other":
+        S["site"]["profile"] = "custom"
+    run = json.loads(json.dumps(S))
+    _target, meas = inputs.selected(run)
+    service._site_values(run, run["mode"], meas)
+    return {k: run["site"][k] for k in OLD}
+
+
+def test_best_fit_never_runs_with_a_databases_values(hbb_measurement, check):
+    """1.6.8 ran Best fit with the saved file's 7 values as they were (eac198d: service._run_job used cfg_from(body)'s
+    cfg["site"]; settings.clamp then kept these values: the same limits and choices as now)."""
+    files = {"the old default": {"site": dict(OLD, profile="listener800")},
+             "your own values": {"site": dict(OWN, profile="custom")}}
+    got = {}
+    for name, saved in files.items():
+        want = {k: saved["site"][k] for k in OLD}
+        for state in ("automatic settings on", "automatic settings off", "Other"):
+            got[(name, state)] = _website_then(saved, state, hbb_measurement) == want
+    check("site values: after a Website method on a database's measurement, a Best fit run uses the values that 1.6.8 "
+          "used for the same settings file, with Automatic settings on or off and with Other",
+          all(got.values()), [k for k, ok in got.items() if not ok])
+    S = settings.with_auto({"site": dict(OLD, profile="listener800")})
+    S.update(mode="site_single")
+    S["auto"]["enabled"] = True
+    info = service.curves({"settings": S})["site_values"]
+    a = service.auto({"settings": S, "site_values": info})
+    check("site values: the automatic answer never puts the Website values into the settings",
+          not any(p in a["values"] for p in site_values.PATHS), a["values"])
+    S["auto"]["enabled"], S["mode"] = False, "best_fit"
+    r = _run("best_fit", S)
+    check("site values: Best fit run with Automatic settings off after a Website method: the app's own values",
+          r.get("status") == "done" and all(r["result"]["settings"]["site"][k] == v for k, v in OLD.items()),
+          (r.get("status"), (r.get("result") or {}).get("settings", {}).get("site")))
+
+
+def test_after_show_a_run_uses_the_graphs_values(hbb_measurement, check):
+    """History's Show puts an entry's 7 values into the settings and draws the graph with them as they are; the
+    analysis and a run then use those same values (site_as_is), until the curves change."""
+    entry = dict(OWN)
+    S = _cfg("site_single", "auto", entry)
+    S["auto"]["manual"] = []
+    shown = service.curves({"settings": S, "site_as_is": True})
+    plain = service.curves({"settings": _cfg("site_single", "custom", entry)})
+    runs = {}
+    for mode in ("best_fit", "site_single"):
+        service.JOB.clear()
+        service.JOB.update(id="t", status="running")
+        service.CANCEL.clear()
+        try:
+            service._run_job("t", mode, json.loads(json.dumps(S)), site_as_is=True)
+            runs[mode] = dict(service.JOB)
+        finally:
+            service.JOB.clear()
+            service.JOB.update(id=None, status="idle")
+    used = {m: {k: (r.get("result") or {}).get("settings", {}).get("site", {}).get(k) for k in OWN} for m, r in runs.items()}
+    res = (runs["site_single"].get("result") or {}).get("results") or [{}]
+    check("site values: after Show, the graph's curves, a Best fit run and a Website run all use the entry's values "
+          "(the website's fixed gain and Q still apply to the Website run)",
+          shown["meas"] == plain["meas"] and not shown["site_values"]["applied"]
+          and all(u == OWN for u in used.values()) and (res[0].get("gain_min"), res[0].get("q_max")) == (-12, 2),
+          (used, res[0].get("gain_min")))
+    again = service.curves({"settings": S})
+    check("site values: once the curves change (no site_as_is), the database's values apply again",
+          again["site_values"]["applied"] and again["meas"] != shown["meas"])

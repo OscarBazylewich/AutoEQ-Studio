@@ -3,6 +3,7 @@ websites' code is not in the app), the shipped table (app\\eq\\site_values.json)
 measurement is from, which values and fixed gain and Q ranges each method and choice gives, with the gray line's
 words, and the values read again Online (a stood-in download: the tests never go online)."""
 import json
+import os
 import threading
 import time
 import urllib.error
@@ -224,7 +225,8 @@ def test_resolve_for_each_method_and_choice(fresh_studio, check):
           not off["applied"] and off["locks"] and off["note"].startswith(
               "Automatic settings are off: values below stay as you set them. No gain or Q boxes"), off["note"])
     shown = site_values.resolve(_cfg(), "site_sweep", ["H L.txt"], as_is=True)
-    check("site values: an EQ from History shown: its values as they are", not shown["applied"] and not shown["locks"]
+    check("site values: an EQ from History shown: its values as they are (the website's fixed values stay)",
+          not shown["applied"] and not shown["values"] and shown["locks"] == web["locks"]
           and shown["note"] == "Showing the values of the EQ from History", shown)
 
 
@@ -299,15 +301,17 @@ def test_notes_and_the_automatic_answer(check):
           "q_need": 3.0, "q_at": 4000, "bass_step": 0.0, "treble_step": 0.0, "no_eq_rms": 3.0}
     a = service.auto({"settings": cfg, "analysis": an, "site_values": json.loads(json.dumps(info))})
     paths = {n["path"]: n for n in a["notes"]}
-    check("site values: the automatic answer has the website's 7 values, the gray line's words and the fixed lines in "
-          "place of the automatic gain and Q lines; its search tries one gain range and one Q",
-          all(a["values"][p] == v for p, v in info["values"].items()) and paths["site.profile"]["text"] == info["note"]
+    check("site values: the automatic answer has the gray line's words and the fixed lines in place of the automatic "
+          "gain and Q lines, never the website's 7 values (they are not written into the settings); its search tries "
+          "one gain range and one Q",
+          not any(p in a["values"] for p in site_values.PATHS) and paths["site.profile"]["text"] == info["note"]
           and paths["site_sweep.gain_ranges"].get("lock") and paths["site_sweep.q_max"].get("lock")
           and "1 gain range × 1 Q limit" in a["search"], (a["search"], a["notes"]))
     bf = service.auto({"settings": _cfg("site:" + HBB, mode="best_fit"), "analysis": an,
                        "site_values": site_values.resolve(_cfg("site:" + HBB, mode="best_fit"), "best_fit", [])})
-    check("site values: with Best fit the answer has the app's own values and no website line",
-          bf["values"]["site.smooth_level"] == 3 and "site.profile" not in {n["path"] for n in bf["notes"]}, bf["notes"])
+    check("site values: with Best fit the answer has no Website value and no website line",
+          not any(p in bf["values"] for p in site_values.PATHS)
+          and "site.profile" not in {n["path"] for n in bf["notes"]}, bf["notes"])
     odd = [service.call("/api/auto", {"settings": cfg, "analysis": an, "site_values": s}) for s in (
         {"locks": {"site_sweep.gain_ranges": {"value": "x"}, "site_sweep.q_max": 3, "other": {"value": [1]}},
          "caps": {"q_cap": "5"}, "rows_max": True, "values": {"site.smooth_level": 2, "best_fit.q_max": [9]}, "applied": 1},
@@ -376,6 +380,34 @@ def test_refresh_refused_and_failed(online, own_cache, check):
     s1 = site_values.refresh(HBB, get=_fake_site(asked, fail=OSError("no network")), now=time.time() + 40 * 24 * 3600)
     check("site values: a failed try is kept quiet: the shipped values stay", s1 == "failed"
           and site_values.table_entry(HBB)["read"] == "2026-11-24", s1)
+
+
+def test_refresh_never_replaces_good_values_with_less(online, own_cache, check):
+    # (the review of feature 5, 2026-11-26: a maintenance page that answers 200 replaced HBB's values and its fixed
+    # gain and Q with nothing for 30 days)
+    later = time.time() + 40 * 24 * 3600
+    before = site_values.table_entry(HBB)
+    pages = {"maintenance": lambda u, **k: ("<html><body>Site under maintenance</body></html>", u),
+             "no graph tool scripts": lambda u, **k: ('<script src="config.js"></script>', u) if u == HBB
+             else (SQUIG_CONFIG, u)}
+    got = {}
+    for name, get in pages.items():
+        if os.path.exists(own_cache):  # (each case from no cache: a failed try waits a day)
+            os.remove(own_cache)
+        site_values.forget_memory()
+        r = site_values.refresh(HBB, get=get, now=later)
+        e = site_values.table_entry(HBB)
+        got[name] = (r, e["values"] == before["values"], e["panel"] == before["panel"], e["read"],
+                     site_values.due(HBB, now=later + 3600), site_values.due(HBB, now=later + 25 * 3600))
+    check("site values: a read that finds no graph tool, or fewer values or panel facts than the row before, is a "
+          "failed try: the older values and fixed ranges stay, and the next try comes after a day",
+          all(g == ("failed", True, True, "2026-11-24", False, True) for g in got.values()), got)
+    site_values.forget_memory()
+    same = site_values.refresh(MADE_UP, get=_fake_site([]))
+    fewer = site_values.refresh(MADE_UP, get=_fake_site([], treble="x"), now=time.time() + 31 * 24 * 3600)
+    check("site values: a read as complete as the row before replaces it; one with a value fewer does not",
+          (same, fewer) == ("read", "failed") and site_values.table_entry(MADE_UP)["values"]["treble_start_from"] == 6000,
+          (same, fewer))
 
 
 def test_refresh_soon_never_waits(online, own_cache, monkeypatch, check):

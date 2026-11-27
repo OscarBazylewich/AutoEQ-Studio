@@ -68,6 +68,20 @@ class EqGraph:
             self.live_update()  # (the error and pre-amp over these curves)
         self.load_analysis()
 
+    def site_shown(self):
+        """{path: value}: the Website values the curves were made with where they are not the settings' own (the
+        database's, or the app's own for Best fit; eq.site_values): never written into the settings, so Best fit, Other
+        and Automatic settings off use the saved values as before. A value that you typed is the settings' own."""
+        info = getattr(self, "site_info", None) or {}
+        if not info.get("applied") or not isinstance(info.get("values"), dict):
+            return {}
+        manual = set(self.S["auto"].get("manual") or [])
+        return {p: v for p, v in info["values"].items() if p.startswith("site.") and p not in manual}
+
+    def site_now(self):
+        """The Website settings as the curves have them: the settings' own with site_shown() over them."""
+        return dict(self.S["site"], **{p.split(".", 1)[1]: v for p, v in self.site_shown().items()})
+
     def load_analysis(self):
         s = json.loads(json.dumps(self.S))
         seq = getattr(self, "_curves_seq", 0)
