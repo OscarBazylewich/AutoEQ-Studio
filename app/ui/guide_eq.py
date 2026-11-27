@@ -628,7 +628,8 @@ def eq_steps(page):
 
     steps = [
         {"chapter": "The parts of AutoEQ Studio", "title": "How to make an EQ",
-         "target": lambda: [page.target_box, page.measurement_box],
+         # (Rig change's row between them: lit with them, as one)
+         "target": lambda: [page.target_box, page.rig_row, page.measurement_box],
          "text": "From top to bottom: the target and your IEM or headphone, the graph, the EQ, and the result to save. "
                  "Each step has a short demo. The demo does not change your work. The list of steps (at the top of "
                  "this box) has Play all steps and the speed of the demos.",

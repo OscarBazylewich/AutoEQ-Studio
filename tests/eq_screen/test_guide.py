@@ -654,9 +654,11 @@ def test_ring_joins_cards_that_touch(s, check):
         s.wait_for(lambda: t.demo_running, 10)  # (step 1's demo starts by itself: stopped, as Skip demo does)
         t.stop_demo()
         qapp.processEvents()
-        tb, mb = tour._rect(t.win, [page.target_box]), tour._rect(t.win, [page.measurement_box])
-        touch = mb.top() - tb.bottom() - 1 - 2 * tour.PAD  # (the room between their lit rectangles: none)
-        y = (tb.bottom() + mb.top()) // 2  # (where they meet)
+        # (Rig change's row is between them since 2026-11-27: lit with them)
+        rows = [tour._rect(t.win, [w]) for w in (page.target_box, page.rig_row, page.measurement_box)]
+        tb, mb = rows[0], rows[-1]
+        touch = max(b.top() - a.bottom() - 1 - 2 * tour.PAD for a, b in zip(rows, rows[1:]))  # (the room: none)
+        y = (tb.bottom() + rows[1].top()) // 2  # (where the first two meet)
         left, right = min(tb.left(), mb.left()) - tour.PAD, max(tb.right(), mb.right()) + tour.PAD
         img = t.win.grab().toImage()
         acc = theme.tokens()["accent"]

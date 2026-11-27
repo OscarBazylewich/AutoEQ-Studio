@@ -235,7 +235,7 @@ class EqCards:
                 # it was Settings › Target, the control audit, 2026-11-27)
                 self.rig_label = label("Rig change", wrap=False)
                 g.addWidget(self.rig_label, 2, 0)
-                rig = QWidget()
+                self.rig_row = rig = QWidget()
                 self.rig_slot = QHBoxLayout(rig)
                 self.rig_slot.setContentsMargins(0, 0, 0, 6)
                 g.addWidget(rig, 2, 1)
