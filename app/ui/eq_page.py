@@ -313,8 +313,8 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
 
     def show_settings(self):
         S = self.S
-        i = self.app_combo.findData(S.get("eq_app") or "")
-        self.app_combo.setCurrentIndex(max(0, i))
+        # (none chosen, or an app no longer listed: the gray placeholder "Select your EQ app")
+        self.app_combo.setCurrentIndex(self.app_combo.findData(S.get("eq_app")) if S.get("eq_app") else -1)
         self.app_note.setText(self.app_note_text(S.get("eq_app") or ""))
         self.mode_combo.setCurrentIndex(max(0, self.mode_combo.findData(S["mode"])))
         self.mode_hint.setText(MODE_HINT.get(S["mode"], ""))
@@ -366,6 +366,7 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
         EQ, its layout, a graphic EQ's slider range and steps, and Save writing exactly its file."""
         S, a = self.S, self.eq_app(key)
         S["eq_app"] = key
+        was = S["mode"]
         S["mode"] = "site_sweep" if a and a["kind"] == "site" else "best_fit"
         S["best_fit"]["layout"] = a["layout"] if a else "any"
         if a and a["kind"] == "graphic":
@@ -374,7 +375,7 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
         from eq import exports
         for f in exports.FORMATS:
             S["export"][f] = f == file
-        self.changed()
+        self.changed(curves=self.site_values_change(was, S["mode"]))
 
     def apply_bands(self, a):
         """A graphic EQ app's sliders: its range and steps, or the defaults when it states none (settings.js)."""
@@ -386,8 +387,15 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
         S["best_fit"]["bands"]["step"] = a.get("bands_step") or d["step"]
 
     def set_mode(self, mode):
+        was = self.S["mode"]
         self.S["mode"] = mode
-        self.changed()
+        self.changed(curves=self.site_values_change(was, mode))
+
+    def site_values_change(self, was, mode):
+        """Do the curves change from method was to mode? Between Best fit and a Website method they do, with Which
+        website to copy not Other: only the Website methods follow the website's values (eq.site_values)."""
+        web = ("site_single", "site_sweep")
+        return (was in web) != (mode in web) and self.S["site"].get("profile") != "custom"
 
     # ---------------------------------------------------------------- a picture dropped on the page (Qt's own handlers)
     def dragEnterEvent(self, e):

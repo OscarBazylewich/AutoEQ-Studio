@@ -220,10 +220,16 @@ def _new_v8():
 
 
 def js_site_cfg(cfg):
+    """The website's settings for setSiteConfig: the 7 values, the sample rate, and (in a Website run's settings
+    only: eq.site_values.lock) its AutoEQ panel's clamps, cfg["panel"]."""
     s = cfg["site"]
-    return {"scale_smoothing": s["scale_smoothing"], "smooth_level": s["smooth_level"], "norm_hz": s["norm_hz"],
-            "normalization": s["normalization"], "norm_db": s["norm_db"], "phon_table": s["phon_table"],
-            "treble_start_from": s["treble_start_from"], "sample_rate": s["sample_rate"]}
+    out = {"scale_smoothing": s["scale_smoothing"], "smooth_level": s["smooth_level"], "norm_hz": s["norm_hz"],
+           "normalization": s["normalization"], "norm_db": s["norm_db"], "phon_table": s["phon_table"],
+           "treble_start_from": s["treble_start_from"], "sample_rate": s["sample_rate"]}
+    panel = cfg.get("panel")
+    if isinstance(panel, dict):
+        out.update({k: panel[k] for k in ("gain_cap", "q_cap") if isinstance(panel.get(k), (int, float))})
+    return out
 
 
 def js_context(cfg, meas_texts=None, target_text=None):
@@ -332,15 +338,16 @@ def fit_count(bf, n_mine=0):
     return added * limits + ((1 if bf.get("start_keep", True) else limits) if n_mine else 0)
 
 
-def site_combos(sweep):
-    """All panel settings, deduplicated after the panel's own clamping (e.g. Q max above 5 acts as 5)."""
+def site_combos(sweep, q_cap=5):
+    """All panel settings, deduplicated after the panel's own clamping (e.g. Q max above 5 acts as 5; q_cap: the
+    website's own, js_site_cfg)."""
     seen, out = set(), []
     for rows in sweep["filter_rows"]:
         for hi in sweep["freq_high"]:
             for gmin, gmax in sweep["gain_ranges"]:
                 for qmax in sweep["q_max"]:
                     combo = (rows, sweep["freq_low"], hi, gmin, gmax, sweep["q_min"], qmax)
-                    key = (rows, max(sweep["freq_low"], 20), hi, int(gmin), int(gmax), sweep["q_min"], min(qmax, 5))
+                    key = (rows, max(sweep["freq_low"], 20), hi, int(gmin), int(gmax), sweep["q_min"], min(qmax, q_cap))
                     if key not in seen:
                         seen.add(key)
                         out.append(combo)
@@ -350,7 +357,7 @@ def site_combos(sweep):
 def site_sweep(pool, cfg, curves, progress=None, cancel=None):
     band, fs = cfg["scoring"]["band_hz"], cfg["site"]["sample_rate"]
     # slowest runs (most filters, widest ranges) first so no core sits idle at the end
-    combos = sorted(site_combos(cfg["site_sweep"]), key=lambda c: (-c[0], -c[2], c[3] - c[4], -c[6]))
+    combos = sorted(site_combos(cfg["site_sweep"], js_site_cfg(cfg).get("q_cap", 5)), key=lambda c: (-c[0], -c[2], c[3] - c[4], -c[6]))
     out = run_tasks(pool, _site_worker_run, combos, progress, cancel)
     return [score_result(_site_result(*o), curves, band, fs) for o in out]
 

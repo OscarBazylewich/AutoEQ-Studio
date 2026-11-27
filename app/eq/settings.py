@@ -31,7 +31,9 @@ DEFAULTS = {
     "mode": "best_fit",
     "eq_app": "",  # the EQ app or device the EQ is for (eq_apps.py); "" = not chosen yet, "other" = not listed
     "files": {"active_target": "", "excluded": []},
-    "site": {"profile": "listener800", "scale_smoothing": 0.2, "smooth_level": 3, "normalization": "Hz~",
+    # (profile: where the 7 Website values come from, eq.site_values: "auto" = the database of the measurement,
+    # "custom" = Other (none is changed), "site:<url>" = that website. The values here are the app's own: Best fit's)
+    "site": {"profile": "auto", "scale_smoothing": 0.2, "smooth_level": 3, "normalization": "Hz~",
              "norm_hz": 500, "norm_db": 60, "phon_table": "ISO 226:2023", "treble_start_from": 15000,
              "sample_rate": 48000},
     "target_adjust": {"tilt": 0.0, "bass_gain": 0.0, "bass_freq": 105, "bass_q": 0.707,
@@ -86,7 +88,9 @@ DEFAULTS = {
 
 # The settings the automatic configuration sets, per EQ method ("all": every method).
 AUTO_PATHS = {
-    "all": ["scoring.band_hz.1"],
+    # (the 7 Website values: eq.site_values fills them, from the measurement's database for the Website methods)
+    "all": ["scoring.band_hz.1", "site.treble_start_from", "site.scale_smoothing", "site.smooth_level",
+            "site.normalization", "site.norm_hz", "site.norm_db", "site.phon_table"],
     "site_single": ["site_single.rows", "site_single.freq_high", "site_single.gain_min", "site_single.gain_max",
                     "site_single.q_max"],
     "site_sweep": ["site_sweep.filter_rows", "site_sweep.freq_high", "site_sweep.gain_ranges", "site_sweep.q_max",
@@ -97,10 +101,12 @@ AUTO_PATHS = {
 }
 ALL_AUTO_PATHS = list(dict.fromkeys(p for ps in AUTO_PATHS.values() for p in ps))
 
-# listener800: config_5128iem.js + its graphtool.js (its dB mode uses ISO 226:2023 tables). squig.link lab:
-# equalizer.js TrebleStartFrom 7000, its graphtool smoothing (level 5, 0.01 scale = 0.1 here) and its default
-# "dB" levelling at 60 phon with the ISO 226:2003 tables.
-SITE_PROFILES = {"listener800": {"treble_start_from": 15000, "scale_smoothing": 0.2, "smooth_level": 3,
+# The two presets of "Which website to copy" before 2026-11-26, for clamp()'s rule for settings saved with them (the
+# list now has every website: eq.site_values). listener800: config_5128iem.js + its graphtool.js (its dB mode uses
+# ISO 226:2023 tables). squig.link lab: equalizer.js TrebleStartFrom 7000, its graphtool smoothing (level 5, 0.01
+# scale = 0.1 here) and its default "dB" levelling at 60 phon with the ISO 226:2003 tables (the usual set of
+# squig.link websites: eq.site_values.USUAL).
+OLD_PROFILES = {"listener800": {"treble_start_from": 15000, "scale_smoothing": 0.2, "smooth_level": 3,
                                  "normalization": "Hz~", "norm_hz": 500, "norm_db": 60, "phon_table": "ISO 226:2023"},
                  "squig.link lab": {"treble_start_from": 7000, "scale_smoothing": 0.1, "smooth_level": 5,
                                     "normalization": "dB", "norm_hz": 500, "norm_db": 60,
@@ -195,13 +201,15 @@ AUTO_NAMES = {
     "best_fit.freq_range.1": "Filters up to", "best_fit.gain_min": "Minimum gain", "best_fit.gain_max": "Maximum gain values",
     "best_fit.q_max": "Maximum Q values", "best_fit.low_shelf": "Low shelf", "best_fit.high_shelf": "High shelf",
     "scoring.pick": "Best result", "scoring.ear_db": "Same sound below",
-    "best_fit.fight_penalty": "Penalties for opposite filters"}
+    "best_fit.fight_penalty": "Penalties for opposite filters",
+    "site.treble_start_from": "AutoEQ TrebleStartFrom", "site.scale_smoothing": "Smoothing scale",
+    "site.smooth_level": "Smoothing level", "site.normalization": "Normalization", "site.norm_hz": "Around",
+    "site.norm_db": "Loudness", "site.phon_table": "Loudness tables"}
 # Settings with a fixed set of values (the page's dropdowns): anything else goes back to the default
 CHOICES = {"mode": list(MODES), "eq_app": ["", eq_apps.OTHER, *eq_apps.APPS], "scoring.pick": ["audible", "lowest"], "site.normalization": ["Hz~", "Hz", "dB"],
            "site.phon_table": ["ISO 226:2023", "ISO 226:2003"], "site.sample_rate": [44100, 48000, 88200, 96000],
            "export.preamp_rounding": ["safe", "site"], "export.convolution_rate": [44100, 48000, 96000], "history.keep": ["saved", "all"],
            "best_fit.layout": layouts.KEYS, "best_fit.bands.step": [0.1, 0.5, 1],
-           "site.profile": list(SITE_PROFILES) + ["custom"],
            "target_adjust.bass_q": [0.4, 0.5, 0.6, 0.707, 0.8], "target_adjust.ear_q": [0.4, 0.707, 1, 1.414, 2],
            "target_adjust.treble_q": [0.42, 0.5, 0.6, 0.707, 0.8], "target_adjust.air_q": [0.4, 0.707, 1, 1.414, 2]}
 TEXT_LISTS = ("files.excluded", "library.folders", "databases.disabled", "databases.enabled", "databases.extra",
@@ -310,6 +318,7 @@ def clamp(cfg):
                 set_path(cfg, parent, copy.deepcopy(get_path(DEFAULTS, parent)))
     if get_path(cfg, "best_fit.layout") in layouts.OLD_KEYS:  # (a device from before the EQ apps: now the app's)
         set_path(cfg, "best_fit.layout", layouts.OLD_KEYS[get_path(cfg, "best_fit.layout")])
+    cfg["site"]["profile"] = site_profile(cfg["site"])
     for path, options in CHOICES.items():
         v = get_path(cfg, path)
         if isinstance(v, bool) or v not in options:
@@ -335,6 +344,22 @@ def clamp(cfg):
         except (KeyError, IndexError, TypeError, ValueError):
             pass
     return cfg
+
+
+def site_profile(site):
+    """"Which website to copy" of settings saved before 2026-11-26 in today's terms: the old default "listener800"
+    (its values as the preset had them) is "auto", the database of the measurement; with an edited value, or the old
+    preset "squig.link lab", it is "custom" (Other: the same values, none changed by the app). "auto", "custom" and
+    "site:<web address>" stay; anything else is "auto"."""
+    p = site.get("profile")
+    if p == "listener800":
+        same = all(site.get(k) == v for k, v in OLD_PROFILES["listener800"].items())
+        return "auto" if same else "custom"
+    if p == "squig.link lab":
+        return "custom"
+    if p in ("auto", "custom") or isinstance(p, str) and p.startswith(("site:http://", "site:https://")):
+        return p
+    return "auto"
 
 
 def pair_wrong(cfg, lo, hi, strict):

@@ -74,8 +74,9 @@ TERMS = [{'title': 'Curves and sound',
                                'it, around 500 Hz).',
                                'Hz: the same level at one frequency.',
                                'dB: all curves have the same loudness in phon (squig.link uses it).'],
-                              'More settings › Website › Normalization sets it. It is important for the website '
-                              'methods, which copy the website accurately.'],
+                              'More settings › Website › Normalization sets it, from the website of your measurement '
+                              '(Which website to copy). It is important for the website methods, which copy the '
+                              'website accurately.'],
                      'see': ['phon', 'website-autoeq']},
                     {'id': 'phon',
                      'title': 'Phon and equal loudness',
@@ -320,7 +321,10 @@ TERMS = [{'title': 'Curves and sound',
                               'the code of the website. Thus, “Website AutoEQ: one set” gives the same filters as '
                               'the website for the same settings.',
                               '“Website AutoEQ: find the best settings” uses it with many sets of values, and tells '
-                              'you the values to type in the website.'],
+                              'you the values to type in the website.',
+                              'Each website has its own values (smoothing, normalization, loudness tables), and most '
+                              'have no gain or Q boxes. More settings › Website › Which website to copy takes them '
+                              'from the database of your measurement, or from the website that you select.'],
                      'see': ['sweep', 'best-fit', 'level-matching']},
                     {'id': 'sweep',
                      'title': 'Website best settings',
@@ -423,8 +427,10 @@ TERMS = [{'title': 'Curves and sound',
                      'see': ['own-filters']},
                     {'id': 'by-hand',
                      'title': 'A manual EQ',
-                     'body': ['An EQ that you make (Make the EQ › Manually). You add the filters and set the '
-                              'frequency, gain and Q of each filter, in the table or with the sliders. If you start '
+                     'body': ['An EQ that you make (Make the EQ › Manually): Add filter starts an empty one, Import '
+                              'an EQ file… reads a file, and Start reads the lines pasted in the Filters box. You add '
+                              'the filters and set the frequency, gain and Q of each filter, in the table or with the '
+                              'sliders. If you start '
                               'from an EQ file, pasted lines or a profile, the app reads them as Equalizer APO '
                               'plays them. It moves a shelf at its corner frequency (“LS … Q”, “LS 6dB” of Room EQ '
                               'Wizard) to its center frequency. It changes a slope or a width in octaves to the Q with the '
@@ -586,8 +592,8 @@ QUESTIONS = [{'id': 'q-which-method',
               'body': ['Best fit is a different method: usually, it finds an EQ that is nearer to the target or has '
                        'a smaller number of filters. The Website methods give the same result as the website in '
                        'these conditions:',
-                       ['More settings › Website agrees with the website that you use (Which website to copy, '
-                        'Normalization, smoothing).',
+                       ['Which website to copy (More settings › Website) is “The database of the measurement”, or '
+                        'the website that you use, and no value below it is “custom ↺”.',
                         'The target adjustments are the same.']],
               'see': ['website-autoeq', 'level-matching']},
              {'id': 'q-sounds-wrong',

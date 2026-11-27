@@ -61,7 +61,7 @@ HELP_EQ = {'slot:target': ['Desired frequency response for your IEM or headphone
  'site_sweep.filter_rows': ['Filter counts to test across every combination below', 'sweep'],
  'site_sweep.freq_low': '',
  'site_sweep.freq_high': ['', 'treble-limit'],
- 'site_sweep.gain_ranges': ['Min..max gain ranges to test (e.g., -12..6, -12..9)', 'sweep'],
+ 'site_sweep.gain_ranges': ['Min to max gain ranges to test, in whole dB', 'sweep'],
  'site_sweep.q_min': ['', 'q'],
  'site_sweep.q_max': ['', 'q'],
  'res.error': ['', 'error', 'q-error'],
@@ -134,6 +134,8 @@ HELP_EQ = {'slot:target': ['Desired frequency response for your IEM or headphone
  '#make-way': ['', 'by-hand'],
  '#by-hand': ['', 'by-hand', 'peaking-filter', 'shelf'],
  '#hand-start': ['', 'by-hand'],
+ '#hand-add': ['Add a 1 kHz filter to the manual EQ on the result card (starts one if needed)', 'by-hand'],
+ '#hand-paste': ['', 'by-hand'],
  '#hand-close': ['Return to previous EQ (edits stay in the list)', 'by-hand'],
  '#use-device': ['', 'set-use-update', 'set-use-try'],
  '#use-try': ['', 'q-try', 'set-use-device', 'set-use-update'],
@@ -156,8 +158,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'body': ['The first selection in Make the EQ, as two tabs. Automatically: AutoEQ adjusts '
                                     'the filters to the target for your EQ app. You select the method and click '
                                     'Calculate (or Queue… for many EQs). Manually: you set the filters. You select the '
-                                    'start (Start from) and click Start. Then you change the filters on the EQ graph '
-                                    'or in the table.',
+                                    'start (Start from) and click Start (Import an EQ file… for an EQ file). Then you '
+                                    'change the filters on the EQ graph or in the table.',
                                     'Your EQ app, below the tabs, is for the two tabs: the EQ stays in its limits, and '
                                     'Save filters writes its file. The card opens on the tab that you selected last. A '
                                     'manual EQ from Profiles shows Manually, and Calculate shows Automatically.']},
@@ -369,11 +371,15 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                           {'key': 'site_single.gain_min',
                            'title': 'Gain from … to (dB)',
                            'body': ['“Gain Range” on the website (from … to): the lowest and the highest gain of each '
-                                    'filter, in dB.']},
+                                    'filter, in dB.',
+                                    'A website with no gain boxes always uses its own range: the boxes are off and '
+                                    'show it (Which website to copy).']},
                           {'key': 'site_single.q_min',
                            'title': 'Q from … to',
                            'body': ['“Q Range” on the website (from … to): the lowest Q (the widest filter) and the '
-                                    'highest Q of its filters. The website stops at Q 5.']}]},
+                                    'highest Q of its filters. The website stops at Q 5.',
+                                    'A website with no Q boxes always uses its own range: the boxes are off and show '
+                                    'it (Which website to copy).']}]},
                {'title': 'Website AutoEQ: find the best settings',
                 'items': [{'key': 'site_sweep.filter_rows',
                            'title': 'Filter rows to try',
@@ -390,8 +396,11 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'accurate.']},
                           {'key': 'site_sweep.gain_ranges',
                            'title': 'Gain ranges',
-                           'body': ['The gain ranges to try, each as the lowest and the highest value, for example '
-                                    '-12..6, -12..9. Each is a “Gain Range” to type on the website.']},
+                           'body': ['The gain ranges to try. Each row is one range: the lowest gain in the first box and '
+                                    'the highest in the second, in whole dB. Add a range adds a row, and ✕ removes '
+                                    'one. Each is a “Gain Range” to type on the website.',
+                                    'A website with no gain boxes always uses its own range: the app tries only that '
+                                    'one, and the rows are off.']},
                           {'key': 'site_sweep.q_min',
                            'title': 'Q from',
                            'body': ['The start of the “Q Range”, for all the settings to try (the lowest permitted '
@@ -399,7 +408,9 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                           {'key': 'site_sweep.q_max',
                            'title': 'Q “to” values',
                            'body': ['The ends of the “Q Range” to try, as a list (the highest permitted Q). The '
-                                    'website stops at Q 5.']}]},
+                                    'website stops at Q 5.',
+                                    'A website with no Q boxes always uses its own range: the app tries only that '
+                                    'one, and Q from and this box are off.']}]},
                {'title': 'The result',
                 'items': [{'key': 'res.error',
                            'title': 'Error',
@@ -435,7 +446,7 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'error and the pre-amp. It is not on the control that you change. It is at the top '
                                     'of the window, or at the bottom if the control is at the top. It follows each '
                                     'change. It closes when you scroll to the graph or to a part with no filters. Its '
-                                    '✕ or this tick box disables it.',
+                                    '✕ (with Undo in the message) or this tick box disables it.',
                                     'While the app calculates, the copy does not show if it is on Cancel.']},
                           {'key': '#eq-graph',
                            'title': 'The EQ graph: edit on the curve',
@@ -445,7 +456,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'Drag a handle horizontally to change its frequency. Drag it vertically to change '
                                     'its gain. Turn the mouse wheel on a handle to change its Q (up: a higher Q). '
                                     'Right-click a handle for Peak, Low shelf, High shelf and Remove (the On tick box of the '
-                                    'table turns a filter off). Double-click where there is no handle to add a filter. With '
+                                    'table turns a filter off). Remove, as ✕ in the table, says so with Undo, which puts '
+                                    'the filter back. Double-click where there is no handle to add a filter. With '
                                     'no EQ, a manual EQ starts with it (the EQ graph tells you this).',
                                     'While you drag, the curves, the values, the table and the sound of Listen change. '
                                     'The scale does not change until you release the handle. An EQ that you use on a '
@@ -458,8 +470,10 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'operate as for all results.',
                                     'You start from an empty EQ, a copy of the selected EQ, or an EQ that you have. '
                                     "This can be an EQ file (Equalizer APO, AutoEq, squig.link, Room EQ Wizard's "
-                                    "export, a Peace preset), pasted filters or a device's profile. Then you click "
-                                    'Start (with Start…, you select the file or paste the lines first).',
+                                    "export, a Peace preset), pasted filters or a device's profile.",
+                                    'An empty EQ: click Start, or Add filter for its first filter. An EQ file: click '
+                                    'Import an EQ file… and select the file. Pasted filters: paste the lines in the '
+                                    'Filters box of the card, then click Start. Other items: click Start.',
                                     'The app reads the files as Equalizer APO uses them. If a file has an item that an '
                                     'EQ here cannot have (other filter types, a graphic EQ…), the app tells you.',
                                     'A measurement and a target are optional: with them, the graph shows your IEM with '
@@ -467,14 +481,32 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'saves it into that profile. Close, on its result card, shows the result before '
                                     'it.']},
                           {'key': '#hand-start',
-                           'title': 'Start (Manually)',
+                           'title': 'Start and Import an EQ file… (Manually)',
                            'body': ['Below Start from on the Manually tab. It starts a manual EQ from the item in '
-                                    'Start from, and the result card shows it.',
+                                    'Start from, and the result card shows it. For an EQ file, the button is Import '
+                                    'an EQ file…: you select the file, and the EQ starts.',
                                     'An empty EQ: add filters on the EQ graph (double-click) or with Add filter. A '
                                     'copy of the selected EQ: the EQ on the result card, to change it and keep the '
-                                    'initial EQ. An EQ file or pasted filters: with Start…, you select the file or '
-                                    "paste the lines first. A device's profile: Use on device › Update saves your "
-                                    'changes into it.']},
+                                    'initial EQ. Pasted filters: paste the lines in the Filters box first. A '
+                                    "device's profile: Use on device › Update saves your changes into it."]},
+                          {'key': '#hand-add',
+                           'title': 'Add filter (Manually)',
+                           'body': ['Beside Start on the Manually tab, with An empty EQ in Start from. It adds a '
+                                    'filter (1 kHz, 0 dB, Q 1) to the manual EQ on the result card. With no manual EQ '
+                                    'there, it starts an empty one first; a calculated EQ shown stays in EQs that you '
+                                    'made.',
+                                    "If the calculated EQ shown has edits, it starts nothing, so the edits aren't "
+                                    'lost: use Add filter on the result card, or Undo all first. Add filter on the '
+                                    'result card adds a filter to the EQ shown.']},
+                          {'key': '#hand-paste',
+                           'title': 'Name and Filters (Pasted filters)',
+                           'body': ['Under Start from on the Manually tab, with Pasted filters. Paste the lines in '
+                                    'Filters: Equalizer APO lines, Room EQ Wizard filters, or one filter on each line '
+                                    'as frequency, gain and Q. Name is the name of the EQ (empty: “Pasted EQ”). Then '
+                                    'click Start.',
+                                    'With an empty Filters box, Start says to paste first. If the text has no '
+                                    'filters, a message tells the formats, and the text stays in the box. When the '
+                                    'EQ starts, the two boxes are emptied.']},
                           {'key': '#hand-close',
                            'title': 'Close (a manual EQ)',
                            'body': ['On the result card of a manual EQ, on the right side of its title. It shows the '
@@ -717,10 +749,24 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                {'title': 'More settings › Website',
                 'items': [{'key': 'site.profile',
                            'title': 'Which website to copy',
-                           'body': ['The squiglink website with the graph tool that the app copies accurately (its '
-                                    'smoothing, normalization and AutoEQ settings). Select the website where you will '
-                                    'type the results: listener800 or squig.link.',
-                                    'If you change one of the settings below it, the selection changes to “Other”.']},
+                           'body': ['The graph website whose values the Website methods copy: its smoothing, '
+                                    'normalization, loudness tables and AutoEQ treble value. With other values, the '
+                                    'Website methods give other filters than the website.',
+                                    ['“The database of the measurement” (at first): the values of the website that '
+                                     'your measurement is from. The app has the values of about 155 websites, read on '
+                                     '2026-11-24. Online, it reads a website again when you use one of its entries and '
+                                     'its values are more than 30 days old.',
+                                     'A website by name: the values of that website, also for a measurement from a '
+                                     'file or from your own image. Select the website where you type the results.',
+                                     '“Other”: the app changes none of the values below.'],
+                                    'The gray line below the list says where the values come from. A measurement from '
+                                    'a file gets the usual values of squig.link websites. Best fit uses the app\'s own '
+                                    'values (those of listener800), whatever the list says.',
+                                    'A value that you type shows “custom ↺” and stays until you click it.',
+                                    'On most websites, the AutoEQ panel has no boxes for the gain or the Q: the '
+                                    'website always uses its own ranges (usually -12 to 12 dB and Q 0.5 to 2). For '
+                                    'such a website, the Website methods use them too, and their gain and Q boxes are '
+                                    'off and show those values.']},
                           {'key': 'site.normalization',
                            'title': 'Normalization',
                            'body': ['How the app gives the curves the same level before it compares them. Hz~: the '
@@ -737,8 +783,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                           {'key': 'site.treble_start_from',
                            'title': 'AutoEQ TrebleStartFrom (Hz)',
                            'body': ['A setting of the AutoEQ of the website that the website does not show. Its first '
-                                    'step uses no filters above this frequency (listener800 15000, squig.link 7000). '
-                                    'Change it only to copy a different website.']},
+                                    'step uses no filters above this frequency (most websites 7000, listener800 '
+                                    '15000). The app sets it from the website (Which website to copy).']},
                           {'key': 'site.sample_rate',
                            'title': 'Sample rate',
                            'body': ['The sample rate that the app uses to calculate the filters. The website uses '
@@ -746,15 +792,15 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                           {'key': 'site.smooth_level',
                            'title': 'Smoothing level',
                            'body': ['How much the website makes the curves smooth before the normalization. 0 = none. '
-                                    'Copy the value of your website.']},
+                                    'The app sets it from the website (Which website to copy).']},
                           {'key': 'site.scale_smoothing',
                            'title': 'Smoothing scale',
-                           'body': ['The smoothing scale of the website (listener800: 0.2). Copy the value of your '
-                                    'website.']},
+                           'body': ['The smoothing scale of the website (most websites 0.1, listener800 0.2). The app '
+                                    'sets it from the website (Which website to copy).']},
                           {'key': 'site.phon_table',
                            'title': 'Loudness tables',
-                           'body': ['The equal-loudness tables for dB mode: ISO 226:2023 for listener800, or ISO '
-                                    '226:2003 for squig.link.']}]},
+                           'body': ['The equal-loudness tables for dB mode: ISO 226:2003 (most websites) or ISO '
+                                    '226:2023 (listener800 and others).']}]},
                {'title': 'More settings › This PC',
                 'items': [{'key': 'performance.cores',
                            'title': 'CPU cores',

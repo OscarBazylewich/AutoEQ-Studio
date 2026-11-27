@@ -265,7 +265,12 @@ function setSiteConfig(cfg) {
     norm_par = [];
     Equalizer.config.TrebleStartFrom = cfg.treble_start_from;
     Equalizer.config.DefaultSampleRate = cfg.sample_rate || 48000;
+    // The website's AutoEQ panel clamps (AutoEQ Studio, eq.site_values): listener800's 20 dB and Q 5, or the fixed
+    // ranges of a panel without gain or Q boxes (they are used as they are there)
+    PANEL_GAIN_CAP = cfg.gain_cap || 20;
+    PANEL_Q_CAP = cfg.q_cap || 5;
 }
+let PANEL_GAIN_CAP = 20, PANEL_Q_CAP = 5;
 
 // listener800 "Custom DF" target adjustments (updateDF in graphtool.js): five filters, then tilt in dB/oct.
 function adjustTarget(ch, a) {
@@ -320,11 +325,11 @@ function runAutoEQ(rows, lo, hi, gmin, gmax, qmin, qmax) {
     let autoEQFrom = Math.min(Math.max(parseInt(String(lo)) || 0, 20), 20000);
     let autoEQTo = Math.min(Math.max(parseInt(String(hi)) || 0, autoEQFrom), 20000);
     Equalizer.config.AutoEQRange = [autoEQFrom, autoEQTo];
-    let autoEQGainFrom = Math.min(Math.max(parseInt(String(gmin)) || 0, -20), 20);
-    let autoEQGainTo = Math.min(Math.max(parseInt(String(gmax)) || 0, autoEQGainFrom), 20);
+    let autoEQGainFrom = Math.min(Math.max(parseInt(String(gmin)) || 0, -PANEL_GAIN_CAP), PANEL_GAIN_CAP);
+    let autoEQGainTo = Math.min(Math.max(parseInt(String(gmax)) || 0, autoEQGainFrom), PANEL_GAIN_CAP);
     Equalizer.config.OptimizeGainRange = [autoEQGainFrom, autoEQGainTo];
-    let autoEQQFrom = Math.min(Math.max(parseFloat(String(qmin)) || 0, 0.1), 5);
-    let autoEQQTo = Math.min(Math.max(parseFloat(String(qmax)) || 0, autoEQQFrom), 5);
+    let autoEQQFrom = Math.min(Math.max(parseFloat(String(qmin)) || 0, 0.1), PANEL_Q_CAP);
+    let autoEQQTo = Math.min(Math.max(parseFloat(String(qmax)) || 0, autoEQQFrom), PANEL_Q_CAP);
     Equalizer.config.OptimizeQRange = [autoEQQFrom, autoEQQTo];
     let filters = Equalizer.autoeq(STATE.phoneCH, STATE.targetCH, rows);
     // updatePreampDisplay(): first channel before/after EQ

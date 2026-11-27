@@ -2,8 +2,10 @@
 choosing an automatic EQ or one made by hand should be the first thing in the card, not a small By hand menu at the
 end of the Run row): the tabs come first; Your EQ app under them in both; only the chosen way's steps shown (Method,
 Search, Run; or Start from, Start); the three parts' labels in one column; the tab you click kept for the next start
-(not a switch the app makes: a run shows Automatically, an EQ by hand begun elsewhere By hand); Start's words with "…"
-when it asks first, and what's needed first said in a box. One page for the file (the eq_screen fixture)."""
+(not a switch the app makes: a run shows Automatically, an EQ by hand begun elsewhere By hand); the main button's
+words for each Start from item ("Import an EQ file…" for an EQ file, else "Start"; 2026-11-25), Add filter only with An
+empty EQ, the Name and Filters boxes only on Manually with Pasted filters, and the card's height that only they change;
+what's needed first said in a bubble. One page for the file (the eq_screen fixture)."""
 from PySide6.QtCore import QPoint
 
 from helpers import eqpage, qt
@@ -91,10 +93,16 @@ def test_start_says_what_it_asks_and_what_it_needs(eq_screen, dialogs, check):
     was = (page.way, page.hand_source.currentIndex())
     try:
         page.set_way("hand", remember=False)
-        words = {}
+        words, parts = {}, {}
         for key in ("empty", "copy", "file", "paste"):
             page.hand_source.setCurrentIndex(page.hand_source.findData(key))
             words[key] = page.hand_start.text()
+            parts[key] = (page.hand_add.isVisibleTo(page), page.hand_paste.isVisibleTo(page),
+                          page.hand_paste_name.isVisibleTo(page))
+        page.set_way("auto", remember=False)
+        parts["paste, on Automatically"] = (page.hand_add.isVisibleTo(page), page.hand_paste.isVisibleTo(page),
+                                            page.hand_paste_name.isVisibleTo(page))
+        page.set_way("hand", remember=False)
         page.session_runs = []
         page.show_run(None)
         page.hand_source.setCurrentIndex(page.hand_source.findData("copy"))
@@ -105,8 +113,54 @@ def test_start_says_what_it_asks_and_what_it_needs(eq_screen, dialogs, check):
     finally:
         page.set_way(was[0], remember=False)
         page.hand_source.setCurrentIndex(was[1])
-    check("make the EQ: By hand's Start reads “Start…” when it asks first (a file, pasted lines), else “Start”; a copy "
-          "of the selected EQ with none on the result card says so in a bubble at Start, and starts nothing",
-          words == {"empty": "Start", "copy": "Start", "file": "Start…", "paste": "Start…"}
+    check("make the EQ: Manually's main button reads “Import an EQ file…” for an EQ file (it asks for the file), "
+          "else “Start”; a copy of the selected EQ with none on the result card says so in a bubble at Start, and "
+          "starts nothing",
+          words == {"empty": "Start", "copy": "Start", "file": "Import an EQ file…", "paste": "Start"}
           and [k for k, _t in told] == ["bubble"] and told[0][1] == "No EQ in results yet. Calculate one first or start from a different item." and nothing,
           (words, told, nothing))
+    check("make the EQ: Add filter shows only with An empty EQ, and the Name and Filters boxes only on Manually with "
+          "Pasted filters",
+          parts == {"empty": (True, False, False), "copy": (False, False, False), "file": (False, False, False),
+                    "paste": (False, True, True), "paste, on Automatically": (False, False, False)}, parts)
+
+
+def test_card_height_with_each_item(eq_screen, check):
+    from ui.eq_page_result import HAND_SOURCES
+    page = eq_screen.page
+    was = (page.way, page.hand_source.currentIndex())
+    height = {}
+
+    def measure(state):
+        qt.pump(60)
+        height[state] = page.eq_box.height()
+    try:
+        page.set_way("auto", remember=False)
+        measure("Automatically")
+        page.set_way("hand", remember=False)
+        c = page.hand_source
+        for key in ("empty", "copy", "file", "profile"):
+            c.setCurrentIndex(c.findData(key) if key != "profile" else len(HAND_SOURCES))  # (the first profile)
+            measure(key)
+        c.setCurrentIndex(c.findData("paste"))
+        measure("paste")
+        page.set_way("auto", remember=False)
+        measure("Automatically, paste still selected")
+        page.resize(841, 900)
+        page.set_way("hand", remember=False)
+        qt.pump(250)
+        bar = page.page_area.horizontalScrollBar()
+        sideways = (bar.maximum(), page.hand_paste.mapTo(page.eq_box, QPoint(0, 0)).x() + page.hand_paste.width()
+                    <= page.eq_box.width())
+    finally:
+        page.resize(1000, 900)
+        page.set_way(was[0], remember=False)
+        page.hand_source.setCurrentIndex(was[1])
+        qt.pump(100)
+    one = {k: v for k, v in height.items() if k != "paste"}
+    check("make the EQ: the card has one height on Automatically and on Manually with An empty EQ, a copy, an EQ file "
+          "and a profile, also on Automatically with Pasted filters still selected; only Manually with Pasted filters "
+          "is higher (its Name and Filters boxes)", len(set(one.values())) == 1 and height["paste"] > height["empty"],
+          height)
+    check("make the EQ: with Pasted filters in the smallest window (841 px) the page has no sideways scroll, and the "
+          "Filters box ends inside the card", sideways == (0, True), sideways)

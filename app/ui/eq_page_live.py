@@ -7,7 +7,7 @@ It comes with an edit of the filters (the table, the sliders, Add filter, Sort) 
 and a handle held on the EQ graph: follow); it goes when the graph comes back into sight, when the filters scroll out
 of it, or with its ✕. While a job runs it makes way for Cancel: hidden while its place is over Cancel, back at the
 job's end. The tick box "Show the graph while you edit" (in the filters' tools row) turns it off and on,
-kept for the next start (the switcher's "live_graph"); its ✕ turns it off too. Drawn as the graph is (its colours,
+kept for the next start (the switcher's "live_graph"); its ✕ turns it off too, with Undo in the message. Drawn as the graph is (its colours,
 log frequency axis) on a card with Windows 11's flyout border."""
 import numpy as np
 import pyqtgraph as pg
@@ -38,7 +38,7 @@ class LiveGraph(QFrame):
         self.numbers = QLabel("")
         theme.mark(self.numbers, role="muted")
         head.addWidget(self.numbers, 1)
-        x = QToolButton()
+        x = self.close_btn = QToolButton()
         theme.mark(x, quiet=True)  # (as every ✕)
         x.setText("✕")
         x.setToolTip("Hide graph")
@@ -119,12 +119,22 @@ class EqLive:
         if not on:
             self.hide_live_graph()
 
+    def close_live_graph(self):
+        """The card's ✕: off, as the tick box, kept; said with Undo, which turns it on and shows it again (UI-RULES 24:
+        the ✕ of one card turned it off for good without a word)."""
+        self.set_live_graph_on(False)
+
+        def back():
+            self.set_live_graph_on(True)
+            self.request_live_graph()
+        self.status("Graph hidden", undo=back)
+
     def _live_graph_card(self):
         """The floating card, made the first time it's wanted (on the page's scroll area's view, over the page)."""
         lg = getattr(self, "live_graph", None)
         if lg is None:
             area = self.page_area
-            lg = self.live_graph = LiveGraph(area.viewport(), lambda: self.set_live_graph_on(False))
+            lg = self.live_graph = LiveGraph(area.viewport(), self.close_live_graph)
             help_window.tag(lg, "#live-graph")
             area.verticalScrollBar().valueChanged.connect(lambda _v: self.place_live_graph())
             area.viewport().installEventFilter(_Watch(self))

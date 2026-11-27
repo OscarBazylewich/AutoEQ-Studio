@@ -1,11 +1,12 @@
 """Settings boxes, built from a list (AutoEQ Local's [data-path] boxes and limits.js, natively).
 
 A Field shows and edits one setting (a dotted path in the EQ part's settings: "best_fit.filter_counts",
-"scoring.band_hz.1"). Kinds: num, intlist ("4-10" or "4, 6, 8"), numlist, ranges ("-12..6, -10..20"), lines (one
-per line), block (one text of many lines), check, choice ([(value, label)]), text. A value is checked as it's typed
-against the EQ part's own limits (eq.settings LIMITS and LIMIT_PAIRS: a "from" below its "to"): a wrong one turns
-the box red with the reason (and isn't used); leaving a box with a value past a limit moves it to the limit and says
-so. A box's tooltip is its Help line and its limits (help_texts.HELP; a "to" box shares its "from" box's).
+"scoring.band_hz.1"). Kinds: num, intlist ("4-10" or "4, 6, 8"), numlist, ranges (RangeRows: a row of two boxes for
+each range), lines (one per line), block (one text of many lines), check, choice ([(value, label)]), text. A value is
+checked as it's typed against the EQ part's own limits (eq.settings LIMITS and LIMIT_PAIRS: a "from" below its "to"):
+a wrong one turns the box red with the reason (and isn't used); leaving a box with a value past a limit moves it to
+the limit and says so. A box's tooltip is its Help line and its limits (help_texts.HELP; a "to" box shares its "from"
+box's). The rows of ranges take only valid values instead: no red box and no message (the owner, 2026-11-25).
 
 The automatic settings: a box they fill in has a tag beside it, "automatic", or "custom ↺" once you've changed it
 (the tag hands it back). A Form is a list of rows in sections; show(predicate) hides a row when it doesn't apply.
@@ -13,16 +14,20 @@ The automatic settings: a box they fill in has a tag beside it, "automatic", or 
 The layout (the UI audit, 2026-11-08, the user's selections): each setting is a cell with its label above its box
 (+ its tag), and the cells go side by side in columns of one width (CELL), as many as the width holds (FlowLayout):
 the label is directly above its box, and on a wide window the settings use less height. Two widths of box: a number
-SHORT (110 px), every other box, list and "from … to" pair LONG (360 px), so their tags are in one column. A form
+SHORT (110 px), every other box, list and "from … to" pair LONG (360 px), so their tags are in one column (a list of
+ranges: each row LONG wide with its ✕ in it, Add a range under the rows, the tag at the first row). A form
 with tabs=True shows each section as a tab (More settings: less height; a section whose rows all hide has no tab).
 A Fold is a part that opens and closes: a card (the tracer's About these settings), or a row in a card (sub=True:
 Settings and More settings in Make the EQ, About these settings in Settings).
 """
+import math
 import re
+import types
 
 from PySide6.QtCore import QEvent, QRect, QSize, Qt, Signal
-from PySide6.QtWidgets import (QCheckBox, QFrame, QHBoxLayout, QLabel, QLayout, QLineEdit, QPlainTextEdit,
-                               QPushButton, QToolButton, QVBoxLayout, QWidget)
+from PySide6.QtGui import QValidator
+from PySide6.QtWidgets import (QApplication, QCheckBox, QFrame, QHBoxLayout, QLabel, QLayout, QLineEdit,
+                               QPlainTextEdit, QPushButton, QToolButton, QVBoxLayout, QWidget)
 
 from ui import own_items, placed, theme
 from ui.help_texts import HELP
@@ -66,16 +71,6 @@ def parse_list(s, integers):
             return None
         out.append(int(v) if integers else v)
     return sorted(set(out)) if out else None
-
-
-def parse_ranges(s):
-    out = []
-    for part in [p.strip() for p in re.split(r"[,;]+", str(s)) if p.strip()]:
-        m = re.fullmatch(r"(-?\d+(?:\.\d+)?)\s*(?:\.\.|to|/)\s*(-?\d+(?:\.\d+)?)", part)
-        if not m or float(m.group(1)) > float(m.group(2)):
-            return None
-        out.append([_whole(float(m.group(1))), _whole(float(m.group(2)))])
-    return out or None
 
 
 def _whole(v):
@@ -149,11 +144,287 @@ PAIR_GAP, PAIR_TO = 8, 24  # (px: a "from … to" pair's gaps, and its "to")
 PAIR_BOX = (LONG - PAIR_TO - 2 * PAIR_GAP) // 2  # (px: a pair's first box; the second has the rest of LONG)
 
 
+RANGE_X = 30  # (px: a range row's ✕, as wide as a number box's − and +)
+RANGE_BOX = (LONG - PAIR_TO - RANGE_X - 3 * PAIR_GAP) // 2  # (px: a range row's first box; the second has the rest)
+# (what Add a range puts in its new row: the first of these that the list doesn't have, else a copy of the last row.
+# The defaults of eq.settings, then the two widest usual ranges)
+RANGE_STARTS = ([-12, 6], [-12, 9], [-12, 12], [-16, 16], [-20, 20])
+_WHOLE = re.compile(r"-?\d+")
+
+
 def help_of(path):
     """A setting's tooltip line (a "to" box shares its "from" box's; a list's item, its list's: help_window.help_key)."""
     from ui.help_window import help_key
     h = HELP.get(help_key(path) or "")
     return (h[0] if isinstance(h, list) else h) if h else ""
+
+
+class _WholeNumber(QValidator):
+    """A whole number from lo to hi, or, while it's typed, an empty box or a lone "-". Qt refuses a key that would make
+    anything else: the text stays as it was."""
+
+    def __init__(self, lo, hi, parent):
+        super().__init__(parent)
+        self.lo, self.hi = lo, hi
+
+    def validate(self, text, _pos):
+        if text == "" or (text == "-" and self.lo < 0):
+            return QValidator.Intermediate
+        if not _WHOLE.fullmatch(text):
+            return QValidator.Invalid
+        return QValidator.Acceptable if self.lo <= int(text) <= self.hi else QValidator.Invalid
+
+
+class _AtFirstRow(QWidget):
+    """Room for a list's tag beside the list's first row (the list is taller than one row): as high as that row, the
+    tag in its middle, as a one-box setting's tag is beside its box."""
+
+    def __init__(self, tag, rows, parent):
+        super().__init__(parent)
+        self.rows = rows
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(tag)
+
+    def sizeHint(self):
+        s = self.layout().sizeHint()
+        return QSize(s.width(), max(s.height(), self.rows.rows[0].widget.sizeHint().height()))
+
+    def minimumSizeHint(self):
+        return self.sizeHint()
+
+
+class RangeRows(QWidget):
+    """A list of ranges ([[from, to], …], e.g. Gain ranges) as rows: two boxes, "from" and "to", and a ✕ that removes
+    the row (hidden with one row left, its room kept: UI-RULES 18); Add a range under the rows (UI-RULES 19). Each row
+    is as wide as one LONG box.
+    Only valid values go in, with no message (the owner, 2026-11-25): each box takes a whole number within the
+    setting's limits (a key that would make anything else is refused). While you type, a row with an empty box, a
+    lone "-", or its "from" above its "to" is not used: ranges() is None until every row is good, and the list in use
+    stays. Leaving a box puts its row right: an empty box gets back the number the row had, and the box you left takes
+    the other box's value when their order is wrong. Add a range and ✕ first put every row right, so the list after
+    them is always good. changed is emitted after each of these. Rows no longer needed are hidden, not deleted, and
+    shown again by a later Add a range: a row keeps its place in the Tab sequence."""
+    changed = Signal()
+
+    def __init__(self, form, path, parent=None):
+        super().__init__(parent)
+        self.form, self.path, self.name = form, path, path
+        lim = form.limits.of(path) or {}
+        self._limits = (math.ceil(lim.get("min", -999)), math.floor(lim.get("max", 999)))
+        self._unit = lim.get("unit", "")
+        self.rows, self._had, self._edited, self._n, self._tip = [], [], {}, 0, ""
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(4)
+        self.rows_box = QWidget(self)
+        self.rows_lay = QVBoxLayout(self.rows_box)
+        self.rows_lay.setContentsMargins(0, 0, 0, 0)
+        self.rows_lay.setSpacing(4)
+        lay.addWidget(self.rows_box)
+        # (the rows of the value in use made now, before Add a range: in the Tab sequence, in the build step that
+        # makes the page's Tab sequence; a row made later is put into its place)
+        for _ in range(max(1, len(form.get(path) or []))):
+            self._make_row()
+        self.add_btn = QPushButton("Add a range", self)
+        from ui import icons
+        icons.put(self.add_btn, "add")
+        self.add_btn.setToolTip("Add another gain range to try")
+        self.add_btn.setProperty("help_key", path)
+        self.add_btn.clicked.connect(self.add)
+        lay.addWidget(self.add_btn, 0, Qt.AlignLeft)
+        self.setFixedWidth(LONG)
+        self.setFocusProxy(self.rows[0].lo)
+        self.set_ranges(form.get(path))
+
+    # the rows
+    def _make_row(self):
+        r = types.SimpleNamespace(widget=QWidget(self.rows_box))
+        rl = QHBoxLayout(r.widget)
+        rl.setContentsMargins(0, 0, 0, 0)
+        rl.setSpacing(PAIR_GAP)
+        r.lo, r.hi = QLineEdit(r.widget), QLineEdit(r.widget)
+        to = QLabel("to", r.widget)
+        to.setFixedWidth(PAIR_TO)
+        to.setAlignment(Qt.AlignCenter)
+        r.x = QToolButton(r.widget)
+        theme.mark(r.x, quiet=True)  # (a row's ✕: every list's one look, UI-RULES 18)
+        r.x.setText("✕")
+        r.x.setToolTip("Remove this range")
+        r.x.setFixedWidth(RANGE_X)
+        sp = r.x.sizePolicy()
+        sp.setRetainSizeWhenHidden(True)  # (one row left: its ✕ hidden, its room kept)
+        r.x.setSizePolicy(sp)
+        r.x.setProperty("help_key", self.path)
+        r.x.clicked.connect(lambda _=False, x=r.x: self.remove(self._find(x)[0]))
+        r.lo.setFixedWidth(RANGE_BOX)
+        r.hi.setFixedWidth(LONG - RANGE_BOX - PAIR_TO - RANGE_X - 3 * PAIR_GAP)
+        for box in (r.lo, r.hi):
+            box.setValidator(_WholeNumber(*self._limits, box))
+            box.setToolTip(self._tip)
+            box.setProperty("help_key", self.path)  # (F1 on it: its entry in Help)
+            box.textEdited.connect(lambda _t, box=box: self._typed(box))
+            box.editingFinished.connect(lambda box=box: self._left(box))
+            box.installEventFilter(self)
+        for w in (r.lo, to, r.hi, r.x):
+            rl.addWidget(w)
+        self.rows_lay.addWidget(r.widget)
+        if self.rows:  # (after the row above in the Tab sequence: Qt puts a new control at the end of its window's)
+            for a, b in ((self.rows[-1].x, r.lo), (r.lo, r.hi), (r.hi, r.x)):
+                QWidget.setTabOrder(a, b)
+        self.rows.append(r)
+        self._name(len(self.rows) - 1)
+        return r
+
+    def _name(self, i):
+        r, unit = self.rows[i], f" ({self._unit})" if self._unit else ""
+        r.lo.setAccessibleName(f"{self.name}, range {i + 1}, from{unit}")
+        r.hi.setAccessibleName(f"{self.name}, range {i + 1}, to{unit}")
+        one = self.name[:1].lower() + self.name[1:]  # ("Gain ranges": "Remove gain range 2")
+        r.x.setAccessibleName(f"Remove {one[:-1] if one.endswith('s') else one} {i + 1}")
+
+    def set_name(self, name):
+        """The setting's name (its label), in the names a screen reader says: "Gain ranges, range 2, from (dB)"."""
+        self.name = name
+        for i in range(len(self.rows)):
+            self._name(i)
+
+    def set_tip(self, tip):
+        self._tip = tip
+        for r in self.rows:
+            r.lo.setToolTip(tip)
+            r.hi.setToolTip(tip)
+
+    def _find(self, w):
+        """(row, 0 for its "from" box, 1 for its "to" box, 2 for its ✕), or None."""
+        for i, r in enumerate(self.rows):
+            for k, c in enumerate((r.lo, r.hi, r.x)):
+                if c is w:
+                    return i, k
+        return None
+
+    def editing(self):
+        """A box of a shown row has the focus."""
+        hit = self._find(QApplication.focusWidget())
+        return hit is not None and hit[0] < self._n and hit[1] < 2
+
+    # values
+    def set_ranges(self, v):
+        """Shows the ranges v, a row each (the other rows hidden)."""
+        v = [list(r) for r in v or []] or [[None, None]]
+        while len(self.rows) < len(v):
+            self._make_row()
+        for r, (a, b) in zip(self.rows, v):
+            self._put(r.lo, a)
+            self._put(r.hi, b)
+        self._had = [[0 if x is None else int(x) for x in r] for r in v]
+        self._edited = {}
+        self._show_rows(len(v))
+
+    def ranges(self):
+        """The list the rows show, or None while a row is not good (an empty box, a lone "-", from above to)."""
+        out = []
+        for r in self.rows[:self._n]:
+            a, b = r.lo.text(), r.hi.text()
+            if not (_WHOLE.fullmatch(a) and _WHOLE.fullmatch(b)) or int(a) > int(b):
+                return None
+            out.append([int(a), int(b)])
+        return out
+
+    def text(self):
+        """The ranges as words: "-12 to 6, -12 to 9"."""
+        return ", ".join(f"{r.lo.text()} to {r.hi.text()}" for r in self.rows[:self._n])
+
+    @staticmethod
+    def _put(box, v):
+        t = "" if v is None else number_text(v)
+        if box.text() != t:
+            box.setText(t)
+
+    def _show_rows(self, n):
+        """Rows 1 to n shown, the others hidden; ✕ only with more than one row. A control with the focus that goes is
+        first replaced by the one beside it (UI-RULES 30): hidden first, Qt gave the focus to the next control in the
+        page's sequence and the page could scroll to it."""
+        hit = self._find(QApplication.focusWidget())
+        self._n = n  # (first: the box that the focus leaves now is in a hidden row, so _left leaves it alone)
+        if hit is not None and (hit[0] >= n or (n == 1 and hit[1] == 2)):
+            last = self.rows[n - 1]
+            (last.x if hit[1] == 2 and n > 1 else last.hi if hit[1] == 2 else (last.lo, last.hi)[hit[1]]).setFocus(
+                Qt.OtherFocusReason)
+        for i, r in enumerate(self.rows):
+            r.widget.setVisible(i < n)
+            r.x.setVisible(n > 1)
+
+    def _fix(self, i, box=None):
+        """Row i put right: an empty box (or a lone "-") gets back its number, and when the order is wrong, the box
+        just edited takes the other box's value."""
+        r = self.rows[i]
+        for k, b in enumerate((r.lo, r.hi)):
+            self._put(b, int(b.text()) if _WHOLE.fullmatch(b.text()) else self._had[i][k])
+        a, b = int(r.lo.text()), int(r.hi.text())
+        if a > b:
+            if (box or self._edited.get(i, r.hi)) is r.lo:
+                self._put(r.lo, b)
+            else:
+                self._put(r.hi, a)
+        self._had[i] = [int(r.lo.text()), int(r.hi.text())]
+
+    def fix_all(self):
+        for i in range(self._n):
+            self._fix(i)
+
+    def _typed(self, box):
+        i = self._find(box)[0]
+        self._edited[i] = box
+        r = self.rows[i]
+        a, b = r.lo.text(), r.hi.text()
+        if _WHOLE.fullmatch(a) and _WHOLE.fullmatch(b) and int(a) <= int(b):  # (a good row: what an emptied box gets)
+            self._had[i] = [int(a), int(b)]
+        self.changed.emit()
+
+    def _left(self, box):
+        hit = self._find(box)
+        if hit is None or hit[0] >= self._n:
+            return
+        self._fix(hit[0], box)
+        self.changed.emit()
+
+    def eventFilter(self, obj, ev):
+        if ev.type() == QEvent.FocusOut and ev.reason() != Qt.PopupFocusReason:
+            self._left(obj)  # (an empty box or a lone "-" is no number, so Qt's editingFinished doesn't come)
+        return False
+
+    def add(self):
+        """A row more, with the first usual range that the list doesn't have; the caret in its first box, its text
+        selected, so that what you type replaces it."""
+        self.fix_all()
+        have = self._had[:self._n]
+        start = next((list(s) for s in RANGE_STARTS if list(s) not in have), list(have[-1]))
+        if self._n == len(self.rows):
+            self._make_row()
+        r = self.rows[self._n]
+        self._put(r.lo, start[0])
+        self._put(r.hi, start[1])
+        self._had = have + [start]
+        self._show_rows(self._n + 1)
+        self.changed.emit()
+        r.lo.setFocus(Qt.OtherFocusReason)
+        r.lo.selectAll()
+
+    def remove(self, i):
+        """Row i taken out; the rows under it move up. The focus moves only if its control goes (UI-RULES 30): a ✕
+        clicked with the mouse takes no focus, and the caret stays where it is."""
+        if self._n <= 1 or i >= self._n:
+            return
+        self.fix_all()
+        values = self._had[:self._n]
+        del values[i]
+        for r, (a, b) in zip(self.rows, values):
+            self._put(r.lo, a)
+            self._put(r.hi, b)
+        self._had, self._edited = values, {}
+        self._show_rows(self._n - 1)
+        self.changed.emit()
 
 
 # ---------------------------------------------------------------- one box
@@ -162,21 +433,26 @@ class Field(QWidget):
     committed = Signal(str, object)   # (path, value): a valid value the user set
     make_auto_clicked = Signal(str)         # (path): "custom ↺" clicked
 
-    def __init__(self, form, path, kind, options=None, placeholder="", pair=False):
+    def __init__(self, form, path, kind, options=None, placeholder="", pair=False, pinned=0):
         super().__init__()
         self.form, self.path, self.kind = form, path, kind
         self._focus_from_tag = False  # (the box got the focus of its tag, not typed in since: it shows each new value)
+        self._state = None  # (the tag's: None, "auto" or "yours")
+        self._lock = None  # (set_lock's: None, or (value, reason))
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(6)
-        if kind == "check":
+        if kind == "ranges":
+            self.box = RangeRows(form, path, self)
+            self.box.changed.connect(self._ranges_typed)
+        elif kind == "check":
             self.box = QCheckBox()
             self.box.toggled.connect(lambda on: self._commit(on))
         elif kind == "choice":
             self.box = SearchCombo()
             for value, label in options or []:
                 self.box.addItem(label, value)
-            self.box.sort_items()
+            self.box.sort_items(pinned)  # (the first `pinned` choices stay on top: UI-RULES 22)
             self.box.activated.connect(lambda _i: self._commit(self.box.currentData()))
         elif kind in ("lines", "block"):  # (lines: a list, one per line; block: one text, e.g. EQ file lines)
             self.box = QPlainTextEdit()
@@ -212,7 +488,10 @@ class Field(QWidget):
         theme.mark(self.tag, tag=True)
         self.tag.clicked.connect(lambda: self.make_auto_clicked.emit(self.path))
         self.tag.hide()
-        if not pair:  # (the tag right beside its box; a pair's tags: after its second box, put there by the form)
+        if kind == "ranges":  # (the tag beside the first row, in the tags' column)
+            lay.addWidget(_AtFirstRow(self.tag, self.box, self), 0, Qt.AlignTop)
+            lay.addStretch(1)
+        elif not pair:  # (the tag right beside its box; a pair's tags: after its second box, put there by the form)
             lay.addWidget(self.tag)
             lay.addStretch(1)
         tip = help_of(path)
@@ -220,16 +499,28 @@ class Field(QWidget):
         # (the line of Help, then the limits. An empty line in HELP, help_texts.py, means the survey removed the
         # words: the tooltip is then only the limits, with no empty first line; with no limits either, no tooltip)
         self.base_tip = "\n".join(t for t in (tip, f"Allowed: {allowed}" if allowed else "") if t)
-        self.box.setToolTip(self.base_tip)
+        if kind == "ranges":
+            self.box.set_tip(self.base_tip)
+        else:
+            self.box.setToolTip(self.base_tip)
         # (no description for a screen reader is set: Qt gives the tooltip, with the limits and any message of a bad
         # value, the owner's rule of 2026-11-24, as help_window.tag)
-        self.box.setProperty("help_key", path)  # (F1 on it: its entry in Help)
+        if kind != "ranges":  # (a list of ranges: each of its boxes and buttons has it)
+            self.box.setProperty("help_key", path)  # (F1 on it: its entry in Help)
 
     # the value as the box shows it, and back
-    def show_value(self, v):
-        if not self.box.hasFocus():
+    def editing(self):
+        """The caret is in the box (a list of ranges: in one of its boxes)."""
+        return self.box.editing() if self.kind == "ranges" else self.box.hasFocus()
+
+    def show_value(self, v, force=False):
+        """v in the box; not while you type in it (force: all the same)."""
+        if not self.editing():
             self._focus_from_tag = False
-        elif self.kind not in ("check", "choice") and not self._focus_from_tag:  # (not over what you type)
+        elif self.kind not in ("check", "choice") and not self._focus_from_tag and not force:  # (not over what you type)
+            return
+        if self.kind == "ranges":
+            self.box.set_ranges(v)
             return
         self.box.blockSignals(True)
         if self.kind == "check":
@@ -246,8 +537,6 @@ class Field(QWidget):
             self.box.setPlainText(v or "")
         elif self.kind in ("intlist", "numlist"):
             self.box.setText(fmt_list(v))
-        elif self.kind == "ranges":
-            self.box.setText(", ".join(f"{number_text(r[0])}..{number_text(r[1])}" for r in v or []))
         else:
             self.box.setText("" if v is None else number_text(v))
         self.box.blockSignals(False)
@@ -259,6 +548,9 @@ class Field(QWidget):
             return [s.strip() for s in self.box.toPlainText().splitlines() if s.strip()]
         if self.kind == "block":
             return self.box.toPlainText()
+        if self.kind == "ranges":  # (no message: its boxes take only valid values, and a row is put right on leaving)
+            v = self.box.ranges()
+            return v if v is not None else ("bad", "")
         t = self.box.text().strip()
         if self.kind == "intlist":
             v = parse_list(t, True)
@@ -266,9 +558,6 @@ class Field(QWidget):
         if self.kind == "numlist":
             v = parse_list(t, False)
             return v if v is not None else ("bad", "Enter numbers, e.g. 4, 6, 8")
-        if self.kind == "ranges":
-            v = parse_ranges(t)
-            return v if v is not None else ("bad", "Enter ranges as low..high, e.g. -12..6")
         if self.kind == "num":
             if t == "" and (self.form.limits.of(self.path) or {}).get("empty"):
                 return None
@@ -342,11 +631,43 @@ class Field(QWidget):
             return True
         return False
 
+    def _ranges_typed(self):
+        """A list of ranges changed: used at once when every row is good (else the list in use stays)."""
+        self._focus_from_tag = False
+        v = self.box.ranges()
+        if v is not None:
+            self._commit(v)
+
     def _commit(self, v):
         self.committed.emit(self.path, v)
 
+    def set_lock(self, lock):
+        """None: the box as usual. (value, reason): a value that can't be changed here (a website's fixed gain or Q,
+        eq.site_values): the box shows it and is off (gray, as Windows 11's), its tooltip the reason (a screen reader
+        reads it too); the setting's own value stays in the settings. Form.refresh moves the focus off it first."""
+        if lock is None and self._lock is None:
+            return
+        self._lock = lock
+        if self.box.isEnabled() != (lock is None):
+            self.box.setEnabled(lock is None)
+        if lock is not None:
+            self.show_value(lock[0], force=True)
+        tip = lock[1] if lock is not None else self.base_tip
+        if self.kind == "ranges":
+            self.box.set_tip(tip)
+        else:
+            self.box.setToolTip(tip)
+
     def set_tag(self, state):
         """None (no tag), "auto" or "yours"."""
+        was, self._state = self._state, state
+        # (your value made automatic: the box shows the value in use, also with the caret in it. A click on the tag
+        # with the mouse leaves the focus in the box (a tag takes none on a click), so the box kept your value under
+        # "automatic", and your next key made the whole of it yours again: the critique of feature 4, 2026-11-24)
+        if was == "yours" and state != "yours":
+            if self.editing():
+                self._focus_from_tag = True  # (it shows the automatic value that comes later too)
+            self.show_value(self.form.get(self.path), force=True)
         # (the tag with the focus (Tab, then Space on "custom ↺") goes off or hides: the box beside it gets the
         # focus first. Qt gave it to the next setting in the page's order, and the page scrolled to it: 670 px to 791
         # px, 2026-11-15. The box still shows each new value until you type in it: the automatic value comes later)
@@ -559,12 +880,14 @@ class Form(QWidget):
                         to.setAlignment(Qt.AlignCenter)
                         bl.addWidget(to)
                     f = Field(self, spec[0], spec[1], spec[2] if len(spec) > 2 else None,
-                              spec[3] if len(spec) > 3 else "", pair=pair)
+                              spec[3] if len(spec) > 3 else "", pair=pair, pinned=spec[4] if len(spec) > 4 else 0)
                     f.committed.connect(changed)
                     f.make_auto_clicked.connect(make_auto)
                     name = (label or "").strip() or spec[0]
                     if spec[1] != "check":  # (what a screen reader says; a tick box: its own words, Qt's default)
                         f.box.setAccessibleName(name + (" (to)" if j else ""))
+                    if spec[1] == "ranges":  # (its boxes and ✕ by the label: "Gain ranges, range 1, from (dB)")
+                        f.box.set_name(name)
                     if f.step:
                         f.minus.setAccessibleName(name + " lower")
                         f.plus.setAccessibleName(name + " higher")
@@ -591,6 +914,25 @@ class Form(QWidget):
                 if whole is not None:  # (a section whose rows all may hide: hidden with them, its heading too)
                     self.rows.append(([sec], whole))
 
+    def _focus_off_locked(self, locks):
+        """A box with the focus that becomes fixed now (locks) first gives the focus to the nearest setting that stays
+        on, the one before it, else the one after it (UI-RULES 30, as RangeRows.remove does): disabled with the focus,
+        Qt gave the focus to the next control in the page's order, and the page could scroll to it (the review of
+        feature 5)."""
+        w = QApplication.focusWidget()
+        if w is None:
+            return
+        order = list(self.fields.items())
+        at = next((i for i, (path, f) in enumerate(order) if path in locks and f.box.isEnabled()
+                   and (w is f.box or f.box.isAncestorOf(w))), None)
+        if at is None:
+            return
+        near = [order[i] for i in range(at - 1, -1, -1)] + order[at + 1:]
+        for path, f in near:
+            if path not in locks and f.box.isEnabled() and f.isVisible() and f.box.focusPolicy() != Qt.NoFocus:
+                f.box.setFocus(Qt.OtherFocusReason)
+                return
+
     def _add_tab(self, title, page, show):
         b = QPushButton(title)
         b.setCheckable(True)
@@ -607,11 +949,19 @@ class Form(QWidget):
         for k, b in self.tab_btns.items():
             b.setChecked(k == i)
 
-    def refresh(self, tags=None):
-        """Show the settings' values; hide what doesn't apply; the automatic settings' tags ({path: state}); the tabs
-        of the sections that apply."""
+    def refresh(self, tags=None, locks=None, shown=None):
+        """Show the settings' values (shown: {path: value} shown in place of the setting's own, which stays as it is);
+        hide what doesn't apply; the automatic settings' tags ({path: state}); the boxes whose values can't be changed
+        now ({path: (value, reason)}: Field.set_lock, no tag); the tabs of the sections that apply."""
+        self._focus_off_locked(locks or {})
         for path, f in self.fields.items():
-            f.show_value(self.get(path))
+            lock = (locks or {}).get(path)
+            if lock is not None:
+                f.set_tag(None)
+                f.set_lock(lock)
+                continue
+            f.set_lock(None)
+            f.show_value((shown or {}).get(path, self.get(path)))
             f.set_tag((tags or {}).get(path))
         for widgets, show in self.rows:
             if show is not None:

@@ -3,8 +3,8 @@ eq_steps(page), every step in order (The parts of AutoEQ Studio, 1 · Select, 2 
 examine, More) with its words, the controls it lights and its demo, and start_eq(page), the tour that shows them.
 The demos' helpers are in guide_demos.py. Keep the steps in their order: the checks find steps by their titles.
 """
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QPushButton
+from PySide6.QtCore import QEvent, Qt
+from PySide6.QtWidgets import QApplication, QLabel, QPushButton
 
 from ui import tasks, theme, tour
 from ui.eq_page_history import NO_PRESETS
@@ -33,6 +33,17 @@ def eq_steps(page):
         if "i" in was_tab:
             st.adv_form.show_tab(was_tab.pop("i"))
         more_close()
+
+    ranges = lambda: st.adv_form.fields["site_sweep.gain_ranges"].box  # (Gain ranges' rows: forms.RangeRows)
+
+    website = lambda: next(b for b in st.adv_form.tab_btns.values() if b.text() == "Website")
+    tab_named = lambda name: lambda: st.adv_form.show_tab(next(i for i, b in st.adv_form.tab_btns.items()
+                                                               if b.text() == name))
+
+    def website_open():  # (the step "Settings": More settings open on its Website tab; tab_back puts both back)
+        more_open()
+        was_tab["i"] = st.adv_form.pages.currentIndex()
+        tab_named("Website")()
     auto_on, auto_off = way_before_after(page, "auto")
     auto_settings_open, auto_settings_close = way_before_after(page, "auto", (best_fit_tab, tab_back))
     hand_on, hand_off = way_before_after(page, "hand")
@@ -246,7 +257,7 @@ def eq_steps(page):
 
     def _first_box():
         auto = set(st.auto_paths)
-        fields = [f for p, f in st.form.fields.items() if f.kind in ("num", "intlist", "numlist", "ranges")
+        fields = [f for p, f in st.form.fields.items() if f.kind in ("num", "intlist", "numlist")
                   and f.box.isVisible() and not p.startswith("scoring")]
         return next((f for f in fields if f.path in auto), None) or (fields[0] if fields else None)
 
@@ -341,6 +352,7 @@ def eq_steps(page):
             api.spot_on(lg)
             api.keep_clear(lg)  # (the card off it: it sat over the floating graph)
             yield from api.at(lg, 0.5, 0.4, 1600, say="If you cannot see the graph, a copy of it shows on the page while you edit")
+            yield from api.at(lg.close_btn, 0.5, 0.5, 1200, say="Its ✕ hides it, with Undo in the message")
         else:
             yield 1400
         api.say("Or as sliders: a graphic EQ, with the gain of each filter filled from 0 dB")
@@ -452,17 +464,41 @@ def eq_steps(page):
             yield 1300
 
     def manual_demo(api):
-        api.undo(page.manual_source_changed)  # (put back last: the note and Start's words for the choice as it is again)
+        # (put back last: the note, the button's words and the parts of the choice as it is again. While it plays,
+        # the Name and Filters rows stay as they were (hand_rows_held): the card keeps its height, so the markers and
+        # the page stay where they are)
+        api.undo(page.manual_source_changed)
+        page.hand_rows_held = True
+        api.undo(lambda: setattr(page, "hand_rows_held", False))
         api.say("Start from: an empty EQ, or an EQ that you have (a file, pasted lines, a profile, a copy)")
-        yield from mock_combo(api, page.hand_source, 0)
+        source = lambda key: page.hand_source.findData(key)
+        yield from mock_combo(api, page.hand_source, source("paste"))
         page.manual_source_changed()
-        yield from api.click(page.hand_start)
+        yield from api.at(page.hand_src_note, 0.5, 0.5, 1700,
+                          say="Pasted filters: paste them in the Filters box under Start from, then click Start")
+        yield from mock_combo(api, page.hand_source, source("file"))
+        page.manual_source_changed()
+        yield from api.at(page.hand_start, 0.5, 0.5, 1500, say="An EQ file: Import an EQ file… opens the file window")
+        yield from mock_combo(api, page.hand_source, source("empty"))
+        page.manual_source_changed()
+        api.say("An empty EQ: Add filter starts it with its first filter")
+        yield from api.click(page.hand_add)
         undo = stage_manual(page)
         if undo is None:
             yield from api.note("A manual EQ on the result card: you add filters, then you save it or use it on a "
-                                "device. (Demo: your work does not change.)", page.hand_start, 1700)
+                                "device. (Demo: your work does not change.)", page.hand_add, 1700)
             return
         api.undo(undo)
+        # (as Add filter adds it, but no floating copy of the graph: it went over the lit Start from)
+        page.EDIT.append({"enabled": True, "type": "PK", "freq": 1000, "gain": 0.0, "q": 1.0})
+        page.editor.rebuild()
+        page.live_update()
+        # (the page laid out for the result card now, as _follow_result does: drawn before that, the page still had
+        # its height without the card, and Make the EQ with Pasted filters was 64 px shorter for a moment)
+        for _ in range(6):
+            QApplication.sendPostedEvents(None, QEvent.LayoutRequest)
+        yield from api.at(page.editor.table, 0.5, 0.75, 1500, say="The new filter (1 kHz, 0 dB) is in the table of the "
+                                                                  "result card")
         yield from api.at(page.res_title, 0.1, 0.5, 1500, say="A manual EQ on the result card: you add filters, then "
                                                               "you save it or use it on a device")
         yield from api.at(page.hand_close, 0.5, 0.5, 1500, say="Close: the result card shows the previous EQ again")
@@ -659,8 +695,8 @@ def eq_steps(page):
         {"chapter": "2 · Settings", "title": "Select an EQ method", "target": lambda: [page.mode_combo, page.mode_hint],
          "before": auto_on, "after": auto_off,
          "text": "Select a method for where you use the EQ. Best fit (the initial method) for EQ apps and devices: the "
-                 "nearest EQ to the target. The website methods give the values that you type in the AutoEQ of "
-                 "squiglink or listener800.",
+                 "nearest EQ to the target. The website methods give the values that you type in the AutoEQ of the "
+                 "graph website of your measurement.",
          "demo": [{"click": lambda: page.mode_combo, "say": "Click the method", "then": mode_demo}]},
         {"chapter": "2 · Settings", "title": "Automatic settings",
          "target": lambda: [st.fold.btn, st.fold.summary, st.auto_on, st.why_fold.btn], "before": about_open,
@@ -711,13 +747,16 @@ def eq_steps(page):
          "demo": [{"click": lambda: page.run_btn, "say": "Click Calculate", "then": run_demo},
                   {"at": lambda: page.queue_btn, "say": "Queue…: more than one IEM or target, one after the other"}]},
         {"chapter": "3 · Calculate and examine", "title": "Or make it manually",
-         "target": lambda: [page.way_btns["hand"], page.hand_source, page.hand_start],
+         # (Add filter only while it shows: with An empty EQ in Start from)
+         "target": lambda: [page.way_btns["hand"], page.hand_source, page.hand_start]
+         + ([page.hand_add] if page.hand_add.isVisible() else []),
          "before": hand_on, "after": hand_off,
          "text": "With Manually (the tab adjacent to Automatically), you make an EQ, and it shows as a result. Start from "
-                 "has an empty EQ, a copy of the selected EQ, an EQ file, pasted filters and profiles. The EQ file can "
-                 "be from Equalizer APO, AutoEq, Room EQ Wizard or Peace. After Start, you add and change its filters, "
-                 "and Save filters, Use on device and Listen operate as for a calculated EQ. A measurement and a "
-                 "target are optional. Close shows the previous EQ again.",
+                 "has an empty EQ, a copy of the selected EQ, an EQ file, pasted filters and profiles. An empty EQ: "
+                 "Add filter starts it with its first filter. An EQ file (Equalizer APO, AutoEq, Room EQ Wizard or "
+                 "Peace): click Import an EQ file… and select it. Pasted filters: paste them in the Filters box, then "
+                 "click Start. Then you add and change the filters, and Save filters, Use on device and Listen operate "
+                 "as for a calculated EQ. A measurement and a target are optional. Close shows the previous EQ again.",
          "demo": [{"click": lambda: page.way_btns["hand"], "say": "Click Manually", "then": manual_demo}]},
         {"chapter": "3 · Calculate and examine", "title": "Examine it on the graph", "target": lambda: page.plot,
          "ready": has_curves,
@@ -762,10 +801,14 @@ def eq_steps(page):
          "target": lambda: [page.editor, page.live_check, page.retry_btn],
          "before": result_before, "after": result_after, "ready": has_curves,
          "text": lambda: "Change a filter in the table or with the sliders: the numbers and the graph change with it. "
-                         "If you cannot see the graph, a copy of it shows on the page while you edit (“Show the graph "
-                         "while you edit” disables it). Undo all (enabled after you edit) shows the calculated filters again. Calculate from "
-                         "these filters starts Best fit again from your filters." + example(),
+                         "✕ removes a filter, with Undo in the message. If you cannot see the graph, a copy of it "
+                         "shows on the page while you edit (“Show the graph while you edit” disables it, and so does "
+                         "the copy's ✕, with Undo in the message). Undo all (enabled after you edit) shows the "
+                         "calculated filters again. Calculate from these filters starts Best fit again from your "
+                         "filters." + example(),
          "demo": [{"run": edit_demo, "say": "Change a value: the numbers and the graph change with it"},
+                  {"at": lambda: page.editor.table.cellWidget(0, 6) or page.editor,
+                   "say": "✕ removes a filter, with Undo in the message"},
                   {"at": lambda: page.retry_btn, "say": "Calculate from these filters: Best fit again, from your filters"}]},
         {"chapter": "3 · Calculate and examine", "title": "Edit on the EQ graph", "target": lambda: page.eqplot,
          "before": result_before, "after": result_after, "ready": has_curves,
@@ -835,23 +878,34 @@ def eq_steps(page):
          "demo": [{"at": lambda: win.nav["devices"], "say": "The EQ of each device"},
                   {"at": lambda: win.nav["profiles"], "say": "Your EQs, as profiles"},
                   {"at": lambda: win.nav["settings"], "say": "The hotkeys: the next EQ, and EQ off and on to compare"}]},
-        {"chapter": "More", "title": "Settings", "target": lambda: st.adv.btn,
+        {"chapter": "More", "title": "Settings", "target": lambda: st.adv.btn, "before": website_open, "after": tab_back,
          "text": "More settings (below Settings, in Make the EQ) has the settings that the app sets for you, with a tab "
                  "for each part. The Best fit tab has its layout, limits, penalties and your filters. The Website best "
-                 "settings tab has its lists (with that method only). The other tabs are the website settings, Saved "
-                 "files, History and This PC. A list of more than 15 items, for example Layout, opens with a "
-                 "search box. The Settings screen (top bar) has the location of your files, backups, Online / Offline "
-                 "and Start with Windows.",
-         "demo": lambda: [{"at": lambda: st.adv.btn, "x": 0.1, "say": "More settings: the settings that the app sets for you"}]
+                 "settings tab has its lists (with that method only). Gain ranges has a row of two boxes for each "
+                 "range, with Add a range below the rows. The other tabs are Website, Saved files, History and This "
+                 "PC. On Website, Which website to copy is “The database of the measurement” at first: the Website "
+                 "methods use the values of your measurement's website, and a gray line says where they come from. "
+                 "A website with no gain or Q boxes fixes those values, so their boxes are off. A list of more than 15 "
+                 "items, for example Layout or Which website to copy, opens with a search box. The Settings screen "
+                 "(top bar) has the location of your files, backups, Online / Offline and Start with Windows.",
+         # (More settings open on its Website tab for the step; with Website AutoEQ: find the best settings, the demo
+         # shows its tab for Gain ranges' rows first, then Website again)
+         "demo": lambda: [{"at": lambda: st.adv.btn, "x": 0.1, "say": "More settings: the settings that the app sets for you",
+                           **({"then": tab_named("Website best settings")} if page.S["mode"] == "site_sweep" else {})}]
+         + ([{"at": lambda: ranges().rows[0].lo, "say": "A gain range: the lowest value, then the highest"},
+             {"at": lambda: ranges().add_btn, "say": "Add a range adds a row. ✕ removes one"},
+             {"at": website, "say": "The Website tab", "then": tab_named("Website")}]
+            if page.S["mode"] == "site_sweep" else [])
+         + [{"at": lambda: st.adv_form.fields["site.profile"].box, "x": 0.3,
+             "say": "Which website to copy: at first, the database of the measurement"}]
+         + ([{"at": lambda: st.site_note, "x": 0.2, "say": "Where the values come from"}] if st.site_note.text() else [])
          + ([{"at": lambda: win.nav["settings"], "say": "The settings of the app"}] if hasattr(win, "nav") else [])},
         {"chapter": "More", "title": "Help, and the end of the Guide", "target": lambda: win.help_btn, "top bar": True,
          "text": "Help gives information about the words of the app (Q, shelf, rig, pre-amp…) and the solutions to "
                  "frequent problems. Move the "
-                 "mouse to a setting to see its function. F1 opens its entry in Help. You can open the Guide again to "
-                 "see a step.",
+                 "mouse to a setting to see its function. You can open the Guide again to see a step.",
          "demo": [{"at": lambda: win.help_btn, "say": "Help: information about the app, and the frequent problems"},
-                  {"at": lambda: page.sa, "say": "Move the mouse to a setting to see its function. F1 opens its entry "
-                                                 "in Help"}],
+                  {"at": lambda: page.sa, "say": "Move the mouse to a setting to see its function"}],
          "buttons": [("Open Help", lambda: win.open_help())] if hasattr(win, "open_help") else []},
     ]
     # (the steps about the app window's top bar: only when the screen is in it, not on its own as in the checks)

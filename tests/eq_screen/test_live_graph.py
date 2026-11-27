@@ -100,9 +100,14 @@ def test_turned_off_and_kept(eq_screen, check):
         _nudge(page, sl[0])
         on = page.live_graph.isVisible()
         x = next(b for b in page.live_graph.findChildren(QToolButton) if b.text() == "✕")
+        n = len(eq_screen.said)
         x.click()
         qt.pump(50)
         closed = (not page.live_graph.isVisible(), page.live_check.isChecked(), sw.s.get("live_graph"))
+        said = (eq_screen.said[n:], eq_screen.undo_offered())
+        eq_screen.undo()
+        qt.pump(50)
+        back = (page.live_graph.isVisible(), page.live_check.isChecked(), sw.s.get("live_graph"))
     finally:
         page.set_live_graph_on(True)
         page.set_view("table", remember=False)
@@ -110,3 +115,6 @@ def test_turned_off_and_kept(eq_screen, check):
     check("live graph: unticked, an edit shows nothing and that's kept; ticked again it floats with the next edit; "
           "its ✕ hides it and turns it off (the tick box unticked, kept)",
           off == (True, False) and on and closed == (True, False, False), (off, on, closed))
+    # (the control audit, 2026-11-27, 2-8: the ✕ turned it off for good without a word)
+    check("live graph: its ✕ says “Graph hidden” with Undo; Undo turns it on again (the tick box ticked, kept) and "
+          "shows it again", said == (["Graph hidden"], True) and back == (True, True, True), (said, back))

@@ -80,6 +80,46 @@ FILTERS = [{"enabled": True, "type": "LSQ", "freq": 105, "gain": 3.5, "q": 0.7},
            {"enabled": True, "type": "HSQ", "freq": 8000, "gain": -1.5, "q": 0.7}]
 
 
+def test_remove_said_with_undo(eq_screen, check):
+    # (the control audit, 2026-11-27, 2-2: ✕ took the filter with no word, and only Undo all brought it back, which
+    # also lost every other edit: for an EQ begun empty, every filter)
+    from PySide6.QtWidgets import QToolButton
+    page = eq_screen.page
+    page.start_manual([dict(f) for f in FILTERS], "pasted", "Removed")
+    page.set_view("table", remember=False)
+    page.EDIT[0]["gain"] = 5.0  # (an edit of another filter: Undo keeps it)
+    page.live_update()
+    was = [dict(f) for f in page.EDIT]
+    found = {}
+    for view in ("table", "sliders"):
+        page.set_view(view, remember=False)
+        n = len(eq_screen.said)
+        x = next(w for w in page.editor.findChildren(QToolButton) if w.accessibleName() == "Remove filter 2"
+                 and w.isVisibleTo(page.editor))
+        page.name_edit.setFocus()  # (the focus far from the filters, as after typing the file name)
+        x.click()
+        fw = page.window().focusWidget()
+        found[view] = (eq_screen.said[n:], eq_screen.undo_offered(), [f["freq"] for f in page.EDIT],
+                       fw is not None and fw.accessibleName() == "Remove filter 2")
+        eq_screen.undo()
+        found[view] += ([dict(f) for f in page.EDIT] == was,)
+    page.set_view("table", remember=False)
+    rows = page.editor.table.rowCount()
+    page.editor.delete(0)
+    stale = eq_screen.undos[-1]
+    page.start_manual([], "from scratch")  # (another EQ shown before Undo)
+    stale()
+    check("filters: ✕ in the table and in Sliders says “Removed filter 2” with Undo; Undo puts that filter back in its "
+          "place, as it was, and keeps the edits of the others",
+          all(v[:3] == (["Removed filter 2"], True, [105, 8000]) and v[4] for v in found.values()) and rows == 3,
+          found)
+    check("filters: after a click on ✕ the focus is on the ✕ now in that row (a click gives a tool button none), so "
+          "the message shows at the filters, not at the control used before",
+          all(v[3] for v in found.values()), found)
+    check("filters: Undo of a filter removed from an EQ that's no longer shown adds nothing to the EQ shown",
+          page.EDIT == [] and page.editor.table.rowCount() == 0, page.EDIT)
+
+
 def _near(a, b, by=8):
     """Two colours the same but for a little rounding (each of red, green and blue within `by`)."""
     a, b = QColor(a), QColor(b)

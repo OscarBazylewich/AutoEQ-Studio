@@ -263,6 +263,35 @@ def test_long_choice_of_any_drop_down_ends_in_dots(eq_screen, check):
           and short_shown == combo.itemText(short), (long_shown, short_shown))
 
 
+def test_your_eq_app_placeholder(eq_screen, check):
+    # (the control audit, 2026-11-27, 2-3: "Select your EQ app" was the list's first row, a choice that did what "Not
+    # in the list, or not sure" does; now the box's gray placeholder while no app is chosen)
+    page = eq_screen.page
+    combo, was = page.app_combo, page.S.get("eq_app") or ""
+    rows = [combo.itemText(k) for k in range(combo.count())]
+    try:
+        page.S["eq_app"] = ""
+        page.show_settings()
+        none = (combo.currentIndex(), combo.shows_placeholder(), combo.shown_text())
+        i = combo.findData("other")
+        combo.setCurrentIndex(i)
+        combo.activated.emit(i)
+        other = (page.S["eq_app"], combo.shows_placeholder(), page.S["mode"])
+        page.S["eq_app"] = ""  # (as Reset all settings… gives it: nothing chosen)
+        page.show_settings()
+        back = (combo.currentIndex(), combo.shows_placeholder())
+    finally:
+        page.choose_app(was) if was else None
+        page.S["eq_app"] = was
+        page.show_settings()
+    check("Your EQ app: with no app chosen the box shows the gray placeholder “Select your EQ app”, which is no row of "
+          "the list (“Not in the list, or not sure” is its first row); choosing that row works as before; with no app "
+          "again (Reset all settings…) the placeholder shows again",
+          "Select your EQ app" not in rows and rows[0].startswith("Not in the list, or not sure")
+          and none == (-1, True, "Select your EQ app") and other == ("other", False, "best_fit")
+          and back == (-1, True), (rows[:2], none, other, back))
+
+
 def test_graph_card_title_lined_up_with_the_cards(eq_screen, check):
     # (2026-10-23, the restyle's recheck: the graph card, a card frame, kept Qt's own 9 px layout margin on top of its
     # padding, so its title started 5 px further in than the cards' titles under it: x 36 on the page against 32)

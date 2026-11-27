@@ -187,6 +187,9 @@ def _strip_comments(src):
     return "".join(out)
 
 
+strip_comments = _strip_comments  # (public: eq.site_values reads the websites' scripts the same way)
+
+
 def _bracketed(src, i):
     """The [...] or {...} starting at src[i], to its matching bracket (strings skipped)."""
     depth, j = 0, i
@@ -503,19 +506,40 @@ def _index_autoeq(site):
     return items, {}
 
 
-def _fetch_page(url):
+def _fetch_page(url, get=None, timeout=20, redirects=3):
     """A page's HTML and its final address, also after a <meta http-equiv="refresh"> redirect (DHRME's headphones
-    page moved to its own domain that way)."""
-    html, final = _get(url)
-    for _ in range(3):
+    page moved to its own domain that way). get: the download function (_get)."""
+    get = get or _get
+    html, final = get(url, timeout=timeout)
+    for _ in range(redirects):
         if re.search(r'<script[^>]+src=["\'][^"\']*config[^/"\']*\.js', html):
             break
         meta = [m for m in re.findall(r"<meta\b[^>]*>", html, re.I) if re.search(r"http-equiv=[\"']?refresh", m, re.I)]
         to = re.search(r"content=[\"']?\s*\d*\s*;?\s*url=([^\"'>\s]+)", meta[0], re.I) if meta else None
         if not to:
             break
-        html, final = _get(urllib.parse.urljoin(final, to.group(1)))
+        html, final = get(urllib.parse.urljoin(final, to.group(1)), timeout=timeout)
     return html, final
+
+
+def get_function():
+    """The download function in use now (the one place the EQ part downloads; a test may stand in for it)."""
+    return _get
+
+
+def graph_tool_files(site, get=None, timeout=20):
+    """The texts of a graph website's page and of its first config*.js, graphtool*.js and equalizer*.js scripts
+    ({"page", "config", "graphtool", "equalizer"}; a script the page doesn't load is ""), for eq.site_values: at most
+    5 requests (the page, one redirect of it, the three scripts), each through get (net.check first)."""
+    get = get or _get
+    html, final = _fetch_page(site["url"], get=get, timeout=timeout, redirects=1)
+    scripts = re.findall(r'<script[^>]+src=["\']([^"\']+)["\']', html)
+    out = {"page": html}
+    for key, pat in (("config", r"config[^/]*\.js"), ("graphtool", r"graphtool[^/]*\.js"),
+                     ("equalizer", r"equalizer[^/]*\.js")):
+        hit = [x for x in scripts if re.search(pat, x.split("?")[0].rsplit("/", 1)[-1], re.I)]
+        out[key] = get(urllib.parse.urljoin(final, hit[0]), timeout=timeout)[0] if hit else ""
+    return out
 
 
 def _modern_config(cfg_text, final):

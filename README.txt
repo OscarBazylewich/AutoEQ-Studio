@@ -173,8 +173,10 @@ One column, from the top to the bottom:
   History, and saves it when a file type is set in More settings › Saved files.
   Manually: you make the EQ. Start from: an empty EQ, a copy of the selected EQ, an EQ file, pasted filters or a
   device's profile. An EQ file can be from Equalizer APO, AutoEq, squig.link, Room EQ Wizard ("Export filter settings
-  as text") or Peace (a preset). Then click Start. The manual EQ is on the result card, the same as a calculated EQ.
-  Thus, all the parts of the result card operate for it.
+  as text") or Peace (a preset). An empty EQ: click Start, or Add filter (beside Start) for its first filter. An EQ
+  file: click Import an EQ file… and select the file. Pasted filters: paste the lines in the Filters box (below Start
+  from), then click Start. The other items: click Start. The manual EQ is on the result card, the same as a
+  calculated EQ. Thus, all the parts of the result card operate for it.
   A measurement and a target are optional (if you select them, the graph shows your IEM with the EQ, and its error).
   The app reads files as Equalizer APO plays them (a shelf at its corner frequency moves to its center frequency, a
   slope becomes its Q). An EQ here has peaking filters and shelf filters. Thus, the app removes other filter types, a
@@ -192,6 +194,11 @@ One column, from the top to the bottom:
   15 items (More settings › Layout, the Source list of Find…, …) opens with a search box at the top. Best fit can
   start from your filters (More settings › Best fit). Type them, or use "Edit as a table…" or "Load an EQ file…".
   The graph shows them as "With your filters".
+  More settings › Website › "Which website to copy" is "The database of the measurement" at first: the Website
+  methods use the values (smoothing, normalization, loudness tables) of the website that your measurement is from,
+  and a gray line below the list tells where they come from. You can also select a website by name, or "Other" (the
+  app changes none of the values). Best fit always uses the app's own values. Most websites have no gain or Q boxes
+  in their AutoEQ: for them, the Website methods use the website's fixed range, and those boxes are off.
 - Your result:
     - The error, the pre-amp, the maximum gain and the maximum Q.
     - "EQs that you made": open a different EQ that you made.
@@ -200,9 +207,10 @@ One column, from the top to the bottom:
       for each filter count and maximum Q (not for FxSound). "Compare…" shows this EQ and a second EQ at the same
       time. The second EQ has a different number of filters, or it is from a different # or from History.
     - The filters, to edit: a table, or Sliders (a graphic EQ). Each slider shows the gain of its filter from 0 dB, on
-      a dB scale. It also has Undo all and Calculate from these filters. When the graph is not on the screen, a
-      copy of the graph is above the page while you edit. The copy is not on the control that you change. If you
-      clear "Show the graph while you edit", the copy does not show.
+      a dB scale. It also has Undo all and Calculate from these filters. ✕ removes a filter (Undo is in the
+      message). When the graph is not on the screen, a copy of the graph is above the page while you edit. The copy
+      is not on the control that you change. If you clear "Show the graph while you edit", the copy does not show.
+      The ✕ of the copy clears it too (Undo is in the message).
     - File name, then:
     Save filters       writes the files that your EQ app uses into the Saved EQs folder
     Copy               copies the filters to the clipboard, as Equalizer APO text

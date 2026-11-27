@@ -245,6 +245,19 @@ def average(keys, name):
     return fname, text, rig, of
 
 
+def average_sites(keys):
+    """The website of each measurement that average(keys) uses (None: not from a database), for eq.site_values: the
+    record of an average gives its database only when all its parts are from one."""
+    out = []
+    for c in (_LAST[k] for k in keys if k in _LAST):
+        try:
+            it = databases.item(c["id"]) if c.get("src") == "db" else None
+        except ValueError:  # (the lists were loaded again meanwhile: not known)
+            it = None
+        out.append((it or {}).get("site_url"))
+    return out
+
+
 def score(c, tgt_rig):
     """0-100 with the reasons: rig 40, agreement 25, bass/seal 15, averaging 10, data 10."""
     r, pts = [], 0.0
