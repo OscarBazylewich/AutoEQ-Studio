@@ -129,6 +129,34 @@ def test_cpu_cores_in_the_tab_of_the_method(places, check):
           "follows the box)", tab_to is f.box, type(tab_to).__name__ if tab_to is not None else None)
 
 
+def test_history_keeps_in_the_history_window(places, check):
+    from PySide6.QtWidgets import QLabel
+    from eq import settings
+    from ui.history_window import HistoryWindow
+    page, st = places.page, places.page.settings
+    w = HistoryWindow(page)
+    try:
+        box = w.keep_box
+        before = (box.currentData(), box.accessibleName(), box.property("help_key"), bool(box.toolTip()))
+        words = [lab.text() for lab in w.findChildren(QLabel)]
+        box.setCurrentIndex(box.findData("all"))
+        box.activated.emit(box.currentIndex())
+        places.wait_for(lambda: settings.load()["history"]["keep"] == "all", 5)  # (saved soon after: page.changed)
+        after = (page.S["history"]["keep"], settings.load()["history"]["keep"])
+    finally:
+        page.S["history"]["keep"] = "saved"
+        st.changed("history.keep", "saved")
+        qt.close(w)
+    # (it was in More settings › History, and History's gray line said "Change in More settings › History.")
+    check("history: History keeps is a list in the History window (its label above it, its Help and tooltip), and a "
+          "choice there is the setting, saved",
+          before == ("saved", "History keeps", "history.keep", True) and after == ("all", "all")
+          and "History keeps" in words and not [t for t in words if "More settings" in t], (before, after, words))
+    check("history: More settings › History keeps only its tick box (the message below Measurement), whose effect is "
+          "on the page", "history.keep" not in st.adv_form.fields and "history.eqd_before" in st.adv_form.fields,
+          sorted(p for p in st.adv_form.fields if p.startswith("history.")))
+
+
 def test_saved_files_file_types_as_a_group(places, check):
     from PySide6.QtCore import QPoint
     from PySide6.QtWidgets import QLabel

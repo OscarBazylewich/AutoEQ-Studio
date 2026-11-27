@@ -232,7 +232,7 @@ def test_each_part_placed_in_the_step_that_makes_it(ahead, check):
     cl = cell.layout()  # (More settings is closed: its parts are placed by their layouts, not drawn yet)
     above = isinstance(cl, QVBoxLayout) and qt.layout_parts(cl)[:2] == [lab, adv.fields["site.profile"].parentWidget()]
     names = {p: adv.fields[p].box.accessibleName() if p in adv.fields else None
-             for p in ("best_fit.layout", "site.profile", "export.extra_headroom", "history.keep", "performance.cores")}
+             for p in ("best_fit.layout", "site.profile", "export.extra_headroom", "performance.cores")}
     seen = {"cards in order": cards == want, "a stretch last": bool(parts) and parts[-1] is None,
             "Adjust… last on the Target row": target_last is page.settings.adjust_btn,
             "Settings and More settings in Make the EQ": slot == [page.settings.fold, page.settings.adv],
@@ -252,7 +252,7 @@ def test_each_part_placed_in_the_step_that_makes_it(ahead, check):
           and seen["More settings' tabs"] == ["Best fit", "Website best settings", "Website", "Saved files", "History"]
           and seen["a label above its box"]
           and names == {"best_fit.layout": "Layout", "site.profile": "Which website to copy",
-                        "export.extra_headroom": "More headroom (dB)", "history.keep": "History keeps",
+                        "export.extra_headroom": "More headroom (dB)",
                         "performance.cores": "CPU cores (0 = all the cores minus 1)"}
           and seen["shown"] == [True] and seen["opening shown"] is False,
           ([k for k, v in seen.items() if v is False], seen["More settings' tabs"], seen["names"], seen["shown"]))

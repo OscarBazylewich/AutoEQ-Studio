@@ -746,7 +746,7 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                           {'key': 'history.keep',
                            'title': 'History keeps',
                            'body': ['The EQs that History (adjacent to the title of the graph) keeps after you close the '
-                                    'app. The two selections are “EQs that you save or copy” and “All results, and the '
+                                    'app, set at the top of History. The two selections are “EQs that you save or copy” and “All results, and the '
                                     'EQs that you save”.']},
                           {'key': 'history.eqd_before',
                            'title': 'Show a message below Measurement if History has an EQ for it',

@@ -48,6 +48,7 @@ FORMATS = [("apo", "Equalizer APO / squiglink filters (.txt)"), ("graphic", "Gra
            # (Help's title for it; the apps that use it are in Help: with them, the words were cut at every width)
            ("convolution", "Convolution impulse response (.wav)"),
            ("report", "An HTML report")]
+HISTORY_KEEPS = [("saved", "EQs that you save or copy"), ("all", "All results, and the EQs that you save")]
 
 
 def _muted_label(text):
@@ -257,10 +258,9 @@ class EqSettings:
                 ("Pre-amp rounding", [("export.preamp_rounding", "choice", [("safe", "Safe (lower value)"), ("site", "Same as squiglink")])]),
                 ("More headroom (dB)", [("export.extra_headroom", "num")]),
                 ("Q decimals in saved files", [("export.q_decimals", "num")])]),
-            ("History", [
-                ("History keeps", [("history.keep", "choice", [("saved", "EQs that you save or copy"),
-                                                               ("all", "All results, and the EQs that you save")])]),
-                ("", [("history.eqd_before", "check")])]),
+            # (History keeps is in the History window, where its effect shows: the control audit, 2026-11-27. This
+            # tick box's effect is on this page, under Measurement)
+            ("History", [("", [("history.eqd_before", "check")])]),
         ]
         self.adv_form = Form(sections[:2], self.limits, get, changed, make_auto, say, tabs=True)  # (Best fit, sweep)
         # (a tick box's words in the step that makes it: a screen reader's name is its words, and a box without words
