@@ -310,7 +310,8 @@ def test_lists_a_to_z(eq_screen, as_old, check):
     qt.close(small)
     # every drop-down A to Z, numbers as numbers (a first "Choose…" or "Automatic…" may stay on top, or the special
     # choices a list pins there: its sort_items' pinned, 2026-10-27); Find…'s filters keep their own order (any,
-    # "fits", in the app and this PC, then "not known" and mixed: the special choices on top)
+    # "fits", then "not known" and mixed: the special choices on top). Source has no "In the app" or "Your files on
+    # this PC" since the control audit, 2026-11-27 (4-5): the tabs do it
     unsorted = []
     for c in page.findChildren(SearchCombo):
         # (the Target and Measurement lists: A to Z by name, their own check above; the counts after a name aside)
@@ -329,7 +330,7 @@ def test_lists_a_to_z(eq_screen, as_old, check):
           and devs == sorted(devs, key=natural_key) and app_rows == sorted(app_rows, key=natural_key)
           and pc_rows == sorted(pc_rows, key=natural_key) and loaded and app_rows and len(pc_rows) >= 2
           and combos and len(sites) >= 2 and shown == [last]
-          and chosen == (True, False) and sites[0] == "" and sites[1] in ("app", "pc")
+          and chosen == (True, False) and sites[0] == "" and not {"app", "pc"} & set(sites)
           and rule == (True, False, True, True) and not unsorted,
           (combos, sites[:4], last, shown, chosen, rule, unsorted[:3], names == sorted(names, key=natural_key),
            devs == sorted(devs, key=natural_key), app_rows == sorted(app_rows, key=natural_key),
@@ -945,6 +946,38 @@ def test_more_rows_note_names_the_tab(eq_screen, monkeypatch, check):
         _close(pk)
     check("ui: Find… in All, with more rows from This PC than it shows, names the tab as it shows: “…, or switch to "
           "This PC above”", notes == ["5 more: refine your search, or switch to This PC above"], notes)
+
+
+def test_source_lists_the_databases_only(eq_screen, check):
+    # (the control audit, 2026-11-27, 4-5: Source had "In the app" and "Your files on this PC", which the tabs do, and
+    # a tab and a Source that disagreed gave an empty list. A Source saved as one of them is dropped on load; a
+    # database saved as the Source stays)
+    from ui.picker import Picker
+    page = eq_screen.page
+    kept = page.sw.s.get("picker")
+    seen = {}
+    try:
+        for saved in ("app", "pc"):
+            page.sw.set("picker", {"measurement": {"site": saved}, "target": {"site": saved}}, tell=False)
+            pk = _shown_picker(page, "")
+            try:
+                sites = [pk.f_site.itemData(i) for i in range(pk.f_site.count())]
+                seen[saved] = (pk.filters["measurement"]["site"], pk.filters["target"]["site"], pk.f_site.currentData(), sites[:1],
+                               {"app", "pc"} & set(sites), len(sites) > 1)
+                db = sites[1] if len(sites) > 1 else None
+            finally:
+                _close(pk)
+        page.sw.set("picker", {"measurement": {"site": db}}, tell=False)
+        pk = Picker(page, "measurement")
+        try:
+            seen["database"] = pk.filters["measurement"]["site"] == db
+        finally:
+            _close(pk)
+    finally:
+        page.sw.set("picker", kept, tell=False)
+    check("ui: Find…'s Source list has the databases only (no “In the app” or “Your files on this PC”: the tabs do "
+          "that); a Source saved as one of those is dropped on load; a database stays",
+          all(seen[s] == ("", "", "", [""], set(), True) for s in ("app", "pc")) and seen["database"], seen)
 
 
 def test_how_the_rig_is_known_starts_upper_case(eq_screen, check):

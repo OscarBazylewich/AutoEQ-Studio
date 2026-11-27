@@ -668,8 +668,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                           {'key': 'pk_filters',
                            'title': 'Rig, Type and Source lists',
                            'body': ['They make a long list shorter. Rig: one rig (for a measurement, first “Same rig '
-                                    'as your target”). Type: IEM, headphone or earbud. Source: one database, the app '
-                                    'or this PC. Each item shows how many results it gives. The app keeps your '
+                                    'as your target”). Type: IEM, headphone or earbud. Source: one database (the tabs '
+                                    'show the app or this PC). Each item shows how many results it gives. The app keeps your '
                                     'selections.',
                                     'The items are from A to Z, and each list opens with a search box. Type a part of '
                                     'a name (each word must be in the name). Then click the item or press Enter.']},
