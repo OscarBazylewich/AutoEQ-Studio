@@ -809,8 +809,10 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                {'title': 'Find… › Sources',
                 'items': [{'key': 'library.folders',
                            'title': 'Folders to search',
-                           'body': ['The folders in which the app searches for curve files, one on each line, with the '
-                                    'folders in them. Empty: your Downloads, Documents, Desktop and Music folders. The '
+                           'body': ['The folders in which the app searches for curve files, with the folders in them. '
+                                    'Add a folder… opens Windows\' folder dialog; a folder\'s ✕ removes it (with Undo). '
+                                    'With no folders added: your Downloads, Documents, Desktop and Music folders. '
+                                    'Search again searches the folders again for new files. The '
                                     'app does not search its downloads folder: its curves are the copies of the online '
                                     'databases on this PC (also offline).']},
                           {'key': 'databases',

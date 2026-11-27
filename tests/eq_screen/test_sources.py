@@ -1,10 +1,11 @@
-"""Find… › Sources (ui\\sources_window.py): a group with databases you added switched off asks first (No keeps them);
-a database switched off and on, one added by its address (a wrong or repeated address said), removed again; This
-PC's folders one per line; offline, squig.link's list isn't fetched. Moved from eq_checks.py's rest_checks (lines
-2022-2076), on a page opened as the old checks opened it (the eq_screen fixture), offline. The two checks share one
-Sources window and one list of what it said, as there, so they're one test: the second's two messages come from the
-adds made before the first check. Its Windows 11 look (the restyle, 2026-10-23): closed straight after a tick, it
-never reaches for its deleted tree; the folders' box shows four whole lines; and on a short screen (a laptop at 150 %
+"""Find… › Sources (ui\\sources_window.py): a group with databases you added switched off asks nothing and keeps
+them, off; a database switched off and on, one added by its address (a wrong or repeated address said), switched off
+and on; one you added switched off stays in the list (the Off list shows it), and its ✕ removes it with Undo; This
+PC's folders a list with Add a folder… and a ✕ on each row; offline, squig.link's list isn't fetched. Moved from
+eq_checks.py's rest_checks (lines 2022-2076), on a page opened as the old checks opened it (the eq_screen fixture),
+offline. The two checks share one Sources window and one list of what it said, as there, so they're one test: the
+second's two messages come from the adds made before the first check. Its Windows 11 look (the restyle, 2026-10-23):
+closed straight after a tick, it never reaches for its deleted tree; and on a short screen (a laptop at 150 %
 or 175 %, stood in) it fits above the taskbar with every part its room and its bottom row in sight, and on a big one
 it opens and shrinks as before, with no page that scrolls (a tab for each part since the UI audit, 2026-11-08)."""
 import json
@@ -29,7 +30,7 @@ def _parts(holder):
     return [w for w in holder.findChildren(QWidget) if w.parentWidget() is holder and w.isVisible()]
 
 
-def test_sources(eq_screen, monkeypatch, check):
+def test_sources(eq_screen, monkeypatch, dialogs, check):
     import net
     from PySide6.QtCore import Qt
     from PySide6.QtWidgets import QMessageBox
@@ -77,8 +78,11 @@ def test_sources(eq_screen, monkeypatch, check):
         src.set_on(extra, True)
         removed = removed and S["databases"]["extra_off"] == []
         S["databases"]["extra"] = kept_db.get("extra", [])
-        src.folders.setPlainText("C:\\Music\n\n  D:\\Curves  ")
-        folders = S["library"]["folders"]
+        S["library"]["folders"] = []
+        for picked in ("C:/Music", "D:\\Curves", ""):  # (Windows' folder dialog, stood in; "": cancelled)
+            dialogs.answer("getExistingDirectory", picked)
+            src.add_folder()
+        folders = list(S["library"]["folders"])
         offline_note = "Offline" in src.dir_note.text()
         src._refresh_soon.stop()
         S["databases"].clear()
@@ -89,7 +93,8 @@ def test_sources(eq_screen, monkeypatch, check):
         net.set_offline(was_off)
     # was eq_checks.py:2073
     check("sources: a database switched off and on, one added by its address (a wrong or repeated address said), "
-          "switched off and on (kept in the list), the folders one per line; offline, squig.link's list isn't fetched",
+          "switched off and on (kept in the list), the folders added from Windows' folder dialog; offline, squig.link's "
+          "list isn't fetched",
           off and on and added and removed and folders == ["C:\\Music", "D:\\Curves"] and offline_note
           and len(said) == 2 and "https://" in said[0] and said[1] == "Database already added",
           (off, on, added, removed, folders, said))
@@ -201,34 +206,61 @@ def test_squiglink_note_hidden_while_loading(eq_screen, monkeypatch, check):
           and loaded == (True, "2 squig.link databases"), seen)
 
 
-def test_folders_box_shows_four_lines(eq_screen, check):
-    # (80 px high, it held three and a half lines at Windows 11's 10.5 pt: the fourth of the usual folders was cut in
-    # half, and the box scrolled by a line)
-    from PySide6.QtGui import QTextCursor
+def test_folders_list(eq_screen, dialogs, check):
+    # (the control audit, 2026-11-27, 4-6: the folders were a box of typed paths, one on each line, and a wrong path
+    # gave no word. Now a list: Add a folder… (Windows' folder dialog, stood in), a ✕ on each row with Undo in the
+    # window's line, and an empty list says that the usual four folders are searched)
+    from ui import bubble
     from ui.sources_window import Sources
-    src = Sources(eq_screen.page)
+    page = eq_screen.page
+    S = page.S
+    kept = list(S["library"].get("folders") or [])
+    S["library"]["folders"] = []
+    seen = {}
+    src = Sources(page)
     try:
         src._refresh_soon.stop()
         src.show()
         src.show_tab(0)  # (its tab: This PC)
-        qt.pump(200)
-        box = src.folders
-        usual = box.placeholderText().splitlines()  # (shown in grey while the list is empty: Downloads … Music)
-        box.blockSignals(True)  # (typed in as the folders to search for a moment: not saved)
-        box.setPlainText("\n".join(usual))
         qt.pump(100)
-        end = QTextCursor(box.document().lastBlock())
-        end.movePosition(QTextCursor.EndOfBlock)
-        seen = {"lines": len(usual), "scrolls by": box.verticalScrollBar().maximum(),
-                "last line's bottom": box.cursorRect(end).bottom(), "room": box.viewport().height()}
-        box.setPlainText("")
-        box.blockSignals(False)
+        empty = src.folders_empty.label
+        seen["empty"] = (empty.isVisible(), empty.text())
+        for picked in ("C:/Music", "D:\\Curves", "c:\\music\\"):
+            dialogs.answer("getExistingDirectory", picked)
+            src.add_folder()
+            qt.pump(20)
+        seen["added"] = (list(S["library"]["folders"]), [src.folders.topLevelItem(i).text(0)
+                                                         for i in range(src.folders.topLevelItemCount())],
+                         empty.isVisible())
+        seen["repeated"] = bubble.last().text.text() if bubble.last() else None
+        seen["dialog"] = [t for k, t in dialogs.asked if k == "getExistingDirectory"]
+        src.folders.itemWidget(src.folders.topLevelItem(0), 1).click()  # (the ✕ of C:\Music)
+        qt.pump(20)
+        seen["removed"] = (list(S["library"]["folders"]), src.folders.topLevelItemCount(), src.footer.line.text.text())
+        src.footer.line.undo_btn.click()
+        qt.pump(20)
+        seen["undone"] = list(S["library"]["folders"])
+        for _ in range(2):
+            src.folders.itemWidget(src.folders.topLevelItem(0), 1).click()
+            qt.pump(20)
+        seen["none left"] = (list(S["library"]["folders"]), empty.isVisible())
     finally:
         src._refresh_soon.stop()
         qt.close(src)
-    check("restyle: Sources' folders box shows four whole lines at Windows 11's text size (the usual four folders: "
-          "Downloads, Documents, Desktop, Music), without scrolling",
-          seen["lines"] == 4 and seen["scrolls by"] == 0 and seen["last line's bottom"] < seen["room"], seen)
+        S["library"]["folders"] = kept
+        page.svc.call("/api/settings", {"settings": S})
+    check("sources: an empty list of folders says that Downloads, Documents, Desktop and Music are searched",
+          seen["empty"][0] and seen["empty"][1].startswith("No folders added, so ")
+          and seen["empty"][1].endswith(" are searched"), seen["empty"])
+    check("sources: Add a folder… opens Windows' folder dialog and adds the folder chosen at the end, a row each; a "
+          "folder already in the list is said in a bubble",
+          seen["added"] == (["C:\\Music", "D:\\Curves"], ["C:\\Music", "D:\\Curves"], False)
+          and seen["repeated"] == "Folder already added" and seen["dialog"] == ["Add a folder"] * 3,
+          (seen["added"], seen["repeated"], seen["dialog"]))
+    check("sources: a folder's ✕ removes it, with “Removed …” and Undo; Undo puts it back in its place; with none left, "
+          "the list says what is searched",
+          seen["removed"] == (["D:\\Curves"], 1, "Removed “Music”") and seen["undone"] == ["C:\\Music", "D:\\Curves"]
+          and seen["none left"] == ([], True), (seen["removed"], seen["undone"], seen["none left"]))
 
 
 def test_fits_a_small_screen(eq_screen, monkeypatch, check):

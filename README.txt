@@ -132,8 +132,9 @@ One column, from the top to the bottom:
     - Use selects the curve. Undo, at the bottom of the window, gives you the previous curve again.
     - ⋯ (in the rows of the app) has the other commands: Show files, Move to Measurement and Delete….
     - The tabs above the results show the number of items in each source.
-    - Sources… selects where Find… looks, with a tab for each part. The parts are the folders of this PC, the online
-      databases (on or off) and more squig.link databases. You add a squig.link database from a list or with its URL.
+    - Sources… selects where Find… looks, with a tab for each part. The parts are the folders of this PC (Add a
+      folder…), the online databases (on or off) and more squig.link databases. You add a squig.link database from a
+      list or with its URL.
     - The results are from A to Z in each part. The Rig, Type and Source lists are from A to Z. They have a search
       box at the top: type a part of a name to find it.
   "Other measurements of this model…" sorts all the measurements of your IEM for the target (Which measurement to
