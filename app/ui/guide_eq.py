@@ -609,6 +609,11 @@ def eq_steps(page):
         api.close(m)
         yield from api.note("The app loads all its settings again.", b, 1300)
 
+    def cores_demo(api):  # (CPU cores, last in the tab of the method: that tab shown for it)
+        tab_named(own_tab())()
+        yield from api.at(st.adv_form.fields["performance.cores"].box, 0.3, 0.5, 1100,
+                          say="CPU cores: last in the tab of the method")
+
     def history_demo(api):
         from PySide6.QtCore import QSize
         from ui.history_window import HistoryWindow
@@ -890,12 +895,12 @@ def eq_steps(page):
          # (More settings open on its Website tab for the step; with Best fit or Website AutoEQ: find the best
          # settings, the demo shows the method's tab first (Gain ranges' rows, CPU cores), then Website again)
          "demo": lambda: [{"at": lambda: st.adv.btn, "x": 0.1, "say": "More settings: the settings that the app sets for you",
-                           **({"then": tab_named(own_tab())} if own_tab() else {})}]
+                           **({"then": tab_named("Website best settings")} if page.S["mode"] == "site_sweep" else {})}]
          + ([{"at": lambda: ranges().rows[0].lo, "say": "A gain range: the lowest value, then the highest"},
              {"at": lambda: ranges().add_btn, "say": "Add a range adds a row. ✕ removes one"}]
             if page.S["mode"] == "site_sweep" else [])
-         + ([{"at": lambda: st.adv_form.fields["performance.cores"].box, "say": "CPU cores: last in the tab of the method"},
-             {"at": website, "say": "The Website tab", "then": tab_named("Website")}] if own_tab() else [])
+         + ([{"run": cores_demo}, {"at": website, "say": "The Website tab", "then": tab_named("Website")}]
+            if own_tab() else [])
          + [{"at": lambda: st.adv_form.fields["site.profile"].box, "x": 0.3,
              "say": "Which website to copy: at first, the database of the measurement"}]
          + ([{"at": lambda: st.site_note, "x": 0.2, "say": "Where the values come from"}] if st.site_note.text() else [])
