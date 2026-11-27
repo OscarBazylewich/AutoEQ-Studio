@@ -48,7 +48,7 @@ def test_versions_and_play(card, check):
     # first choice, meant to be "both"; since the drop-downs are A to Z that's "A different version in each ear", so
     # the keys and Blind test below ran with the ears split: Blind greyed out, and the keys changing a version that
     # wasn't heard)
-    lis.ears.setCurrentIndex(lis.ears.findData("both"))
+    lis.ears.set_data("both")
     lis.ears_changed()
     keys = [k for k, *_ in lis.versions()]
     lis.play()
@@ -160,7 +160,7 @@ def test_blind_test(card, check):
 def test_version_in_each_ear_and_swap(card, check):
     lis = card.lis
     lis.blind.setChecked(False)
-    lis.ears.setCurrentIndex(lis.ears.findData("split"))
+    lis.ears.set_data("split")
     lis.ears_changed()
     # was eq_checks.py:2964
     check("listen: a different version in each ear (EQ off left, the EQ right; Swap)",
@@ -169,6 +169,30 @@ def test_version_in_each_ear_and_swap(card, check):
     # (the text survey, 2026-11-24: the line had one more sentence with a version in each ear, and the volume)
     check("listen: with a different version in each ear, the gray line at the top is the same one sentence",
           lis.note.text() == f"Listen with {card.page.curves['name']}.", lis.note.text())
+
+
+def test_ears_are_two_round_buttons(card, check):
+    # (the control audit, 2026-11-27, 4-9: Ears was a drop-down of two choices, A to Z, so the default came second.
+    # Now two round buttons, the default first; a click on one switches the ears and is kept for the next start)
+    from PySide6.QtCore import QPoint
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QComboBox, QRadioButton
+    lis, sw = card.lis, card.sw
+    lis.blind.setChecked(False)
+    lis.ears.set_data("both")
+    lis.ears_changed()
+    radios = [b for b in lis.compare_row.findChildren(QRadioButton)]
+    seen = {"buttons": [b.text() for b in radios], "no list": not lis.ears.findChildren(QComboBox),
+            "on": [b.isChecked() for b in radios]}
+    QTest.mouseClick(lis.ears.split, Qt.LeftButton, Qt.NoModifier, QPoint(8, lis.ears.split.height() // 2))
+    seen["clicked"] = (lis.engine.ears, (sw.s.get("listen") or {}).get("ears"), lis.split_row.isVisibleTo(lis))
+    QTest.mouseClick(lis.ears.both, Qt.LeftButton, Qt.NoModifier, QPoint(8, lis.ears.both.height() // 2))
+    seen["back"] = (lis.engine.ears, (sw.s.get("listen") or {}).get("ears"), lis.ab_box.isVisibleTo(lis))
+    check("listen: Ears is two round buttons, “The same version in each ear” (the default, on) first, then “A "
+          "different version in each ear”; a click on one switches the ears and is kept",
+          seen["buttons"] == ["The same version in each ear", "A different version in each ear"]
+          and seen["no list"] and seen["on"] == [True, False]
+          and seen["clicked"] == ("split", "split", True) and seen["back"] == ("both", "both", True), seen)
 
 
 def test_one_version_tells_how_to_get_a_second(card, monkeypatch, check):
@@ -460,7 +484,7 @@ def test_version_marks_follow_the_theme(card, check):
     from ui.listen import COLOURS
     s, lis = card.s, card.lis
     lis.blind.setChecked(False)
-    lis.ears.setCurrentIndex(lis.ears.findData("both"))
+    lis.ears.set_data("both")
     lis.ears_changed()
     want = ["meas", "with_eq"] + [COLOURS[p.get("color", i) % len(COLOURS)] for i, p in enumerate(lis.pins)]
     seen = {}

@@ -52,7 +52,7 @@ def lis(eq_screen):
 def test_a_whole_test(lis, eq_screen, check):
     sw = eq_screen.page.sw
     lis.lm.setChecked(False)
-    lis.ears.setCurrentIndex(lis.ears.findData("split"))
+    lis.ears.set_data("split")
     lis.ears_changed()
     lis.refresh()
     a, b = lis.abx_a.currentData(), lis.abx_b.currentData()
@@ -93,7 +93,7 @@ def test_a_whole_test(lis, eq_screen, check):
           and not lis.lm.isChecked() and lis.ears.currentData() == "split" and not lis.abx_box.isVisibleTo(lis)
           and (lis.engine.level_match, lis.engine.ears) == (False, "split") and sw.s.get("listen") == saved,
           (said, lis.engine.level_match, lis.engine.ears))
-    lis.ears.setCurrentIndex(lis.ears.findData("both"))
+    lis.ears.set_data("both")
     lis.ears_changed()
     lis.lm.setChecked(True)
 

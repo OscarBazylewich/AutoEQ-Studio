@@ -30,8 +30,8 @@ import os
 from PySide6.QtCore import QPoint, QRect, QSignalBlocker, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QFileDialog, QGridLayout, QGroupBox,
-                               QHBoxLayout, QLabel, QLayout, QLineEdit, QMessageBox, QPushButton, QSlider,
-                               QVBoxLayout, QWidget)
+                               QHBoxLayout, QLabel, QLayout, QLineEdit, QMessageBox, QPushButton, QRadioButton,
+                               QSlider, QVBoxLayout, QWidget)
 
 import textfile
 from ui import bubble, help_window, icons, own_items, placed, tasks, theme, window_parts
@@ -141,6 +141,33 @@ class _Rows(QLayout):
             x += hint.width() + self._gap
             row = max(row, hint.height())
         return y + row - rect.y()
+
+
+class _Ears(QWidget):
+    """Ears: two round buttons, "The same version in each ear" (the default, first) and "A different version in each
+    ear" (the control audit, 2026-11-27, 4-9: a drop-down hid the other of two choices; its A to Z put the default
+    second). changed: a click on one. currentData() is "both" or "split"; set_data() changes it, telling nothing."""
+    changed = Signal()
+
+    def __init__(self, on="both"):
+        super().__init__()
+        self.setAccessibleName("Ears")
+        row = QHBoxLayout(self)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(12)  # (as the row it is in: _Rows' gap)
+        self.both = QRadioButton("The same version in each ear")
+        self.split = QRadioButton("A different version in each ear")
+        for b in (self.both, self.split):  # (one of the two on: round buttons of one parent are exclusive)
+            row.addWidget(b)
+            b.toggled.connect(lambda checked: checked and self.changed.emit())
+        self.set_data(on)
+
+    def currentData(self):
+        return "split" if self.split.isChecked() else "both"
+
+    def set_data(self, key):
+        with QSignalBlocker(self.both), QSignalBlocker(self.split):
+            (self.split if key == "split" else self.both).setChecked(True)
 
 
 class Listen(QGroupBox):
@@ -267,13 +294,11 @@ class Listen(QGroupBox):
         v.addWidget(self.split_row)
         # how they're heard: the same version in each ear or a different one, Hide the names (under the versions they
         # change)
-        ears = QHBoxLayout()
-        self.ears = SearchCombo()
-        self.ears.addItem("The same version in each ear", "both")
-        self.ears.addItem("A different version in each ear", "split")
-        self.ears.sort_items()
-        self.ears.setCurrentIndex(max(0, self.ears.findData("split" if st.get("ears") == "split" else "both")))
-        self.ears.activated.connect(lambda _i: self.ears_changed())
+        # (in a row that goes on to a second line when the card is narrow: the round buttons' words are long)
+        self.compare_row = QWidget()
+        ears = _Rows(self.compare_row, gap=12)
+        self.ears = _Ears("split" if st.get("ears") == "split" else "both")
+        self.ears.changed.connect(self.ears_changed)
         ears.addWidget(self.ears)
         # (Same level here, with the ears and Hide the names: the 3 settings of how you compare, in one row, which an
         # ABX test disables as one; the Play row stays enabled. The UI audit, 2026-11-08)
@@ -285,11 +310,8 @@ class Listen(QGroupBox):
         self.reveal_btn = QPushButton("Show the names")
         self.reveal_btn.clicked.connect(self.show_names)
         ears.addWidget(self.reveal_btn)
-        ears.addStretch(1)
-        self.compare_row = QWidget()
-        self.compare_row.setLayout(ears)
-        ears.setContentsMargins(0, 0, 0, 0)
         v.addWidget(self.compare_row)
+        # (Ears' round buttons reach its entry through it: a tag of their own named them "Ears" for a screen reader)
         for w, key in ((self.ears, "#snd-ears"), (self.blind, "#snd-blind"), (self.left, "#snd-left"),
                        (self.right, "#snd-right")):
             help_window.tag(w, key)
@@ -474,7 +496,7 @@ class Listen(QGroupBox):
         changes, your Listen settings don't (they're the test's for its while, not choices of yours to keep), and
         hidden names that you had keep their letters."""
         for w, set_it in ((self.lm, lambda: self.lm.setChecked(lm)),
-                          (self.ears, lambda: self.ears.setCurrentIndex(max(0, self.ears.findData(ears)))),
+                          (self.ears, lambda: self.ears.set_data(ears)),
                           (self.blind, lambda: self.blind.setChecked(blind))):
             with QSignalBlocker(w):
                 set_it()

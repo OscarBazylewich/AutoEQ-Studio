@@ -542,13 +542,13 @@ def eq_steps(page):
         with QSignalBlocker(L.blind):
             L.blind.setChecked(False)
         L.render_versions()
-        k = L.ears.findData("split")
-        if k >= 0:
-            api.say("Or a different version in each ear (also interchange them, because your ears are different)")
-            yield from mock_combo(api, L.ears, k)
-            L.render_versions()
-            api.spot_on(L.split_row)
-            yield 1500
+        # (Ears: two round buttons since the control audit, 2026-11-27, 4-9; a drop-down before)
+        api.say("Or a different version in each ear (also interchange them, because your ears are different)")
+        yield from api.click(L.ears.split, 0.1)
+        api.stage_blocked(L.ears.currentData, L.ears.set_data, "split", L.ears)
+        L.render_versions()
+        api.spot_on(L.split_row)
+        yield 1500
 
     def abx_demo(api):
         L = page.listen
