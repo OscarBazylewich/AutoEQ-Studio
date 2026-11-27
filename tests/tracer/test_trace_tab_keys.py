@@ -94,7 +94,7 @@ def test_tab_in_the_tracer_goes_to_boxes_lists_and_sliders_but_to_no_button_of_t
                      "buttons and tick boxes of the side in sight": len(buttons),
                      "of them, Tab went to": [_name(w) for w in buttons + zoom if _key(w) in got]}
     tw.set_shows("measurement")
-    tw.comp.setCurrentIndex(0)
+    tw.comp.setCurrentIndex(-1)
     tw.remove_image()
     tw.close()
     check("tracer: on 1 Axes, 2 Trace and 3 Save, real Tab keys go to each text box, list and slider of the side, "

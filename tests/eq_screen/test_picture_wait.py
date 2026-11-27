@@ -1258,7 +1258,7 @@ def test_website_graph_is_not_compensated(eq_screen, flow, monkeypatch, check):
     outs = tw.outputs()
     plain = tw.t.outputs(False, None, tw.source_note())
     first = outs[0]["text"].splitlines()[0]
-    now = (tw.shows.currentData(), tw.comp.currentData())
+    now = (tw.shows.currentData(), tw.comp.currentData() or "")  # (no target selected: "" for the check)
     check("website flow: a compensation selected for a picture before, then a picture from a website: “The graph "
           "shows” is the response, and the file has no target added (its first line, its values)",
           came and targets and before == ("difference", targets[0]) and now == ("measurement", "")

@@ -43,8 +43,14 @@ WHAT_2 = {"measurement": "Saves all curves as one measurement without altering t
                                "target"}
 SELECT = "Choose a target under “Target of the graph” to add it to the curve"
 NO_TARGETS = "No targets available. Add one on Make an EQ via Find… or Add… next to Target."
-FIRST_ROW = "Select target…"  # ("Target of the graph": its first row, with targets in the app)
-NO_TARGET_ROW = "No targets available"  # (its first row with no target in the app)
+FIRST_ROW = "Select target…"  # ("Target of the graph": its gray placeholder with targets in the app, not a row)
+NO_TARGET_ROW = "No targets available"  # (its gray placeholder with no target in the app)
+
+
+def _comp_shows(tw):
+    """What "Target of the graph" shows: its gray placeholder while nothing is selected, else the selected row."""
+    c = tw.comp
+    return c.placeholderText() if c.currentIndex() < 0 else c.currentText()
 
 
 def _select(box, value):
@@ -68,7 +74,7 @@ def _sample(eq_screen, curves):
         tw.t.auto_trace()
     tw.t.cur = 0
     tw.set_shows("measurement")
-    tw.comp.setCurrentIndex(0)
+    tw.comp.setCurrentIndex(-1)
     tw.changed()
     tw.show_tab(2)
     qt.pump(50)
@@ -174,7 +180,7 @@ def test_four_types_one_add_button(eq_screen, tmp_path, check):
     names = (tw.shows.accessibleName(), tw.comp.accessibleName(), tw.shows.property("help_key"),
              tw.comp.property("help_key"))
     tw.set_shows("measurement")
-    tw.comp.setCurrentIndex(0)
+    tw.comp.setCurrentIndex(-1)
     tw.remove_image()
     tw.close()
     check("tracer: “The graph shows” has 4 choices, in this order: “A measurement”, “A measurement as the difference "
@@ -259,7 +265,7 @@ def test_each_type_sends_its_files(eq_screen, monkeypatch, tmp_path, check):
                   float(np.abs(db2 - db - np.interp(np.log(hz), lf, np.asarray(r["vals"], float))).max()) if same
                   else None, line_file["content"].splitlines()[0])
     tw.set_shows("measurement")
-    tw.comp.setCurrentIndex(0)
+    tw.comp.setCurrentIndex(-1)
     tw.remove_image()
     tw.close()
     as_sent = lambda outs: [{"name": o["file"], "content": o["text"]} for o in outs]  # noqa: E731
@@ -308,7 +314,7 @@ def test_difference_with_no_target(eq_screen, monkeypatch, check):
     monkeypatch.setattr(QFileDialog, "getSaveFileName", staticmethod(lambda *a, **k: (asked.append(a), ("", ""))[1]))
     _select(tw.shows, "difference")
     qt.pump(30)
-    none = {"list": (tw.comp.currentText(), tw.comp.currentData(), tw.comp.isEnabled(), tw.comp.count() > 1),
+    none = {"list": (_comp_shows(tw), tw.comp.currentData() or "", tw.comp.isEnabled(), tw.comp.count() > 0),
             "line": tw.save_what.text(), "button": (tw.save_btn.text(), tw.save_btn.isEnabled())}
     tw.save_btn.click()
     tw.save_txt()
@@ -317,7 +323,7 @@ def test_difference_with_no_target(eq_screen, monkeypatch, check):
     del boxes[:]
     _select(tw.shows, "target_difference")
     qt.pump(30)
-    none_line = {"list": (tw.comp.isVisible(), tw.comp.currentText()), "line": tw.save_what.text(),
+    none_line = {"list": (tw.comp.isVisible(), _comp_shows(tw)), "line": tw.save_what.text(),
                  "button": (tw.save_btn.text(), tw.save_btn.isEnabled())}
     tw.save_btn.click()
     tw.save_txt()
@@ -333,40 +339,40 @@ def test_difference_with_no_target(eq_screen, monkeypatch, check):
         tw.fill_comp()
         tw.update_ui()
         qt.pump(30)
-        empty = {"list": (tw.comp.currentText(), tw.comp.currentData(), tw.comp.isEnabled(), tw.comp.count()),
+        empty = {"list": (_comp_shows(tw), tw.comp.currentData() or "", tw.comp.isEnabled(), tw.comp.count()),
                  "in sight": tw.comp.isVisible(), "line": tw.save_what.text()}
         tw.save_btn.click()
         empty["boxes"], empty["sent"] = list(boxes), len(sent)
         del boxes[:]
         _select(tw.shows, "target_difference")
         qt.pump(30)
-        empty_line = {"list": (tw.comp.isVisible(), tw.comp.currentText(), tw.comp.isEnabled()),
+        empty_line = {"list": (tw.comp.isVisible(), _comp_shows(tw), tw.comp.isEnabled()),
                       "line": tw.save_what.text(), "button": tw.save_btn.text()}
         tw.save_btn.click()
         empty_line["boxes"], empty_line["sent"] = list(boxes), len(sent)
         _select(tw.shows, "difference")
     tw.fill_comp()
-    back = tw.comp.count() > 1 and tw.comp.isEnabled()
+    back = tw.comp.count() > 0 and tw.comp.isEnabled()
     tw.set_shows("measurement")
-    tw.comp.setCurrentIndex(0)
+    tw.comp.setCurrentIndex(-1)
     tw.remove_image()
     tw.close()
-    check("tracer: a difference from a target with no target selected: “Target of the graph” has “Select target…” "
-          "first, the gray line tells to select the target, and the add and Save .txt… tell the same in a bubble at "
+    check("tracer: a difference from a target with no target selected: “Target of the graph” shows its gray "
+          "placeholder “Select target…”, the gray line tells to select the target, and the add and Save .txt… tell the same in a bubble at "
           "the button (the app adds no file)",
           none["list"] == (FIRST_ROW, "", True, True) and none["line"] == SELECT
-          and none["button"] == ("Add as measurement", True) and none["boxes"] == [("bubble at Add as measurement", SELECT), ("bubble at Save .txt…", SELECT)]
+          and none["button"] == ("Add as measurement", True)
+          and none["boxes"] == [("bubble at Add as measurement", SELECT), ("bubble at Save .txt…", SELECT)]
           and none["sent"] == 0 and none["asked"] == 0, none)
-    check("tracer: “Target of the graph” has the targets of the app from A to Z after “Select target…”; with a "
-          "target selected, the gray line tells that the app adds it (the user's work)",
-          rows[0] == FIRST_ROW and os.path.splitext(TARGET)[0] in rows
-          and rows[1:] == sorted(rows[1:], key=str.casefold) and with_target == (WHAT["difference"], True),
+    check("tracer: “Target of the graph” has only the targets of the app, from A to Z (“Select target…” is its "
+          "placeholder, not a row); with a target selected, the gray line tells that the app adds it (the user's work)",
+          FIRST_ROW not in rows and os.path.splitext(TARGET)[0] in rows
+          and rows == sorted(rows, key=str.casefold) and with_target == (WHAT["difference"], True),
           (rows, with_target))
     check("tracer: a difference from a target when the app has no target: the list is off with “No targets "
-          "available”, the gray line tells to add the target first, and the add tells the same in a bubble at it; with a "
-          "target "
-          "in the app again, the list is on",
-          empty["list"] == (NO_TARGET_ROW, "", False, 1) and empty["in sight"]
+          "available” as its placeholder, the gray line tells to add the target first, and the add tells the same in a "
+          "bubble at it; with a target in the app again, the list is on",
+          empty["list"] == (NO_TARGET_ROW, "", False, 0) and empty["in sight"]
           and empty["line"] == NO_TARGETS and empty["boxes"] == [("bubble at Add as measurement", NO_TARGETS)] and empty["sent"] == 0
           and back, (empty, back))
     check("tracer: a target line as the difference from a target with no target selected, and when the app has no "
@@ -439,12 +445,12 @@ def test_the_app_selects_the_type(eq_screen, monkeypatch, check):
     _select(tw.shows, "difference")
     _select(tw.comp, TARGET)
     mine(2)
-    seen["a difference, then a picture of the user"] = (state(), tw.comp.currentData())
+    seen["a difference, then a picture of the user"] = (state(), tw.comp.currentData() or "")
     tw.remove_image()
-    seen["a difference, then Remove image"] = (state()[0], tw.comp.currentData())
+    seen["a difference, then Remove image"] = (state()[0], tw.comp.currentData() or "")
     at_once = read(dict(ENTRY, **{"as": "measurement"}), target_line=True)
     note = tw.save_note.text()
-    seen["a measurement from a website after a difference"] = (at_once, state(), tw.comp.currentData(),
+    seen["a measurement from a website after a difference"] = (at_once, state(), tw.comp.currentData() or "",
                                                               tw.save_line.isVisible())
     # (the user selects a target line there: the note names Add as target, and tells that the button of the target
     # line adds that line)
@@ -462,17 +468,17 @@ def test_the_app_selects_the_type(eq_screen, monkeypatch, check):
     mine(5)
     _select(tw.shows, "target_difference")
     _select(tw.comp, TARGET)
-    seen["the user's target line as a difference"] = (state(), tw.comp.currentData(), tw.save_what.text())
+    seen["the user's target line as a difference"] = (state(), tw.comp.currentData() or "", tw.save_what.text())
     mine(6)
-    seen["a target line as a difference, then a new picture"] = (state(), tw.comp.currentData())
+    seen["a target line as a difference, then a new picture"] = (state(), tw.comp.currentData() or "")
     _select(tw.shows, "target_difference")
     tw.remove_image()
-    seen["a target line as a difference, then Remove image"] = (state()[0], tw.comp.currentData())
+    seen["a target line as a difference, then Remove image"] = (state()[0], tw.comp.currentData() or "")
     mine(7)
     _select(tw.shows, "target_difference")
     at_once = read(dict(ENTRY, **{"as": "measurement"}))
     seen["a measurement from a website after a target line as a difference"] = (at_once, state(),
-                                                                               tw.comp.currentData())
+                                                                               tw.comp.currentData() or "")
     tw.remove_image()
     tw.close()
     head = "Traced graph for “Truthear Gate” from “Hangout.Audio”. Verify it against the image, then "
@@ -554,7 +560,7 @@ def test_target_of_the_graph_is_the_users_work(eq_screen, monkeypatch, check):
     tw.comp.setCurrentIndex(tw.comp.findData("Stand-in.txt"))  # (the list does not show: no selection of a user)
     _select(tw.shows, "measurement")
     seen["a target in the hidden list"] = (tw.save_value("shows"), tw.compensation(), tw.users_work())
-    tw.comp.setCurrentIndex(0)
+    tw.comp.setCurrentIndex(-1)
     tw.remove_image()
     monkeypatch.undo()
     tw.fill_comp()
@@ -661,8 +667,9 @@ def test_targets_that_change_while_the_tracer_is_open(eq_screen, monkeypatch, ch
         qt.settle()
 
     def look():
-        return (tw.comp.isEnabled(), [tw.comp.itemText(i) for i in range(tw.comp.count())], tw.comp.currentData(),
-                tw.save_what.text())
+        # (the gray placeholder first, then the rows of the list)
+        return (tw.comp.isEnabled(), [tw.comp.placeholderText()] + [tw.comp.itemText(i) for i in range(tw.comp.count())],
+                tw.comp.currentData() or "", tw.save_what.text())
     delete(had)
     page, tw = _sample(eq_screen, 1)
     boxes = _boxes(tw, monkeypatch)
@@ -711,7 +718,7 @@ def test_targets_that_change_while_the_tracer_is_open(eq_screen, monkeypatch, ch
         page.use_target(active)
         qt.settle()
     tw.set_shows("measurement")
-    tw.comp.setCurrentIndex(0)
+    tw.comp.setCurrentIndex(-1)
     tw.remove_image()
     tw.close()
     names = [os.path.splitext(n)[0] for n in had]
@@ -732,3 +739,31 @@ def test_targets_that_change_while_the_tracer_is_open(eq_screen, monkeypatch, ch
           len(own) == 1 and selected[2:] == (own[0], WHAT["difference"])
           and gone == (True, [FIRST_ROW] + names, "", SELECT) and left == had,
           (own, selected, gone, left))
+
+
+def test_select_target_is_the_placeholder(eq_screen, monkeypatch, check):
+    """The control audit of 2026-11-27 (2-3): "Select target…" was the first row of "Target of the graph", a row with
+    no target. It is now the list's gray placeholder while no target is selected; the list has only targets. The way
+    back to no target: a picture from a website (select_shows) selects none again; a type with no difference hides
+    the list and adds no target."""
+    page, tw = _sample(eq_screen, 1)
+    _select(tw.shows, "difference")
+    qt.pump(30)
+    rows = [(tw.comp.itemText(i), tw.comp.itemData(i)) for i in range(tw.comp.count())]
+    first = (tw.comp.currentIndex(), tw.comp.placeholderText(), tw.comp.shows_placeholder())
+    _select(tw.comp, TARGET)
+    chosen = (tw.comp.currentData(), tw.comp.shows_placeholder())
+    monkeypatch.setattr(tw, "entry", dict(ENTRY))
+    tw.select_shows()
+    back = (tw.comp.currentIndex(), tw.comp.shows_placeholder(), tw.shows.currentData())
+    monkeypatch.setattr(tw, "entry", None)
+    tw.set_shows("measurement")
+    tw.remove_image()
+    tw.close()
+    check("tracer: “Target of the graph” shows the gray placeholder “Select target…” with no target selected, and "
+          "its list has only the targets of the app (no row without a target)",
+          first == (-1, FIRST_ROW, True) and len(rows) == len(page.inputs["targets"]) > 0
+          and all(data for _text, data in rows) and FIRST_ROW not in [text for text, _d in rows], (first, rows))
+    check("tracer: a target selected replaces the placeholder; a picture from a website selects no target again (the "
+          "placeholder shows)", chosen == (TARGET, False) and back == (-1, True, "measurement"), (chosen, back))
+

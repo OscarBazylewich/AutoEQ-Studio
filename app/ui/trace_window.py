@@ -1328,7 +1328,7 @@ class TraceWindow(QWidget):
         as_target = e.get("as") == "target" or (self.read_target and e.get("as") != "measurement")
         now = self.shows.currentData()
         if self.entry:
-            self.comp.setCurrentIndex(0)
+            self.comp.setCurrentIndex(-1)  # (no target: its gray placeholder)
         mine = {"target": "measurement", "target_difference": "difference"}.get(now, now)
         self.set_shows("target" if as_target else "measurement" if self.entry else mine)
 
@@ -1361,7 +1361,7 @@ class TraceWindow(QWidget):
         t = self.t
         kind = self.shows.currentData()
         if kind in DIFFERENCES and not self.comp.currentData():
-            return SELECT_TARGET if self.comp.count() > 1 else NO_TARGETS
+            return SELECT_TARGET if self.comp.count() > 0 else NO_TARGETS
         if kind in AS_TARGET:
             one = sum(map(t.has_data, t.curves)) <= 1
             if kind == "target_difference":
@@ -2222,17 +2222,18 @@ class TraceWindow(QWidget):
 
     # ---------------------------------------------------------------- save
     def fill_comp(self):
-        """"Target of the graph": the targets of the app, one of which a graph may show the difference from. The
-        first row has no target: the app does not know the target of a graph, so the user selects it (the first
-        target of the list would go into the curve with no selection). With no target in the app, the list is off."""
+        """"Target of the graph": the targets of the app, one of which a graph may show the difference from. Nothing
+        is selected at first, and the box shows its gray placeholder "Select target…" (not a row of the list): the app
+        does not know the target of a graph, so the user selects it (the first target of the list would go into the
+        curve with no selection). With no target in the app, the list is off and its placeholder says so."""
         was = self.comp.currentData()
         targets = (getattr(self.page, "inputs", None) or {}).get("targets", [])
         self.comp.clear()
-        self.comp.addItem("Select target…" if targets else "No targets available", "")
+        self.comp.setPlaceholderText("Select target…" if targets else "No targets available")
         for n in targets:
             self.comp.addItem(os.path.splitext(n)[0], n)
-        self.comp.sort_items(pinned=1)  # (the row with no target on top: 22)
-        self.comp.setCurrentIndex(max(0, self.comp.findData(was)))
+        self.comp.sort_items()
+        self.comp.setCurrentIndex(self.comp.findData(was) if was else -1)
         self.comp.setEnabled(bool(targets))
         self.shows_value = self.save_value("shows")  # (not a selection of the user: shows_selected)
         self.show_graph_type()
@@ -2243,7 +2244,7 @@ class TraceWindow(QWidget):
         change nothing: filled again, an open list lost the row that the arrow keys had marked (measured,
         2026-11-17; Make an EQ also shows its files again when the database lists come)."""
         targets = (getattr(self.page, "inputs", None) or {}).get("targets", [])
-        if sorted(targets) != sorted(self.comp.itemData(i) for i in range(1, self.comp.count())):
+        if sorted(targets) != sorted(self.comp.itemData(i) for i in range(self.comp.count())):
             self.fill_comp()
 
     def compensation(self):
@@ -2254,7 +2255,7 @@ class TraceWindow(QWidget):
             return None, ""
         name = self.comp.currentData()
         if not name:
-            raise ValueError(SELECT_TARGET if self.comp.count() > 1 else NO_TARGETS)
+            raise ValueError(SELECT_TARGET if self.comp.count() > 0 else NO_TARGETS)
         S = self.page.S
         # (as it is: the site's graph smoothing off, which would round off its peaks; its level is evened out later)
         r = self.page.svc.call("/api/preview", {"src": "app", "kind": "target", "names": [name],
