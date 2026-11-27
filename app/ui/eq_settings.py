@@ -6,23 +6,24 @@ Settings (the ones used most):
 - Automatic settings: on or off; "Custom values" (each one made automatic again with "custom ↺", or all with Make all
   automatic); About these settings (n), a row that opens (closed at the start, kept as you left it): each value and
   the fact about your files it comes from
-- the method's own values: Website AutoEQ's seven; the website sweep's summary; Best fit's filter counts and shelves
+- the method's own values: Website AutoEQ's seven; the website sweep's filter rows and the summary of its ranges;
+  Best fit's filter counts and shelves
 - Error and selection: the range the match is judged over, how a result is picked
-- Target: the rig conversion
 More settings, a tab for each section (less height; a method's tab only with its method): Best fit (its layout,
 bands, shelves, limits, penalties, and your own filters to start from), Website best settings, Website, Saved files,
-History, This PC.
+History. CPU cores is last in the tab of the method shown (Best fit's or Website best settings').
 The Target's Adjust… (AutoEQ Local's Adjust): a window with tilt, bass, half-tilt, ear gain, treble and air, each
 with − and +, a small graph of the target, Clear the adjustments and Save as a target… (the UI audit: in the page,
-the graph was out of view while you adjusted).
+the graph was out of view while you adjusted). Rig change (the rig conversion) is a row of the Target and
+Measurement card, under the Target's rows: it changes the target on the graph at once.
 
 A value the automatic settings fill in becomes "yours" once you change it (kept through new files
 until made automatic again); with them off nothing changes by itself. Settings that change the curves (target adjustments,
 the scored range, the website's levelling, the rig conversion) draw the graph again.
 
-EqSettings(page) keeps what the settings need; build_parts(slot, above, target_row, target_under) makes them in four
-parts, one per step of the page's build (ui/eq_page_cards.py: each a few ms, so the window answers in between):
-Adjust… (its button on the Target row), the Settings fold, More settings' first half, its second half
+EqSettings(page) keeps what the settings need; build_parts(slot, above, target_row, target_under, rig_slot) makes
+them in four parts, one per step of the page's build (ui/eq_page_cards.py: each a few ms, so the window answers in
+between): Adjust… (its button on the Target row) with Rig change, the Settings fold, More settings' first half, its second half
 (Form.add_sections). Each part goes into its place in the step that makes it, on the page and in the Tab sequence
 (tab_order: Qt puts a part made later at the sequence's end). Adjust…'s window is made at its first use (adjust()),
 not in the build: with its graph it was most of the build's "adjust" step (34 ms, now under 1 ms, offscreen,
@@ -35,7 +36,7 @@ from PySide6.QtWidgets import (QCheckBox, QDialog, QFileDialog, QGridLayout, QHB
 from ui import help_window, icons, placed, theme
 from ui.bubble import InfoMark
 from ui.eq_page_parts import tab_order
-from ui.forms import Field, Fold, Form, Limits, fmt_list
+from ui.forms import Field, Fold, Form, Limits, fmt_list, help_of
 
 ADJUST_GAINS = ("tilt", "bass_gain", "halftilt_gain", "ear_gain", "treble_gain", "air_gain")  # (eq.service's)
 CURVE_KEYS = ("target_adjust.","site.", "scoring.band_hz", "files.", "rig_convert.")  # (settings.js)
@@ -47,11 +48,18 @@ FORMATS = [("apo", "Equalizer APO / squiglink filters (.txt)"), ("graphic", "Gra
            # (Help's title for it; the apps that use it are in Help: with them, the words were cut at every width)
            ("convolution", "Convolution impulse response (.wav)"),
            ("report", "An HTML report")]
+HISTORY_KEEPS = [("saved", "EQs that you save or copy"), ("all", "All results, and the EQs that you save")]
 
 
 def _muted_label(text):
     lab = QLabel(text)
     theme.mark(lab, role="muted")
+    return lab
+
+
+def _section_label(text):
+    lab = QLabel(text)
+    theme.mark(lab, role="section")
     return lab
 
 
@@ -107,10 +115,11 @@ class EqSettings:
         from eq import settings as eq_settings
         self.eq_settings = eq_settings
 
-    def build_parts(self, slot, above, target_row, target_under):
+    def build_parts(self, slot, above, target_row, target_under, rig_slot):
         """The settings made in four parts, each put in its place in the same step (yield: the step ends there):
-        Adjust… on the Target row (target_row; its summary in target_under, its window), the Settings fold into slot
-        (the Make the EQ card's), More settings' first half into slot, its second half into More settings' form.
+        Adjust… on the Target row (target_row; its summary in target_under, its window) and Rig change's tick box
+        under it (rig_slot: its row in the Target and Measurement card), the Settings fold into slot (the Make the EQ
+        card's), More settings' first half into slot, its second half into More settings' form.
         above: the part of the card directly above slot (Tab goes from its last control to Settings)."""
         page, m = self.page, self.page.meta
         C = self.eq_settings.CHOICES
@@ -128,7 +137,16 @@ class EqSettings:
         # it after the row's Find… and Add… (made after the cards under the row, it came after Queue… in the Tab
         # sequence: Tab on Queue… gave it the focus, and the page scrolled to its top, 2026-11-16)
         self._adjust_panel(C, get, changed, make_auto, say, target_row, target_under)
-        tab_order(target_row.parentWidget())
+        # (Rig change in the Target and Measurement card, as it changes the target on the graph at once: it was
+        # Settings › Target, the control audit, 2026-11-27. A form of its own: its box's tooltip, Help and value)
+        self.rig_form = Form([("", [("", [("rig_convert.enabled", "check")])])], self.limits, get, changed, make_auto,
+                             say)
+        self._label_checks(self.rig_form)
+        self.rig_box = self.rig_form.fields["rig_convert.enabled"].box
+        rig_slot.addWidget(self.rig_form)
+        if getattr(page, "rig_label", None) is not None:  # (the card's label: the setting's Help line, as a form's)
+            page.rig_label.setToolTip(help_of("rig_convert.enabled"))
+        tab_order(target_row.parentWidget(), self.rig_form)  # (after Adjust…, before the Measurement row)
         yield "adjust"
 
         # ---------------------------------------------------------------- Settings (a row that opens, in Make the EQ)
@@ -147,7 +165,12 @@ class EqSettings:
                 ("Frequency from", [("site_single.freq_low", "num"), ("site_single.freq_high", "num")], mode("site_single")),
                 ("Gain from (dB)", [("site_single.gain_min", "num"), ("site_single.gain_max", "num")], mode("site_single")),
                 ("Q from", [("site_single.q_min", "num"), ("site_single.q_max", "num")], mode("site_single"))]),
-            ("Website AutoEQ: find the best settings", [(self.sweep_note, [], mode("site_sweep"))]),
+            # (its main value here, as Best fit's Filter counts to try; its ranges in More settings: the control audit,
+            # 2026-11-27)
+            ("Website AutoEQ: find the best settings", [
+                ("Filter rows to try", [("site_sweep.filter_rows", "intlist", None, "e.g. 4-10 or 4, 6, 8")],
+                 mode("site_sweep")),
+                (self.sweep_note, [], mode("site_sweep"))]),
             ("Best fit", [
                 ("Filter counts to try", [("best_fit.filter_counts", "intlist", None, "e.g. 1-10")], free),
                 ("Shelf", [("best_fit.low_shelf", "check")], shelves),
@@ -159,8 +182,6 @@ class EqSettings:
                                    ("lowest", "Lowest error")])], multi),
                 ("Same sound below (dB)", [("scoring.ear_db", "num")], audible),
 ]),
-            ("Target", [
-                ("Rig change", [("rig_convert.enabled", "check")])]),
         ], self.limits, get, changed, make_auto, say)
         self.fold.add(self.form)
         self._label_checks()
@@ -196,10 +217,9 @@ class EqSettings:
                 ("Low shelf (Hz)", [("best_fit.low_shelf_freq.0", "num"), ("best_fit.low_shelf_freq.1", "num")],
                  lambda: shelves() and S()["best_fit"]["low_shelf"]),
                 ("Filters from (Hz)", [("best_fit.freq_range.0", "num"), ("best_fit.freq_range.1", "num")], free),
-                ("Minimum gain (dB)", [("best_fit.gain_min", "num")], free),
-                ("Maximum gain values (dB)", [("best_fit.gain_max", "numlist")], free),
-                ("Q from", [("best_fit.q_min", "num")], free),
-                ("Maximum Q values", [("best_fit.q_max", "numlist")], free),
+                # (a "from" and its list of "to" values in one cell, as every range: the control audit, 2026-11-27)
+                ("Gain from (dB)", [("best_fit.gain_min", "num"), ("best_fit.gain_max", "numlist")], free),
+                ("Q from", [("best_fit.q_min", "num"), ("best_fit.q_max", "numlist")], free),
                 ("Penalties for opposite filters", [("best_fit.fight_penalty", "numlist")], free),
                 # (your own filters to start from: here, not in Settings, as they are used less: the UI audit)
                 ("Start from your filters", [("best_fit.start_filters", "block", None,
@@ -207,15 +227,16 @@ class EqSettings:
                  mode("best_fit")),
                 (None, mine_row, mode("best_fit")),  # (under the box that it fills: UI-RULES 27)
                 ("", [("best_fit.start_keep", "check")],
-                 lambda: S()["mode"] == "best_fit" and S()["best_fit"]["start_filters"].strip())]),
+                 lambda: S()["mode"] == "best_fit" and S()["best_fit"]["start_filters"].strip()),
+                # (only the two methods that run many fits use it, pipeline.py: one box, last in the tab of the method
+                # shown; it had a tab of its own, This PC: the control audit, 2026-11-27)
+                ("CPU cores (0 = all the cores minus 1)", [("performance.cores", "num")], multi,
+                 {"follows": ("Best fit", "Website best settings")})]),
             ("Website best settings", [
-                ("Filter rows to try", [("site_sweep.filter_rows", "intlist", None, "e.g. 4-10 or 4, 6, 8")],
+                ("Frequency from", [("site_sweep.freq_low", "num"), ("site_sweep.freq_high", "numlist")],
                  mode("site_sweep")),
-                ("Frequency from", [("site_sweep.freq_low", "num")], mode("site_sweep")),
-                ("Frequency “to” values", [("site_sweep.freq_high", "numlist")], mode("site_sweep")),
                 ("Gain ranges", [("site_sweep.gain_ranges", "ranges")], mode("site_sweep")),  # (a row of two boxes each)
-                ("Q from", [("site_sweep.q_min", "num")], mode("site_sweep")),
-                ("Q “to” values", [("site_sweep.q_max", "numlist")], mode("site_sweep"))]),
+                ("Q from", [("site_sweep.q_min", "num"), ("site_sweep.q_max", "numlist")], mode("site_sweep"))]),
             ("Website", lambda: [  # (made in the second half's step, which places it: its gray line too)
                 # (the two special choices pinned on top, then every graph website A to Z: UI-RULES 22; the list has
                 # its search box, search_combo)
@@ -229,23 +250,25 @@ class EqSettings:
                 # (by the levelling the curves have: the one shown, page.site_now)
                 ("Around (Hz)", [("site.norm_hz", "num")], lambda: page.site_now()["normalization"] != "dB"),
                 ("Loudness (phon)", [("site.norm_db", "num")], lambda: page.site_now()["normalization"] == "dB"),
-                ("AutoEQ TrebleStartFrom (Hz)", [("site.treble_start_from", "num")]),
+                # (only the website's own AutoEQ reads it: engines.js_site_cfg, for the two Website methods)
+                ("AutoEQ TrebleStartFrom (Hz)", [("site.treble_start_from", "num")], mode("site_single", "site_sweep")),
                 ("Sample rate", [("site.sample_rate", "choice", _opts(C["site.sample_rate"]))]),
                 ("Smoothing level", [("site.smooth_level", "num")]),
                 ("Smoothing scale", [("site.scale_smoothing", "num")]),
                 ("Loudness tables", [("site.phon_table", "choice", [("ISO 226:2023", "ISO 226:2023"),
                                                                    ("ISO 226:2003", "ISO 226:2003")])])]),
-            ("Saved files", [("", [("export." + k, "check")]) for k, name in FORMATS] + [
+            # (the file types as a group of their own, under a heading, the other settings on the rows under them: the
+            # control audit, 2026-11-27. Made in the second half's step, which places it)
+            ("Saved files", lambda: [(_section_label("File types"), [])]
+             + [("", [("export." + k, "check")], None, {"ends_row": k == FORMATS[-1][0]}) for k, name in FORMATS] + [
                 ("Impulse response sample rate", [("export.convolution_rate", "choice", _opts(C["export.convolution_rate"]))],
                  lambda: S()["export"]["convolution"]),
                 ("Pre-amp rounding", [("export.preamp_rounding", "choice", [("safe", "Safe (lower value)"), ("site", "Same as squiglink")])]),
                 ("More headroom (dB)", [("export.extra_headroom", "num")]),
                 ("Q decimals in saved files", [("export.q_decimals", "num")])]),
-            ("History", [
-                ("History keeps", [("history.keep", "choice", [("saved", "EQs that you save or copy"),
-                                                               ("all", "All results, and the EQs that you save")])]),
-                ("", [("history.eqd_before", "check")])]),
-            ("This PC", [("CPU cores (0 = all the cores minus 1)", [("performance.cores", "num")])]),
+            # (History keeps is in the History window, where its effect shows: the control audit, 2026-11-27. This
+            # tick box's effect is on this page, under Measurement)
+            ("History", [("", [("history.eqd_before", "check")])]),
         ]
         self.adv_form = Form(sections[:2], self.limits, get, changed, make_auto, say, tabs=True)  # (Best fit, sweep)
         # (a tick box's words in the step that makes it: a screen reader's name is its words, and a box without words
@@ -266,7 +289,7 @@ class EqSettings:
         self.site_note.setWordWrap(True)
         theme.mark(self.site_note, role="muted")
         rest = [(t, rows() if callable(rows) else rows) for t, rows in sections[2:]]
-        self.adv_form.add_sections(rest)  # (Website, Saved files, History, This PC)
+        self.adv_form.add_sections(rest)  # (Website, Saved files, History)
         self._label_checks(self.adv_form)
         tab_order(self.adv.btn, *self.adv_form.tab_btns.values(), self.adv_form.pages)  # (the new tabs with the others)
         # (no refresh() here: the page's next step, the result card's, shows the settings (show_settings), which
@@ -704,9 +727,12 @@ class EqSettings:
                           else "Automatic settings are off."))
         self.why_head.setText(f"About these settings ({len(notes)})" if notes else "About these settings")
         self.redraw_adjust()
-        self.mine_box.setVisible(on and bool(mine))
+        # (only the custom values whose boxes show now: one of another method, or AutoEQ TrebleStartFrom with Best
+        # fit, was named with no box in sight to reset it)
+        seen = [p for p in mine if any(f.applies(p) for f in self.forms())]
+        self.mine_box.setVisible(on and bool(seen))
         # (eq.settings' names for these settings: the automatic notes that name a setting use them too)
-        self.mine_text.setText("Custom values: " + ", ".join(self.eq_settings.AUTO_NAMES.get(p, p) for p in mine)
+        self.mine_text.setText("Custom values: " + ", ".join(self.eq_settings.AUTO_NAMES.get(p, p) for p in seen)
                                + " (click “custom ↺” to reset)")
         tags = {p: ("yours" if p in mine else "auto") for p in self.auto_paths} if on else {}
         if S["site"].get("profile") == "custom":  # (Other: the app fills none of the Website values)
@@ -717,8 +743,8 @@ class EqSettings:
         self._site_parts()
         # (the Website values the curves have, shown in their boxes; never saved: page.site_shown)
         shown = self.page.site_shown() if hasattr(self.page, "site_shown") else {}
-        self.form.refresh(tags, locks, shown)
-        self.adv_form.refresh(tags, locks, shown)
+        for form in self.forms():
+            form.refresh(tags, locks, shown)
         if self._adjust is not None:  # (not made yet: adjust() shows the values as it makes it)
             self._show_adjust_values()
         adj = self.adjusted()
@@ -726,7 +752,8 @@ class EqSettings:
         self.adjust_summary.setVisible(adj)
         # (what the sweep tries: a website's fixed values in place of the boxes')
         sw = dict(S["site_sweep"], **{p.split(".", 1)[1]: v for p, (v, _tip) in locks.items() if p.startswith("site_sweep.")})
-        self.sweep_note.setText(f"Testing: filter rows {fmt_list(sw['filter_rows'])} · frequency to "
+        # (no filter rows: their box is above the line)
+        self.sweep_note.setText("Testing: frequency to "
                                 f"{', '.join(f'{v / 1000:g} kHz' for v in sw['freq_high'])} · gain "
                                 f"{', '.join(f'{r[0]:g} to {r[1]:g}' for r in sw['gain_ranges'])} · Q to {fmt_list(sw['q_max'])}. "
                                 "Edit in More settings › Website best settings.")
@@ -741,10 +768,16 @@ class EqSettings:
         self.fold.summary.setText(f"{'automatic' if on else 'manual'} · error range "
                                   f"{hz(S['scoring']['band_hz'][0])}–{hz(S['scoring']['band_hz'][1])}")
         # (only what the method in use has in More settings: the layout and the limits are Best fit's, the search
-        # ranges are Website AutoEQ: find the best settings'; the first item with a capital letter)
-        own = {"best_fit": "layout, limits, ", "site_sweep": "search ranges, "}.get(S["mode"], "")
-        words = own + "website values, saved files, history, and CPU"
+        # ranges are Website AutoEQ: find the best settings', CPU cores both's; the first item with a capital letter)
+        own = {"best_fit": "layout, limits, CPU, ", "site_sweep": "search ranges, CPU, "}.get(S["mode"], "")
+        words = own + "website values, saved files, and history"
         self.adv.summary.setText(words[0].upper() + words[1:])
+
+    def forms(self):
+        """The forms of the settings' boxes made so far: Rig change's (in the Target and Measurement card), Settings'
+        and More settings'."""
+        return [f for f in (getattr(self, "rig_form", None), getattr(self, "form", None),
+                            getattr(self, "adv_form", None)) if f is not None]
 
     def site_locks(self):
         """{path: (value, reason)}: the Website methods' boxes that the website of the curves fixes (no gain boxes or no

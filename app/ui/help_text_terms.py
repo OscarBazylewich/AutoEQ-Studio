@@ -220,8 +220,8 @@ TERMS = [{'title': 'Curves and sound',
                               'Above 10 kHz, much of the difference stays. Thus, you must adjust the treble while '
                               'you listen.',
                               'The app does not change the target for pairs of rigs without sufficient data (for '
-                              'example, IEMs between a 5128 and an HMS). The message tells you this. Settings › '
-                              'Target › Rig change disables it.'],
+                              'example, IEMs between a 5128 and an HMS). The message tells you this. Rig change '
+                              '(below the Target row) disables it.'],
                      'see': ['rig', 'unit-conversion', 'treble-limit']},
                     {'id': 'unit-conversion',
                      'title': 'Rig change by a database',
@@ -577,7 +577,7 @@ QUESTIONS = [{'id': 'q-which-method',
              {'id': 'q-rigs',
               'q': 'Your measurement and target come from different rigs.',
               'body': ['A message below the graph tells you this. The app changes the target for the rig of the '
-                       'measurement (Settings › Target › Rig change disables it). This removes most of the '
+                       'measurement (Rig change, below the Target row, disables it). This removes most of the '
                        'difference between the rigs below 6 kHz, and less above 6 kHz. But a target for the rig of '
                        'your measurement, or a measurement from the rig of the target, is best.'],
               'see': ['rig-conversion', 'rig']},

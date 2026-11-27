@@ -162,11 +162,12 @@ def test_tab_at_the_parts_made_after_the_cards_under_them(eq_screen, check):
           (_name(got), at, after, _name(back)))
     adjust = page.settings.adjust_btn
     add = next(b for b in page.target_box.findChildren(QPushButton) if b.text() == "Add…")
-    got = [_tab(page, add)[0], _tab(page, adjust)[0], _tab(page, adjust, Qt.Key_Backtab)[0],
+    rig = page.settings.rig_box  # (Rig change, the row between Target and Measurement since 2026-11-27)
+    got = [_tab(page, add)[0], _tab(page, adjust)[0], _tab(page, rig)[0], _tab(page, adjust, Qt.Key_Backtab)[0],
            _tab(page, page.measurement_combo, Qt.Key_Backtab)[0]]
-    check("eq page: Tab on the Target row's Add… goes to its Adjust…, and Tab on Adjust… to Measurement; Shift+Tab "
-          "goes the opposite way (Adjust… came after Queue…)",
-          got == [adjust, page.measurement_combo, add, adjust], [_name(w) for w in got])
+    check("eq page: Tab on the Target row's Add… goes to its Adjust…, Tab on Adjust… to Rig change, then to "
+          "Measurement; Shift+Tab goes the opposite way (Adjust… came after Queue…)",
+          got == [adjust, rig, page.measurement_combo, add, rig], [_name(w) for w in got])
     fold, more = page.settings.fold.btn, page.settings.adv.btn
     got = [_tab(page, page.mode_combo)[0], _tab(page, fold)[0], _tab(page, more)[0],
            _tab(page, page.run_btn, Qt.Key_Backtab)[0], _tab(page, fold, Qt.Key_Backtab)[0]]
@@ -220,7 +221,7 @@ def test_tab_sequence_with_no_result(eq_screen, check):
         form.show_tab(was[2])
     check("eq page: with no result, the Tab sequence goes down the page (never back up, nor back to the left in a "
           "row), stops at every control that shows, and Shift+Tab goes the opposite way: Automatically, Settings "
-          "open, More settings open on each of its tabs, and Manually", not wrong and len(tabs) >= 5, (wrong, tabs))
+          "open, More settings open on each of its tabs, and Manually", not wrong and len(tabs) >= 4, (wrong, tabs))
     check("eq page: in More settings, Tab goes from More settings through the tabs' buttons, then to the settings of "
           "the tab shown (each button came after its own tab's settings)",
           tab_row == [f"QPushButton {words!r}" for words in tabs], (tab_row, list(tabs)))

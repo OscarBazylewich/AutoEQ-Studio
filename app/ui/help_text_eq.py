@@ -147,6 +147,14 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'body': ['The sound that you want for your IEM or headphone: a target curve (Harman, '
                                     "diffuse field, a person's target). Select one from the app, this PC or the online "
                                     'databases. The app adjusts the EQ to this target.']},
+                          {'key': 'rig_convert.enabled',
+                           'title': "Change the target for the measurement's rig",
+                           'body': ['Rig change, below the Target row. Your measurement and target come from different '
+                                    'rigs, and different rigs measure '
+                                    'the same IEM or headphone differently (usually above 2 kHz). On: the app changes '
+                                    'the target for the rig of the measurement. Thus, the EQ corrects the IEM or '
+                                    'headphone, not the difference between the rigs. Off: the app uses the target as '
+                                    'it is.']},
                           {'key': 'slot:measurement',
                            'title': 'Measurement',
                            'body': ['The frequency response of your IEM or headphone, from the app, this PC or the '
@@ -190,14 +198,7 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                                     'error range, the filter counts, the minimum and maximum gain, the Q limits and '
                                     'the shelves. A setting that you change shows “custom”, and the app keeps it. '
                                     'Off: the app uses each setting as it is.',
-                                    'More settings has the other settings, and the app sets them for you too.']},
-                          {'key': 'rig_convert.enabled',
-                           'title': "Change the target for the measurement's rig",
-                           'body': ['Your measurement and target come from different rigs, and different rigs measure '
-                                    'the same IEM or headphone differently (usually above 2 kHz). On: the app changes '
-                                    'the target for the rig of the measurement. Thus, the EQ corrects the IEM or '
-                                    'headphone, not the difference between the rigs. Off: the app uses the target as '
-                                    'it is.']}]},
+                                    'More settings has the other settings, and the app sets them for you too.']}]},
                {'title': 'Target › Adjust',
                 'items': [{'key': 'target_adjust.tilt',
                            'title': 'Tilt (dB/oct)',
@@ -276,10 +277,10 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'body': ['Where the app can put peaking filters (from … to). The app calculates the error '
                                     'only in the error range. Thus, this range usually continues above it.']},
                           {'key': 'best_fit.gain_min',
-                           'title': 'Minimum gain (dB)',
+                           'title': 'Gain from (dB)',
                            'body': ['The lowest gain that a filter can have, in dB.']},
                           {'key': 'best_fit.gain_max',
-                           'title': 'Maximum gain values (dB)',
+                           'title': 'Gain “to” values (dB)',
                            'body': ['The highest gain that a filter can have, in dB. The app tries each value in the '
                                     'list, for example 6, 9. With a lower gain, a smaller pre-amp is necessary.']},
                           {'key': 'best_fit.q_min',
@@ -287,7 +288,7 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'body': ['The lowest permitted Q (the widest filter). A filter with Q 0.5 is more than two '
                                     'octaves wide.']},
                           {'key': 'best_fit.q_max',
-                           'title': 'Maximum Q values',
+                           'title': 'Q “to” values',
                            'body': ['The highest permitted Q. The app tries each value in the list, for example 3, 5. '
                                     'A high Q can correct a sharp peak. But if the position of your IEM in your '
                                     'ear is different from the measurement, the filter can be at an incorrect '
@@ -306,7 +307,14 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'title': 'Keep them as they are (your filters)',
                            'body': ['On: your filters do not change, and Best fit adds filters to them. Off: Best fit '
                                     'starts from your filters, and it can move them. In the two conditions, one more '
-                                    'result shows only your filters.']}]},
+                                    'result shows only your filters.']},
+                          {'key': 'performance.cores',
+                           'title': 'CPU cores',
+                           'body': ['How many CPU threads the app uses when it calculates. 0 = all the cores minus 1, '
+                                    'and not more than the free memory can hold. If the PC becomes slow while the app '
+                                    'calculates, use a lower value.',
+                                    'Last in More settings › Best fit, or › Website best settings with that method: '
+                                    'only these two methods use more than one core.']}]},
                {'title': 'More settings › Layout and the bands of a graphic EQ',
                 'items': [{'key': 'best_fit.layout',
                            'title': 'Layout',
@@ -384,8 +392,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                 'items': [{'key': 'site_sweep.filter_rows',
                            'title': 'Filter rows to try',
                            'body': ['The numbers of filter rows to try, for example 4-10 or 4, 6, 8. The app tries '
-                                    'each number with each set of values from the lists that follow. Error and '
-                                    'selection selects the best result.']},
+                                    'each number with each set of values from the lists in More settings › Website '
+                                    'best settings. Error and selection selects the best result.']},
                           {'key': 'site_sweep.freq_low',
                            'title': 'Frequency from',
                            'body': ['The start of the “Frequency Range”, for all the settings to try.']},
@@ -740,7 +748,7 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                           {'key': 'history.keep',
                            'title': 'History keeps',
                            'body': ['The EQs that History (adjacent to the title of the graph) keeps after you close the '
-                                    'app. The two selections are “EQs that you save or copy” and “All results, and the '
+                                    'app, set at the top of History. The two selections are “EQs that you save or copy” and “All results, and the '
                                     'EQs that you save”.']},
                           {'key': 'history.eqd_before',
                            'title': 'Show a message below Measurement if History has an EQ for it',
@@ -784,7 +792,8 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'title': 'AutoEQ TrebleStartFrom (Hz)',
                            'body': ['A setting of the AutoEQ of the website that the website does not show. Its first '
                                     'step uses no filters above this frequency (most websites 7000, listener800 '
-                                    '15000). The app sets it from the website (Which website to copy).']},
+                                    '15000). The app sets it from the website (Which website to copy).',
+                                    "Shows only with the Website methods (Best fit doesn't use it)."]},
                           {'key': 'site.sample_rate',
                            'title': 'Sample rate',
                            'body': ['The sample rate that the app uses to calculate the filters. The website uses '
@@ -801,12 +810,6 @@ SETTINGS_EQ = [{'title': 'Select and calculate',
                            'title': 'Loudness tables',
                            'body': ['The equal-loudness tables for dB mode: ISO 226:2003 (most websites) or ISO '
                                     '226:2023 (listener800 and others).']}]},
-               {'title': 'More settings › This PC',
-                'items': [{'key': 'performance.cores',
-                           'title': 'CPU cores',
-                           'body': ['How many CPU threads the app uses when it calculates. 0 = all the cores minus 1, '
-                                    'and not more than the free memory can hold. If the PC becomes slow while the app '
-                                    'calculates, use a lower value.']}]},
                {'title': 'Find… › Sources',
                 'items': [{'key': 'library.folders',
                            'title': 'Folders to search',

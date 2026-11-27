@@ -77,7 +77,8 @@ class EqCards:
         settings = EqSettings(self)
         # (Adjust… onto the Target row; Settings and More settings, rows that open in Make the EQ, in their place,
         # under the way's own steps: in the Tab sequence too)
-        yield from settings.build_parts(self.settings_slot, self.way_stack, self.target_row, self.target_under)
+        yield from settings.build_parts(self.settings_slot, self.way_stack, self.target_row, self.target_under,
+                                        self.rig_slot)
         self.settings = settings
         self.measurement_pad.follow(settings.adjust_btn)  # (the two drop-downs end at one x: Adjust… is the Target's)
         col.addWidget(self._result_card())
@@ -223,13 +224,21 @@ class EqCards:
         g.setVerticalSpacing(4)
         g.setColumnStretch(1, 1)
         for i, kind in enumerate(("target", "measurement")):
-            g.addWidget(label("Target" if kind == "target" else "Measurement", wrap=False), 2 * i, 0)
-            g.addWidget(self._file_row(kind), 2 * i, 1)
+            g.addWidget(label("Target" if kind == "target" else "Measurement", wrap=False), 3 * i, 0)
+            g.addWidget(self._file_row(kind), 3 * i, 1)
             under = QWidget()
             u = QVBoxLayout(under)
-            u.setContentsMargins(0, 0, 0, 6 if kind == "target" else 0)
+            u.setContentsMargins(0, 0, 0, 0)
             u.setSpacing(4)
-            g.addWidget(under, 2 * i + 1, 1)
+            g.addWidget(under, 3 * i + 1, 1)
+            if kind == "target":  # (Rig change, under the Target's rows: its tick box goes into rig_slot, eq_settings;
+                # it was Settings › Target, the control audit, 2026-11-27)
+                self.rig_label = label("Rig change", wrap=False)
+                g.addWidget(self.rig_label, 2, 0)
+                self.rig_row = rig = QWidget()
+                self.rig_slot = QHBoxLayout(rig)
+                self.rig_slot.setContentsMargins(0, 0, 0, 6)
+                g.addWidget(rig, 2, 1)
             note = label("", "muted")
             note.hide()  # (shown when it has words: eq_page_files.show_inputs)
             u.addWidget(note)

@@ -1,7 +1,7 @@
 """Past EQs, kept between sessions in data\\eq\\history.json (oldest first): each one's IEM or headphone, target,
 method, filters and scores, and whether it was saved (Save filters or Copy).
 
-The page adds an entry when an EQ is saved (and, with More settings › History › History keeps: All results, and the
+The page adds an entry when an EQ is saved (and, with History keeps (in the History window): All results, and the
 EQs that you save, after every run). Its key names the result and its filters, so saving the same EQ again updates
 that entry, and an edited version gets its own. At most MAX entries are kept: past that, the oldest unsaved ones go
 first."""

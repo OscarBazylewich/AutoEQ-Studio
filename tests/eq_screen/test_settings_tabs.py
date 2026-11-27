@@ -50,10 +50,10 @@ def test_each_tab_as_high_as_its_settings(one_set, check):
         st.adv.btn.setChecked(False)
     # (Qt's stack was as high as its highest page: up to 330 px of empty room above Calculate on the short tabs; and
     # the convolution file's words were cut at every width)
-    check("more settings: each tab is as high as its own settings (History and This PC are short), and no tick box's "
-          "words are cut",
-          seen and all(abs(h - own) <= 2 for h, own in seen.values()) and seen["This PC"][0] < 120
-          and seen["History"][0] < 200 and not cut, (seen, cut))
+    # (the tab This PC went on 2026-11-27: CPU cores is in the tab of the method; History stays short)
+    check("more settings: each tab is as high as its own settings (History is short), and no tick box's words are cut",
+          seen and all(abs(h - own) <= 2 for h, own in seen.values()) and seen["History"][0] < 200 and not cut,
+          (seen, cut))
 
 
 def test_tick_boxes_say_their_words(one_set, check):

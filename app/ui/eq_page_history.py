@@ -71,7 +71,7 @@ class EqHistory:
                 "rig_convert": S["rig_convert"]["enabled"], "band": S["scoring"]["band_hz"]}
 
     def add_to_history(self, saved):
-        """Into History: after a run (saved False: only when More settings › History keeps every run), or
+        """Into History: after a run (saved False: only when History keeps, in History, is All results), or
         saved/copied."""
         run, r = self.current()
         if not r or not self.curves or (not saved and (self.S["history"]["keep"] != "all" or run.get("history"))):

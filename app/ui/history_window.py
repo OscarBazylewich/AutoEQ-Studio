@@ -1,7 +1,8 @@
 """History: your past EQs, kept between sessions (eq.service /api/history, eq/history.py; AutoEQ Local's history.js,
-natively). An EQ goes in when it's saved or copied, or after every run if More settings › History says so.
+natively). An EQ goes in when it's saved or copied, or after every run if History keeps says so.
 
-The window lists them by day, newest first (a search over IEM, target and method; "This IEM only"). Each row, its
+The window lists them by day, newest first (a search over IEM, target and method; "This IEM only"), under History
+keeps (which EQs it keeps: the setting itself, in a form's cell). Each row, its
 buttons as every list's (.claude\\notes\\UI-RULES.md 18): Show (the EQ back on the graph and in the result card, with
 its files and curve settings when they're still in the app), then ⋯ (quiet, a menu: Copy, its filters as Equalizer
 APO text; Keep to compare, into Listen's EQs to compare; Remove from the history, with Undo in the window's line; the
@@ -94,9 +95,16 @@ class HistoryWindow(QDialog):
         top.addWidget(self.q, 1)
         top.addWidget(self.only)
         self.only.setVisible(bool(page.curves))
-        self.keep = QLabel()
-        theme.mark(self.keep, role="muted")
-        v.addWidget(self.keep)
+        # (History keeps here, where its effect shows: it was in More settings › History, and a gray line here sent
+        # you there; the control audit, 2026-11-27. A form's cell, as in Settings: its label above it, its Help)
+        from ui.eq_settings import HISTORY_KEEPS
+        from ui.forms import Form
+        st = page.settings
+        self.keep_form = Form([("", [("History keeps", [("history.keep", "choice", HISTORY_KEEPS)])])], st.limits,
+                              st.get, st.changed, lambda _p: None, lambda t: self.footer.say(t))
+        self.keep_form.refresh()
+        self.keep_box = self.keep_form.fields["history.keep"].box
+        v.addWidget(self.keep_form)
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # (rows wrap their words instead)
@@ -125,8 +133,6 @@ class HistoryWindow(QDialog):
                    if (not only or e.get("device") == name)
                    and all(w in f"{e.get('device')} {e.get('target')} {MODE_SHORT.get(e.get('mode'), '')} {e.get('label')}".lower()
                            for w in words)]
-        self.keep.setText(("Keeps all results and saved/copied EQs." if page.S["history"]["keep"] == "all"
-                           else "Keeps only saved/copied EQs.") + " Change in More settings › History.")
         body = QWidget()
         lay = QVBoxLayout(body)
         lay.setSpacing(6)

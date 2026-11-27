@@ -14,7 +14,8 @@ The automatic settings: a box they fill in has a tag beside it, "automatic", or 
 The layout (the UI audit, 2026-11-08, the user's selections): each setting is a cell with its label above its box
 (+ its tag), and the cells go side by side in columns of one width (CELL), as many as the width holds (FlowLayout):
 the label is directly above its box, and on a wide window the settings use less height. Two widths of box: a number
-SHORT (110 px), every other box, list and "from … to" pair LONG (360 px), so their tags are in one column (a list of
+SHORT (110 px), every other box, list and "from … to" pair LONG (360 px; a "from" number and its list of "to" values
+too: the number SHORT, the list the rest), so their tags are in one column (a list of
 ranges: each row LONG wide with its ✕ in it, Add a range under the rows, the tag at the first row). A form
 with tabs=True shows each section as a tab (More settings: less height; a section whose rows all hide has no tab).
 A Fold is a part that opens and closes: a card (the tracer's About these settings), or a row in a card (sub=True:
@@ -142,6 +143,7 @@ CHOICE_MOST = LONG       # (a drop-down's width outside a form: Your EQ app, Sta
 CELL = 470               # (px: a setting's cell, its box and its tag: the columns of a form)
 PAIR_GAP, PAIR_TO = 8, 24  # (px: a "from … to" pair's gaps, and its "to")
 PAIR_BOX = (LONG - PAIR_TO - 2 * PAIR_GAP) // 2  # (px: a pair's first box; the second has the rest of LONG)
+LISTS = ("intlist", "numlist")  # (the kinds of a box of several values: a pair's "to" list)
 
 
 RANGE_X = 30  # (px: a range row's ✕, as wide as a number box's − and +)
@@ -685,7 +687,8 @@ class Field(QWidget):
 
 class FlowLayout(QLayout):
     """Cells side by side, as many as the width holds, then the next row (Qt's flow layout): each cell CELL px wide,
-    so they make columns; a widget with the property full_row takes a row of its own. Hidden cells take no room."""
+    so they make columns; a widget with the property full_row takes a row of its own, and after one with ends_row
+    the next cell starts a row. Hidden cells take no room."""
 
     def __init__(self, parent=None, cell=CELL, hspace=16, vspace=12):
         super().__init__(parent)
@@ -744,7 +747,7 @@ class FlowLayout(QLayout):
             x += w + self.hspace
             line = max(line, h)
             first = False
-            if full:  # (the next cell starts a new row)
+            if full or _ends_row(it):  # (the next cell starts a new row)
                 x = rect.right() + 2
         return y + line - rect.y()
 
@@ -752,6 +755,11 @@ class FlowLayout(QLayout):
 def _full(item):
     w = item.widget()
     return w is not None and bool(w.property("full_row"))
+
+
+def _ends_row(item):
+    w = item.widget()
+    return w is not None and bool(w.property("ends_row"))
 
 
 class TabPages(QWidget):
@@ -804,7 +812,10 @@ class TabPages(QWidget):
 
 # ---------------------------------------------------------------- a form: sections of rows
 class Form(QWidget):
-    """Rows of settings in sections. Each row: (label, [Field spec…], show) where a spec is (path, kind, options);
+    """Rows of settings in sections. Each row: (label, [Field spec…], show, options) where a spec is (path, kind,
+    options); the row's options (optional): "ends_row" makes the next cell start a row (the last of a group),
+    "follows" (section titles) puts the cell in the first of those sections that shows (one box for a setting that two
+    methods' tabs share: refresh moves it);
     two specs in a row are a "from … to …" pair. changed(path, value) is called with each valid value set;
     make_auto(path) for "custom ↺"; steps {path: step} gives a number box − and + (and ↑ ↓). Each row is a cell,
     its label above its box, the cells in columns (FlowLayout); a widget as the label is a note across the form; a
@@ -817,8 +828,9 @@ class Form(QWidget):
         super().__init__()
         self.limits, self.get, self.say, self.steps = limits, get, say, steps
         self._changed, self._make_auto = changed, make_auto
-        self.fields, self.rows = {}, []
+        self.fields, self.rows, self._show_of = {}, [], {}
         self.tabs, self.tab_btns, self._sections = tabs, {}, []
+        self._flows, self._whole, self._followers = {}, {}, []  # (each section's flow and show; the rows that move)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(10)
@@ -869,6 +881,7 @@ class Form(QWidget):
                     lab.setToolTip(help_of(specs[0][0]) if specs else "")
                     cl.addWidget(lab)
                 pair = len(specs) == 2
+                kinds = [sp[1] for sp in specs]
                 box = QWidget()  # (the boxes' row: a pair's boxes and "to", then their tags)
                 bl = QHBoxLayout(box)
                 bl.setContentsMargins(0, 0, 0, 0)
@@ -892,8 +905,13 @@ class Form(QWidget):
                         f.minus.setAccessibleName(name + " lower")
                         f.plus.setAccessibleName(name + " higher")
                     self.fields[spec[0]] = f
-                    if pair and spec[1] == "num":  # (its two boxes and "to" exactly as wide as one LONG box: UI-RULES 26)
+                    self._show_of[spec[0]] = show
+                    # (its two boxes and "to" exactly as wide as one LONG box: UI-RULES 26. A "from" number and a list
+                    # of "to" values: the number SHORT, the list the rest)
+                    if pair and spec[1] == "num" and kinds[1] == "num":
                         f.box.setFixedWidth(PAIR_BOX if not j else LONG - PAIR_BOX - PAIR_TO - 2 * PAIR_GAP)
+                    elif pair and kinds[1] in LISTS:
+                        f.box.setFixedWidth(SHORT if not j else LONG - SHORT - PAIR_TO - 2 * PAIR_GAP)
                     bl.addWidget(f)
                 if pair:  # (both tags after the second box, so they are in the tags' column and never on a box)
                     first, second = (self.fields[sp[0]] for sp in specs)
@@ -902,17 +920,48 @@ class Form(QWidget):
                     second.layout().addStretch(1)
                 bl.addStretch(1)
                 cl.addWidget(box)
+                opts = row[3] if len(row) > 3 else {}
+                if opts.get("ends_row"):  # (the last of a group: the next cell starts a row)
+                    cell.setProperty("ends_row", True)
                 flow.addWidget(cell)
                 last = cell
                 self.rows.append(([cell], show))
-            shows = [r[2] if len(r) > 2 else None for r in rows]
+                if opts.get("follows"):
+                    self._followers.append((cell, tuple(opts["follows"])))
+            # (a row that follows other sections never shows its own section's tab by itself)
+            shows = [r[2] if len(r) > 2 else None for r in rows if not (len(r) > 3 and r[3].get("follows"))]
             whole = (lambda shows=shows: any(s() for s in shows)) if shows and all(shows) else None
+            self._flows[title], self._whole[title] = flow, whole
             if self.tabs:
                 self._add_tab(title, sec, whole)
             else:
                 lay.addWidget(sec)
                 if whole is not None:  # (a section whose rows all may hide: hidden with them, its heading too)
                     self.rows.append(([sec], whole))
+
+    def _move_followers(self):
+        """Each row that follows sections into the first of them that shows now (none shows: it stays where it is),
+        last in that section, and in the Tab sequence after the section's last control."""
+        for cell, titles in self._followers:
+            home = next((t for t in titles if t in self._flows and (self._whole[t] is None or self._whole[t]())), None)
+            flow = self._flows.get(home)
+            if flow is None or flow.indexOf(cell) >= 0:
+                continue
+            for other in self._flows.values():
+                if other.indexOf(cell) >= 0:
+                    other.removeWidget(cell)
+            flow.addWidget(cell)
+            stop = lambda w: w.focusPolicy() != Qt.NoFocus and w.focusProxy() is None
+            mine = [w for w in cell.findChildren(QWidget) if stop(w)]
+            before = [w for w in flow.parentWidget().findChildren(QWidget)
+                      if stop(w) and w is not cell and not cell.isAncestorOf(w)]
+            for a, b in zip(before[-1:] + mine, mine):
+                QWidget.setTabOrder(a, b)
+
+    def applies(self, path):
+        """The form has a box for this setting, and its row shows now (its show predicate)."""
+        show = self._show_of.get(path)
+        return path in self.fields and (show is None or bool(show()))
 
     def _focus_off_locked(self, locks):
         """A box with the focus that becomes fixed now (locks) first gives the focus to the nearest setting that stays
@@ -963,6 +1012,7 @@ class Form(QWidget):
             f.set_lock(None)
             f.show_value((shown or {}).get(path, self.get(path)))
             f.set_tag((tags or {}).get(path))
+        self._move_followers()
         for widgets, show in self.rows:
             if show is not None:
                 on = bool(show())

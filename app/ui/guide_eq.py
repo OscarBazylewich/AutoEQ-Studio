@@ -40,6 +40,9 @@ def eq_steps(page):
     tab_named = lambda name: lambda: st.adv_form.show_tab(next(i for i, b in st.adv_form.tab_btns.items()
                                                                if b.text() == name))
 
+    # (the tab of the method shown that has CPU cores, or None: Website AutoEQ: one set uses one core)
+    own_tab = lambda: {"best_fit": "Best fit", "site_sweep": "Website best settings"}.get(page.S["mode"])
+
     def website_open():  # (the step "Settings": More settings open on its Website tab; tab_back puts both back)
         more_open()
         was_tab["i"] = st.adv_form.pages.currentIndex()
@@ -206,7 +209,7 @@ def eq_steps(page):
         api.say("Rig change off: the target for its rig")
         yield from api.morph(page, item, conv, made, 1200)
         yield 1300
-        api.say("On (Settings › Target): the target for the rig of your measurement")
+        api.say("On (Rig change, below the Target row): the target for the rig of your measurement")
         yield from api.morph(page, item, made, conv, 1200)
         yield 900
 
@@ -607,6 +610,11 @@ def eq_steps(page):
         api.close(m)
         yield from api.note("The app loads all its settings again.", b, 1300)
 
+    def cores_demo(api):  # (CPU cores, last in the tab of the method: that tab shown for it)
+        tab_named(own_tab())()
+        yield from api.at(st.adv_form.fields["performance.cores"].box, 0.3, 0.5, 1100,
+                          say="CPU cores: last in the tab of the method")
+
     def history_demo(api):
         from PySide6.QtCore import QSize
         from ui.history_window import HistoryWindow
@@ -617,10 +625,12 @@ def eq_steps(page):
         yield from api.at(w.scroll, 0.4, 0.25, 1500, say="Your previous EQs, by date. Show opens one with its files. "
                                                          "Its ⋯ has Copy, Keep to compare and Remove from the history")
         yield from api.at(w.q, 0.2, 0.5, 900, say="Search by IEM, target or method")
+        yield from api.at(w.keep_box, 0.3, 0.5, 1100, say="History keeps: the EQs that you save or copy, or all results")
 
     steps = [
         {"chapter": "The parts of AutoEQ Studio", "title": "How to make an EQ",
-         "target": lambda: [page.target_box, page.measurement_box],
+         # (Rig change's row between them: lit with them, as one)
+         "target": lambda: [page.target_box, page.rig_row, page.measurement_box],
          "text": "From top to bottom: the target and your IEM or headphone, the graph, the EQ, and the result to save. "
                  "Each step has a short demo. The demo does not change your work. The list of steps (at the top of "
                  "this box) has Play all steps and the speed of the demos.",
@@ -669,17 +679,20 @@ def eq_steps(page):
         {"chapter": "1 · Select", "title": "Measured on a different rig?",
          "target": lambda: page.graph_note if getattr(page, "rig_note", "") else page.measurement_note,
          "text": lambda: ("The line below the graph tells you: " + page.rig_note.rstrip(".") + ". The app then "
-                          "changes the target for the rig of your measurement (Settings › Target › Rig change). The "
+                          "changes the target for the rig of your measurement (Rig change, below the Target row). The "
                           "band around the target shows how large the error can be after this change."
                           if getattr(page, "rig_note", "") else
                           "The line below Measurement shows the rig of the measurement of your IEM (B&K 5128, 711 "
                           "coupler…). A target is for one rig. If the rigs are different, the line below the graph "
-                          "tells you. The app then changes the target for the rig of your measurement (Settings › "
-                          "Target › Rig change)."),
-         "demo": lambda: [{"at": lambda: page.graph_note, "x": 0.3, "hold": 1300, "say": "The line: the rig of each curve"},
-                          {"run": rig_demo, "say": "Without and with the rig change"}]
-         if getattr(page, "rig_note", "") and ((page.curves or {}).get("rig") or {}).get("applied") else
-         [{"at": lambda: page.measurement_note, "x": 0.3, "hold": 1500, "say": "The rig of the measurement"}]},
+                          "tells you. The app then changes the target for the rig of your measurement (Rig change, "
+                          "below the Target row)."),
+         "demo": lambda: ([{"at": lambda: page.graph_note, "x": 0.3, "hold": 1300,
+                            "say": "The line: the rig of each curve"},
+                           {"run": rig_demo, "say": "Without and with the rig change"}]
+                          if getattr(page, "rig_note", "") and ((page.curves or {}).get("rig") or {}).get("applied") else
+                          [{"at": lambda: page.measurement_note, "x": 0.3, "hold": 1500,
+                            "say": "The rig of the measurement"}])
+         + [{"at": lambda: st.rig_box, "x": 0.1, "say": "Rig change: on or off, below the Target row"}]},
         {"chapter": "2 · Settings", "title": "Automatically or manually", "target": lambda: list(page.way_btns.values()),
          "text": "Make the EQ has two tabs, below Your EQ app. Automatically: AutoEQ adjusts the filters to the target "
                  "for your EQ app (select the method, then click Calculate). Manually: you set the filters, from an "
@@ -859,7 +872,7 @@ def eq_steps(page):
          "demo": [{"run": preset_demo, "say": "Save the settings as a preset, and load it again"}]},
         {"chapter": "More", "title": "History", "target": lambda: page.hist_btn,
          "text": "Your previous EQs. The app keeps them after you close it: the EQs that you save or copy (or all "
-                 "results: More settings › History). Show opens an EQ again with its files. Its ⋯ menu has Copy, Keep "
+                 "results: History keeps, at the top of History). Show opens an EQ again with its files. Its ⋯ menu has Copy, Keep "
                  "to compare (it adds the EQ to your EQs to compare) and Remove from the history.",
          "demo": lambda: [{"click": lambda: page.hist_btn, "say": "History: your previous EQs", "then": history_demo}]
          + ([{"at": lambda: page.eqd_show, "say": "Below Measurement: a message if History has an EQ for it. "
@@ -882,20 +895,21 @@ def eq_steps(page):
          "text": "More settings (below Settings, in Make the EQ) has the settings that the app sets for you, with a tab "
                  "for each part. The Best fit tab has its layout, limits, penalties and your filters. The Website best "
                  "settings tab has its lists (with that method only). Gain ranges has a row of two boxes for each "
-                 "range, with Add a range below the rows. The other tabs are Website, Saved files, History and This "
-                 "PC. On Website, Which website to copy is “The database of the measurement” at first: the Website "
+                 "range, with Add a range below the rows. CPU cores is last in the tab of Best fit or Website best "
+                 "settings. The other tabs are Website, Saved files and History. On Website, Which website to copy is “The database of the measurement” at first: the Website "
                  "methods use the values of your measurement's website, and a gray line says where they come from. "
                  "A website with no gain or Q boxes fixes those values, so their boxes are off. A list of more than 15 "
                  "items, for example Layout or Which website to copy, opens with a search box. The Settings screen "
                  "(top bar) has the location of your files, backups, Online / Offline and Start with Windows.",
-         # (More settings open on its Website tab for the step; with Website AutoEQ: find the best settings, the demo
-         # shows its tab for Gain ranges' rows first, then Website again)
+         # (More settings open on its Website tab for the step; with Best fit or Website AutoEQ: find the best
+         # settings, the demo shows the method's tab first (Gain ranges' rows, CPU cores), then Website again)
          "demo": lambda: [{"at": lambda: st.adv.btn, "x": 0.1, "say": "More settings: the settings that the app sets for you",
                            **({"then": tab_named("Website best settings")} if page.S["mode"] == "site_sweep" else {})}]
          + ([{"at": lambda: ranges().rows[0].lo, "say": "A gain range: the lowest value, then the highest"},
-             {"at": lambda: ranges().add_btn, "say": "Add a range adds a row. ✕ removes one"},
-             {"at": website, "say": "The Website tab", "then": tab_named("Website")}]
+             {"at": lambda: ranges().add_btn, "say": "Add a range adds a row. ✕ removes one"}]
             if page.S["mode"] == "site_sweep" else [])
+         + ([{"run": cores_demo}, {"at": website, "say": "The Website tab", "then": tab_named("Website")}]
+            if own_tab() else [])
          + [{"at": lambda: st.adv_form.fields["site.profile"].box, "x": 0.3,
              "say": "Which website to copy: at first, the database of the measurement"}]
          + ([{"at": lambda: st.site_note, "x": 0.2, "say": "Where the values come from"}] if st.site_note.text() else [])
