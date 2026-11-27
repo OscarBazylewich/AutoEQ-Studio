@@ -728,8 +728,10 @@ class EqSettings:
         self.why_head.setText(f"About these settings ({len(notes)})" if notes else "About these settings")
         self.redraw_adjust()
         # (only the custom values whose boxes show now: one of another method, or AutoEQ TrebleStartFrom with Best
-        # fit, was named with no box in sight to reset it)
-        seen = [p for p in mine if any(f.applies(p) for f in self.forms())]
+        # fit, was named with no box in sight to reset it. One with a box in no form (best_fit.high_shelf) is named
+        # too: Make automatic resets it)
+        forms = self.forms()
+        seen = [p for p in mine if any(f.applies(p) for f in forms) or not any(p in f.fields for f in forms)]
         self.mine_box.setVisible(on and bool(seen))
         # (eq.settings' names for these settings: the automatic notes that name a setting use them too)
         self.mine_text.setText("Custom values: " + ", ".join(self.eq_settings.AUTO_NAMES.get(p, p) for p in seen)

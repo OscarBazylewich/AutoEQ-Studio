@@ -48,6 +48,7 @@ class FilterEditor(QWidget):
         self.filters = []          # [{"enabled", "type", "freq", "gain", "q"}] (edited in place)
         self.preamp_text = "0.0"
         self.empty_focus = None    # (what gets the focus when the last filter goes with it: the page's Add filter)
+        self._removals = 0         # (forget_removed counts up: an Undo made before it does nothing)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         self.stack = QStackedWidget()
@@ -158,16 +159,29 @@ class FilterEditor(QWidget):
                 w.setFocus(Qt.MouseFocusReason)
         filters = self.filters
         f = filters.pop(i)
+        before = filters[i - 1] if i > 0 else None
+        removals = self._removals
         self.rebuild()
         self._edited()
 
         def put_back():
-            if self.filters is not filters:  # (another EQ shown since: this filter isn't one of its own)
+            # (another EQ shown since, or the list refilled in place by Undo all: this filter isn't one of its own)
+            if self.filters is not filters or self._removals != removals:
                 return
-            filters.insert(min(i, len(filters)), f)
+            # (after the filter that was before it, found as that very filter: Sort may have moved both since)
+            if before is None:
+                at = 0
+            else:
+                at = next((n + 1 for n, g in enumerate(filters) if g is before), len(filters))
+            filters.insert(at, f)
             self.rebuild()
             self._edited()
         self.say(f"Removed filter {i + 1}", undo=put_back)
+
+    def forget_removed(self):
+        """The Undo of each filter removed so far does nothing: the caller refilled the list in place (Undo all), so
+        putting a removed filter back would show it twice."""
+        self._removals += 1
 
     # ---------------------------------------------------------------- the table
     def _build_table(self):

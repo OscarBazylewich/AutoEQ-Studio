@@ -247,12 +247,13 @@ class Sources(QDialog):
         if path not in have:
             return
         at = have.index(path)
+        copies = have.count(path)  # (old settings can list a folder twice: ✕ takes one)
         have.remove(path)
         self.folders_changed()
 
         def undo():
             now = self.folder_list()
-            if path not in now:
+            if now.count(path) < copies:  # (not added again meanwhile)
                 now.insert(min(at, len(now)), path)
                 self.folders_changed()
         name = path.replace("\\", "/").rstrip("/").split("/")[-1] or path
@@ -289,16 +290,24 @@ class Sources(QDialog):
                      else d["name"] in S["databases"]["enabled"], builtin=d.get("on", True), extra=False)
                 for d in meta.get("database_sites") or []]
         # (only ones still yours: one just removed came straight back from the last status. One switched off stays a
-        # row with no list loaded: named as the EQ part names it, its address without "https://")
+        # row with no list loaded: named and grouped as the EQ part names them, from squig.link's saved list, or by
+        # its address without "https://" in "Added by you")
         mine = {url_key(u) for u in S["databases"]["extra"]}
         off = {url_key(u) for u in S["databases"]["extra_off"]}
         rows += [{"name": s["name"], "url": s["url"], "group": s.get("group") or "added",
                   "on": url_key(s["url"]) not in off, "extra": True, "builtin": False}
                  for s in self.st.get("sites") or [] if s.get("extra") and url_key(s["url"]) in mine]
-        for u in S["databases"]["extra"]:
-            if not any(url_key(r["url"]) == url_key(u) for r in rows):
-                rows.append({"name": u.split("://")[-1].rstrip("/"), "url": u, "group": "added",
-                             "on": url_key(u) not in off, "extra": True, "builtin": False})
+        have = {url_key(r["url"]) for r in rows}
+        rest = [u for u in S["databases"]["extra"] if url_key(u) not in have]
+        named = self.svc.call("/api/db/added", {"urls": rest}).get("sites") or {} if rest else {}
+        for u in rest:
+            if url_key(u) in have:  # (the same address twice in the settings: one row)
+                continue
+            have.add(url_key(u))
+            n = named.get(u) or {}
+            rows.append({"name": n.get("name") or u.split("://")[-1].rstrip("/"), "url": u,
+                         "group": n.get("group") or "added", "on": url_key(u) not in off, "extra": True,
+                         "builtin": False})
         return rows, by_url
 
     def set_on(self, d, on):

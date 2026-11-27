@@ -164,6 +164,51 @@ def test_added_database_off_then_removed(eq_screen, check):
           and seen["undone"] == (mine, [mine[1]], True), (seen["removed"], seen["undone"]))
 
 
+def test_added_database_from_squiglink_off_keeps_its_name(eq_screen, monkeypatch, check):
+    # (a review of 2026-11-27: a database added from squig.link's list and switched off has no list loaded, so its row
+    # was made from its address, in "Added by you", and its own group's tick box never reached it. squig.link's list
+    # saved after the page opened is stood in: the page's list of databases without that one)
+    from PySide6.QtCore import Qt
+    import net
+    from eq import databases
+    from ui.sources_window import Sources, url_key
+    page = eq_screen.page
+    S = page.S
+    kept = json.loads(json.dumps(S["databases"]))
+    groups = {g for g, _t in page.meta.get("database_groups") or []}
+    d = next(x for x in databases.saved_directory() if x["group"] in groups and x["group"] != "added")
+    monkeypatch.setitem(page.meta, "database_sites", [s for s in page.meta.get("database_sites") or []
+                                                      if url_key(s["url"]) != url_key(d["url"])])
+    was_off = net.offline()
+    net.set_offline(True)
+    S["databases"]["extra"] = [d["url"]]
+    S["databases"]["extra_off"] = [d["url"]]
+    seen = {}
+    try:
+        src = Sources(page)
+        src._refresh_soon.stop()
+        row = next(r for r in src.rows()[0] if r["extra"])
+        seen["row"] = (row["name"], row["group"], row["on"])
+        top = next((src.tree.topLevelItem(i) for i in range(src.tree.topLevelItemCount())
+                    if any(src.tree.topLevelItem(i).child(j).text(0) == d["name"]
+                           for j in range(src.tree.topLevelItem(i).childCount()))), None)
+        seen["group"] = top and top.data(0, Qt.UserRole)
+        if top is not None:
+            top.setCheckState(0, Qt.Checked)  # (as a click on the group's tick box)
+        qt.pump(50)
+        src._refresh_soon.stop()
+        seen["group on"] = list(S["databases"]["extra_off"])
+        qt.close(src)
+    finally:
+        net.set_offline(was_off)
+        S["databases"].clear()
+        S["databases"].update(kept)
+        page.svc.call("/api/settings", {"settings": S})
+    check("sources: a database added from squig.link's list and switched off keeps its name and group from that list",
+          seen["row"] == (d["name"], d["group"], False) and seen["group"] == ("group", d["group"]), seen)
+    check("sources: its group's tick box switches it on again", seen["group on"] == [], seen["group on"])
+
+
 def test_squiglink_note_hidden_while_loading(eq_screen, monkeypatch, check):
     # (the text survey, 2026-11-24: the gray line above squig.link's list said "From squig.link's list (in progress…),
     # or with the URL of a page." while the list loaded; that text went, and the line is hidden then: the list's own
@@ -261,6 +306,33 @@ def test_folders_list(eq_screen, dialogs, check):
           "the list says what is searched",
           seen["removed"] == (["D:\\Curves"], 1, "Removed “Music”") and seen["undone"] == ["C:\\Music", "D:\\Curves"]
           and seen["none left"] == ([], True), (seen["removed"], seen["undone"], seen["none left"]))
+
+
+def test_folder_listed_twice_undo(eq_screen, check):
+    # (a review of 2026-11-27: older settings can list a folder twice; its ✕ took one, and Undo did nothing, as the
+    # folder was still in the list)
+    from ui.sources_window import Sources
+    page = eq_screen.page
+    S = page.S
+    kept = list(S["library"].get("folders") or [])
+    S["library"]["folders"] = ["C:\\Music", "D:\\Curves", "C:\\Music"]
+    src = Sources(page)
+    try:
+        src._refresh_soon.stop()
+        src.folders.itemWidget(src.folders.topLevelItem(0), 1).click()  # (the ✕ of the first C:\Music)
+        qt.pump(20)
+        removed = list(S["library"]["folders"])
+        src.footer.line.undo_btn.click()
+        qt.pump(20)
+        undone = list(S["library"]["folders"])
+    finally:
+        src._refresh_soon.stop()
+        qt.close(src)
+        S["library"]["folders"] = kept
+        page.svc.call("/api/settings", {"settings": S})
+    check("sources: Undo puts back a folder that the list had twice, in its place",
+          removed == ["D:\\Curves", "C:\\Music"] and undone == ["C:\\Music", "D:\\Curves", "C:\\Music"],
+          (removed, undone))
 
 
 def test_fits_a_small_screen(eq_screen, monkeypatch, check):

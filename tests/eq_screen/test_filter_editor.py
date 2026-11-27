@@ -120,6 +120,30 @@ def test_remove_said_with_undo(eq_screen, check):
           page.EDIT == [] and page.editor.table.rowCount() == 0, page.EDIT)
 
 
+def test_undo_of_a_removed_filter_after_undo_all_and_sort(eq_screen, check):
+    # (a review of 2026-11-27: Undo all refills the same list, so a later Undo of a removed filter showed it twice;
+    # after Sort it came back at its old number, between other filters)
+    page = eq_screen.page
+    page.start_manual([dict(f) for f in FILTERS], "pasted", "Removed")
+    page.set_view("table", remember=False)
+    page.editor.delete(1, x=False)
+    stale = eq_screen.undos[-1]
+    page.undo_all()
+    stale()
+    after_undo_all = [f["freq"] for f in page.EDIT]
+    page.EDIT[0]["freq"] = 9000  # (105 Hz now 9 kHz: Sort puts it last)
+    page.editor.delete(1, x=False)  # (1 kHz, after 9 kHz; at its old number it would come back before 9 kHz)
+    late = eq_screen.undos[-1]
+    page.sort_filters()
+    late()
+    after_sort = [f["freq"] for f in page.EDIT]
+    page.undo_all()
+    check("filters: Undo of a filter removed before Undo all adds nothing (no filter twice)",
+          after_undo_all == [105, 1000, 8000] and page.editor.table.rowCount() == 3, after_undo_all)
+    check("filters: Undo of a filter removed before Sort puts it after the filter that was before it",
+          after_sort == [8000, 9000, 1000], after_sort)
+
+
 def _near(a, b, by=8):
     """Two colours the same but for a little rounding (each of red, green and blue within `by`)."""
     a, b = QColor(a), QColor(b)

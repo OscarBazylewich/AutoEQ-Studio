@@ -266,6 +266,19 @@ def added_sites():
     return list(_extra_sites.values())
 
 
+def added_names(urls):
+    """{address: {"name", "group"}} of addresses the user added, as added_site names and groups them (from squig.link's
+    saved list when it's there), with nothing kept: for the Sources window's rows of added databases switched off,
+    whose lists aren't loaded."""
+    known = {norm_url(d["url"]): d for d in saved_directory()}
+    out = {}
+    for u in urls:
+        d = known.get(norm_url(u))
+        p = urllib.parse.urlparse(u.strip())
+        out[u] = {"name": d["name"] if d else p.netloc + p.path.rstrip("/"), "group": d["group"] if d else "added"}
+    return out
+
+
 def added_site(u):
     """A site the user added: named and grouped from squig.link's list when it's there."""
     known = {norm_url(d["url"]): d for d in saved_directory()}

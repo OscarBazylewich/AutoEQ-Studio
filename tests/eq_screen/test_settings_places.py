@@ -51,6 +51,24 @@ def test_treble_start_from_only_with_the_website_methods(places, check):
           not with_bf[0] and with_site[0] and "AutoEQ TrebleStartFrom" in with_site[1], (with_bf, with_site))
 
 
+def test_custom_value_with_no_box_named(places, check):
+    # (a review of 2026-11-27: a custom value whose setting has a box in no form (High shelf, kept from older settings)
+    # was no longer named, so Custom values stayed hidden and Make all automatic could not reset it)
+    from eq import settings
+    page, st = places.page, places.page.settings
+    path = "best_fit.high_shelf"
+    has_box = any(path in f.fields for f in st.forms())
+    page.S["auto"]["enabled"] = True
+    st.your_values().append(path)
+    try:
+        st.refresh()
+        shown = (not st.mine_box.isHidden(), st.mine_text.text())
+    finally:
+        st.make_auto(None)
+    check("settings: Custom values names a custom value whose setting has a box in no form, so Make all automatic "
+          "can reset it", not has_box and shown[0] and settings.AUTO_NAMES[path] in shown[1], (has_box, shown))
+
+
 def test_filter_rows_to_try_in_settings(places, check):
     st = places.page.settings
     try:

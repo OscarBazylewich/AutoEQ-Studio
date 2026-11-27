@@ -485,6 +485,7 @@ class EqResult:
 
     def undo_all(self):
         self.EDIT[:] = [dict(f) for f in self.ORIG]
+        self.editor.forget_removed()
         self.editor.rebuild()
         self.live_update()
         self.request_live_graph()

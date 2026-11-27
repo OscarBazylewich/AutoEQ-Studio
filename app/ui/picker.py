@@ -563,7 +563,9 @@ class Picker(QDialog):
             out.append("rig")
         if f["form"] and (r["form"] or "-") != f["form"]:
             out.append("form")
-        if f["site"] and r["site"] != f["site"]:
+        # (the rows of the tabs In the app and This PC never fail Source: on their own tab, it lists only databases,
+        # and in All, render hides them while Source names a database)
+        if f["site"] and r["site"] != f["site"] and r["site"] not in OWN_SOURCES:
             out.append("site")
         if f["sure"] and not (r["rig"] and r["rig"] != "mixed" and not r["rig"].endswith("?")):
             out.append("sure")
@@ -657,7 +659,10 @@ class Picker(QDialog):
                                                           ("pc", "This PC", self.pc_rows),
                                                           ("db", "Online databases", self.db_rows))]
         sections = [x for x in every if not self.src or self.src == x[0]]
-        self._render_filters([r for _, _, rows in sections for r in rows], f)
+        # (in All, a Source chosen hides the rows of In the app and This PC, as it hides the other databases' rows;
+        # on their own tabs it hides none of them: with a database chosen there, those tabs were empty)
+        own_hidden = bool(f["site"]) and not self.src
+        self._render_filters([r for s, _, rows in sections if not (own_hidden and s in OWN_SOURCES) for r in rows], f)
         lst = self.list
         # (the same search and filters: Show, ticking a file, a list loaded… keep the place in the list and the row)
         view = (self.kind, self.src, self.q.text(), repr(sorted(f.items())), self.anykind.isChecked())
@@ -671,7 +676,7 @@ class Picker(QDialog):
         later = []  # (the rows past the first ones: made a few at a time after, so a key never waits for them all)
         shown = hidden = 0
         for s, title, found in sections:
-            rows = [r for r in found if self.passes(r, f)]
+            rows = [] if own_hidden and s in OWN_SOURCES else [r for r in found if self.passes(r, f)]
             lim = LIMIT_ONE if self.src else LIMIT_ALL.get(s, 10 ** 9)
             hidden += len(found) - len(rows)
             if not rows and not self.src:
@@ -714,7 +719,8 @@ class Picker(QDialog):
         loading = self.db.get("loading")
         counts = {"app": f"{n['app']:,}", "pc": f"{n['pc']:,}" + ("…" if self.lib.get("scanning") else ""),
                   "db": "…" if loading else f"{n['db']:,}"}
-        counts[""] = "…" if loading else f"{sum(n.values()):,}"
+        # (All: what it shows, so without In the app's and This PC's rows while Source names a database)
+        counts[""] = "…" if loading else f"{n['db'] if f['site'] else sum(n.values()):,}"
         for key, name in SOURCES:
             b = self.src_by_key[key]
             words = f"{name}  {counts[key]}"

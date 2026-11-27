@@ -980,6 +980,38 @@ def test_source_lists_the_databases_only(eq_screen, check):
           all(seen[s] == ("", "", "", [""], set(), True) for s in ("app", "pc")) and seen["database"], seen)
 
 
+def test_source_keeps_the_own_tabs_rows(eq_screen, check):
+    # (a review of 2026-11-27: with Source set to a database, the tabs In the app and This PC were empty, as their
+    # rows' source is the app or this PC. In All, Source still hides them, counted in the "hidden by filters" line)
+    import re
+    from PySide6.QtCore import Qt
+    pk = _shown_picker(eq_screen.page, "")
+    kept = dict(pk.filters["measurement"])
+    seen = {}
+    try:
+        sites = [pk.f_site.itemData(i) for i in range(pk.f_site.count())]
+        for key in ("app", "pc"):
+            pk.set_src(key)
+            pk.finish_list()
+            seen[f"{key} before"] = len(_rows(pk))
+        pk.filters["measurement"]["site"] = sites[1]
+        for key in ("app", "pc", "db", ""):
+            pk.set_src(key)
+            pk.finish_list()
+            said = {k: int(re.sub(r"[^0-9]", "", b.text()) or 0) for k, b in pk.src_by_key.items()}
+            notes = [pk.list.item(i).text() for i in range(pk.list.count()) if not pk.list.item(i).data(Qt.UserRole)]
+            seen[key] = (len(_rows(pk)), said[key], {r.get("src") for r in _rows(pk)},
+                         any("hidden by filters" in t for t in notes))
+    finally:
+        pk.filters["measurement"] = kept
+        _close(pk)
+    check("ui: Find… with Source set to a database: the tabs In the app and This PC still show their rows (and say "
+          "how many); All shows that database's rows only, the others counted as hidden by filters",
+          seen["app before"] > 0 and seen["pc before"] > 0
+          and seen["app"][:2] == (seen["app before"],) * 2 and seen["pc"][:2] == (seen["pc before"],) * 2
+          and seen[""][1] == seen["db"][1] > 0 and seen[""][2] == {"db"} and seen[""][3], seen)
+
+
 def test_how_the_rig_is_known_starts_upper_case(eq_screen, check):
     # (a review of the text survey, 2026-11-24: the second line of a rig tag's tooltip is how the app knows the rig,
     # and rigmap.site_notes gives it in lower case: "from source (…)")

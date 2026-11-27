@@ -449,6 +449,12 @@ def db_directory(body):
     return {"items": databases.directory(bool(body.get("refresh")))}
 
 
+@route("/api/db/added")
+def db_added(body):
+    """The name and group of each address added in Sources (from squig.link's saved list; no internet)."""
+    return {"sites": databases.added_names([u for u in body.get("urls") or [] if isinstance(u, str)])}
+
+
 @route("/api/db/refresh")
 def db_refresh(body):
     databases.start_refresh(cfg_from(body), force=bool(body.get("force")))
