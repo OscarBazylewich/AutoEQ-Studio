@@ -214,12 +214,18 @@ class Listen(QGroupBox):
         tr.addWidget(QLabel("from"))
         # (the range as you left it: kept with the slider's place, which is a fraction of it)
         saved = [st.get(k) for k in ("tone_from", "tone_to")]
-        saved = [int(v) if isinstance(v, (int, float)) and math.isfinite(v) else d for v, d in zip(saved, (20, 20000))]
+        saved = [min(max(int(v), 20), 20000) if isinstance(v, (int, float)) and math.isfinite(v) else d
+                 for v, d in zip(saved, (20, 20000))]
+        self.tone_vals = {"tone.from": saved[0], "tone.to": saved[1]}  # (the values in use: the boxes' last valid)
         self.tone_from = QLineEdit(str(saved[0]))
         self.tone_to = QLineEdit(str(saved[1]))
-        for b in (self.tone_from, self.tone_to):
+        # (as the app's other number boxes: red with the reason in its tooltip while it's wrong, and a value past a
+        # limit moved to it on leaving, said; the control audit, 2026-11-27, 4-4: "abc" went back and 5 became 20
+        # with no word)
+        for b, key in ((self.tone_from, "tone.from"), (self.tone_to, "tone.to")):
             b.setFixedWidth(70)
-            b.editingFinished.connect(self.tone_range_done)
+            b.textEdited.connect(lambda _t, b=b, key=key: self.tone_typed(b, key))
+            b.editingFinished.connect(lambda b=b, key=key: self.tone_left(b, key))
         tr.addWidget(self.tone_from)
         tr.addWidget(QLabel("to"))
         tr.addWidget(self.tone_to)
@@ -826,29 +832,70 @@ class Listen(QGroupBox):
         self.render_versions()
 
     def tone_range(self):
-        """The tone's From and To as used: numbers (not "nan"), within 20 Hz to 20 kHz and the sound card's top, To
-        not below From."""
-        def num(box, d):
-            try:
-                v = float(box.text())
-            except ValueError:
-                return d
-            return v if math.isfinite(v) else d  # ("nan" or "inf" typed: Play stopped working for every sound)
+        """The tone's From and To as used: the boxes' last valid values, within the sound card's top, To not below
+        From."""
         top = min(20000, (self.engine.sr if self.engine else 48000) / 2 - 1)
-        lo = min(max(num(self.tone_from, 20), 20), top)
-        return lo, min(max(num(self.tone_to, 20000), lo), top)
+        lo = min(max(self.tone_vals["tone.from"], 20), top)
+        return lo, min(max(self.tone_vals["tone.to"], lo), top)
 
     def tone_hz(self):
         lo, hi = self.tone_range()
         return lo * (hi / lo) ** (self.tone.value() / 10000)
 
-    def tone_range_done(self):
-        """A From or To typed: the boxes show the values used (5 Hz shows as 20), kept for the next start."""
-        lo, hi = self.tone_range()
-        self.tone_from.setText(f"{round(lo)}")
-        self.tone_to.setText(f"{round(hi)}")
-        self._save_listen_settings(tone_from=round(lo), tone_to=round(hi))
+    def _tone_limits(self):
+        """The limits of From and To (eq.settings.UI_LIMITS: 20 to 20,000 Hz, whole numbers), From at most To."""
+        from ui.forms import Limits
+        return Limits((self.page.meta or {}).get("limits", {}), [("tone.from", "tone.to", False)])
+
+    def _tone_check(self, box, key):
+        """The box's value, or None: then the box is red, with the reason as its tooltip (as forms.py's boxes)."""
+        text = box.text().strip().replace(",", ".")
+        try:
+            v = float(text)
+        except ValueError:
+            v = None
+        if v is not None and not math.isfinite(v):  # ("nan" or "inf": Play stopped working for every sound)
+            v = None
+        bad = ("bad", "Enter a number") if v is None else self._tone_limits().check(key, v, self.tone_vals.get)
+        theme.mark(box, bad=bool(bad))
+        box.setToolTip(bad[1] if bad else "")
+        return None if bad else int(v)
+
+    def tone_typed(self, box, key):
+        """A From or To typed: used and kept for the next start when it's valid (the other box checked again: a
+        From above To is a problem of both)."""
+        other, other_key = (self.tone_to, "tone.to") if key == "tone.from" else (self.tone_from, "tone.from")
+        v = self._tone_check(box, key)
+        if v is None:
+            return
+        self.tone_vals[key] = v
+        w = self._tone_check(other, other_key)
+        if w is not None:
+            self.tone_vals[other_key] = w
+        self._save_listen_settings(tone_from=self.tone_vals["tone.from"], tone_to=self.tone_vals["tone.to"])
         self.tone_changed()
+
+    def tone_left(self, box, key):
+        """Leaving a From or To box: a value past a limit moves to the limit (said, "Adjusted to …"); an emptied box
+        shows the value in use."""
+        from ui.forms import number_text
+        text = box.text().strip().replace(",", ".")
+        if text == "":
+            box.setText(str(self.tone_vals[key]))
+            self._tone_check(box, key)
+            return
+        try:
+            v = float(text)
+        except ValueError:
+            return
+        lim = self._tone_limits()
+        problem = lim.check(key, v, self.tone_vals.get) if math.isfinite(v) else None
+        if problem and problem[0] == "range":
+            c = lim.clamp(key, v)
+            if not lim.check(key, c, self.tone_vals.get):
+                box.setText(number_text(c))
+                self.tone_typed(box, key)
+                self.page.status(f"Adjusted to {number_text(c)} (allowed: {lim.text(key)})")
 
     @staticmethod
     def _tone_text(f):

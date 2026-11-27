@@ -367,19 +367,49 @@ def test_tone_shown_pasted_eq_and_undo(card, monkeypatch, check):
           and len(lis.pins) == n + 1, (tone_text, pasted_note, row_notes, undo_shown, len(lis.pins), n))
 
 
-def test_tone_range_values_used_and_kept(card, check):
+def _type_in(box, text):
+    """A box emptied and text typed in it, as keys (Qt's textEdited comes as with a person's typing)."""
+    from PySide6.QtTest import QTest
+    box.selectAll()
+    QTest.keyClick(box, Qt.Key_Delete)
+    QTest.keyClicks(box, text)
+
+
+def test_tone_range_values_used_and_kept(card, monkeypatch, check):
+    # (the control audit, 2026-11-27, 4-4: Tone from and to said nothing: "nan" or "abc" went back to the value
+    # before and 5 became 20 with no word. Now as the app's other number boxes: red with the reason in its tooltip,
+    # and a value past a limit moved to the limit on leaving, with "Adjusted to … (allowed: …)")
+    from PySide6.QtTest import QTest
     page, lis = card.page, card.lis
-    lis.tone_from.setText("nan")
-    lis.tone_to.setText("5")
-    lis.tone_range_done()
+    said = []
+    monkeypatch.setattr(page, "status", lambda text, *a, **k: said.append(text))
+    red = lambda b: b.property("bad") == "true"
+    _type_in(lis.tone_to, "50")
+    _type_in(lis.tone_from, "100")  # (above To)
+    seen = {"above To": (red(lis.tone_from), lis.tone_from.toolTip(), lis.tone_vals["tone.from"])}
+    _type_in(lis.tone_from, "nan")
+    seen["nan"] = (red(lis.tone_from), lis.tone_from.toolTip(), lis.tone_vals["tone.from"])
+    _type_in(lis.tone_from, "20")
+    seen["20"] = (red(lis.tone_from), lis.tone_from.toolTip(), lis.tone_vals["tone.from"])
+    _type_in(lis.tone_to, "5")
+    seen["5"] = (red(lis.tone_to), lis.tone_to.toolTip())
+    QTest.keyClick(lis.tone_to, Qt.Key_Return)  # (as leaving the box)
+    seen["left"] = (lis.tone_to.text(), red(lis.tone_to), list(said))
     kept = {k: (page.sw.s.get("listen") or {}).get(k) for k in ("tone_from", "tone_to")}
     # was eq_checks.py:1929
     check("listen: the tone's From and To show the values used (\"nan\", 5 Hz) and are kept for the next start",
           (lis.tone_from.text(), lis.tone_to.text()) == ("20", "20") and kept == {"tone_from": 20, "tone_to": 20}
           and lis.tone_lab.text().endswith("Hz"), (lis.tone_from.text(), lis.tone_to.text(), kept))
-    lis.tone_from.setText("20")  # (back to the whole range, as the old check left it: lines 1932-1934)
-    lis.tone_to.setText("20000")
-    lis.tone_range_done()
+    check("listen: Tone from and to as the other number boxes: a value that isn't a number is red with “Enter a "
+          "number”, From above To red with “Must be at most …”, neither used; a value past a limit is red with "
+          "“Allowed: 20 to 20000 Hz”, and on leaving moves to the limit with “Adjusted to 20 (allowed: 20 to 20000 "
+          "Hz)”",
+          seen["above To"] == (True, "Must be at most 50 Hz", 20) and seen["nan"] == (True, "Enter a number", 20)
+          and seen["20"] == (False, "", 20) and seen["5"] == (True, "Allowed: 20 to 20000 Hz")
+          and seen["left"][:2] == ("20", False) and "Adjusted to 20 (allowed: 20 to 20000 Hz)" in seen["left"][2], seen)
+    for box, text in ((lis.tone_to, "20000"), (lis.tone_from, "20")):  # (back to the whole range, as the old check
+        _type_in(box, text)  # left it: lines 1932-1934)
+    monkeypatch.undo()
 
 
 # ---------------------------------------------------------------- the Windows 11 look (2026-10-23)
