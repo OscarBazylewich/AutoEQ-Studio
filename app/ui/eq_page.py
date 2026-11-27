@@ -313,8 +313,8 @@ class EqPage(EqCards, EqGraph, EqHandles, EqFiles, EqResult, EqHistory, EqLive, 
 
     def show_settings(self):
         S = self.S
-        i = self.app_combo.findData(S.get("eq_app") or "")
-        self.app_combo.setCurrentIndex(max(0, i))
+        # (none chosen, or an app no longer listed: the gray placeholder "Select your EQ app")
+        self.app_combo.setCurrentIndex(self.app_combo.findData(S.get("eq_app")) if S.get("eq_app") else -1)
         self.app_note.setText(self.app_note_text(S.get("eq_app") or ""))
         self.mode_combo.setCurrentIndex(max(0, self.mode_combo.findData(S["mode"])))
         self.mode_hint.setText(MODE_HINT.get(S["mode"], ""))
