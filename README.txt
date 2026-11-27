@@ -194,6 +194,11 @@ One column, from the top to the bottom:
   15 items (More settings › Layout, the Source list of Find…, …) opens with a search box at the top. Best fit can
   start from your filters (More settings › Best fit). Type them, or use "Edit as a table…" or "Load an EQ file…".
   The graph shows them as "With your filters".
+  More settings › Website › "Which website to copy" is "The database of the measurement" at first: the Website
+  methods use the values (smoothing, normalization, loudness tables) of the website that your measurement is from,
+  and a gray line below the list tells where they come from. You can also select a website by name, or "Other" (the
+  app changes none of the values). Best fit always uses the app's own values. Most websites have no gain or Q boxes
+  in their AutoEQ: for them, the Website methods use the website's fixed range, and those boxes are off.
 - Your result:
     - The error, the pre-amp, the maximum gain and the maximum Q.
     - "EQs that you made": open a different EQ that you made.

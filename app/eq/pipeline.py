@@ -149,7 +149,8 @@ _SWEEPS_KEPT = 4
 
 
 def _sweep_key(cfg, meas_texts, target_text):
-    blob = json.dumps([meas_texts, target_text, cfg["site"], cfg.get("target_adjust"), cfg["site_sweep"], cfg["scoring"]],
+    blob = json.dumps([meas_texts, target_text, cfg["site"], cfg.get("target_adjust"), cfg["site_sweep"], cfg["scoring"],
+                       cfg.get("panel")],
                       sort_keys=True, default=str)
     return hashlib.sha1(blob.encode("utf-8", "replace")).hexdigest()
 

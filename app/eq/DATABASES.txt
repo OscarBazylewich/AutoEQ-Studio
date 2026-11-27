@@ -73,8 +73,8 @@ SELECTED (on by default)
 
 KEPT, THOUGH SMALL
   listener800 5128 IEMs and headphones (https://listener800.github.io/): 30 and 88 models. Not in squig.link's
-  dropdown and not chosen for size: kept because this app copies listener800's website (its profile, its
-  averaged 10-seating B&K 5128 measurements are what "Which measurement to use?" ranked best in testing).
+  dropdown and not chosen for size: kept because the app's own Website values (Best fit's) are listener800's, and its
+  averaged 10-seating B&K 5128 measurements are what "Which measurement to use?" ranked best in testing.
 
 AVAILABLE BUT OFF (turn them on in Settings > Sources)
   Precogvision (412 models; only 113 not in the larger 711 databases), Audio Discourse IEMs (385) and

@@ -66,7 +66,9 @@ class EqHistory:
                 "adjust": S["target_adjust"], "mode": run["mode"],
                 "label": self.run_label(run, r) + (" (edited)" if self.edited() else ""), "result": result,
                 "filters": filters, "rms": st["rms"], "preamp": st["preamp_raw"], "n_filters": st["n"],
-                "site": S["site"], "rig_convert": S["rig_convert"]["enabled"], "band": S["scoring"]["band_hz"]}
+                # (the Website values the EQ was made with: a run's own, else those of the curves: eq.site_values)
+                "site": (run.get("settings") or {}).get("site") or self.site_now(),
+                "rig_convert": S["rig_convert"]["enabled"], "band": S["scoring"]["band_hz"]}
 
     def add_to_history(self, saved):
         """Into History: after a run (saved False: only when More settings › History keeps every run), or
@@ -130,8 +132,11 @@ class EqHistory:
             for k in self.meta["defaults"]["target_adjust"]:
                 if e.get("adjust") and k in e["adjust"]:
                     S["target_adjust"][k] = e["adjust"][k]
+            # (the entry's Website values, not its Which website to copy: your choice stays, and an entry from before
+            # 2026-11-26 has a choice the list no longer has. The curves are made with the entry's values as they
+            # are, "site_as_is", until the curves change: the critique of feature 5)
             for k in self.meta["defaults"]["site"]:
-                if e.get("site") and k in e["site"]:
+                if e.get("site") and k in e["site"] and k != "profile":
                     S["site"][k] = e["site"][k]
             if isinstance(e.get("rig_convert"), bool):
                 S["rig_convert"]["enabled"] = e["rig_convert"]
@@ -139,7 +144,8 @@ class EqHistory:
             if res.get("inputs"):
                 self.show_inputs(res["inputs"])
             self._curves_seq = getattr(self, "_curves_seq", 0) + 1  # (any load still on its way is dropped)
-            curves = self.svc.call("/api/curves", {"settings": S})
+            self.site_as_is = bool(e.get("site"))
+            curves = self.svc.call("/api/curves", {"settings": S, "site_as_is": self.site_as_is})
             self.curves_loaded(curves)
             self.show_settings()
         elif self.curves:

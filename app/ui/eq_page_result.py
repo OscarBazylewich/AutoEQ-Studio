@@ -81,7 +81,9 @@ class EqResult:
             self.refresh_auto()  # (the values for exactly these settings)
         # (its progress and Cancel are Automatically's: Calculate from these filters on an EQ made by hand)
         self.set_way("auto", remember=False)
-        body = {"settings": self.S, "mode": "best_fit" if retry else self.S["mode"], "analysis": self.analysis}
+        # (site_as_is: an EQ from History shown with its own Website values: the run fits the curves the graph shows)
+        body = {"settings": self.S, "mode": "best_fit" if retry else self.S["mode"], "analysis": self.analysis,
+                "site_as_is": bool(getattr(self, "site_as_is", False))}
         if retry:
             body["retry"] = retry
         r = self.svc.call("/api/run", body)
@@ -573,6 +575,7 @@ class EqResult:
             cards.append({"title": p["name"], "text": "", "filters": [f for f in p["filters"] if f.get("enabled", True) is not False]})
         own = self.name_edit.text().strip() if self.name_edit.property("auto") is False else ""
         body = {"settings": self.S, "cards": cards, "open": open_it, "name": own,
+                "site_as_is": bool(getattr(self, "site_as_is", False)),  # (the graph's curves, eq.site_values)
                 **({"meas_files": mf, "target_file": tf} if own_files else {})}
         if run["mode"] in ("site_sweep", "best_fit") and len(run["results"]) > 1:
             # ("engine": report.grids_for makes no grid for the results of a graphic EQ, one for each band count)

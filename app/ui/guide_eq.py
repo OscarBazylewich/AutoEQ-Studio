@@ -36,11 +36,14 @@ def eq_steps(page):
 
     ranges = lambda: st.adv_form.fields["site_sweep.gain_ranges"].box  # (Gain ranges' rows: forms.RangeRows)
 
-    def sweep_tab():  # (More settings, open on its Website best settings tab; returns what puts both back)
+    website = lambda: next(b for b in st.adv_form.tab_btns.values() if b.text() == "Website")
+    tab_named = lambda name: lambda: st.adv_form.show_tab(next(i for i, b in st.adv_form.tab_btns.items()
+                                                               if b.text() == name))
+
+    def website_open():  # (the step "Settings": More settings open on its Website tab; tab_back puts both back)
         more_open()
         was_tab["i"] = st.adv_form.pages.currentIndex()
-        st.adv_form.show_tab(next(i for i, b in st.adv_form.tab_btns.items() if b.text() == "Website best settings"))
-        return tab_back
+        tab_named("Website")()
     auto_on, auto_off = way_before_after(page, "auto")
     auto_settings_open, auto_settings_close = way_before_after(page, "auto", (best_fit_tab, tab_back))
     hand_on, hand_off = way_before_after(page, "hand")
@@ -691,8 +694,8 @@ def eq_steps(page):
         {"chapter": "2 · Settings", "title": "Select an EQ method", "target": lambda: [page.mode_combo, page.mode_hint],
          "before": auto_on, "after": auto_off,
          "text": "Select a method for where you use the EQ. Best fit (the initial method) for EQ apps and devices: the "
-                 "nearest EQ to the target. The website methods give the values that you type in the AutoEQ of "
-                 "squiglink or listener800.",
+                 "nearest EQ to the target. The website methods give the values that you type in the AutoEQ of the "
+                 "graph website of your measurement.",
          "demo": [{"click": lambda: page.mode_combo, "say": "Click the method", "then": mode_demo}]},
         {"chapter": "2 · Settings", "title": "Automatic settings",
          "target": lambda: [st.fold.btn, st.fold.summary, st.auto_on, st.why_fold.btn], "before": about_open,
@@ -870,20 +873,27 @@ def eq_steps(page):
          "demo": [{"at": lambda: win.nav["devices"], "say": "The EQ of each device"},
                   {"at": lambda: win.nav["profiles"], "say": "Your EQs, as profiles"},
                   {"at": lambda: win.nav["settings"], "say": "The hotkeys: the next EQ, and EQ off and on to compare"}]},
-        {"chapter": "More", "title": "Settings", "target": lambda: st.adv.btn,
+        {"chapter": "More", "title": "Settings", "target": lambda: st.adv.btn, "before": website_open, "after": tab_back,
          "text": "More settings (below Settings, in Make the EQ) has the settings that the app sets for you, with a tab "
                  "for each part. The Best fit tab has its layout, limits, penalties and your filters. The Website best "
                  "settings tab has its lists (with that method only). Gain ranges has a row of two boxes for each "
-                 "range, with Add a range below the rows. The other tabs are the website settings, Saved "
-                 "files, History and This PC. A list of more than 15 items, for example Layout, opens with a "
-                 "search box. The Settings screen (top bar) has the location of your files, backups, Online / Offline "
-                 "and Start with Windows.",
-         # (with Website AutoEQ: find the best settings, More settings opens on its tab for Gain ranges' rows)
+                 "range, with Add a range below the rows. The other tabs are Website, Saved files, History and This "
+                 "PC. On Website, Which website to copy is “The database of the measurement” at first: the Website "
+                 "methods use the values of your measurement's website, and a gray line says where they come from. "
+                 "A website with no gain or Q boxes fixes those values, so their boxes are off. A list of more than 15 "
+                 "items, for example Layout or Which website to copy, opens with a search box. The Settings screen "
+                 "(top bar) has the location of your files, backups, Online / Offline and Start with Windows.",
+         # (More settings open on its Website tab for the step; with Website AutoEQ: find the best settings, the demo
+         # shows its tab for Gain ranges' rows first, then Website again)
          "demo": lambda: [{"at": lambda: st.adv.btn, "x": 0.1, "say": "More settings: the settings that the app sets for you",
-                           **({"then": sweep_tab} if page.S["mode"] == "site_sweep" else {})}]
+                           **({"then": tab_named("Website best settings")} if page.S["mode"] == "site_sweep" else {})}]
          + ([{"at": lambda: ranges().rows[0].lo, "say": "A gain range: the lowest value, then the highest"},
-             {"at": lambda: ranges().add_btn, "say": "Add a range adds a row. ✕ removes one"}]
+             {"at": lambda: ranges().add_btn, "say": "Add a range adds a row. ✕ removes one"},
+             {"at": website, "say": "The Website tab", "then": tab_named("Website")}]
             if page.S["mode"] == "site_sweep" else [])
+         + [{"at": lambda: st.adv_form.fields["site.profile"].box, "x": 0.3,
+             "say": "Which website to copy: at first, the database of the measurement"}]
+         + ([{"at": lambda: st.site_note, "x": 0.2, "say": "Where the values come from"}] if st.site_note.text() else [])
          + ([{"at": lambda: win.nav["settings"], "say": "The settings of the app"}] if hasattr(win, "nav") else [])},
         {"chapter": "More", "title": "Help, and the end of the Guide", "target": lambda: win.help_btn, "top bar": True,
          "text": "Help gives information about the words of the app (Q, shelf, rig, pre-amp…) and the solutions to "
